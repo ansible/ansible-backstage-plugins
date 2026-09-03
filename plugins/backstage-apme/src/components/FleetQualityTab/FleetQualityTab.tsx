@@ -41,9 +41,6 @@ import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepository
 import { FleetQualityNoScansEmptyState } from './FleetQualityNoScansEmptyState';
 import { useFleetQualityData } from './useFleetQualityData';
 
-const STATUS_ERROR = '#C9190B';
-const STATUS_SUCCESS = '#3E8635';
-
 const SEVERITY_WEIGHT: Record<SeverityLevel, number> = {
   critical: 50,
   error: 35,
@@ -285,6 +282,12 @@ export const FleetQualityTab = ({
     0,
   );
   const sevOrder = SEVERITY_ORDER;
+  const worstFleetSeverity =
+    sevOrder.find(sev => severityCounts[sev] > 0) ?? ('medium' as SeverityLevel);
+  const headlineColor =
+    violationTotal > 0
+      ? colorTokens.severity[worstFleetSeverity].inlineText
+      : theme.palette.text.primary;
   const sortArrow = (col: SortColumn): string => {
     if (sortCol !== col) return '';
     return sortAsc ? ' ↑' : ' ↓';
@@ -338,7 +341,7 @@ export const FleetQualityTab = ({
     return (
       <>
         <CheckCircleIcon
-          style={{ fontSize: 40, color: STATUS_SUCCESS, marginBottom: 8 }}
+          style={{ fontSize: 40, color: colorTokens.dependencyViolation.okCheckColor, marginBottom: 8 }}
         />
         <Typography style={{ fontSize: 16, fontWeight: 500 }}>
           All repositories are clean
@@ -362,7 +365,7 @@ export const FleetQualityTab = ({
       {showFleetContent && (
         <Box className={classes.summaryBar}>
           <Typography
-            style={{ fontSize: 20, fontWeight: 700, color: STATUS_ERROR }}
+            style={{ fontSize: 20, fontWeight: 700, color: headlineColor }}
           >
             {hasFilter ? filteredViolationCount : violationTotal}
           </Typography>
@@ -375,7 +378,7 @@ export const FleetQualityTab = ({
             {reposClean > 0 && !hasFilter && (
               <span style={{ marginLeft: 6 }}>
                 ·{' '}
-                <span style={{ color: STATUS_SUCCESS, fontWeight: 500 }}>
+                <span style={{ color: colorTokens.dependencyViolation.okCheckColor, fontWeight: 500 }}>
                   {reposClean} clean
                 </span>
               </span>

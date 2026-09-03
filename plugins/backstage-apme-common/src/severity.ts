@@ -44,6 +44,40 @@ export interface FixTypeStyle {
   tooltip: string;
 }
 
+/**
+ * Centralized severity-to-color mapping (ADR-043).
+ *
+ * This is the **single source of truth** for violation severity colors across
+ * the portal. Every component that renders severity indicators — pills, badges,
+ * inline counts, bar charts — must reference these styles or the theme-aware
+ * {@link SEVERITY_COLOR_TOKENS} below. Do NOT hardcode hex color values in
+ * components; use the helpers listed below instead.
+ *
+ * ### Severity color convention
+ *
+ * | Level    | Color   | Background | Tab / badge behavior              |
+ * |----------|---------|------------|-----------------------------------|
+ * | critical | Red     | `#a30000`  | Colored pill — highest urgency    |
+ * | error    | Red     | `#c9190b`  | Colored pill                      |
+ * | high     | Orange  | `#f56a00`  | Colored pill                      |
+ * | medium   | Yellow  | `#c58c00`  | Colored pill                      |
+ * | low      | Blue    | `#2b9af3`  | Default/neutral where pill omitted |
+ * | info     | Gray    | `#6a6e73`  | Default/neutral where pill omitted |
+ *
+ * Summary chips (e.g. catalog status chip) use colored pills for
+ * critical / error / high / medium. Low and informational violations
+ * display the count in the default (non-highlighted) text style.
+ *
+ * Detailed views (fleet table, violation modal, rules tab) still use the
+ * full palette including low and info colors for pills and bar segments.
+ *
+ * ### How to adopt in a new component
+ *
+ * - **Pill / chip backgrounds:** `chipStyleForSeverity(level)`
+ * - **Inline text coloring:** `inlineTextColorForSeverity(level, mode)`
+ * - **Full theme-aware tokens:** `useApmeColorTokens().severity[level]`
+ * - **Worst severity from a project:** `projectWorstSeverity(project)`
+ */
 export const SEVERITY_STYLES: Record<SeverityLevel, SeverityStyle> = {
   critical: {
     background: '#a30000',
@@ -142,6 +176,19 @@ export interface PreviewSurfaceTokens {
   outlinedBorder: string;
 }
 
+/**
+ * Theme-aware severity color tokens (light / dark).
+ *
+ * Each severity level provides four token slots:
+ * - `pillBackground` / `pillText` — for chip and badge backgrounds
+ * - `inlineText` — for colored counts and links in body text
+ * - `barFill` — for stacked severity bars and progress indicators
+ *
+ * Access via `getSeverityColorTokens(mode)` or the React hook
+ * `useApmeColorTokens().severity`.
+ *
+ * @see SEVERITY_STYLES for the theme-agnostic (static) palette.
+ */
 const SEVERITY_COLOR_TOKENS: Record<
   ThemeMode,
   Record<SeverityLevel, SeverityColorTokens>
@@ -449,7 +496,62 @@ export function normalizeSeverityBreakdown(
   return result;
 }
 
-/** Highest non-zero severity bucket for fleet/repo violation summaries. */
+/** True when at least one ADR-043 severity bucket has a non-zero count. */
+export function hasNonZeroSeverityCounts(
+  counts: ViolationCountsBySeverity,
+): boolean {
+  return SEVERITY_ORDER.some(level => counts[level] > 0);
+}
+
+/** Pill/chip background + text from the shared severity palette. */
+export function chipStyleForSeverity(level: SeverityLevel): {
+  backgroundColor: string;
+  color: string;
+} {
+  const style = SEVERITY_STYLES[level];
+  return { backgroundColor: style.background, color: style.text };
+}
+
+/** Theme-aware inline text color for counts, tab labels, and links. */
+export function inlineTextColorForSeverity(
+  level: SeverityLevel,
+  mode: ThemeMode,
+): string {
+  return getSeverityColorTokens(mode)[level].inlineText;
+}
+
+/**
+ * Worst open-severity bucket for a project summary or detail row.
+ * Returns null when violations exist but severity breakdown is missing/empty
+ * (avoids painting counts medium/amber before enrichment completes).
+ */
+export function projectWorstSeverity(project: {
+  violationCounts?: ViolationCountsBySeverity;
+  severity_breakdown?: Record<string, number>;
+  total_violations?: number;
+}): { level: SeverityLevel; count: number } | null {
+  const counts = resolveViolationCounts(project);
+  if (!hasNonZeroSeverityCounts(counts)) {
+    return null;
+  }
+  return getWorstViolationLevel(counts);
+}
+
+/**
+ * List API summaries omit severity_breakdown; detail/lookup include it.
+ * Returns true when we should fetch project detail to colorize correctly.
+ */
+export function projectNeedsSeverityEnrichment(project: {
+  total_violations?: number;
+  violationCounts?: ViolationCountsBySeverity;
+  severity_breakdown?: Record<string, number>;
+}): boolean {
+  if ((project.total_violations ?? 0) <= 0) {
+    return false;
+  }
+  return !hasNonZeroSeverityCounts(resolveViolationCounts(project));
+}
+
 export function getWorstViolationLevel(counts: ViolationCountsBySeverity): {
   level: SeverityLevel;
   count: number;

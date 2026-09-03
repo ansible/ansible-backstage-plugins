@@ -968,8 +968,8 @@ describe('ScmSelectorExtension', () => {
         formData: {
           provider: 'github',
           providerLabel: 'Github',
-          org: '',
-          repoName: '',
+          org: 'testuser',
+          repoName: 'new-repo',
           repoExists: false,
         },
       });
@@ -979,8 +979,12 @@ describe('ScmSelectorExtension', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
+        expect(
+          screen.getByText(/Authenticated with github\.com/i),
+        ).toBeInTheDocument();
       });
+
+      expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
     });
   });
 

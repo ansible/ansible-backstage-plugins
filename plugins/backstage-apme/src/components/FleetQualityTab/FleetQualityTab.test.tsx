@@ -11,6 +11,7 @@ import { configApiRef } from '@backstage/core-plugin-api';
 import { ConfigReader } from '@backstage/config';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
+import { inlineTextColorForSeverity } from '@ansible/backstage-apme-common/severity';
 import { FleetQualityTab } from './FleetQualityTab';
 import { apmeApiRef } from '../../api';
 import { MockApmeApiClient } from '../../api/mock/MockApmeApiClient';
@@ -81,6 +82,21 @@ describe('FleetQualityTab', () => {
         </TestApiProvider>
       </MemoryRouter>,
     );
+
+  it('colors the headline violation total by worst fleet severity', async () => {
+    renderTab();
+
+    const summary = await screen.findByText(
+      /violations · .* rules · .* repositories/i,
+      {},
+      { timeout: 5000 },
+    );
+    const headline = summary.previousElementSibling;
+    expect(headline).not.toBeNull();
+    expect(headline).toHaveStyle({
+      color: inlineTextColorForSeverity('critical', 'light'),
+    });
+  });
 
   it('renders fleet summary, Preview chip, and grouped violations from mock fixtures', async () => {
     renderTab();

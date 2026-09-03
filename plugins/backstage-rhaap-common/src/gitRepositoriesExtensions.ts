@@ -82,6 +82,8 @@ export type GitRepositoryDetailTabDefinition = {
   label: string;
   order: number;
   render: (context: GitRepositoryDetailTabContext) => ReactNode;
+  /** Optional tab label (e.g. severity-colored violation count on Quality). */
+  renderLabel?: (context: GitRepositoryDetailTabContext) => ReactNode;
 };
 
 /** Optional catalog row addon (e.g. violation status chip). */
