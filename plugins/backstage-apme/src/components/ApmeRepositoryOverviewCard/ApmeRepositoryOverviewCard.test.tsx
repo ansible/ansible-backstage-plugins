@@ -77,7 +77,8 @@ const violations: Violation[] = [
     message: 'Play should have a name',
     file: 'playbook-L057-wrong-module.yml',
     line: 4,
-    remediation_class: 'manual',
+    remediation_class: 3,
+    validator_source: 'native',
   },
   {
     id: 2,
@@ -86,7 +87,8 @@ const violations: Violation[] = [
     message: 'Unsafe permissions',
     file: 'tasks/main.yml',
     line: 12,
-    remediation_class: 'ai',
+    remediation_class: 2,
+    validator_source: 'native',
   },
 ];
 
