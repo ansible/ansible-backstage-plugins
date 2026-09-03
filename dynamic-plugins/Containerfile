@@ -1,0 +1,29 @@
+FROM scratch
+
+# Copy dynamic plugins
+COPY . .
+
+# Required labels for Red Hat certification
+LABEL name="ansible-automation-platform/automation-portal" \
+      vendor="Red Hat, Inc." \
+      version="latest" \
+      release="1" \
+      summary="Red Hat Ansible automation portal" \
+      description="The automation portal is a component of Red Hat Ansible Automation Platform that helps make enterprise automation accessible to a broader audience, while accelerating service delivery at scale. This container provides the core plug-ins that enable this feature and supports deployment to Red Hat Developer Hub." \
+      maintainer="Ansible Automation Platform Productization Team" \
+      io.k8s.description="Red Hat Ansible automation portal" \
+      io.k8s.display-name="ansible-automation-portal" \
+      io.openshift.tags="ansible,automation,portal" \
+      com.redhat.component="ansible-automation-portal-container" \
+      distribution-scope="public" \
+      url="https://catalog.redhat.com/en/search?searchType=ansible-automation-portal" \
+      vcs-ref="${GIT_COMMIT}" \
+      vcs-type="git" \
+      cpe="cpe:/a:redhat:ansible_portal:2.0" \
+      org.opencontainers.image.created="${SOURCE_DATE_EPOCH}"
+
+# Add license information for certification compliance
+COPY LICENSE /licenses/
+
+# Switch to non-root user for security compliance
+USER 1001
