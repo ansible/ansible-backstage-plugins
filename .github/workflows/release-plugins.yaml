@@ -1,0 +1,178 @@
+---
+name: Release / plugins
+
+run-name: >-
+  ${{ inputs.release_type == 'early-access'
+    && format('Early Access / {0} / #{1}', inputs.upstream_branch, github.run_number)
+    || format('Release / plugins / {0}', github.ref_name) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'standard = GA release, early-access = build from a feature branch'
+        type: choice
+        default: 'standard'
+        options:
+          - standard
+          - early-access
+      upstream_branch:
+        description: >-
+          Branch to build (early-access only, e.g. prototype/apme).
+          The "Use workflow from" dropdown above is this repo — leave it on main.
+        type: string
+        required: false
+        default: ''
+      node-version:
+        description: node-version to execute the export
+        required: false
+        default: '22.x'
+  push:
+    tags: ["v*.*.*"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.release_type || 'standard' }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+    permissions:
+      contents: write
+      actions: write
+
+    name: ${{ inputs.release_type == 'early-access' && '🧪 / early-access' || '🚀 / release' }}
+    steps:
+      - name: Validate early-access inputs
+        if: inputs.release_type == 'early-access'
+        run: |
+          if [ -z "${{ inputs.upstream_branch }}" ]; then
+            echo "::error::upstream_branch is required for early-access releases"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.release_type == 'early-access' && inputs.upstream_branch || github.ref }}
+
+      - name: DEBUG - Show GitHub ref tag
+        if: inputs.release_type != 'early-access'
+        run: echo "${GITHUB_REF##*/}"
+
+      - name: DEBUG - Show GitHub ref tag only version
+        if: inputs.release_type != 'early-access'
+        run: echo "${GITHUB_REF##*/v}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version || '22.x' }}
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Enable Corepack (Yarn)
+        run: corepack enable
+
+      - name: Set build metadata
+        if: inputs.release_type == 'early-access'
+        id: meta
+        run: |
+          SHA="$(git rev-parse --short HEAD)"
+          TS="$(date -u +%Y%m%d%H%M%S)"
+          BRANCH_SLUG="$(echo "${{ inputs.upstream_branch }}" | sed 's|[^a-zA-Z0-9]|-|g')"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "timestamp=${TS}" >> "$GITHUB_OUTPUT"
+          echo "branch_slug=${BRANCH_SLUG}" >> "$GITHUB_OUTPUT"
+          echo "version=${BRANCH_SLUG}-${SHA}-${TS}" >> "$GITHUB_OUTPUT"
+
+      - name: Package plugins
+        shell: bash
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type || 'standard' }}
+          UPSTREAM_BRANCH: ${{ inputs.upstream_branch }}
+          BUILD_TIMESTAMP: ${{ steps.meta.outputs.timestamp || '' }}
+        run: |
+          chmod +x .github/actions/pack/pack.sh .github/actions/pack/pack_one.sh
+          ./.github/actions/pack/pack.sh
+
+      - name: Check if the packages exists
+        shell: bash
+        run: ls -la ${{ github.workspace }}/ansible-plugins-pack
+
+      - name: Upload artifact
+        if: inputs.release_type != 'early-access'
+        uses: coactions/upload-artifact@v4
+        with:
+          name: ansible-plugins-backstage-rhaap
+          path: ${{ github.workspace }}/ansible-plugins-pack/
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+      - name: Add artifacts to GH UI
+        uses: softprops/action-gh-release@v3
+        if: inputs.release_type != 'early-access' && startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ github.workspace }}/ansible-plugins-pack/*
+
+      - name: Export plugins for OCI image
+        if: inputs.release_type == 'early-access'
+        shell: bash
+        env:
+          BUILD_TYPE: portal
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Set up Docker Buildx
+        if: inputs.release_type == 'early-access'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build early-access OCI image
+        if: inputs.release_type == 'early-access'
+        uses: docker/build-push-action@v6
+        with:
+          context: dynamic-plugins
+          file: dynamic-plugins/Containerfile
+          push: false
+          load: true
+          labels: |
+            name=early-access-plugins/${{ inputs.upstream_branch }}
+            summary=Early-access portal plugins from ${{ inputs.upstream_branch }}
+            io.k8s.display-name=early-access-plugins
+            io.openshift.tags=ansible,portal,early-access
+          tags: |
+            localhost/early-access-plugins:${{ steps.meta.outputs.version }}
+            localhost/early-access-plugins:latest
+
+      - name: Save OCI image archive
+        if: inputs.release_type == 'early-access'
+        run: |
+          VER="${{ steps.meta.outputs.version }}"
+          OUT="early-access-plugins-${VER}.oci.tar.gz"
+          docker save "localhost/early-access-plugins:${VER}" | gzip > "${OUT}"
+          ls -lh "${OUT}"
+          mkdir -p early-access-oci
+          mv "${OUT}" early-access-oci/
+
+      - name: Upload early-access plugin tarballs
+        if: inputs.release_type == 'early-access'
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/ansible-plugins-pack/early-access-plugins-*.tar.gz
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload early-access OCI archive
+        if: inputs.release_type == 'early-access'
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ github.workspace }}/early-access-oci/*.oci.tar.gz
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
