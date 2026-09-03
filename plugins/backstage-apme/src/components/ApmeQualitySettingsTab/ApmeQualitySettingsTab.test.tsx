@@ -5,6 +5,8 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
+import { configApiRef } from '@backstage/core-plugin-api';
+import { DEFAULT_APME_FEEDBACK_FORM_URL } from '../../constants/previewFeedback';
 import { apmeApiRef } from '../../api';
 import { ApmeQualitySettingsTab } from './ApmeQualitySettingsTab';
 
@@ -53,8 +55,19 @@ describe('ApmeQualitySettingsTab', () => {
   });
 
   function renderTab() {
+    const configApi = {
+      getOptionalString: (key: string) =>
+        key === 'ansible.apme.enabled' ? undefined : undefined,
+      getOptionalBoolean: (key: string) =>
+        key === 'ansible.apme.enabled' ? true : undefined,
+    };
     return render(
-      <TestApiProvider apis={[[apmeApiRef, apmeApi]]}>
+      <TestApiProvider
+        apis={[
+          [apmeApiRef, apmeApi],
+          [configApiRef, configApi],
+        ]}
+      >
         <ApmeQualitySettingsTab />
       </TestApiProvider>,
     );
@@ -164,5 +177,18 @@ describe('ApmeQualitySettingsTab', () => {
     renderTab();
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(screen.queryByText('Galaxy servers')).not.toBeInTheDocument();
+  });
+
+  it('renders early-access preview and feedback link at the top', async () => {
+    renderTab();
+    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(screen.getByTestId('preview-chip')).toHaveTextContent(
+      'Early access preview',
+    );
+    const feedbackLink = screen.getByRole('link', {
+      name: /Share your feedback/i,
+    });
+    expect(feedbackLink).toHaveAttribute('href', DEFAULT_APME_FEEDBACK_FORM_URL);
+    expect(feedbackLink).toHaveAttribute('target', '_blank');
   });
 });
