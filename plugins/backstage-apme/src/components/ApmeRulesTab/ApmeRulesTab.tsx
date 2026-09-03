@@ -48,7 +48,6 @@ import {
   ApmeOutlinedTableCard,
   useApmeOutlinedTableStyles,
 } from '../ApmeOutlinedTable';
-import { PreviewLabelRow } from '../PreviewChip';
 import { normalizeRuleId } from '../../utils/violationAnalytics';
 
 const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
@@ -391,9 +390,6 @@ export const ApmeRulesTab = () => {
 
   return (
     <Box className={classes.root}>
-      <Box marginBottom={1}>
-        <PreviewLabelRow />
-      </Box>
       <Typography className={classes.title}>Rules</Typography>
       <Typography className={classes.summary}>
         <strong>{rules.length}</strong> registered

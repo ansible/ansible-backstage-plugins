@@ -38,6 +38,7 @@ import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibl
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';
 import { invalidateApmePortalSettingsCache } from '../../hooks/useApmeEnabled';
+import { PreviewNotice } from '../PreviewChip';
 import { ApmeAiProvidersSection } from './ApmeAiProvidersSection';
 
 const useStyles = makeStyles(theme => ({
@@ -146,7 +147,9 @@ const ApmeQualitySettingsTabContent = () => {
   }
 
   return (
-    <Grid container spacing={3} alignItems="flex-start">
+    <>
+      <PreviewNotice />
+      <Grid container spacing={3} alignItems="flex-start">
       <Grid item xs={12} md={canEdit ? 6 : 12}>
         <Card>
           <CardHeader
@@ -275,7 +278,8 @@ const ApmeQualitySettingsTabContent = () => {
           <ApmeAiProvidersSection />
         </Grid>
       )}
-    </Grid>
+      </Grid>
+    </>
   );
 };
 
