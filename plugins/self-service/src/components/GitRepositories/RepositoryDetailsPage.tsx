@@ -45,6 +45,10 @@ import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
 import { buildRawReadmeFetchUrl } from './scmUtils';
 import {
+  buildRepositoryDetailTabSearchParams,
+  getRepositoryDetailTabIndex,
+} from './repositoryDetailTabSearchParams';
+import {
   EmptyState,
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
@@ -232,7 +236,7 @@ const RepositoryDetailsPageInner = () => {
   const fetchApi = useApi<FetchApi>(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
   const extensionsApi = useGitRepositoriesExtensions();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const detailTabs = useMemo((): ResolvedDetailTab[] => {
     const extensionTabs = extensionsApi.getDetailTabs().map(tab => ({
@@ -314,15 +318,22 @@ const RepositoryDetailsPageInner = () => {
   }, [fetchEntity]);
 
   useEffect(() => {
-    const requested = searchParams.get('tab');
-    if (!requested) {
-      return;
-    }
-    const idx = detailTabs.findIndex(t => t.id === requested);
-    if (idx >= 0) {
-      setTab(idx);
-    }
+    setTab(getRepositoryDetailTabIndex(searchParams, detailTabs));
   }, [searchParams, detailTabs]);
+
+  const handleDetailTabChange = useCallback(
+    (_: unknown, newTabIndex: number) => {
+      const selected = detailTabs[newTabIndex];
+      if (!selected) {
+        return;
+      }
+      setSearchParams(
+        buildRepositoryDetailTabSearchParams(searchParams, selected.id),
+        { replace: true },
+      );
+    },
+    [detailTabs, searchParams, setSearchParams],
+  );
 
   useEffect(() => {
     setScmIntegrationAuthError(false);
@@ -506,7 +517,7 @@ const RepositoryDetailsPageInner = () => {
 
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={handleDetailTabChange}
         className={classes.detailsTabs}
       >
         {detailTabs.map(detailTab => (
@@ -546,9 +557,18 @@ const RepositoryDetailsPageInner = () => {
             <RepositoryAboutCard
               entity={entity}
               onViewSource={handleViewSource}
-              onNavigateToCollections={() =>
-                collectionsTabIndex >= 0 && setTab(collectionsTabIndex)
-              }
+              onNavigateToCollections={() => {
+                if (collectionsTabIndex < 0) {
+                  return;
+                }
+                setSearchParams(
+                  buildRepositoryDetailTabSearchParams(
+                    searchParams,
+                    'collections',
+                  ),
+                  { replace: true },
+                );
+              }}
             />
           </Box>
         </Box>

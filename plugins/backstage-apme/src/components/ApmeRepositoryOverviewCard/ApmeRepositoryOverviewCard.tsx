@@ -12,6 +12,7 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  IconButton,
   Tooltip,
   Typography,
   makeStyles,
@@ -85,12 +86,18 @@ const useStyles = makeStyles(theme => ({
     borderRadius: 8,
     // Parent detailsRightColumn already provides gap — no extra marginBottom.
   },
+  cardClickable: {
+    cursor: 'pointer',
+  },
   categoryRow: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1),
     marginBottom: 6,
-    cursor: 'pointer',
+  },
+  categoryHelp: {
+    display: 'inline-flex',
+    cursor: 'help',
   },
   track: {
     flex: 1,
@@ -116,15 +123,34 @@ export const ApmeRepositoryOverviewCard = ({
   const theme = useTheme();
   const colorTokens = useApmeColorTokens();
   const enableAi = useApmeAiEnabled();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const ctx = useApmeProjectContext(context.entity);
 
-  const navigateToQuality = (category?: string) => {
-    const params = new URLSearchParams(window.location.search);
+  const navigateToQualityTab = () => {
+    const params = new URLSearchParams(searchParams);
     params.set('tab', 'quality');
-    if (category) params.set('category', category);
-    else params.delete('category');
+    params.delete('category');
+    params.delete('rule');
+    params.delete('activity');
     setSearchParams(params, { replace: true });
+  };
+
+  const navigateToLastScan = () => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'quality-activity');
+    params.delete('category');
+    params.delete('rule');
+    const scanId = ctx.project?.latest_scan?.scan_id;
+    if (scanId) {
+      params.set('activity', scanId);
+    } else {
+      params.delete('activity');
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const stopCardNavigation = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
   };
 
   const totalViolations = ctx.violations.length;
@@ -170,7 +196,7 @@ export const ApmeRepositoryOverviewCard = ({
             color="primary"
             disabled={!ctx.repoUrl}
             startIcon={<RefreshIcon />}
-            onClick={() => navigateToQuality()}
+            onClick={() => navigateToQualityTab()}
           >
             Scan
           </Button>
@@ -181,7 +207,20 @@ export const ApmeRepositoryOverviewCard = ({
 
   if (totalViolations === 0) {
     return (
-      <Card variant="outlined" className={classes.card}>
+      <Card
+        variant="outlined"
+        className={`${classes.card} ${classes.cardClickable}`}
+        onClick={navigateToLastScan}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            navigateToLastScan();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Quality summary — view latest scan details"
+      >
         <CardContent>
           <Typography variant="subtitle2" gutterBottom>
             Quality
@@ -201,7 +240,20 @@ export const ApmeRepositoryOverviewCard = ({
     SEV_ORDER.find(s => sevCounts[s] > 0) ?? ('info' as SeverityLevel);
 
   return (
-    <Card variant="outlined" className={classes.card}>
+    <Card
+      variant="outlined"
+      className={`${classes.card} ${classes.cardClickable}`}
+      onClick={navigateToLastScan}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          navigateToLastScan();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Quality summary — view latest scan details"
+    >
       <CardContent style={{ padding: '14px 16px 12px' }}>
         <Box
           display="flex"
@@ -225,9 +277,7 @@ export const ApmeRepositoryOverviewCard = ({
             style={{
               fontSize: 12,
               color: theme.palette.primary.main,
-              cursor: 'pointer',
             }}
-            onClick={() => navigateToQuality()}
           >
             View details →
           </Typography>
@@ -313,11 +363,7 @@ export const ApmeRepositoryOverviewCard = ({
           const isDark = theme.palette.type === 'dark';
           const trackColor = isDark ? 'rgba(255,255,255,0.08)' : '#e8e8e8';
           return (
-            <Box
-              key={key}
-              className={classes.categoryRow}
-              onClick={() => navigateToQuality(key)}
-            >
+            <Box key={key} className={classes.categoryRow}>
               <Typography
                 component="span"
                 style={{
@@ -333,13 +379,20 @@ export const ApmeRepositoryOverviewCard = ({
               >
                 {label}
                 <Tooltip title={tip} arrow enterDelay={200}>
-                  <HelpOutlineIcon
-                    style={{
-                      fontSize: 13,
-                      color: theme.palette.text.disabled,
-                      cursor: 'help',
-                    }}
-                  />
+                  <IconButton
+                    size="small"
+                    className={classes.categoryHelp}
+                    onClick={stopCardNavigation}
+                    onKeyDown={stopCardNavigation}
+                    aria-label={tip}
+                  >
+                    <HelpOutlineIcon
+                      style={{
+                        fontSize: 13,
+                        color: theme.palette.text.disabled,
+                      }}
+                    />
+                  </IconButton>
                 </Tooltip>
                 <span
                   style={{
