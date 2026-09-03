@@ -411,7 +411,7 @@ policy.csv: |
 
 - **Token Caching**: Leverage built-in token caching mechanisms
 - **Session Management**: Configure appropriate session timeouts
-- **Load Balancing**: Configure load balancer session affinity (sticky sessions) for OAuth2 flows. The PKCE code verifier is stored in process memory, so the OAuth callback must be routed back to the same backend replica that initiated the login. In single-replica deployments this is automatic.
+- **Load Balancing**: The PKCE code verifier used during AAP OAuth login is stored in a browser cookie, so login works correctly across multiple backend replicas without session affinity or sticky sessions.
 
 ## Migration Guide
 

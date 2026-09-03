@@ -17,6 +17,16 @@ const renderWithTheme = (ui: React.ReactElement) => {
   return render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
 };
 
+/** Normalize a CSS color so `#fff` and `rgb(255, 255, 255)` compare equal. */
+const computedCssColor = (cssColor: string): string => {
+  const probe = document.createElement('span');
+  probe.style.color = cssColor;
+  document.body.appendChild(probe);
+  const value = getComputedStyle(probe).color;
+  document.body.removeChild(probe);
+  return value;
+};
+
 describe('PageHeaderSection', () => {
   const mockOnSyncClick = jest.fn();
 
@@ -254,6 +264,59 @@ describe('PageHeaderSection', () => {
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
     expect(syncButton).toBeDisabled();
     expect(screen.getByTitle('Checking permissions...')).toBeInTheDocument();
+  });
+
+  const hoverLastSyncTooltip = async (paletteType: 'light' | 'dark') => {
+    const themed = createTheme({ palette: { type: paletteType } });
+    render(
+      <ThemeProvider theme={themed}>
+        <PageHeaderSection
+          {...defaultProps}
+          lastSyncTimes={[
+            {
+              label: 'Organizations, Users, and Teams',
+              time: '2026-01-01T12:00:00Z',
+            },
+            { label: 'Job Templates', time: '2026-01-01T12:00:00Z' },
+          ]}
+        />
+      </ThemeProvider>,
+    );
+
+    fireEvent.mouseOver(screen.getByRole('button', { name: /Sync Now/i }));
+
+    const heading = await screen.findByText('Last synced');
+    return { themed, heading };
+  };
+
+  it('shows last-sync tooltip with readable theme text color in light theme', async () => {
+    const { themed, heading } = await hoverLastSyncTooltip('light');
+
+    expect(
+      screen.getByText('Organizations, Users, and Teams'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Job Templates')).toBeInTheDocument();
+    expect(getComputedStyle(heading).color).toBe(
+      computedCssColor(themed.palette.text.primary),
+    );
+    expect(getComputedStyle(screen.getByText('Job Templates')).color).toBe(
+      computedCssColor(themed.palette.text.primary),
+    );
+  });
+
+  it('shows last-sync tooltip with readable theme text color in dark theme', async () => {
+    const { themed, heading } = await hoverLastSyncTooltip('dark');
+
+    expect(
+      screen.getByText('Organizations, Users, and Teams'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Job Templates')).toBeInTheDocument();
+    expect(getComputedStyle(heading).color).toBe(
+      computedCssColor(themed.palette.text.primary),
+    );
+    expect(getComputedStyle(screen.getByText('Job Templates')).color).toBe(
+      computedCssColor(themed.palette.text.primary),
+    );
   });
 
   it('renders correctly with dark theme', async () => {

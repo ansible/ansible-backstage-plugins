@@ -68,6 +68,7 @@ export const PageHeaderSection = ({
       return (
         <Box style={{ width: 400, padding: '16px 20px' }}>
           <Typography
+            color="textPrimary"
             style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}
           >
             Last synced
@@ -82,11 +83,15 @@ export const PageHeaderSection = ({
                 <CheckCircleIcon
                   style={{ fontSize: '1.15rem', color: '#4caf50' }}
                 />
-                <Typography style={{ flex: 1, fontSize: '0.85rem' }}>
+                <Typography
+                  color="textPrimary"
+                  style={{ flex: 1, fontSize: '0.85rem' }}
+                >
                   {s.label}
                 </Typography>
                 <Typography
-                  style={{ fontSize: '0.78rem', fontWeight: 500, opacity: 0.7 }}
+                  color="textSecondary"
+                  style={{ fontSize: '0.78rem', fontWeight: 500 }}
                 >
                   {formatRelativeTime(s.time).replace(/^Synced /i, '')}
                 </Typography>
