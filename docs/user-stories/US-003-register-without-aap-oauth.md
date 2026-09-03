@@ -31,13 +31,14 @@
 
 - Alternate “stock Create” (`/create/...`) or app-config switches for local
   developer loops — not a product surface.
-- Opening a catalog-info.yaml pull request instead of direct register (optional
-  template checkbox; secondary path).
 
 ## Notes
 
-- Craig journey: [J7](user-journeys.md). Optional PR path and GitLab parity
-  called out upstream remain open / secondary.
+- Craig journey: [J7](user-journeys.md). GitLab parity called out upstream
+  remains open / secondary.
+- Direct register only (AAP-90179): the optional catalog-info.yaml pull-request
+  path was removed — it required GitHub OAuth app configuration and duplicated
+  the direct register flow.
 - Header action: `ApmeAddRepositoryHeaderAction` via `getPageHeaderActions`
   (ADR-010).
 - Template (owned by APME):
