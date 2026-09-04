@@ -68,7 +68,7 @@ export function getCatalogConfig(rootConfig: Config): CatalogConfig {
   if (catalogRhaapConfig && typeof catalogRhaapConfig.keys === 'function') {
     catalogRhaapConfig.keys().forEach(key => {
       const config = catalogRhaapConfig.getConfig(key);
-      catalogConfig.organizations = resolveOrganizations(config);
+      catalogConfig.organizations = resolveActiveOrganizations(config);
       catalogConfig.surveyEnabled = config.getOptionalBoolean(
         `sync.jobTemplates.surveyEnabled`,
       );
@@ -109,4 +109,9 @@ function resolveOrganizations(config: Config): string[] {
   return allOrgs.length > 0 ? allOrgs : ['default'];
 }
 
-export { resolveOrganizations };
+/** Resolve orgs for runtime use, honoring multiOrgEnabled single-org mode. */
+export function resolveActiveOrganizations(config: Config): string[] {
+  const allOrgs = resolveOrganizations(config);
+  const multiOrgEnabled = config.getOptionalBoolean('multiOrgEnabled') ?? false;
+  return multiOrgEnabled ? allOrgs : [allOrgs[0]];
+}
