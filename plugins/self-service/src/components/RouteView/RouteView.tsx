@@ -30,6 +30,7 @@ import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { GitRepositoriesPage } from '../GitRepositories';
 import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
+import { useGitRepositoriesExtensions } from '../GitRepositories/useGitRepositoriesExtensions';
 import {
   NotificationProvider,
   NotificationStack,
@@ -60,6 +61,7 @@ const RouteViewContent = () => {
   const location = useLocation();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
+  const gitReposExtensionsApi = useGitRepositoriesExtensions();
 
   // Initialize the global sync polling service
   useEffect(() => {
@@ -169,6 +171,13 @@ const RouteViewContent = () => {
           <Route index element={<Navigate to="catalog" replace />} />
           <Route path="catalog" element={<GitRepositoriesPage />} />
           <Route path="ci-activity" element={<GitRepositoriesPage />} />
+          {gitReposExtensionsApi.getPageTabs().map(tab => (
+            <Route
+              key={tab.path}
+              path={tab.path}
+              element={<GitRepositoriesPage />}
+            />
+          ))}
           <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
         </Route>
         {/* Default redirects */}
