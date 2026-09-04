@@ -7,5 +7,5 @@ if ! command -v pre-commit >/dev/null 2>&1; then
   exit 1
 fi
 
-# All pre-commit hooks are defined in .pre-commit-config.yaml.
-pre-commit run --hook-stage pre-commit
+# Commit-message validation is defined in .pre-commit-config.yaml.
+pre-commit run check-commit-attribution --hook-stage commit-msg --commit-msg-filename "$1"
