@@ -1,6 +1,6 @@
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
-import { resolveOrganizations } from '@ansible/backstage-rhaap-common';
+import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
 
 import { formatNameSpace, validateNamespace } from '../helpers';
 import type {
@@ -49,10 +49,7 @@ function readAapApiEntityConfig(
   const multiOrgEnabled =
     catalogConfig.getOptionalBoolean('multiOrgEnabled') ?? false;
 
-  const allOrgs = resolveOrganizations(catalogConfig);
-
-  // When multiOrgEnabled is false, only sync the first org in single-org mode
-  const organizations = multiOrgEnabled ? allOrgs : [allOrgs[0]];
+  const organizations = resolveActiveOrganizations(catalogConfig);
 
   if (multiOrgEnabled && organizations.length > 1) {
     const seen = new Map<string, string>();

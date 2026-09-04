@@ -2101,7 +2101,17 @@ describe('AAPClient', () => {
                   }
                   throw new Error(`No value for ${path}`);
                 }),
-                getOptionalBoolean: jest.fn().mockReturnValue(false),
+                getOptionalBoolean: jest
+                  .fn()
+                  .mockImplementation((path: string) => {
+                    if (path === 'multiOrgEnabled') {
+                      return true;
+                    }
+                    if (path === 'sync.jobTemplates.surveyEnabled') {
+                      return false;
+                    }
+                    return undefined;
+                  }),
                 getOptionalStringArray: jest.fn().mockReturnValue([]),
               };
             }
