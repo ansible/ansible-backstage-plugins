@@ -119,7 +119,7 @@ describe('EETabs + EEHeader', () => {
     render(<EETabs />);
 
     // Create content should be visible
-    expect(screen.queryByTestId('create-content')).toBeInTheDocument();
+    expect(screen.getByTestId('create-content')).toBeInTheDocument();
     // Catalog content should not be present
     expect(
       screen.queryByTestId('entity-catalog-content'),

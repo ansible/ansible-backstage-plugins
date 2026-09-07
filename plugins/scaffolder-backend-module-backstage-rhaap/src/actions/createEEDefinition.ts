@@ -2,8 +2,8 @@ import {
   createTemplateAction,
   executeShellCommand,
 } from '@backstage/plugin-scaffolder-node';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import semver from 'semver';
 import {
   convertUploadToDataUrl,
@@ -1170,8 +1170,7 @@ async function patchGitHubWorkflowEeDir(
 
   // Regex over YAML parse+dump to preserve comments, formatting, and anchors
   const patched = content.replace(
-    // NOSONAR — single-line YAML match, no ReDoS risk
-    /^(\s+default:\s*)"\."\s*$/m,
+    /^(\s+default:\s*)"\."\s*$/m, // NOSONAR — single-line YAML match, no ReDoS risk
     `$1"${contextDirName}"`,
   );
 

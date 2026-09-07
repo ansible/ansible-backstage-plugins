@@ -129,6 +129,8 @@ export const CreateTask = () => {
           console.debug('Optional catalog entity lookup failed:', e);
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch entity:', err);
         setError('Failed to fetch entity');
       } finally {
         setLoading(false);

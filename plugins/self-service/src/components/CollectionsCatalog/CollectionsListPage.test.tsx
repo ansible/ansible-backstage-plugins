@@ -247,7 +247,7 @@ describe('CollectionsListPage', () => {
     });
 
     // UI shell should be visible during loading
-    expect(screen.queryByPlaceholderText('Search')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search')).toBeInTheDocument();
     // Search should be disabled during loading
     expect(screen.getByPlaceholderText('Search')).toBeDisabled();
     // Empty state should not be shown during loading

@@ -1,4 +1,4 @@
-jest.mock('fs/promises', () => ({
+jest.mock('node:fs/promises', () => ({
   mkdir: jest.fn(),
   writeFile: jest.fn(),
   readFile: jest.fn(),
@@ -26,7 +26,7 @@ jest.mock('./utils/utils', () => ({
 
 global.fetch = jest.fn();
 
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
