@@ -68,16 +68,7 @@ export function getCatalogConfig(rootConfig: Config): CatalogConfig {
   if (catalogRhaapConfig && typeof catalogRhaapConfig.keys === 'function') {
     catalogRhaapConfig.keys().forEach(key => {
       const config = catalogRhaapConfig.getConfig(key);
-      try {
-        catalogConfig.organizations = config
-          .getString('orgs')
-          .split(',')
-          .map(o => o.toLocaleLowerCase());
-      } catch (error) {
-        catalogConfig.organizations = config
-          .getStringArray('orgs')
-          .map(o => o.toLocaleLowerCase());
-      }
+      catalogConfig.organizations = resolveActiveOrganizations(config);
       catalogConfig.surveyEnabled = config.getOptionalBoolean(
         `sync.jobTemplates.surveyEnabled`,
       );
@@ -92,4 +83,35 @@ export function getCatalogConfig(rootConfig: Config): CatalogConfig {
 
 function validateShowCaseType(type: string | undefined): 'url' | 'file' {
   return type === 'url' || type === 'file' ? type : 'file';
+}
+
+function resolveOrganizations(config: Config): string[] {
+  let allOrgs: string[] = [];
+  if (typeof config.has === 'function' && !config.has('orgs')) {
+    return ['default'];
+  }
+  try {
+    allOrgs = config
+      .getString('orgs')
+      .split(',')
+      .map(o => o.trim().toLowerCase())
+      .filter(o => o.length > 0);
+  } catch {
+    try {
+      allOrgs = config
+        .getStringArray('orgs')
+        .map(o => o.trim().toLowerCase())
+        .filter(o => o.length > 0);
+    } catch {
+      // orgs is missing or invalid — fall through to default
+    }
+  }
+  return allOrgs.length > 0 ? allOrgs : ['default'];
+}
+
+/** Resolve orgs for runtime use, honoring multiOrgEnabled single-org mode. */
+export function resolveActiveOrganizations(config: Config): string[] {
+  const allOrgs = resolveOrganizations(config);
+  const multiOrgEnabled = config.getOptionalBoolean('multiOrgEnabled') ?? false;
+  return multiOrgEnabled ? allOrgs : [allOrgs[0]];
 }

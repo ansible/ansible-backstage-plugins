@@ -488,6 +488,31 @@ describe('AnsibleGitContentsProvider', () => {
       await provider.run();
 
       expect(provider.getCurrentCollectionsCount()).toBe(2);
+
+      const calls = mockConnection.applyMutation.mock.calls;
+      const fullMutation = calls.find((c: any[]) => c[0].type === 'full');
+      expect(fullMutation).toBeDefined();
+
+      const allEntities = (fullMutation![0] as any).entities.map(
+        (e: any) => e.entity,
+      );
+      const collectionEntities = allEntities.filter(
+        (e: any) => e.spec?.type === 'ansible-collection',
+      );
+      expect(collectionEntities).toHaveLength(2);
+
+      const v1 = collectionEntities.find(
+        (e: any) => e.spec.collection_version === '1.0.0',
+      );
+      const v2 = collectionEntities.find(
+        (e: any) => e.spec.collection_version === '2.0.0',
+      );
+      expect(v2?.metadata.annotations['ansible.io/is-latest-version']).toBe(
+        'true',
+      );
+      expect(
+        v1?.metadata.annotations['ansible.io/is-latest-version'],
+      ).toBeUndefined();
     });
   });
 

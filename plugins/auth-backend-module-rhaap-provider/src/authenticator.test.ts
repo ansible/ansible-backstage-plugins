@@ -1,5 +1,4 @@
 import { mockServices } from '@backstage/backend-test-utils';
-import { AuthenticationError } from '@backstage/errors';
 import { aapAuthAuthenticator as createAuthenticator } from './authenticator';
 import {
   CHECK_SSL,
@@ -187,35 +186,19 @@ describe('authenticator', () => {
     expect(mockAAPService.rhAAPRevokeToken).not.toHaveBeenCalled();
   });
 
-  describe('logout sync', () => {
+  describe('PKCE cookie-based flow', () => {
     const authContext = {
       host: DEFAULT_HOST,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
-      callbackURL: 'http://localhost',
+      callbackURL: 'http://localhost/api/auth/rhaap/handler/frame',
       checkSSL: CHECK_SSL,
-    };
+    } as any;
 
-    beforeEach(() => {
-      jest.clearAllMocks();
-      mockAAPService.rhAAPAuthenticate.mockResolvedValue({
-        session: {
-          accessToken: 'accessToken',
-          tokenType: 'Bearer',
-          scope: 'scope',
-          expiresInSeconds: 3600,
-          refreshToken: 'refreshToken',
-        },
-      });
-    });
-
-    it('should throw AuthenticationError when fetchProfile fails with 401', async () => {
-      mockAAPService.fetchProfile.mockRejectedValue(
-        new AuthenticationError('Unauthorized'),
-      );
-
+    it('should set rhaap-pkce cookie during start', async () => {
+      const mockCookie = jest.fn();
       const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
-      aapAuthAuthenticator.initialize({
+      const ctx = aapAuthAuthenticator.initialize({
         callbackUrl: '',
         config: mockServices.rootConfig({
           data: {
@@ -223,100 +206,438 @@ describe('authenticator', () => {
             clientSecret: CLIENT_SECRET,
             host: DEFAULT_HOST,
             checkSSL: CHECK_SSL,
-            callbackUrl: 'http://localhost',
+            callbackUrl: 'http://localhost/api/auth/rhaap/handler/frame',
           },
         }),
       });
 
-      await expect(
-        aapAuthAuthenticator.refresh(
-          // @ts-ignore
-          { refreshToken: 'oldRefreshToken' },
-          authContext,
-        ),
-      ).rejects.toThrow(AuthenticationError);
-
-      await expect(
-        aapAuthAuthenticator.refresh(
-          // @ts-ignore
-          { refreshToken: 'oldRefreshToken' },
-          authContext,
-        ),
-      ).rejects.toThrow('AAP session is no longer valid');
-    });
-
-    it('should re-throw non-authentication errors from fetchProfile', async () => {
-      mockAAPService.fetchProfile.mockRejectedValue(
-        new Error('Network timeout'),
-      );
-
-      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
-      aapAuthAuthenticator.initialize({
-        callbackUrl: '',
-        config: mockServices.rootConfig({
-          data: {
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET,
-            host: DEFAULT_HOST,
-            checkSSL: CHECK_SSL,
-            callbackUrl: 'http://localhost',
-          },
-        }),
-      });
-
-      await expect(
-        aapAuthAuthenticator.refresh(
-          // @ts-ignore
-          { refreshToken: 'oldRefreshToken' },
-          authContext,
-        ),
-      ).rejects.toThrow('Network timeout');
-
-      // Should NOT be an AuthenticationError
-      await expect(
-        aapAuthAuthenticator.refresh(
-          // @ts-ignore
-          { refreshToken: 'oldRefreshToken' },
-          authContext,
-        ),
-      ).rejects.not.toThrow(AuthenticationError);
-    });
-
-    it('should succeed when fetchProfile returns valid profile after refresh', async () => {
-      mockAAPService.fetchProfile.mockResolvedValue({
-        provider: 'AAP oauth2',
-        username: 'userName',
-        email: 'someEmail@domain.com',
-        displayName: 'userFirstName userLastName',
-      });
-
-      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
-      aapAuthAuthenticator.initialize({
-        callbackUrl: '',
-        config: mockServices.rootConfig({
-          data: {
-            clientId: CLIENT_ID,
-            clientSecret: CLIENT_SECRET,
-            host: DEFAULT_HOST,
-            checkSSL: CHECK_SSL,
-            callbackUrl: 'http://localhost',
-          },
-        }),
-      });
-
-      const result = await aapAuthAuthenticator.refresh(
+      await aapAuthAuthenticator.start(
         // @ts-ignore
-        { refreshToken: 'oldRefreshToken' },
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: mockCookie } } as any,
+        },
+        ctx,
+      );
+
+      expect(mockCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.any(String),
+        expect.objectContaining({
+          httpOnly: true,
+          secure: false,
+          sameSite: 'lax',
+          path: '/api/auth/rhaap/handler',
+          maxAge: 10 * 60 * 1000,
+        }),
+      );
+      const verifier = mockCookie.mock.calls[0][1];
+      expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    });
+
+    it('should authenticate using verifier from rhaap-pkce cookie', async () => {
+      const testVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const result = await aapAuthAuthenticator.authenticate(
+        // @ts-ignore
+        {
+          req: {
+            cookies: { 'rhaap-pkce': testVerifier },
+            query: { state: 'valid-state', code: 'auth-code' },
+            res: { clearCookie: jest.fn() },
+          } as any,
+        },
         authContext,
       );
 
-      expect(result.fullProfile).toEqual({
-        provider: 'AAP oauth2',
-        username: 'userName',
-        email: 'someEmail@domain.com',
-        displayName: 'userFirstName userLastName',
+      expect(mockAAPService.rhAAPAuthenticate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: testVerifier,
+        }),
+      );
+      expect(result.fullProfile).toBeDefined();
+    });
+
+    it('should throw with AAP error description when callback has error param', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
       });
-      expect(result.session.accessToken).toBe('accessToken');
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: {
+                state: 'error-state',
+                error: 'invalid_request',
+                error_description:
+                  'User e2e-nonadmin does not belong to any configured organizations',
+              },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'AAP OAuth error (invalid_request): User e2e-nonadmin does not belong to any configured organizations',
+      );
+    });
+
+    it('should throw with error code when callback has error but no description', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: { state: 'denied-state', error: 'access_denied' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow('AAP OAuth error: access_denied');
+    });
+
+    it('should throw when callback has neither code nor error', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: { 'rhaap-pkce': 'test-verifier' },
+              query: { state: 'empty-state' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow(
+        'OAuth callback is missing both authorization code and error parameters.',
+      );
+    });
+
+    it('should clear rhaap-pkce cookie after reading', async () => {
+      const mockClearCookie = jest.fn();
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost/api/auth/rhaap/handler/frame',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.authenticate(
+        // @ts-ignore
+        {
+          req: {
+            cookies: { 'rhaap-pkce': 'test-verifier' },
+            query: { state: 'valid-state', code: 'auth-code' },
+            res: { clearCookie: mockClearCookie },
+          } as any,
+        },
+        authContext,
+      );
+
+      expect(mockClearCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.objectContaining({
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/api/auth/rhaap/handler',
+        }),
+      );
+    });
+
+    it('should throw when rhaap-pkce cookie is missing', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              cookies: {},
+              query: { state: 'valid-state', code: 'auth-code' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow('PKCE verifier cookie not found');
+    });
+
+    it('should throw when cookies are not parsed', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.authenticate(
+          // @ts-ignore
+          {
+            req: {
+              query: { state: 'valid-state', code: 'auth-code' },
+              res: { clearCookie: jest.fn() },
+            } as any,
+          },
+          authContext,
+        ),
+      ).rejects.toThrow('PKCE verifier cookie not found');
+    });
+
+    it('should throw if response object is not accessible during start', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      await expect(
+        aapAuthAuthenticator.start(
+          // @ts-ignore
+          { state: 'test-state', scope: '', req: {} },
+          ctx,
+        ),
+      ).rejects.toThrow('Unable to access response object for PKCE cookie');
+    });
+
+    it('should set secure flag when callback URL uses https', async () => {
+      const mockCookie = jest.fn();
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl:
+              'https://production.example.com/auth/rhaap/handler/frame',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: mockCookie } } as any,
+        },
+        ctx,
+      );
+
+      expect(mockCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.any(String),
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'lax',
+          path: '/auth/rhaap/handler',
+        }),
+      );
+    });
+
+    it('should derive cookie path from callbackURL with path prefix', async () => {
+      const mockCookie = jest.fn();
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl:
+              'http://localhost/custom/prefix/api/auth/rhaap/handler/frame',
+          },
+        }),
+      });
+
+      await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: mockCookie } } as any,
+        },
+        ctx,
+      );
+
+      expect(mockCookie).toHaveBeenCalledWith(
+        'rhaap-pkce',
+        expect.any(String),
+        expect.objectContaining({
+          path: '/custom/prefix/api/auth/rhaap/handler',
+        }),
+      );
+    });
+
+    it('should authenticate when clearCookie is not available (best-effort cleanup)', async () => {
+      const testVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const result = await aapAuthAuthenticator.authenticate(
+        // @ts-ignore
+        {
+          req: {
+            cookies: { 'rhaap-pkce': testVerifier },
+            query: { state: 'valid-state', code: 'auth-code' },
+            res: {},
+          } as any,
+        },
+        authContext,
+      );
+
+      expect(mockAAPService.rhAAPAuthenticate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code',
+          codeVerifier: testVerifier,
+        }),
+      );
+      expect(result.fullProfile).toBeDefined();
+    });
+
+    it('should generate valid PKCE challenge in authorization URL', async () => {
+      const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+      const ctx = aapAuthAuthenticator.initialize({
+        callbackUrl: '',
+        config: mockServices.rootConfig({
+          data: {
+            clientId: CLIENT_ID,
+            clientSecret: CLIENT_SECRET,
+            host: DEFAULT_HOST,
+            checkSSL: CHECK_SSL,
+            callbackUrl: 'http://localhost',
+          },
+        }),
+      });
+
+      const result = await aapAuthAuthenticator.start(
+        // @ts-ignore
+        {
+          state: 'test-state',
+          scope: '',
+          req: { res: { cookie: jest.fn() } } as any,
+        },
+        ctx,
+      );
+
+      expect(result.url).toContain('code_challenge=');
+      expect(result.url).toContain('code_challenge_method=S256');
+      expect(result.url).toContain('approval_prompt=auto');
+      const challengeMatch = result.url.match(
+        /code_challenge=([A-Za-z0-9_-]+)/,
+      );
+      expect(challengeMatch).toBeTruthy();
+      expect(challengeMatch![1]).toHaveLength(43);
     });
   });
 });
