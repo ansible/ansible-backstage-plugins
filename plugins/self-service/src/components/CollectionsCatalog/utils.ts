@@ -1,4 +1,7 @@
 import { Entity } from '@backstage/catalog-model';
+import { compareVersions } from '@ansible/backstage-rhaap-common/constants';
+
+export { compareVersions };
 
 export const formatTimeAgo = (date: Date | string | undefined): string => {
   if (!date) return 'Unknown';
@@ -75,20 +78,6 @@ export const getCollectionFullName = (entity: Entity): string => {
   const name =
     typeof spec.collection_name === 'string' ? spec.collection_name : '';
   return `${namespace}.${name}`.toLowerCase();
-};
-
-export const compareVersions = (v1: string, v2: string): number => {
-  const parts1 = v1.split('.').map(p => Number.parseInt(p, 10) || 0);
-  const parts2 = v2.split('.').map(p => Number.parseInt(p, 10) || 0);
-  const maxLen = Math.max(parts1.length, parts2.length);
-
-  for (let i = 0; i < maxLen; i++) {
-    const p1 = parts1[i] || 0;
-    const p2 = parts2[i] || 0;
-    if (p1 > p2) return 1;
-    if (p1 < p2) return -1;
-  }
-  return 0;
 };
 
 export const sortEntities = (entities: Entity[]): Entity[] => {

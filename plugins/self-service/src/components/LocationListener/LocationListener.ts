@@ -71,6 +71,12 @@ export const LocationListener = () => {
       return undefined;
     }
 
+    // Redirect bare /catalog to self-service catalog
+    if (pathname === '/catalog') {
+      navigate('/self-service/catalog', { replace: true });
+      return undefined;
+    }
+
     // Handle /catalog/{namespace}/template/* paths - redirect to self-service catalog details
     const catalogTemplateMatch = pathname.match(
       /^\/catalog\/([^/]+)\/template\/([^/]+)$/,
@@ -80,6 +86,12 @@ export const LocationListener = () => {
       navigate(`/self-service/catalog/${ns}/${templateName}`, {
         replace: true,
       });
+      return undefined;
+    }
+
+    // Catch-all for any other /catalog/* paths
+    if (pathname.startsWith('/catalog/') || pathname.startsWith('/catalog?')) {
+      navigate('/self-service/catalog', { replace: true });
       return undefined;
     }
 
