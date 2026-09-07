@@ -42,7 +42,12 @@ describe('RepositoryBadge', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders Certified badge for rh-certified repository', () => {
+  it.each([
+    ['rh-certified', 'Certified'],
+    ['my-certified-repo', 'Certified'],
+    ['validated', 'Validated'],
+    ['community', 'Community'],
+  ])('renders correct badge for %s repository', (repository, badgeText) => {
     const entity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -50,7 +55,7 @@ describe('RepositoryBadge', () => {
         name: 'c',
         annotations: {
           'ansible.io/collection-source': 'pah',
-          'ansible.io/collection-source-repository': 'rh-certified',
+          'ansible.io/collection-source-repository': repository,
         },
       },
       spec: {},
@@ -58,64 +63,7 @@ describe('RepositoryBadge', () => {
 
     renderWithTheme(<RepositoryBadge entity={entity} />);
 
-    expect(screen.getByText('Certified')).toBeInTheDocument();
-  });
-
-  it('renders Certified badge when repository name contains certified', () => {
-    const entity: Entity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: {
-        name: 'c',
-        annotations: {
-          'ansible.io/collection-source': 'pah',
-          'ansible.io/collection-source-repository': 'my-certified-repo',
-        },
-      },
-      spec: {},
-    };
-
-    renderWithTheme(<RepositoryBadge entity={entity} />);
-
-    expect(screen.getByText('Certified')).toBeInTheDocument();
-  });
-
-  it('renders Validated badge for validated repository', () => {
-    const entity: Entity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: {
-        name: 'c',
-        annotations: {
-          'ansible.io/collection-source': 'pah',
-          'ansible.io/collection-source-repository': 'validated',
-        },
-      },
-      spec: {},
-    };
-
-    renderWithTheme(<RepositoryBadge entity={entity} />);
-
-    expect(screen.getByText('Validated')).toBeInTheDocument();
-  });
-
-  it('renders Community badge for community repository', () => {
-    const entity: Entity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: {
-        name: 'c',
-        annotations: {
-          'ansible.io/collection-source': 'pah',
-          'ansible.io/collection-source-repository': 'community',
-        },
-      },
-      spec: {},
-    };
-
-    renderWithTheme(<RepositoryBadge entity={entity} />);
-
-    expect(screen.getByText('Community')).toBeInTheDocument();
+    expect(screen.getByText(badgeText)).toBeInTheDocument();
   });
 
   it('returns null when entity has no annotations', () => {

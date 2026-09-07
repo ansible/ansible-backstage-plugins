@@ -75,42 +75,16 @@ describe('rhaapActionSchemas', () => {
         expect(result.success).toBe(false);
       });
 
-      it('rejects eeFileName starting with a separator', () => {
+      it.each([
+        ['-invalid', 'starting with a separator'],
+        ['invalid-', 'ending with a separator'],
+        ['my-ee.yml', 'ending with .yml'],
+        ['my-ee.yaml', 'ending with .yaml'],
+        ['my-ee.YML', 'ending with .YML (case-insensitive)'],
+      ])('rejects eeFileName %s (%s)', eeFileName => {
         const result = eeDefinitionInputSchema.safeParse({
           ...base,
-          eeFileName: '-invalid',
-        });
-        expect(result.success).toBe(false);
-      });
-
-      it('rejects eeFileName ending with a separator', () => {
-        const result = eeDefinitionInputSchema.safeParse({
-          ...base,
-          eeFileName: 'invalid-',
-        });
-        expect(result.success).toBe(false);
-      });
-
-      it('rejects eeFileName ending with .yml', () => {
-        const result = eeDefinitionInputSchema.safeParse({
-          ...base,
-          eeFileName: 'my-ee.yml',
-        });
-        expect(result.success).toBe(false);
-      });
-
-      it('rejects eeFileName ending with .yaml', () => {
-        const result = eeDefinitionInputSchema.safeParse({
-          ...base,
-          eeFileName: 'my-ee.yaml',
-        });
-        expect(result.success).toBe(false);
-      });
-
-      it('rejects eeFileName ending with .YML (case-insensitive)', () => {
-        const result = eeDefinitionInputSchema.safeParse({
-          ...base,
-          eeFileName: 'my-ee.YML',
+          eeFileName,
         });
         expect(result.success).toBe(false);
       });

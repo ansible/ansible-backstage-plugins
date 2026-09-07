@@ -153,18 +153,30 @@ describe('createEEDefinition', () => {
     );
   });
 
-  it('sanitizes contextDirName from special characters', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: 'My EE @v2!',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
+  it.each([
+    ['special characters', 'My EE @v2!', 'my-ee-v2'],
+    ['NUL bytes', 'bad\0name', 'bad-name'],
+    ['absolute path', '/etc/passwd', 'passwd'],
+    ['path separators', 'foo/bar', 'bar'],
+    ['backslash', 'foo\\bar', 'foo-bar'],
+  ])(
+    'sanitizes contextDirName from %s in eeFileName',
+    async (_desc, eeFileName, expectedContextDirName) => {
+      const action = makeAction();
+      const ctx = makeCtx({
+        eeFileName,
+        baseImage: 'img:latest',
+        publishToSCM: true,
+      });
 
-    await action.handler(ctx);
+      await action.handler(ctx);
 
-    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'my-ee-v2');
-  });
+      expect(ctx.output).toHaveBeenCalledWith(
+        'contextDirName',
+        expectedContextDirName,
+      );
+    },
+  );
 
   it('distributes scaffold files between eeDir and workspace root', async () => {
     const action = makeAction();
@@ -1349,58 +1361,6 @@ describe('createEEDefinition', () => {
   });
 
   // ─── Input sanitization (canonicalize + validate pipeline) ────────────
-
-  it('sanitizes NUL bytes out of eeFileName via canonicalization', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: 'bad\0name',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
-
-    await action.handler(ctx);
-
-    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'bad-name');
-  });
-
-  it('extracts basename from absolute eeFileName path', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: '/etc/passwd',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
-
-    await action.handler(ctx);
-
-    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'passwd');
-  });
-
-  it('extracts basename from eeFileName with path separators', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: 'foo/bar',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
-
-    await action.handler(ctx);
-
-    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'bar');
-  });
-
-  it('sanitizes backslash in eeFileName to dash', async () => {
-    const action = makeAction();
-    const ctx = makeCtx({
-      eeFileName: 'foo\\bar',
-      baseImage: 'img:latest',
-      publishToSCM: true,
-    });
-
-    await action.handler(ctx);
-
-    expect(ctx.output).toHaveBeenCalledWith('contextDirName', 'foo-bar');
-  });
 
   // ─── Edge cases for deeper coverage ─────────────────────────────────
 

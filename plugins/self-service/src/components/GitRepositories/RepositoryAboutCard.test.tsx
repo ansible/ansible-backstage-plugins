@@ -41,18 +41,15 @@ describe('RepositoryAboutCard', () => {
     jest.clearAllMocks();
   });
 
-  it('renders About title', () => {
+  it.each([
+    ['About title', 'About'],
+    ['entity description', 'Test repository description'],
+    ['Source section', 'Source'],
+  ])('renders %s', (_desc, expectedText) => {
     const entity = createMockEntity();
     renderWithTheme(<RepositoryAboutCard entity={entity} />);
 
-    expect(screen.getByText('About')).toBeInTheDocument();
-  });
-
-  it('renders entity description', () => {
-    const entity = createMockEntity();
-    renderWithTheme(<RepositoryAboutCard entity={entity} />);
-
-    expect(screen.getByText('Test repository description')).toBeInTheDocument();
+    expect(screen.getByText(expectedText)).toBeInTheDocument();
   });
 
   it('renders default description when entity has no description', () => {
@@ -173,13 +170,6 @@ describe('RepositoryAboutCard', () => {
 
     const collectionsText = screen.getByText('3 collections');
     expect(collectionsText.tagName).not.toBe('BUTTON');
-  });
-
-  it('renders Source section with link', () => {
-    const entity = createMockEntity();
-    renderWithTheme(<RepositoryAboutCard entity={entity} />);
-
-    expect(screen.getByText('Source')).toBeInTheDocument();
   });
 
   it('handles entity with undefined spec', () => {

@@ -118,32 +118,25 @@ describe('pahCollectionParser', () => {
   });
 
   describe('metadata.annotations', () => {
-    it('should generate correct source URL', () => {
-      const collection = createMockCollection();
-      const entity = pahCollectionParser({ collection, baseUrl, sourceId });
-
-      expect(entity.metadata.annotations!['backstage.io/source-url']).toBe(
+    it.each([
+      [
+        'backstage.io/source-url',
         'https://pah.example.com/content/collections/validated/ansible/posix/details?version=1.5.4',
-      );
-    });
-
-    it('should generate correct view URL', () => {
-      const collection = createMockCollection();
-      const entity = pahCollectionParser({ collection, baseUrl, sourceId });
-
-      expect(entity.metadata.annotations!['backstage.io/view-url']).toBe(
+      ],
+      [
+        'backstage.io/view-url',
         'https://pah.example.com/content/collections/validated/ansible/posix/documentation?version=1.5.4',
-      );
-    });
+      ],
+      ['ansible.io/collection-source', 'pah'],
+    ])(
+      'should generate correct %s annotation',
+      (annotationKey, expectedValue) => {
+        const collection = createMockCollection();
+        const entity = pahCollectionParser({ collection, baseUrl, sourceId });
 
-    it('should set collection source annotation to pah', () => {
-      const collection = createMockCollection();
-      const entity = pahCollectionParser({ collection, baseUrl, sourceId });
-
-      expect(entity.metadata.annotations!['ansible.io/collection-source']).toBe(
-        'pah',
-      );
-    });
+        expect(entity.metadata.annotations![annotationKey]).toBe(expectedValue);
+      },
+    );
 
     it('should set repository name annotation', () => {
       const collection = createMockCollection({

@@ -34,23 +34,12 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(timestamp)).toBe('Synced 5 minutes ago');
   });
 
-  it('should return "Synced today" for 1 hour ago on same day', () => {
-    const timestamp = new Date('2024-01-15T11:00:00Z').toISOString();
-    expect(formatRelativeTime(timestamp)).toBe('Synced today');
-  });
-
-  it('should return "Synced today" for 3 hours ago on same day', () => {
-    const timestamp = new Date('2024-01-15T09:00:00Z').toISOString();
-    expect(formatRelativeTime(timestamp)).toBe('Synced today');
-  });
-
-  it('should return "Synced today" for 6 hours ago on same day', () => {
-    const timestamp = new Date('2024-01-15T06:00:00Z').toISOString();
-    expect(formatRelativeTime(timestamp)).toBe('Synced today');
-  });
-
-  it('should return "Synced today" for same day', () => {
-    const timestamp = new Date('2024-01-15T00:00:00Z').toISOString();
+  it.each([
+    ['1 hour ago on same day', new Date('2024-01-15T11:00:00Z').toISOString()],
+    ['3 hours ago on same day', new Date('2024-01-15T09:00:00Z').toISOString()],
+    ['6 hours ago on same day', new Date('2024-01-15T06:00:00Z').toISOString()],
+    ['same day (midnight)', new Date('2024-01-15T00:00:00Z').toISOString()],
+  ])('should return "Synced today" for %s', (_desc, timestamp) => {
     expect(formatRelativeTime(timestamp)).toBe('Synced today');
   });
 

@@ -234,74 +234,18 @@ describe('EETagsPickerExtension', () => {
       });
     });
 
-    it('accepts valid tag with numbers', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag-123'],
-      });
+    it.each([
+      ['numbers', 'tag-123'],
+      ['plus sign', 'tag+name'],
+      ['hash sign', 'tag#name'],
+      ['mixed valid characters', 'tag-123+name#v2'],
+      ['single character', 'a'],
+    ])('accepts valid tag with %s', async (_desc, tag) => {
+      const props = createMockProps({ formData: ['tag1', tag] });
       render(<EETagsPickerExtension {...props} />);
 
       const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'tag-123' } });
-      fireEvent.blur(inputs[1]);
-
-      expect(
-        screen.queryByText(/Tag must consist of lowercase letters/i),
-      ).not.toBeInTheDocument();
-    });
-
-    it('accepts valid tag with plus sign', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag+name'],
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'tag+name' } });
-      fireEvent.blur(inputs[1]);
-
-      expect(
-        screen.queryByText(/Tag must consist of lowercase letters/i),
-      ).not.toBeInTheDocument();
-    });
-
-    it('accepts valid tag with hash sign', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag#name'],
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'tag#name' } });
-      fireEvent.blur(inputs[1]);
-
-      expect(
-        screen.queryByText(/Tag must consist of lowercase letters/i),
-      ).not.toBeInTheDocument();
-    });
-
-    it('accepts valid tag with mixed valid characters', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag-123+name#v2'],
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'tag-123+name#v2' } });
-      fireEvent.blur(inputs[1]);
-
-      expect(
-        screen.queryByText(/Tag must consist of lowercase letters/i),
-      ).not.toBeInTheDocument();
-    });
-
-    it('accepts single character valid tag', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'a'],
-      });
-      render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'a' } });
+      fireEvent.change(inputs[1], { target: { value: tag } });
       fireEvent.blur(inputs[1]);
 
       expect(

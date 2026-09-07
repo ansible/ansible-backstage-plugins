@@ -170,28 +170,32 @@ describe('parseMarkdownLinks', () => {
   });
 
   describe('URL Types', () => {
-    it('handles http URLs', () => {
-      const text = '[Link](http://example.com)';
+    it.each([
+      ['http URLs', '[Link](http://example.com)', 'Link', 'http://example.com'],
+      [
+        'https URLs',
+        '[Link](https://example.com)',
+        'Link',
+        'https://example.com',
+      ],
+      ['relative URLs', '[Link](/relative/path)', 'Link', '/relative/path'],
+      [
+        'URLs with fragments',
+        '[Link](https://example.com#section)',
+        'Link',
+        'https://example.com#section',
+      ],
+      [
+        'mailto URLs',
+        '[Email](mailto:test@example.com)',
+        'Email',
+        'mailto:test@example.com',
+      ],
+    ])('handles %s', (_desc, text, linkName, href) => {
       render(<div>{parseMarkdownLinks(text)}</div>);
 
-      const link = screen.getByRole('link', { name: 'Link' });
-      expect(link).toHaveAttribute('href', 'http://example.com');
-    });
-
-    it('handles https URLs', () => {
-      const text = '[Link](https://example.com)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Link' });
-      expect(link).toHaveAttribute('href', 'https://example.com');
-    });
-
-    it('handles relative URLs', () => {
-      const text = '[Link](/relative/path)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Link' });
-      expect(link).toHaveAttribute('href', '/relative/path');
+      const link = screen.getByRole('link', { name: linkName });
+      expect(link).toHaveAttribute('href', href);
     });
 
     it('handles URLs with query parameters', () => {
@@ -204,46 +208,25 @@ describe('parseMarkdownLinks', () => {
         'https://example.com?param1=value1&param2=value2',
       );
     });
-
-    it('handles URLs with fragments', () => {
-      const text = '[Link](https://example.com#section)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Link' });
-      expect(link).toHaveAttribute('href', 'https://example.com#section');
-    });
-
-    it('handles mailto URLs', () => {
-      const text = '[Email](mailto:test@example.com)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Email' });
-      expect(link).toHaveAttribute('href', 'mailto:test@example.com');
-    });
   });
 
   describe('Link Text', () => {
-    it('handles link text with spaces', () => {
-      const text = '[Link with spaces](https://example.com)';
+    it.each([
+      [
+        'link text with spaces',
+        '[Link with spaces](https://example.com)',
+        'Link with spaces',
+      ],
+      [
+        'link text with special characters',
+        '[Link & Text!](https://example.com)',
+        'Link & Text!',
+      ],
+      ['link text with numbers', '[Link123](https://example.com)', 'Link123'],
+    ])('handles %s', (_desc, text, linkName) => {
       render(<div>{parseMarkdownLinks(text)}</div>);
 
-      const link = screen.getByRole('link', { name: 'Link with spaces' });
-      expect(link).toBeInTheDocument();
-    });
-
-    it('handles link text with special characters', () => {
-      const text = '[Link & Text!](https://example.com)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Link & Text!' });
-      expect(link).toBeInTheDocument();
-    });
-
-    it('handles link text with numbers', () => {
-      const text = '[Link123](https://example.com)';
-      render(<div>{parseMarkdownLinks(text)}</div>);
-
-      const link = screen.getByRole('link', { name: 'Link123' });
+      const link = screen.getByRole('link', { name: linkName });
       expect(link).toBeInTheDocument();
     });
 
@@ -271,20 +254,11 @@ describe('parseMarkdownLinks', () => {
       expect(link).toHaveAttribute('href', 'https://example.com/path(with');
     });
 
-    it('handles malformed link with missing closing bracket', () => {
-      const text = '[Link(https://example.com)';
-      const result = parseMarkdownLinks(text);
-      expect(result).toEqual([text]);
-    });
-
-    it('handles malformed link with missing closing parenthesis', () => {
-      const text = '[Link](https://example.com';
-      const result = parseMarkdownLinks(text);
-      expect(result).toEqual([text]);
-    });
-
-    it('handles link with only opening bracket', () => {
-      const text = '[Link without closing';
+    it.each([
+      ['missing closing bracket', '[Link(https://example.com)'],
+      ['missing closing parenthesis', '[Link](https://example.com'],
+      ['only opening bracket', '[Link without closing'],
+    ])('handles malformed link with %s', (_desc, text) => {
       const result = parseMarkdownLinks(text);
       expect(result).toEqual([text]);
     });

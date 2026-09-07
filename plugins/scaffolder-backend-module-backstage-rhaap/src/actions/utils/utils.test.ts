@@ -70,15 +70,21 @@ describe('convertUploadToDataUrl', () => {
 });
 
 describe('parseUploadedFileContent', () => {
-  it('should parse valid base64 data URL with text/plain content type', () => {
-    const content = 'Hello, World!';
-    const base64Content = Buffer.from(content).toString('base64');
-    const dataUrl = `data:text/plain;base64,${base64Content}`;
+  it.each([
+    ['Hello, World!'],
+    ['Line 1\nLine 2\nLine 3'],
+    ['Hello! @#$%^&*()_+-=[]{}|;:,.<>?'],
+  ])(
+    'should parse valid base64 data URL with text/plain content (%s)',
+    content => {
+      const base64Content = Buffer.from(content).toString('base64');
+      const dataUrl = `data:text/plain;base64,${base64Content}`;
 
-    const result = parseUploadedFileContent(dataUrl);
+      const result = parseUploadedFileContent(dataUrl);
 
-    expect(result).toBe(content);
-  });
+      expect(result).toBe(content);
+    },
+  );
 
   it('should parse valid base64 data URL with application/json content type', () => {
     const content = '{"key": "value"}';
@@ -118,26 +124,6 @@ describe('parseUploadedFileContent', () => {
     const result = parseUploadedFileContent(dataUrl);
 
     expect(result).toBe('');
-  });
-
-  it('should parse multiline content', () => {
-    const content = 'Line 1\nLine 2\nLine 3';
-    const base64Content = Buffer.from(content).toString('base64');
-    const dataUrl = `data:text/plain;base64,${base64Content}`;
-
-    const result = parseUploadedFileContent(dataUrl);
-
-    expect(result).toBe(content);
-  });
-
-  it('should parse content with special characters', () => {
-    const content = 'Hello! @#$%^&*()_+-=[]{}|;:,.<>?';
-    const base64Content = Buffer.from(content).toString('base64');
-    const dataUrl = `data:text/plain;base64,${base64Content}`;
-
-    const result = parseUploadedFileContent(dataUrl);
-
-    expect(result).toBe(content);
   });
 
   it('should return empty string for input without base64 marker', () => {
