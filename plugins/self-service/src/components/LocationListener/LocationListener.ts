@@ -78,8 +78,8 @@ export const LocationListener = () => {
     }
 
     // Handle /catalog/{namespace}/template/* paths - redirect to self-service catalog details
-    const catalogTemplateMatch = pathname.match(
-      /^\/catalog\/([^/]+)\/template\/([^/]+)$/,
+    const catalogTemplateMatch = /^\/catalog\/([^/]+)\/template\/([^/]+)$/.exec(
+      pathname,
     );
     if (catalogTemplateMatch) {
       const [, ns, templateName] = catalogTemplateMatch;

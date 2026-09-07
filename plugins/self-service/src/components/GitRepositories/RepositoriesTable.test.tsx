@@ -831,9 +831,9 @@ describe('RepositoriesTable', () => {
     fireEvent.mouseDown(sourceInput);
 
     await waitFor(() => {
-      const githubOption = screen.getByText('github.com');
-      fireEvent.click(githubOption);
+      expect(screen.getByText('github.com')).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByText('github.com'));
 
     expect(screen.getByTestId('table-title')).toHaveTextContent(
       'Git Repositories (1)',
@@ -858,9 +858,9 @@ describe('RepositoriesTable', () => {
     fireEvent.mouseDown(sourceInput);
 
     await waitFor(() => {
-      const allOption = screen.getAllByText('All')[0];
-      fireEvent.click(allOption);
+      expect(screen.getAllByText('All')[0]).toBeInTheDocument();
     });
+    fireEvent.click(screen.getAllByText('All')[0]);
 
     expect(screen.getByTestId('table-title')).toHaveTextContent(
       'Git Repositories (2)',

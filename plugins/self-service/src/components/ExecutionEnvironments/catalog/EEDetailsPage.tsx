@@ -163,7 +163,7 @@ export const EEDetailsPage: React.FC = () => {
     closeDialog,
   } = useEEBuildFlow();
   const [entity, setEntity] = useState<Entity | null | undefined>(undefined);
-  const [menuid, setMenuId] = useState<string>('');
+  const [menuId, setMenuId] = useState<string>('');
   const [defaultReadme, setDefaultReadme] = useState<string>('');
   const [fetchedDefinition, setFetchedDefinition] = useState<string | null>(
     null,
@@ -452,7 +452,7 @@ export const EEDetailsPage: React.FC = () => {
       />
       {entity && (
         <UnregisterEntityDialog
-          open={menuid === '1'}
+          open={menuId === '1'}
           entity={entity}
           onConfirm={handleUnregisterConfirm}
           onClose={() => {
