@@ -1,5 +1,6 @@
 import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { AuthenticationError } from '@backstage/errors';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
 import { AnsibleConfig } from '../types';
