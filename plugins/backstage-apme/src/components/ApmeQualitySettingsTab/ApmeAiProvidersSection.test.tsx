@@ -102,10 +102,28 @@ describe('ApmeAiProvidersSection', () => {
 
   it('shows empty state when no providers', async () => {
     renderSection();
+    expect(await screen.findByText('No providers added')).toBeInTheDocument();
     expect(
-      await screen.findByText(/no providers configured/i),
+      screen.getByText(/configure an AI provider to enable AI-assisted remediation/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/deploy-time config/i)).not.toBeInTheDocument();
+  });
+
+  it('shows supported engines at the bottom when fillHeight and no providers', async () => {
+    renderSection({ fillHeight: true });
+    expect(await screen.findByText('Supported engines')).toBeInTheDocument();
+    expect(screen.getByTitle('openai (API key required)')).toBeInTheDocument();
+    expect(screen.getByTitle('anthropic (API key required)')).toBeInTheDocument();
+    expect(screen.queryByText('Getting started')).not.toBeInTheDocument();
+  });
+
+  it('does not show supported engines footer when models are available', async () => {
+    getAiModels.mockResolvedValue([
+      { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o' },
+    ]);
+    renderSection({ fillHeight: true });
+    expect(await screen.findByText('Available models')).toBeInTheDocument();
+    expect(screen.queryByText('Supported engines')).not.toBeInTheDocument();
   });
 
   it('shows ConfigMap providers as read-only system section', async () => {
@@ -120,6 +138,10 @@ describe('ApmeAiProvidersSection', () => {
     renderSection();
 
     expect(await screen.findByText('System providers')).toBeInTheDocument();
+    expect(screen.getByText('No providers added')).toBeInTheDocument();
+    expect(
+      screen.getByText(/system providers from your deployment ConfigMap/i),
+    ).toBeInTheDocument();
     expect(screen.getByText('cm-prov')).toBeInTheDocument();
     expect(screen.getByText('Source: ConfigMap')).toBeInTheDocument();
     expect(
@@ -158,6 +180,10 @@ describe('ApmeAiProvidersSection', () => {
       { id: 'claude-3-opus', provider: 'anthropic', name: 'Claude 3 Opus' },
     ]);
     renderSection();
+    expect(await screen.findByText('No providers added')).toBeInTheDocument();
+    expect(
+      screen.getByText(/models listed below are read-only from Primary/i),
+    ).toBeInTheDocument();
     expect(await screen.findByText('Available models')).toBeInTheDocument();
     expect(screen.getByTitle('gpt-4o (openai)')).toBeInTheDocument();
     expect(screen.getByTitle('claude-3-opus (anthropic)')).toBeInTheDocument();

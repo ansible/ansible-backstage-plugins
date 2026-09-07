@@ -50,7 +50,7 @@ const useStyles = makeStyles(theme => ({
   urlField: {
     width: '100%',
     marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(2),
+    marginBottom: theme.spacing(1),
   },
   actions: {
     display: 'flex',
@@ -73,6 +73,7 @@ const useStyles = makeStyles(theme => ({
   settingsColumn: {
     display: 'flex',
     alignItems: 'stretch',
+    minHeight: 0,
   },
   settingsCard: {
     flex: 1,
@@ -86,8 +87,7 @@ const useStyles = makeStyles(theme => ({
     flexDirection: 'column',
   },
   settingsFooter: {
-    marginTop: 'auto',
-    paddingTop: theme.spacing(2),
+    marginTop: 0,
   },
 }));
 

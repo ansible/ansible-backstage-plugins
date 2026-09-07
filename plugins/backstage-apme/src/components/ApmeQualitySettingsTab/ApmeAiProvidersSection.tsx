@@ -42,6 +42,7 @@ import type {
   ApmeAiProviderSummary,
   ApmeAiProviderConfigureRequest,
   ApmeAiStatus,
+  ApmeAiEngineInfo,
 } from '@ansible/backstage-apme-common/types';
 import {
   mergeApmeAiProviderLists,
@@ -76,9 +77,15 @@ const useStyles = makeStyles(theme => ({
     pointerEvents: 'none',
     cursor: 'default',
   },
+  emptyState: {
+    padding: theme.spacing(1, 0, 2),
+  },
+  emptyStateTitle: {
+    fontWeight: 600,
+    marginBottom: theme.spacing(0.5),
+  },
   emptyText: {
     color: theme.palette.text.secondary,
-    padding: theme.spacing(1, 0),
   },
   sectionHint: {
     color: theme.palette.text.secondary,
@@ -119,17 +126,28 @@ const useStyles = makeStyles(theme => ({
   fillHeightCard: {
     flex: 1,
     width: '100%',
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
+    minHeight: 0,
   },
   fillHeightContent: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
+    minHeight: 0,
+    overflowY: 'auto',
   },
   modelsSectionAtBottom: {
     marginTop: 'auto',
     paddingTop: theme.spacing(2),
+    flexShrink: 0,
+  },
+  emptyStateBottom: {
+    marginTop: 'auto',
+    paddingTop: theme.spacing(2),
+    borderTop: `1px solid ${theme.palette.divider}`,
+    flexShrink: 0,
   },
   providerListItem: {
     paddingTop: theme.spacing(1),
@@ -163,6 +181,31 @@ interface AiModelRow {
 const INITIAL_VISIBLE_PROVIDER_COUNT = 2;
 const INITIAL_VISIBLE_MODEL_COUNT = 3;
 const PREVIEW_MODEL_COUNT = 3;
+
+function getNoProvidersAddedMessage(
+  hasModels: boolean,
+  hasConfigProviders: boolean,
+): { title: string; description: string } {
+  if (hasConfigProviders) {
+    return {
+      title: 'No providers added',
+      description:
+        'No provider accounts have been added in the portal. System providers from your deployment ConfigMap are listed below and cannot be edited here. Use Add provider to configure a new AI provider account.',
+    };
+  }
+  if (hasModels) {
+    return {
+      title: 'No providers added',
+      description:
+        'No editable provider accounts are configured in the portal. Models listed below are read-only from Primary and available for scans. Use Add provider to add credentials and manage models here.',
+    };
+  }
+  return {
+    title: 'No providers added',
+    description:
+      'Configure an AI provider to enable AI-assisted remediation in Quality workflows. Use Add provider to connect OpenAI, Anthropic, or another supported engine with your API credentials.',
+  };
+}
 
 function formatProviderModelsSummary(models: string[]): string {
   if (models.length === 0) {
@@ -340,6 +383,44 @@ const AvailableModelsDialog = ({
   );
 };
 
+interface SupportedEnginesFooterProps {
+  engines: ApmeAiEngineInfo[];
+  classes: ReturnType<typeof useStyles>;
+}
+
+const SupportedEnginesFooter = ({
+  engines,
+  classes,
+}: SupportedEnginesFooterProps) => {
+  if (engines.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box className={classes.emptyStateBottom}>
+      <Typography variant="subtitle2">Supported engines</Typography>
+      <Typography variant="body2" className={classes.sectionHint}>
+        Engines available from your APME deployment.
+      </Typography>
+      <Box className={classes.modelChips}>
+        {engines.map(engine => (
+          <Chip
+            key={engine.id}
+            size="small"
+            label={engine.id}
+            title={
+              engine.requiresKey
+                ? `${engine.id} (API key required)`
+                : `${engine.id} (no API key required)`
+            }
+            variant="outlined"
+          />
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
 interface RemoveConfirmDialogProps {
   open: boolean;
   providerId: string;
@@ -404,16 +485,18 @@ export const ApmeAiProvidersSection = ({
   const [removeError, setRemoveError] = useState<string | undefined>();
   const [providersModalOpen, setProvidersModalOpen] = useState(false);
   const [modelsModalOpen, setModelsModalOpen] = useState(false);
+  const [engines, setEngines] = useState<ApmeAiEngineInfo[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
     try {
-      const [prov, status, modelList, config] = await Promise.all([
+      const [prov, status, modelList, config, enginesRes] = await Promise.all([
         apmeApi.getAiProviders().catch(() => [] as ApmeAiProviderSummary[]),
         apmeApi.getAiStatus().catch(() => undefined),
         apmeApi.getAiModels().catch(() => [] as AiModelRow[]),
         apmeApi.getAiConfig().catch(() => undefined),
+        apmeApi.getAiEngines().catch(() => ({ engines: [] })),
       ]);
       const configProviders =
         config !== undefined ? normalizeApmeAiProviders(config) : [];
@@ -421,6 +504,9 @@ export const ApmeAiProvidersSection = ({
       setProviders(nextProviders);
       setAiStatus(status);
       setModels(modelList);
+      setEngines(
+        (enginesRes.engines ?? []).filter(engine => engine.id !== 'mock'),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -514,6 +600,12 @@ export const ApmeAiProvidersSection = ({
     models.length - INITIAL_VISIBLE_MODEL_COUNT,
   );
   const useStretchLayout = fillHeight;
+  const noProvidersMessage = getNoProvidersAddedMessage(
+    models.length > 0,
+    configProviders.length > 0,
+  );
+  const showEmptyStateHelp =
+    useStretchLayout && managedProviders.length === 0 && models.length === 0;
 
   const handleEditProvider = (provider: ApmeAiProviderSummary) => {
     setProvidersModalOpen(false);
@@ -584,12 +676,18 @@ export const ApmeAiProvidersSection = ({
 
           {loading && <Progress />}
 
-          {!loading && providers.length === 0 && (
-            <Typography variant="body2" className={classes.emptyText}>
-              {models.length > 0
-                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to configure an AI provider in the portal.'
-                : 'No providers configured. Add a provider to enable AI-assisted remediation.'}
-            </Typography>
+          {!loading && managedProviders.length === 0 && (
+            <Box className={classes.emptyState}>
+              <Typography
+                variant="subtitle1"
+                className={classes.emptyStateTitle}
+              >
+                {noProvidersMessage.title}
+              </Typography>
+              <Typography variant="body2" className={classes.emptyText}>
+                {noProvidersMessage.description}
+              </Typography>
+            </Box>
           )}
 
           {!loading && managedProviders.length > 0 && (
@@ -714,6 +812,10 @@ export const ApmeAiProvidersSection = ({
                 ) : null}
               </Box>
             </Box>
+          )}
+
+          {!loading && showEmptyStateHelp && (
+            <SupportedEnginesFooter engines={engines} classes={classes} />
           )}
         </CardContent>
       </Card>
