@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  catalogApiRef,
-  EntityProvider,
-} from '@backstage/plugin-catalog-react';
+import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import { UnregisterEntityDialog } from '../UnregisterEntityDialog';
 import { Content, Header, Page } from '@backstage/core-components';
 import { Entity } from '@backstage/catalog-model';
