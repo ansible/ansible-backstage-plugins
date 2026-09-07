@@ -785,81 +785,27 @@ describe('EEFileNamePickerExtension', () => {
   });
 
   describe('Format Validation', () => {
-    it('shows error when name ends with .yaml', async () => {
-      const props = createMockProps({ formData: 'test-ee.yaml' });
-      renderWithProviders(props);
+    it.each(['.yaml', '.yml', '.YAML', '.YML'])(
+      'shows error when name ends with %s',
+      async ext => {
+        const props = createMockProps({ formData: `test-ee${ext}` });
+        renderWithProviders(props);
 
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
+        await act(async () => {
+          jest.advanceTimersByTime(500);
+        });
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            /Name should not end with \.yaml or \.yml\. A \.yaml extension will automatically be added to the generated EE definition file name\./i,
-          ),
-        ).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(
+            screen.getByText(
+              /Name should not end with \.yaml or \.yml\. A \.yaml extension will automatically be added to the generated EE definition file name\./i,
+            ),
+          ).toBeInTheDocument();
+        });
 
-      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('shows error when name ends with .yml', async () => {
-      const props = createMockProps({ formData: 'test-ee.yml' });
-      renderWithProviders(props);
-
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            /Name should not end with \.yaml or \.yml\. A \.yaml extension will automatically be added to the generated EE definition file name\./i,
-          ),
-        ).toBeInTheDocument();
-      });
-
-      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('shows error when name ends with .YAML (case insensitive)', async () => {
-      const props = createMockProps({ formData: 'test-ee.YAML' });
-      renderWithProviders(props);
-
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            /Name should not end with \.yaml or \.yml\. A \.yaml extension will automatically be added to the generated EE definition file name\./i,
-          ),
-        ).toBeInTheDocument();
-      });
-
-      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('shows error when name ends with .YML (case insensitive)', async () => {
-      const props = createMockProps({ formData: 'test-ee.YML' });
-      renderWithProviders(props);
-
-      await act(async () => {
-        jest.advanceTimersByTime(500);
-      });
-
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            /Name should not end with \.yaml or \.yml\. A \.yaml extension will automatically be added to the generated EE definition file name\./i,
-          ),
-        ).toBeInTheDocument();
-      });
-
-      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
-    });
+        expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
+      },
+    );
 
     it('shows error when name starts with a separator', async () => {
       const props = createMockProps({ formData: '-test-ee' });

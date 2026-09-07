@@ -103,40 +103,19 @@ describe('BaseImagePickerExtension', () => {
       expect(screen.getByText('Recommended')).toBeInTheDocument();
     });
 
-    it('does not show tags for malicious URL with redhat.io in path', () => {
+    it.each([
+      [
+        'redhat.io in path',
+        'evil.com/ansible-automation-platform/ee-minimal-rhel8:2.18',
+      ],
+      ['redhat.io as subdomain', 'redhat.io.evil.com/malicious-image:latest'],
+      ['redhat.io in query string', 'evil.com/image?redirect=redhat.io'],
+    ])('does not show tags for malicious URL with %s', (_desc, imageUrl) => {
       const props = {
         ...mockProps,
         schema: {
           ...mockProps.schema,
-          enum: ['evil.com/ansible-automation-platform/ee-minimal-rhel8:2.18'],
-          enumNames: ['Malicious Image'],
-        },
-      };
-      render(<BaseImagePickerExtension {...props} />);
-
-      expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    });
-
-    it('does not show tags for malicious URL with redhat.io as subdomain', () => {
-      const props = {
-        ...mockProps,
-        schema: {
-          ...mockProps.schema,
-          enum: ['redhat.io.evil.com/malicious-image:latest'],
-          enumNames: ['Malicious Image'],
-        },
-      };
-      render(<BaseImagePickerExtension {...props} />);
-
-      expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    });
-
-    it('does not show tags for URL with redhat.io in query string', () => {
-      const props = {
-        ...mockProps,
-        schema: {
-          ...mockProps.schema,
-          enum: ['evil.com/image?redirect=redhat.io'],
+          enum: [imageUrl],
           enumNames: ['Malicious Image'],
         },
       };

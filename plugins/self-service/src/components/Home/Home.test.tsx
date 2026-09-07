@@ -870,71 +870,31 @@ describe('self-service', () => {
       expect(screen.getByTestId('add-template-button')).not.toBeDisabled();
     });
 
-    it('should hide Add Template when user has catalog create permission but is not superuser', async () => {
-      mockUseIsSuperuser.mockReturnValue({
-        isSuperuser: false,
-        loading: false,
-        error: null,
-      });
-      mockUsePermission.mockReturnValue({
-        loading: false,
-        allowed: true,
-      });
+    it.each([
+      ['user has create permission but is not superuser', false, true],
+      ['user is superuser but lacks catalog create permission', true, false],
+      ['user lacks both superuser and catalog create permission', false, false],
+    ])(
+      'should hide Add Template when %s',
+      async (_desc, isSuperuser, allowed) => {
+        mockUseIsSuperuser.mockReturnValue({
+          isSuperuser,
+          loading: false,
+          error: null,
+        });
+        mockUsePermission.mockReturnValue({ loading: false, allowed });
 
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
+        const entityRefs = ['component:default/e1'];
+        const tags = ['tag1'];
+        mockCatalogApi.getEntityFacets.mockResolvedValue(
+          facetsFromEntityRefs(entityRefs, tags),
+        );
 
-      await render(<HomeComponent />);
+        await render(<HomeComponent />);
 
-      expect(screen.queryByTestId('add-template-button')).toBeNull();
-    });
-
-    it('should hide Add Template when user is superuser but lacks catalog create permission', async () => {
-      mockUseIsSuperuser.mockReturnValue({
-        isSuperuser: true,
-        loading: false,
-        error: null,
-      });
-      mockUsePermission.mockReturnValue({
-        loading: false,
-        allowed: false,
-      });
-
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      await render(<HomeComponent />);
-
-      expect(screen.queryByTestId('add-template-button')).toBeNull();
-    });
-
-    it('should hide Add Template when user lacks both superuser and catalog create permission', async () => {
-      mockUseIsSuperuser.mockReturnValue({
-        isSuperuser: false,
-        loading: false,
-        error: null,
-      });
-      mockUsePermission.mockReturnValue({
-        loading: false,
-        allowed: false,
-      });
-
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      await render(<HomeComponent />);
-
-      expect(screen.queryByTestId('add-template-button')).toBeNull();
-    });
+        expect(screen.queryByTestId('add-template-button')).toBeNull();
+      },
+    );
 
     it('should show Add Template disabled while permission check is loading', async () => {
       mockUseIsSuperuser.mockReturnValue({

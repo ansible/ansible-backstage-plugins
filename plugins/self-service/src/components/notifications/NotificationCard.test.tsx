@@ -121,20 +121,13 @@ describe('NotificationCard', () => {
     expect(screen.queryByLabelText('Collapse')).not.toBeInTheDocument();
   });
 
-  it('renders for severity success', () => {
-    renderWithTheme({ ...baseNotification, severity: 'success' }, () => {});
-    expect(screen.getByText('Test title')).toBeInTheDocument();
-  });
-
-  it('renders for severity error', () => {
-    renderWithTheme({ ...baseNotification, severity: 'error' }, () => {});
-    expect(screen.getByText('Test title')).toBeInTheDocument();
-  });
-
-  it('renders for severity warning', () => {
-    renderWithTheme({ ...baseNotification, severity: 'warning' }, () => {});
-    expect(screen.getByText('Test title')).toBeInTheDocument();
-  });
+  it.each(['success', 'error', 'warning'] as const)(
+    'renders for severity %s',
+    severity => {
+      renderWithTheme({ ...baseNotification, severity }, () => {});
+      expect(screen.getByText('Test title')).toBeInTheDocument();
+    },
+  );
 
   it('renders when isExiting is true', () => {
     renderWithTheme({ ...baseNotification, isExiting: true }, () => {});

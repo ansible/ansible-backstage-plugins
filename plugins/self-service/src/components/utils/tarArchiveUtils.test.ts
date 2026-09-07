@@ -8,13 +8,21 @@ import { TextEncoder, TextDecoder } from 'util';
 
 describe('tarArchiveUtils', () => {
   describe('createTarArchive', () => {
-    it('creates a valid Uint8Array', () => {
-      const files = [{ name: 'test.txt', content: 'hello world' }];
-      const result = createTarArchive(files);
+    it.each([
+      ['standard text', 'test.txt', 'hello world'],
+      ['empty content', 'empty.txt', ''],
+      ['UTF-8 content', 'utf8.txt', 'Hello 世界 🎉'],
+      ['newlines in content', 'multiline.txt', 'line1\nline2\nline3'],
+    ])(
+      'creates a valid Uint8Array for file with %s',
+      (_desc, name, content) => {
+        const files = [{ name, content }];
+        const result = createTarArchive(files);
 
-      expect(result).toBeInstanceOf(Uint8Array);
-      expect(result.length).toBeGreaterThan(0);
-    });
+        expect(result).toBeInstanceOf(Uint8Array);
+        expect(result.length).toBeGreaterThan(0);
+      },
+    );
 
     it('creates archive with correct block size alignment', () => {
       const files = [{ name: 'test.txt', content: 'hello' }];
@@ -73,14 +81,6 @@ describe('tarArchiveUtils', () => {
       expect(result.length).toBeGreaterThan(512 * 3); // At least 3 blocks for 3 files
     });
 
-    it('handles empty file content', () => {
-      const files = [{ name: 'empty.txt', content: '' }];
-      const result = createTarArchive(files);
-
-      expect(result).toBeInstanceOf(Uint8Array);
-      expect(result.length).toBeGreaterThan(0);
-    });
-
     it('handles files with special characters in name', () => {
       const files = [{ name: 'test-file_v2.0.yaml', content: 'content' }];
       const result = createTarArchive(files);
@@ -100,14 +100,6 @@ describe('tarArchiveUtils', () => {
 
       expect(result).toBeInstanceOf(Uint8Array);
       expect(result.length).toBeGreaterThan(10000);
-    });
-
-    it('handles UTF-8 content correctly', () => {
-      const files = [{ name: 'utf8.txt', content: 'Hello 世界 🎉' }];
-      const result = createTarArchive(files);
-
-      expect(result).toBeInstanceOf(Uint8Array);
-      expect(result.length).toBeGreaterThan(0);
     });
 
     it('adds correct end-of-archive markers (two zero blocks)', () => {
@@ -165,14 +157,6 @@ describe('tarArchiveUtils', () => {
 
       expect(result).toBeInstanceOf(Uint8Array);
       expect(result.length).toBeGreaterThan(512 * 3);
-    });
-
-    it('handles newlines in content', () => {
-      const files = [{ name: 'multiline.txt', content: 'line1\nline2\nline3' }];
-      const result = createTarArchive(files);
-
-      expect(result).toBeInstanceOf(Uint8Array);
-      expect(result.length).toBeGreaterThan(0);
     });
 
     it('pads file content to block boundary', () => {
