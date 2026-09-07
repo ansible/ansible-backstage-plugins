@@ -178,7 +178,9 @@ export class GithubClient extends BaseScmClient {
 
       const delayMs = 1000 * (attempt + 1);
       this.logger.warn(
-        `[GithubClient] HTTP ${lastResponse.status}, retry ${attempt + 1}/${GithubClient.MAX_RETRIES} after ${delayMs}ms`,
+        `[GithubClient] HTTP ${lastResponse.status}, retry ${attempt + 1}/${
+          GithubClient.MAX_RETRIES
+        } after ${delayMs}ms`,
       );
       await this.sleepMs(delayMs, signal ?? undefined);
     }
@@ -433,9 +435,9 @@ export class GithubClient extends BaseScmClient {
     path: string,
     signal?: AbortSignal,
   ): Promise<string> {
-    const url = `${this.apiUrl}/repos/${repo.fullPath}/contents/${encodeURIComponent(
-      path,
-    )}?ref=${encodeURIComponent(ref)}`;
+    const url = `${this.apiUrl}/repos/${
+      repo.fullPath
+    }/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`;
     const response = await this.fetchWithRetry(url, {
       signal,
       headers: {
@@ -459,7 +461,9 @@ export class GithubClient extends BaseScmClient {
   ): Promise<boolean> {
     try {
       const response = await this.doFetch(
-        `${this.apiUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+        `${this.apiUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+          repo,
+        )}`,
         { signal, method: 'HEAD' },
       );
       return response.ok;
