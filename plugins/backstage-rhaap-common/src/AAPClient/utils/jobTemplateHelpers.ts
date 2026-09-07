@@ -92,7 +92,9 @@ export function buildLaunchPayload(
     });
     if (duplicates.length) {
       logger.error(
-        `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(', ')}`,
+        `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
+          ', ',
+        )}`,
       );
       throw new Error(
         `Cannot assign multiple credentials of the same type. Duplicated credential types are: ${duplicates.join(
