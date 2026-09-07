@@ -32,8 +32,6 @@ export {
   getCollectionFullName,
   compareVersions,
   sortEntities,
-  filterLatestVersions,
-  getUniqueFilters,
 } from './utils';
 
 export {
@@ -50,5 +48,7 @@ export type {
   UsePaginatedCollectionsResult,
 } from './usePaginatedCollections';
 
-export { collectionsCache } from './collectionsCache';
-export type { CollectionsCacheState } from './collectionsCache';
+export {
+  invalidateCollections,
+  addCollectionsInvalidateCallback,
+} from './collectionsInvalidation';

@@ -411,7 +411,7 @@ policy.csv: |
 
 - **Token Caching**: Leverage built-in token caching mechanisms
 - **Session Management**: Configure appropriate session timeouts
-- **Load Balancing**: Consider load balancer session affinity for OAuth2 flows
+- **Load Balancing**: The PKCE code verifier used during AAP OAuth login is stored in a browser cookie, so login works correctly across multiple backend replicas without session affinity or sticky sessions.
 
 ## Migration Guide
 
