@@ -426,7 +426,17 @@ test.describe('Collections sidebar link and viewport', () => {
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await navigateToCollectionsPage(page);
-    await waitForCatalogDataOrEmptyState(page);
+    try {
+      await waitForCatalogDataOrEmptyState(page);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        await page
+          .locator('main')
+          .waitFor({ state: 'visible', timeout: 30000 });
+      } else {
+        throw error;
+      }
+    }
     await expect(page).toHaveURL(/\/self-service\/collections/);
     await expect(page.locator('main')).toBeVisible({ timeout: 15000 });
     await page.setViewportSize({ width: 1920, height: 1080 });

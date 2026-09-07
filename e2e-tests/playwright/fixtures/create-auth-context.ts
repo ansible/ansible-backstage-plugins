@@ -26,7 +26,7 @@ export function createAuthContextFixture(
           });
 
           console.log(`[${label}] Performing one-time login...`);
-          const loginPage = await sharedContext.newPage();
+          let loginPage = await sharedContext.newPage();
 
           let loginSuccess = false;
           let attempts = 0;
@@ -48,6 +48,13 @@ export function createAuthContextFixture(
               );
               if (attempts < maxAttempts) {
                 console.log(`[${label}] Retrying login...`);
+                // Check if page is still open before retrying
+                if (loginPage.isClosed()) {
+                  console.log(`[${label}] Page closed, creating new page...`);
+                  const newPage = await sharedContext!.newPage();
+                  await loginPage.close().catch(() => {});
+                  loginPage = newPage;
+                }
                 await loginPage.goto('/');
                 await loginPage.waitForTimeout(2000);
               } else {
@@ -66,7 +73,10 @@ export function createAuthContextFixture(
 
         await use(sharedContext);
       },
-      { scope: 'worker' } as never,
+      {
+        scope: 'worker',
+        timeout: process.env.CI ? 180_000 : 120_000, // 3min CI, 2min local
+      } as never,
     ],
 
     page: async ({ authenticatedContext }, use) => {

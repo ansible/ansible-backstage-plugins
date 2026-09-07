@@ -1,5 +1,6 @@
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
+import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
 
 import { formatNameSpace, validateNamespace } from '../helpers';
 import type {
@@ -48,32 +49,7 @@ function readAapApiEntityConfig(
   const multiOrgEnabled =
     catalogConfig.getOptionalBoolean('multiOrgEnabled') ?? false;
 
-  let allOrgs: string[] = [];
-  try {
-    if (catalogConfig.has('orgs'))
-      allOrgs = catalogConfig
-        .getString('orgs')
-        .split(',')
-        .map(o => o.trim().toLowerCase())
-        .filter(o => o.length > 0);
-  } catch {
-    try {
-      allOrgs = catalogConfig
-        .getStringArray('orgs')
-        .map(o => o.trim().toLowerCase())
-        .filter(o => o.length > 0);
-    } catch {
-      // orgs is set but invalid (empty string, wrong type) — fall through to default
-    }
-  }
-
-  // Sane default: sync the Default org when no orgs are configured
-  if (allOrgs.length === 0) {
-    allOrgs = ['default'];
-  }
-
-  // When multiOrgEnabled is false, only sync the first org in single-org mode
-  const organizations = multiOrgEnabled ? allOrgs : [allOrgs[0]];
+  const organizations = resolveActiveOrganizations(catalogConfig);
 
   if (multiOrgEnabled && organizations.length > 1) {
     const seen = new Map<string, string>();
