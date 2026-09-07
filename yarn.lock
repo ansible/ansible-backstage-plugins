@@ -21767,9 +21767,9 @@ __metadata:
   linkType: hard
 
 "@xmldom/xmldom@npm:^0.9.10":
-  version: 0.9.10
-  resolution: "@xmldom/xmldom@npm:0.9.10"
-  checksum: 10c0/38a9c9b95450d7fccebc61371c8e0b90ceaae992886484108333d29ccbd2640e3555b6af012f15ce1beb5067aeb40486659b6183fad38af179e82d28028bfc5d
+  version: 0.9.12
+  resolution: "@xmldom/xmldom@npm:0.9.12"
+  checksum: 10c0/0a9ef38e203213717dde8d16c62743c26c37eb4195aeb4f286550a0aec2145c063a6c3633f253c29f75202f922d7c961d1acaad4dd93e5db1ef05c813354d178
   languageName: node
   linkType: hard
 
@@ -42592,14 +42592,14 @@ __metadata:
   linkType: hard
 
 "vm2@npm:^3.11.4":
-  version: 3.11.5
-  resolution: "vm2@npm:3.11.5"
+  version: 3.12.1
+  resolution: "vm2@npm:3.12.1"
   dependencies:
     acorn: "npm:^8.15.0"
     acorn-walk: "npm:^8.3.4"
   bin:
     vm2: bin/vm2
-  checksum: 10c0/0917795f8cfb9e0e4bcbb431d44546eda492165143885d448a6585c862a57e0dedb36fc0922fbe3b386a8cec5ef8c46256ef38e00749eaa53fec7b442be0a390
+  checksum: 10c0/efedb5e6ceef360efd316468f8ba769e1e623b6fd644ed9fbd5992b705b220cef8a097acae2aeb0d2e35ef81efbf572b8143747a5aac64cca60ddc86858c3827
   languageName: node
   linkType: hard
 
