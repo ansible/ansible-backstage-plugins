@@ -42,6 +42,7 @@ import type {
   ApmeAiProviderSummary,
   ApmeAiProviderConfigureRequest,
   ApmeAiStatus,
+  ApmeAiEngineInfo,
 } from '@ansible/backstage-apme-common/types';
 import {
   mergeApmeAiProviderLists,
@@ -76,9 +77,15 @@ const useStyles = makeStyles(theme => ({
     pointerEvents: 'none',
     cursor: 'default',
   },
+  emptyState: {
+    padding: theme.spacing(1, 0, 2),
+  },
+  emptyStateTitle: {
+    fontWeight: 600,
+    marginBottom: theme.spacing(0.5),
+  },
   emptyText: {
     color: theme.palette.text.secondary,
-    padding: theme.spacing(1, 0),
   },
   sectionHint: {
     color: theme.palette.text.secondary,
@@ -88,11 +95,19 @@ const useStyles = makeStyles(theme => ({
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(0.5),
   },
+  modelChipsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(0.5),
+  },
   modelChips: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: theme.spacing(0.5),
-    marginTop: theme.spacing(0.5),
+    flex: '1 1 auto',
+    minWidth: 0,
   },
   errorText: {
     color: theme.palette.error.main,
@@ -108,6 +123,52 @@ const useStyles = makeStyles(theme => ({
     marginTop: theme.spacing(2),
     marginBottom: theme.spacing(0.5),
   },
+  fillHeightCard: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+  },
+  fillHeightContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    overflowY: 'auto',
+  },
+  modelsSectionAtBottom: {
+    marginTop: 'auto',
+    paddingTop: theme.spacing(2),
+    flexShrink: 0,
+  },
+  emptyStateBottom: {
+    marginTop: 'auto',
+    paddingTop: theme.spacing(2),
+    borderTop: `1px solid ${theme.palette.divider}`,
+    flexShrink: 0,
+  },
+  providerListItem: {
+    paddingTop: theme.spacing(1),
+    paddingBottom: theme.spacing(1),
+    alignItems: 'flex-start',
+  },
+  providerSecondary: {
+    display: 'block',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+  },
+  expandAction: {
+    marginTop: theme.spacing(1.5),
+  },
+  expandButton: {
+    textTransform: 'none',
+    flexShrink: 0,
+    marginLeft: 'auto',
+  },
 }));
 
 interface AiModelRow {
@@ -115,6 +176,250 @@ interface AiModelRow {
   provider: string;
   name: string;
 }
+
+/** Initial list count before "Show more" opens the full list modal (AAP-90214). */
+const INITIAL_VISIBLE_PROVIDER_COUNT = 2;
+const INITIAL_VISIBLE_MODEL_COUNT = 3;
+const PREVIEW_MODEL_COUNT = 3;
+
+function getNoProvidersAddedMessage(
+  hasModels: boolean,
+  hasConfigProviders: boolean,
+): { title: string; description: string } {
+  if (hasConfigProviders) {
+    return {
+      title: 'No providers added',
+      description:
+        'No provider accounts have been added in the portal. System providers from your deployment ConfigMap are listed below and cannot be edited here. Use Add provider to configure a new AI provider account.',
+    };
+  }
+  if (hasModels) {
+    return {
+      title: 'No providers added',
+      description:
+        'No editable provider accounts are configured in the portal. Models listed below are read-only from Primary and available for scans. Use Add provider to add credentials and manage models here.',
+    };
+  }
+  return {
+    title: 'No providers added',
+    description:
+      'Configure an AI provider to enable AI-assisted remediation in Quality workflows. Use Add provider to connect OpenAI, Anthropic, or another supported engine with your API credentials.',
+  };
+}
+
+function formatProviderModelsSummary(models: string[]): string {
+  if (models.length === 0) {
+    return 'No models configured';
+  }
+  const count = models.length;
+  const label = `${count} model${count === 1 ? '' : 's'}`;
+  if (count <= PREVIEW_MODEL_COUNT) {
+    return `${label}: ${models.join(', ')}`;
+  }
+  const preview = models.slice(0, PREVIEW_MODEL_COUNT).join(', ');
+  const remaining = count - PREVIEW_MODEL_COUNT;
+  return `${label}: ${preview} +${remaining} more`;
+}
+
+interface ManagedProviderListProps {
+  providers: ApmeAiProviderSummary[];
+  classes: ReturnType<typeof useStyles>;
+  removing: boolean;
+  onEdit(provider: ApmeAiProviderSummary): void;
+  onRemove(provider: ApmeAiProviderSummary): void;
+}
+
+const ManagedProviderList = ({
+  providers,
+  classes,
+  removing,
+  onEdit,
+  onRemove,
+}: ManagedProviderListProps) => (
+  <List disablePadding>
+    {providers.map((p, idx) => (
+      <div key={p.id}>
+        {idx > 0 && <Divider component="li" />}
+        <ListItem disableGutters className={classes.providerListItem}>
+          <ListItemText
+            primary={
+              <Box display="flex" alignItems="center">
+                <Typography variant="body1" component="span">
+                  {p.id}
+                </Typography>
+                <Chip
+                  label={p.engine}
+                  size="small"
+                  className={classes.engineChip}
+                  style={{ marginLeft: 8 }}
+                />
+              </Box>
+            }
+            secondary={
+              <Typography
+                variant="body2"
+                component="span"
+                className={classes.providerSecondary}
+                title={p.models.join(', ')}
+              >
+                {formatProviderModelsSummary(p.models)}
+              </Typography>
+            }
+          />
+          <ListItemSecondaryAction>
+            <IconButton
+              edge="end"
+              aria-label={`Edit provider ${p.id}`}
+              size="small"
+              onClick={() => onEdit(p)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              edge="end"
+              aria-label={`Remove provider ${p.id}`}
+              size="small"
+              onClick={() => onRemove(p)}
+              disabled={removing}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </ListItemSecondaryAction>
+        </ListItem>
+      </div>
+    ))}
+  </List>
+);
+
+interface AllProvidersDialogProps {
+  open: boolean;
+  providers: ApmeAiProviderSummary[];
+  removing: boolean;
+  onClose(): void;
+  onEdit(provider: ApmeAiProviderSummary): void;
+  onRemove(provider: ApmeAiProviderSummary): void;
+}
+
+const AllProvidersDialog = ({
+  open,
+  providers,
+  removing,
+  onClose,
+  onEdit,
+  onRemove,
+}: AllProvidersDialogProps) => {
+  const classes = useStyles();
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="apme-all-providers-title"
+    >
+      <DialogTitle id="apme-all-providers-title">AI providers</DialogTitle>
+      <DialogContent dividers>
+        <ManagedProviderList
+          providers={providers}
+          classes={classes}
+          removing={removing}
+          onEdit={onEdit}
+          onRemove={onRemove}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+interface AvailableModelsDialogProps {
+  open: boolean;
+  models: AiModelRow[];
+  onClose(): void;
+}
+
+const AvailableModelsDialog = ({
+  open,
+  models,
+  onClose,
+}: AvailableModelsDialogProps) => {
+  const classes = useStyles();
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="apme-available-models-title"
+    >
+      <DialogTitle id="apme-available-models-title">
+        Available models
+      </DialogTitle>
+      <DialogContent dividers>
+        <Box className={classes.modelChips}>
+          {models.map(m => (
+            <Chip
+              key={m.id}
+              size="small"
+              label={m.name || m.id}
+              title={m.provider ? `${m.id} (${m.provider})` : m.id}
+              variant="outlined"
+            />
+          ))}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} color="primary">
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
+interface SupportedEnginesFooterProps {
+  engines: ApmeAiEngineInfo[];
+  classes: ReturnType<typeof useStyles>;
+}
+
+const SupportedEnginesFooter = ({
+  engines,
+  classes,
+}: SupportedEnginesFooterProps) => {
+  if (engines.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box className={classes.emptyStateBottom}>
+      <Typography variant="subtitle2">Supported engines</Typography>
+      <Typography variant="body2" className={classes.sectionHint}>
+        Engines available from your APME deployment.
+      </Typography>
+      <Box className={classes.modelChips}>
+        {engines.map(engine => (
+          <Chip
+            key={engine.id}
+            size="small"
+            label={engine.id}
+            title={
+              engine.requiresKey
+                ? `${engine.id} (API key required)`
+                : `${engine.id} (no API key required)`
+            }
+            variant="outlined"
+          />
+        ))}
+      </Box>
+    </Box>
+  );
+};
 
 interface RemoveConfirmDialogProps {
   open: boolean;
@@ -155,7 +460,11 @@ const RemoveConfirmDialog = ({
 /**
  * AI providers card rendered beside the ansible-core card in Quality settings (US-016).
  */
-export const ApmeAiProvidersSection = () => {
+export const ApmeAiProvidersSection = ({
+  fillHeight = false,
+}: {
+  fillHeight?: boolean;
+}) => {
   const classes = useStyles();
   const apmeApi = useApi(apmeApiRef);
 
@@ -174,16 +483,20 @@ export const ApmeAiProvidersSection = () => {
   >();
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | undefined>();
+  const [providersModalOpen, setProvidersModalOpen] = useState(false);
+  const [modelsModalOpen, setModelsModalOpen] = useState(false);
+  const [engines, setEngines] = useState<ApmeAiEngineInfo[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(undefined);
     try {
-      const [prov, status, modelList, config] = await Promise.all([
+      const [prov, status, modelList, config, enginesRes] = await Promise.all([
         apmeApi.getAiProviders().catch(() => [] as ApmeAiProviderSummary[]),
         apmeApi.getAiStatus().catch(() => undefined),
         apmeApi.getAiModels().catch(() => [] as AiModelRow[]),
         apmeApi.getAiConfig().catch(() => undefined),
+        apmeApi.getAiEngines().catch(() => ({ engines: [] })),
       ]);
       const configProviders =
         config !== undefined ? normalizeApmeAiProviders(config) : [];
@@ -191,6 +504,9 @@ export const ApmeAiProvidersSection = () => {
       setProviders(nextProviders);
       setAiStatus(status);
       setModels(modelList);
+      setEngines(
+        (enginesRes.engines ?? []).filter(engine => engine.id !== 'mock'),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -270,10 +586,41 @@ export const ApmeAiProvidersSection = () => {
 
   const managedProviders = providers.filter(p => p.source !== 'config');
   const configProviders = providers.filter(p => p.source === 'config');
+  const visibleManagedProviders = managedProviders.slice(
+    0,
+    INITIAL_VISIBLE_PROVIDER_COUNT,
+  );
+  const hiddenProviderCount = Math.max(
+    0,
+    managedProviders.length - INITIAL_VISIBLE_PROVIDER_COUNT,
+  );
+  const visibleModels = models.slice(0, INITIAL_VISIBLE_MODEL_COUNT);
+  const hiddenModelCount = Math.max(
+    0,
+    models.length - INITIAL_VISIBLE_MODEL_COUNT,
+  );
+  const useStretchLayout = fillHeight;
+  const noProvidersMessage = getNoProvidersAddedMessage(
+    models.length > 0,
+    configProviders.length > 0,
+  );
+  const showEmptyStateHelp =
+    useStretchLayout && managedProviders.length === 0 && models.length === 0;
+
+  const handleEditProvider = (provider: ApmeAiProviderSummary) => {
+    setProvidersModalOpen(false);
+    setEditProvider(provider);
+  };
+
+  const handleRemoveProvider = (provider: ApmeAiProviderSummary) => {
+    setProvidersModalOpen(false);
+    setRemoveError(undefined);
+    setRemoveProvider(provider);
+  };
 
   return (
     <>
-      <Card>
+      <Card className={useStretchLayout ? classes.fillHeightCard : undefined}>
         <CardHeader
           className={classes.cardHeader}
           title="AI providers"
@@ -305,7 +652,9 @@ export const ApmeAiProvidersSection = () => {
             </Box>
           }
         />
-        <CardContent>
+        <CardContent
+          className={useStretchLayout ? classes.fillHeightContent : undefined}
+        >
           {error && (
             <Typography
               variant="body2"
@@ -327,66 +676,44 @@ export const ApmeAiProvidersSection = () => {
 
           {loading && <Progress />}
 
-          {!loading && providers.length === 0 && (
-            <Typography variant="body2" className={classes.emptyText}>
-              {models.length > 0
-                ? 'No editable providers listed. Models below are available for scans (read-only from Primary). Use Add provider to configure an AI provider in the portal.'
-                : 'No providers configured. Add a provider to enable AI-assisted remediation.'}
-            </Typography>
+          {!loading && managedProviders.length === 0 && (
+            <Box className={classes.emptyState}>
+              <Typography
+                variant="subtitle1"
+                className={classes.emptyStateTitle}
+              >
+                {noProvidersMessage.title}
+              </Typography>
+              <Typography variant="body2" className={classes.emptyText}>
+                {noProvidersMessage.description}
+              </Typography>
+            </Box>
           )}
 
           {!loading && managedProviders.length > 0 && (
-            <List disablePadding>
-              {managedProviders.map((p, idx) => (
-                <div key={p.id}>
-                  {idx > 0 && <Divider component="li" />}
-                  <ListItem disableGutters>
-                    <ListItemText
-                      primary={
-                        <Box display="flex" alignItems="center">
-                          <Typography variant="body1" component="span">
-                            {p.id}
-                          </Typography>
-                          <Chip
-                            label={p.engine}
-                            size="small"
-                            className={classes.engineChip}
-                            style={{ marginLeft: 8 }}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        p.models.length > 0
-                          ? `${p.models.length} model${p.models.length === 1 ? '' : 's'}: ${p.models.join(', ')}`
-                          : 'No models configured'
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        aria-label={`Edit provider ${p.id}`}
-                        size="small"
-                        onClick={() => setEditProvider(p)}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label={`Remove provider ${p.id}`}
-                        size="small"
-                        onClick={() => {
-                          setRemoveError(undefined);
-                          setRemoveProvider(p);
-                        }}
-                        disabled={removing}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                </div>
-              ))}
-            </List>
+            <Box>
+              <ManagedProviderList
+                providers={visibleManagedProviders}
+                classes={classes}
+                removing={removing}
+                onEdit={handleEditProvider}
+                onRemove={handleRemoveProvider}
+              />
+              {hiddenProviderCount > 0 ? (
+                <Box className={classes.expandAction}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    className={classes.expandButton}
+                    onClick={() => setProvidersModalOpen(true)}
+                    aria-label={`View all ${managedProviders.length} AI providers`}
+                  >
+                    View all providers ({hiddenProviderCount} more)
+                  </Button>
+                </Box>
+              ) : null}
+            </Box>
           )}
 
           {!loading && configProviders.length > 0 && (
@@ -402,7 +729,7 @@ export const ApmeAiProvidersSection = () => {
                 {configProviders.map((p, idx) => (
                   <div key={p.id}>
                     {idx > 0 && <Divider component="li" />}
-                    <ListItem disableGutters>
+                    <ListItem disableGutters className={classes.providerListItem}>
                       <ListItemText
                         primary={
                           <Box display="flex" alignItems="center">
@@ -429,9 +756,14 @@ export const ApmeAiProvidersSection = () => {
                           </Box>
                         }
                         secondary={
-                          p.models.length > 0
-                            ? `${p.models.length} model${p.models.length === 1 ? '' : 's'}: ${p.models.join(', ')}`
-                            : 'No models configured'
+                          <Typography
+                            variant="body2"
+                            component="span"
+                            className={classes.providerSecondary}
+                            title={p.models.join(', ')}
+                          >
+                            {formatProviderModelsSummary(p.models)}
+                          </Typography>
                         }
                       />
                     </ListItem>
@@ -442,7 +774,11 @@ export const ApmeAiProvidersSection = () => {
           )}
 
           {!loading && models.length > 0 && (
-            <Box>
+            <Box
+              className={
+                useStretchLayout ? classes.modelsSectionAtBottom : undefined
+              }
+            >
               <Typography variant="subtitle2" className={classes.modelsHeading}>
                 Available models
               </Typography>
@@ -450,18 +786,36 @@ export const ApmeAiProvidersSection = () => {
                 Read-only list from Primary (same source as the Quality tab AI
                 toggle). Edit providers above to change available models.
               </Typography>
-              <Box className={classes.modelChips}>
-                {models.map(m => (
-                  <Chip
-                    key={m.id}
+              <Box className={classes.modelChipsRow}>
+                <Box className={classes.modelChips}>
+                  {visibleModels.map(m => (
+                    <Chip
+                      key={m.id}
+                      size="small"
+                      label={m.name || m.id}
+                      title={m.provider ? `${m.id} (${m.provider})` : m.id}
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+                {hiddenModelCount > 0 ? (
+                  <Button
                     size="small"
-                    label={m.name || m.id}
-                    title={m.provider ? `${m.id} (${m.provider})` : m.id}
                     variant="outlined"
-                  />
-                ))}
+                    color="primary"
+                    className={classes.expandButton}
+                    onClick={() => setModelsModalOpen(true)}
+                    aria-label={`View all ${models.length} available models`}
+                  >
+                    View all models ({hiddenModelCount} more)
+                  </Button>
+                ) : null}
               </Box>
             </Box>
+          )}
+
+          {!loading && showEmptyStateHelp && (
+            <SupportedEnginesFooter engines={engines} classes={classes} />
           )}
         </CardContent>
       </Card>
@@ -489,6 +843,21 @@ export const ApmeAiProvidersSection = () => {
           onConfirm={() => void handleRemoveConfirm()}
         />
       )}
+
+      <AllProvidersDialog
+        open={providersModalOpen}
+        providers={managedProviders}
+        removing={removing}
+        onClose={() => setProvidersModalOpen(false)}
+        onEdit={handleEditProvider}
+        onRemove={handleRemoveProvider}
+      />
+
+      <AvailableModelsDialog
+        open={modelsModalOpen}
+        models={models}
+        onClose={() => setModelsModalOpen(false)}
+      />
     </>
   );
 };

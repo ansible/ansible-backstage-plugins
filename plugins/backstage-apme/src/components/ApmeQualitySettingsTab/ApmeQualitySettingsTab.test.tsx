@@ -15,6 +15,17 @@ jest.mock('@backstage/plugin-permission-react', () => ({
   usePermission: () => ({ loading: false, allowed: true }),
 }));
 
+jest.mock('./ApmeAiProvidersSection', () => ({
+  ApmeAiProvidersSection: ({ fillHeight }: { fillHeight?: boolean }) => (
+    <div
+      data-testid="ai-providers-section"
+      data-fill-height={fillHeight ? 'true' : 'false'}
+    >
+      AI providers
+    </div>
+  ),
+}));
+
 describe('ApmeQualitySettingsTab', () => {
   const getPortalSettings = jest.fn();
   const updatePortalSettings = jest.fn();
@@ -170,7 +181,49 @@ describe('ApmeQualitySettingsTab', () => {
     renderTab();
     expect(await screen.findByText('Quality settings')).toBeInTheDocument();
     expect(await screen.findByText('AI providers')).toBeInTheDocument();
-    expect(getAiProviders).toHaveBeenCalled();
+  });
+
+  it('passes fillHeight to AI providers section when edit permission is granted', async () => {
+    renderTab();
+    await screen.findByText('Quality settings');
+
+    expect(screen.getByTestId('ai-providers-section')).toHaveAttribute(
+      'data-fill-height',
+      'true',
+    );
+  });
+
+  it('uses stretch layout classes on the quality settings card when edit is allowed', async () => {
+    const { container } = renderTab();
+    await screen.findByText('Quality settings');
+
+    const qualityCard = screen
+      .getByText('Quality settings')
+      .closest('.MuiCard-root');
+    expect(qualityCard?.className).toEqual(
+      expect.stringMatching(/settingsCard/),
+    );
+
+    const cardContent = qualityCard?.querySelector('.MuiCardContent-root');
+    expect(cardContent?.className).toEqual(
+      expect.stringMatching(/settingsCardContent/),
+    );
+
+    const saveButton = screen.getByRole('button', { name: /^save$/i });
+    let footer: HTMLElement | null = saveButton.parentElement;
+    while (footer && !footer.className.match(/settingsFooter/)) {
+      footer = footer.parentElement;
+    }
+    expect(footer?.className).toEqual(expect.stringMatching(/settingsFooter/));
+
+    const gridItems = container.querySelectorAll('.MuiGrid-item');
+    expect(gridItems.length).toBeGreaterThanOrEqual(2);
+    expect(gridItems[0].className).toEqual(
+      expect.stringMatching(/settingsColumn/),
+    );
+    expect(gridItems[1].className).toEqual(
+      expect.stringMatching(/settingsColumn/),
+    );
   });
 
   it('does not render the Galaxy servers section', async () => {
