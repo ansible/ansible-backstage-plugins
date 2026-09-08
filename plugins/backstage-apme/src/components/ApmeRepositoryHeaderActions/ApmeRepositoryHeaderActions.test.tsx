@@ -33,6 +33,7 @@ jest.mock('@backstage/plugin-permission-react', () => ({
 const mockConfigApi = {
   getOptionalBoolean: jest.fn().mockReturnValue(true),
   getOptionalNumber: jest.fn(),
+  getOptionalString: jest.fn().mockReturnValue(undefined),
 };
 
 const mockDiscoveryApi = {
@@ -54,6 +55,7 @@ const baseEntity: Entity = {
   },
   spec: {
     type: 'git-repository',
+    repository_default_branch: 'main',
   },
 };
 
@@ -96,10 +98,32 @@ describe('ApmeRepositoryHeaderActions', () => {
     jest.clearAllMocks();
     deregisterRepositoryDialogStore.close();
     mockConfigApi.getOptionalBoolean.mockReturnValue(true);
+    mockConfigApi.getOptionalString.mockReturnValue(undefined);
     mockUsePermission.mockReturnValue({
       loading: false,
       allowed: true,
     });
+  });
+
+  it('renders Open in Dev Spaces when devSpaces baseUrl is configured', async () => {
+    mockConfigApi.getOptionalString.mockImplementation((key: string) =>
+      key === 'ansible.devSpaces.baseUrl'
+        ? 'https://devspaces.example.com'
+        : undefined,
+    );
+    await renderComponent();
+    const link = screen.getByRole('menuitem', { name: /open in dev spaces/i });
+    expect(link).toHaveAttribute(
+      'href',
+      'https://devspaces.example.com/#https://github.com/org/repo/tree/main',
+    );
+  });
+
+  it('hides Open in Dev Spaces when devSpaces baseUrl is not configured', async () => {
+    await renderComponent();
+    expect(
+      screen.queryByRole('menuitem', { name: /open in dev spaces/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders Run quality scan menu item', async () => {
