@@ -184,9 +184,18 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
         refreshToken: input.refreshToken,
       });
 
-      const fullProfile = await aapService.fetchProfile(
-        result.session.accessToken,
-      );
+      let fullProfile;
+      try {
+        fullProfile = await aapService.fetchProfile(result.session.accessToken);
+      } catch (error) {
+        if (error instanceof AuthenticationError) {
+          throw new AuthenticationError(
+            'AAP session is no longer valid. The user may have been logged out ' +
+              'of AAP or the token was revoked. Portal session will be terminated.',
+          );
+        }
+        throw error;
+      }
       return { ...result, fullProfile };
     },
 

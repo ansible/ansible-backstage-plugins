@@ -1,4 +1,5 @@
 import { mockServices } from '@backstage/backend-test-utils';
+import { AuthenticationError } from '@backstage/errors';
 import { aapAuthAuthenticator as createAuthenticator } from './authenticator';
 import {
   CHECK_SSL,
@@ -184,6 +185,40 @@ describe('authenticator', () => {
     );
 
     expect(mockAAPService.rhAAPRevokeToken).not.toHaveBeenCalled();
+  });
+
+  it('refresh throws AuthenticationError when fetchProfile returns 401', async () => {
+    mockAAPService.fetchProfile.mockRejectedValueOnce(
+      new AuthenticationError('AAP session expired or token revoked'),
+    );
+
+    const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+    aapAuthAuthenticator.initialize({
+      callbackUrl: '',
+      config: mockServices.rootConfig({
+        data: {
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          host: DEFAULT_HOST,
+          checkSSL: CHECK_SSL,
+          callbackUrl: 'http://localhost',
+        },
+      }),
+    });
+
+    await expect(
+      aapAuthAuthenticator.refresh!(
+        // @ts-ignore
+        { refreshToken: 'oldRefreshToken' },
+        {
+          host: DEFAULT_HOST,
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          callbackURL: 'http://localhost',
+          checkSSL: CHECK_SSL,
+        },
+      ),
+    ).rejects.toThrow('AAP session is no longer valid');
   });
 
   describe('PKCE cookie-based flow', () => {

@@ -61,4 +61,44 @@ describe('JobTemplatesProvider', () => {
     expect(screen.getByTestId('template-count')).toHaveTextContent('1');
     expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps ready state during background refresh', async () => {
+    mockAnsibleApi.getUserJobTemplates
+      .mockResolvedValueOnce({ items: [{ id: 1, name: 'Demo' }] })
+      .mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Demo' },
+          { id: 2, name: 'New' },
+        ],
+      });
+
+    const refreshRef: {
+      current?: ReturnType<typeof useJobTemplates>['refreshJobTemplates'];
+    } = { current: undefined };
+
+    function RefreshCapture() {
+      refreshRef.current = useJobTemplates().refreshJobTemplates;
+      return <Probe />;
+    }
+
+    render(
+      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+        <JobTemplatesProvider>
+          <RefreshCapture />
+        </JobTemplatesProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
+    });
+
+    await refreshRef.current?.({ background: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('template-count')).toHaveTextContent('2');
+    });
+    expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
+    expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
+  });
 });

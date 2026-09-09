@@ -392,11 +392,18 @@ export const HomeComponent = () => {
     syncStatus.jobTemplates.syncInProgress;
 
   const templateSyncProgress = useMemo((): SyncProgressEntry[] => {
-    const getOutcome = (status: {
-      syncInProgress: boolean;
-      lastSyncStatus: 'success' | 'failure' | null;
-    }): SyncOutcome => {
-      if (status.syncInProgress || localSyncing) return 'pending';
+    const getOutcome = (
+      syncType: 'orgsUsersTeams' | 'templates',
+      status: {
+        syncInProgress: boolean;
+        lastSyncStatus: 'success' | 'failure' | null;
+      },
+    ): SyncOutcome => {
+      const activeOption =
+        syncType === 'orgsUsersTeams' ? 'orgsUsersTeams' : 'templates';
+      const isSelected = activeSyncTypes.includes(activeOption);
+      const isPending = status.syncInProgress || (localSyncing && isSelected);
+      if (isPending) return 'pending';
       if (status.lastSyncStatus === 'failure') return 'failure';
       return 'success';
     };
@@ -410,17 +417,25 @@ export const HomeComponent = () => {
       syncStatus.jobTemplates.lastSync !== null ||
       syncStatus.jobTemplates.syncInProgress;
     if (showOrgs) {
+      const outcome = getOutcome('orgsUsersTeams', syncStatus.orgsUsersTeams);
       entries.push({
         sourceId: 'aap-orgs-users-teams',
         displayName: 'Organizations, Users, and Teams',
-        outcome: getOutcome(syncStatus.orgsUsersTeams),
+        outcome,
+        lastSyncTime:
+          outcome === 'success'
+            ? syncStatus.orgsUsersTeams.lastSync
+            : undefined,
       });
     }
     if (showTemplates) {
+      const outcome = getOutcome('templates', syncStatus.jobTemplates);
       entries.push({
         sourceId: 'aap-job-templates',
         displayName: 'Job Templates',
-        outcome: getOutcome(syncStatus.jobTemplates),
+        outcome,
+        lastSyncTime:
+          outcome === 'success' ? syncStatus.jobTemplates.lastSync : undefined,
       });
     }
     return entries;
@@ -473,7 +488,7 @@ export const HomeComponent = () => {
         if (result) {
           fetchSyncStatus();
           const preSyncTemplates = jobTemplatesRef.current;
-          const newTemplates = await fetchJobTemplates();
+          const newTemplates = await fetchJobTemplates({ background: true });
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -481,7 +496,7 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            await fetchJobTemplates();
+            await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
         }

@@ -15,11 +15,18 @@ export type JobTemplateSummary = { id: number; name: string };
 
 type JobTemplatesLoadState = 'loading' | 'ready' | 'error';
 
+export type RefreshJobTemplatesOptions = {
+  /** Keep the current list visible while re-fetching (e.g. after AAP sync). */
+  background?: boolean;
+};
+
 type JobTemplatesContextValue = {
   jobTemplates: JobTemplateSummary[];
   loadState: JobTemplatesLoadState;
   errorMessage: string | null;
-  refreshJobTemplates: () => Promise<JobTemplateSummary[] | undefined>;
+  refreshJobTemplates: (
+    options?: RefreshJobTemplatesOptions,
+  ) => Promise<JobTemplateSummary[] | undefined>;
 };
 
 const JobTemplatesContext = createContext<JobTemplatesContextValue | undefined>(
@@ -41,34 +48,48 @@ export const JobTemplatesProvider = ({ children }: PropsWithChildren) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fetchRequestIdRef = useRef(0);
 
-  const refreshJobTemplates = useCallback(async (): Promise<
-    JobTemplateSummary[] | undefined
-  > => {
-    const requestId = ++fetchRequestIdRef.current;
-    setLoadState('loading');
-    setErrorMessage(null);
+  const refreshJobTemplates = useCallback(
+    async (
+      options?: RefreshJobTemplatesOptions,
+    ): Promise<JobTemplateSummary[] | undefined> => {
+      const requestId = ++fetchRequestIdRef.current;
+      const background = options?.background ?? false;
 
-    try {
-      const { items } = await ansibleApi.getUserJobTemplates();
-      const nextTemplates = items.map(item => ({
-        id: item.id,
-        name: item.name,
-      }));
+      if (!background) {
+        setLoadState('loading');
+        setErrorMessage(null);
+      }
 
-      if (requestId === fetchRequestIdRef.current) {
-        setJobTemplates(nextTemplates);
-        setLoadState('ready');
+      try {
+        const { items } = await ansibleApi.getUserJobTemplates();
+        const nextTemplates = items.map(item => ({
+          id: item.id,
+          name: item.name,
+        }));
+
+        if (requestId === fetchRequestIdRef.current) {
+          setJobTemplates(nextTemplates);
+          setLoadState('ready');
+          if (background) {
+            setErrorMessage(null);
+          }
+        }
+        return nextTemplates;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (requestId === fetchRequestIdRef.current) {
+          if (background) {
+            setErrorMessage(message);
+          } else {
+            setLoadState('error');
+            setErrorMessage(message);
+          }
+        }
+        return undefined;
       }
-      return nextTemplates;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (requestId === fetchRequestIdRef.current) {
-        setLoadState('error');
-        setErrorMessage(message);
-      }
-      return undefined;
-    }
-  }, [ansibleApi]);
+    },
+    [ansibleApi],
+  );
 
   useEffect(() => {
     void refreshJobTemplates();

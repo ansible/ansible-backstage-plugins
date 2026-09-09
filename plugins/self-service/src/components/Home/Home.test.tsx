@@ -1587,7 +1587,7 @@ describe('sync progress tooltip', () => {
     });
   });
 
-  it('should show only selected sync types in tooltip', async () => {
+  it('should show only selected sync types in tooltip when orgs were never synced', async () => {
     const entityRefs = ['component:default/e1'];
     const tags = ['tag1'];
     mockCatalogApi.getEntityFacets.mockResolvedValue({
@@ -1615,9 +1615,135 @@ describe('sync progress tooltip', () => {
     await waitFor(() => {
       expect(screen.getByText('Syncing…')).toBeInTheDocument();
       expect(screen.getByText('Job Templates')).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
       expect(
         screen.queryByText('Organizations, Users, and Teams'),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  it('should show only selected sync types in tooltip when job templates were never synced', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.syncOrgsUsersTeam.mockReturnValue(new Promise(() => {}));
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['orgsUsersTeams']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing…')).toBeInTheDocument();
+      expect(
+        screen.getByText('Organizations, Users, and Teams'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
+      expect(screen.queryByText('Job Templates')).not.toBeInTheDocument();
+    });
+  });
+
+  it('should show prior org sync as completed while only job templates sync', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: {
+          lastSync: '2026-01-01T12:00:00.000Z',
+          syncInProgress: false,
+        },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    });
+    mockAnsibleApi.syncTemplates.mockReturnValue(new Promise(() => {}));
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['templates']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing…')).toBeInTheDocument();
+      expect(
+        screen.getByText('Organizations, Users, and Teams'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Job Templates')).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
+      expect(screen.queryAllByText('In progress')).toHaveLength(1);
+    });
+  });
+
+  it('should show prior job template sync as completed while only orgs sync', async () => {
+    const entityRefs = ['component:default/e1'];
+    const tags = ['tag1'];
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': entityRefs.map(value => ({ count: 1, value })),
+        'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockAnsibleApi.getSyncStatus.mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: {
+          lastSync: '2026-01-01T12:00:00.000Z',
+          syncInProgress: false,
+        },
+      },
+    });
+    mockAnsibleApi.syncOrgsUsersTeam.mockReturnValue(new Promise(() => {}));
+
+    await render(<HomeComponent />);
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    await triggerSync(['orgsUsersTeams']);
+
+    await waitFor(() => {
+      expect(mockAnsibleApi.syncOrgsUsersTeam).toHaveBeenCalled();
+    });
+
+    fireEvent.mouseOver(screen.getByText('Sync Now'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Syncing…')).toBeInTheDocument();
+      expect(
+        screen.getByText('Organizations, Users, and Teams'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('Job Templates')).toBeInTheDocument();
+      expect(screen.getByText('In progress')).toBeInTheDocument();
+      expect(screen.queryAllByText('In progress')).toHaveLength(1);
     });
   });
 
