@@ -7,16 +7,21 @@
 import { useCallback } from 'react';
 import { MenuItem } from '@material-ui/core';
 import AssessmentIcon from '@material-ui/icons/Assessment';
+import CodeIcon from '@material-ui/icons/Code';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import {
+  defaultBranchFromEntity,
+  normalizeRepoUrlFromEntity,
+} from '@ansible/backstage-rhaap-common/catalogEntity';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 import { useNavigateToRepositoryQualityTab } from '../../hooks/useNavigateToRepositoryQualityTab';
 import { isManuallyRegisteredRepository } from '../../hooks/useDeregisterRepository';
 import { deregisterRepositoryDialogStore } from '../ApmeDeregisterRepositoryOverlay';
+import { resolveDefaultBranchDevSpacesUrl } from '../../utils/resolveDefaultBranchDevSpacesUrl';
 
 export interface ApmeRepositoryHeaderActionsProps {
   context: GitRepositoryDetailHeaderMenuContext;
@@ -47,6 +52,11 @@ export const ApmeRepositoryHeaderActions = ({
     });
 
   const repoUrl = context.repoUrl ?? normalizeRepoUrlFromEntity(context.entity);
+  const devSpacesUrl = resolveDefaultBranchDevSpacesUrl({
+    devSpacesBaseUrl: config.getOptionalString('ansible.devSpaces.baseUrl'),
+    repoUrl,
+    branch: defaultBranchFromEntity(context.entity),
+  });
   const isManualRepo = isManuallyRegisteredRepository(context.entity);
   const canDeregister =
     showDeregister &&
@@ -83,6 +93,18 @@ export const ApmeRepositoryHeaderActions = ({
         <AssessmentIcon fontSize="small" style={{ marginRight: 8 }} />
         Run quality scan
       </MenuItem>
+      {devSpacesUrl ? (
+        <MenuItem
+          component="a"
+          href={devSpacesUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onCloseMenu}
+        >
+          <CodeIcon fontSize="small" style={{ marginRight: 8 }} />
+          Open in Dev Spaces
+        </MenuItem>
+      ) : null}
       {canDeregister && (
         <MenuItem onClick={handleDeregisterClick}>
           <DeleteOutlineIcon fontSize="small" style={{ marginRight: 8 }} />
