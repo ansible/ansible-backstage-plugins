@@ -788,7 +788,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const { activityId } = req.params;
     logger.debug(`APME activity detail ${activityId} requested`);
     const detail = await apmeService.getActivityDetail(activityId);
-    res.json(detail);
+    const store = await portalSettingsStore.read();
+    const [merged] = mergeActivityPortalOutcomes([detail], store.activities);
+    res.json(merged);
   });
 
   // Legacy portal path — Gateway-only submit (ADR-056). Prefer

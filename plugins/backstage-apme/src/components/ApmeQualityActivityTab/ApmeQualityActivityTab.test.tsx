@@ -40,6 +40,7 @@ jest.mock('@apme/ui-workflow', () => ({
   AssessFindingsPanel: ({ findings }: { findings: unknown[] }) => (
     <div data-testid="assess-findings">{findings.length} findings</div>
   ),
+  toPrFilesDiffUrl: (url: string) => url + '/files',
 }));
 
 function expectActivityDetailLoaded() {
@@ -86,6 +87,25 @@ describe('ApmeQualityActivityTab', () => {
         ai_accepted: 0,
         manual_review: 1,
         remediated_count: 0,
+      },
+      {
+        scan_id: 'scan-2',
+        session_id: 's2',
+        project_path: '/demo',
+        source: 'portal',
+        created_at: new Date().toISOString(),
+        scan_type: 'remediate',
+        total_violations: 0,
+        fixable: 0,
+        ai_candidate: 0,
+        ai_proposed: 0,
+        ai_declined: 0,
+        ai_accepted: 0,
+        manual_review: 0,
+        remediated_count: 3,
+        pr_url: 'https://github.com/example/demo-repo/pull/7',
+        branch_name: 'apme/remediate-scan-2',
+        commit_sha: 'abc12345deadbeef',
       },
     ]);
     getActivityDetail.mockResolvedValue({
@@ -146,13 +166,18 @@ describe('ApmeQualityActivityTab', () => {
   it('lists quality activity rows with sortable headers', async () => {
     renderTab();
     expect(
-      await screen.findByText(/Quality activity \(1\)/i),
+      await screen.findByText(/Quality activity \(2\)/i),
     ).toBeInTheDocument();
     expect(getActivity).toHaveBeenCalledWith('proj-1');
     expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText(/Time/)).toBeInTheDocument();
+    expect(screen.getByText('Published')).toBeInTheDocument();
     expect(screen.getByText('check')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /view pr/i })).toHaveAttribute(
+      'href',
+      'https://github.com/example/demo-repo/pull/7/files',
+    );
 
     fireEvent.click(screen.getByText(/Violations/));
     expect(screen.getByText(/Violations/)).toHaveTextContent(/Violations/);
@@ -176,8 +201,41 @@ describe('ApmeQualityActivityTab', () => {
       screen.getByRole('button', { name: /close activity detail/i }),
     );
     await waitFor(() => {
-      expect(screen.getByText(/Quality activity \(1\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Quality activity \(2\)/i)).toBeInTheDocument();
     });
+  });
+
+  it('shows PR link in activity detail for remediate rows', async () => {
+    getActivityDetail.mockResolvedValue({
+      scan_id: 'scan-2',
+      session_id: 's2',
+      project_path: '/demo',
+      source: 'portal',
+      created_at: new Date().toISOString(),
+      scan_type: 'remediate',
+      total_violations: 0,
+      fixable: 0,
+      ai_candidate: 0,
+      ai_proposed: 0,
+      ai_declined: 0,
+      ai_accepted: 0,
+      manual_review: 0,
+      remediated_count: 3,
+      pr_url: 'https://github.com/example/demo-repo/pull/7',
+      branch_name: 'apme/remediate-scan-2',
+      commit_sha: 'abc12345deadbeef',
+      violations: [],
+      proposals: [],
+    });
+
+    renderTab('/?activity=scan-2');
+    expect(
+      await screen.findByRole('link', { name: /view pr/i }),
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/example/demo-repo/pull/7/files',
+    );
+    expect(screen.getByText(/apme\/remediate-scan-2 @ abc12345/)).toBeInTheDocument();
   });
 
   it('fleet ?rule= opens the latest activity automatically', async () => {
