@@ -42,6 +42,8 @@ export interface SyncProgressEntry {
   sourceId: string;
   displayName: string;
   outcome: SyncOutcome;
+  /** Shown for completed rows when another sync type is still running. */
+  lastSyncTime?: string | null;
 }
 
 export interface SyncDialogProps {
