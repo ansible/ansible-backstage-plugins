@@ -40,7 +40,7 @@ jest.mock('@apme/ui-workflow', () => ({
   AssessFindingsPanel: ({ findings }: { findings: unknown[] }) => (
     <div data-testid="assess-findings">{findings.length} findings</div>
   ),
-  toPrFilesDiffUrl: (url: string) => url + '/files',
+  toPrFilesDiffUrl: (url: string) => `${url}/files`,
 }));
 
 function expectActivityDetailLoaded() {

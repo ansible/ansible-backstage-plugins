@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import { ActivityPublishedCell } from './ActivityPublishedCell';
 
 jest.mock('@apme/ui-workflow', () => ({
-  toPrFilesDiffUrl: (url: string) => url + '/files',
+  toPrFilesDiffUrl: (url: string) => `${url}/files`,
 }));
 
 describe('ActivityPublishedCell', () => {
