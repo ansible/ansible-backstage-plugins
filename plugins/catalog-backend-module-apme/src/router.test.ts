@@ -344,6 +344,33 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.body).toEqual(detail);
   });
 
+  it('merges persisted activity outcomes into GET activity detail', async () => {
+    await portalSettingsStore.updateActivityOutcome('scan-rem-1', {
+      branch_name: 'apme/remediate-stored',
+      pr_url: 'https://github.com/org/repo/pull/9',
+    });
+
+    const detail = {
+      scan_id: 'scan-rem-1',
+      scan_type: 'remediate',
+      status: 'completed',
+      proposals: [],
+      violations: [],
+    };
+    mockApmeService.getActivityDetail.mockResolvedValueOnce(detail);
+
+    const response = await request(app).get('/apme/activity/scan-rem-1');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        scan_id: 'scan-rem-1',
+        branch_name: 'apme/remediate-stored',
+        pr_url: 'https://github.com/org/repo/pull/9',
+      }),
+    );
+  });
+
   it('returns merged portal settings with persisted global default', async () => {
     await portalSettingsStore.updateGlobal('2.17');
 

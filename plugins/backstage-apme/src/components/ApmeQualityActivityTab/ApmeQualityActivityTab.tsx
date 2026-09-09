@@ -6,7 +6,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useApi } from '@backstage/core-plugin-api';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
+import { useEntity } from '@backstage/plugin-catalog-react';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { makeStyles, useTheme } from '@material-ui/core';
 import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
@@ -17,15 +18,21 @@ import type {
   Activity,
   ActivityDetail,
 } from '@ansible/backstage-apme-common/types';
+import {
+  defaultBranchFromEntity,
+  normalizeRepoUrlFromEntity,
+} from '@ansible/backstage-rhaap-common/catalogEntity';
 import { apmeApiRef } from '../../api';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
+import { resolveDefaultBranchDevSpacesUrl } from '../../utils/resolveDefaultBranchDevSpacesUrl';
 import {
   ApmeOutlinedTableCard,
   useApmeOutlinedTableStyles,
 } from '../ApmeOutlinedTable';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { ActivityPublishedCell } from '../ActivityPublishedCell';
+import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { PreviewLabelRow } from '../PreviewChip';
 import { QualityFindingsSection } from '../QualityFindingsSection';
 
@@ -346,9 +353,17 @@ function ActivityDetailView({
 
 function QualityActivityBody({ projectId }: { projectId: string }) {
   const apmeApi = useApi(apmeApiRef);
+  const configApi = useApi(configApiRef);
+  const { entity } = useEntity();
   const [searchParams, setSearchParams] = useSearchParams();
   const activityId = searchParams.get('activity') ?? undefined;
   const ruleFilter = searchParams.get('rule') ?? undefined;
+
+  const devSpacesUrl = resolveDefaultBranchDevSpacesUrl({
+    devSpacesBaseUrl: configApi.getOptionalString('ansible.devSpaces.baseUrl'),
+    repoUrl: normalizeRepoUrlFromEntity(entity),
+    branch: defaultBranchFromEntity(entity),
+  });
 
   const [activities, setActivities] = useState<Activity[] | null>(null);
   const [detail, setDetail] = useState<ActivityDetail | null>(null);
@@ -486,9 +501,15 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
       <CardBody>
         <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
           <PreviewLabelRow />
-          <div style={{ fontSize: 18, fontWeight: 600 }}>
-            Quality activity ({activities?.length ?? 0})
-          </div>
+          <Flex
+            justifyContent={{ default: 'justifyContentSpaceBetween' }}
+            alignItems={{ default: 'alignItemsCenter' }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 600 }}>
+              Quality activity ({activities?.length ?? 0})
+            </div>
+            <EditInDevSpacesButton url={devSpacesUrl} />
+          </Flex>
           <ActivityList activities={activities ?? []} onOpen={openActivity} />
         </Flex>
       </CardBody>

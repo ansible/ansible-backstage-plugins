@@ -61,7 +61,7 @@ const entity: Entity = {
         'url:https://github.com/example/demo-repo',
     },
   },
-  spec: { type: 'git-repository', owner: 'user' },
+  spec: { type: 'git-repository', owner: 'user', repository_default_branch: 'main' },
 };
 
 describe('ApmeQualityActivityTab', () => {
@@ -147,7 +147,12 @@ describe('ApmeQualityActivityTab', () => {
             [apmeApiRef, { getActivity, getActivityDetail, createSuppression }],
             [
               configApiRef,
-              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+              new ConfigReader({
+                ansible: {
+                  apme: { enabled: true },
+                  devSpaces: { baseUrl: 'https://devspaces.example.com' },
+                },
+              }),
             ],
             [discoveryApiRef, { getBaseUrl: async () => 'http://localhost' }],
             [fetchApiRef, { fetch: jest.fn() }],
@@ -178,6 +183,13 @@ describe('ApmeQualityActivityTab', () => {
       'href',
       'https://github.com/example/demo-repo/pull/7/files',
     );
+    const devSpacesLink = screen.getByRole('link', {
+      name: /open in dev spaces/i,
+    });
+    expect(devSpacesLink).toHaveAttribute(
+      'href',
+      'https://devspaces.example.com/#https://github.com/example/demo-repo/tree/main',
+    );
 
     fireEvent.click(screen.getByText(/Violations/));
     expect(screen.getByText(/Violations/)).toHaveTextContent(/Violations/);
@@ -203,6 +215,35 @@ describe('ApmeQualityActivityTab', () => {
     await waitFor(() => {
       expect(screen.getByText(/Quality activity \(2\)/i)).toBeInTheDocument();
     });
+  });
+
+  it('shows branch and SHA in list when remediate row has no PR', async () => {
+    getActivity.mockResolvedValue([
+      {
+        scan_id: 'scan-3',
+        session_id: 's3',
+        project_path: '/demo',
+        source: 'portal',
+        created_at: new Date().toISOString(),
+        scan_type: 'remediate',
+        total_violations: 0,
+        fixable: 0,
+        ai_candidate: 0,
+        ai_proposed: 0,
+        ai_declined: 0,
+        ai_accepted: 0,
+        manual_review: 0,
+        remediated_count: 2,
+        branch_name: 'apme/remediate-only',
+        commit_sha: 'feedface12345678',
+      },
+    ]);
+
+    renderTab();
+    expect(
+      await screen.findByText(/apme\/remediate-only @ feedface/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /view pr/i })).not.toBeInTheDocument();
   });
 
   it('shows PR link in activity detail for remediate rows', async () => {
