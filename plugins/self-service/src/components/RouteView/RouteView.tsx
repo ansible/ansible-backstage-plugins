@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { CircularProgress } from '@material-ui/core';
 import { RequirePermission } from '@backstage/plugin-permission-react';

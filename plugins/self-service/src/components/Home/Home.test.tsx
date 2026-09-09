@@ -982,6 +982,7 @@ describe('self-service', () => {
         await render(<HomeComponent />);
 
         await expectJobTemplateFetchError(expectedMessage);
+        expect(screen.getByRole('alert')).toBeInTheDocument();
       },
     );
 

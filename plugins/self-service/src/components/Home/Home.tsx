@@ -574,6 +574,82 @@ export const HomeComponent = () => {
   const catalogListKey = `${syncKey}-${jobTemplateIds.join(',')}-${selectedSources.join(',')}`;
   const canShowCatalog = jobTemplatesLoadState === 'ready';
 
+  const catalogContent = (() => {
+    if (canShowCatalog) {
+      return (
+        <HomeCatalogProvider
+          jobTemplateIds={jobTemplateIds}
+          selectedSources={selectedSources}
+          listKey={catalogListKey}
+        >
+          <CatalogFilterLayout>
+            <CatalogFilterLayout.Filters>
+              <div data-testid="search-bar-container">
+                <EntitySearchBar />
+              </div>
+              <EntityKindPicker initialFilter="template" hidden />
+              <div data-testid="user-picker-container">
+                <UserListPicker
+                  initialFilter="all"
+                  availableFilters={['all', 'starred']}
+                />
+              </div>
+              <div data-testid="categories-picker">
+                <HomeCategoryPicker syncKey={syncKey} />
+              </div>
+              <HomeTagPicker syncKey={syncKey} />
+              <SourcePicker
+                syncKey={syncKey}
+                selectedSources={selectedSources}
+                onSourceChange={setSelectedSources}
+              />
+              <EntityOwnerPicker />
+            </CatalogFilterLayout.Filters>
+            <CatalogFilterLayout.Content>
+              <TemplateContent loading={loading} />
+            </CatalogFilterLayout.Content>
+          </CatalogFilterLayout>
+        </HomeCatalogProvider>
+      );
+    }
+
+    if (jobTemplatesLoadState === 'error') {
+      return (
+        <Typography
+          variant="body1"
+          style={{ textAlign: 'center', padding: '40px 0' }}
+        >
+          {jobTemplatesErrorMessage ??
+            'Could not load your AAP job templates. Try signing in again or use Retry below.'}
+          <Button
+            color="primary"
+            onClick={() => void refreshJobTemplates()}
+            style={{ display: 'block', margin: '16px auto 0' }}
+          >
+            Retry
+          </Button>
+        </Typography>
+      );
+    }
+
+    return (
+      <div
+        data-testid="loading-templates"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          gap: '10px',
+        }}
+      >
+        {[1, 2, 3].map(id => (
+          <SkeletonLoader key={`skeleton-${id}`} />
+        ))}
+      </div>
+    );
+  })();
+
   return (
     <Page themeId="app" className={shellPageClasses.page}>
       {open && (
@@ -636,71 +712,7 @@ export const HomeComponent = () => {
               controllerSnackbar.message}
           </Alert>
         </Snackbar>
-        {canShowCatalog ? (
-          <HomeCatalogProvider
-            jobTemplateIds={jobTemplateIds}
-            selectedSources={selectedSources}
-            listKey={catalogListKey}
-          >
-            <CatalogFilterLayout>
-              <CatalogFilterLayout.Filters>
-                <div data-testid="search-bar-container">
-                  <EntitySearchBar />
-                </div>
-                <EntityKindPicker initialFilter="template" hidden />
-                <div data-testid="user-picker-container">
-                  <UserListPicker
-                    initialFilter="all"
-                    availableFilters={['all', 'starred']}
-                  />
-                </div>
-                <div data-testid="categories-picker">
-                  <HomeCategoryPicker syncKey={syncKey} />
-                </div>
-                <HomeTagPicker syncKey={syncKey} />
-                <SourcePicker
-                  syncKey={syncKey}
-                  selectedSources={selectedSources}
-                  onSourceChange={setSelectedSources}
-                />
-                <EntityOwnerPicker />
-              </CatalogFilterLayout.Filters>
-              <CatalogFilterLayout.Content>
-                <TemplateContent loading={loading} />
-              </CatalogFilterLayout.Content>
-            </CatalogFilterLayout>
-          </HomeCatalogProvider>
-        ) : jobTemplatesLoadState === 'error' ? (
-          <Typography
-            variant="body1"
-            style={{ textAlign: 'center', padding: '40px 0' }}
-          >
-            {jobTemplatesErrorMessage ??
-              'Could not load your AAP job templates. Try signing in again or use Retry below.'}
-            <Button
-              color="primary"
-              onClick={() => void refreshJobTemplates()}
-              style={{ display: 'block', margin: '16px auto 0' }}
-            >
-              Retry
-            </Button>
-          </Typography>
-        ) : (
-          <div
-            data-testid="loading-templates"
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              width: '100%',
-              gap: '10px',
-            }}
-          >
-            {[1, 2, 3].map(id => (
-              <SkeletonLoader key={`skeleton-${id}`} />
-            ))}
-          </div>
-        )}
+        {catalogContent}
       </Content>
     </Page>
   );
