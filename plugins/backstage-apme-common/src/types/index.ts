@@ -32,6 +32,8 @@ export interface Violation {
   file: string;
   line: number;
   path?: string;
+  /** ContentGraph NodeType (task, block, play, …); empty when not graph-backed. */
+  node_type?: string;
   remediation_class: RemediationClass;
   remediation_resolution?: number;
   scope?: string; // 'task', 'playbook', 'inventory', 'collection'
