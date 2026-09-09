@@ -242,6 +242,7 @@ describe('catalog-backend-module-apme router', () => {
     expect(stored.activities?.['scan-1']).toEqual({
       branch_name: 'apme/remediate-abc12345',
       pr_url: 'https://github.com/org/repo/pull/1',
+      commit_sha: 'deadbeef',
     });
   });
 
@@ -342,6 +343,35 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.status).toBe(200);
     expect(mockApmeService.getActivityDetail).toHaveBeenCalledWith('scan-1');
     expect(response.body).toEqual(detail);
+  });
+
+  it('merges persisted activity outcomes into GET activity detail', async () => {
+    await portalSettingsStore.updateActivityOutcome('scan-rem-1', {
+      branch_name: 'apme/remediate-stored',
+      pr_url: 'https://github.com/org/repo/pull/9',
+      commit_sha: 'feedface',
+    });
+
+    const detail = {
+      scan_id: 'scan-rem-1',
+      scan_type: 'remediate',
+      status: 'completed',
+      proposals: [],
+      violations: [],
+    };
+    mockApmeService.getActivityDetail.mockResolvedValueOnce(detail);
+
+    const response = await request(app).get('/apme/activity/scan-rem-1');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        scan_id: 'scan-rem-1',
+        branch_name: 'apme/remediate-stored',
+        pr_url: 'https://github.com/org/repo/pull/9',
+        commit_sha: 'feedface',
+      }),
+    );
   });
 
   it('returns merged portal settings with persisted global default', async () => {

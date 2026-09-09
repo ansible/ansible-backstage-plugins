@@ -498,6 +498,7 @@ export interface Activity {
   remediated_count: number;
   pr_url?: string | null;
   branch_name?: string | null;
+  commit_sha?: string | null;
 }
 
 /** Summary row persisted for an AI proposal on a scan (gateway activity detail). */

@@ -11,8 +11,9 @@ import { useEntity } from '@backstage/plugin-catalog-react';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { makeStyles, useTheme } from '@material-ui/core';
 import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
+import { ExternalLinkAltIcon } from '@patternfly/react-icons';
 import '@patternfly/react-core/dist/styles/base.css';
-import { ApmeApiProvider } from '@apme/ui-workflow';
+import { ApmeApiProvider, toPrFilesDiffUrl } from '@apme/ui-workflow';
 import type {
   Activity,
   ActivityDetail,
@@ -30,6 +31,7 @@ import {
   useApmeOutlinedTableStyles,
 } from '../ApmeOutlinedTable';
 import { ApmeUnavailable } from '../ApmeUnavailable';
+import { ActivityPublishedCell } from '../ActivityPublishedCell';
 import { EditInDevSpacesButton } from '../EditInDevSpacesButton';
 import { PreviewLabelRow } from '../PreviewChip';
 import { QualityFindingsSection } from '../QualityFindingsSection';
@@ -216,6 +218,7 @@ function ActivityList({
             >
               Time{sortArrow('time')}
             </th>
+            <th style={{ width: 140 }}>Published</th>
           </tr>
         </thead>
         <tbody>
@@ -255,6 +258,13 @@ function ActivityList({
                 <td style={{ color: theme.palette.text.secondary }}>
                   {timeAgo(scan.created_at)}
                 </td>
+                <td onClick={e => e.stopPropagation()}>
+                  <ActivityPublishedCell
+                    pr_url={scan.pr_url}
+                    branch_name={scan.branch_name}
+                    commit_sha={scan.commit_sha}
+                  />
+                </td>
               </tr>
             );
           })}
@@ -287,6 +297,46 @@ function ActivityDetailView({
             {new Date(detail.created_at).toLocaleString()} ·{' '}
             {detail.total_violations} violations
           </div>
+          {(detail.pr_url || detail.branch_name) && (
+            <Flex
+              gap={{ default: 'gapSm' }}
+              alignItems={{ default: 'alignItemsCenter' }}
+              style={{ marginTop: 8 }}
+            >
+              {detail.pr_url && (
+                <FlexItem>
+                  <Button
+                    variant="link"
+                    isInline
+                    component="a"
+                    href={toPrFilesDiffUrl(detail.pr_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    icon={<ExternalLinkAltIcon />}
+                    iconPosition="end"
+                    size="sm"
+                  >
+                    View PR
+                  </Button>
+                </FlexItem>
+              )}
+              {detail.branch_name && (
+                <FlexItem>
+                  <span
+                    style={{
+                      fontFamily: 'var(--pf-t--global--font--family--mono)',
+                      fontSize: '0.875em',
+                    }}
+                  >
+                    {detail.branch_name}
+                    {detail.commit_sha
+                      ? ` @ ${detail.commit_sha.slice(0, 8)}`
+                      : ''}
+                  </span>
+                </FlexItem>
+              )}
+            </Flex>
+          )}
         </FlexItem>
         <FlexItem>
           <CloseDetailButton onClose={onBack} />
