@@ -9,10 +9,14 @@ import {
   MockStarredEntitiesApi,
   starredEntitiesApiRef,
 } from '@backstage/plugin-catalog-react';
-import { filterBySource } from './Home';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
-import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import { HomeComponent, TemplatesRoutesPage } from './Home';
+import { JobTemplatesProvider } from './JobTemplatesProvider';
+import { rootRouteRef } from '../../routes';
+import { ansibleApiRef } from '../../apis';
+import { mockCatalogApi } from '../../tests/catalogApi_utils';
+import { mockAnsibleApi } from '../../tests/mockAnsibleApi';
 
 const mockUseIsSuperuser = jest.fn(() => ({
   isSuperuser: true,
@@ -84,13 +88,6 @@ jest.mock('../notifications', () => ({
   }),
 }));
 
-import { HomeComponent, TemplatesRoutesPage } from './Home';
-import { rootRouteRef } from '../../routes';
-import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
-import { mockCatalogApi } from '../../tests/catalogApi_utils';
-import { mockAnsibleApi, mockRhAapAuthApi } from '../../tests/mockAnsibleApi';
-import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
-
 describe('self-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -103,12 +100,18 @@ describe('self-service', () => {
       loading: false,
       allowed: true,
     });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null, syncInProgress: false },
         jobTemplates: { lastSync: null, syncInProgress: false },
       },
+    });
+    mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
+      items: [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ],
     });
 
     // Mock queryEntities for server-side pagination (EntityListProvider uses
@@ -131,25 +134,6 @@ describe('self-service', () => {
         },
       };
     });
-
-    // Restore autocomplete if it was deleted
-    if (!mockScaffolderApi.autocomplete) {
-      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-        ],
-      }) as jest.MockedFunction<any>;
-    } else {
-      (
-        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
-      ).mockResolvedValue({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-        ],
-      });
-    }
   });
 
   const render = (children: JSX.Element) => {
@@ -158,14 +142,12 @@ describe('self-service', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
-          [rhAapAuthApiRef, mockRhAapAuthApi],
-          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
       >
         <MockEntityListContextProvider>
-          {children}
+          <JobTemplatesProvider>{children}</JobTemplatesProvider>
         </MockEntityListContextProvider>
       </TestApiProvider>,
       {
@@ -437,21 +419,6 @@ describe('self-service', () => {
     expect(mockAnsibleApi.syncTemplates).not.toHaveBeenCalled();
   });
 
-  it('should handle case when scaffolderApi.autocomplete does not exist', async () => {
-    const entityRefs = ['component:default/e1'];
-    const tags = ['tag1'];
-    mockCatalogApi.getEntityFacets.mockResolvedValue(
-      facetsFromEntityRefs(entityRefs, tags),
-    );
-
-    // Remove autocomplete from scaffolderApi
-    delete (mockScaffolderApi as any).autocomplete;
-
-    await render(<HomeComponent />);
-
-    expect(screen.getByText('Templates', { exact: true })).toBeInTheDocument();
-  });
-
   it('should handle templates only sync', async () => {
     const entityRefs = ['component:default/e1'];
     const tags = ['tag1'];
@@ -506,7 +473,7 @@ describe('self-service', () => {
       fireEvent.click(screen.getByText('Ok'));
     };
 
-    it('should fetch job templates via autocomplete on mount', async () => {
+    it('should fetch job templates on mount', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -516,13 +483,7 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(mockRhAapAuthApi.getAccessToken).toHaveBeenCalled();
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
-          token: 'mock-token',
-          resource: 'job_templates',
-          provider: 'aap-api-cloud',
-          context: {},
-        });
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalled();
       });
     });
 
@@ -540,17 +501,17 @@ describe('self-service', () => {
       // Use toHaveBeenCalled() rather than an exact count because the
       // CATALOG_SETTLE_MS auto-refresh timer may trigger an extra call.
       await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalled();
       });
 
-      (mockScaffolderApi.autocomplete as jest.Mock).mockClear();
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockClear();
 
       await triggerTemplateSync();
 
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
         // Unchanged AAP list after sync triggers a delayed second autocomplete fetch.
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -566,10 +527,10 @@ describe('self-service', () => {
 
       // Wait for at least one mount autocomplete call before clearing.
       await waitFor(() => {
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalled();
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalled();
       });
 
-      (mockScaffolderApi.autocomplete as jest.Mock).mockClear();
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockClear();
 
       await triggerTemplateSync();
 
@@ -580,7 +541,7 @@ describe('self-service', () => {
       // Failed sync should not trigger fetchJobTemplates.
       // The CATALOG_SETTLE_MS auto-refresh may independently trigger at most one call.
       expect(
-        (mockScaffolderApi.autocomplete as jest.Mock).mock.calls.length,
+        (mockAnsibleApi.getUserJobTemplates as jest.Mock).mock.calls.length,
       ).toBeLessThanOrEqual(1);
     });
 
@@ -593,13 +554,13 @@ describe('self-service', () => {
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
       const sameResults = {
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
         ],
       };
 
-      (mockScaffolderApi.autocomplete as jest.Mock)
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock)
         .mockResolvedValueOnce(sameResults)
         .mockResolvedValueOnce(sameResults)
         .mockResolvedValueOnce(sameResults)
@@ -620,7 +581,7 @@ describe('self-service', () => {
         () => {
           expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
           // Mount + post-sync fetch + stale-list retry
-          expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(3);
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(3);
         },
         { timeout: 4000 },
       );
@@ -641,10 +602,10 @@ describe('self-service', () => {
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
       // Mount: IDs 1, 2
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
         ],
       });
 
@@ -658,11 +619,11 @@ describe('self-service', () => {
         mockCatalogApi.getEntityFacets.mock.calls.length;
 
       // After sync: IDs 1, 2, 3 — new template added
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-          { id: '3', title: 'New Template' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
+          { id: 3, name: 'New Template' },
         ],
       });
 
@@ -670,7 +631,7 @@ describe('self-service', () => {
 
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
       // EntityListProvider should have remounted — getEntityFacets called again
@@ -690,11 +651,11 @@ describe('self-service', () => {
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
       // Mount: IDs 1, 2, 3
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-          { id: '3', title: 'Template 3' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
+          { id: 3, name: 'Template 3' },
         ],
       });
 
@@ -708,10 +669,10 @@ describe('self-service', () => {
         mockCatalogApi.getEntityFacets.mock.calls.length;
 
       // After sync: IDs 1, 2 — template 3 removed
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
         ],
       });
 
@@ -719,7 +680,7 @@ describe('self-service', () => {
 
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
       // EntityListProvider should have remounted — getEntityFacets called again
@@ -739,10 +700,10 @@ describe('self-service', () => {
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
       // Mount: IDs 1, 2 with original names
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
         ],
       });
 
@@ -756,9 +717,9 @@ describe('self-service', () => {
         mockCatalogApi.getEntityFacets.mock.calls.length;
 
       // After sync: same IDs but template 2 was renamed
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
-        results: [
-          { id: '1', title: 'Template 1' },
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
           { id: '2', title: 'Renamed Template' },
         ],
       });
@@ -767,7 +728,7 @@ describe('self-service', () => {
 
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
+        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
       // EntityListProvider should have remounted — getEntityFacets called again
@@ -965,123 +926,94 @@ describe('self-service', () => {
     });
   });
 
-  describe('controller warning alert', () => {
+  describe('job template fetch errors', () => {
     afterEach(() => {
       jest.useRealTimers();
     });
 
-    it('should show error Alert when autocomplete fails', async () => {
+    const expectJobTemplateFetchError = async (message: string) => {
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'Retry' }),
+        ).toBeInTheDocument();
+        expect(screen.getAllByText(message).length).toBeGreaterThanOrEqual(1);
+      });
+    };
+
+    it('should show inline and snackbar errors when getUserJobTemplates fails', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
         facetsFromEntityRefs(entityRefs, tags),
       );
 
-      const mockError = Object.assign(
-        new Error('Request failed with 503 Service Unavailable'),
-        {
-          body: {
-            error: {
-              message: 'Controller service is absent in provided AAP instance',
-            },
-          },
-        },
-      );
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        mockError,
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockRejectedValue(
+        new Error('Controller service is absent in provided AAP instance'),
       );
 
       await render(<HomeComponent />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeInTheDocument();
-      });
+      await expectJobTemplateFetchError(
+        'Controller service is absent in provided AAP instance',
+      );
+      expect(screen.getByRole('alert')).toBeInTheDocument();
     });
 
-    it('should close error Alert when close button is clicked', async () => {
+    it.each([
+      [
+        'Error.message',
+        new Error('Network connection failed'),
+        'Network connection failed',
+      ],
+      ['plain string rejection', 'plain string error', 'plain string error'],
+    ])(
+      'should surface job template fetch failures from %s',
+      async (_description, rejection, expectedMessage) => {
+        const entityRefs = ['component:default/e1'];
+        const tags = ['tag1'];
+        mockCatalogApi.getEntityFacets.mockResolvedValue(
+          facetsFromEntityRefs(entityRefs, tags),
+        );
+
+        (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockRejectedValue(
+          rejection,
+        );
+
+        await render(<HomeComponent />);
+
+        await expectJobTemplateFetchError(expectedMessage);
+      },
+    );
+
+    it('should dismiss the snackbar alert but keep the inline error', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
         facetsFromEntityRefs(entityRefs, tags),
       );
 
-      const mockError = Object.assign(
-        new Error('Request failed with 503 Service Unavailable'),
-        {
-          body: {
-            error: {
-              message: 'Controller service is absent in provided AAP instance',
-            },
-          },
-        },
-      );
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        mockError,
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockRejectedValue(
+        new Error('Controller service is absent in provided AAP instance'),
       );
 
       await render(<HomeComponent />);
 
-      await waitFor(() => {
-        expect(
-          screen.getByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeInTheDocument();
-      });
+      await expectJobTemplateFetchError(
+        'Controller service is absent in provided AAP instance',
+      );
 
       const alert = screen.getByRole('alert');
-      const closeButton = within(alert).getByRole('button');
-      fireEvent.click(closeButton);
+      fireEvent.click(within(alert).getByRole('button'));
 
       await waitFor(() => {
-        expect(
-          screen.queryByText(
-            'Controller service is absent in provided AAP instance',
-          ),
-        ).toBeNull();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       });
-    });
-
-    it('should show error.message when body.error.message is absent', async () => {
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        new Error('Network connection failed'),
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText('Network connection failed'),
-        ).toBeInTheDocument();
-      });
-    });
-
-    it('should handle non-Error rejection in fetchJobTemplates', async () => {
-      const entityRefs = ['component:default/e1'];
-      const tags = ['tag1'];
-      mockCatalogApi.getEntityFacets.mockResolvedValue(
-        facetsFromEntityRefs(entityRefs, tags),
-      );
-
-      (mockScaffolderApi.autocomplete as jest.Mock).mockRejectedValue(
-        'plain string error',
-      );
-
-      await render(<HomeComponent />);
-
-      await waitFor(() => {
-        expect(screen.getByText('plain string error')).toBeInTheDocument();
-      });
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+      expect(
+        screen.getAllByText(
+          'Controller service is absent in provided AAP instance',
+        ).length,
+      ).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -1243,12 +1175,8 @@ describe('self-service', () => {
       ],
     });
     mockCatalogApi.queryEntities.mockResolvedValue({
-      items: [
-        templateWithMatchingId,
-        templateWithNonMatchingId,
-        templateWithNoId,
-      ],
-      totalItems: 3,
+      items: [templateWithMatchingId, templateWithNoId],
+      totalItems: 2,
       pageInfo: {},
     });
 
@@ -1386,30 +1314,19 @@ describe('self-service', () => {
 describe('TemplatesRoutesPage notifications', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null, syncInProgress: false },
         jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
-    if (!mockScaffolderApi.autocomplete) {
-      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-        ],
-      }) as jest.MockedFunction<any>;
-    } else {
-      (
-        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
-      ).mockResolvedValue({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-        ],
-      });
-    }
+    mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
+      items: [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ],
+    });
   });
 
   const renderPage = () => {
@@ -1425,8 +1342,6 @@ describe('TemplatesRoutesPage notifications', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
-          [rhAapAuthApiRef, mockRhAapAuthApi],
-          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -1472,12 +1387,18 @@ describe('sync signal integration', () => {
       error: null,
     });
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null, syncInProgress: false },
         jobTemplates: { lastSync: null, syncInProgress: false },
       },
+    });
+    mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
+      items: [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ],
     });
   });
 
@@ -1487,14 +1408,12 @@ describe('sync signal integration', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
-          [rhAapAuthApiRef, mockRhAapAuthApi],
-          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
       >
         <MockEntityListContextProvider>
-          {children}
+          <JobTemplatesProvider>{children}</JobTemplatesProvider>
         </MockEntityListContextProvider>
       </TestApiProvider>,
       {
@@ -1583,12 +1502,18 @@ describe('sync progress tooltip', () => {
       error: null,
     });
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null, syncInProgress: false },
         jobTemplates: { lastSync: null, syncInProgress: false },
       },
+    });
+    mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
+      items: [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ],
     });
   });
 
@@ -1598,14 +1523,12 @@ describe('sync progress tooltip', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
-          [rhAapAuthApiRef, mockRhAapAuthApi],
-          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
       >
         <MockEntityListContextProvider>
-          {children}
+          <JobTemplatesProvider>{children}</JobTemplatesProvider>
         </MockEntityListContextProvider>
       </TestApiProvider>,
       {
@@ -1779,24 +1702,16 @@ describe('HomeCategoryPicker EE exclusion', () => {
       error: null,
     });
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('mock-token');
+
     mockAnsibleApi.getSyncStatus.mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: null, syncInProgress: false },
         jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
-    if (!mockScaffolderApi.autocomplete) {
-      mockScaffolderApi.autocomplete = jest.fn().mockResolvedValue({
-        results: [{ id: '1', title: 'Template 1' }],
-      }) as jest.MockedFunction<any>;
-    } else {
-      (
-        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
-      ).mockResolvedValue({
-        results: [{ id: '1', title: 'Template 1' }],
-      });
-    }
+    mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
+      items: [{ id: 1, name: 'Template 1' }],
+    });
     mockCatalogApi.queryEntities.mockImplementation(async (request: any) => {
       const { items } = await mockCatalogApi.getEntities();
       const queryLimit = request?.limit ?? items.length;
@@ -1816,14 +1731,12 @@ describe('HomeCategoryPicker EE exclusion', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
-          [rhAapAuthApiRef, mockRhAapAuthApi],
-          [scaffolderApiRef, mockScaffolderApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
       >
         <MockEntityListContextProvider>
-          {children}
+          <JobTemplatesProvider>{children}</JobTemplatesProvider>
         </MockEntityListContextProvider>
       </TestApiProvider>,
       {
@@ -1858,19 +1771,27 @@ describe('HomeCategoryPicker EE exclusion', () => {
       );
     });
 
-    // Verify queryEntities is called with non-EE types only
+    // HomeCatalogProvider sends a predicate query, not a legacy filter object.
     await waitFor(() => {
       const calls = mockCatalogApi.queryEntities.mock.calls;
-      const hasTypeFilter = calls.some((call: any[]) => {
-        const types = call[0]?.filter?.['spec.type'];
-        return (
-          Array.isArray(types) &&
-          types.includes('service') &&
-          types.includes('workflow') &&
-          !types.includes('execution-environment')
-        );
+      const hasNonEETypeQuery = calls.some((call: any[]) => {
+        const branches = call[0]?.query?.$all;
+        if (!Array.isArray(branches)) {
+          return false;
+        }
+
+        return branches.some((branch: Record<string, unknown>) => {
+          const typeFilter = branch['spec.type'] as
+            { $in?: string[] } | undefined;
+          return (
+            Array.isArray(typeFilter?.$in) &&
+            typeFilter.$in.includes('service') &&
+            typeFilter.$in.includes('workflow') &&
+            !typeFilter.$in.includes('execution-environment')
+          );
+        });
       });
-      expect(hasTypeFilter).toBe(true);
+      expect(hasNonEETypeQuery).toBe(true);
     });
   });
 
@@ -1885,35 +1806,5 @@ describe('HomeCategoryPicker EE exclusion', () => {
       expect(screen.getByText('Categories')).toBeInTheDocument();
     });
     expect(screen.getByText('Tags')).toBeInTheDocument();
-  });
-});
-
-describe('filterBySource', () => {
-  const makeTemplate = (annotations: Record<string, string> = {}) =>
-    ({
-      apiVersion: 'scaffolder.backstage.io/v1beta3',
-      kind: 'Template',
-      metadata: { name: 'test', annotations },
-      spec: { type: 'automation-template', owner: 'test' },
-    }) as any;
-
-  const jobTemplates = [{ id: 1, name: 'test' }];
-
-  it('returns true when no sources selected', () => {
-    const entity = makeTemplate({ 'ansible.com/template-source': 'scm' });
-    expect(filterBySource(entity, jobTemplates, [])).toBe(true);
-  });
-
-  it('filters by selected source', () => {
-    const entity = makeTemplate({
-      'ansible.com/template-source': 'aap-template',
-    });
-    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(true);
-    expect(filterBySource(entity, jobTemplates, ['scm'])).toBe(false);
-  });
-
-  it('handles entity without source annotation', () => {
-    const entity = makeTemplate({});
-    expect(filterBySource(entity, jobTemplates, ['aap-template'])).toBe(false);
   });
 });

@@ -8,6 +8,20 @@ import {
 } from './apis.ts';
 import { OAuth2 } from '@backstage/core-app-api';
 
+const mockRhaapAuthApi = {
+  getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
+};
+
+const createAnsibleApiClient = (options: {
+  discoveryApi: { getBaseUrl: jest.Mock };
+  fetchApi: { fetch: jest.Mock };
+}) =>
+  new AnsibleApiClient({
+    discoveryApi: options.discoveryApi as any,
+    fetchApi: options.fetchApi as any,
+    rhaapAuthApi: mockRhaapAuthApi as any,
+  });
+
 describe('Ansible API module', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -24,9 +38,9 @@ describe('Ansible API module', () => {
       }),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncTemplates();
@@ -49,9 +63,9 @@ describe('Ansible API module', () => {
       }),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncTemplates();
@@ -66,9 +80,9 @@ describe('Ansible API module', () => {
       fetch: jest.fn().mockRejectedValue(new Error('network error')),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncTemplates();
@@ -91,9 +105,9 @@ describe('Ansible API module', () => {
       }),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncTemplates();
@@ -110,9 +124,9 @@ describe('Ansible API module', () => {
       }),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncOrgsUsersTeam();
@@ -133,9 +147,9 @@ describe('Ansible API module', () => {
       fetch: jest.fn().mockRejectedValue(new Error('network error')),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.syncOrgsUsersTeam();
@@ -163,9 +177,9 @@ describe('Ansible API module', () => {
       }),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.getSyncStatus();
@@ -190,9 +204,9 @@ describe('Ansible API module', () => {
       fetch: jest.fn().mockRejectedValue(new Error('network error')),
     };
 
-    const client = new AnsibleApiClient({
-      discoveryApi: mockDiscovery as any,
-      fetchApi: mockFetch as any,
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
     });
 
     const result = await client.getSyncStatus();
@@ -209,6 +223,65 @@ describe('Ansible API module', () => {
     });
   });
 
+  it('AnsibleApiClient.getUserJobTemplates sends the AAP access token header', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          items: [{ id: 1, name: 'Template 1' }],
+        }),
+      }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    const result = await client.getUserJobTemplates();
+
+    expect(mockRhaapAuthApi.getAccessToken).toHaveBeenCalled();
+    expect(mockFetch.fetch).toHaveBeenCalledWith(
+      'http://example.com/rhaap/user-job-templates',
+      {
+        credentials: 'include',
+        headers: { 'X-RHAAP-Access-Token': 'mock-aap-access-token' },
+      },
+    );
+    expect(result).toEqual({ items: [{ id: 1, name: 'Template 1' }] });
+  });
+
+  it.each([
+    'AAP token exchange failed: invalid_grant',
+    'OAuth refresh failed: invalid_grant',
+  ])(
+    'AnsibleApiClient.getUserJobTemplates maps %s to a sign-in message',
+    async apiError => {
+      const mockDiscovery = {
+        getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+      };
+      const mockFetch = {
+        fetch: jest.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          json: jest.fn().mockResolvedValue({ error: apiError }),
+        }),
+      };
+
+      const client = createAnsibleApiClient({
+        discoveryApi: mockDiscovery,
+        fetchApi: mockFetch,
+      });
+
+      await expect(client.getUserJobTemplates()).rejects.toThrow(
+        'Your AAP sign-in session expired. Sign out and sign in again.',
+      );
+    },
+  );
+
   it('AAPApis factory produces an AnsibleApiClient wired with the provided apis', () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
@@ -218,6 +291,7 @@ describe('Ansible API module', () => {
     const instance = AAPApis.factory({
       discoveryApi: mockDiscovery as any,
       fetchApi: mockFetch as any,
+      rhaapAuthApi: mockRhaapAuthApi as any,
     });
 
     expect(instance).toBeInstanceOf(AnsibleApiClient);
