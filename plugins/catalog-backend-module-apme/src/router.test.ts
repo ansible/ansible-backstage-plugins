@@ -242,6 +242,7 @@ describe('catalog-backend-module-apme router', () => {
     expect(stored.activities?.['scan-1']).toEqual({
       branch_name: 'apme/remediate-abc12345',
       pr_url: 'https://github.com/org/repo/pull/1',
+      commit_sha: 'deadbeef',
     });
   });
 
@@ -348,6 +349,7 @@ describe('catalog-backend-module-apme router', () => {
     await portalSettingsStore.updateActivityOutcome('scan-rem-1', {
       branch_name: 'apme/remediate-stored',
       pr_url: 'https://github.com/org/repo/pull/9',
+      commit_sha: 'feedface',
     });
 
     const detail = {
@@ -367,6 +369,7 @@ describe('catalog-backend-module-apme router', () => {
         scan_id: 'scan-rem-1',
         branch_name: 'apme/remediate-stored',
         pr_url: 'https://github.com/org/repo/pull/9',
+        commit_sha: 'feedface',
       }),
     );
   });

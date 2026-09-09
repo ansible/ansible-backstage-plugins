@@ -144,7 +144,11 @@ export class ApmePortalSettingsStore {
 
   async updateActivityOutcome(
     scanId: string,
-    outcome: { branch_name?: string; pr_url?: string | null },
+    outcome: {
+      branch_name?: string;
+      pr_url?: string | null;
+      commit_sha?: string | null;
+    },
   ): Promise<void> {
     const current = await this.read();
     const activities = { ...(current.activities ?? {}) };
@@ -152,6 +156,9 @@ export class ApmePortalSettingsStore {
       ...activities[scanId],
       ...(outcome.branch_name ? { branch_name: outcome.branch_name } : {}),
       ...(outcome.pr_url !== undefined ? { pr_url: outcome.pr_url } : {}),
+      ...(outcome.commit_sha !== undefined
+        ? { commit_sha: outcome.commit_sha }
+        : {}),
     };
     await this.write({
       ...current,

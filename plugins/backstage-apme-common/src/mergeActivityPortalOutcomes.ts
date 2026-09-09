@@ -24,6 +24,7 @@ export function mergeActivityPortalOutcomes(
       ...activity,
       branch_name: activity.branch_name ?? stored.branch_name ?? null,
       pr_url: activity.pr_url ?? stored.pr_url ?? null,
+      commit_sha: activity.commit_sha ?? stored.commit_sha ?? null,
     };
   });
 }

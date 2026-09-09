@@ -71,4 +71,15 @@ describe('mergeActivityPortalOutcomes', () => {
 
     expect(merged[0].pr_url).toBe('https://github.com/org/repo/pull/2');
   });
+
+  it('merges stored commit_sha when gateway omits it', () => {
+    const merged = mergeActivityPortalOutcomes([baseActivity], {
+      'scan-1': {
+        branch_name: 'apme/remediate-abc',
+        commit_sha: 'abc12345',
+      },
+    });
+
+    expect(merged[0].commit_sha).toBe('abc12345');
+  });
 });

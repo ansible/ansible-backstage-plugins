@@ -21,12 +21,16 @@ export interface ApmePortalSettingsData {
     gatewayBaseUrl?: string;
   };
   projects?: Record<string, { targetAnsibleCoreVersion?: string }>;
-  activities?: Record<string, { branch_name?: string; pr_url?: string | null }>;
+  activities?: Record<
+    string,
+    { branch_name?: string; pr_url?: string | null; commit_sha?: string | null }
+  >;
 }
 
 export interface ActivityPortalOutcome {
   branch_name?: string;
   pr_url?: string | null;
+  commit_sha?: string | null;
 }
 
 export interface ProjectScanTargetResolution {

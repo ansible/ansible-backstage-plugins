@@ -844,6 +844,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       await portalSettingsStore.updateActivityOutcome(activityId, {
         branch_name: result.branch_name,
         pr_url: result.pr_url ?? null,
+        commit_sha: result.commit_sha ?? null,
       });
 
       res.status(200).json(result);
