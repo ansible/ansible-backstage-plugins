@@ -1,3 +1,4 @@
+import { EntityFilterQuery } from '@backstage/catalog-client';
 import { buildHomeTemplateCatalogQuery } from './buildHomeTemplateQuery';
 import { buildVisibilityPredicate } from './buildVisibilityPredicate';
 
@@ -43,6 +44,36 @@ describe('buildHomeTemplateCatalogQuery', () => {
           },
         },
       ],
+    });
+  });
+
+  it('supports array catalog filters and ignores unsupported filter values', () => {
+    const query = buildHomeTemplateCatalogQuery({
+      jobTemplateIds: [1],
+      catalogFilter: [
+        { kind: 'template', 'metadata.tags': ['ops', 'demo'] },
+        { unsupported: { nested: true } },
+      ] as EntityFilterQuery,
+      selectedSources: [],
+    });
+
+    expect(query).toEqual({
+      $all: [
+        buildVisibilityPredicate([1]),
+        { kind: 'template' },
+        { 'metadata.tags': { $in: ['ops', 'demo'] } },
+      ],
+    });
+  });
+
+  it('omits source filtering when no sources are selected', () => {
+    const query = buildHomeTemplateCatalogQuery({
+      jobTemplateIds: [2],
+      catalogFilter: { kind: 'template' },
+    });
+
+    expect(query).toEqual({
+      $all: [buildVisibilityPredicate([2]), { kind: 'template' }],
     });
   });
 });

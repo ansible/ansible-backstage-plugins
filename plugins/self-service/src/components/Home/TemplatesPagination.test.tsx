@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { TemplatesPagination } from './TemplatesPagination';
 
 describe('TemplatesPagination', () => {
@@ -63,5 +63,64 @@ describe('TemplatesPagination', () => {
 
     fireEvent.click(screen.getByLabelText('Next page'));
     expect(onPageChange).toHaveBeenCalledWith(40);
+  });
+
+  it('calls onPageChange when navigating to the previous page', () => {
+    const onPageChange = jest.fn();
+
+    render(
+      <TemplatesPagination
+        totalCount={60}
+        pageLimit={20}
+        page={1}
+        totalPages={3}
+        startIndex={21}
+        endIndex={40}
+        onPageChange={onPageChange}
+        onPageSizeChange={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('Previous page'));
+    expect(onPageChange).toHaveBeenCalledWith(0);
+  });
+
+  it('calls onPageSizeChange when the page size changes', async () => {
+    const onPageSizeChange = jest.fn();
+
+    render(
+      <TemplatesPagination
+        totalCount={60}
+        pageLimit={20}
+        page={0}
+        totalPages={3}
+        startIndex={1}
+        endIndex={20}
+        onPageChange={jest.fn()}
+        onPageSizeChange={onPageSizeChange}
+      />,
+    );
+
+    fireEvent.mouseDown(screen.getByLabelText('Templates per page'));
+    const listbox = await screen.findByRole('listbox');
+    fireEvent.click(within(listbox).getByText('50'));
+    expect(onPageSizeChange).toHaveBeenCalledWith(50);
+  });
+
+  it('renders singular copy for a single template', () => {
+    render(
+      <TemplatesPagination
+        totalCount={1}
+        pageLimit={20}
+        page={0}
+        totalPages={1}
+        startIndex={1}
+        endIndex={1}
+        onPageChange={jest.fn()}
+        onPageSizeChange={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('1 template')).toBeInTheDocument();
   });
 });

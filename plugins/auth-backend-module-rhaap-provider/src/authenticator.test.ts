@@ -187,6 +187,40 @@ describe('authenticator', () => {
     expect(mockAAPService.rhAAPRevokeToken).not.toHaveBeenCalled();
   });
 
+  it('refresh rethrows non-authentication errors from fetchProfile', async () => {
+    mockAAPService.fetchProfile.mockRejectedValueOnce(
+      new Error('network down'),
+    );
+
+    const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
+    aapAuthAuthenticator.initialize({
+      callbackUrl: '',
+      config: mockServices.rootConfig({
+        data: {
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          host: DEFAULT_HOST,
+          checkSSL: CHECK_SSL,
+          callbackUrl: 'http://localhost',
+        },
+      }),
+    });
+
+    await expect(
+      aapAuthAuthenticator.refresh!(
+        // @ts-ignore
+        { refreshToken: 'oldRefreshToken' },
+        {
+          host: DEFAULT_HOST,
+          clientId: CLIENT_ID,
+          clientSecret: CLIENT_SECRET,
+          callbackURL: 'http://localhost',
+          checkSSL: CHECK_SSL,
+        },
+      ),
+    ).rejects.toThrow('network down');
+  });
+
   it('refresh throws AuthenticationError when fetchProfile returns 401', async () => {
     mockAAPService.fetchProfile.mockRejectedValueOnce(
       new AuthenticationError('AAP session expired or token revoked'),

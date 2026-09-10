@@ -254,6 +254,63 @@ describe('Ansible API module', () => {
     expect(result).toEqual({ items: [{ id: 1, name: 'Template 1' }] });
   });
 
+  it('AnsibleApiClient.getUserJobTemplates rejects when no access token is available', async () => {
+    mockRhaapAuthApi.getAccessToken.mockResolvedValueOnce('   ');
+
+    const client = createAnsibleApiClient({
+      discoveryApi: { getBaseUrl: jest.fn() } as any,
+      fetchApi: { fetch: jest.fn() } as any,
+    });
+
+    await expect(client.getUserJobTemplates()).rejects.toThrow(
+      'Your AAP sign-in session expired. Sign out and sign in again.',
+    );
+  });
+
+  it('AnsibleApiClient.getUserJobTemplates surfaces generic API failures', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: jest.fn().mockRejectedValue(new Error('invalid json')),
+      }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    await expect(client.getUserJobTemplates()).rejects.toThrow(
+      'Request failed (502)',
+    );
+  });
+
+  it('AnsibleApiClient.getUserJobTemplates preserves non-session API errors', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: jest.fn().mockResolvedValue({ error: { code: 'upstream' } }),
+      }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    await expect(client.getUserJobTemplates()).rejects.toThrow(
+      'Request failed (500)',
+    );
+  });
+
   it.each([
     'AAP token exchange failed: invalid_grant',
     'OAuth refresh failed: invalid_grant',

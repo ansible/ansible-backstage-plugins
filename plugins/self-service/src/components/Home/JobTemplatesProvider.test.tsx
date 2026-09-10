@@ -101,4 +101,80 @@ describe('JobTemplatesProvider', () => {
     expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
     expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
   });
+
+  it('sets error state when the initial fetch fails', async () => {
+    mockAnsibleApi.getUserJobTemplates.mockRejectedValue(
+      new Error('Controller unavailable'),
+    );
+
+    render(
+      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+        <JobTemplatesProvider>
+          <Probe />
+        </JobTemplatesProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('load-state')).toHaveTextContent('error');
+    });
+  });
+
+  it('stringifies non-error rejections during the initial fetch', async () => {
+    mockAnsibleApi.getUserJobTemplates.mockRejectedValue('plain failure');
+
+    render(
+      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+        <JobTemplatesProvider>
+          <Probe />
+        </JobTemplatesProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('load-state')).toHaveTextContent('error');
+    });
+  });
+
+  it('keeps ready state but records an error during background refresh', async () => {
+    mockAnsibleApi.getUserJobTemplates
+      .mockResolvedValueOnce({ items: [{ id: 1, name: 'Demo' }] })
+      .mockRejectedValueOnce(new Error('background refresh failed'));
+
+    const refreshRef: {
+      current?: ReturnType<typeof useJobTemplates>['refreshJobTemplates'];
+    } = { current: undefined };
+
+    function RefreshCapture() {
+      const { refreshJobTemplates, errorMessage } = useJobTemplates();
+      refreshRef.current = refreshJobTemplates;
+      return (
+        <div>
+          <Probe />
+          <span data-testid="error-message">{errorMessage ?? ''}</span>
+        </div>
+      );
+    }
+
+    render(
+      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+        <JobTemplatesProvider>
+          <RefreshCapture />
+        </JobTemplatesProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
+    });
+
+    await refreshRef.current?.({ background: true });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('error-message')).toHaveTextContent(
+        'background refresh failed',
+      );
+    });
+    expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
+  });
 });
