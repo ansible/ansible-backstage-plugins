@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
 import { Content, ItemCardGrid, Page } from '@backstage/core-components';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { ApiProvider } from '@backstage/core-app-api';
+import { useApi, useApiHolder, useRouteRef } from '@backstage/core-plugin-api';
 import {
   usePermission,
   RequirePermission,
@@ -27,21 +28,23 @@ import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permiss
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
 import { rootRouteRef } from '../../routes';
-import { ansibleApiRef, rhAapAuthApiRef } from '../../apis';
+import { ansibleApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
 import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 import type { SyncProgressEntry, SyncOutcome } from '../common';
+import { useShellPageStyles } from '../common';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
-import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { TagFilterPicker } from '../utils/TagFilterPicker';
-import {
-  SourcePicker,
-  TEMPLATE_SOURCE_ANNOTATION,
-} from '../utils/SourcePicker';
+import { SourcePicker } from '../utils/SourcePicker';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { CreateTask } from '../CreateTask';
+import { PAGE_SIZE, resolvePageLimit } from './constants';
+import { createHomeCatalogApi } from './createHomeCatalogApi';
+import { createOverridingApiHolder } from './createOverridingApiHolder';
+import { TemplatesPagination } from './TemplatesPagination';
+import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
 import {
   NotificationProvider,
   NotificationStack,
@@ -66,20 +69,42 @@ const jobTemplateListsDiffer = (
   return next.some(t => !prevKeys.has(serializeJobTemplateKey(t)));
 };
 
-const isHomePageTemplate = (
-  entity: TemplateEntityV1beta3,
-  jobTemplates: { id: number; name: string }[],
-): boolean => {
-  if (entity.spec?.type?.includes('execution-environment')) {
-    return false;
-  }
-  if (!entity.metadata.aapJobTemplateId) {
-    return true;
-  }
-  return jobTemplates.some(({ id }) => id === entity.metadata.aapJobTemplateId);
-};
-
 const isEEType = (type: string) => type.includes('execution-environment');
+
+const HomeCatalogProvider = ({
+  children,
+  jobTemplateIds,
+  selectedSources,
+  listKey,
+}: {
+  children: React.ReactNode;
+  jobTemplateIds: number[];
+  selectedSources: string[];
+  listKey: string;
+}) => {
+  const parentApis = useApiHolder();
+  const catalogApi = useApi(catalogApiRef);
+  const homeCatalogApi = useMemo(
+    () => createHomeCatalogApi(catalogApi, jobTemplateIds, selectedSources),
+    [catalogApi, jobTemplateIds, selectedSources],
+  );
+  const apis = useMemo(
+    () =>
+      createOverridingApiHolder(parentApis, [[catalogApiRef, homeCatalogApi]]),
+    [parentApis, homeCatalogApi],
+  );
+
+  return (
+    <ApiProvider apis={apis}>
+      <EntityListProvider
+        key={listKey}
+        pagination={{ mode: 'offset', limit: PAGE_SIZE }}
+      >
+        {children}
+      </EntityListProvider>
+    </ApiProvider>
+  );
+};
 
 const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
   const catalogApi = useApi(catalogApiRef);
@@ -190,40 +215,44 @@ const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
   );
 };
 
-export const filterBySource = (
-  entity: TemplateEntityV1beta3,
-  jobTemplates: { id: number; name: string }[],
-  selectedSources: string[],
-): boolean => {
-  if (!isHomePageTemplate(entity, jobTemplates)) return false;
-  if (selectedSources.length === 0) return true;
-  const source =
-    entity.metadata?.annotations?.[TEMPLATE_SOURCE_ANNOTATION] ?? '';
-  return selectedSources.includes(source);
-};
-
 const TemplateContent = ({
   loading: externalLoading,
-  jobTemplates,
-  selectedSources,
 }: {
   loading: boolean;
-  jobTemplates: { id: number; name: string }[];
-  selectedSources: string[];
 }) => {
-  const { entities, loading: catalogLoading } = useEntityList();
+  const {
+    entities,
+    loading: catalogLoading,
+    totalItems,
+    limit,
+    offset,
+    setOffset,
+    setLimit,
+  } = useEntityList();
 
   const isLoading = externalLoading || catalogLoading;
+  const pageLimit = resolvePageLimit(limit);
 
-  const filteredEntities = useMemo(
+  useEffect(() => {
+    if (limit !== undefined && limit !== pageLimit) {
+      setOffset?.(0);
+      setLimit?.(pageLimit);
+    }
+  }, [limit, pageLimit, setLimit, setOffset]);
+
+  const page = offset ? Math.floor(offset / pageLimit) : 0;
+  const totalCount = totalItems ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageLimit));
+  const startIndex = totalCount === 0 ? 0 : page * pageLimit + 1;
+  const endIndex = Math.min(totalCount, (page + 1) * pageLimit);
+
+  const visibleEntities = useMemo(
     () =>
-      (entities as TemplateEntityV1beta3[]).filter(entity =>
-        filterBySource(entity, jobTemplates, selectedSources),
+      (entities as TemplateEntityV1beta3[]).filter(
+        entity => !entity.spec?.type?.includes('execution-environment'),
       ),
-    [entities, jobTemplates, selectedSources],
+    [entities],
   );
-
-  const totalCount = filteredEntities.length;
 
   if (isLoading) {
     return (
@@ -254,11 +283,26 @@ const TemplateContent = ({
           No templates found.
         </Typography>
       ) : (
-        <ItemCardGrid>
-          {filteredEntities.map(template => (
-            <WizardCard key={template.metadata.uid} template={template} />
-          ))}
-        </ItemCardGrid>
+        <>
+          <ItemCardGrid>
+            {visibleEntities.map(template => (
+              <WizardCard key={template.metadata.uid} template={template} />
+            ))}
+          </ItemCardGrid>
+          <TemplatesPagination
+            totalCount={totalCount}
+            pageLimit={pageLimit}
+            page={page}
+            totalPages={totalPages}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={nextOffset => setOffset?.(nextOffset)}
+            onPageSizeChange={nextLimit => {
+              setOffset?.(0);
+              setLimit?.(nextLimit);
+            }}
+          />
+        </>
       )}
     </div>
   );
@@ -266,10 +310,15 @@ const TemplateContent = ({
 
 export const HomeComponent = () => {
   const navigate = useNavigate();
+  const shellPageClasses = useShellPageStyles();
   const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
-  const rhAapAuthApi = useApi(rhAapAuthApiRef);
-  const scaffolderApi = useApi(scaffolderApiRef);
+  const {
+    jobTemplates,
+    loadState: jobTemplatesLoadState,
+    errorMessage: jobTemplatesErrorMessage,
+    refreshJobTemplates,
+  } = useJobTemplates();
   const { isSuperuser, loading: checkingSuperuser } = useIsSuperuser();
 
   const { loading: checkingCatalogCreate, allowed: canCreateCatalogEntity } =
@@ -285,10 +334,6 @@ export const HomeComponent = () => {
   const [controllerSnackbar, setControllerSnackbar] = useState<
     { status: 'idle' } | { status: 'error'; message: string }
   >({ status: 'idle' });
-  const [jobTemplates, setJobTemplates] = useState<
-    { id: number; name: string }[]
-  >([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [syncKey, setSyncKey] = useState(0);
   type SyncProviderStatus = {
     lastSync: string | null;
@@ -346,11 +391,18 @@ export const HomeComponent = () => {
     syncStatus.jobTemplates.syncInProgress;
 
   const templateSyncProgress = useMemo((): SyncProgressEntry[] => {
-    const getOutcome = (status: {
-      syncInProgress: boolean;
-      lastSyncStatus: 'success' | 'failure' | null;
-    }): SyncOutcome => {
-      if (status.syncInProgress || localSyncing) return 'pending';
+    const getOutcome = (
+      syncType: 'orgsUsersTeams' | 'templates',
+      status: {
+        syncInProgress: boolean;
+        lastSyncStatus: 'success' | 'failure' | null;
+      },
+    ): SyncOutcome => {
+      const activeOption =
+        syncType === 'orgsUsersTeams' ? 'orgsUsersTeams' : 'templates';
+      const isSelected = activeSyncTypes.includes(activeOption);
+      const isPending = status.syncInProgress || (localSyncing && isSelected);
+      if (isPending) return 'pending';
       if (status.lastSyncStatus === 'failure') return 'failure';
       return 'success';
     };
@@ -364,26 +416,34 @@ export const HomeComponent = () => {
       syncStatus.jobTemplates.lastSync !== null ||
       syncStatus.jobTemplates.syncInProgress;
     if (showOrgs) {
+      const outcome = getOutcome('orgsUsersTeams', syncStatus.orgsUsersTeams);
       entries.push({
         sourceId: 'aap-orgs-users-teams',
         displayName: 'Organizations, Users, and Teams',
-        outcome: getOutcome(syncStatus.orgsUsersTeams),
+        outcome,
+        lastSyncTime:
+          outcome === 'success'
+            ? syncStatus.orgsUsersTeams.lastSync
+            : undefined,
       });
     }
     if (showTemplates) {
+      const outcome = getOutcome('templates', syncStatus.jobTemplates);
       entries.push({
         sourceId: 'aap-job-templates',
         displayName: 'Job Templates',
-        outcome: getOutcome(syncStatus.jobTemplates),
+        outcome,
+        lastSyncTime:
+          outcome === 'success' ? syncStatus.jobTemplates.lastSync : undefined,
       });
     }
     return entries;
   }, [activeSyncTypes, syncStatus, localSyncing]);
 
-  const fetchRequestIdRef = useRef(0);
-  const fetchSucceededRef = useRef(false);
   const jobTemplatesRef = useRef(jobTemplates);
   jobTemplatesRef.current = jobTemplates;
+
+  const loading = jobTemplatesLoadState === 'loading';
 
   const fetchSyncStatus = useCallback(async () => {
     try {
@@ -409,49 +469,7 @@ export const HomeComponent = () => {
     setOpen(true);
   };
 
-  const fetchJobTemplates = useCallback(async (): Promise<
-    { id: number; name: string }[] | undefined
-  > => {
-    const requestId = ++fetchRequestIdRef.current;
-    try {
-      const token = await rhAapAuthApi.getAccessToken();
-      if (!scaffolderApi.autocomplete) {
-        return undefined;
-      }
-      const { results } = await scaffolderApi.autocomplete({
-        token,
-        resource: 'job_templates',
-        provider: 'aap-api-cloud',
-        context: {},
-      });
-      const newTemplates = results.map(
-        (result: { id: string; title?: string }) => ({
-          id: Number.parseInt(result.id, 10),
-          name: result.title ?? result.id,
-        }),
-      );
-      if (requestId === fetchRequestIdRef.current) {
-        setJobTemplates(newTemplates);
-        fetchSucceededRef.current = true;
-      }
-      return newTemplates;
-    } catch (error) {
-      const message =
-        (error as any)?.body?.error?.message ??
-        (error instanceof Error ? error.message : String(error));
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch job templates:', error);
-      setControllerSnackbar({ status: 'error', message });
-      if (requestId === fetchRequestIdRef.current) {
-        fetchSucceededRef.current = false;
-      }
-      return undefined;
-    } finally {
-      if (requestId === fetchRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [scaffolderApi, rhAapAuthApi]);
+  const fetchJobTemplates = refreshJobTemplates;
 
   const handleSync = useCallback(async () => {
     let result = false;
@@ -469,7 +487,7 @@ export const HomeComponent = () => {
         if (result) {
           fetchSyncStatus();
           const preSyncTemplates = jobTemplatesRef.current;
-          const newTemplates = await fetchJobTemplates();
+          const newTemplates = await fetchJobTemplates({ background: true });
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -477,7 +495,7 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            await fetchJobTemplates();
+            await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
         }
@@ -497,9 +515,17 @@ export const HomeComponent = () => {
   };
 
   useEffect(() => {
-    fetchJobTemplates();
+    if (jobTemplatesErrorMessage) {
+      setControllerSnackbar({
+        status: 'error',
+        message: jobTemplatesErrorMessage,
+      });
+    }
+  }, [jobTemplatesErrorMessage]);
+
+  useEffect(() => {
     fetchSyncStatus();
-  }, [fetchJobTemplates, fetchSyncStatus]);
+  }, [fetchSyncStatus]);
 
   // After fetchJobTemplates completes, schedule a catalog refresh so that
   // recently imported templates (via "Add Template") have time to be
@@ -540,8 +566,91 @@ export const HomeComponent = () => {
     };
   }, []);
 
+  const jobTemplateIds = useMemo(
+    () => jobTemplates.map(template => template.id),
+    [jobTemplates],
+  );
+  const catalogListKey = `${syncKey}-${jobTemplateIds.join(',')}-${selectedSources.join(',')}`;
+  const canShowCatalog = jobTemplatesLoadState === 'ready';
+
+  const catalogContent = (() => {
+    if (canShowCatalog) {
+      return (
+        <HomeCatalogProvider
+          jobTemplateIds={jobTemplateIds}
+          selectedSources={selectedSources}
+          listKey={catalogListKey}
+        >
+          <CatalogFilterLayout>
+            <CatalogFilterLayout.Filters>
+              <div data-testid="search-bar-container">
+                <EntitySearchBar />
+              </div>
+              <EntityKindPicker initialFilter="template" hidden />
+              <div data-testid="user-picker-container">
+                <UserListPicker
+                  initialFilter="all"
+                  availableFilters={['all', 'starred']}
+                />
+              </div>
+              <div data-testid="categories-picker">
+                <HomeCategoryPicker syncKey={syncKey} />
+              </div>
+              <HomeTagPicker syncKey={syncKey} />
+              <SourcePicker
+                syncKey={syncKey}
+                selectedSources={selectedSources}
+                onSourceChange={setSelectedSources}
+              />
+              <EntityOwnerPicker />
+            </CatalogFilterLayout.Filters>
+            <CatalogFilterLayout.Content>
+              <TemplateContent loading={loading} />
+            </CatalogFilterLayout.Content>
+          </CatalogFilterLayout>
+        </HomeCatalogProvider>
+      );
+    }
+
+    if (jobTemplatesLoadState === 'error') {
+      return (
+        <Typography
+          variant="body1"
+          style={{ textAlign: 'center', padding: '40px 0' }}
+        >
+          {jobTemplatesErrorMessage ??
+            'Could not load your AAP job templates. Try signing in again or use Retry below.'}
+          <Button
+            color="primary"
+            onClick={() => void refreshJobTemplates()}
+            style={{ display: 'block', margin: '16px auto 0' }}
+          >
+            Retry
+          </Button>
+        </Typography>
+      );
+    }
+
+    return (
+      <div
+        data-testid="loading-templates"
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '100%',
+          gap: '10px',
+        }}
+      >
+        {[1, 2, 3].map(id => (
+          <SkeletonLoader key={`skeleton-${id}`} />
+        ))}
+      </div>
+    );
+  })();
+
   return (
-    <Page themeId="app">
+    <Page themeId="app" className={shellPageClasses.page}>
       {open && (
         <SyncConfirmationDialog
           id="sync-menu"
@@ -602,39 +711,7 @@ export const HomeComponent = () => {
               controllerSnackbar.message}
           </Alert>
         </Snackbar>
-        <EntityListProvider key={syncKey}>
-          <CatalogFilterLayout>
-            <CatalogFilterLayout.Filters>
-              <div data-testid="search-bar-container">
-                <EntitySearchBar />
-              </div>
-              <EntityKindPicker initialFilter="template" hidden />
-              <div data-testid="user-picker-container">
-                <UserListPicker
-                  initialFilter="all"
-                  availableFilters={['all', 'starred']}
-                />
-              </div>
-              <div data-testid="categories-picker">
-                <HomeCategoryPicker syncKey={syncKey} />
-              </div>
-              <HomeTagPicker syncKey={syncKey} />
-              <SourcePicker
-                syncKey={syncKey}
-                selectedSources={selectedSources}
-                onSourceChange={setSelectedSources}
-              />
-              <EntityOwnerPicker />
-            </CatalogFilterLayout.Filters>
-            <CatalogFilterLayout.Content>
-              <TemplateContent
-                loading={loading}
-                jobTemplates={jobTemplates}
-                selectedSources={selectedSources}
-              />
-            </CatalogFilterLayout.Content>
-          </CatalogFilterLayout>
-        </EntityListProvider>
+        {catalogContent}
       </Content>
     </Page>
   );
@@ -677,7 +754,9 @@ export const TemplatesRoutesPage = () => {
   return (
     <RequirePermission permission={templatesViewPermission}>
       <NotificationProvider>
-        <TemplatesRoutesContent />
+        <JobTemplatesProvider>
+          <TemplatesRoutesContent />
+        </JobTemplatesProvider>
       </NotificationProvider>
     </RequirePermission>
   );

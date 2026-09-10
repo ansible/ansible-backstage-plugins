@@ -209,3 +209,19 @@ export const useProgressTooltipStyles = makeStyles(theme => ({
     },
   },
 }));
+
+/**
+ * Page scroll behaviour inside the host shell.
+ *
+ * RHDH sets <main> height via SidebarLayout (ResizeObserver on GlobalHeader).
+ * Do not use 100vh here — that fights the shell. Use 100% so dev flex layouts
+ * can constrain height; RHDH's more specific `& main` rule keeps its calc.
+ */
+export const useShellPageStyles = makeStyles({
+  page: {
+    height: '100%',
+    maxHeight: '100%',
+    minHeight: 0,
+    overflowY: 'auto',
+  },
+});

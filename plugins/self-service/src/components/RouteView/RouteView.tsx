@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { CircularProgress } from '@material-ui/core';
 import { RequirePermission } from '@backstage/plugin-permission-react';
@@ -17,6 +17,7 @@ import {
 } from '@ansible/backstage-rhaap-common/permissions';
 
 import { HomeComponent } from '../Home';
+import { JobTemplatesProvider } from '../Home/JobTemplatesProvider';
 import { CatalogImport } from '../CatalogImport';
 import { useIsSuperuser } from '../../hooks';
 import { CreateTask } from '../CreateTask';
@@ -70,21 +71,23 @@ const RouteViewContent = () => {
     <>
       <Routes>
         <Route
-          path="catalog"
           element={
             <RequirePermission permission={templatesViewPermission}>
-              <HomeComponent key={location.key} />
+              <JobTemplatesProvider>
+                <Outlet />
+              </JobTemplatesProvider>
             </RequirePermission>
           }
-        />
-        <Route
-          path="catalog/:namespace/:templateName"
-          element={
-            <RequirePermission permission={templatesViewPermission}>
-              <CatalogItemsDetails />
-            </RequirePermission>
-          }
-        />
+        >
+          <Route
+            path="catalog"
+            element={<HomeComponent key={location.key} />}
+          />
+          <Route
+            path="catalog/:namespace/:templateName"
+            element={<CatalogItemsDetails />}
+          />
+        </Route>
         <Route
           path="catalog-import"
           element={

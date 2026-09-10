@@ -4,6 +4,12 @@ export const mockAnsibleApi: jest.Mocked<AnsibleApi> = {
   ...jest.requireActual<AnsibleApi>('../apis'),
   syncTemplates: jest.fn(),
   syncOrgsUsersTeam: jest.fn(),
+  getUserJobTemplates: jest.fn().mockResolvedValue({
+    items: [
+      { id: 1, name: 'Template 1' },
+      { id: 2, name: 'Template 2' },
+    ],
+  }),
   getSyncStatus: jest.fn(),
 } as any;
 
