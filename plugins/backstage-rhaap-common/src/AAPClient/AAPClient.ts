@@ -9,6 +9,7 @@ import {
 } from '@backstage/plugin-auth-node';
 import { AuthenticationError } from '@backstage/errors';
 import uniqBy from 'lodash.uniqby';
+import { sanitizeAapName } from '../utils/nameFormatting';
 import {
   AAPTemplate,
   CleanUp,
@@ -1104,11 +1105,13 @@ export class AAPClient implements IAAPService {
     } as PassportProfile;
   }
 
+  /**
+   * @deprecated Use sanitizeAapName from utils/nameFormatting instead.
+   * This method is kept for backward compatibility but delegates to the shared implementation.
+   * @see AAP-91915 - Consolidated into single shared sanitizer
+   */
   private formatNameSpace(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/[^\w\s]/gi, '')
-      .replace(/\s/g, '-');
+    return sanitizeAapName(name);
   }
 
   private async executeCatalogRequest(
@@ -1220,7 +1223,7 @@ export class AAPClient implements IAAPService {
             id: item.id,
             organization: item.organization,
             name: item.name,
-            groupName: item.name.toLowerCase().replace(/\s/g, '-'),
+            groupName: sanitizeAapName(item.name),
             description: item?.description,
           }));
 
@@ -1228,8 +1231,7 @@ export class AAPClient implements IAAPService {
             organization: {
               id: org.id,
               name: org.name,
-              namespace:
-                org.namespace ?? org.name.toLowerCase().replace(/\s/g, '-'),
+              namespace: org.namespace ?? sanitizeAapName(org.name),
             },
             teams,
             users: uniqBy(users, 'id'),

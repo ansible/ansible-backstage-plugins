@@ -758,7 +758,9 @@ export async function dispatchEeBuild(
     });
     const clientErr = ghResp.status >= 400 && ghResp.status < 500;
     response.status(clientErr ? ghResp.status : 502).json({
-      error: `GitHub workflow_dispatch failed: ${ghResp.bodyText || ghResp.statusText}`,
+      error: `GitHub workflow_dispatch failed: ${
+        ghResp.bodyText || ghResp.statusText
+      }`,
     });
     return;
   }
@@ -834,7 +836,9 @@ export async function dispatchEeBuildGitlab(
     });
     const clientErr = glResp.status >= 400 && glResp.status < 500;
     response.status(clientErr ? glResp.status : 502).json({
-      error: `GitLab pipeline trigger failed: ${glResp.bodyText || glResp.statusText}`,
+      error: `GitLab pipeline trigger failed: ${
+        glResp.bodyText || glResp.statusText
+      }`,
     });
     return;
   }
@@ -930,24 +934,17 @@ export function getSkipTlsVerifyHosts(config: Config): string[] {
   );
 }
 
-const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-const MAX_NAMESPACE_LENGTH = 63;
+import { sanitizeAapName } from '@ansible/backstage-rhaap-common';
 
+const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+/**
+ * @deprecated Use sanitizeAapName from @ansible/backstage-rhaap-common instead.
+ * This function is kept for backward compatibility but delegates to the shared implementation.
+ * @see AAP-91915 - Consolidated into single shared sanitizer
+ */
 export function formatNameSpace(name: string): string {
-  const sanitized = name
-    .toLowerCase()
-    .replaceAll(/[_\s]+/g, '-')
-    .replaceAll(/[^a-z0-9-]/g, '')
-    .replaceAll(/-+/g, '-')
-    .replaceAll(/^-|-$/g, '')
-    .slice(0, MAX_NAMESPACE_LENGTH)
-    .replace(/-$/, '');
-  if (!sanitized) {
-    throw new Error(
-      `Organization name "${name}" contains no valid characters for namespace conversion`,
-    );
-  }
-  return sanitized;
+  return sanitizeAapName(name);
 }
 
 export function getEffectiveNamespace(
@@ -1090,7 +1087,10 @@ export interface SyncStatus {
 }
 
 export type SyncResultStatus =
-  'sync_started' | 'already_syncing' | 'failed' | 'invalid';
+  | 'sync_started'
+  | 'already_syncing'
+  | 'failed'
+  | 'invalid';
 
 export interface SCMSyncResult {
   scmProvider: string;
@@ -1474,7 +1474,9 @@ export async function fetchGitHubCIActivityData(
         ? 'https://api.github.com'
         : `https://${host}/api/v3`;
   }
-  const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
+  const apiUrl = `${apiBase}/repos/${encodeURIComponent(
+    owner,
+  )}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
 
   try {
     const fetchResponse = await fetch(apiUrl, {
@@ -1669,7 +1671,9 @@ export async function handleGitHubCIActivity(
         ? 'https://api.github.com'
         : `https://${host}/api/v3`;
   }
-  const apiUrl = `${apiBase}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
+  const apiUrl = `${apiBase}/repos/${encodeURIComponent(
+    owner,
+  )}/${encodeURIComponent(repo)}/actions/runs?per_page=${perPage}`;
 
   try {
     const fetchResponse = await fetch(apiUrl, {
