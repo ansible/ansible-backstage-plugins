@@ -44,13 +44,12 @@ import { PAGE_SIZE, resolvePageLimit } from './constants';
 import { createHomeCatalogApi } from './createHomeCatalogApi';
 import { createOverridingApiHolder } from './createOverridingApiHolder';
 import { TemplatesPagination } from './TemplatesPagination';
-import { useJobTemplates } from './JobTemplatesProvider';
+import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
 import {
   NotificationProvider,
   NotificationStack,
   useNotifications,
 } from '../notifications';
-import { JobTemplatesProvider } from './JobTemplatesProvider';
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
 const JOB_TEMPLATE_LIST_STALE_RETRY_MS = 450;

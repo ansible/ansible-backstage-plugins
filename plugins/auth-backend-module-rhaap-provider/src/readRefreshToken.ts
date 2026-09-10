@@ -25,10 +25,11 @@ function parseCookieHeader(
 }
 
 function getRequestCookies(req: Request): Record<string, string> {
-  return {
-    ...parseCookieHeader(req.headers?.cookie),
-    ...(req.cookies ?? {}),
-  };
+  const cookies = parseCookieHeader(req.headers?.cookie);
+  if (req.cookies) {
+    return { ...cookies, ...req.cookies };
+  }
+  return cookies;
 }
 
 function getCookieChunkName(name: string, chunkIndex: number): string {

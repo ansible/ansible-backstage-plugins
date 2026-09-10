@@ -129,7 +129,7 @@ export const TemplatesPagination = ({
             }}
             disableUnderline
             className={classes.pageSizeSelect}
-            renderValue={value => String(value)}
+            renderValue={String}
             inputProps={{
               'aria-label': 'Templates per page',
               'aria-labelledby': 'templates-page-size-label',
