@@ -538,4 +538,36 @@ describe('ApmeApiClient', () => {
       );
     });
   });
+
+  describe('branch validation', () => {
+    it('rejects an invalid branch before making a request', async () => {
+      await expect(
+        client.createPullRequest('proj-1', 'act-1', {
+          branchName: 'feature/../bad',
+        }),
+      ).rejects.toThrow(/Invalid branch name/);
+      expect(mockFetchApi.fetch).not.toHaveBeenCalled();
+    });
+
+    it('exposes Gateway 422 responses as a status-aware error', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () =>
+          Promise.resolve(JSON.stringify({ detail: 'branch is not valid' })),
+      });
+
+      const error = await client
+        .createPullRequest('proj-1', 'act-1', { branchName: 'feature/fix' })
+        .catch(value => value);
+
+      expect(error).toMatchObject({
+        name: 'ApmeApiError',
+        status: 422,
+        responseBody: JSON.stringify({ detail: 'branch is not valid' }),
+      });
+      expect(error.message).toContain('branch is not valid');
+    });
+  });
 });
