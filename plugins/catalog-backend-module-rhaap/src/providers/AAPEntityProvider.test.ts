@@ -91,6 +91,10 @@ describe('AAPEntityProvider', () => {
         type: 'organization',
         children: ['team-a', 'team-b'],
         members: ['user:default/user2'],
+        profile: {
+          description: 'Organization: Default',
+          displayName: '[ORG] Default',
+        },
       },
     },
     {
@@ -113,6 +117,10 @@ describe('AAPEntityProvider', () => {
         parent: 'default',
         children: [],
         members: [],
+        profile: {
+          description: 'Team: Team A',
+          displayName: '[TEAM] Team A',
+        },
       },
     },
     {
@@ -135,6 +143,10 @@ describe('AAPEntityProvider', () => {
         parent: 'default',
         children: [],
         members: [],
+        profile: {
+          description: 'Team: Team B',
+          displayName: '[TEAM] Team B',
+        },
       },
     },
     {

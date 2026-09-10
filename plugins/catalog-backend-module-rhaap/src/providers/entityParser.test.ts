@@ -59,6 +59,10 @@ describe('entityParser', () => {
           type: 'organization',
           children: ['team1', 'team2'],
           members: ['user1', 'user2'],
+          profile: {
+            description: 'Organization: Test Organization',
+            displayName: '[ORG] Test Organization',
+          },
         },
       });
     });
@@ -116,6 +120,10 @@ describe('entityParser', () => {
           type: 'team',
           children: [],
           members: ['user1', 'user2', 'user3'],
+          profile: {
+            displayName: '[TEAM] Test Team',
+            description: 'Team: Test Team',
+          },
         },
       });
     });
