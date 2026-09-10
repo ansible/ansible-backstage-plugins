@@ -226,7 +226,7 @@ __metadata:
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
     isomorphic-git: "npm:^1.23.0"
-    js-yaml: "npm:^4.3.0"
+    js-yaml: "npm:^4.3.2"
     msw: "npm:2.4.9"
     node-fetch: "npm:^2.6.7"
     semver: "npm:^7.7.3"
@@ -31743,7 +31743,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"js-yaml@npm:^4.3.0":
+"js-yaml@npm:^4.3.2":
   version: 4.3.2
   resolution: "js-yaml@npm:4.3.2"
   dependencies:
