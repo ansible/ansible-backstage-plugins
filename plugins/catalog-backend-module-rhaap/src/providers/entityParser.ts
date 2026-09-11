@@ -78,6 +78,10 @@ export function organizationParser(options: {
     },
     spec: {
       type: 'organization',
+      profile: {
+        displayName: `[ORG] ${org.name}`,
+        description: `Organization: ${org.name}`,
+      },
       children: teams,
       members: orgMembers,
     },
@@ -102,7 +106,7 @@ export function teamParser(options: {
     metadata: {
       namespace: nameSpace,
       name: team.groupName,
-      title,
+      title: title,
       description: team.description,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
@@ -112,6 +116,10 @@ export function teamParser(options: {
     },
     spec: {
       type: 'team',
+      profile: {
+        displayName: `[TEAM] ${title}`,
+        description: `Team: ${title}`,
+      },
       ...(orgGroupName && { parent: orgGroupName }),
       children: [],
       members: teamMembers,
