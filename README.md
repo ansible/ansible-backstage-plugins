@@ -105,9 +105,9 @@ Run the installation script to set up all dependencies:
 
 This script will:
 
-- Install Yarn 4.x via Corepack
 - Install all workspace dependencies
-- Set up Git hooks via Husky for pre-commit checks
+- Set up Git hooks via Husky (runs [pre-commit](https://pre-commit.com/) from `.pre-commit-config.yaml`)
+- Install the pre-commit CLI and prefetch hook environments (requires Python 3 + pip)
 
 **Note**: On systems with strict security policies, some native package builds may fail. This is usually acceptable as they're often optional dependencies.
 

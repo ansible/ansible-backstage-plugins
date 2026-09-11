@@ -81,7 +81,8 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         });
 
         const scmProvider = sourceControlProvider.toLowerCase() as
-          'github' | 'gitlab';
+          | 'github'
+          | 'gitlab';
         const scmClient = await scmClientFactory.createClient({
           scmProvider,
           organization: repositoryOwner,
@@ -138,7 +139,9 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         ctx.output('normalizedRepoUrl', normalizedRepoUrl);
 
         if (!createNewRepo) {
-          const branchName = `${eeFileName.toLowerCase()}-${randomBytes(2).toString('hex')}`;
+          const branchName = `${eeFileName.toLowerCase()}-${randomBytes(
+            2,
+          ).toString('hex')}`;
           const prType =
             scmProvider === 'gitlab' ? 'Merge Request' : 'Pull Request';
 

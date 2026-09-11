@@ -389,7 +389,9 @@ export const CollectionsPickerExtension = ({
     !selectedCollection?.trim() || !selectedSource?.trim() || disabled;
 
   const versionAutocompleteValue = useMemo(():
-    VersionOption | string | null => {
+    | VersionOption
+    | string
+    | null => {
     if (selectedVersion === null || selectedVersion === '') {
       return null;
     }
