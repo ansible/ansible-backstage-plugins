@@ -193,7 +193,10 @@ export class ApmeClient {
           } catch {
             // Preserve the plain-text response below.
           }
-          detail ||= BRANCH_NAME_VALIDATION_MESSAGE;
+          const method = (options?.method ?? 'GET').toUpperCase();
+          if (!detail && method === 'POST' && /\/submit$/.test(endpoint)) {
+            detail = BRANCH_NAME_VALIDATION_MESSAGE;
+          }
         }
         const msg = `APME request failed: ${response.status} ${response.statusText} - ${detail}`;
         if (response.status >= 500) {
@@ -594,7 +597,13 @@ export class ApmeClient {
     projectId: string,
     body: SubmitRemediationRequest,
   ): Promise<SubmitRemediationResult> {
-    assertValidBranchName(body.branch_name);
+    try {
+      assertValidBranchName(body.branch_name);
+    } catch (error) {
+      throw new InputError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     // Large remedia pushes often exceed the default short fetch timeout.
     return this.executeRequest<SubmitRemediationResult>(
       `/api/v1/projects/${projectId}/operation/submit`,
@@ -612,7 +621,13 @@ export class ApmeClient {
     scmToken?: string,
     branchName?: string,
   ): Promise<CreatePullRequestResult> {
-    assertValidBranchName(branchName);
+    try {
+      assertValidBranchName(branchName);
+    } catch (error) {
+      throw new InputError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     const body: SubmitRemediationRequest = {
       activity_id: activityId,
       create_pr: true,

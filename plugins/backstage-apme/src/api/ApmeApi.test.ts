@@ -569,5 +569,22 @@ describe('ApmeApiClient', () => {
       });
       expect(error.message).toContain('branch is not valid');
     });
+
+    it('uses a generic fallback for non-remediation 422 responses', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () => Promise.resolve(''),
+      });
+
+      const error = await client.getAiConfig().catch(value => value);
+
+      expect(error).toMatchObject({ name: 'ApmeApiError', status: 422 });
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        'APME API request could not be processed',
+      );
+    });
   });
 });

@@ -263,9 +263,14 @@ export class ApmeApiClient implements ApmeApi {
         } catch {
           // Preserve the plain-text response below.
         }
+        const isRemediationRequest =
+          method === 'POST' && /\/submit$/.test(endpoint);
         throw new ApmeApiError(
           422,
-          detail || BRANCH_NAME_VALIDATION_MESSAGE,
+          detail ||
+            (isRemediationRequest
+              ? BRANCH_NAME_VALIDATION_MESSAGE
+              : 'APME API request could not be processed'),
           errorText,
         );
       }

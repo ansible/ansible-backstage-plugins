@@ -91,6 +91,18 @@ describe('ApmeClient', () => {
     ).rejects.toBeInstanceOf(InputError);
   });
 
+  it('maps invalid remediation branches to InputError', async () => {
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(
+      client.submitRemediation('proj-1', {
+        activity_id: 'activity-1',
+        branch_name: 'feature/../bad',
+      }),
+    ).rejects.toBeInstanceOf(InputError);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('fetches activity detail and normalizes remediation classes', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
