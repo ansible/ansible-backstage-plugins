@@ -26,6 +26,10 @@ import {
 } from '../gatewayRules';
 import { normalizeRemediationClass } from '../severity';
 import {
+  assertValidBranchName,
+  BRANCH_NAME_VALIDATION_MESSAGE,
+} from '../branchName';
+import {
   Project,
   Violation,
   Rule,
@@ -166,7 +170,35 @@ export class ApmeClient {
 
       if (!response.ok) {
         const errorBody = await response.text();
-        const msg = `APME request failed: ${response.status} ${response.statusText} - ${errorBody}`;
+        let detail = errorBody;
+        if (response.status === 422) {
+          try {
+            const parsed: unknown = JSON.parse(errorBody);
+            if (
+              typeof parsed === 'object' &&
+              parsed !== null &&
+              'detail' in parsed
+            ) {
+              const value = (parsed as { detail?: unknown }).detail;
+              detail = Array.isArray(value)
+                ? value
+                    .map(item =>
+                      typeof item === 'object' && item !== null && 'msg' in item
+                        ? String((item as { msg: unknown }).msg)
+                        : String(item),
+                    )
+                    .join('; ')
+                : String(value);
+            }
+          } catch {
+            // Preserve the plain-text response below.
+          }
+          const method = (options?.method ?? 'GET').toUpperCase();
+          if (!detail && method === 'POST' && /\/submit$/.test(endpoint)) {
+            detail = BRANCH_NAME_VALIDATION_MESSAGE;
+          }
+        }
+        const msg = `APME request failed: ${response.status} ${response.statusText} - ${detail}`;
         if (response.status >= 500) {
           throw new Error(msg);
         }
@@ -521,10 +553,7 @@ export class ApmeClient {
     options?: ScanTriggerOptions,
   ): Promise<ScanResult> {
     const scanOptions: Record<string, unknown> = {
-      ...this.scanOperationOptions(
-        options?.ansibleVersion,
-        options?.enableAi,
-      ),
+      ...this.scanOperationOptions(options?.ansibleVersion, options?.enableAi),
     };
     if (violationIds && violationIds.length > 0) {
       scanOptions.violation_ids = violationIds;
@@ -568,6 +597,13 @@ export class ApmeClient {
     projectId: string,
     body: SubmitRemediationRequest,
   ): Promise<SubmitRemediationResult> {
+    try {
+      assertValidBranchName(body.branch_name);
+    } catch (error) {
+      throw new InputError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     // Large remedia pushes often exceed the default short fetch timeout.
     return this.executeRequest<SubmitRemediationResult>(
       `/api/v1/projects/${projectId}/operation/submit`,
@@ -585,6 +621,13 @@ export class ApmeClient {
     scmToken?: string,
     branchName?: string,
   ): Promise<CreatePullRequestResult> {
+    try {
+      assertValidBranchName(branchName);
+    } catch (error) {
+      throw new InputError(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     const body: SubmitRemediationRequest = {
       activity_id: activityId,
       create_pr: true,
