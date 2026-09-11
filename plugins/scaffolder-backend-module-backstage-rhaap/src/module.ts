@@ -36,6 +36,7 @@ import {
   launchJobTemplate,
   createEEDefinitionAction,
   prepareForPublishAction,
+  registerGitRepositoryAction,
 } from './actions';
 
 import {
@@ -96,6 +97,11 @@ export const scaffolderModuleAnsible = createBackendModule({
             config,
           }),
           prepareForPublishAction({
+            rootConfig: config,
+          }),
+          registerGitRepositoryAction({
+            auth,
+            discovery,
             rootConfig: config,
           }),
         );

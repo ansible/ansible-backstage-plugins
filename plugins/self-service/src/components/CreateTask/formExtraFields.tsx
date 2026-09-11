@@ -9,6 +9,9 @@ import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBui
 import { EEFileNamePickerExtension } from '../Scaffolder/EEFileNamePicker/EEFileNamePickerExtension';
 import { EETagsPickerExtension } from '../Scaffolder/EETagsPicker/EETagsPickerExtension';
 import { ScmSelectorExtension } from '../Scaffolder/ScmSelector/ScmSelectorExtension';
+import { GitHubRepoUrlFieldExtension as GitHubRepoUrlFieldComponent } from '../Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension';
+import { githubRepoUrlValidation } from '../Scaffolder/GitHubRepoUrlField/validation';
+import { GitHubRepoUrlFieldFieldSchema } from '../Scaffolder/GitHubRepoUrlField/schema';
 import {
   EntityNamePicker,
   EntityNamePickerSchema,
@@ -76,6 +79,12 @@ export const formExtraFields = [
     component: RepoUrlPicker,
     schema: RepoUrlPickerSchema,
     validation: repoPickerValidation,
+  },
+  {
+    name: 'GitHubRepoUrlField',
+    component: GitHubRepoUrlFieldComponent,
+    schema: GitHubRepoUrlFieldFieldSchema,
+    validation: githubRepoUrlValidation,
   },
   {
     name: 'OwnerPicker',

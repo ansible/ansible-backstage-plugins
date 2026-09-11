@@ -63,6 +63,8 @@ import {
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
 import { EEEntityProvider } from './providers/EEEntityProvider';
+import { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 
 export async function createRouter(options: {
@@ -79,6 +81,7 @@ export async function createRouter(options: {
   catalogClient: CatalogClient;
   permissions: PermissionsService;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
+  manualGitRepositoryProvider?: ManualGitRepositoryProvider;
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
   const {
@@ -95,6 +98,7 @@ export async function createRouter(options: {
     catalogClient,
     permissions,
     ansibleGitContentsProviders = [],
+    manualGitRepositoryProvider,
     allowedExternalAccessSubjects,
   } = options;
   const router = Router();
@@ -365,6 +369,128 @@ export async function createRouter(options: {
       });
     }
   });
+
+  /**
+   * Registers a Git repository directly in the catalog, without requiring a
+   * catalog-info.yaml file or pull request in the target repository. Used by
+   * the "Register repo" scaffolder template so registration completes
+   * immediately instead of waiting on a merged PR.
+   *
+   * Only allows backend service calls (e.g. scaffolder to catalog), not user
+   * requests. Rejects with 409 if a repository entity with matching SCM
+   * provider/organization/repository annotations already exists.
+   */
+  router.post(
+    '/ansible/git-repository',
+    express.json(),
+    async (request, response) => {
+      await httpAuth.credentials(
+        // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+        // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
+        request,
+        {
+          allow: ['service'],
+        },
+      );
+
+      if (!manualGitRepositoryProvider) {
+        response
+          .status(500)
+          .json({ error: 'Git repository registration is not available.' });
+        return;
+      }
+
+      const { entity } = request.body;
+
+      if (!entity) {
+        response.status(400).json({ error: 'Missing entity in request body.' });
+        return;
+      }
+
+      if (entity?.kind !== 'Component') {
+        response.status(400).json({
+          error: 'Kind must be "Component" for Git repository registration',
+        });
+        return;
+      }
+
+      const entityName = entity?.metadata?.name;
+      if (typeof entityName !== 'string' || entityName.length === 0) {
+        response.status(400).json({
+          error:
+            'Name [metadata.name] is required for Git repository registration',
+        });
+        return;
+      }
+
+      if (entity?.spec?.type !== 'git-repository') {
+        response.status(400).json({
+          error:
+            'Type [spec.type] must be "git-repository" for Git repository registration',
+        });
+        return;
+      }
+
+      try {
+        const annotations = entity?.metadata?.annotations ?? {};
+        const scmProvider = annotations['ansible.io/scm-provider'];
+        const scmOrganization = annotations['ansible.io/scm-organization'];
+        const scmRepository = annotations['ansible.io/scm-repository'];
+
+        if (scmProvider && scmOrganization && scmRepository) {
+          const { token } = await auth.getPluginRequestToken({
+            onBehalfOf: await auth.getOwnServiceCredentials(),
+            targetPluginId: 'catalog',
+          });
+
+          const existing = await catalogClient.getEntities(
+            {
+              filter: {
+                kind: 'Component',
+                'spec.type': 'git-repository',
+                'metadata.annotations.ansible.io/scm-provider': scmProvider,
+                'metadata.annotations.ansible.io/scm-organization':
+                  scmOrganization,
+                'metadata.annotations.ansible.io/scm-repository': scmRepository,
+              },
+            },
+            { token },
+          );
+
+          if (existing.items.length > 0) {
+            const existingRef = stringifyEntityRef(existing.items[0]);
+            logger.info(
+              'Repository is already registered, rejecting duplicate registration',
+            );
+            response.status(409).json({
+              error: `Repository ${scmOrganization}/${scmRepository} is already registered in the catalog as ${existingRef}.`,
+              entityRef: existingRef,
+            });
+            return;
+          }
+        }
+
+        await manualGitRepositoryProvider.registerRepository(entity);
+        response
+          .status(200)
+          .json({ success: true, entityRef: stringifyEntityRef(entity) });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to register Git repository: ${errorMessage}`);
+        const isValidationError =
+          errorMessage.includes(
+            'Name [metadata.name] is required for Git repository registration',
+          ) ||
+          errorMessage.includes(
+            'Type [spec.type] must be "git-repository" for Git repository registration',
+          );
+        response.status(isValidationError ? 400 : 500).json({
+          error: `Failed to register Git repository: ${errorMessage}`,
+        });
+      }
+    },
+  );
 
   /**
    * Triggers an EE build via GitHub Actions workflow_dispatch or GitLab CI pipeline.

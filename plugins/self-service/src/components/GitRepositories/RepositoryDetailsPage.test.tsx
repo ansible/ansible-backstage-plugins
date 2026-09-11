@@ -9,6 +9,10 @@ import {
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const mockNavigate = jest.fn();
@@ -120,7 +124,9 @@ describe('RepositoryDetailsPage', () => {
     });
   });
 
-  const renderPage = async () => {
+  const renderPage = async (
+    extensionsApi: DefaultGitRepositoriesExtensionsApi = new DefaultGitRepositoriesExtensionsApi(),
+  ) => {
     return renderInTestApp(
       <TestApiProvider
         apis={[
@@ -128,6 +134,7 @@ describe('RepositoryDetailsPage', () => {
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
           [identityApiRef, mockIdentityApi],
+          [gitRepositoriesExtensionsApiRef, extensionsApi],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -216,13 +223,19 @@ describe('RepositoryDetailsPage', () => {
     });
   });
 
-  it('renders View in source button when source URL exists', async () => {
+  it('renders Actions menu with View in source when source URL exists', async () => {
     await renderPage();
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /Actions/i }),
       ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('View in source')).toBeInTheDocument();
     });
   });
 
@@ -597,11 +610,12 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /Actions/i }),
       ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /View in source/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+    fireEvent.click(screen.getByText('View in source'));
 
     expect(mockOpen).toHaveBeenCalledWith(
       'https://github.com/test-org/test-repo',
@@ -611,7 +625,7 @@ describe('RepositoryDetailsPage', () => {
     mockOpen.mockRestore();
   });
 
-  it('does not render View in source button when no source URL', async () => {
+  it('does not render Actions menu when no source URL', async () => {
     const entityNoSource: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -636,8 +650,126 @@ describe('RepositoryDetailsPage', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: /View in source/i }),
+      screen.queryByRole('button', { name: /Actions/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('renders Actions menu from a guest header item when no source URL exists', async () => {
+    class HeaderActionApi extends DefaultGitRepositoriesExtensionsApi {
+      getDetailHeaderMenuItems() {
+        return [
+          {
+            id: 'guest-action',
+            order: 10,
+            render: () => <span>Guest action</span>,
+          },
+        ];
+      }
+    }
+
+    const entityNoSource: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-repo',
+        title: 'Test Repository',
+        annotations: {},
+      },
+      spec: {
+        type: 'git-repository',
+      },
+    };
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [entityNoSource],
+    });
+
+    await renderPage(new HeaderActionApi());
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Actions/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+
+    expect(screen.getByText('Guest action')).toBeInTheDocument();
+    expect(screen.queryByText('View in source')).not.toBeInTheDocument();
+  });
+
+  it('keeps repository details mounted when a guest detail tab render throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    class ThrowingDetailTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getDetailTabs() {
+        return [
+          {
+            id: 'guest-detail',
+            label: 'Guest Detail',
+            order: 5,
+            render: () => {
+              throw new Error('guest detail boom');
+            },
+          },
+        ];
+      }
+    }
+
+    await renderPage(new ThrowingDetailTabApi());
+
+    await waitFor(() => {
+      expect(screen.getByText('Guest Detail')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Guest Detail'));
+
+    expect(
+      screen.getByText('This extension failed to load.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Overview')).toBeInTheDocument();
+
+    errorSpy.mockRestore();
+  });
+
+  it('handles entity with no annotations and no spec', async () => {
+    const bareEntity: Entity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name: 'test-repo',
+      },
+    };
+
+    mockCatalogApi.getEntities.mockResolvedValue({
+      items: [bareEntity],
+    });
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('README')).toBeInTheDocument();
+    });
+  });
+
+  it('handles getEntities returning a raw array', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue([createMockEntity()] as any);
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('test-repo').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('handles getEntities returning items as undefined', async () => {
+    mockCatalogApi.getEntities.mockResolvedValue({} as any);
+
+    await renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Repositories')).toBeInTheDocument();
+    });
   });
 
   it('navigates to Collections tab from About card', async () => {
@@ -680,46 +812,6 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('README')).toBeInTheDocument();
-    });
-  });
-
-  it('handles entity with no annotations and no spec', async () => {
-    const bareEntity: Entity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: {
-        name: 'test-repo',
-      },
-    };
-
-    mockCatalogApi.getEntities.mockResolvedValue({
-      items: [bareEntity],
-    });
-
-    await renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText('README')).toBeInTheDocument();
-    });
-  });
-
-  it('handles getEntities returning a raw array', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue([createMockEntity()]);
-
-    await renderPage();
-
-    await waitFor(() => {
-      expect(screen.getAllByText('test-repo').length).toBeGreaterThan(0);
-    });
-  });
-
-  it('handles getEntities returning items as undefined', async () => {
-    mockCatalogApi.getEntities.mockResolvedValue({});
-
-    await renderPage();
-
-    await waitFor(() => {
-      expect(screen.getByText('Repositories')).toBeInTheDocument();
     });
   });
 });

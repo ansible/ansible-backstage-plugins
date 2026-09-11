@@ -36,6 +36,8 @@ import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { getSourceUrl, formatTimeAgo } from '../CollectionsCatalog/utils';
 import { EntityLinkButton, GitLabIcon, SyncStatusMap } from '../common';
+import { CatalogRowAddonSlot } from './CatalogRowAddonSlot';
+import { GuestExtensionRender } from './GuestExtensionRender';
 import {
   useCollectionsStyles,
   useTableWrapperStyles,
@@ -49,6 +51,7 @@ import {
 } from './constants';
 import { rootRouteRef } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
 const StarredIcon = () => <Star style={{ color: '#ffb74d' }} />;
@@ -121,6 +124,7 @@ const RepositoriesTableInner = ({
     allSources,
     sourceFilter,
     setSourceFilter,
+    setSearchQuery,
   } = usePaginatedGitRepos({
     catalogApi,
     onSourcesStatusChange,
@@ -132,6 +136,16 @@ const RepositoriesTableInner = ({
     top: number;
   } | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+
+  const extensionsApi = useGitRepositoriesExtensions();
+
+  const catalogRowMenuItems = useMemo(
+    () =>
+      [...extensionsApi.getCatalogRowMenuItems()].sort(
+        (a, b) => a.order - b.order,
+      ),
+    [extensionsApi],
+  );
 
   const { lastActivityMap, loading: lastActivityLoading } =
     useLatestCIActivity(paginatedEntities);
@@ -200,15 +214,25 @@ const RepositoriesTableInner = ({
       title: 'Git Repository',
       id: 'name',
       field: 'metadata.name',
+      // Search is applied across all pages in usePaginatedGitRepos.
+      customFilterAndSearch: () => true,
       highlight: true,
       width: '28%',
       render: (entity: Entity) => {
         const repoName = entity.metadata?.title ?? entity.metadata?.name ?? '—';
-        const linkPath = `${rootLink()}/repositories/${entity.metadata?.name ?? ''}`;
+        const linkPath = `${rootLink()}/repositories/${
+          entity.metadata?.name ?? ''
+        }`;
         return (
-          <EntityLinkButton linkPath={linkPath} className={classes.entityLink}>
-            {repoName}
-          </EntityLinkButton>
+          <Box display="flex" alignItems="center" style={{ gap: 8 }}>
+            <EntityLinkButton
+              linkPath={linkPath}
+              className={classes.entityLink}
+            >
+              {repoName}
+            </EntityLinkButton>
+            <CatalogRowAddonSlot entity={entity} projectDetailPath={linkPath} />
+          </Box>
         );
       },
     },
@@ -280,6 +304,25 @@ const RepositoriesTableInner = ({
         );
       },
     },
+    ...[...extensionsApi.getCatalogColumns()]
+      .sort((a, b) => a.order - b.order)
+      .map(
+        col =>
+          ({
+            title: col.tooltip
+              ? ((
+                  <ColumnHeaderWithTooltip
+                    label={col.title}
+                    tooltip={col.tooltip}
+                  />
+                ) as unknown as string)
+              : col.title,
+            id: col.id,
+            render: (entity: Entity) => (
+              <GuestExtensionRender render={() => col.render(entity)} />
+            ),
+          }) as TableColumn<Entity>,
+      ),
     {
       title: (
         <ColumnHeaderWithTooltip
@@ -460,6 +503,7 @@ const RepositoriesTableInner = ({
                 paging: false,
                 rowStyle: { cursor: 'default' },
               }}
+              onSearchChange={setSearchQuery}
               columns={columns}
               data={paginatedEntities}
             />
@@ -524,6 +568,19 @@ const RepositoriesTableInner = ({
           <OpenInNewIcon fontSize="small" style={{ marginRight: 8 }} />
           View in source
         </MenuItem>
+        {selectedEntity
+          ? catalogRowMenuItems.map(item => (
+              <GuestExtensionRender
+                key={item.id}
+                render={() =>
+                  item.render({
+                    entity: selectedEntity,
+                    onCloseMenu: handleKebabClose,
+                  })
+                }
+              />
+            ))
+          : null}
       </Menu>
     </div>
   );
