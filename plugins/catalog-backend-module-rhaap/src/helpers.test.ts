@@ -119,7 +119,9 @@ describe('helpers', () => {
     });
 
     it('should throw for empty string', () => {
-      expect(() => formatNameSpace('')).toThrow('AAP name must be a non-empty string');
+      expect(() => formatNameSpace('')).toThrow(
+        'AAP name must be a non-empty string',
+      );
     });
 
     it('should handle multiple spaces', () => {
@@ -723,13 +725,12 @@ describe('helpers', () => {
     function createMockRes() {
       const res: any = {
         statusCode: 200,
-        status: jest.fn().mockImplementation(function statusImpl(
-          this: any,
-          code: number,
-        ) {
-          this.statusCode = code;
-          return this;
-        }),
+        status: jest
+          .fn()
+          .mockImplementation(function statusImpl(this: any, code: number) {
+            this.statusCode = code;
+            return this;
+          }),
         json: jest.fn().mockImplementation(function jsonImpl(this: any) {
           return this;
         }),
@@ -2178,20 +2179,18 @@ describe('helpers', () => {
       const res: any = {
         statusCode: 0,
         body: undefined,
-        status: jest.fn().mockImplementation(function setStatus(
-          this: any,
-          code: number,
-        ) {
-          this.statusCode = code;
-          return this;
-        }),
-        json: jest.fn().mockImplementation(function setJson(
-          this: any,
-          data: any,
-        ) {
-          this.body = data;
-          return this;
-        }),
+        status: jest
+          .fn()
+          .mockImplementation(function setStatus(this: any, code: number) {
+            this.statusCode = code;
+            return this;
+          }),
+        json: jest
+          .fn()
+          .mockImplementation(function setJson(this: any, data: any) {
+            this.body = data;
+            return this;
+          }),
       };
       return res;
     }
@@ -2450,20 +2449,18 @@ describe('helpers', () => {
       const res: any = {
         statusCode: 0,
         body: undefined,
-        status: jest.fn().mockImplementation(function setStatus(
-          this: any,
-          code: number,
-        ) {
-          this.statusCode = code;
-          return this;
-        }),
-        json: jest.fn().mockImplementation(function setJson(
-          this: any,
-          data: any,
-        ) {
-          this.body = data;
-          return this;
-        }),
+        status: jest
+          .fn()
+          .mockImplementation(function setStatus(this: any, code: number) {
+            this.statusCode = code;
+            return this;
+          }),
+        json: jest
+          .fn()
+          .mockImplementation(function setJson(this: any, data: any) {
+            this.body = data;
+            return this;
+          }),
       };
       return res;
     }
