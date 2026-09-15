@@ -26,6 +26,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAnsibleService.logJobStdoutMessages.mockResolvedValue(undefined);
   });
 
   it('throws when authorization token is missing', async () => {
@@ -60,6 +61,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
     expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
     // getJobStatus should NOT be called if job already completed
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    expect(mockAnsibleService.logJobStdoutMessages).toHaveBeenCalledWith(
+      1,
+      'mock-service-token',
+    );
   });
 
   it('should poll for job completion using service token', async () => {
@@ -95,6 +100,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
       1,
       'mock-service-token',
     );
+    expect(mockAnsibleService.logJobStdoutMessages).toHaveBeenCalledWith(
+      1,
+      'mock-service-token',
+    );
   }, 10000);
 
   it('should launch job template (non-blocking when opt-in)', async () => {
@@ -122,6 +131,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
     expect(ctx.output).toHaveBeenCalledWith('data', expectedResponse);
     expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
     expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
+    expect(mockAnsibleService.logJobStdoutMessages).not.toHaveBeenCalled();
   });
 
   it('should fail with message', async () => {

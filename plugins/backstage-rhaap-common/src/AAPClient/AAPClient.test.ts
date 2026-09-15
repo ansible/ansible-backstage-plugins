@@ -4605,6 +4605,35 @@ describe('AAPClient', () => {
     });
   });
 
+  describe('logJobStdoutMessages', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should fetch stdout and log msg values at info level', async () => {
+      const infoSpy = jest.spyOn(mockLogger, 'info');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            '{"msg": "Single message"}\n{"msg": ["Message item 1", "Message item 2"]}',
+          ),
+      });
+
+      const lastMessage = await client.logJobStdoutMessages(123, 'test-token');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/jobs/123/stdout/?format=txt'),
+        expect.any(Object),
+      );
+      expect(infoSpy).toHaveBeenCalledWith('Single message');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 1');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 2');
+      expect(lastMessage).toBe('Message item 2');
+    });
+  });
+
   describe('launchJobTemplateNoWait', () => {
     beforeEach(() => {
       mockFetch = fetch as jest.Mock;
