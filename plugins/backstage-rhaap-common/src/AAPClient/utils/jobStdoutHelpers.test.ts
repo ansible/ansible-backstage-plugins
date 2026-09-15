@@ -1,14 +1,17 @@
+import { LoggerService } from '@backstage/backend-plugin-api';
 import { parseAndLogStdoutMessages } from './jobStdoutHelpers';
 
 describe('parseAndLogStdoutMessages', () => {
-  const mockLogger = {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  };
+  let mockLogger: jest.Mocked<LoggerService>;
 
   beforeEach(() => {
+    mockLogger = {
+      info: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      debug: jest.fn(),
+      child: jest.fn(),
+    } as any;
     jest.clearAllMocks();
   });
 
