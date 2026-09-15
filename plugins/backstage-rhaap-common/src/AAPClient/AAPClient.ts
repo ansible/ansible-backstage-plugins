@@ -38,6 +38,7 @@ import {
 import { TERMINAL_JOB_STATUSES } from '../constants';
 import { getAnsibleConfig, getCatalogConfig } from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
+import { parseAndLogStdoutMessages } from './utils/jobStdoutHelpers';
 import {
   PAHHelperContext,
   sanitizePAHLimit,
@@ -66,6 +67,7 @@ export interface IAAPService extends Pick<
   | 'fetchResult'
   | 'launchJobTemplate'
   | 'launchJobTemplateNoWait'
+  | 'logJobStdoutMessages'
   | 'getJobStatus'
   | 'cancelJob'
   | 'cleanUp'
@@ -670,24 +672,11 @@ export class AAPClient implements IAAPService {
     let result;
     try {
       result = await this.fetchResult(jobID, token);
-      const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
-      const stdoutResponse = await this.executeGetRequest(
-        stdoutEndPoint,
-        token,
-      );
-      const stdoutRespText = await stdoutResponse.text();
-      const messageRegex = /"msg":\s*"([^"]+)"|"msg":\s*\[(.*?)\]/gs;
-      const matchRegex = [...stdoutRespText.matchAll(messageRegex)];
-      matchRegex.forEach(macthingMsg => {
-        if (macthingMsg[1]) {
-          this.logger.info(macthingMsg[1]);
-        } else if (macthingMsg[2]) {
-          const arrayItems = [...macthingMsg[2].matchAll(/"([^"]+)"/g)];
-          arrayItems.forEach(arrayItem => this.logger.info(arrayItem[1]));
-        }
-      });
+      lastEvent = await this.logJobStdoutMessages(jobID, token);
       if (result.jobData.status !== 'successful') {
-        lastEvent = matchRegex.at(-1)![1];
+        lastEvent =
+          lastEvent ??
+          'Undefined Error. Please check the RHAAP portal for job execution logs.';
         this.logger.error(`Job failed: ${lastEvent}`);
         throw new Error(`Job execution failed due to ${lastEvent}`);
       }
@@ -712,6 +701,20 @@ export class AAPClient implements IAAPService {
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
     };
+  }
+
+  /**
+   * Fetches job stdout and logs ansible.builtin.debug msg values at info level.
+   * Returns the last string msg found (for failure reporting).
+   */
+  public async logJobStdoutMessages(
+    jobID: number,
+    token: string,
+  ): Promise<string | undefined> {
+    const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
+    const stdoutResponse = await this.executeGetRequest(stdoutEndPoint, token);
+    const stdoutRespText = await stdoutResponse.text();
+    return parseAndLogStdoutMessages(stdoutRespText, this.logger);
   }
 
   /**
