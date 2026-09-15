@@ -119,7 +119,9 @@ describe('helpers', () => {
     });
 
     it('should throw for empty string', () => {
-      expect(() => formatNameSpace('')).toThrow('contains no valid characters');
+      expect(() => formatNameSpace('')).toThrow(
+        'AAP name must be a non-empty string',
+      );
     });
 
     it('should handle multiple spaces', () => {
