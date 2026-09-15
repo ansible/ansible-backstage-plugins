@@ -19,4 +19,7 @@ jobs:
       with:
         python-version: "3.12"
     - run: pip install pre-commit
-    - run: SKIP=openapi-lint,openapi-drift pre-commit run --all-files
+    # No yarn install in this job. Skip pre-commit hooks that invoke yarn
+    # pr.yml runs them after dependencies are installed 
+    # (eslint via yarn lint:all, openapi-lint, openapi-drift).
+    - run: SKIP=eslint,openapi-lint,openapi-drift pre-commit run --all-files
