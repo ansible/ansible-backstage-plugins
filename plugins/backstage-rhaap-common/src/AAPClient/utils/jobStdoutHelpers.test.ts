@@ -13,8 +13,7 @@ describe('parseAndLogStdoutMessages', () => {
   });
 
   it('logs string msg values and returns the last one', () => {
-    const stdout =
-      '{"msg": "First message"}\n{"msg": "Second message"}';
+    const stdout = '{"msg": "First message"}\n{"msg": "Second message"}';
 
     const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
 
@@ -34,7 +33,10 @@ describe('parseAndLogStdoutMessages', () => {
   });
 
   it('returns undefined when no msg values are found', () => {
-    const lastMessage = parseAndLogStdoutMessages('no debug output here', mockLogger);
+    const lastMessage = parseAndLogStdoutMessages(
+      'no debug output here',
+      mockLogger,
+    );
 
     expect(mockLogger.info).not.toHaveBeenCalled();
     expect(lastMessage).toBeUndefined();
