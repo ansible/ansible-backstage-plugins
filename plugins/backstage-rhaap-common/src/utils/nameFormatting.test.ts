@@ -37,6 +37,11 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Dev/Ops')).toBe('dev-ops');
       expect(sanitizeAapName('Team/QA')).toBe('team-qa');
     });
+
+    it('converts ampersands to hyphens', () => {
+      expect(sanitizeAapName('Dev&Ops')).toBe('dev-ops');
+      expect(sanitizeAapName('R&D Team')).toBe('r-d-team');
+    });
   });
 
   describe('special character removal', () => {

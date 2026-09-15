@@ -38,7 +38,7 @@ const MAX_NAME_LENGTH = 63;
  *
  * Rules (matching Backstage requirements):
  * 1. Convert to lowercase
- * 2. Convert underscores, spaces, and slashes to hyphens
+ * 2. Convert underscores, spaces, slashes, and ampersands to hyphens
  * 3. Remove all other non-alphanumeric characters except hyphens
  * 4. Collapse multiple consecutive hyphens into a single hyphen
  * 5. Remove leading and trailing hyphens
@@ -65,7 +65,7 @@ export function sanitizeAapName(name: string): string {
 
   const sanitized = name
     .toLowerCase() // 1. Lowercase
-    .replaceAll(/[_\s/]+/g, '-') // 2. Underscores, spaces, slashes → hyphen
+    .replaceAll(/[_\s/&]+/g, '-') // 2. Underscores, spaces, slashes, ampersands → hyphen
     .replaceAll(/[^a-z0-9-]/g, '') // 3. Remove all non-alphanumeric except hyphens
     .replaceAll(/-+/g, '-') // 4. Collapse multiple hyphens
     .replaceAll(/^-|-$/g, '') // 5. Trim leading/trailing hyphens

@@ -27,6 +27,7 @@ import {
   GitlabClient,
   resolveGithubToken,
   createGithubClientForWorkflowDispatch,
+  sanitizeAapName,
 } from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -933,8 +934,6 @@ export function getSkipTlsVerifyHosts(config: Config): string[] {
     config.getOptionalStringArray('catalog.ansible.skipTlsVerifyForHosts') ?? []
   );
 }
-
-import { sanitizeAapName } from '@ansible/backstage-rhaap-common';
 
 const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
