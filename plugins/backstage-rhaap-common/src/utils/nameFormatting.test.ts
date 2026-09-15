@@ -207,4 +207,15 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Org!')).toBe('org');
     });
   });
+
+  describe('regex validation edge case (coverage)', () => {
+    it('validates output against Backstage name regex', () => {
+      // This test ensures line 82-87 (regex validation) is covered
+      // The sanitization logic should always produce valid output,
+      // but we test edge cases to ensure the validation works
+      expect(sanitizeAapName('-a-')).toBe('a');
+      expect(sanitizeAapName('---a---')).toBe('a');
+      expect(sanitizeAapName('a-b-c')).toBe('a-b-c');
+    });
+  });
 });
