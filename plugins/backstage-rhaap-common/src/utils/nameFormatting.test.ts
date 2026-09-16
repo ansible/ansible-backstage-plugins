@@ -42,6 +42,11 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Dev&Ops')).toBe('dev-ops');
       expect(sanitizeAapName('R&D Team')).toBe('r-d-team');
     });
+
+    it('converts at-signs to hyphens', () => {
+      expect(sanitizeAapName('Test@Org')).toBe('test-org');
+      expect(sanitizeAapName('user@domain')).toBe('user-domain');
+    });
   });
 
   describe('special character removal', () => {
@@ -50,8 +55,8 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Ops!')).toBe('ops');
     });
 
-    it('removes at signs', () => {
-      expect(sanitizeAapName('Team@Work')).toBe('teamwork');
+    it('converts at signs to hyphens (moved from removal to conversion)', () => {
+      expect(sanitizeAapName('Team@Work')).toBe('team-work');
     });
 
     it('removes dollar signs and other special chars', () => {
