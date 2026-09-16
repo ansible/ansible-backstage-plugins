@@ -89,9 +89,9 @@ describe('helpers', () => {
       expect(formatNameSpace('Test Namespace')).toEqual('test-namespace');
     });
 
-    it('should remove special characters', () => {
+    it('should remove special characters and convert @ to hyphen', () => {
       expect(formatNameSpace('test@namespace#special!')).toEqual(
-        'testnamespacespecial',
+        'test-namespacespecial',
       );
     });
 
