@@ -10,6 +10,7 @@ export const CLIENT_SECRET = 'clientSecret';
 export const MOCK_CONFIG = {
   data: {
     app: { baseUrl: 'http://localhost' },
+    backend: { baseUrl: 'http://localhost:7007' },
     enableExperimentalRedirectFlow: true,
     auth: {
       session: { secret: 'test' },

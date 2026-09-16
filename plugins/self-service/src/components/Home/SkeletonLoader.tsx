@@ -3,7 +3,7 @@ import { Skeleton } from '@material-ui/lab';
 
 export const SkeletonLoader = () => {
   return (
-    <Card style={{ width: '30%', height: '100%', marginBottom: '100px' }}>
+    <Card style={{ width: '30%', height: '100%' }}>
       <CardHeader
         title={<Skeleton variant="text" width="100%" height="100%" />}
         subheader={<Skeleton variant="text" width="100%" height="100%" />}

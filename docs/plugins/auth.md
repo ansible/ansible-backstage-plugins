@@ -54,5 +54,6 @@ auth:
 For comprehensive configuration, troubleshooting, and advanced usage, see:
 
 - [External Authentication Documentation](../features/external-authentication.md) - Complete setup and configuration guide
+- [Home Template Listing](../features/home-template-listing.md) - Templates home page, `user-job-templates` API, and AAP session errors
 - [Users, Teams, and Organizations Sync](../features/users-teams-organizations.md) - User catalog synchronization
 - [Job Template Execution](../features/job-templates.md) - Executing AAP job templates with authenticated users
