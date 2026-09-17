@@ -70,11 +70,12 @@
     "protobufjs": "7.6.5",
     "undici": "^6.26.0",
     "fast-xml-parser": "^5.5.6",
-    "immutable": "^3.8.3",
+    "immutable": "^4.3.9",
     "rollup": "^4.59.0",
     "svgo": "^2.8.1",
     "koa": "^3.1.2",
     "multer": "^2.2.0",
+    "adm-zip": "^0.6.1",
     "@stoplight/spectral-core/minimatch": "3.1.4",
     "fast-uri": "^3.1.7",
     "@babel/plugin-transform-modules-systemjs": "^7.29.4",
@@ -98,6 +99,7 @@
     "form-data": "^4.0.6",
     "js-cookie": "^3.0.8",
     "js-yaml": "^4.3.2"
+    "urllib": "^4.9.1"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
