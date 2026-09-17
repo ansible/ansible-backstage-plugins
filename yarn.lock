@@ -225,7 +225,7 @@ __metadata:
     dedent: "npm:^1.7.0"
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
-    isomorphic-git: "npm:^1.23.0"
+    isomorphic-git: "npm:^1.42.0"
     js-yaml: "npm:^4.3.2"
     msw: "npm:2.4.9"
     node-fetch: "npm:^2.6.7"
@@ -30780,9 +30780,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isomorphic-git@npm:^1.23.0":
-  version: 1.32.2
-  resolution: "isomorphic-git@npm:1.32.2"
+"isomorphic-git@npm:^1.42.0":
+  version: 1.42.2
+  resolution: "isomorphic-git@npm:1.42.2"
   dependencies:
     async-lock: "npm:^1.4.1"
     clean-git-ref: "npm:^2.0.1"
@@ -30791,14 +30791,13 @@ __metadata:
     ignore: "npm:^5.1.4"
     minimisted: "npm:^2.0.0"
     pako: "npm:^1.0.10"
-    path-browserify: "npm:^1.0.1"
     pify: "npm:^4.0.1"
-    readable-stream: "npm:^3.4.0"
-    sha.js: "npm:^2.4.9"
+    readable-stream: "npm:^4.0.0"
+    sha.js: "npm:^2.4.12"
     simple-get: "npm:^4.0.1"
   bin:
     isogit: cli.cjs
-  checksum: 10c0/5975ade64a59708b3c588baef73fbc3d50ed15f9f140e2af7781afb47c5d85c6ca174b3a7dcf9c49969d32437104f7ff301c7c323d8e9381c775afc4888e9eda
+  checksum: 10c0/fd09835288d79c5dec249a6a3ebc195788a7f0ef803186dcdddce5016fa136d14308b22a5649b0b9fcce06bfeec7d2ff4845209407f64bba52c46953363b2415
   languageName: node
   linkType: hard
 
@@ -39620,7 +39619,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sha.js@npm:^2.4.0, sha.js@npm:^2.4.11, sha.js@npm:^2.4.12, sha.js@npm:^2.4.8, sha.js@npm:^2.4.9":
+"sha.js@npm:^2.4.0, sha.js@npm:^2.4.11, sha.js@npm:^2.4.12, sha.js@npm:^2.4.8":
   version: 2.4.12
   resolution: "sha.js@npm:2.4.12"
   dependencies:
