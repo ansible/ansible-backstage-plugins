@@ -672,7 +672,13 @@ export class AAPClient implements IAAPService {
     let result;
     try {
       result = await this.fetchResult(jobID, token);
-      lastEvent = await this.logJobStdoutMessages(jobID, token);
+      try {
+        lastEvent = await this.logJobStdoutMessages(jobID, token);
+      } catch (stdoutError) {
+        this.logger.warn(
+          `Failed to fetch job stdout for job ${jobID}: ${stdoutError}`,
+        );
+      }
       if (result.jobData.status !== 'successful') {
         lastEvent =
           lastEvent ??
