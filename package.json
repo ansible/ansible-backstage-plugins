@@ -98,7 +98,7 @@
     "@grpc/grpc-js": "^1.14.4",
     "form-data": "^4.0.6",
     "js-cookie": "^3.0.8",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
     "urllib": "^4.9.1"
   },
   "prettier": "@spotify/prettier-config",
