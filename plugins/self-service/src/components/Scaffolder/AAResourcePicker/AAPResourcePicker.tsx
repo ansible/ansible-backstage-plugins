@@ -219,7 +219,8 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     schema.resource ??
     (
       uiSchema as
-        { 'ui:options'?: { autocomplete?: { resource?: string } } } | undefined
+        | { 'ui:options'?: { autocomplete?: { resource?: string } } }
+        | undefined
     )?.['ui:options']?.autocomplete?.resource ??
     '';
   const _idKey: string = idKey ?? 'id';
