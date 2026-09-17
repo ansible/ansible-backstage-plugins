@@ -22,3 +22,4 @@ export { launchJobTemplate } from './aapLaunchJobTemplate';
 export { cleanUp } from './aapCleanUp';
 export { createEEDefinitionAction } from './createEEDefinition';
 export { prepareForPublishAction } from './prepareForPublish';
+export { registerGitRepositoryAction } from './registerGitRepository';

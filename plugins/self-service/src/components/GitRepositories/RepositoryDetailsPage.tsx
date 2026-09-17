@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Box, Button, Typography, Tab, Tabs } from '@material-ui/core';
+import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Typography,
+  Tab,
+  Tabs,
+  Menu,
+  MenuItem,
+  ListItemText,
+  ListItemIcon,
+} from '@material-ui/core';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import { Entity } from '@backstage/catalog-model';
 import {
   catalogApiRef,
@@ -17,6 +28,13 @@ import {
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import type {
+  GitRepositoryDetailTabContext,
+  GitRepositoryDetailTabDefinition,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import { useGitRepositoriesExtensions } from './useGitRepositoriesExtensions';
+import { GuestExtensionRender } from './GuestExtensionRender';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
 import { RepositoryAboutCard } from './RepositoryAboutCard';
@@ -32,6 +50,41 @@ import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
+
+type CoreDetailTab = {
+  id: string;
+  label: string;
+  order: number;
+  kind: 'overview' | 'ci-activity' | 'collections';
+};
+
+function buildDetailTabContext(
+  entity: Entity,
+  searchParams: URLSearchParams,
+): GitRepositoryDetailTabContext {
+  return {
+    entity,
+    repoUrl: normalizeRepoUrlFromEntity(entity),
+    initialRuleFilter: searchParams.get('rule') ?? undefined,
+    initialCategoryFilter: searchParams.get('category') ?? undefined,
+  };
+}
+
+const CORE_DETAIL_TABS: CoreDetailTab[] = [
+  { id: 'overview', label: 'Overview', order: 0, kind: 'overview' },
+  { id: 'ci-activity', label: 'CI Activity', order: 20, kind: 'ci-activity' },
+  { id: 'collections', label: 'Collections', order: 30, kind: 'collections' },
+];
+
+type ResolvedDetailTab =
+  | CoreDetailTab
+  | {
+      id: string;
+      label: string;
+      order: number;
+      kind: 'extension';
+      render: GitRepositoryDetailTabDefinition['render'];
+    };
 
 type ReadmeStateSetters = {
   setReadmeContent: (value: string) => void;
@@ -178,6 +231,23 @@ const RepositoryDetailsPageInner = () => {
   const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
   const fetchApi = useApi<FetchApi>(fetchApiRef);
   const rootLink = useRouteRef(rootRouteRef);
+  const extensionsApi = useGitRepositoriesExtensions();
+  const [searchParams] = useSearchParams();
+
+  const detailTabs = useMemo((): ResolvedDetailTab[] => {
+    const extensionTabs = extensionsApi.getDetailTabs().map(tab => ({
+      id: tab.id,
+      label: tab.label,
+      order: tab.order,
+      kind: 'extension' as const,
+      render: tab.render,
+    }));
+    return [...CORE_DETAIL_TABS, ...extensionTabs].sort(
+      (a, b) => a.order - b.order,
+    );
+  }, [extensionsApi]);
+
+  const collectionsTabIndex = detailTabs.findIndex(t => t.id === 'collections');
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,6 +255,34 @@ const RepositoryDetailsPageInner = () => {
   const [readmeLoading, setReadmeLoading] = useState(false);
   const [tab, setTab] = useState(0);
   const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<null | HTMLElement>(null);
+
+  const headerMenuItems = useMemo(
+    () =>
+      [...extensionsApi.getDetailHeaderMenuItems()].sort(
+        (a, b) => a.order - b.order,
+      ),
+    [extensionsApi],
+  );
+
+  const detailOverlays = useMemo(
+    () =>
+      [...extensionsApi.getDetailOverlays()].sort((a, b) => a.order - b.order),
+    [extensionsApi],
+  );
+
+  const detailTabContext = useMemo(
+    () => (entity ? buildDetailTabContext(entity, searchParams) : null),
+    [entity, searchParams],
+  );
+
+  const overviewSlots = useMemo(
+    () =>
+      [...extensionsApi.getDetailOverviewSlots()].sort(
+        (a, b) => a.order - b.order,
+      ),
+    [extensionsApi],
+  );
 
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
@@ -216,6 +314,17 @@ const RepositoryDetailsPageInner = () => {
   useEffect(() => {
     fetchEntity();
   }, [fetchEntity]);
+
+  useEffect(() => {
+    const requested = searchParams.get('tab');
+    if (!requested) {
+      return;
+    }
+    const idx = detailTabs.findIndex(t => t.id === requested);
+    if (idx >= 0) {
+      setTab(idx);
+    }
+  }, [searchParams, detailTabs]);
 
   useEffect(() => {
     setScmIntegrationAuthError(false);
@@ -283,6 +392,8 @@ const RepositoryDetailsPageInner = () => {
     repositoryName ??
     'Repository';
 
+  const activeDetailTab = detailTabs[tab];
+
   if (loading) {
     return (
       <Box className={classes.detailsContainer}>
@@ -333,31 +444,83 @@ const RepositoryDetailsPageInner = () => {
             </Typography>
           )}
         </Box>
-        {hasSourceUrl() && (
-          <Button
-            variant="outlined"
-            color="primary"
-            endIcon={<OpenInNewIcon />}
-            onClick={handleViewSource}
-            className={classes.syncButton}
-            style={{ whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 24 }}
-          >
-            View in source
-          </Button>
+        {(hasSourceUrl() || headerMenuItems.length > 0) && (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              endIcon={<ArrowDropDownIcon />}
+              onClick={e => setActionsAnchor(e.currentTarget)}
+              className={classes.syncButton}
+              style={{
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                marginLeft: 24,
+                textTransform: 'none',
+              }}
+            >
+              Actions
+            </Button>
+            <Menu
+              anchorEl={actionsAnchor}
+              open={Boolean(actionsAnchor)}
+              onClose={() => setActionsAnchor(null)}
+              getContentAnchorEl={null}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              {hasSourceUrl() && (
+                <MenuItem
+                  onClick={() => {
+                    setActionsAnchor(null);
+                    handleViewSource();
+                  }}
+                  style={{ justifyContent: 'space-between', gap: 16 }}
+                >
+                  <ListItemText primary="View in source" />
+                  <ListItemIcon style={{ minWidth: 0 }}>
+                    <OpenInNewIcon fontSize="small" style={{ opacity: 0.6 }} />
+                  </ListItemIcon>
+                </MenuItem>
+              )}
+              {entity &&
+                detailTabContext &&
+                headerMenuItems.map(item => (
+                  <GuestExtensionRender
+                    key={item.id}
+                    render={() =>
+                      item.render({
+                        ...detailTabContext,
+                        onCloseMenu: () => setActionsAnchor(null),
+                      })
+                    }
+                  />
+                ))}
+            </Menu>
+          </>
         )}
       </Box>
+
+      {entity &&
+        detailTabContext &&
+        detailOverlays.map(overlay => (
+          <GuestExtensionRender
+            key={overlay.id}
+            render={() => overlay.render(detailTabContext)}
+          />
+        ))}
 
       <Tabs
         value={tab}
         onChange={(_, v) => setTab(v)}
         className={classes.detailsTabs}
       >
-        <Tab label="Overview" />
-        <Tab label="CI Activity" />
-        <Tab label="Collections" />
+        {detailTabs.map(detailTab => (
+          <Tab key={detailTab.id} label={detailTab.label} disableRipple />
+        ))}
       </Tabs>
 
-      {tab === 0 && (
+      {activeDetailTab?.kind === 'overview' && (
         <Box className={classes.detailsContent}>
           <Box className={classes.detailsLeftColumn}>
             <RepositoryReadmeCard
@@ -366,16 +529,46 @@ const RepositoryDetailsPageInner = () => {
             />
           </Box>
           <Box className={classes.detailsRightColumn}>
+            {entity &&
+              detailTabContext &&
+              overviewSlots.map(slot => (
+                <GuestExtensionRender
+                  key={slot.id}
+                  fallback={<Typography>Loading…</Typography>}
+                  render={() => slot.render(detailTabContext)}
+                />
+              ))}
             <RepositoryAboutCard
               entity={entity}
               onViewSource={handleViewSource}
-              onNavigateToCollections={() => setTab(2)}
+              onNavigateToCollections={() =>
+                collectionsTabIndex >= 0 && setTab(collectionsTabIndex)
+              }
             />
           </Box>
         </Box>
       )}
 
-      {tab === 1 && (
+      {activeDetailTab?.kind === 'extension' && detailTabContext && (
+        <Box
+          className={classes.detailsContent}
+          style={{
+            width: '100%',
+            flex: 1,
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            alignSelf: 'stretch',
+          }}
+        >
+          <GuestExtensionRender
+            key={activeDetailTab.id}
+            fallback={<Typography>Loading…</Typography>}
+            render={() => activeDetailTab.render(detailTabContext)}
+          />
+        </Box>
+      )}
+
+      {activeDetailTab?.kind === 'ci-activity' && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
@@ -384,14 +577,28 @@ const RepositoryDetailsPageInner = () => {
         </Box>
       )}
 
-      {tab === 2 && (
+      {activeDetailTab?.kind === 'collections' && detailTabContext && (
         <Box
           className={classes.detailsContent}
           style={{ width: '100%', flex: 1 }}
         >
-          <EntityListProvider>
-            <CollectionsListPage filterByRepositoryEntity={entity} />
-          </EntityListProvider>
+          {(() => {
+            const override =
+              extensionsApi.getCollectionsTabContent(detailTabContext);
+            if (override) {
+              return (
+                <GuestExtensionRender
+                  fallback={<Typography>Loading…</Typography>}
+                  render={() => override}
+                />
+              );
+            }
+            return (
+              <EntityListProvider>
+                <CollectionsListPage filterByRepositoryEntity={entity} />
+              </EntityListProvider>
+            );
+          })()}
         </Box>
       )}
     </Box>
