@@ -101,7 +101,8 @@
     "isomorphic-git": "^1.42.0",
     "js-cookie": "^3.0.8",
     "js-yaml": "^4.3.2",
-    "urllib": "^4.9.1"
+    "urllib": "^4.9.1",
+    "compression": "^1.8.2"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
