@@ -43,7 +43,7 @@
     "@octokit/core": "^5.0.0",
     "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
-    "isomorphic-git": "^1.23.0",
+    "isomorphic-git": "^1.42.0",
     "js-yaml": "^4.3.0",
     "node-fetch": "^2.6.7",
     "semver": "^7.7.3",
