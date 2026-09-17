@@ -25,9 +25,15 @@ type CustomAuthApiRefType = OAuthApi &
   BackstageIdentityApi &
   SessionApi;
 
+export interface UserJobTemplate {
+  id: number;
+  name: string;
+}
+
 export interface AnsibleApi {
   syncTemplates(): Promise<boolean>;
   syncOrgsUsersTeam(): Promise<boolean>;
+  getUserJobTemplates(): Promise<{ items: UserJobTemplate[] }>;
   getSyncStatus(): Promise<{
     aap: {
       orgsUsersTeams: {
@@ -177,10 +183,16 @@ type AAPAuthApiFactoryType = ApiFactory<
 export class AnsibleApiClient implements AnsibleApi {
   private readonly discoveryApi: DiscoveryApi;
   private readonly fetchApi: FetchApi;
+  private readonly rhaapAuthApi: CustomAuthApiRefType;
 
-  constructor(options: { discoveryApi: DiscoveryApi; fetchApi: FetchApi }) {
+  constructor(options: {
+    discoveryApi: DiscoveryApi;
+    fetchApi: FetchApi;
+    rhaapAuthApi: CustomAuthApiRefType;
+  }) {
     this.discoveryApi = options.discoveryApi;
     this.fetchApi = options.fetchApi;
+    this.rhaapAuthApi = options.rhaapAuthApi;
   }
 
   private async triggerSync(endpoint: string): Promise<boolean> {
@@ -205,6 +217,36 @@ export class AnsibleApiClient implements AnsibleApi {
 
   async syncOrgsUsersTeam(): Promise<boolean> {
     return this.triggerSync('/ansible/sync/from-aap/orgs_users_teams');
+  }
+
+  async getUserJobTemplates(): Promise<{ items: UserJobTemplate[] }> {
+    const baseUrl = await this.discoveryApi.getBaseUrl('auth');
+    const accessToken = (await this.rhaapAuthApi.getAccessToken())?.trim();
+    if (!accessToken) {
+      throw new Error(
+        'Your AAP sign-in session expired. Sign out and sign in again.',
+      );
+    }
+
+    const response = await this.fetchApi.fetch(
+      `${baseUrl}/rhaap/user-job-templates`,
+      {
+        credentials: 'include',
+        headers: { 'X-RHAAP-Access-Token': accessToken },
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const rawMessage =
+        typeof data.error === 'string'
+          ? data.error
+          : `Request failed (${response.status})`;
+      const message = rawMessage.includes('invalid_grant')
+        ? 'Your AAP sign-in session expired. Sign out and sign in again.'
+        : rawMessage;
+      throw new Error(message);
+    }
+    return data as { items: UserJobTemplate[] };
   }
 
   async getSyncStatus(): Promise<{
@@ -240,12 +282,20 @@ export class AnsibleApiClient implements AnsibleApi {
 export const AAPApis: ApiFactory<
   AnsibleApi,
   AnsibleApiClient,
-  { discoveryApi: DiscoveryApi; fetchApi: FetchApi }
+  {
+    discoveryApi: DiscoveryApi;
+    fetchApi: FetchApi;
+    rhaapAuthApi: CustomAuthApiRefType;
+  }
 > = createApiFactory({
   api: ansibleApiRef,
-  deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
-  factory: ({ discoveryApi, fetchApi }) =>
-    new AnsibleApiClient({ discoveryApi, fetchApi }),
+  deps: {
+    discoveryApi: discoveryApiRef,
+    fetchApi: fetchApiRef,
+    rhaapAuthApi: rhAapAuthApiRef,
+  },
+  factory: ({ discoveryApi, fetchApi, rhaapAuthApi }) =>
+    new AnsibleApiClient({ discoveryApi, fetchApi, rhaapAuthApi }),
 });
 
 export class EEBuildApiClient implements EEBuildApi {
