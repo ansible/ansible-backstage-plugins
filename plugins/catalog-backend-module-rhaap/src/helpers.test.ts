@@ -89,9 +89,9 @@ describe('helpers', () => {
       expect(formatNameSpace('Test Namespace')).toEqual('test-namespace');
     });
 
-    it('should remove special characters', () => {
+    it('should remove special characters and convert @ to hyphen', () => {
       expect(formatNameSpace('test@namespace#special!')).toEqual(
-        'testnamespacespecial',
+        'test-namespacespecial',
       );
     });
 
@@ -119,7 +119,9 @@ describe('helpers', () => {
     });
 
     it('should throw for empty string', () => {
-      expect(() => formatNameSpace('')).toThrow('contains no valid characters');
+      expect(() => formatNameSpace('')).toThrow(
+        'AAP name must be a non-empty string',
+      );
     });
 
     it('should handle multiple spaces', () => {
