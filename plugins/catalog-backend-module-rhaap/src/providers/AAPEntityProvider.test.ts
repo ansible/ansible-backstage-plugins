@@ -430,6 +430,79 @@ describe('AAPEntityProvider', () => {
     expect(result).toBe(true);
   });
 
+  describe('bulk user team membership fallback', () => {
+    it('warns and assigns org group when team is missing from bulk payload', async () => {
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      const childLogger = mockServices.logger.mock();
+      const logger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [],
+          users: [
+            {
+              id: 100,
+              username: 'alice',
+              first_name: 'Alice',
+              last_name: 'Smith',
+              email: 'alice@test.com',
+              is_superuser: false,
+              is_orguser: false,
+            },
+          ],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([
+        {
+          id: 99,
+          name: 'Missing Team',
+          groupName: 'missing-team',
+          orgId: 1,
+          orgName: 'Default',
+        },
+      ] as any);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const call = (entityProviderConnection.applyMutation as jest.Mock).mock
+        .calls[0][0];
+      const alice = call.entities.find(
+        (e: any) =>
+          e.entity.kind === 'User' && e.entity.metadata?.name === 'alice',
+      );
+
+      expect(alice.entity.spec.memberOf).toEqual(['group:default/default']);
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Team Missing Team (ID: 99) for user alice (ID: 100) not found in bulk org payload',
+        ),
+      );
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'assigning org group group:default/default instead',
+        ),
+      );
+    });
+  });
+
   describe('sync state tracking', () => {
     it('should track sync state on successful run', async () => {
       const config = new ConfigReader(MOCK_CONFIG.data);

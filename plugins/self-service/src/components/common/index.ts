@@ -11,7 +11,11 @@ export { ScmIntegrationAuthError } from './ScmIntegrationAuthError';
 export { fetchGitFileContentFromBackend } from './fetchReadme';
 export { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 export type { FetchGitFileOutcome } from './fetchReadme';
-export { usePageHeaderStyles, useSharedStyles } from './styles';
+export {
+  usePageHeaderStyles,
+  useSharedStyles,
+  useShellPageStyles,
+} from './styles';
 export { GitLabIcon, RedHatIcon } from './icons';
 export {
   CONFIGURATION_DOCS_URL,

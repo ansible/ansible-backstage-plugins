@@ -13,7 +13,7 @@ import { makeStyles, useTheme } from '@material-ui/core/styles';
 import AutorenewIcon from '@material-ui/icons/Autorenew';
 import EditIcon from '@material-ui/icons/Edit';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import { getEntityEEDefinitionUrl } from './helpers';
 
