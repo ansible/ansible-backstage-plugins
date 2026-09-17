@@ -452,6 +452,7 @@ When upgrading from older versions:
 
 ## Related Documentation
 
+- [Home Template Listing (AAP-first visibility)](home-template-listing.md) — Templates home page, user job-template API, and session troubleshooting
 - [Catalog Backend Module](../plugins/catalog.md) - Main catalog synchronization
 - [Auth Provider](../plugins/auth.md) - AAP OAuth2 authentication setup
 - [Scaffolder Actions](../plugins/scaffolder.md) - Additional scaffolder actions
