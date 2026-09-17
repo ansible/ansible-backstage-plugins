@@ -21,7 +21,10 @@ export function redactSensitiveLogMessage(message: string): string {
     return `${key}${separator}${space}${REDACTION_PLACEHOLDER}`;
   });
 
-  redacted = redacted.replace(BEARER_PATTERN, `bearer ${REDACTION_PLACEHOLDER}`);
+  redacted = redacted.replace(
+    BEARER_PATTERN,
+    `bearer ${REDACTION_PLACEHOLDER}`,
+  );
   redacted = redacted.replace(JWT_PATTERN, REDACTION_PLACEHOLDER);
 
   return redacted;

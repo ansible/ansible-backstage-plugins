@@ -74,9 +74,9 @@ describe('jobStdoutHelpers', () => {
     });
 
     it('redacts bearer tokens and JWT-like values', () => {
-      expect(redactSensitiveLogMessage('Authorization bearer abc.def.ghi')).toBe(
-        `Authorization bearer ${REDACTION_PLACEHOLDER}`,
-      );
+      expect(
+        redactSensitiveLogMessage('Authorization bearer abc.def.ghi'),
+      ).toBe(`Authorization bearer ${REDACTION_PLACEHOLDER}`);
       expect(
         redactSensitiveLogMessage(
           'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
