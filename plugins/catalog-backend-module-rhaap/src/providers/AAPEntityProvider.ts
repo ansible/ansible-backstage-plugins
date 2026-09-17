@@ -314,6 +314,8 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
 
+                // Team group entities come from the bulk org payload; if a team is
+                // missing there, reference the org group so memberOf stays valid.
                 if (!matched) {
                   for (const org of orgsDetails) {
                     if (org.organization.id === team.orgId) {
@@ -321,9 +323,11 @@ export class AAPEntityProvider implements EntityProvider {
                         org.organization.name,
                         this.orgs,
                       );
-                      userMembers.push(
-                        `group:${orgNs}/${formatNameSpace(org.organization.name)}`,
+                      const orgGroupRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
+                      this.logger.warn(
+                        `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; assigning org group ${orgGroupRef} instead`,
                       );
+                      userMembers.push(orgGroupRef);
                       break;
                     }
                   }
