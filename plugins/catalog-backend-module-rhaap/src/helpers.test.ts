@@ -136,29 +136,31 @@ describe('helpers', () => {
   });
 
   describe('getEffectiveNamespace', () => {
-    it('should return "default" for single-org configs', () => {
+    it('should return source-prefixed namespace for single-org configs', () => {
       expect(getEffectiveNamespace('Engineering', ['engineering'])).toEqual(
-        'default',
+        'aap-engineering',
       );
     });
 
-    it('should return "default" for single org named Default', () => {
-      expect(getEffectiveNamespace('Default', ['default'])).toEqual('default');
+    it('should return source-prefixed namespace for single org named Default', () => {
+      expect(getEffectiveNamespace('Default', ['default'])).toEqual(
+        'aap-default',
+      );
     });
 
-    it('should return formatted org name for multi-org configs', () => {
+    it('should return source-prefixed org namespace for multi-org configs', () => {
       const allOrgs = ['engineering', 'platform-ops'];
       expect(getEffectiveNamespace('Engineering', allOrgs)).toEqual(
-        'engineering',
+        'aap-engineering',
       );
       expect(getEffectiveNamespace('Platform Ops', allOrgs)).toEqual(
-        'platform-ops',
+        'aap-platform-ops',
       );
     });
 
-    it('should return "default" for Default org in multi-org mode', () => {
+    it('should return source-prefixed namespace for Default org in multi-org mode', () => {
       const allOrgs = ['default', 'engineering'];
-      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('default');
+      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('aap-default');
     });
   });
 

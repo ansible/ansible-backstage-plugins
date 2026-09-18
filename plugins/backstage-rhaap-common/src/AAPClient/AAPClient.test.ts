@@ -2858,10 +2858,12 @@ describe('AAPClient', () => {
         expect(result).toEqual([
           {
             name: 'Development Org',
+            id: 1,
             groupName: 'development-org',
           },
           {
             name: 'QA Organization',
+            id: 2,
             groupName: 'qa-organization',
           },
         ]);
