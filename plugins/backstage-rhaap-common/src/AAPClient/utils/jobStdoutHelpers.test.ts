@@ -75,6 +75,32 @@ describe('jobStdoutHelpers', () => {
 
       expect(parseStdoutMessages(stdout)).toEqual(['From event_data res']);
     });
+
+    it('parses Hello World from Controller format=txt human-readable stdout', () => {
+      const stdout = `
+PLAY [Hello World Sample] ******************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [localhost]
+
+TASK [Hello Message] ***********************************************************
+ok: [localhost] => {
+    "msg": "Hello World!"
+}
+
+PLAY RECAP *********************************************************************
+localhost : ok=2 changed=0 unreachable=0 failed=0
+`.trim();
+
+      expect(parseStdoutMessages(stdout)).toEqual(['Hello World!']);
+    });
+
+    it('parses escaped quotes from format=txt stdout', () => {
+      const stdout =
+        'ok: [localhost] => {\n    "msg": "Task \\"deploy\\" failed"\n}';
+
+      expect(parseStdoutMessages(stdout)).toEqual(['Task "deploy" failed']);
+    });
   });
 
   describe('extractMessagesFromRecord', () => {

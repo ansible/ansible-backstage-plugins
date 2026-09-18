@@ -107,7 +107,51 @@ export function extractMessagesFromRecord(record: unknown): string[] | null {
 }
 
 /**
- * Parses newline-delimited JSON stdout records and extracts msg values.
+ * Unescapes a JSON string body (content between quotes).
+ */
+function unescapeJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value}"`) as string;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Extracts msg values from Controller `format=txt` human-readable stdout.
+ * Example snippet:
+ *   ok: [localhost] => {
+ *       "msg": "Hello World!"
+ *   }
+ */
+function extractMessagesFromTxtStdout(stdoutText: string): string[] {
+  const messages: string[] = [];
+
+  const stringMsgPattern = /"msg"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  let stringMatch = stringMsgPattern.exec(stdoutText);
+  while (stringMatch) {
+    messages.push(unescapeJsonString(stringMatch[1]));
+    stringMatch = stringMsgPattern.exec(stdoutText);
+  }
+
+  const arrayMsgPattern = /"msg"\s*:\s*\[([^\]]*)\]/g;
+  let arrayMatch = arrayMsgPattern.exec(stdoutText);
+  while (arrayMatch) {
+    const itemPattern = /"((?:\\.|[^"\\])*)"/g;
+    let itemMatch = itemPattern.exec(arrayMatch[1]);
+    while (itemMatch) {
+      messages.push(unescapeJsonString(itemMatch[1]));
+      itemMatch = itemPattern.exec(arrayMatch[1]);
+    }
+    arrayMatch = arrayMsgPattern.exec(stdoutText);
+  }
+
+  return messages;
+}
+
+/**
+ * Parses job stdout and extracts msg values.
+ * Supports NDJSON records and Controller `format=txt` human-readable output.
  */
 export function parseStdoutMessages(stdoutText: string): string[] {
   const messages: string[] = [];
@@ -127,6 +171,12 @@ export function parseStdoutMessages(stdoutText: string): string[] {
     } catch {
       // Skip lines that are not valid JSON records.
     }
+  }
+
+  // Controller stdout/?format=txt is human-readable playbook text, not NDJSON.
+  // Fall back so debug msgs like "Hello World!" are still captured.
+  if (messages.length === 0) {
+    return extractMessagesFromTxtStdout(stdoutText);
   }
 
   return messages;
