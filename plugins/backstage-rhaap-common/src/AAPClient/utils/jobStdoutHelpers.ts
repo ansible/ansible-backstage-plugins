@@ -2,6 +2,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 
 export const REDACTION_PLACEHOLDER = '[REDACTED]';
 
+/** Keys redacted in both quoted JSON and unquoted key=value forms. */
 const SENSITIVE_KEYS = [
   'password',
   'passwd',
@@ -11,8 +12,6 @@ const SENSITIVE_KEYS = [
   'api_key',
   'api-key',
   'apikey',
-  'authorization',
-  'bearer',
   'private_key',
   'private-key',
   'access_key',
@@ -20,6 +19,12 @@ const SENSITIVE_KEYS = [
   'client_secret',
   'client-secret',
 ] as const;
+
+/**
+ * Header-style keys handled by dedicated patterns for unquoted values
+ * (Basic / Bearer). Still redacted when quoted as JSON fields.
+ */
+const QUOTED_ONLY_SENSITIVE_KEYS = ['authorization', 'bearer'] as const;
 
 const BASIC_AUTH_PATTERN = /\bauthorization\s*:\s*basic\s+\S+/gi;
 
@@ -40,14 +45,19 @@ export function redactSensitiveLogMessage(message: string): string {
     `Authorization: Basic ${REDACTION_PLACEHOLDER}`,
   );
 
-  for (const key of SENSITIVE_KEYS) {
+  for (const key of [...SENSITIVE_KEYS, ...QUOTED_ONLY_SENSITIVE_KEYS]) {
     const escapedKey = escapeRegExp(key);
     // JSON / quoted values: "password":"secret" or "password": "secret"
     redacted = redacted.replace(
       new RegExp(`("${escapedKey}")(\\s*:\\s*)"[^"]*"`, 'gi'),
       `$1$2"${REDACTION_PLACEHOLDER}"`,
     );
+  }
+
+  for (const key of SENSITIVE_KEYS) {
+    const escapedKey = escapeRegExp(key);
     // Unquoted assignments: password=secret or token: abc123
+    // (authorization / bearer use BASIC_AUTH_PATTERN / BEARER_PATTERN)
     redacted = redacted.replace(
       new RegExp(`(\\b${escapedKey})(\\s*[:=]\\s*)[^\\s,;]+`, 'gi'),
       `$1$2${REDACTION_PLACEHOLDER}`,

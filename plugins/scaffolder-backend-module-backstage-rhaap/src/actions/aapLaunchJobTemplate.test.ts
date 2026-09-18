@@ -83,10 +83,21 @@ describe('ansible-aap:jobTemplate:launch', () => {
     );
 
     const warnSpy = jest.fn();
-    const ctx = {
-      ...mockContext,
-      logger: { ...mockContext.logger, warn: warnSpy, info: jest.fn() },
-    };
+    const ctx = createMockActionContext({
+      input: {
+        token: MOCK_TOKEN,
+        deleteIfExist: true,
+        values: projectData,
+      },
+      // @ts-ignore incomplete LoggerService is enough for this unit test
+      logger: {
+        info: jest.fn(),
+        warn: warnSpy,
+        debug: jest.fn(),
+        error: jest.fn(),
+        child: jest.fn(),
+      },
+    });
 
     // @ts-ignore
     await action.handler(ctx);
