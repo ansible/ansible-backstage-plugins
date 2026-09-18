@@ -101,6 +101,12 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
 
       expect(parseStdoutMessages(stdout)).toEqual(['Task "deploy" failed']);
     });
+
+    it('does not fall back to txt extraction when structured no_log filtered all msgs', () => {
+      expect(
+        parseStdoutMessages('{"msg": "hidden", "_ansible_no_log": true}'),
+      ).toEqual([]);
+    });
   });
 
   describe('extractMessagesFromRecord', () => {

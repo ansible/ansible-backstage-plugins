@@ -155,6 +155,7 @@ function extractMessagesFromTxtStdout(stdoutText: string): string[] {
  */
 export function parseStdoutMessages(stdoutText: string): string[] {
   const messages: string[] = [];
+  let sawStructuredRecord = false;
 
   for (const line of stdoutText.split('\n')) {
     const trimmed = line.trim();
@@ -164,6 +165,7 @@ export function parseStdoutMessages(stdoutText: string): string[] {
 
     try {
       const record = JSON.parse(trimmed) as unknown;
+      sawStructuredRecord = true;
       const extracted = extractMessagesFromRecord(record);
       if (extracted) {
         messages.push(...extracted);
@@ -174,8 +176,9 @@ export function parseStdoutMessages(stdoutText: string): string[] {
   }
 
   // Controller stdout/?format=txt is human-readable playbook text, not NDJSON.
-  // Fall back so debug msgs like "Hello World!" are still captured.
-  if (messages.length === 0) {
+  // Only fall back when we did not see structured JSON records (so no_log
+  // filtering on NDJSON is not bypassed by the text extractor).
+  if (messages.length === 0 && !sawStructuredRecord) {
     return extractMessagesFromTxtStdout(stdoutText);
   }
 
