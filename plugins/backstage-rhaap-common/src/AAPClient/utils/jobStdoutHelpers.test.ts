@@ -1,6 +1,7 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import {
   REDACTION_PLACEHOLDER,
+  extractMessagesFromRecord,
   parseAndLogStdoutMessages,
   parseStdoutMessages,
   redactSensitiveLogMessage,
@@ -54,6 +55,33 @@ describe('jobStdoutHelpers', () => {
 
     it('returns empty array when no msg values are found', () => {
       expect(parseStdoutMessages('no debug output here')).toEqual([]);
+      expect(parseStdoutMessages('{"status": "ok"}')).toEqual([]);
+    });
+
+    it('skips non-string msg values', () => {
+      expect(parseStdoutMessages('{"msg": 42}')).toEqual([]);
+      expect(parseStdoutMessages('{"msg": {"nested": true}}')).toEqual([]);
+    });
+
+    it('skips invalid JSON lines that start with a brace', () => {
+      expect(parseStdoutMessages('{not-valid-json}\n{"msg": "ok"}')).toEqual([
+        'ok',
+      ]);
+    });
+
+    it('parses msg from event_data.res records', () => {
+      const stdout =
+        '{"event_data": {"res": {"msg": "From event_data res", "_ansible_no_log": false}}}';
+
+      expect(parseStdoutMessages(stdout)).toEqual(['From event_data res']);
+    });
+  });
+
+  describe('extractMessagesFromRecord', () => {
+    it('returns null for non-object records', () => {
+      expect(extractMessagesFromRecord(null)).toBeNull();
+      expect(extractMessagesFromRecord('string')).toBeNull();
+      expect(extractMessagesFromRecord(42)).toBeNull();
     });
   });
 
@@ -71,6 +99,21 @@ describe('jobStdoutHelpers', () => {
       expect(redactSensitiveLogMessage('api_key=my-secret-key')).toBe(
         `api_key=${REDACTION_PLACEHOLDER}`,
       );
+    });
+
+    it('redacts quoted JSON sensitive key values', () => {
+      expect(redactSensitiveLogMessage('{"password":"secret"}')).toBe(
+        `{"password":"${REDACTION_PLACEHOLDER}"}`,
+      );
+      expect(redactSensitiveLogMessage('{"token": "abc123"}')).toBe(
+        `{"token": "${REDACTION_PLACEHOLDER}"}`,
+      );
+    });
+
+    it('redacts complete Basic Authorization credentials', () => {
+      expect(
+        redactSensitiveLogMessage('Authorization: Basic dXNlcjpwYXNz'),
+      ).toBe(`Authorization: Basic ${REDACTION_PLACEHOLDER}`);
     });
 
     it('redacts bearer tokens and JWT-like values', () => {

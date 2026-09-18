@@ -67,6 +67,35 @@ describe('ansible-aap:jobTemplate:launch', () => {
     );
   });
 
+  it('should warn and continue when stdout logging fails after job success', async () => {
+    const launchResponse = {
+      id: 1,
+      status: 'successful',
+      url: `https//test.com/execution/jobs/playbook/1/output`,
+      launchedAt: '2024-01-01T00:00:00.000Z',
+    };
+
+    mockAnsibleService.launchJobTemplateNoWait.mockResolvedValue(
+      launchResponse,
+    );
+    mockAnsibleService.logJobStdoutMessages.mockRejectedValue(
+      new Error('stdout fetch failed'),
+    );
+
+    const warnSpy = jest.fn();
+    const ctx = {
+      ...mockContext,
+      logger: { ...mockContext.logger, warn: warnSpy, info: jest.fn() },
+    };
+
+    // @ts-ignore
+    await action.handler(ctx);
+    expect(ctx.output).toHaveBeenCalledWith('data', launchResponse);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to fetch job stdout for job 1'),
+    );
+  });
+
   it('should poll for job completion using service token', async () => {
     const launchResponse = {
       id: 1,

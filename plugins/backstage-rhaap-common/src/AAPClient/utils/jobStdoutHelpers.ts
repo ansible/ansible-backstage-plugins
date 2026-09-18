@@ -2,24 +2,57 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 
 export const REDACTION_PLACEHOLDER = '[REDACTED]';
 
-const SENSITIVE_KEY_VALUE_PATTERN =
-  /(?:password|passwd|pwd|secret|token|api[_-]?key|authorization|bearer|private[_-]?key|access[_-]?key|client[_-]?secret)\s*[:=]\s*[^\s,;]+/gi;
+const SENSITIVE_KEYS = [
+  'password',
+  'passwd',
+  'pwd',
+  'secret',
+  'token',
+  'api_key',
+  'api-key',
+  'apikey',
+  'authorization',
+  'bearer',
+  'private_key',
+  'private-key',
+  'access_key',
+  'access-key',
+  'client_secret',
+  'client-secret',
+] as const;
+
+const BASIC_AUTH_PATTERN = /\bauthorization\s*:\s*basic\s+\S+/gi;
 
 const BEARER_PATTERN = /\bbearer\s+\S+/gi;
 
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Redacts known sensitive patterns from a log message before writing to Show Logs.
  */
 export function redactSensitiveLogMessage(message: string): string {
-  let redacted = message.replace(SENSITIVE_KEY_VALUE_PATTERN, match => {
-    const separatorIndex = Math.max(match.indexOf('='), match.indexOf(':'));
-    const key = match.slice(0, separatorIndex).trimEnd();
-    const separator = match[separatorIndex];
-    const space = match[separatorIndex + 1] === ' ' ? ' ' : '';
-    return `${key}${separator}${space}${REDACTION_PLACEHOLDER}`;
-  });
+  let redacted = message.replace(
+    BASIC_AUTH_PATTERN,
+    `Authorization: Basic ${REDACTION_PLACEHOLDER}`,
+  );
+
+  for (const key of SENSITIVE_KEYS) {
+    const escapedKey = escapeRegExp(key);
+    // JSON / quoted values: "password":"secret" or "password": "secret"
+    redacted = redacted.replace(
+      new RegExp(`("${escapedKey}")(\\s*:\\s*)"[^"]*"`, 'gi'),
+      `$1$2"${REDACTION_PLACEHOLDER}"`,
+    );
+    // Unquoted assignments: password=secret or token: abc123
+    redacted = redacted.replace(
+      new RegExp(`(\\b${escapedKey})(\\s*[:=]\\s*)[^\\s,;]+`, 'gi'),
+      `$1$2${REDACTION_PLACEHOLDER}`,
+    );
+  }
 
   redacted = redacted.replace(
     BEARER_PATTERN,
@@ -30,7 +63,8 @@ export function redactSensitiveLogMessage(message: string): string {
   return redacted;
 }
 
-function extractMessagesFromRecord(record: unknown): string[] | null {
+/** @internal Exported for unit tests covering defensive branches. */
+export function extractMessagesFromRecord(record: unknown): string[] | null {
   if (!record || typeof record !== 'object') {
     return null;
   }
