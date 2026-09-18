@@ -107,6 +107,21 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
         parseStdoutMessages('{"msg": "hidden", "_ansible_no_log": true}'),
       ).toEqual([]);
     });
+
+    it('preserves interleaved scalar and array msg order in format=txt stdout', () => {
+      const stdout = `
+"msg": "first"
+"msg": ["second-a", "second-b"]
+"msg": "third"
+`.trim();
+
+      expect(parseStdoutMessages(stdout)).toEqual([
+        'first',
+        'second-a',
+        'second-b',
+        'third',
+      ]);
+    });
   });
 
   describe('extractMessagesFromRecord', () => {
@@ -140,6 +155,27 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
       expect(redactSensitiveLogMessage('{"token": "abc123"}')).toBe(
         `{"token": "${REDACTION_PLACEHOLDER}"}`,
       );
+    });
+
+    it('redacts authToken and auth_token spellings', () => {
+      expect(redactSensitiveLogMessage('authToken=super-secret')).toBe(
+        `authToken=${REDACTION_PLACEHOLDER}`,
+      );
+      expect(redactSensitiveLogMessage('auth_token: super-secret')).toBe(
+        `auth_token: ${REDACTION_PLACEHOLDER}`,
+      );
+      expect(redactSensitiveLogMessage('{"authToken":"super-secret"}')).toBe(
+        `{"authToken":"${REDACTION_PLACEHOLDER}"}`,
+      );
+    });
+
+    it('redacts quoted values that contain escaped quotes', () => {
+      expect(
+        redactSensitiveLogMessage('{"password":"pre\\"remaining-secret"}'),
+      ).toBe(`{"password":"${REDACTION_PLACEHOLDER}"}`);
+      expect(
+        redactSensitiveLogMessage('{"password":"pre\\"remaining-secret"}'),
+      ).not.toContain('remaining-secret');
     });
 
     it('redacts complete Basic Authorization credentials', () => {
@@ -195,6 +231,24 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
 
       expect(mockLogger.info).not.toHaveBeenCalled();
       expect(lastMessage).toBeUndefined();
+    });
+
+    it('preserves interleaved msg order and returns the final message', () => {
+      const stdout = `
+"msg": "first"
+"msg": ["second-a", "second-b"]
+"msg": "third"
+`.trim();
+
+      const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
+
+      expect(mockLogger.info.mock.calls.map(call => call[0])).toEqual([
+        'first',
+        'second-a',
+        'second-b',
+        'third',
+      ]);
+      expect(lastMessage).toBe('third');
     });
   });
 });

@@ -9,6 +9,8 @@ const SENSITIVE_KEYS = [
   'pwd',
   'secret',
   'token',
+  'authToken',
+  'auth_token',
   'api_key',
   'api-key',
   'apikey',
@@ -33,7 +35,7 @@ const BEARER_PATTERN = /\bbearer\s+\S+/gi;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }
 
 /**
@@ -47,9 +49,9 @@ export function redactSensitiveLogMessage(message: string): string {
 
   for (const key of [...SENSITIVE_KEYS, ...QUOTED_ONLY_SENSITIVE_KEYS]) {
     const escapedKey = escapeRegExp(key);
-    // JSON / quoted values: "password":"secret" or "password": "secret"
+    // JSON / quoted values, including escaped quotes inside the value
     redacted = redacted.replace(
-      new RegExp(`("${escapedKey}")(\\s*:\\s*)"[^"]*"`, 'gi'),
+      new RegExp(String.raw`("${escapedKey}")(\s*:\s*)"(?:\\.|[^"\\])*"`, 'gi'),
       `$1$2"${REDACTION_PLACEHOLDER}"`,
     );
   }
@@ -59,7 +61,7 @@ export function redactSensitiveLogMessage(message: string): string {
     // Unquoted assignments: password=secret or token: abc123
     // (authorization / bearer use BASIC_AUTH_PATTERN / BEARER_PATTERN)
     redacted = redacted.replace(
-      new RegExp(`(\\b${escapedKey})(\\s*[:=]\\s*)[^\\s,;]+`, 'gi'),
+      new RegExp(String.raw`(\b${escapedKey})(\s*[:=]\s*)[^\s,;]+`, 'gi'),
       `$1$2${REDACTION_PLACEHOLDER}`,
     );
   }
@@ -117,6 +119,8 @@ function unescapeJsonString(value: string): string {
   }
 }
 
+type TxtMsgMatch = { index: number; messages: string[] };
+
 /**
  * Extracts msg values from Controller `format=txt` human-readable stdout.
  * Example snippet:
@@ -125,28 +129,34 @@ function unescapeJsonString(value: string): string {
  *   }
  */
 function extractMessagesFromTxtStdout(stdoutText: string): string[] {
-  const messages: string[] = [];
+  const matches: TxtMsgMatch[] = [];
 
   const stringMsgPattern = /"msg"\s*:\s*"((?:\\.|[^"\\])*)"/g;
   let stringMatch = stringMsgPattern.exec(stdoutText);
   while (stringMatch) {
-    messages.push(unescapeJsonString(stringMatch[1]));
+    matches.push({
+      index: stringMatch.index,
+      messages: [unescapeJsonString(stringMatch[1])],
+    });
     stringMatch = stringMsgPattern.exec(stdoutText);
   }
 
   const arrayMsgPattern = /"msg"\s*:\s*\[([^\]]*)\]/g;
   let arrayMatch = arrayMsgPattern.exec(stdoutText);
   while (arrayMatch) {
+    const items: string[] = [];
     const itemPattern = /"((?:\\.|[^"\\])*)"/g;
     let itemMatch = itemPattern.exec(arrayMatch[1]);
     while (itemMatch) {
-      messages.push(unescapeJsonString(itemMatch[1]));
+      items.push(unescapeJsonString(itemMatch[1]));
       itemMatch = itemPattern.exec(arrayMatch[1]);
     }
+    matches.push({ index: arrayMatch.index, messages: items });
     arrayMatch = arrayMsgPattern.exec(stdoutText);
   }
 
-  return messages;
+  matches.sort((a, b) => a.index - b.index);
+  return matches.flatMap(match => match.messages);
 }
 
 /**
