@@ -229,7 +229,7 @@ __metadata:
     dedent: "npm:^1.7.0"
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
-    isomorphic-git: "npm:^1.23.0"
+    isomorphic-git: "npm:^1.42.0"
     js-yaml: "npm:^4.3.0"
     msw: "npm:2.4.9"
     node-fetch: "npm:^2.6.7"
@@ -24488,18 +24488,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"compression@npm:^1.7.4, compression@npm:^1.8.1":
-  version: 1.8.1
-  resolution: "compression@npm:1.8.1"
+"compression@npm:^1.8.2":
+  version: 1.8.2
+  resolution: "compression@npm:1.8.2"
   dependencies:
     bytes: "npm:3.1.2"
     compressible: "npm:~2.0.18"
     debug: "npm:2.6.9"
+    destroy: "npm:1.2.0"
     negotiator: "npm:~0.6.4"
     on-headers: "npm:~1.1.0"
     safe-buffer: "npm:5.2.1"
     vary: "npm:~1.1.2"
-  checksum: 10c0/85114b0b91c16594dc8c671cd9b05ef5e465066a60e5a4ed8b4551661303559a896ed17bb72c4234c04064e078f6ca86a34b8690349499a43f6fc4b844475da4
+  checksum: 10c0/f95be7122323fdffcaadc807f42da38b5227eeac7d9997c1c4314abd7ca4a4de2daa3d5bd4e142706bef4d34fa0f64cd265c6f074b221143e18da1215c0a07ab
   languageName: node
   linkType: hard
 
@@ -30716,9 +30717,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isomorphic-git@npm:^1.23.0":
-  version: 1.32.2
-  resolution: "isomorphic-git@npm:1.32.2"
+"isomorphic-git@npm:^1.42.0":
+  version: 1.42.0
+  resolution: "isomorphic-git@npm:1.42.0"
   dependencies:
     async-lock: "npm:^1.4.1"
     clean-git-ref: "npm:^2.0.1"
@@ -30727,14 +30728,13 @@ __metadata:
     ignore: "npm:^5.1.4"
     minimisted: "npm:^2.0.0"
     pako: "npm:^1.0.10"
-    path-browserify: "npm:^1.0.1"
     pify: "npm:^4.0.1"
-    readable-stream: "npm:^3.4.0"
-    sha.js: "npm:^2.4.9"
+    readable-stream: "npm:^4.0.0"
+    sha.js: "npm:^2.4.12"
     simple-get: "npm:^4.0.1"
   bin:
     isogit: cli.cjs
-  checksum: 10c0/5975ade64a59708b3c588baef73fbc3d50ed15f9f140e2af7781afb47c5d85c6ca174b3a7dcf9c49969d32437104f7ff301c7c323d8e9381c775afc4888e9eda
+  checksum: 10c0/d5bc2aa68f7e071d855b92fb97c743ce1b53c4035f3067f5cbafe4a9a3c2a1951fcb2d55322866caf6cbbff5999615bad9262f78472c9cddbca46883c4316080
   languageName: node
   linkType: hard
 
@@ -36929,7 +36929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qs@npm:^6.15.2":
+"qs@npm:^6.16.0":
   version: 6.16.0
   resolution: "qs@npm:6.16.0"
   dependencies:
@@ -39398,7 +39398,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sha.js@npm:^2.4.0, sha.js@npm:^2.4.11, sha.js@npm:^2.4.12, sha.js@npm:^2.4.8, sha.js@npm:^2.4.9":
+"sha.js@npm:^2.4.0, sha.js@npm:^2.4.11, sha.js@npm:^2.4.12, sha.js@npm:^2.4.8":
   version: 2.4.12
   resolution: "sha.js@npm:2.4.12"
   dependencies:
@@ -41946,10 +41946,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^6.26.0":
-  version: 6.28.0
-  resolution: "undici@npm:6.28.0"
-  checksum: 10c0/3029a70df06b38b5b2f30732932a1e92544c753cd82c8abdf0d35afad48e0ba91612e79fe3a442dbbb9434d6a9eba2b714d5ea28984c903dda2b5d5444f38354
+"undici@npm:^6.28.1":
+  version: 6.28.1
+  resolution: "undici@npm:6.28.1"
+  checksum: 10c0/9c7c277da83972f4f506d564b1d627e3e78aadf866915eab768d96fc70daeae8ff7d87d0cdb32403ae1afdf3aef0f11715e0847d66910fda62822c33c5a7e674
   languageName: node
   linkType: hard
 
