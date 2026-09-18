@@ -1330,7 +1330,7 @@ describe('dynamicJobTemplate', () => {
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
       expect(result.metadata.namespace).toBe('default');
-      expect(result.metadata.name).toBe('test-job-template');
+      expect(result.metadata.name).toBe('aap-jt-test-job-template-123');
       expect(result.metadata.title).toBe('Test Job Template');
       expect(result.metadata.description).toBe(
         'A comprehensive test job template',

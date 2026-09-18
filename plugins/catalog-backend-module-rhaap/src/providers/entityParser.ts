@@ -1,8 +1,4 @@
-import {
-  formatNameSpace,
-  buildFileUrl,
-  getDirectoryFromPath,
-} from '../helpers';
+import { buildFileUrl, getDirectoryFromPath } from '../helpers';
 
 import {
   ANNOTATION_LOCATION,
@@ -17,6 +13,9 @@ import {
   Team,
   User,
   InstanceGroup,
+  toOrgEntityName,
+  toTeamEntityName,
+  sanitizeAapUsername,
 } from '@ansible/backstage-rhaap-common';
 import { generateTemplate } from './dynamicJobTemplate';
 import {
@@ -68,18 +67,19 @@ export function organizationParser(options: {
     kind: 'Group',
     metadata: {
       namespace: nameSpace,
-      name: formatNameSpace(org.name),
+      name: toOrgEntityName(org.name, org.id),
       title: org.name,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
+        'ansible.com/aap-org-id': String(org.id),
         ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
       type: 'organization',
       profile: {
-        displayName: `[ORG] ${org.name}`,
+        displayName: `[Org] ${org.name}`,
         description: `Organization: ${org.name}`,
       },
       children: teams,
@@ -105,19 +105,20 @@ export function teamParser(options: {
     kind: 'Group',
     metadata: {
       namespace: nameSpace,
-      name: team.groupName,
+      name: toTeamEntityName(team.name, team.id),
       title: title,
       description: team.description,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
+        'ansible.com/aap-team-id': String(team.id),
         ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
       type: 'team',
       profile: {
-        displayName: `[TEAM] ${title}`,
+        displayName: `[Team] ${title}`,
         description: `Team: ${title}`,
       },
       ...(orgGroupName && { parent: orgGroupName }),
@@ -151,6 +152,7 @@ export function userParser(options: {
   const annotations: Record<string, string> = {
     [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
     [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
+    'ansible.com/aap-username': user.username,
   };
 
   // Add RBAC-relevant annotations
@@ -166,7 +168,7 @@ export function userParser(options: {
     kind: 'User',
     metadata: {
       namespace: nameSpace,
-      name: user.username,
+      name: sanitizeAapUsername(user.username),
       title: name,
       annotations,
     },

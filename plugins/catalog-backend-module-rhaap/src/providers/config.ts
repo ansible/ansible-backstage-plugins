@@ -1,8 +1,11 @@
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
-import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
+import {
+  resolveActiveOrganizations,
+  toSourceNamespace,
+} from '@ansible/backstage-rhaap-common';
 
-import { formatNameSpace, validateNamespace } from '../helpers';
+import { validateNamespace } from '../helpers';
 import type {
   AapConfig,
   PAHRepositoryConfig,
@@ -54,7 +57,7 @@ function readAapApiEntityConfig(
   if (multiOrgEnabled && organizations.length > 1) {
     const seen = new Map<string, string>();
     for (const org of organizations) {
-      const ns = formatNameSpace(org);
+      const ns = toSourceNamespace(org);
       validateNamespace(ns, org);
       const existing = seen.get(ns);
       if (existing) {

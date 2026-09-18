@@ -14,9 +14,14 @@ import {
   stringifyEntityRef,
 } from '@backstage/catalog-model';
 import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
+import { sanitizeAapUsername } from '@ansible/backstage-rhaap-common';
 
 const AAP_ADMINS_GROUP = 'group:default/aap-admins';
 const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
+
+function toCatalogUserEntityName(username: string): string {
+  return sanitizeAapUsername(username);
+}
 
 /**
  * Issues a sign-in token with ownership entity refs that include group
@@ -71,7 +76,7 @@ export namespace AAPAuthSignInResolvers {
 
         try {
           const { entity } = await ctx.findCatalogUser({
-            entityRef: { name: username },
+            entityRef: { name: toCatalogUserEntityName(username) },
           });
           return issueTokenWithOwnership(ctx, entity);
         } catch (e) {
@@ -89,7 +94,7 @@ export namespace AAPAuthSignInResolvers {
           }
           const userEntity = stringifyEntityRef({
             kind: 'User',
-            name: username,
+            name: toCatalogUserEntityName(username),
             namespace: DEFAULT_NAMESPACE,
           });
 
@@ -131,7 +136,7 @@ export namespace AAPAuthSignInResolvers {
           try {
             if (username) {
               await ctx.findCatalogUser({
-                entityRef: { name: username },
+                entityRef: { name: toCatalogUserEntityName(username) },
               });
             }
           } catch {
@@ -142,14 +147,14 @@ export namespace AAPAuthSignInResolvers {
 
           try {
             const { entity } = await ctx.findCatalogUser({
-              entityRef: { name: username },
+              entityRef: { name: toCatalogUserEntityName(username) },
             });
             return await issueTokenWithOwnership(ctx, entity);
           } catch (e) {
             // Try to find the user again to provide better error information
             try {
               await ctx.findCatalogUser({
-                entityRef: { name: username },
+                entityRef: { name: toCatalogUserEntityName(username) },
               });
               // User exists but token issuance failed for another reason
               throw new AuthenticationError(

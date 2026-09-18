@@ -14,7 +14,18 @@
  * limitations under the License.
  */
 
-import { sanitizeAapName } from './nameFormatting';
+import {
+  sanitizeAapName,
+  sanitizeAapUsername,
+  toOrgEntityName,
+  toOrgGroupRef,
+  toSourceNamespace,
+  toTeamEntityName,
+  toTeamGroupRef,
+  toTemplateEntityName,
+  toUserEntityRef,
+  toWorkflowEntityName,
+} from './nameFormatting';
 
 describe('sanitizeAapName', () => {
   describe('basic transformations', () => {
@@ -222,5 +233,71 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('---a---')).toBe('a');
       expect(sanitizeAapName('a-b-c')).toBe('a-b-c');
     });
+  });
+});
+
+describe('catalog entity names with AAP IDs', () => {
+  it('builds org, team, and template names with source slug plus id', () => {
+    expect(toOrgEntityName('Engineering', 12)).toBe('o-aap-engineering-12');
+    expect(toTeamEntityName('Engineering', 99)).toBe('t-aap-engineering-99');
+    expect(toTemplateEntityName('Craig', 5238)).toBe('aap-jt-craig-5238');
+    expect(toTemplateEntityName('craig', 5239)).toBe('aap-jt-craig-5239');
+    expect(toWorkflowEntityName('Deploy', 9001)).toBe('aap-wf-deploy-9001');
+  });
+
+  it('builds group refs from org and team names', () => {
+    expect(toOrgGroupRef('aap-default', 'Engineering', 12)).toBe(
+      'group:aap-default/o-aap-engineering-12',
+    );
+    expect(toTeamGroupRef('aap-default', 'QA', 101)).toBe(
+      'group:aap-default/t-aap-qa-101',
+    );
+  });
+
+  it('keeps assembled names within 63 characters', () => {
+    const longName = `Org-${'a'.repeat(80)}`;
+    const result = toOrgEntityName(longName, 5238394829);
+    expect(result.length).toBeLessThanOrEqual(63);
+    expect(result.endsWith('-5238394829')).toBe(true);
+    expect(result.startsWith('o-aap-')).toBe(true);
+  });
+
+  it('falls back to id-only names when slug is empty', () => {
+    expect(toOrgEntityName('!!!', 12)).toBe('o-aap-12');
+    expect(toTeamEntityName('___', 99)).toBe('t-aap-99');
+    expect(toTemplateEntityName('---', 5238)).toBe('aap-jt-5238');
+    expect(toWorkflowEntityName('!!!', 9001)).toBe('aap-wf-9001');
+  });
+});
+
+describe('toSourceNamespace', () => {
+  it('prefixes org slug with source', () => {
+    expect(toSourceNamespace('Default')).toBe('aap-default');
+    expect(toSourceNamespace('Engineering')).toBe('aap-engineering');
+    expect(toSourceNamespace('Platform Ops')).toBe('aap-platform-ops');
+  });
+
+  it('falls back to source only when slug is empty', () => {
+    expect(toSourceNamespace('!!!')).toBe('aap');
+  });
+});
+
+describe('sanitizeAapUsername', () => {
+  it('preserves simple alphanumeric usernames', () => {
+    expect(sanitizeAapUsername('johndoe')).toBe('johndoe');
+    expect(toUserEntityRef('johndoe')).toBe('user:default/johndoe');
+  });
+
+  it('maps AAP-allowed special characters to Backstage-safe tokens', () => {
+    expect(sanitizeAapUsername('user@example.com')).toBe('user-at-example-com');
+    expect(sanitizeAapUsername('first.last')).toBe('first-last');
+    expect(sanitizeAapUsername('user+alias')).toBe('user-plus-alias');
+    expect(sanitizeAapUsername('dev_ops')).toBe('dev-ops');
+  });
+
+  it('throws when username has no valid characters', () => {
+    expect(() => sanitizeAapUsername('!!!')).toThrow(
+      /contains no valid characters/,
+    );
   });
 });

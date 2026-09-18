@@ -77,10 +77,11 @@ describe('AAPEntityProvider', () => {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
-        namespace: 'default',
-        name: 'default',
+        namespace: 'aap-default',
+        name: 'o-aap-default-1',
         title: 'Default',
         annotations: {
+          'ansible.com/aap-org-id': '1',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/organizations/1/details',
           'backstage.io/managed-by-origin-location':
@@ -89,11 +90,11 @@ describe('AAPEntityProvider', () => {
       },
       spec: {
         type: 'organization',
-        children: ['team-a', 'team-b'],
+        children: ['t-aap-team-a-1', 't-aap-team-b-2'],
         members: ['user:default/user2'],
         profile: {
           description: 'Organization: Default',
-          displayName: '[ORG] Default',
+          displayName: '[Org] Default',
         },
       },
     },
@@ -101,11 +102,12 @@ describe('AAPEntityProvider', () => {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
-        namespace: 'default',
-        name: 'team-a',
+        namespace: 'aap-default',
+        name: 't-aap-team-a-1',
         title: 'Team A',
         description: 'Team A description',
         annotations: {
+          'ansible.com/aap-team-id': '1',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/teams/1/details',
           'backstage.io/managed-by-origin-location':
@@ -114,12 +116,12 @@ describe('AAPEntityProvider', () => {
       },
       spec: {
         type: 'team',
-        parent: 'default',
+        parent: 'o-aap-default-1',
         children: [],
         members: [],
         profile: {
           description: 'Team: Team A',
-          displayName: '[TEAM] Team A',
+          displayName: '[Team] Team A',
         },
       },
     },
@@ -127,11 +129,12 @@ describe('AAPEntityProvider', () => {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Group',
       metadata: {
-        namespace: 'default',
-        name: 'team-b',
+        namespace: 'aap-default',
+        name: 't-aap-team-b-2',
         title: 'Team B',
         description: 'Team B description',
         annotations: {
+          'ansible.com/aap-team-id': '2',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/teams/2/details',
           'backstage.io/managed-by-origin-location':
@@ -140,12 +143,12 @@ describe('AAPEntityProvider', () => {
       },
       spec: {
         type: 'team',
-        parent: 'default',
+        parent: 'o-aap-default-1',
         children: [],
         members: [],
         profile: {
           description: 'Team: Team B',
-          displayName: '[TEAM] Team B',
+          displayName: '[Team] Team B',
         },
       },
     },
@@ -158,6 +161,7 @@ describe('AAPEntityProvider', () => {
         title: 'User1 Last1',
         annotations: {
           'aap.platform/is_superuser': 'false',
+          'ansible.com/aap-username': 'user1',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/users/1/details',
           'backstage.io/managed-by-origin-location':
@@ -170,7 +174,10 @@ describe('AAPEntityProvider', () => {
           displayName: 'User1 Last1',
           email: 'user1@test.com',
         },
-        memberOf: ['group:default/team-a', 'group:default/team-b'],
+        memberOf: [
+          'group:aap-default/t-aap-team-a-1',
+          'group:aap-default/t-aap-team-b-2',
+        ],
       },
     },
     {
@@ -182,6 +189,7 @@ describe('AAPEntityProvider', () => {
         title: 'User2 Last2',
         annotations: {
           'aap.platform/is_superuser': 'false',
+          'ansible.com/aap-username': 'user2',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/users/2/details',
           'backstage.io/managed-by-origin-location':
@@ -194,7 +202,10 @@ describe('AAPEntityProvider', () => {
           displayName: 'User2 Last2',
           email: 'user2@test.com',
         },
-        memberOf: ['group:default/team-b', 'group:default/default'],
+        memberOf: [
+          'group:aap-default/t-aap-team-b-2',
+          'group:aap-default/o-aap-default-1',
+        ],
       },
     },
     {
@@ -202,10 +213,11 @@ describe('AAPEntityProvider', () => {
       kind: 'User',
       metadata: {
         namespace: 'default',
-        name: 'sys_user3',
+        name: 'sys-user3',
         title: 'SysUser3 Last3',
         annotations: {
           'aap.platform/is_superuser': 'false',
+          'ansible.com/aap-username': 'sys_user3',
           'backstage.io/managed-by-location':
             'url:https://rhaap.test/access/users/3/details',
           'backstage.io/managed-by-origin-location':
@@ -218,7 +230,7 @@ describe('AAPEntityProvider', () => {
           displayName: 'SysUser3 Last3',
           email: 'sysuser3@test.com',
         },
-        memberOf: ['group:default/team-a'],
+        memberOf: ['group:aap-default/t-aap-team-a-1'],
       },
     },
     {
@@ -264,7 +276,6 @@ describe('AAPEntityProvider', () => {
         organization: {
           id: 1,
           name: 'Default',
-          namespace: 'default',
         },
         teams: [
           {
@@ -489,7 +500,9 @@ describe('AAPEntityProvider', () => {
           e.entity.kind === 'User' && e.entity.metadata?.name === 'alice',
       );
 
-      expect(alice.entity.spec.memberOf).toEqual(['group:default/default']);
+      expect(alice.entity.spec.memberOf).toEqual([
+        'group:aap-default/o-aap-default-1',
+      ]);
       expect(childLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining(
           'Team Missing Team (ID: 99) for user alice (ID: 100) not found in bulk org payload',
@@ -497,7 +510,7 @@ describe('AAPEntityProvider', () => {
       );
       expect(childLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining(
-          'assigning org group group:default/default instead',
+          'assigning org group group:aap-default/o-aap-default-1 instead',
         ),
       );
     });
@@ -608,7 +621,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -648,7 +661,10 @@ describe('AAPEntityProvider', () => {
                 name: 'testuser',
               }),
               spec: expect.objectContaining({
-                memberOf: ['group:default/team-a', 'group:default/default'],
+                memberOf: [
+                  'group:aap-default/t-aap-team-a-1',
+                  'group:aap-default/o-aap-default-1',
+                ],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -663,7 +679,7 @@ describe('AAPEntityProvider', () => {
       const userID = 456;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Other Org', groupName: 'other-org' },
+        { name: 'Other Org', id: 2, groupName: 'other-org' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -745,7 +761,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockRejectedValue(
@@ -762,7 +778,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -786,7 +802,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Other Org', groupName: 'other-org' },
+        { name: 'Other Org', id: 2, groupName: 'other-org' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -810,7 +826,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -835,7 +851,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['group:default/default'],
+                memberOf: ['group:aap-default/o-aap-default-1'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -850,7 +866,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -890,7 +906,10 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['group:default/team-a', 'group:default/default'],
+                memberOf: [
+                  'group:aap-default/t-aap-team-a-1',
+                  'group:aap-default/o-aap-default-1',
+                ],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -905,7 +924,7 @@ describe('AAPEntityProvider', () => {
       const userID = 123;
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'DEFAULT', groupName: 'default' },
+        { name: 'DEFAULT', id: 1, groupName: 'default' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -930,7 +949,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['group:default/default'],
+                memberOf: ['group:aap-default/o-aap-default-1'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -950,7 +969,7 @@ describe('AAPEntityProvider', () => {
       };
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Other Org', groupName: 'other-org' },
+        { name: 'Other Org', id: 2, groupName: 'other-org' },
       ]);
 
       mockAnsibleService.getUserInfoById.mockResolvedValue({
@@ -1000,7 +1019,7 @@ describe('AAPEntityProvider', () => {
           {
             entity: expect.objectContaining({
               spec: expect.objectContaining({
-                memberOf: ['group:default/team-a'],
+                memberOf: ['group:aap-default/t-aap-team-a-1'],
               }),
             }),
             locationKey: 'AapEntityProvider:development',
@@ -1090,7 +1109,7 @@ describe('AAPEntityProvider', () => {
               entity: expect.objectContaining({
                 kind: 'Group',
                 metadata: expect.objectContaining({
-                  name: 'default',
+                  name: 'o-aap-default-1',
                   title: 'Default',
                 }),
               }),
@@ -1099,7 +1118,7 @@ describe('AAPEntityProvider', () => {
               entity: expect.objectContaining({
                 kind: 'Group',
                 metadata: expect.objectContaining({
-                  name: 'engineering',
+                  name: 'o-aap-engineering-2',
                   title: 'Engineering',
                 }),
               }),
@@ -1114,7 +1133,7 @@ describe('AAPEntityProvider', () => {
       const entityNames = call.entities.map(
         (e: any) => e.entity.metadata?.name,
       );
-      expect(entityNames).not.toContain('finance');
+      expect(entityNames).not.toContain('o-aap-finance-3');
     });
 
     it('should use org-specific namespaces in multi-org mode', async () => {
@@ -1182,12 +1201,12 @@ describe('AAPEntityProvider', () => {
 
       // Default org → default namespace, Engineering org → engineering namespace
       expect(groups).toContainEqual({
-        name: 'default',
-        namespace: 'default',
+        name: 'o-aap-default-1',
+        namespace: 'aap-default',
       });
       expect(groups).toContainEqual({
-        name: 'engineering',
-        namespace: 'engineering',
+        name: 'o-aap-engineering-2',
+        namespace: 'aap-engineering',
       });
 
       // Teams should be in their org's namespace
@@ -1203,12 +1222,12 @@ describe('AAPEntityProvider', () => {
         }));
 
       expect(teams).toContainEqual({
-        name: 'team-alpha',
-        namespace: 'default',
+        name: 't-aap-team-alpha-10',
+        namespace: 'aap-default',
       });
       expect(teams).toContainEqual({
-        name: 'team-beta',
-        namespace: 'engineering',
+        name: 't-aap-team-beta-20',
+        namespace: 'aap-engineering',
       });
     });
 
@@ -1260,7 +1279,7 @@ describe('AAPEntityProvider', () => {
 
       // Team should have org annotation and [OrgName] suffix
       const teamAlpha = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'team-alpha',
+        (e: any) => e.entity.metadata?.name === 't-aap-team-alpha-10',
       );
       expect(teamAlpha.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
@@ -1270,7 +1289,7 @@ describe('AAPEntityProvider', () => {
 
       // Org group should have org annotation
       const engOrg = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'engineering',
+        (e: any) => e.entity.metadata?.name === 'o-aap-engineering-2',
       );
       expect(engOrg.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
@@ -1360,7 +1379,9 @@ describe('AAPEntityProvider', () => {
       expect(alice.entity.metadata.namespace).toBe('default');
 
       // memberOf always uses full refs
-      expect(alice.entity.spec.memberOf).toContain('group:default/team-alpha');
+      expect(alice.entity.spec.memberOf).toContain(
+        'group:aap-default/t-aap-team-alpha-10',
+      );
     });
 
     it('should use full user refs in org member lists in multi-org mode', async () => {
@@ -1413,7 +1434,7 @@ describe('AAPEntityProvider', () => {
 
       // Org members should use full entity refs since users are in default namespace
       const defaultOrg = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'default',
+        (e: any) => e.entity.metadata?.name === 'o-aap-default-1',
       );
       expect(defaultOrg.entity.spec.members).toContain('user:default/alice');
     });

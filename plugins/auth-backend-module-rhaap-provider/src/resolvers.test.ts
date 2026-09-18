@@ -108,7 +108,7 @@ describe('resolvers', () => {
 
       await resolver(info, context as any);
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'tUser' },
+        entityRef: { name: 'tuser' },
       });
       expect(context.issueToken).toHaveBeenCalledWith({
         claims: {
@@ -242,7 +242,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'existingUser' },
+        entityRef: { name: 'existinguser' },
       });
       expect(context.issueToken).toHaveBeenCalledWith({
         claims: {
@@ -297,7 +297,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'newUser' },
+        entityRef: { name: 'newuser' },
       });
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:7007/api/catalog/aap/create_user',
@@ -552,7 +552,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'adminUser' },
+        entityRef: { name: 'adminuser' },
       });
       expect(result).toEqual({ token: 'admin-token' });
     });

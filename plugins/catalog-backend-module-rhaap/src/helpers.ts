@@ -28,6 +28,9 @@ import {
   resolveGithubToken,
   createGithubClientForWorkflowDispatch,
   sanitizeAapName,
+  toSourceNamespace,
+  DEFAULT_CATALOG_ENTITY_SOURCE,
+  type CatalogEntitySource,
 } from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -948,10 +951,10 @@ export function formatNameSpace(name: string): string {
 
 export function getEffectiveNamespace(
   orgName: string,
-  allOrgs: string[],
+  _allOrgs: string[],
+  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
 ): string {
-  if (allOrgs.length <= 1) return 'default';
-  return formatNameSpace(orgName);
+  return toSourceNamespace(orgName, source);
 }
 
 export function validateNamespace(namespace: string, orgName: string): void {
