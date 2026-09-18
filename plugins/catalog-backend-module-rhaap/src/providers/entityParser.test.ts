@@ -46,13 +46,14 @@ describe('entityParser', () => {
         kind: 'Group',
         metadata: {
           namespace: 'test-namespace',
-          name: 'test-organization',
+          name: 'o-aap-test-organization-1',
           title: 'Test Organization',
           annotations: {
             [ANNOTATION_LOCATION]:
               'url:https://example.com/access/organizations/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
               'url:https://example.com/access/organizations/1/details',
+            'ansible.com/aap-org-id': '1',
           },
         },
         spec: {
@@ -61,7 +62,7 @@ describe('entityParser', () => {
           members: ['user1', 'user2'],
           profile: {
             description: 'Organization: Test Organization',
-            displayName: '[ORG] Test Organization',
+            displayName: '[Org] Test Organization',
           },
         },
       });
@@ -79,7 +80,9 @@ describe('entityParser', () => {
         teams: [],
       };
       const result = organizationParser(options);
-      expect(result.metadata.name).toBe('test-org-with-special-characters');
+      expect(result.metadata.name).toBe(
+        'o-aap-test-org-with-special-characters-2',
+      );
       expect(result.metadata.title).toBe(
         'Test Org With Special!@#$%^&*()_+Characters',
       );
@@ -106,7 +109,7 @@ describe('entityParser', () => {
         kind: 'Group',
         metadata: {
           namespace: 'test-namespace',
-          name: 'test-team-group',
+          name: 't-aap-test-team-1',
           title: 'Test Team',
           description: 'A test team',
           annotations: {
@@ -114,6 +117,7 @@ describe('entityParser', () => {
               'url:https://example.com/access/teams/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
               'url:https://example.com/access/teams/1/details',
+            'ansible.com/aap-team-id': '1',
           },
         },
         spec: {
@@ -121,7 +125,7 @@ describe('entityParser', () => {
           children: [],
           members: ['user1', 'user2', 'user3'],
           profile: {
-            displayName: '[TEAM] Test Team',
+            displayName: '[Team] Test Team',
             description: 'Team: Test Team',
           },
         },
@@ -173,6 +177,7 @@ describe('entityParser', () => {
           title: 'John Doe',
           annotations: {
             'aap.platform/is_superuser': 'false',
+            'ansible.com/aap-username': 'johndoe',
             [ANNOTATION_LOCATION]:
               'url:https://example.com/access/users/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
@@ -473,7 +478,7 @@ describe('entityParser', () => {
       const result = aapJobTemplateParser(options); // The function should return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
-      expect(result.metadata.name).toBe('test-job-template');
+      expect(result.metadata.name).toBe('aap-jt-test-job-template-1');
       expect(result.metadata.title).toBe('Test Job Template');
       expect(result.metadata.description).toBe('A test job template');
     });
@@ -666,7 +671,7 @@ describe('entityParser', () => {
       const result = aapJobTemplateParser(options); // The function should still return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
-      expect(result.metadata.name).toBe('job-without-survey');
+      expect(result.metadata.name).toBe('aap-jt-job-without-survey-2');
       expect(result.metadata.title).toBe('Job Without Survey');
       expect(result.metadata.description).toBe('A job template without survey');
     });

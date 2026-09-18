@@ -20,17 +20,20 @@ import {
   Team,
   Organization,
 } from '@ansible/backstage-rhaap-common';
+import {
+  toOrgEntityName,
+  toOrgGroupRef,
+  toTeamEntityName,
+  toTeamGroupRef,
+  toUserEntityRef,
+} from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import type { SignalsService } from '@backstage/plugin-signals-node';
 import { AapConfig } from './types';
-import {
-  formatNameSpace,
-  getEffectiveNamespace,
-  validateNamespace,
-} from '../helpers';
+import { getEffectiveNamespace, validateNamespace } from '../helpers';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -224,7 +227,9 @@ export class AAPEntityProvider implements EntityProvider {
         const orgName = org.organization.name;
         const ns = getEffectiveNamespace(orgName, this.orgs);
         const orgTeams = org.teams
-          ? Object.values(org.teams).map(team => team.groupName)
+          ? Object.values(org.teams).map(team =>
+              toTeamEntityName(team.name, team.id),
+            )
           : [];
         const orgUsers = org.users
           ? (Object.values(org.users)
@@ -238,7 +243,7 @@ export class AAPEntityProvider implements EntityProvider {
           : [];
 
         // Users live in 'default' namespace as they can be part of multiple orgs
-        const orgMemberRefs = orgUsers.map(u => `user:default/${u}`);
+        const orgMemberRefs = orgUsers.map(u => toUserEntityRef(u));
 
         entities.push(
           organizationParser({
@@ -261,7 +266,7 @@ export class AAPEntityProvider implements EntityProvider {
               team: team as unknown as Team,
               teamMembers: [],
               orgName: isMultiOrg ? orgName : undefined,
-              orgGroupName: formatNameSpace(orgName),
+              orgGroupName: toOrgEntityName(orgName, org.organization.id),
             }),
           );
           groupCount += 1;
@@ -307,7 +312,11 @@ export class AAPEntityProvider implements EntityProvider {
                       this.orgs,
                     );
                     userMembers.push(
-                      `group:${memberNs}/${matchingTeam.groupName}`,
+                      toTeamGroupRef(
+                        memberNs,
+                        matchingTeam.name,
+                        matchingTeam.id,
+                      ),
                     );
                     matched = true;
                     break;
@@ -323,7 +332,11 @@ export class AAPEntityProvider implements EntityProvider {
                         org.organization.name,
                         this.orgs,
                       );
-                      const orgGroupRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
+                      const orgGroupRef = toOrgGroupRef(
+                        orgNs,
+                        org.organization.name,
+                        org.organization.id,
+                      );
                       this.logger.warn(
                         `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; assigning org group ${orgGroupRef} instead`,
                       );
@@ -345,7 +358,11 @@ export class AAPEntityProvider implements EntityProvider {
                     org.organization.name,
                     this.orgs,
                   );
-                  const orgRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
+                  const orgRef = toOrgGroupRef(
+                    orgNs,
+                    org.organization.name,
+                    org.organization.id,
+                  );
                   if (!userMembers.includes(orgRef)) {
                     userMembers.push(orgRef);
                   }
@@ -416,7 +433,7 @@ export class AAPEntityProvider implements EntityProvider {
                       this.orgs,
                     );
                     userMembers.push(
-                      `group:${sysNs}/${matchingTeam.groupName}`,
+                      toTeamGroupRef(sysNs, matchingTeam.name, matchingTeam.id),
                     );
                     break;
                   }
@@ -506,7 +523,7 @@ export class AAPEntityProvider implements EntityProvider {
 
       // get user's information and memberships in parallel
       let foundUser: User;
-      let userOrgs: { name: string; groupName: string }[];
+      let userOrgs: { name: string; id: number; groupName: string }[];
       let userTeams: {
         name: string;
         groupName: string;
@@ -546,14 +563,14 @@ export class AAPEntityProvider implements EntityProvider {
         .filter(org => this.orgs.includes(org.name.toLowerCase()))
         .map(org => {
           const ns = getEffectiveNamespace(org.name, this.orgs);
-          return `group:${ns}/${org.groupName}`;
+          return toOrgGroupRef(ns, org.name, org.id);
         });
 
       const teamsInConfiguredOrgs = userTeams
         .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
         .map(team => {
           const ns = getEffectiveNamespace(team.orgName, this.orgs);
-          return `group:${ns}/${team.groupName}`;
+          return toTeamGroupRef(ns, team.name, team.id);
         });
 
       const hasDirectOrgAccess = matchingOrgs.length > 0;
@@ -697,8 +714,8 @@ export class AAPEntityProvider implements EntityProvider {
     const currentSuperusers = allUsers.filter(
       user => user.is_superuser === true,
     );
-    const memberNames = currentSuperusers.map(
-      user => `user:default/${user.username}`,
+    const memberNames = currentSuperusers.map(user =>
+      toUserEntityRef(user.username),
     );
 
     this.logger.info(

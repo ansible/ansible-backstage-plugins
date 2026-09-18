@@ -12,7 +12,7 @@ import {
   Entity,
 } from '@backstage/catalog-model';
 import { JsonArray, JsonObject } from '@backstage/types';
-import { formatNameSpace } from '../helpers';
+import { toTemplateEntityName } from '@ansible/backstage-rhaap-common';
 import { normalizeBaseUrl } from './helpers';
 
 function scaffolderParametersRef(key: string): string {
@@ -520,7 +520,7 @@ export const generateTemplate = (options: {
     kind: 'Template',
     metadata: {
       namespace: nameSpace,
-      name: formatNameSpace(job.name),
+      name: toTemplateEntityName(job.name, job.id),
       title,
       aapJobTemplateId: job.id,
       description: job.description,
