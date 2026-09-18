@@ -114,6 +114,15 @@ export function createEEDefinitionAction(options: {
 
       ctx.output('contextDirName', contextDirName);
 
+      // Best-effort cleanup of any existing EE with the same name so a recreate
+      // can claim the catalog entity ref regardless of prior locationKey (AAP-85231).
+      await bestEffortUnregisterExistingEE({
+        name: eeFileName,
+        discovery,
+        auth,
+        logger,
+      });
+
       const eeDir = path.join(workspacePath, contextDirName);
       await fs.mkdir(eeDir, { recursive: true });
 
@@ -155,19 +164,29 @@ export function createEEDefinitionAction(options: {
         const allPackages = mergePackages(systemPackages, parsedSystemPackages);
 
         logger.debug(
-          `[ansible:create:ee-definition] collections: ${JSON.stringify(allCollections)}`,
+          `[ansible:create:ee-definition] collections: ${JSON.stringify(
+            allCollections,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] scmCollections: ${JSON.stringify(transformedScmCollections)}`,
+          `[ansible:create:ee-definition] scmCollections: ${JSON.stringify(
+            transformedScmCollections,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(allRequirements)}`,
+          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(
+            allRequirements,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(allPackages)}`,
+          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(
+            allPackages,
+          )}`,
         );
         logger.debug(
-          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(additionalBuildSteps)}`,
+          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(
+            additionalBuildSteps,
+          )}`,
         );
 
         const pahBaseUrl =
@@ -376,6 +395,54 @@ export function createEEDefinitionAction(options: {
       }
     },
   });
+}
+
+/**
+ * Best-effort DELETE of an existing EE catalog entity before re-registration.
+ * Failures are logged and swallowed so creation is never blocked (AAP-85231).
+ */
+async function bestEffortUnregisterExistingEE(options: {
+  name: string;
+  discovery: DiscoveryService;
+  auth: AuthService;
+  logger: LoggerService;
+}): Promise<void> {
+  const { name, discovery, auth, logger } = options;
+  try {
+    const baseUrl = await discovery.getBaseUrl('catalog');
+    const { token } = await auth.getPluginRequestToken({
+      onBehalfOf: await auth.getOwnServiceCredentials(),
+      targetPluginId: 'catalog',
+    });
+
+    const response = await fetch(
+      `${baseUrl}/ansible/ee/${encodeURIComponent(name)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (response.ok || response.status === 204) {
+      logger.info(
+        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status})`,
+      );
+      return;
+    }
+
+    const errorText = await response.text();
+    logger.warn(
+      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" returned ${response.status}: ${errorText}`,
+    );
+  } catch (error: any) {
+    logger.warn(
+      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" failed: ${
+        error?.message ?? error
+      }`,
+    );
+  }
 }
 
 /**
@@ -611,7 +678,9 @@ function transformScmCollections(
       canonicalName,
     );
 
-    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(provider)}_${toEnvVarSegment(canonicalName)}_${toEnvVarSegment(org)}_TOKEN`;
+    const tokenVar = `AAP_EE_BUILDER_${toEnvVarSegment(
+      provider,
+    )}_${toEnvVarSegment(canonicalName)}_${toEnvVarSegment(org)}_TOKEN`;
     const gitUrl = `https://\${${tokenVar}}@${host}/${org}/${repo}`;
 
     if (!seenServers.has(tokenVar)) {

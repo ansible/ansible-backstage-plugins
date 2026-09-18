@@ -49,4 +49,34 @@ export class EEEntityProvider implements EntityProvider {
       removed: [],
     });
   }
+
+  /**
+   * Removes a provider-managed Execution Environment entity via delta mutation.
+   * Only entities owned by this provider (`locationKey: EEEntityProvider`) are removed.
+   */
+  async unregisterExecutionEnvironment(name: string): Promise<void> {
+    if (!this.connection) {
+      throw new Error('EEEntityProvider is not connected yet');
+    }
+
+    const trimmed = name?.toString().trim();
+    if (!trimmed) {
+      throw new Error(
+        'Name is required for Execution Environment unregistration',
+      );
+    }
+
+    this.logger.info(`Unregistering entity ${trimmed}`);
+
+    await this.connection.applyMutation({
+      type: 'delta',
+      added: [],
+      removed: [
+        {
+          entityRef: `component:default/${trimmed}`,
+          locationKey: this.getProviderName(),
+        },
+      ],
+    });
+  }
 }

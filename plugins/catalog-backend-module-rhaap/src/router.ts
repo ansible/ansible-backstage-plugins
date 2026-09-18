@@ -367,6 +367,103 @@ export async function createRouter(options: {
   });
 
   /**
+   * Best-effort cleanup of an existing EE catalog entity before re-registration.
+   * Removes SCM-managed locations or provider-managed entities so a recreate with
+   * the same name can claim the entity ref (AAP-85231).
+   */
+  router.delete('/ansible/ee/:name', async (request, response) => {
+    await httpAuth.credentials(
+      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
+      request,
+      {
+        allow: ['service'],
+      },
+    );
+
+    const name = decodeURIComponent(request.params.name ?? '')
+      .toString()
+      .trim();
+
+    if (
+      !name ||
+      name.includes('/') ||
+      name.includes('\\') ||
+      name.includes('\0') ||
+      name === '.' ||
+      name === '..'
+    ) {
+      response
+        .status(400)
+        .json({ error: 'Invalid execution environment name.' });
+      return;
+    }
+
+    try {
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: await auth.getOwnServiceCredentials(),
+        targetPluginId: 'catalog',
+      });
+      const catalogOpts = { token };
+
+      const entityRef = `component:default/${name}`;
+      const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+
+      if (!entity) {
+        response.status(204).send();
+        return;
+      }
+
+      if (
+        entity.kind !== 'Component' ||
+        entity.spec?.type !== 'execution-environment'
+      ) {
+        response.status(400).json({
+          error: 'Refusing to delete non-execution-environment entity',
+        });
+        return;
+      }
+
+      const location = await catalogClient.getLocationByEntity(
+        entityRef,
+        catalogOpts,
+      );
+
+      if (location?.id) {
+        await catalogClient.removeLocationById(location.id, catalogOpts);
+        response.status(200).json({ success: true, mode: 'location' });
+        return;
+      }
+
+      await eeEntityProvider.unregisterExecutionEnvironment(name);
+
+      if (entity.metadata?.uid) {
+        try {
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+        } catch (uidError) {
+          // Entity may already be gone after provider delta; log and continue.
+          const msg =
+            uidError instanceof Error ? uidError.message : String(uidError);
+          logger.debug(`removeEntityByUid after provider unregister: ${msg}`);
+        }
+      }
+
+      response.status(200).json({ success: true, mode: 'provider' });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(
+        `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
+      );
+      response.status(500).json({
+        error: `Failed to unregister Execution Environment: ${errorMessage}`,
+      });
+    }
+  });
+
+  /**
    * Triggers an EE build via GitHub Actions workflow_dispatch or GitLab CI pipeline.
    * Authenticated Backstage user or allowlisted external-access (service) token; loads the EE entity
    * with that principal's catalog token so RBAC applies.

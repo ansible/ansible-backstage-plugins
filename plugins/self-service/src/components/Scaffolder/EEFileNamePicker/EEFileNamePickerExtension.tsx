@@ -269,8 +269,8 @@ export const EEFileNamePickerExtension = ({
             the name "{existingEntity.metadata.name}" already exists in the
             catalog.
             <br />
-            If you proceed, your existing definition will be updated with the
-            new information.
+            If you proceed, the existing catalog entry will be replaced with
+            this new definition (including its source / download metadata).
           </Typography>
         </Alert>
       )}

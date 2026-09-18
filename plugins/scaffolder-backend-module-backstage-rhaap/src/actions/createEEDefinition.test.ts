@@ -247,8 +247,92 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/catalog/ansible/ee',
       expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('best-effort deletes existing EE before SCM publish path', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('continues creation when best-effort EE cleanup fails', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (init?.method === 'DELETE' || u.includes('/ansible/ee/test-ee')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            text: jest.fn().mockResolvedValue('cleanup failed'),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('best-effort EE cleanup'),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('continues creation when best-effort EE cleanup throws', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.reject(new Error('network down'));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await expect(action.handler(ctx)).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('best-effort EE cleanup'),
     );
   });
 
@@ -259,12 +343,22 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
-    // The handler calls `fetch` for the failing POST `/ansible/ee` registration
-    // (ok: false, text: 'Server error').
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      text: jest.fn().mockResolvedValue('Server error'),
-    } as any);
+    // DELETE succeeds (best-effort cleanup), then POST registration fails
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 204,
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: false,
+          text: jest.fn().mockResolvedValue('Server error'),
+        } as any);
+      },
+    );
 
     await expect(action.handler(ctx)).rejects.toThrow(
       'Failed to register EE definition',
@@ -1035,7 +1129,10 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     const postCall = mockFetch.mock.calls.find(
-      c => typeof c[0] === 'string' && String(c[0]).includes('/ansible/ee'),
+      c =>
+        typeof c[0] === 'string' &&
+        String(c[0]).endsWith('/ansible/ee') &&
+        (c[1] as { method?: string })?.method === 'POST',
     );
     expect(postCall).toBeDefined();
     const [, fetchOptions] = postCall!;
