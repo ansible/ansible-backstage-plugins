@@ -1154,6 +1154,43 @@ describe('AAPClient', () => {
         expect(infoSpy).toHaveBeenCalledWith('Message item 2');
       });
 
+      it('should return successful result when stdout retrieval fails', async () => {
+        const warnSpy = jest.spyOn(mockLogger, 'warn');
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: [{ id: 456, name: 'test-template' }],
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ job: 123 }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ status: 'successful' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: [{ event_data: { test: 'data' } }],
+              next: null,
+            }),
+          })
+          .mockRejectedValueOnce(new Error('stdout unavailable'));
+
+        const result = await client.launchJobTemplate(
+          { template: 'test-template' },
+          'test-token',
+        );
+
+        expect(result.status).toBe('successful');
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to fetch job stdout for job 123'),
+        );
+      });
+
       describe('Parameter Setting Tests', () => {
         let launchSpy: jest.SpyInstance;
 
@@ -4602,6 +4639,35 @@ describe('AAPClient', () => {
           ),
         );
       });
+    });
+  });
+
+  describe('logJobStdoutMessages', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should fetch stdout and log msg values at info level', async () => {
+      const infoSpy = jest.spyOn(mockLogger, 'info');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            '{"msg": "Single message"}\n{"msg": ["Message item 1", "Message item 2"]}',
+          ),
+      });
+
+      const lastMessage = await client.logJobStdoutMessages(123, 'test-token');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/jobs/123/stdout/?format=txt'),
+        expect.any(Object),
+      );
+      expect(infoSpy).toHaveBeenCalledWith('Single message');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 1');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 2');
+      expect(lastMessage).toBe('Message item 2');
     });
   });
 
