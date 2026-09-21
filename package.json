@@ -74,7 +74,7 @@
     "rollup": "^4.59.0",
     "svgo": "^2.8.1",
     "koa": "^3.1.2",
-    "multer": "^2.2.0",
+    "multer": "^2.4.0",
     "adm-zip": "^0.6.1",
     "@stoplight/spectral-core/minimatch": "3.1.4",
     "fast-uri": "^3.1.7",
