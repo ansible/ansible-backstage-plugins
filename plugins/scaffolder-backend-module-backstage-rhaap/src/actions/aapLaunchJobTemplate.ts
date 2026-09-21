@@ -93,6 +93,14 @@ async function pollJobCompletion(
     `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
   );
 
+  try {
+    await service.logJobStdoutMessages(result.id, token);
+  } catch (stdoutError) {
+    logger.warn(
+      `Failed to fetch job stdout for job ${result.id}: ${stdoutError}`,
+    );
+  }
+
   if (currentStatus !== 'successful') {
     throw new Error(
       `Job ${result.id} finished with status "${currentStatus ?? 'unknown'}"`,
