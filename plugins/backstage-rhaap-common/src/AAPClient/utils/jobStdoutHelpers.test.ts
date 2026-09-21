@@ -152,9 +152,9 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
       expect(
         redactSensitiveLogMessage('password = "first second"'),
       ).not.toContain('second');
-      expect(
-        redactSensitiveLogMessage('password = "pre\\" remaining"'),
-      ).toBe(`password = ${REDACTION_PLACEHOLDER}`);
+      expect(redactSensitiveLogMessage('password = "pre\\" remaining"')).toBe(
+        `password = ${REDACTION_PLACEHOLDER}`,
+      );
       expect(
         redactSensitiveLogMessage('password = "pre\\" remaining"'),
       ).not.toContain('remaining');
