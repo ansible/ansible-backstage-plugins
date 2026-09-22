@@ -12,7 +12,11 @@ import {
   Entity,
 } from '@backstage/catalog-model';
 import { JsonArray, JsonObject } from '@backstage/types';
-import { toTemplateEntityName } from '@ansible/backstage-rhaap-common';
+import {
+  toOrgGroupRef,
+  toTemplateEntityName,
+} from '@ansible/backstage-rhaap-common';
+import type { CatalogEntityIdentityOptions } from '@ansible/backstage-rhaap-common';
 import { normalizeBaseUrl } from './helpers';
 
 function scaffolderParametersRef(key: string): string {
@@ -506,8 +510,19 @@ export const generateTemplate = (options: {
   survey: ISurvey | null;
   instanceGroup: InstanceGroup[];
   orgName?: string;
+  ownerOrgName?: string;
+  identity?: CatalogEntityIdentityOptions;
 }): Entity => {
-  const { baseUrl, nameSpace, job, survey, instanceGroup, orgName } = options;
+  const {
+    baseUrl,
+    nameSpace,
+    job,
+    survey,
+    instanceGroup,
+    orgName,
+    ownerOrgName,
+    identity,
+  } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const [promptForm, inputVars] = getPromptFormDetails(job, instanceGroup);
   const [finalPromptForm, extraVariables] = getSurveyDetails(
@@ -520,7 +535,7 @@ export const generateTemplate = (options: {
     kind: 'Template',
     metadata: {
       namespace: nameSpace,
-      name: toTemplateEntityName(job.name, job.id),
+      name: toTemplateEntityName(job.name, job.id, identity),
       title,
       aapJobTemplateId: job.id,
       description: job.description,
@@ -540,6 +555,16 @@ export const generateTemplate = (options: {
     },
     spec: {
       type: 'automation-template',
+      ...((ownerOrgName ?? orgName) &&
+        Number.isInteger(identity?.orgId) && {
+          owner: toOrgGroupRef(
+            nameSpace,
+            ownerOrgName ?? orgName!,
+            identity.orgId as number,
+            undefined,
+            identity,
+          ),
+        }),
       parameters: [finalPromptForm],
       steps: [
         {
