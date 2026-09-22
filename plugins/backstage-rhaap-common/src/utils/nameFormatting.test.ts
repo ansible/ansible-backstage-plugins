@@ -23,6 +23,7 @@ import {
   toTeamEntityName,
   toTeamGroupRef,
   toTemplateEntityName,
+  toUserEntityName,
   toUserEntityRef,
   toWorkflowEntityName,
 } from './nameFormatting';
@@ -44,19 +45,19 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Test_Org')).toBe('test-org');
     });
 
-    it('converts slashes to hyphens', () => {
-      expect(sanitizeAapName('Dev/Ops')).toBe('dev-ops');
-      expect(sanitizeAapName('Team/QA')).toBe('team-qa');
+    it('converts slashes to -sls- tokens', () => {
+      expect(sanitizeAapName('Dev/Ops')).toBe('dev-sls-ops');
+      expect(sanitizeAapName('Team/QA')).toBe('team-sls-qa');
     });
 
-    it('converts ampersands to hyphens', () => {
-      expect(sanitizeAapName('Dev&Ops')).toBe('dev-ops');
-      expect(sanitizeAapName('R&D Team')).toBe('r-d-team');
+    it('converts ampersands to -amp- tokens', () => {
+      expect(sanitizeAapName('Dev&Ops')).toBe('dev-amp-ops');
+      expect(sanitizeAapName('R&D Team')).toBe('r-amp-d-team');
     });
 
-    it('converts at-signs to hyphens', () => {
-      expect(sanitizeAapName('Test@Org')).toBe('test-org');
-      expect(sanitizeAapName('user@domain')).toBe('user-domain');
+    it('converts at-signs to -at- tokens', () => {
+      expect(sanitizeAapName('Test@Org')).toBe('test-at-org');
+      expect(sanitizeAapName('user@domain')).toBe('user-at-domain');
     });
   });
 
@@ -66,8 +67,17 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('Ops!')).toBe('ops');
     });
 
-    it('converts at signs to hyphens (moved from removal to conversion)', () => {
-      expect(sanitizeAapName('Team@Work')).toBe('team-work');
+    it('tokenizes at-signs in names (not bare hyphens)', () => {
+      expect(sanitizeAapName('Team@Work')).toBe('team-at-work');
+    });
+
+    it('distinguishes @, &, and / from hyphenated names', () => {
+      expect(sanitizeAapName('Test@Org')).toBe('test-at-org');
+      expect(sanitizeAapName('Test-Org')).toBe('test-org');
+      expect(sanitizeAapName('R&D')).toBe('r-amp-d');
+      expect(sanitizeAapName('R-and-D')).toBe('r-and-d');
+      expect(sanitizeAapName('Dev/Ops')).toBe('dev-sls-ops');
+      expect(sanitizeAapName('Dev-Ops')).toBe('dev-ops');
     });
 
     it('removes dollar signs and other special chars', () => {
@@ -108,7 +118,7 @@ describe('sanitizeAapName', () => {
     });
 
     it('handles multiple separators together', () => {
-      expect(sanitizeAapName('My___Org   /Team')).toBe('my-org-team');
+      expect(sanitizeAapName('My___Org   /Team')).toBe('my-org-sls-team');
     });
   });
 
@@ -237,20 +247,47 @@ describe('sanitizeAapName', () => {
 });
 
 describe('catalog entity names with AAP IDs', () => {
-  it('builds org, team, and template names with source slug plus id', () => {
-    expect(toOrgEntityName('Engineering', 12)).toBe('o-aap-engineering-12');
-    expect(toTeamEntityName('Engineering', 99)).toBe('t-aap-engineering-99');
-    expect(toTemplateEntityName('Craig', 5238)).toBe('aap-jt-craig-5238');
-    expect(toTemplateEntityName('craig', 5239)).toBe('aap-jt-craig-5239');
-    expect(toWorkflowEntityName('Deploy', 9001)).toBe('aap-wf-deploy-9001');
+  it('keeps slug names when multi-org is disabled', () => {
+    expect(toOrgEntityName('Engineering', 12)).toBe('engineering');
+    expect(toTeamEntityName('Engineering', 99)).toBe('engineering');
+    expect(toTemplateEntityName('Craig', 5238)).toBe('craig');
+    expect(toWorkflowEntityName('Deploy', 9001)).toBe('deploy');
+  });
+
+  it('uses source-type-id names when multi-org is enabled', () => {
+    const options = { multiOrgEnabled: true };
+    expect(toOrgEntityName('Engineering', 12, options)).toBe('aap-org-12');
+    expect(toTeamEntityName('Engineering', 99, options)).toBe('aap-team-99');
+    expect(toTemplateEntityName('Craig', 5238, options)).toBe('aap-jt-5238');
+    expect(toWorkflowEntityName('Deploy', 9001, options)).toBe('aap-wft-9001');
+    expect(toUserEntityName('ops_admin', 42, options)).toBe('aap-user-42');
+    expect(toUserEntityRef('ops_admin', 42, options)).toBe(
+      'user:default/aap-user-42',
+    );
+    expect(
+      toUserEntityName('alice', 42, { multiOrgEnabled: true, source: 'ao' }),
+    ).toBe('ao-user-42');
+  });
+
+  it('keeps raw user identity when multi-org is disabled', () => {
+    expect(toUserEntityName('ops_admin', 42)).toBe('ops_admin');
+    expect(toUserEntityRef('ops_admin', 42)).toBe('user:default/ops_admin');
   });
 
   it('builds group refs from org and team names', () => {
-    expect(toOrgGroupRef('aap-default', 'Engineering', 12)).toBe(
-      'group:aap-default/o-aap-engineering-12',
+    expect(toOrgGroupRef('default', 'Engineering', 12)).toBe(
+      'group:default/engineering',
     );
-    expect(toTeamGroupRef('aap-default', 'QA', 101)).toBe(
-      'group:aap-default/t-aap-qa-101',
+    expect(toTeamGroupRef('default', 'QA', 101)).toBe('group:default/qa');
+  });
+
+  it('uses source-type-id refs when multi-org is enabled', () => {
+    const options = { multiOrgEnabled: true };
+    expect(toOrgGroupRef('aap-12', 'Engineering', 12, undefined, options)).toBe(
+      'group:aap-12/aap-org-12',
+    );
+    expect(toTeamGroupRef('aap-12', 'QA', 101, undefined, options)).toBe(
+      'group:aap-12/aap-team-101',
     );
   });
 
@@ -258,27 +295,30 @@ describe('catalog entity names with AAP IDs', () => {
     const longName = `Org-${'a'.repeat(80)}`;
     const result = toOrgEntityName(longName, 5238394829);
     expect(result.length).toBeLessThanOrEqual(63);
-    expect(result.endsWith('-5238394829')).toBe(true);
-    expect(result.startsWith('o-aap-')).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(63);
+    expect(result.startsWith('org-')).toBe(true);
   });
 
-  it('falls back to id-only names when slug is empty', () => {
-    expect(toOrgEntityName('!!!', 12)).toBe('o-aap-12');
-    expect(toTeamEntityName('___', 99)).toBe('t-aap-99');
-    expect(toTemplateEntityName('---', 5238)).toBe('aap-jt-5238');
-    expect(toWorkflowEntityName('!!!', 9001)).toBe('aap-wf-9001');
+  it('rejects names with no valid slug when multi-org is disabled', () => {
+    expect(() => toOrgEntityName('!!!', 12)).toThrow(
+      /contains no valid characters/,
+    );
   });
 });
 
 describe('toSourceNamespace', () => {
-  it('prefixes org slug with source', () => {
-    expect(toSourceNamespace('Default')).toBe('aap-default');
-    expect(toSourceNamespace('Engineering')).toBe('aap-engineering');
-    expect(toSourceNamespace('Platform Ops')).toBe('aap-platform-ops');
+  it('uses default namespace when multi-org is disabled', () => {
+    expect(toSourceNamespace('Default')).toBe('default');
+    expect(toSourceNamespace('Engineering')).toBe('default');
   });
 
-  it('falls back to source only when slug is empty', () => {
-    expect(toSourceNamespace('!!!')).toBe('aap');
+  it('uses source and stable org id when multi-org is enabled', () => {
+    expect(
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 42,
+      }),
+    ).toBe('aap-42');
   });
 });
 
@@ -293,6 +333,10 @@ describe('sanitizeAapUsername', () => {
     expect(sanitizeAapUsername('first.last')).toBe('first-last');
     expect(sanitizeAapUsername('user+alias')).toBe('user-plus-alias');
     expect(sanitizeAapUsername('dev_ops')).toBe('dev-ops');
+  });
+
+  it('keeps raw username refs until the id-based user migration', () => {
+    expect(toUserEntityRef('ops_admin')).toBe('user:default/ops_admin');
   });
 
   it('throws when username has no valid characters', () => {

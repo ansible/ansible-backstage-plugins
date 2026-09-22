@@ -46,7 +46,7 @@ describe('entityParser', () => {
         kind: 'Group',
         metadata: {
           namespace: 'test-namespace',
-          name: 'o-aap-test-organization-1',
+          name: 'test-organization',
           title: 'Test Organization',
           annotations: {
             [ANNOTATION_LOCATION]:
@@ -81,7 +81,7 @@ describe('entityParser', () => {
       };
       const result = organizationParser(options);
       expect(result.metadata.name).toBe(
-        'o-aap-test-org-with-special-characters-2',
+        'test-org-with-special-at-amp-characters',
       );
       expect(result.metadata.title).toBe(
         'Test Org With Special!@#$%^&*()_+Characters',
@@ -109,7 +109,7 @@ describe('entityParser', () => {
         kind: 'Group',
         metadata: {
           namespace: 'test-namespace',
-          name: 't-aap-test-team-1',
+          name: 'test-team',
           title: 'Test Team',
           description: 'A test team',
           annotations: {
@@ -150,7 +150,87 @@ describe('entityParser', () => {
       expect((result.spec as any).members).toEqual([]);
     });
   });
+
+  it('uses source-type-id names when multi-org is enabled', () => {
+    const result = organizationParser({
+      baseUrl: 'https://example.com',
+      nameSpace: 'aap-2',
+      org: { id: 2, name: 'Engineering' },
+      orgMembers: [],
+      teams: [],
+      identity: { multiOrgEnabled: true },
+    });
+    expect(result.metadata.name).toBe('aap-org-2');
+  });
+
   describe('userParser', () => {
+    it('preserves raw username as catalog identity when multi-org is disabled', () => {
+      const result = userParser({
+        baseUrl: 'https://example.com',
+        nameSpace: 'default',
+        user: {
+          id: 2,
+          url: 'https://example.com/users/2',
+          username: 'ops_admin',
+          email: 'ops@example.com',
+          first_name: '',
+          last_name: '',
+        },
+        groupMemberships: [],
+      });
+      expect(result.metadata.name).toBe('ops_admin');
+      expect(result.spec).toMatchObject({
+        profile: { username: 'ops_admin' },
+      });
+    });
+
+    it('uses the AAP user id when multi-org is enabled', () => {
+      const result = userParser({
+        baseUrl: 'https://example.com',
+        nameSpace: 'default',
+        user: {
+          id: 42,
+          url: 'https://example.com/users/42',
+          username: 'ops_admin',
+          email: 'ops@example.com',
+          first_name: '',
+          last_name: '',
+        },
+        groupMemberships: [],
+        identity: { multiOrgEnabled: true },
+      });
+      expect(result.metadata.name).toBe('aap-user-42');
+      expect(result.metadata.namespace).toBe('default');
+      expect(result.metadata.annotations?.['ansible.com/aap-user-id']).toBe(
+        '42',
+      );
+      expect(result.spec).toMatchObject({
+        profile: { username: 'ops_admin' },
+      });
+    });
+
+    it('keeps distinct AAP usernames distinct in multi-org mode', () => {
+      const makeUser = (username: string, id: number) =>
+        userParser({
+          baseUrl: 'https://example.com',
+          nameSpace: 'default',
+          user: {
+            id,
+            url: `https://example.com/users/${id}`,
+            username,
+            email: `${id}@example.com`,
+            first_name: '',
+            last_name: '',
+          },
+          groupMemberships: [],
+          identity: { multiOrgEnabled: true },
+        });
+
+      expect(makeUser('ops_admin', 42).metadata.name).toBe('aap-user-42');
+      expect(makeUser('ops-admin', 43).metadata.name).toBe('aap-user-43');
+      expect(makeUser('user@host', 44).metadata.name).toBe('aap-user-44');
+    });
+
     it('should parse user data correctly with first and last name', () => {
       const mockUser: User = {
         id: 1,
@@ -478,7 +558,7 @@ describe('entityParser', () => {
       const result = aapJobTemplateParser(options); // The function should return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
-      expect(result.metadata.name).toBe('aap-jt-test-job-template-1');
+      expect(result.metadata.name).toBe('test-job-template');
       expect(result.metadata.title).toBe('Test Job Template');
       expect(result.metadata.description).toBe('A test job template');
     });
@@ -671,7 +751,7 @@ describe('entityParser', () => {
       const result = aapJobTemplateParser(options); // The function should still return a Template entity
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
-      expect(result.metadata.name).toBe('aap-jt-job-without-survey-2');
+      expect(result.metadata.name).toBe('job-without-survey');
       expect(result.metadata.title).toBe('Job Without Survey');
       expect(result.metadata.description).toBe('A job template without survey');
     });
