@@ -755,6 +755,18 @@ describe('entityParser', () => {
       ).toBeDefined();
     });
 
+    it('should set collection-source annotation to scm', () => {
+      const result = scmCollectionParser({
+        galaxyFile: mockGalaxyFile,
+        sourceConfig: mockSourceConfig,
+        sourceLocation: 'url:https://github.com/test-org/test-repo',
+      });
+
+      expect(
+        result.metadata.annotations?.['ansible.io/collection-source'],
+      ).toBe('scm');
+    });
+
     it('should sanitize and include galaxy tags', () => {
       const galaxyFileWithTags = {
         ...mockGalaxyFile,
