@@ -144,7 +144,7 @@ describe('readAapApiEntityConfigs', () => {
       ]);
     });
 
-    it('should throw on namespace collision when multiOrgEnabled is true', () => {
+    it('does not derive flag-on namespaces from org slugs', () => {
       const config = new ConfigReader({
         ...baseConfig,
         catalog: {
@@ -159,9 +159,9 @@ describe('readAapApiEntityConfigs', () => {
         },
       });
 
-      expect(() => readAapApiEntityConfigs(config, 'orgsUsersTeams')).toThrow(
-        /both produce namespace/,
-      );
+      expect(() =>
+        readAapApiEntityConfigs(config, 'orgsUsersTeams'),
+      ).not.toThrow();
     });
 
     it('should not validate collisions when multiOrgEnabled is false', () => {

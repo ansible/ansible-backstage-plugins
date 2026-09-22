@@ -19,11 +19,10 @@
  * Canonical AAP name to Backstage entity name/namespace sanitization.
  *
  * Entity name patterns (source = aap | ao | scm):
- * - Organization: o-{source}-{slug}-{id} (fallback o-{source}-{id})
- * - Team: t-{source}-{slug}-{id} (fallback t-{source}-{id})
- * - Job / workflow template: {source}-jt-{slug}-{id} / {source}-wf-{slug}-{id}
- *   (fallback {source}-jt-{id} / {source}-wf-{id})
- * - Namespace: {source}-{slug} (fallback {source})
+ * - Flag off: existing slug
+ * - Flag on: {source}-{type}-{id}
+ * - Flag off namespace: default
+ * - Flag on namespace: {source}-{org-id}
  *
  * @see AAP-91915 - Three incompatible sanitizers consolidated into one
  */
@@ -34,6 +33,12 @@ const MAX_NAME_LENGTH = 63;
 export type CatalogEntitySource = 'aap' | 'ao' | 'scm';
 
 export const DEFAULT_CATALOG_ENTITY_SOURCE: CatalogEntitySource = 'aap';
+
+export interface CatalogEntityIdentityOptions {
+  multiOrgEnabled?: boolean;
+  source?: CatalogEntitySource;
+  orgId?: number;
+}
 
 function trimTrailingHyphen(value: string): string {
   return value.replace(/-$/, '');
@@ -65,10 +70,15 @@ export function sanitizeAapNameBase(name: string): string {
     );
   }
 
+  // Character tokens (not English synonyms) so Test@Org ≠ Test-Org,
+  // R&D ≠ R-and-D, Dev/Ops ≠ Dev-Ops. Same idea as sanitizeAapUsername.
   const sanitized = trimTrailingHyphen(
     name
       .toLowerCase()
-      .replaceAll(/[_\s/&@]+/g, '-')
+      .replaceAll('@', '-at-')
+      .replaceAll('&', '-amp-')
+      .replaceAll('/', '-sls-')
+      .replaceAll(/[_\s]+/g, '-')
       .replaceAll(/[^a-z0-9-]/g, '')
       .replaceAll(/-+/g, '-')
       .replaceAll(/^-|-$/g, ''),
@@ -85,124 +95,89 @@ export function sanitizeAapNameBase(name: string): string {
   return sanitized;
 }
 
-function buildEntityNameWithSourceId(options: {
+function buildEntityName(options: {
   rawName: string;
   resourceId: number;
   namePrefix: string;
+  identity?: CatalogEntityIdentityOptions;
 }): string {
-  const { rawName, resourceId, namePrefix } = options;
-  const idStr = String(resourceId);
-
-  let slug = '';
-  try {
-    slug = sanitizeAapNameBase(rawName);
-  } catch {
-    slug = '';
+  const { rawName, resourceId, namePrefix, identity } = options;
+  if (!identity?.multiOrgEnabled) {
+    return sanitizeAapName(rawName);
   }
 
-  if (!slug) {
-    return buildIdOnlyEntityName(namePrefix, resourceId);
-  }
-
-  const prefixPart = `${namePrefix}-`;
-  const reservedWithoutSlug = prefixPart.length + 1 + idStr.length;
-  const maxSlugLen = MAX_NAME_LENGTH - reservedWithoutSlug;
-
-  if (maxSlugLen <= 0) {
-    return buildIdOnlyEntityName(namePrefix, resourceId);
-  }
-
-  const truncatedSlug = trimTrailingHyphen(slug.slice(0, maxSlugLen));
-  if (!truncatedSlug) {
-    return buildIdOnlyEntityName(namePrefix, resourceId);
-  }
-
-  const name = `${prefixPart}${truncatedSlug}-${idStr}`;
-  assertValidEntityName(name, rawName);
-  if (name.length > MAX_NAME_LENGTH) {
-    throw new Error(
-      `AAP name "${rawName}" produced identifier "${name}" exceeding ${MAX_NAME_LENGTH} characters.`,
-    );
-  }
-  return name;
+  return buildIdOnlyEntityName(namePrefix, resourceId);
 }
 
 export function toSourceNamespace(
   orgName: string,
   source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  let slug = '';
-  try {
-    slug = sanitizeAapNameBase(orgName);
-  } catch {
-    slug = '';
+  if (!identity.multiOrgEnabled) {
+    return 'default';
   }
-
-  if (!slug) {
-    return source;
+  if (!Number.isInteger(identity.orgId) || (identity.orgId as number) < 0) {
+    throw new Error(
+      `AAP organization "${orgName}" requires a stable numeric id for multi-org namespace assignment.`,
+    );
   }
-
-  const prefixPart = `${source}-`;
-  const maxSlugLen = MAX_NAME_LENGTH - prefixPart.length;
-  if (maxSlugLen <= 0) {
-    return source;
-  }
-
-  const truncatedSlug = trimTrailingHyphen(slug.slice(0, maxSlugLen));
-  if (!truncatedSlug) {
-    return source;
-  }
-
-  const namespace = `${source}-${truncatedSlug}`;
-  assertValidEntityName(namespace, orgName);
-  return namespace;
+  return `${source}-${identity.orgId}`;
 }
 
 export function toOrgEntityName(
   orgName: string,
   orgId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return buildEntityNameWithSourceId({
+  const source = identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return buildEntityName({
     rawName: orgName,
     resourceId: orgId,
-    namePrefix: `o-${source}`,
+    namePrefix: `${source}-org`,
+    identity,
   });
 }
 
 export function toTeamEntityName(
   teamName: string,
   teamId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return buildEntityNameWithSourceId({
+  const source = identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return buildEntityName({
     rawName: teamName,
     resourceId: teamId,
-    namePrefix: `t-${source}`,
+    namePrefix: `${source}-team`,
+    identity,
   });
 }
 
 export function toTemplateEntityName(
   jobName: string,
   jobTemplateId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return buildEntityNameWithSourceId({
+  const source = identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return buildEntityName({
     rawName: jobName,
     resourceId: jobTemplateId,
     namePrefix: `${source}-jt`,
+    identity,
   });
 }
 
 export function toWorkflowEntityName(
   workflowName: string,
   workflowId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return buildEntityNameWithSourceId({
+  const source = identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return buildEntityName({
     rawName: workflowName,
     resourceId: workflowId,
-    namePrefix: `${source}-wf`,
+    namePrefix: `${source}-wft`,
+    identity,
   });
 }
 
@@ -215,7 +190,9 @@ export function toWorkflowEntityName(
 export function sanitizeAapUsername(username: string): string {
   if (!username || typeof username !== 'string') {
     throw new Error(
-      `AAP username must be a non-empty string, received: ${JSON.stringify(username)}`,
+      `AAP username must be a non-empty string, received: ${JSON.stringify(
+        username,
+      )}`,
     );
   }
 
@@ -242,8 +219,25 @@ export function sanitizeAapUsername(username: string): string {
   return sanitized;
 }
 
-export function toUserEntityRef(username: string): string {
-  return `user:default/${sanitizeAapUsername(username)}`;
+/** Stable user identity for multi-org mode; legacy username identity otherwise. */
+export function toUserEntityName(
+  username: string,
+  userId: number | undefined,
+  identity: CatalogEntityIdentityOptions = {},
+): string {
+  if (!identity.multiOrgEnabled || userId === undefined) {
+    return username;
+  }
+  const source = identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return `${source}-user-${userId}`;
+}
+
+export function toUserEntityRef(
+  username: string,
+  userId?: number,
+  identity: CatalogEntityIdentityOptions = {},
+): string {
+  return `user:default/${toUserEntityName(username, userId, identity)}`;
 }
 
 export function toOrgGroupRef(
@@ -251,8 +245,12 @@ export function toOrgGroupRef(
   orgName: string,
   orgId: number,
   source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return `group:${namespace}/${toOrgEntityName(orgName, orgId, source)}`;
+  return `group:${namespace}/${toOrgEntityName(orgName, orgId, {
+    ...identity,
+    source,
+  })}`;
 }
 
 export function toTeamGroupRef(
@@ -260,8 +258,12 @@ export function toTeamGroupRef(
   teamName: string,
   teamId: number,
   source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: CatalogEntityIdentityOptions = {},
 ): string {
-  return `group:${namespace}/${toTeamEntityName(teamName, teamId, source)}`;
+  return `group:${namespace}/${toTeamEntityName(teamName, teamId, {
+    ...identity,
+    source,
+  })}`;
 }
 
 /**

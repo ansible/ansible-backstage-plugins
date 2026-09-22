@@ -2,10 +2,7 @@ import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage
 import type { Config } from '@backstage/config';
 import {
   resolveActiveOrganizations,
-  toSourceNamespace,
 } from '@ansible/backstage-rhaap-common';
-
-import { validateNamespace } from '../helpers';
 import type {
   AapConfig,
   PAHRepositoryConfig,
@@ -53,21 +50,6 @@ function readAapApiEntityConfig(
     catalogConfig.getOptionalBoolean('multiOrgEnabled') ?? false;
 
   const organizations = resolveActiveOrganizations(catalogConfig);
-
-  if (multiOrgEnabled && organizations.length > 1) {
-    const seen = new Map<string, string>();
-    for (const org of organizations) {
-      const ns = toSourceNamespace(org);
-      validateNamespace(ns, org);
-      const existing = seen.get(ns);
-      if (existing) {
-        throw new Error(
-          `Organization names "${existing}" and "${org}" both produce namespace "${ns}". Rename one to avoid collision.`,
-        );
-      }
-      seen.set(ns, org);
-    }
-  }
 
   let surveyEnabled: boolean | undefined = undefined;
   let jobTemplateLabels: string[] = [];

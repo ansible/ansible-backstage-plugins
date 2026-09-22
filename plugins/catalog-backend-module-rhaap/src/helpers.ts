@@ -952,9 +952,17 @@ export function formatNameSpace(name: string): string {
 export function getEffectiveNamespace(
   orgName: string,
   _allOrgs: string[],
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  identity: {
+    multiOrgEnabled?: boolean;
+    orgId?: number;
+    source?: CatalogEntitySource;
+  } = {},
 ): string {
-  return toSourceNamespace(orgName, source);
+  return toSourceNamespace(
+    orgName,
+    identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE,
+    identity,
+  );
 }
 
 export function validateNamespace(namespace: string, orgName: string): void {
