@@ -167,7 +167,7 @@ export async function discoverOrgNamespaces(
   if (!result.ok) return [];
   const groups: any[] = Array.isArray(result.body)
     ? result.body
-    : (result.body?.items ?? []);
+    : result.body?.items ?? [];
   return [
     ...new Set(
       groups
@@ -175,4 +175,24 @@ export async function discoverOrgNamespaces(
         .filter((ns: string | undefined): ns is string => !!ns),
     ),
   ];
+}
+
+export async function findCatalogUserByAapUsername(
+  page: Page,
+  token: string,
+  username: string,
+): Promise<any | undefined> {
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=User&limit=1000',
+    token,
+  );
+  if (!result.ok) return undefined;
+  const users: any[] = Array.isArray(result.body)
+    ? result.body
+    : result.body?.items ?? [];
+  return users.find(
+    user =>
+      user.metadata?.annotations?.['ansible.com/aap-username'] === username,
+  );
 }
