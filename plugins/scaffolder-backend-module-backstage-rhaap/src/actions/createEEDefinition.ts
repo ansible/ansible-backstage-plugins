@@ -80,6 +80,8 @@ export function createEEDefinitionAction(options: {
         owner: z => z.string().optional(),
         catalogInfoPath: z => z.string().optional(),
         readmeContent: z => z.string().optional(),
+        eeCleanupStatus: z => z.enum(['noop', 'ok', 'failed']).optional(),
+        eeCleanupWarning: z => z.string().optional(),
       },
     },
     async handler(ctx) {
@@ -113,15 +115,6 @@ export function createEEDefinitionAction(options: {
       const contextDirName = eeFileName;
 
       ctx.output('contextDirName', contextDirName);
-
-      // Best-effort cleanup of any existing EE with the same name so a recreate
-      // can claim the catalog entity ref regardless of prior locationKey (AAP-85231).
-      await bestEffortUnregisterExistingEE({
-        name: eeFileName,
-        discovery,
-        auth,
-        logger,
-      });
 
       const eeDir = path.join(workspacePath, contextDirName);
       await fs.mkdir(eeDir, { recursive: true });
@@ -339,6 +332,16 @@ export function createEEDefinitionAction(options: {
           `[ansible:create:ee-definition] created EE template.yml at ${templatePath}`,
         );
 
+        // Cleanup immediately before re-register / SCM hand-off so scaffold
+        // failures do not orphan an existing EE (AAP-85231).
+        await bestEffortUnregisterExistingEE({
+          name: eeFileName,
+          discovery,
+          auth,
+          logger,
+          output: (key, value) => ctx.output(key, value),
+        });
+
         if (values.publishToSCM) {
           const catalogInfoPath = path.join(
             contextDirName,
@@ -399,15 +402,17 @@ export function createEEDefinitionAction(options: {
 
 /**
  * Best-effort DELETE of an existing EE catalog entity before re-registration.
- * Failures are logged and swallowed so creation is never blocked (AAP-85231).
+ * Failures are logged and surfaced via ctx.output so create is not blocked, but
+ * operators can see that replace cleanup did not succeed (AAP-85231).
  */
 async function bestEffortUnregisterExistingEE(options: {
   name: string;
   discovery: DiscoveryService;
   auth: AuthService;
   logger: LoggerService;
+  output?: (name: string, value: any) => void;
 }): Promise<void> {
-  const { name, discovery, auth, logger } = options;
+  const { name, discovery, auth, logger, output } = options;
   try {
     const baseUrl = await discovery.getBaseUrl('catalog');
     const { token } = await auth.getPluginRequestToken({
@@ -425,10 +430,19 @@ async function bestEffortUnregisterExistingEE(options: {
       },
     );
 
-    if (response.ok || response.status === 204) {
+    if (response.status === 204) {
+      logger.info(
+        `[ansible:create:ee-definition] no existing EE catalog entity "${name}" to clean up`,
+      );
+      output?.('eeCleanupStatus', 'noop');
+      return;
+    }
+
+    if (response.ok) {
       logger.info(
         `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status})`,
       );
+      output?.('eeCleanupStatus', 'ok');
       return;
     }
 
@@ -436,11 +450,20 @@ async function bestEffortUnregisterExistingEE(options: {
     logger.warn(
       `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" returned ${response.status}: ${errorText}`,
     );
-  } catch (error: any) {
+    output?.('eeCleanupStatus', 'failed');
+    output?.(
+      'eeCleanupWarning',
+      `Failed to replace existing EE "${name}" (HTTP ${response.status}). Creation continues; catalog may keep the prior entity.`,
+    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     logger.warn(
-      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" failed: ${
-        error?.message ?? error
-      }`,
+      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" failed: ${message}`,
+    );
+    output?.('eeCleanupStatus', 'failed');
+    output?.(
+      'eeCleanupWarning',
+      `Failed to replace existing EE "${name}": ${message}. Creation continues; catalog may keep the prior entity.`,
     );
   }
 }

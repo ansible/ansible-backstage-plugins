@@ -3,6 +3,7 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 
 export class EEEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
@@ -73,7 +74,11 @@ export class EEEntityProvider implements EntityProvider {
       added: [],
       removed: [
         {
-          entityRef: `component:default/${trimmed}`,
+          entityRef: stringifyEntityRef({
+            kind: 'Component',
+            namespace: 'default',
+            name: trimmed,
+          }),
           locationKey: this.getProviderName(),
         },
       ],

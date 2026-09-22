@@ -820,7 +820,10 @@ paths:
       description: |
         Best-effort cleanup of an existing execution environment catalog entity
         before re-registration (AAP-85231). Removes the SCM catalog location when
-        present, otherwise unregisters via the EEEntityProvider delta mutation.
+        it only owns this EE; if the location has colocated sibling entities,
+        only the target entity is removed (`mode: entity`) instead of wiping the
+        location. Otherwise unregisters via the EEEntityProvider delta mutation
+        and may also call removeEntityByUid as a fallback.
         This endpoint is restricted to backend service-to-service calls only
         (e.g. from the scaffolder plugin). User requests are rejected.
         **Permissions**: Service-to-service only (service principal required, user principals rejected).
@@ -836,7 +839,8 @@ paths:
             type: string
             minLength: 1
             maxLength: 63
-          description: Execution environment entity metadata.name
+            pattern: '^[a-z0-9]([a-z0-9._-]{0,61}[a-z0-9])?$'
+          description: Execution environment entity metadata.name (lowercase slug)
       responses:
         '200':
           description: Execution environment unregistered successfully
@@ -857,6 +861,7 @@ paths:
                     enum:
                       - location
                       - provider
+                      - entity
                 additionalProperties: false
         '204':
           description: No existing entity to clean up
@@ -866,8 +871,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Shared catalog location has colocated entities and target has no uid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal error unregistering execution environment
+          description: Internal error unregistering execution environment (including auth failures)
           content:
             application/json:
               schema:

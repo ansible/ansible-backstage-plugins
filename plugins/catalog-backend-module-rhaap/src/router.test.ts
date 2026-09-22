@@ -233,6 +233,7 @@ describe('createRouter', () => {
       getLocationByEntity: jest.fn().mockResolvedValue(undefined),
       removeLocationById: jest.fn().mockResolvedValue(undefined),
       removeEntityByUid: jest.fn().mockResolvedValue(undefined),
+      getEntities: jest.fn().mockResolvedValue({ items: [] }),
     } as unknown as jest.Mocked<CatalogClient>;
 
     mockPermissions = {
@@ -1031,12 +1032,24 @@ describe('createRouter', () => {
     });
 
     it('removes SCM location when entity is location-managed', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: {
+          ...eeEntity.metadata,
+          annotations: {
+            'backstage.io/managed-by-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        },
+      } as any);
       mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
         id: 'loc-1',
         type: 'url',
         target: 'https://github.com/org/repo/catalog-info.yaml',
       } as any);
+      mockCatalogClient.getEntities.mockResolvedValueOnce({
+        items: [eeEntity as any],
+      });
       const testApp = await createDeleteTestApp();
 
       const response = await request(testApp)
@@ -1051,6 +1064,90 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.unregisterExecutionEnvironment,
       ).not.toHaveBeenCalled();
+    });
+
+    it('removes only the target entity when location has colocated siblings', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: {
+          ...eeEntity.metadata,
+          annotations: {
+            'backstage.io/managed-by-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        },
+      } as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
+        id: 'loc-1',
+        type: 'url',
+        target: 'https://github.com/org/repo/catalog-info.yaml',
+      } as any);
+      mockCatalogClient.getEntities.mockResolvedValueOnce({
+        items: [
+          eeEntity as any,
+          {
+            apiVersion: 'backstage.io/v1alpha1',
+            kind: 'Component',
+            metadata: { name: 'sibling' },
+          } as any,
+        ],
+      });
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'entity' });
+      expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
+      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
+        'uid-ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+    });
+
+    it('returns 400 for names longer than 63 characters', async () => {
+      const testApp = await createDeleteTestApp();
+      const longName = `a${'b'.repeat(63)}`;
+
+      await request(testApp).delete(`/ansible/ee/${longName}`).expect(400);
+      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 when colocated siblings exist and target has no uid', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: {
+          name: 'ee1',
+          annotations: {
+            'backstage.io/managed-by-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        },
+      } as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
+        id: 'loc-1',
+        type: 'url',
+        target: 'https://github.com/org/repo/catalog-info.yaml',
+      } as any);
+      mockCatalogClient.getEntities.mockResolvedValueOnce({
+        items: [
+          { metadata: { name: 'ee1' } } as any,
+          { metadata: { name: 'sibling' } } as any,
+        ],
+      });
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(409);
+
+      expect(response.body).toEqual({
+        error:
+          'Refusing to remove shared catalog location with colocated entities',
+      });
+      expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
+      expect(mockCatalogClient.removeEntityByUid).not.toHaveBeenCalled();
     });
 
     it('unregisters via provider when entity has no location', async () => {

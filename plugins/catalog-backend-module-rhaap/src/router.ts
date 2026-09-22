@@ -62,8 +62,37 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
+
+/** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
+const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
+
+function parseExecutionEnvironmentNameParam(
+  rawName: string | undefined,
+): string | undefined {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(rawName ?? '');
+  } catch {
+    return undefined;
+  }
+  const name = decoded.toString().trim().toLowerCase();
+  if (
+    !name ||
+    name.length > 63 ||
+    !EE_ENTITY_NAME_PATTERN.test(name) ||
+    name.includes('/') ||
+    name.includes('\\') ||
+    name.includes('\0') ||
+    name === '.' ||
+    name === '..'
+  ) {
+    return undefined;
+  }
+  return name;
+}
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -380,18 +409,8 @@ export async function createRouter(options: {
       },
     );
 
-    const name = decodeURIComponent(request.params.name ?? '')
-      .toString()
-      .trim();
-
-    if (
-      !name ||
-      name.includes('/') ||
-      name.includes('\\') ||
-      name.includes('\0') ||
-      name === '.' ||
-      name === '..'
-    ) {
+    const name = parseExecutionEnvironmentNameParam(request.params.name);
+    if (!name) {
       response
         .status(400)
         .json({ error: 'Invalid execution environment name.' });
@@ -405,7 +424,11 @@ export async function createRouter(options: {
       });
       const catalogOpts = { token };
 
-      const entityRef = `component:default/${name}`;
+      const entityRef = stringifyEntityRef({
+        kind: 'Component',
+        namespace: 'default',
+        name,
+      });
       const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
 
       if (!entity) {
@@ -429,6 +452,40 @@ export async function createRouter(options: {
       );
 
       if (location?.id) {
+        const managedByLocation =
+          entity.metadata?.annotations?.['backstage.io/managed-by-location'];
+        let colocatedCount = 1;
+        if (managedByLocation) {
+          const { items } = await catalogClient.getEntities(
+            {
+              filter: {
+                'metadata.annotations.backstage.io/managed-by-location':
+                  managedByLocation,
+              },
+              fields: ['kind', 'metadata.name', 'metadata.namespace'],
+            },
+            catalogOpts,
+          );
+          colocatedCount = items.length;
+        }
+
+        // Never wipe a shared location that owns sibling entities.
+        if (colocatedCount > 1) {
+          if (!entity.metadata?.uid) {
+            response.status(409).json({
+              error:
+                'Refusing to remove shared catalog location with colocated entities',
+            });
+            return;
+          }
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+          response.status(200).json({ success: true, mode: 'entity' });
+          return;
+        }
+
         await catalogClient.removeLocationById(location.id, catalogOpts);
         response.status(200).json({ success: true, mode: 'location' });
         return;
