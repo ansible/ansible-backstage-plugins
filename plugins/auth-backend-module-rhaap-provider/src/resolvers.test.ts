@@ -5,6 +5,7 @@ import {
   SignInInfo,
 } from '@backstage/plugin-auth-node';
 import { AAPAuthSignInResolvers } from './resolvers';
+import { ConfigReader } from '@backstage/config';
 
 function mockUserEntity(
   name: string,
@@ -108,7 +109,7 @@ describe('resolvers', () => {
 
       await resolver(info, context as any);
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'tuser' },
+        entityRef: { name: 'tUser' },
       });
       expect(context.issueToken).toHaveBeenCalledWith({
         claims: {
@@ -242,7 +243,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'existinguser' },
+        entityRef: { name: 'existingUser' },
       });
       expect(context.issueToken).toHaveBeenCalledWith({
         claims: {
@@ -297,7 +298,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'newuser' },
+        entityRef: { name: 'newUser' },
       });
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:7007/api/catalog/aap/create_user',
@@ -552,7 +553,7 @@ describe('resolvers', () => {
       const result = await resolver(info, context as any);
 
       expect(context.findCatalogUser).toHaveBeenCalledWith({
-        entityRef: { name: 'adminuser' },
+        entityRef: { name: 'adminUser' },
       });
       expect(result).toEqual({ token: 'admin-token' });
     });
@@ -661,6 +662,58 @@ describe('resolvers', () => {
           ],
         },
       });
+    });
+
+    it('uses the AAP user id in multi-org mode', async () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: { development: { multiOrgEnabled: true } },
+          },
+        },
+      });
+      const resolver = (
+        AAPAuthSignInResolvers.createUsernameMatchingUser(config) as any
+      )();
+      const info = {
+        result: {
+          fullProfile: {
+            id: '42',
+            username: 'ops_admin',
+          },
+        },
+      } as any;
+      const context = {
+        findCatalogUser: jest
+          .fn()
+          .mockResolvedValue({ entity: mockUserEntity('aap-user-42') }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'multi-org-token' }),
+      } satisfies Partial<AuthResolverContext>;
+
+      await resolver(info, context as any);
+      expect(context.findCatalogUser).toHaveBeenCalledWith({
+        entityRef: { name: 'aap-user-42' },
+      });
+    });
+
+    it('rejects multi-org sign-in when OAuth has no AAP user id', async () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: { development: { multiOrgEnabled: true } },
+          },
+        },
+      });
+      const resolver = (
+        AAPAuthSignInResolvers.createUsernameMatchingUser(config) as any
+      )();
+      const info = {
+        result: { fullProfile: { username: 'ops_admin' } },
+      } as any;
+
+      await expect(resolver(info, {} as AuthResolverContext)).rejects.toThrow(
+        'AAP user ID is required when multi-org mode is enabled',
+      );
     });
   });
 });

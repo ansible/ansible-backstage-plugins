@@ -41,11 +41,13 @@ export const authModuleRhaapProvider = createBackendModule({
           factory: createOAuthProviderFactory({
             authenticator: aapAuthAuthenticator(ansibleService),
             signInResolverFactories: {
-              usernameMatchingUser: AAPAuthSignInResolvers.usernameMatchingUser,
+              usernameMatchingUser:
+                AAPAuthSignInResolvers.createUsernameMatchingUser(config),
               allowNewAAPUserSignIn:
                 AAPAuthSignInResolvers.allowNewAAPUserSignIn({
                   discovery,
                   auth,
+                  config,
                 }),
             },
           }),
