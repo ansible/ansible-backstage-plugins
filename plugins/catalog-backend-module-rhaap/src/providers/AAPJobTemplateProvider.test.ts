@@ -465,7 +465,7 @@ describe('AAPJobTemplateProvider', () => {
               apiVersion: 'scaffolder.backstage.io/v1beta3',
               kind: 'Template',
               metadata: expect.objectContaining({
-                name: 'aap-jt-test-job-template-1',
+                name: 'test-job-template',
                 title: 'Test Job Template',
                 aapJobTemplateId: 1,
               }),
@@ -536,7 +536,7 @@ describe('AAPJobTemplateProvider', () => {
           expect.objectContaining({
             entity: expect.objectContaining({
               metadata: expect.objectContaining({
-                name: 'aap-jt-test-job-template-1',
+                name: 'test-job-template',
                 aapJobTemplateId: 1,
               }),
             }),
@@ -545,7 +545,7 @@ describe('AAPJobTemplateProvider', () => {
           expect.objectContaining({
             entity: expect.objectContaining({
               metadata: expect.objectContaining({
-                name: 'aap-jt-second-job-template-2',
+                name: 'second-job-template',
                 aapJobTemplateId: 2,
               }),
             }),
@@ -919,7 +919,7 @@ describe('AAPJobTemplateProvider', () => {
             entity: expect.objectContaining({
               kind: 'Template',
               metadata: expect.objectContaining({
-                name: 'aap-jt-test-job-template-1',
+                name: 'test-job-template',
               }),
             }),
             locationKey: 'AAPJobTemplateProvider:development',
@@ -1207,10 +1207,10 @@ describe('AAPJobTemplateProvider', () => {
       );
 
       // Default and Engineering templates should be present
-      expect(templateNames).toContain('aap-jt-test-job-template-1');
-      expect(templateNames).toContain('aap-jt-deploy-service-2');
+      expect(templateNames).toContain('aap-jt-1');
+      expect(templateNames).toContain('aap-jt-2');
       // Finance template should be filtered out
-      expect(templateNames).not.toContain('aap-jt-finance-report-3');
+      expect(templateNames).not.toContain('aap-jt-3');
       expect(call.entities).toHaveLength(2);
     });
 
@@ -1243,14 +1243,14 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'aap-jt-test-job-template-1',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
-      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-default');
+      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-1');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'aap-jt-deploy-service-2',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
-      expect(engTemplate.entity.metadata.namespace).toBe('aap-engineering');
+      expect(engTemplate.entity.metadata.namespace).toBe('aap-2');
     });
 
     it('should add org annotation and display name suffix in multi-org mode', async () => {
@@ -1282,7 +1282,7 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'aap-jt-test-job-template-1',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
       expect(defaultTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
@@ -1291,7 +1291,7 @@ describe('AAPJobTemplateProvider', () => {
       expect(defaultTemplate.entity.metadata.title).toBe('Test Job Template');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'aap-jt-deploy-service-2',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
       expect(engTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],

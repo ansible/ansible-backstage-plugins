@@ -1330,7 +1330,7 @@ describe('dynamicJobTemplate', () => {
       expect(result.apiVersion).toBe('scaffolder.backstage.io/v1beta3');
       expect(result.kind).toBe('Template');
       expect(result.metadata.namespace).toBe('default');
-      expect(result.metadata.name).toBe('aap-jt-test-job-template-123');
+      expect(result.metadata.name).toBe('test-job-template');
       expect(result.metadata.title).toBe('Test Job Template');
       expect(result.metadata.description).toBe(
         'A comprehensive test job template',
@@ -1343,6 +1343,7 @@ describe('dynamicJobTemplate', () => {
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
         'ansible.com/template-source': 'aap-template',
       });
+      expect(result.spec.owner).toBeUndefined();
 
       expect((result.spec as any).type).toBe('automation-template');
       expect((result.spec as any).parameters).toHaveLength(1);
@@ -1370,6 +1371,34 @@ describe('dynamicJobTemplate', () => {
         'Test Job Template template executed successfully',
       );
       expect((result.spec as any).output.links).not.toBeDefined();
+    });
+
+    it('sets owner through org group builder in multi-org mode', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'aap-7',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+        orgName: 'Engineering',
+        identity: { multiOrgEnabled: true, orgId: 7 },
+      });
+
+      expect(result.spec.owner).toBe('group:aap-7/aap-org-7');
+    });
+
+    it('sets slug owner through org group builder when multi-org disabled', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+        orgName: 'Engineering',
+        identity: { multiOrgEnabled: false, orgId: 7 },
+      });
+
+      expect(result.spec.owner).toBe('group:default/engineering');
     });
 
     it('should not produce double slashes when baseUrl has a trailing slash', () => {
