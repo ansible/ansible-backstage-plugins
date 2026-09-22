@@ -80,7 +80,7 @@
     "fast-uri": "^3.1.7",
     "@babel/plugin-transform-modules-systemjs": "^7.29.4",
     "postcss": "^8.5.19",
-    "vm2": "^3.11.4",
+    "vm2": "^3.11.8",
     "browserslist": "^4.28.7",
     "nanoid": "^5.1.6",
     "@xmldom/xmldom": "^0.9.10",
