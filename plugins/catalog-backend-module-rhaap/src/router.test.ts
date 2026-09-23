@@ -1187,6 +1187,112 @@ describe('createRouter', () => {
       );
     });
 
+    it('still succeeds when removeEntityByUid fails with a non-Error value', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce('already gone');
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'provider' });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('already gone'),
+      );
+    });
+
+    it('still succeeds when removeEntityByUid fails with a plain object', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce({
+        reason: 'gone',
+      });
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'provider' });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Unknown error'),
+      );
+    });
+
+    it('removes location without colocated lookup when managed-by-location is absent', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
+        id: 'loc-1',
+        type: 'url',
+        target: 'https://github.com/org/repo/catalog-info.yaml',
+      } as any);
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'location' });
+      expect(mockCatalogClient.getEntities).not.toHaveBeenCalled();
+      expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
+        'loc-1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+    });
+
+    it('normalizes uppercase EE names before lookup', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
+      const testApp = await createDeleteTestApp();
+
+      await request(testApp).delete('/ansible/ee/My-EE').expect(204);
+
+      expect(mockCatalogClient.getEntityByRef).toHaveBeenCalledWith(
+        'component:default/my-ee',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+    });
+
+    it('returns 400 for malformed percent-encoding in the name', async () => {
+      const testApp = await createDeleteTestApp();
+
+      await request(testApp).delete('/ansible/ee/%E0%A4%A').expect(400);
+      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+    });
+
+    it('unregisters via provider when entity has no uid', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: { name: 'ee1', namespace: 'default' },
+      } as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'provider' });
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).toHaveBeenCalledWith('ee1');
+      expect(mockCatalogClient.removeEntityByUid).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when cleanup throws a non-Error value', async () => {
+      mockCatalogClient.getEntityByRef.mockRejectedValueOnce('catalog down');
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error: 'Failed to unregister Execution Environment: catalog down',
+      });
+    });
+
     it('returns 500 when cleanup throws', async () => {
       mockCatalogClient.getEntityByRef.mockRejectedValueOnce(
         new Error('catalog down'),

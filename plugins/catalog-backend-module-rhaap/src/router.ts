@@ -69,6 +69,16 @@ import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTrac
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
 
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error';
+}
+
 function parseExecutionEnvironmentNameParam(
   rawName: string | undefined,
 ): string | undefined {
@@ -501,16 +511,17 @@ export async function createRouter(options: {
           );
         } catch (uidError) {
           // Entity may already be gone after provider delta; log and continue.
-          const msg =
-            uidError instanceof Error ? uidError.message : String(uidError);
-          logger.debug(`removeEntityByUid after provider unregister: ${msg}`);
+          logger.debug(
+            `removeEntityByUid after provider unregister: ${formatUnknownError(
+              uidError,
+            )}`,
+          );
         }
       }
 
       response.status(200).json({ success: true, mode: 'provider' });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = formatUnknownError(error);
       logger.error(
         `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
       );

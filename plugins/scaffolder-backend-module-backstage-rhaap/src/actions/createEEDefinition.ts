@@ -456,7 +456,7 @@ async function bestEffortUnregisterExistingEE(options: {
       `Failed to replace existing EE "${name}" (HTTP ${response.status}). Creation continues; catalog may keep the prior entity.`,
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = formatUnknownError(error);
     logger.warn(
       `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" failed: ${message}`,
     );
@@ -466,6 +466,16 @@ async function bestEffortUnregisterExistingEE(options: {
       `Failed to replace existing EE "${name}": ${message}. Creation continues; catalog may keep the prior entity.`,
     );
   }
+}
+
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error';
 }
 
 /**
