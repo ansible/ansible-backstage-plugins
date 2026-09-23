@@ -86,9 +86,7 @@ jobs:
 
       - name: Run tests
         id: tests
-        run: |
-          yarn run test:all
-          npx -y nyc report --reporter html --reporter text -t coverage --report-dir coverage/summary
+        run: yarn run test:all
 
       - name: Upload Jest log on failure
         if: ${{ always() && steps.tests.outcome == 'failure' }}
@@ -104,6 +102,11 @@ jobs:
         run: |
           # Create filtered coverage file containing only plugins/ paths
           awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+
+      - name: Verify coverage files
+        run: |
+          test -s ./coverage/lcov.info
+          test -s ./coverage/lcov-plugins.info
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
@@ -121,7 +124,6 @@ jobs:
           path: |
             ./coverage/lcov.info
             ./coverage/lcov-plugins.info
-            ./coverage/summary/
           retention-days: 30
   
       - name: Upload JUnit XML results to PDE
