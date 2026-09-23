@@ -27,6 +27,10 @@ describe('SyncStateTracker', () => {
       expect(tracker.getLastSyncStatus()).toBeNull();
     });
 
+    it('should have zero duplicate entity count', () => {
+      expect(tracker.getLastDuplicateEntityCount()).toBe(0);
+    });
+
     it('should not be syncing', () => {
       expect(tracker.getIsSyncing()).toBe(false);
     });
@@ -51,6 +55,13 @@ describe('SyncStateTracker', () => {
       expect(tracker.getLastSyncTime()).toBe('2025-06-01T12:00:00.000Z');
       expect(tracker.getLastSyncStatus()).toBe('success');
       expect(tracker.getIsSyncing()).toBe(false);
+    });
+
+    it('should record duplicate entity count', () => {
+      tracker.markSyncStarted();
+      tracker.markSyncSucceeded(12);
+
+      expect(tracker.getLastDuplicateEntityCount()).toBe(12);
     });
 
     it('should not update lastFailedSyncTime', () => {
@@ -139,6 +150,7 @@ describe('SyncStateTracker', () => {
             syncInProgress: false,
             lastSyncStatus: 'success',
             lastSyncTime: '2025-06-01T12:00:00.000Z',
+            lastDuplicateEntityCount: 0,
           }),
         }),
       );
