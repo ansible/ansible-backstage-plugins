@@ -13,6 +13,8 @@ export class SyncStateTracker {
   private lastSyncTime: string | null = null;
   private lastFailedSyncTime: string | null = null;
   private lastSyncStatus: SyncStatus = null;
+  // Number of duplicate entities skipped during most recent sync.
+  private lastDuplicateEntityCount = 0;
   private isSyncing = false;
   private taskId: string | undefined;
   private signals?: SignalsService;
@@ -33,6 +35,7 @@ export class SyncStateTracker {
           syncInProgress,
           lastSyncTime: this.lastSyncTime,
           lastSyncStatus: this.lastSyncStatus,
+          lastDuplicateEntityCount: this.lastDuplicateEntityCount,
           lastFailedSyncTime: this.lastFailedSyncTime,
         },
       })
@@ -51,6 +54,10 @@ export class SyncStateTracker {
     return this.lastSyncStatus;
   }
 
+  getLastDuplicateEntityCount(): number {
+    return this.lastDuplicateEntityCount;
+  }
+
   getIsSyncing(): boolean {
     return this.isSyncing;
   }
@@ -60,11 +67,14 @@ export class SyncStateTracker {
   }
 
   markSyncStarted(): void {
+    this.lastDuplicateEntityCount = 0;
     this.isSyncing = true;
     this.publishSyncSignal(true);
   }
 
-  markSyncSucceeded(): void {
+  // Preserve duplicate count with sync status so consumers can surface it.
+  markSyncSucceeded(duplicateEntityCount = 0): void {
+    this.lastDuplicateEntityCount = duplicateEntityCount;
     this.lastSyncTime = new Date().toISOString();
     this.lastSyncStatus = 'success';
     this.isSyncing = false;

@@ -130,6 +130,10 @@ export class AAPEntityProvider implements EntityProvider {
     return this.syncState.getLastSyncStatus();
   }
 
+  getLastDuplicateEntityCount(): number {
+    return this.syncState.getLastDuplicateEntityCount();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -164,9 +168,8 @@ export class AAPEntityProvider implements EntityProvider {
 
       let error = false;
       try {
-        const allOrgsDetails = await this.ansibleServiceRef.getOrganizations(
-          true,
-        );
+        const allOrgsDetails =
+          await this.ansibleServiceRef.getOrganizations(true);
         this.logger.info(
           `[${AAPEntityProvider.pluginLogName}]: Fetched ${allOrgsDetails.length} organizations from AAP.`,
         );
@@ -339,38 +342,17 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
 
-                // Team group entities come from the bulk org payload; if a team is
-                // missing there, reference the org group so memberOf stays valid.
+                // Team group entities come from the bulk org payload. A missing
+                // team is a source disagreement, not direct org membership.
                 if (!matched) {
-                  for (const org of orgsDetails) {
-                    if (org.organization.id === team.orgId) {
-                      const orgIdentity = {
-                        multiOrgEnabled: this.multiOrgEnabled,
-                        orgId: org.organization.id,
-                      };
-                      const orgNs = getEffectiveNamespace(
-                        org.organization.name,
-                        this.orgs,
-                        orgIdentity,
-                      );
-                      const orgGroupRef = toOrgGroupRef(
-                        orgNs,
-                        org.organization.name,
-                        org.organization.id,
-                        undefined,
-                        orgIdentity,
-                      );
-                      this.logger.warn(
-                        `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; assigning org group ${orgGroupRef} instead`,
-                      );
-                      userMembers.push(orgGroupRef);
-                      break;
-                    }
-                  }
+                  this.logger.warn(
+                    `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; skipping team membership`,
+                  );
                 }
               }
 
-              // Add org group refs to memberOf (consistent with createSingleUser)
+              // Bulk is_orguser data is the only source for direct org access.
+              // Per-user team results must not promote a missing team to org access.
               for (const org of orgsDetails) {
                 if (
                   org.users?.some(
@@ -527,9 +509,14 @@ export class AAPEntityProvider implements EntityProvider {
       const aapAdminsGroup = this.createAapAdminsGroup(systemUsers);
       entities.push(aapAdminsGroup);
 
+      // AAP can return the same logical entity through multiple organization
+      // or membership paths. Catalog identity is the full kind/namespace/name
+      // tuple, so remove later duplicates before the full mutation.
+      const { entities: uniqueEntities, duplicateEntityCount } =
+        this.deduplicateCatalogEntities(entities);
       await this.connection.applyMutation({
         type: 'full',
-        entities: entities.map(entity => ({
+        entities: uniqueEntities.map(entity => ({
           entity,
           locationKey: this.getProviderName(),
         })),
@@ -546,7 +533,7 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.syncState.markSyncSucceeded();
+      this.syncState.markSyncSucceeded(duplicateEntityCount);
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();
@@ -557,6 +544,68 @@ export class AAPEntityProvider implements EntityProvider {
   async connect(connection: EntityProviderConnection): Promise<void> {
     this.connection = connection;
     await this.scheduleFn();
+  }
+
+  /**
+   * Keep the first entity for each catalog identity and warn about conflicts.
+   *
+   * Keeping the first entity preserves deterministic sync output while the
+   * warning exposes source collisions without sending invalid duplicates to
+   * the catalog processor.
+   */
+  private deduplicateCatalogEntities(entities: Entity[]): {
+    entities: Entity[];
+    duplicateEntityCount: number;
+  } {
+    const seen = new Map<string, Entity>();
+    const unique: Entity[] = [];
+    // Keep warning volume bounded for large or repeatedly duplicated payloads.
+    const conflicts: string[] = [];
+    const maxConflictDetails = 10;
+
+    for (const entity of entities) {
+      const key = `${entity.kind}:${entity.metadata.namespace ?? 'default'}/${
+        entity.metadata.name
+      }`;
+      const existing = seen.get(key);
+      if (existing) {
+        const formatAapIds = (candidate: Entity): string =>
+          Object.entries(candidate.metadata.annotations ?? {})
+            .filter(([name]) => name.startsWith('ansible.com/aap-'))
+            .map(([name, value]) => `${name}=${value}`)
+            .join(', ') || 'none';
+        if (conflicts.length < maxConflictDetails) {
+          conflicts.push(
+            `${key}: first(${formatAapIds(existing)}) duplicate(${formatAapIds(
+              entity,
+            )})`,
+          );
+        }
+        continue;
+      }
+
+      seen.set(key, entity);
+      unique.push(entity);
+    }
+
+    // Count all skipped entities, including conflicts beyond the debug sample.
+    const duplicateEntityCount = entities.length - unique.length;
+    if (duplicateEntityCount > 0) {
+      this.logger.warn(
+        `[${AAPEntityProvider.pluginLogName}]: Skipped ${duplicateEntityCount} duplicate catalog entity keys; kept first entity for each key`,
+      );
+      this.logger.debug(
+        `[${AAPEntityProvider.pluginLogName}]: Duplicate catalog entity details`,
+        {
+          // AAP IDs make collisions actionable without flooding normal logs.
+          conflicts,
+          totalConflicts: duplicateEntityCount,
+          truncated: duplicateEntityCount > conflicts.length,
+        },
+      );
+    }
+
+    return { entities: unique, duplicateEntityCount };
   }
 
   async createSingleUser(username: string, userID: number): Promise<boolean> {

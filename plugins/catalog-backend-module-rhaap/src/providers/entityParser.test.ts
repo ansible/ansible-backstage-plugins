@@ -47,7 +47,7 @@ describe('entityParser', () => {
         metadata: {
           namespace: 'test-namespace',
           name: 'test-organization',
-          title: 'Test Organization',
+          title: 'Org: Test Organization',
           annotations: {
             [ANNOTATION_LOCATION]:
               'url:https://example.com/access/organizations/1/details',
@@ -62,7 +62,7 @@ describe('entityParser', () => {
           members: ['user1', 'user2'],
           profile: {
             description: 'Organization: Test Organization',
-            displayName: '[Org] Test Organization',
+            displayName: 'Org: Test Organization',
           },
         },
       });
@@ -84,7 +84,7 @@ describe('entityParser', () => {
         'test-org-with-special-at-amp-characters',
       );
       expect(result.metadata.title).toBe(
-        'Test Org With Special!@#$%^&*()_+Characters',
+        'Org: Test Org With Special!@#$%^&*()_+Characters',
       );
     });
   });
@@ -125,7 +125,7 @@ describe('entityParser', () => {
           children: [],
           members: ['user1', 'user2', 'user3'],
           profile: {
-            displayName: '[Team] Test Team',
+            displayName: 'Team: Test Team',
             description: 'Team: Test Team',
           },
         },
@@ -254,7 +254,7 @@ describe('entityParser', () => {
         metadata: {
           namespace: 'test-namespace',
           name: 'johndoe',
-          title: 'John Doe',
+          title: 'John Doe (johndoe)',
           annotations: {
             'aap.platform/is_superuser': 'false',
             'ansible.com/aap-username': 'johndoe',
@@ -267,7 +267,7 @@ describe('entityParser', () => {
         spec: {
           profile: {
             username: 'johndoe',
-            displayName: 'John Doe',
+            displayName: 'John Doe (johndoe)',
             email: 'john.doe@example.com',
           },
           memberOf: ['group1', 'group2'],
@@ -330,8 +330,10 @@ describe('entityParser', () => {
         groupMemberships: [],
       };
       const result = userParser(options);
-      expect(result.metadata.title).toBe('First ');
-      expect((result.spec as any).profile.displayName).toBe('First ');
+      expect(result.metadata.title).toBe('First (firstonly)');
+      expect((result.spec as any).profile.displayName).toBe(
+        'First (firstonly)',
+      );
     });
     it('should handle user with undefined is_superuser', () => {
       const mockUser: User = {
