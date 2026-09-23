@@ -16,6 +16,16 @@
 import '@testing-library/jest-dom';
 import 'cross-fetch/polyfill';
 
+// Backstage bundles style-inject, so the module mock cannot intercept it.
+// Ignore CSS text insertion to prevent JSDOM stylesheet parser noise.
+if (typeof HTMLStyleElement !== 'undefined') {
+  const appendChild = HTMLStyleElement.prototype.appendChild;
+  HTMLStyleElement.prototype.appendChild = function appendStyleText(node) {
+    if (node.nodeType === Node.TEXT_NODE) return node;
+    return appendChild.call(this, node);
+  };
+}
+
 // eslint-disable-next-line no-restricted-imports
 import { TextEncoder } from 'node:util';
 
