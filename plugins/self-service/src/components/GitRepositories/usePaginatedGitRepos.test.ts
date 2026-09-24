@@ -190,6 +190,29 @@ describe('usePaginatedGitRepos', () => {
     expect(result.current.entities[1].metadata.title).toBe('Zebra Title');
   });
 
+  it('matches search text across NFC-equivalent Unicode forms', () => {
+    mockState.allEntities = [
+      {
+        ...makeEntity('cafe-repo'),
+        metadata: {
+          ...makeEntity('cafe-repo').metadata,
+          title: 'Café',
+        },
+      },
+    ];
+
+    const { result } = renderHook(() =>
+      usePaginatedGitRepos({ catalogApi: mockCatalogApi }),
+    );
+
+    act(() => {
+      result.current.setSearchQuery('Cafe\u0301'.normalize('NFD'));
+    });
+
+    expect(result.current.totalCount).toBe(1);
+    expect(result.current.entities[0].metadata.title).toBe('Café');
+  });
+
   it('falls back to empty string when both title and name are missing', () => {
     mockState.allEntities = [
       {
