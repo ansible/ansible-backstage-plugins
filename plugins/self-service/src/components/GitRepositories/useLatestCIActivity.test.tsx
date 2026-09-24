@@ -731,4 +731,80 @@ describe('useLatestCIActivity', () => {
 
     expect(screen.getByTestId('activity-bare-entity')).toHaveTextContent('N/A');
   });
+
+  it('aborts retry loop when cancelled during retry delay', async () => {
+    mockFetchApi.fetch.mockResolvedValue({ ok: false, status: 503 });
+
+    const { unmount } = renderTestConsumer([createGitHubEntity('abort-retry')]);
+
+    // Let the first fetch resolve (returns 503, triggering retry delay)
+    await jest.advanceTimersByTimeAsync(0);
+
+    // Unmount sets cancelled = true, so the next retry iteration bails out
+    unmount();
+
+    // Advance past the retry delay (INITIAL_RETRY_DELAY_MS * 2^0 = 300ms)
+    await jest.advanceTimersByTimeAsync(500);
+
+    // Only the first attempt should have been made; the retry was aborted
+    expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to empty pipeline id when id is not string or number', async () => {
+    mockBatchResponse({
+      'component:default/gl-no-id': {
+        status: 200,
+        data: [
+          {
+            id: null,
+            created_at: '2024-06-15T11:00:00Z',
+            web_url: 'https://gitlab.com/my-group/my-project/pipelines/0',
+          },
+        ],
+      },
+    });
+
+    renderTestConsumer([createGitLabEntity('gl-no-id')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-gl-no-id')).toHaveTextContent(
+      'Pipeline # • 1 hour ago',
+    );
+  });
+
+  it('treats unrecognised keys in batch results as N/A', async () => {
+    mockBatchResponse({
+      'component:default/known-repo': {
+        status: 200,
+        data: {
+          workflow_runs: [
+            {
+              run_number: 1,
+              id: 1,
+              name: 'CI',
+              created_at: '2024-06-15T11:00:00Z',
+              html_url: 'https://github.com/org/repo/actions/runs/1',
+            },
+          ],
+        },
+      },
+      'component:default/phantom-key': {
+        status: 200,
+        data: { workflow_runs: [{ run_number: 999 }] },
+      },
+    });
+
+    renderTestConsumer([createGitHubEntity('known-repo')]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+    });
+
+    expect(screen.getByTestId('activity-known-repo')).toHaveTextContent(
+      'CI #1',
+    );
+  });
 });
