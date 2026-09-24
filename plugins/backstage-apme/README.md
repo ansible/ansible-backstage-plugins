@@ -37,5 +37,5 @@ APME tags a new `ui-workflow-v*` release, then run `yarn install`.
 Current pin:
 
 ```text
-https://github.com/ansible/apme/releases/download/v2026.9.3/apme-ui-workflow-2026.9.3.tgz
+https://github.com/ansible/apme/releases/download/v2026.9.4/apme-ui-workflow-2026.9.4.tgz
 ```
