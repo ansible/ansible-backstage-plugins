@@ -105,3 +105,6 @@ screenshots/
 **/screenshots
 aap-logout.tar
 deploy/
+
+# Jest stderr and console output captured by yarn test
+test-console.log
