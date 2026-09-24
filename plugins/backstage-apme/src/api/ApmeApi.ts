@@ -48,7 +48,23 @@ import type {
   CreateGalaxyServerRequest,
   UpdateGalaxyServerRequest,
 } from '@ansible/backstage-apme-common/types';
+import {
+  assertValidBranchName,
+  BRANCH_NAME_VALIDATION_MESSAGE,
+} from '@ansible/backstage-apme-common/branchName';
 import { coerceRuleResponse, type GatewayRuleRow } from '../utils/gatewayRules';
+
+export class ApmeApiError extends Error {
+  readonly status: number;
+  readonly responseBody: string;
+
+  constructor(status: number, message: string, responseBody = '') {
+    super(message);
+    this.name = 'ApmeApiError';
+    this.status = status;
+    this.responseBody = responseBody;
+  }
+}
 
 export interface ApmeScmRequestOptions {
   scmToken?: string;
@@ -224,8 +240,44 @@ export class ApmeApiClient implements ApmeApi {
             : 'APME API conflict: request could not be completed',
         );
       }
+      if (response.status === 422) {
+        let detail = errorText;
+        try {
+          const parsed: unknown = JSON.parse(errorText);
+          if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            'detail' in parsed
+          ) {
+            const value = (parsed as { detail?: unknown }).detail;
+            detail = Array.isArray(value)
+              ? value
+                  .map(item =>
+                    typeof item === 'object' && item !== null && 'msg' in item
+                      ? String((item as { msg: unknown }).msg)
+                      : String(item),
+                  )
+                  .join('; ')
+              : String(value);
+          }
+        } catch {
+          // Preserve the plain-text response below.
+        }
+        const isRemediationRequest =
+          method === 'POST' && /\/submit$/.test(endpoint);
+        throw new ApmeApiError(
+          422,
+          detail ||
+            (isRemediationRequest
+              ? BRANCH_NAME_VALIDATION_MESSAGE
+              : 'APME API request could not be processed'),
+          errorText,
+        );
+      }
       throw new Error(
-        `APME API error: ${response.status} - ${errorText || response.statusText}`,
+        `APME API error: ${response.status} - ${
+          errorText || response.statusText
+        }`,
       );
     }
 
@@ -561,6 +613,7 @@ export class ApmeApiClient implements ApmeApi {
     activityId: string,
     options?: ApmeScmRequestOptions & { createPr?: boolean },
   ): Promise<SubmitRemediationResult> {
+    assertValidBranchName(options?.branchName);
     // Large remedia pushes (hundreds of blobs) often exceed the default 30s.
     return this.fetch<SubmitRemediationResult>(
       `/projects/${encodeURIComponent(projectId)}/submit`,

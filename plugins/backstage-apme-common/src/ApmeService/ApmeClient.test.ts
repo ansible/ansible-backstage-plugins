@@ -91,6 +91,77 @@ describe('ApmeClient', () => {
     ).rejects.toBeInstanceOf(InputError);
   });
 
+  it('formats structured 422 detail messages from the Gateway', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            detail: [{ msg: 'branch is invalid' }, 'another validation error'],
+          }),
+        ),
+    });
+
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(client.getHealth()).rejects.toThrow(
+      /branch is invalid; another validation error/,
+    );
+  });
+
+  it('uses the branch validation fallback for an empty remediation 422', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      text: () => Promise.resolve(''),
+    });
+
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(
+      client.submitRemediation('proj-1', {
+        activity_id: 'activity-1',
+      }),
+    ).rejects.toThrow(/Invalid branch name/);
+  });
+
+  it('preserves plain-text 422 responses', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      text: () => Promise.resolve('plain validation error'),
+    });
+
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(client.getHealth()).rejects.toThrow(/plain validation error/);
+  });
+
+  it('maps invalid remediation branches to InputError', async () => {
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(
+      client.submitRemediation('proj-1', {
+        activity_id: 'activity-1',
+        branch_name: 'feature/../bad',
+      }),
+    ).rejects.toBeInstanceOf(InputError);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('maps invalid pull-request branches to InputError', async () => {
+    const client = new ApmeClient({ rootConfig, logger: logger as never });
+
+    await expect(
+      client.createPullRequest('proj-1', 'activity-1', 'scm-token', 'HEAD'),
+    ).rejects.toBeInstanceOf(InputError);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('fetches activity detail and normalizes remediation classes', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,

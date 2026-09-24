@@ -21,6 +21,7 @@
     "./normalizeRepoUrl": "./src/normalizeRepoUrl.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./operationStatus": "./src/operationStatus.ts",
+    "./branchName": "./src/branchName.ts",
     "./gatewayRules": "./src/gatewayRules.ts",
     "./scanTargetDefaults": "./src/scanTargetDefaults.ts",
     "./ansibleCoreVersionOptions": "./src/ansibleCoreVersionOptions.ts",
@@ -55,6 +56,9 @@
       ],
       "operationStatus": [
         "src/operationStatus.ts"
+      ],
+      "branchName": [
+        "src/branchName.ts"
       ],
       "gatewayRules": [
         "src/gatewayRules.ts"

@@ -29,6 +29,11 @@ export * from './apmeSyncConfig';
 export * from './apmeCatalogSync';
 export * from './operationStatus';
 export {
+  BRANCH_NAME_VALIDATION_MESSAGE,
+  assertValidBranchName,
+  validateBranchName,
+} from './branchName';
+export {
   ansibleCoreVersionOptions,
   isAllowedAnsibleCoreVersion,
   normalizeAnsibleCoreVersion,

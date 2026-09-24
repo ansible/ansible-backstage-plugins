@@ -538,4 +538,113 @@ describe('ApmeApiClient', () => {
       );
     });
   });
+
+  describe('branch validation', () => {
+    it('rejects an invalid branch before making a request', async () => {
+      await expect(
+        client.createPullRequest('proj-1', 'act-1', {
+          branchName: 'feature/../bad',
+        }),
+      ).rejects.toThrow(/Invalid branch name/);
+      expect(mockFetchApi.fetch).not.toHaveBeenCalled();
+    });
+
+    it('exposes Gateway 422 responses as a status-aware error', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () =>
+          Promise.resolve(JSON.stringify({ detail: 'branch is not valid' })),
+      });
+
+      const error = await client
+        .createPullRequest('proj-1', 'act-1', { branchName: 'feature/fix' })
+        .catch(value => value);
+
+      expect(error).toMatchObject({
+        name: 'ApmeApiError',
+        status: 422,
+        responseBody: JSON.stringify({ detail: 'branch is not valid' }),
+      });
+      expect(error.message).toContain('branch is not valid');
+    });
+
+    it('formats structured validation details from Gateway 422 responses', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              detail: [{ msg: 'branch is invalid' }, 'another error'],
+            }),
+          ),
+      });
+
+      const error = await client
+        .createPullRequest('proj-1', 'act-1', { branchName: 'feature/fix' })
+        .catch(value => value);
+
+      expect(error).toMatchObject({ name: 'ApmeApiError', status: 422 });
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain(
+        'branch is invalid; another error',
+      );
+    });
+
+    it('uses the branch fallback for an empty remediation 422 response', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () => Promise.resolve(''),
+      });
+
+      const error = await client
+        .submitRemediation('proj-1', 'act-1', {
+          branchName: 'feature/fix',
+        })
+        .catch(value => value);
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('Invalid branch name');
+    });
+
+    it('preserves plain-text remediation 422 responses', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () => Promise.resolve('plain validation error'),
+      });
+
+      const error = await client
+        .submitRemediation('proj-1', 'act-1', {
+          branchName: 'feature/fix',
+        })
+        .catch(value => value);
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('plain validation error');
+    });
+
+    it('uses a generic fallback for non-remediation 422 responses', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        statusText: 'Unprocessable Entity',
+        text: () => Promise.resolve(''),
+      });
+
+      const error = await client.getAiConfig().catch(value => value);
+
+      expect(error).toMatchObject({ name: 'ApmeApiError', status: 422 });
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        'APME API request could not be processed',
+      );
+    });
+  });
 });
