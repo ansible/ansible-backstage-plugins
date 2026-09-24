@@ -1,0 +1,99 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}, 'sequence': {'bottomMarginAdj': 40}}}%%
+sequenceDiagram
+  actor Sched as Scheduler<br/>(SchedulerServiceTaskRunner)
+  participant Provider as AnsibleGitContentsProvider
+  participant Crawler as ScmCrawler<br/>(Github/GitlabCrawler)
+  participant Client as ScmClient<br/>(backstage-rhaap-common)
+  participant SCM as GitHub / GitLab API
+  participant Catalog as Backstage Catalog<br/>(EntityProviderConnection)
+
+  Sched->>Provider: scheduled tick -> run(signal)<br/>(or manual startSync())
+  activate Provider
+  Provider->>Provider: isSyncing = true
+
+  Provider->>Crawler: getRepositories(signal)
+  activate Crawler
+  Crawler->>Client: getRepositories(signal)
+  Client->>SCM: list repositories in organization
+  SCM-->>Client: repositories[]
+  Client-->>Crawler: RepositoryInfo[]
+  Crawler-->>Provider: RepositoryInfo[]
+  deactivate Crawler
+
+  Note over Provider: Split repos into batches<br/>(DEFAULT_BATCH_SIZE=20)
+
+  loop for each batch of repositories
+    Provider->>Crawler: discoverGalaxyFilesInRepos(batchRepos,<br/>{branches, tags, galaxyFilePaths, crawlDepth}, signal)
+    activate Crawler
+
+    loop for each repository in batch
+      Crawler->>Crawler: getRefsToSearch()<br/>default branch + configured branches
+      opt tags configured
+        Crawler->>Client: getTags(repo, signal)
+        Client->>SCM: list tags
+        SCM-->>Client: tags[]
+        Client-->>Crawler: matching tags (glob pattern)
+      end
+
+      loop for each ref (branch/tag) to search
+        alt galaxyFilePaths configured
+          Crawler->>Crawler: crawlDirectory(basePath, crawlDepth)
+        else no configured paths
+          Crawler->>Crawler: crawlDirectory('', crawlDepth)
+        end
+        activate Crawler
+        Crawler->>Client: getContents(repo, ref, path, signal)
+        Client->>SCM: GET directory contents
+        SCM-->>Client: DirectoryEntry[]
+        Client-->>Crawler: entries (files + dirs)
+        Note over Crawler: recurse into subdirs<br/>(skip node_modules, .git, tests, ...)<br/>until depth exhausted
+        deactivate Crawler
+
+        loop for each galaxy.yml/galaxy.yaml found
+          Crawler->>Client: getFileContent(repo, ref, path, signal)
+          Client->>SCM: GET file content
+          SCM-->>Client: raw YAML content
+          Client-->>Crawler: content
+          Crawler->>Crawler: yaml.parse() + validateGalaxyContent()
+          alt valid galaxy metadata
+            Crawler->>Crawler: collect DiscoveredGalaxyFile<br/>{repository, ref, refType, path, metadata}
+          else invalid YAML or schema
+            Note over Crawler: skip file, log warning
+          end
+        end
+      end
+    end
+
+    Crawler-->>Provider: DiscoveredGalaxyFile[] (batch)
+    deactivate Crawler
+
+    Provider->>Provider: deduplicateCollectionsWithSet()<br/>(skip duplicates across batches)
+    Provider->>Provider: updateRepositoryData()<br/>(group files by repository)
+
+    alt unique collections found in batch
+      Provider->>Provider: convertToEntities()<br/>-> scmCollectionParser() per file
+      Provider->>Catalog: applyMutation({ type: 'delta',<br/>added: batchEntities })
+      activate Catalog
+      Catalog-->>Provider: ack
+      deactivate Catalog
+    else no unique collections in batch
+      Note over Provider: log "no unique collections", skip mutation
+    end
+  end
+
+  Provider->>Provider: stampLatestVersionAnnotations(allEntities)
+  Provider->>Provider: createRepositoryEntities()<br/>-> repositoryParser() per repository
+
+  Provider->>Catalog: applyMutation({ type: 'full',<br/>entities: collections + repositories })
+  activate Catalog
+  Catalog-->>Provider: ack
+  deactivate Catalog
+
+  alt sync succeeded
+    Provider->>Provider: updateSyncMetrics()<br/>lastSyncTime = now, lastSyncStatus = 'success'<br/>lastSyncCollections, lastSyncNewCollections
+  else sync failed (exception thrown)
+    Provider->>Provider: handleSyncError()<br/>lastFailedSyncTime = now, lastSyncStatus = 'failure'
+  end
+
+  Provider->>Provider: isSyncing = false
+  deactivate Provider
