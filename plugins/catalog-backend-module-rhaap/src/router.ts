@@ -62,8 +62,47 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
+
+/** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
+const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
+
+function formatUnknownError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error';
+}
+
+function parseExecutionEnvironmentNameParam(
+  rawName: string | undefined,
+): string | undefined {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(rawName ?? '');
+  } catch {
+    return undefined;
+  }
+  const name = decoded.toString().trim().toLowerCase();
+  if (
+    !name ||
+    name.length > 63 ||
+    !EE_ENTITY_NAME_PATTERN.test(name) ||
+    name.includes('/') ||
+    name.includes('\\') ||
+    name.includes('\0') ||
+    name === '.' ||
+    name === '..'
+  ) {
+    return undefined;
+  }
+  return name;
+}
 
 export async function createRouter(options: {
   logger: LoggerService;
@@ -362,6 +401,132 @@ export async function createRouter(options: {
       logger.error(`Failed to register Execution Environment: ${errorMessage}`);
       response.status(500).json({
         error: `Failed to register Execution Environment: ${errorMessage}`,
+      });
+    }
+  });
+
+  /**
+   * Best-effort cleanup of an existing EE catalog entity before re-registration.
+   * Removes SCM-managed locations or provider-managed entities so a recreate with
+   * the same name can claim the entity ref (AAP-85231).
+   */
+  router.delete('/ansible/ee/:name', async (request, response) => {
+    await httpAuth.credentials(
+      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
+      request,
+      {
+        allow: ['service'],
+      },
+    );
+
+    const name = parseExecutionEnvironmentNameParam(request.params.name);
+    if (!name) {
+      response
+        .status(400)
+        .json({ error: 'Invalid execution environment name.' });
+      return;
+    }
+
+    try {
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: await auth.getOwnServiceCredentials(),
+        targetPluginId: 'catalog',
+      });
+      const catalogOpts = { token };
+
+      const entityRef = stringifyEntityRef({
+        kind: 'Component',
+        namespace: 'default',
+        name,
+      });
+      const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+
+      if (!entity) {
+        response.status(204).send();
+        return;
+      }
+
+      if (
+        entity.kind !== 'Component' ||
+        entity.spec?.type !== 'execution-environment'
+      ) {
+        response.status(400).json({
+          error: 'Refusing to delete non-execution-environment entity',
+        });
+        return;
+      }
+
+      const location = await catalogClient.getLocationByEntity(
+        entityRef,
+        catalogOpts,
+      );
+
+      if (location?.id) {
+        const managedByLocation =
+          entity.metadata?.annotations?.['backstage.io/managed-by-location'];
+        let colocatedCount = 1;
+        if (managedByLocation) {
+          const { items } = await catalogClient.getEntities(
+            {
+              filter: {
+                'metadata.annotations.backstage.io/managed-by-location':
+                  managedByLocation,
+              },
+              fields: ['kind', 'metadata.name', 'metadata.namespace'],
+            },
+            catalogOpts,
+          );
+          colocatedCount = items.length;
+        }
+
+        // Never wipe a shared location that owns sibling entities.
+        if (colocatedCount > 1) {
+          if (!entity.metadata?.uid) {
+            response.status(409).json({
+              error:
+                'Refusing to remove shared catalog location with colocated entities',
+            });
+            return;
+          }
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+          response.status(200).json({ success: true, mode: 'entity' });
+          return;
+        }
+
+        await catalogClient.removeLocationById(location.id, catalogOpts);
+        response.status(200).json({ success: true, mode: 'location' });
+        return;
+      }
+
+      await eeEntityProvider.unregisterExecutionEnvironment(name);
+
+      if (entity.metadata?.uid) {
+        try {
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+        } catch (uidError) {
+          // Entity may already be gone after provider delta; log and continue.
+          logger.debug(
+            `removeEntityByUid after provider unregister: ${formatUnknownError(
+              uidError,
+            )}`,
+          );
+        }
+      }
+
+      response.status(200).json({ success: true, mode: 'provider' });
+    } catch (error) {
+      const errorMessage = formatUnknownError(error);
+      logger.error(
+        `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
+      );
+      response.status(500).json({
+        error: `Failed to unregister Execution Environment: ${errorMessage}`,
       });
     }
   });

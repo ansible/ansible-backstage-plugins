@@ -3,6 +3,7 @@ import {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
+import { stringifyEntityRef } from '@backstage/catalog-model';
 
 export class EEEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
@@ -47,6 +48,40 @@ export class EEEntityProvider implements EntityProvider {
         },
       ],
       removed: [],
+    });
+  }
+
+  /**
+   * Removes a provider-managed Execution Environment entity via delta mutation.
+   * Only entities owned by this provider (`locationKey: EEEntityProvider`) are removed.
+   */
+  async unregisterExecutionEnvironment(name: string): Promise<void> {
+    if (!this.connection) {
+      throw new Error('EEEntityProvider is not connected yet');
+    }
+
+    const trimmed = name?.toString().trim();
+    if (!trimmed) {
+      throw new Error(
+        'Name is required for Execution Environment unregistration',
+      );
+    }
+
+    this.logger.info(`Unregistering entity ${trimmed}`);
+
+    await this.connection.applyMutation({
+      type: 'delta',
+      added: [],
+      removed: [
+        {
+          entityRef: stringifyEntityRef({
+            kind: 'Component',
+            namespace: 'default',
+            name: trimmed,
+          }),
+          locationKey: this.getProviderName(),
+        },
+      ],
     });
   }
 }

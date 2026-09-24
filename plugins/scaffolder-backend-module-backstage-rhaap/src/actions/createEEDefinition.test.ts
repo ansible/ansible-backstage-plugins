@@ -247,9 +247,230 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/catalog/ansible/ee',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
+  });
+
+  it('best-effort deletes existing EE before SCM publish path', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
+  });
+
+  it('continues creation when best-effort EE cleanup fails', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (init?.method === 'DELETE' || u.includes('/ansible/ee/test-ee')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            text: jest.fn().mockResolvedValue('cleanup failed'),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('best-effort EE cleanup'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      expect.stringContaining('HTTP 500'),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('continues creation when best-effort EE cleanup throws', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.reject(new Error('network down'));
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await expect(action.handler(ctx)).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('best-effort EE cleanup'),
+    );
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      expect.stringContaining('network down'),
+    );
+  });
+
+  it('records eeCleanupStatus noop when DELETE returns 204', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 204,
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'noop');
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('no existing EE catalog entity'),
+    );
+  });
+
+  it('handles non-Error cleanup failures without stringifying objects', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.reject({ code: 'ECONNRESET' });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await expect(action.handler(ctx)).resolves.toBeUndefined();
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      expect.stringContaining('Unknown error'),
+    );
+  });
+
+  it('handles string cleanup failures', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.reject('catalog unavailable');
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      expect.stringContaining('catalog unavailable'),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('records eeCleanupStatus ok when DELETE removes an existing EE', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
   });
 
   it('throws when catalog registration fails', async () => {
@@ -259,12 +480,22 @@ describe('createEEDefinition', () => {
       baseImage: 'img:latest',
       publishToSCM: false,
     });
-    // The handler calls `fetch` for the failing POST `/ansible/ee` registration
-    // (ok: false, text: 'Server error').
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      text: jest.fn().mockResolvedValue('Server error'),
-    } as any);
+    // DELETE succeeds (best-effort cleanup), then POST registration fails
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 204,
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: false,
+          text: jest.fn().mockResolvedValue('Server error'),
+        } as any);
+      },
+    );
 
     await expect(action.handler(ctx)).rejects.toThrow(
       'Failed to register EE definition',
@@ -354,6 +585,11 @@ describe('createEEDefinition', () => {
 
     await expect(action.handler(ctx)).rejects.toThrow(
       'Failed to create EE definition files',
+    );
+    // Cleanup runs only after scaffold succeeds — avoid orphaning on early failure.
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/ansible/ee/'),
+      expect.objectContaining({ method: 'DELETE' }),
     );
   });
 
@@ -1035,7 +1271,10 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     const postCall = mockFetch.mock.calls.find(
-      c => typeof c[0] === 'string' && String(c[0]).includes('/ansible/ee'),
+      c =>
+        typeof c[0] === 'string' &&
+        String(c[0]).endsWith('/ansible/ee') &&
+        (c[1] as { method?: string })?.method === 'POST',
     );
     expect(postCall).toBeDefined();
     const [, fetchOptions] = postCall!;
