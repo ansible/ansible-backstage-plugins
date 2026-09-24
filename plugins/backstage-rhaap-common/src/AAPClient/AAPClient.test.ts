@@ -3644,6 +3644,35 @@ describe('AAPClient', () => {
           }),
         ).rejects.toThrow(AuthenticationError);
       });
+
+      it('should use options.host for token exchange URL, not baseUrl', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'test-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'test-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://aap.example.com/api',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        const fetchUrl = mockFetch.mock.calls[0][0];
+        expect(fetchUrl).toBe('https://aap.example.com/api/o/token/');
+        expect(fetchUrl).not.toContain(
+          mockConfig.getOptionalString('ansible.rhaap.baseUrl'),
+        );
+      });
     });
 
     describe('rhAAPRevokeToken', () => {
@@ -3652,13 +3681,14 @@ describe('AAPClient', () => {
         mockFetch.mockResolvedValue(mockResponse);
 
         await client.rhAAPRevokeToken({
+          host: 'https://aap.example.com/api',
           clientId: 'test-client-id',
           clientSecret: 'test-client-secret',
           token: 'test-refresh-token',
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('o/revoke_token/'),
+          'https://aap.example.com/api/o/revoke_token/',
           expect.objectContaining({
             method: 'POST',
           }),
