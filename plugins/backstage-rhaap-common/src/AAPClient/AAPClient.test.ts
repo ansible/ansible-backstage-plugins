@@ -516,6 +516,35 @@ describe('AAPClient', () => {
           client.executeGetRequest('test/endpoint', 'test-token'),
         ).rejects.toThrow('Failed to send fetch data: Network error');
       });
+
+      it('should throw AapHttpError on 401 Unauthorized', async () => {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+        });
+
+        await expect(
+          client.executeGetRequest('job_templates/', 'expired-token'),
+        ).rejects.toMatchObject({
+          name: 'AapHttpError',
+          status: 401,
+        });
+      });
+
+      it('should throw insufficient-privileges Error on 403', async () => {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+        });
+
+        await expect(
+          client.executeGetRequest('job_templates/', 'test-token'),
+        ).rejects.toThrow(
+          'Insufficient privileges. Please contact your administrator.',
+        );
+      });
     });
 
     describe('checkControllerAvailability', () => {

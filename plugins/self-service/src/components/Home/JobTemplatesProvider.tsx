@@ -8,8 +8,12 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { useApi } from '@backstage/core-plugin-api';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { ansibleApiRef } from '../../apis';
+import {
+  forceLogoutOnAapSessionDeath,
+  isAapSessionExpiredError,
+} from '../../utils/aapSessionExpired';
 
 export type JobTemplateSummary = { id: number; name: string };
 
@@ -43,6 +47,7 @@ export const useJobTemplates = (): JobTemplatesContextValue => {
 
 export const JobTemplatesProvider = ({ children }: PropsWithChildren) => {
   const ansibleApi = useApi(ansibleApiRef);
+  const identityApi = useApi(identityApiRef);
   const [jobTemplates, setJobTemplates] = useState<JobTemplateSummary[]>([]);
   const [loadState, setLoadState] = useState<JobTemplatesLoadState>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -76,6 +81,11 @@ export const JobTemplatesProvider = ({ children }: PropsWithChildren) => {
         }
         return nextTemplates;
       } catch (error) {
+        if (isAapSessionExpiredError(error)) {
+          await forceLogoutOnAapSessionDeath(identityApi);
+          return undefined;
+        }
+
         const message = error instanceof Error ? error.message : String(error);
         if (requestId === fetchRequestIdRef.current) {
           if (background) {
@@ -88,7 +98,7 @@ export const JobTemplatesProvider = ({ children }: PropsWithChildren) => {
         return undefined;
       }
     },
-    [ansibleApi],
+    [ansibleApi, identityApi],
   );
 
   useEffect(() => {

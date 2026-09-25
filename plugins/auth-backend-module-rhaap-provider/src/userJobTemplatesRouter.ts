@@ -4,7 +4,10 @@ import cookieParser from 'cookie-parser';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { AuthenticationError, InputError } from '@backstage/errors';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import {
+  IAAPService,
+  isAapUnauthorizedError,
+} from '@ansible/backstage-rhaap-common';
 import { readRhaapRefreshToken } from './readRefreshToken';
 import { readRhaapProviderConfig } from './rhaapProviderConfig';
 
@@ -95,7 +98,11 @@ export function createUserJobTemplatesRouter(options: {
           ? error.message
           : 'Failed to fetch job templates';
       logger.warn(`user-job-templates failed: ${message}`);
-      if (error instanceof InputError || error instanceof AuthenticationError) {
+      if (
+        isAapUnauthorizedError(error) ||
+        error instanceof InputError ||
+        error instanceof AuthenticationError
+      ) {
         res.status(401).json({ error: message });
         return;
       }

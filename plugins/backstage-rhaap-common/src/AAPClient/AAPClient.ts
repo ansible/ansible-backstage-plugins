@@ -10,6 +10,7 @@ import {
 import { AuthenticationError } from '@backstage/errors';
 import uniqBy from 'lodash.uniqby';
 import { sanitizeAapName } from '../utils/nameFormatting';
+import { AapHttpError } from './AapHttpError';
 import {
   AAPTemplate,
   CleanUp,
@@ -250,13 +251,20 @@ export class AAPClient implements IAAPService {
     }
     if (!response.ok) {
       this.logger.error(`[${this.pluginLogName}]: ${response.statusText}`);
+      if (response.status === 401) {
+        // Preserve status for callers that opt into session-death handling.
+        // Still an Error — existing catch blocks do not need changes.
+        throw new AapHttpError(
+          401,
+          'AAP session expired or token revoked (401 from controller API).',
+        );
+      }
       if (response.status === 403) {
         throw new Error(
           `Insufficient privileges. Please contact your administrator.`,
         );
-      } else {
-        throw new Error(`Failed to fetch data.`);
       }
+      throw new Error(`Failed to fetch data.`);
     }
     return response;
   }
