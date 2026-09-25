@@ -18,6 +18,10 @@ import {
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
 import { Config } from '@backstage/config';
+import {
+  AAP_SESSION_EXPIRED_MESSAGE,
+  AapSessionExpiredError,
+} from './utils/aapSessionExpired';
 
 type CustomAuthApiRefType = OAuthApi &
   OpenIdConnectApi &
@@ -223,9 +227,7 @@ export class AnsibleApiClient implements AnsibleApi {
     const baseUrl = await this.discoveryApi.getBaseUrl('auth');
     const accessToken = (await this.rhaapAuthApi.getAccessToken())?.trim();
     if (!accessToken) {
-      throw new Error(
-        'Your AAP sign-in session expired. Sign out and sign in again.',
-      );
+      throw new AapSessionExpiredError(AAP_SESSION_EXPIRED_MESSAGE);
     }
 
     const response = await this.fetchApi.fetch(
@@ -241,10 +243,10 @@ export class AnsibleApiClient implements AnsibleApi {
         typeof data.error === 'string'
           ? data.error
           : `Request failed (${response.status})`;
-      const message = rawMessage.includes('invalid_grant')
-        ? 'Your AAP sign-in session expired. Sign out and sign in again.'
-        : rawMessage;
-      throw new Error(message);
+      if (response.status === 401 || rawMessage.includes('invalid_grant')) {
+        throw new AapSessionExpiredError(AAP_SESSION_EXPIRED_MESSAGE);
+      }
+      throw new Error(rawMessage);
     }
     return data as { items: UserJobTemplate[] };
   }
