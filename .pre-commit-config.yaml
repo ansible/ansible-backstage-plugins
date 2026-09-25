@@ -35,13 +35,20 @@ repos:
         types: [file, yaml]
         entry: yamllint --strict
 
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: scripts/pre-commit-lint.sh
+        language: system
+        pass_filenames: false
   - repo: https://github.com/pycontribs/mirrors-prettier
     rev: v3.6.2
     hooks:
       - id: prettier
-        always_run: true
         additional_dependencies:
-          - prettier
+          # Pin major.minor to match rev above; unpinned resolves to latest on CI fresh installs.
+          - prettier@3.6.2
           - prettier-plugin-toml
           - prettier-plugin-sort-json
           - '@spotify/prettier-config'
@@ -53,6 +60,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-commit-attribution
+        name: Check AI commit attribution
+        entry: scripts/check-commit-attribution.sh
+        language: script
+        stages: [commit-msg]
+        always_run: true
       - id: openapi-lint
         name: OpenAPI Spectral Lint
         entry: yarn openapi:lint

@@ -1909,7 +1909,8 @@ describe('HomeCategoryPicker EE exclusion', () => {
 
         return branches.some((branch: Record<string, unknown>) => {
           const typeFilter = branch['spec.type'] as
-            { $in?: string[] } | undefined;
+            | { $in?: string[] }
+            | undefined;
           return (
             Array.isArray(typeFilter?.$in) &&
             typeFilter.$in.includes('service') &&
