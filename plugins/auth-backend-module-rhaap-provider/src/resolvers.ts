@@ -107,18 +107,25 @@ export namespace AAPAuthSignInResolvers {
             );
           }
 
+          // Resolve catalog identity before the catalog lookup try/catch so
+          // multi-org validation errors are not rewritten as "user not found".
+          const catalogUserName = toCatalogUserEntityName(
+            username,
+            userId,
+            multiOrgEnabled,
+          );
+
           try {
             const { entity } = await ctx.findCatalogUser({
               entityRef: {
-                name: toCatalogUserEntityName(
-                  username,
-                  userId,
-                  multiOrgEnabled,
-                ),
+                name: catalogUserName,
               },
             });
             return issueTokenWithOwnership(ctx, entity);
           } catch (e) {
+            if (e instanceof AuthenticationError) {
+              throw e;
+            }
             const fallbackConfig = await ConfigSources.toConfig(
               ConfigSources.default({}),
             );
@@ -133,7 +140,7 @@ export namespace AAPAuthSignInResolvers {
             }
             const userEntity = stringifyEntityRef({
               kind: 'User',
-              name: toCatalogUserEntityName(username, userId, multiOrgEnabled),
+              name: catalogUserName,
               namespace: DEFAULT_NAMESPACE,
             });
 
