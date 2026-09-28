@@ -951,7 +951,32 @@ describe('createRouter', () => {
   });
 
   describe('DELETE /ansible/ee/:name', () => {
+    const userCredentials = {
+      principal: { type: 'user', userEntityRef: 'user:default/test-user' },
+    };
+    const serviceCredentials = {
+      principal: {
+        type: 'service',
+        subject: 'plugin:catalog-backend-module-rhaap',
+      },
+    };
+
     async function createDeleteTestApp() {
+      mockHttpAuth.credentials.mockResolvedValue(userCredentials as any);
+      mockAuth.getOwnServiceCredentials.mockResolvedValue(
+        serviceCredentials as any,
+      );
+      mockAuth.getPluginRequestToken.mockImplementation(
+        async ({ onBehalfOf }) => {
+          const principal = (onBehalfOf as { principal?: { type?: string } })
+            ?.principal;
+          if (principal?.type === 'service') {
+            return { token: 'service-catalog-token' };
+          }
+          return { token: 'mock-token' };
+        },
+      );
+
       const testApp = express();
       testApp.use(express.json());
       testApp.use(
@@ -1064,7 +1089,7 @@ describe('createRouter', () => {
               'url:https://github.com/org/repo/catalog-info.yaml',
           },
         }),
-        expect.objectContaining({ token: 'mock-token' }),
+        expect.objectContaining({ token: 'service-catalog-token' }),
       );
       expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
         'loc-1',
@@ -1115,7 +1140,7 @@ describe('createRouter', () => {
               'url:https://github.com/org/repo/catalog-info.yaml',
           },
         }),
-        expect.any(Object),
+        expect.objectContaining({ token: 'service-catalog-token' }),
       );
       expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
       expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
@@ -1337,7 +1362,8 @@ describe('createRouter', () => {
       });
     });
 
-    it('returns 403 when delete permission is denied', async () => {
+    it('returns 403 when delete permission is denied for an existing EE', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
       mockPermissions.authorize.mockResolvedValueOnce([
         { result: AuthorizeResult.DENY },
       ]);
@@ -1350,7 +1376,24 @@ describe('createRouter', () => {
       expect(response.body).toEqual({
         error: 'Forbidden: insufficient permissions to delete entity',
       });
-      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+      expect(mockCatalogClient.getEntityByRef).toHaveBeenCalledWith(
+        'component:default/ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+      expect(mockCatalogClient.getLocationByEntity).not.toHaveBeenCalled();
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('returns 204 for missing entity without checking delete permission', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
+      const testApp = await createDeleteTestApp();
+
+      await request(testApp).delete('/ansible/ee/brand-new-ee').expect(204);
+
+      expect(mockPermissions.authorize).not.toHaveBeenCalled();
+      expect(mockCatalogClient.getLocationByEntity).not.toHaveBeenCalled();
     });
 
     it('requires authenticated credentials', async () => {

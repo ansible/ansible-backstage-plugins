@@ -438,22 +438,9 @@ export async function createRouter(options: {
         name,
       });
 
-      const [deleteDecision] = await permissions.authorize(
-        [
-          {
-            permission: catalogEntityDeletePermission,
-            resourceRef: entityRef,
-          },
-        ],
-        { credentials },
-      );
-      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
-        response.status(403).json({
-          error: 'Forbidden: insufficient permissions to delete entity',
-        });
-        return;
-      }
-
+      // Look up with the caller's catalog token first so missing entities
+      // return 204 before delete permission is evaluated (conditional
+      // policies often DENY when the resource does not exist).
       const { token } = await auth.getPluginRequestToken({
         onBehalfOf: credentials,
         targetPluginId: 'catalog',
@@ -477,15 +464,37 @@ export async function createRouter(options: {
         return;
       }
 
+      const [deleteDecision] = await permissions.authorize(
+        [
+          {
+            permission: catalogEntityDeletePermission,
+            resourceRef: entityRef,
+          },
+        ],
+        { credentials },
+      );
+      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+        response.status(403).json({
+          error: 'Forbidden: insufficient permissions to delete entity',
+        });
+        return;
+      }
+
       const location = await catalogClient.getLocationByEntity(
         entityRef,
         catalogOpts,
       );
 
       if (location?.id) {
-        // Count entities owned by this registered location (not the entity's
-        // own managed-by-location annotation, which can point at a child file).
+        // Count siblings with service credentials so catalog.entity.read
+        // filtering cannot under-count colocated entities the user cannot see.
+        // Mutations below still use the caller's token so delete RBAC applies.
         const originLocationRef = `${location.type}:${location.target}`;
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const { token: serviceToken } = await auth.getPluginRequestToken({
+          onBehalfOf: serviceCredentials,
+          targetPluginId: 'catalog',
+        });
         const { items } = await catalogClient.getEntities(
           {
             filter: {
@@ -494,7 +503,7 @@ export async function createRouter(options: {
             },
             fields: ['kind', 'metadata.name', 'metadata.namespace'],
           },
-          catalogOpts,
+          { token: serviceToken },
         );
         const colocatedCount = items.length;
 

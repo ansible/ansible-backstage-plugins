@@ -866,6 +866,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller lacks catalog.entity.delete permission for the entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Shared catalog location has colocated entities and target has no uid
           content:
@@ -873,7 +879,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
-          description: Internal error unregistering execution environment (including auth failures)
+          description: Internal error unregistering execution environment
           content:
             application/json:
               schema:
