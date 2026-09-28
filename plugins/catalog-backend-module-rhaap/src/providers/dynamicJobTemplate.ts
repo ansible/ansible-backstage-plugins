@@ -560,7 +560,7 @@ export const generateTemplate = (options: {
           owner: toOrgGroupRef(
             nameSpace,
             ownerOrgName ?? orgName!,
-            identity.orgId as number,
+            identity!.orgId as number,
             undefined,
             identity,
           ),
