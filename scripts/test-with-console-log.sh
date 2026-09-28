@@ -20,9 +20,9 @@ done
 
 NODE_OPTIONS="${NODE_OPTIONS:-} --experimental-vm-modules" \
   backstage-cli repo test --watch=false "${worker_args[@]}" "$@" \
-  2> "$log_file"
+  2> >(tee "$log_file" >&2)
 status=$?
 
-# Keep console.warn/console.error output out of the terminal. The command
-# status still comes from Jest, so CI fails normally when tests fail.
+# Stderr is duplicated to both the log file and the terminal.
+# Test failures and pass/fail summaries appear on stderr immediately.
 exit "$status"
