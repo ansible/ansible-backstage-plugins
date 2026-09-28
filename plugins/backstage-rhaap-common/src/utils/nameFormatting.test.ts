@@ -16,6 +16,7 @@
 
 import {
   sanitizeAapName,
+  sanitizeAapNameBase,
   sanitizeAapUsername,
   toOrgEntityName,
   toOrgGroupRef,
@@ -27,6 +28,22 @@ import {
   toUserEntityRef,
   toWorkflowEntityName,
 } from './nameFormatting';
+
+describe('sanitizeAapNameBase', () => {
+  it('sanitizes without applying the 63-character standalone truncation', () => {
+    expect(sanitizeAapNameBase('Engineering')).toBe('engineering');
+    expect(sanitizeAapNameBase('Test@Org')).toBe('test-at-org');
+  });
+
+  it('throws when name is empty or has no valid characters', () => {
+    expect(() => sanitizeAapNameBase('')).toThrow(
+      /AAP name must be a non-empty string/,
+    );
+    expect(() => sanitizeAapNameBase('!!!')).toThrow(
+      /contains no valid characters/,
+    );
+  });
+});
 
 describe('sanitizeAapName', () => {
   describe('basic transformations', () => {
@@ -342,6 +359,15 @@ describe('sanitizeAapUsername', () => {
   it('throws when username has no valid characters', () => {
     expect(() => sanitizeAapUsername('!!!')).toThrow(
       /contains no valid characters/,
+    );
+  });
+
+  it('throws when username is empty or not a string', () => {
+    expect(() => sanitizeAapUsername('')).toThrow(
+      /AAP username must be a non-empty string/,
+    );
+    expect(() => sanitizeAapUsername(null as any)).toThrow(
+      /AAP username must be a non-empty string/,
     );
   });
 });

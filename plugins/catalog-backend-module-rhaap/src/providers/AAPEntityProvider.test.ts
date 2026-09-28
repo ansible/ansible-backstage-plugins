@@ -730,6 +730,64 @@ describe('AAPEntityProvider', () => {
       });
     });
 
+    it('still creates superuser when aap-admins group refresh fails', async () => {
+      const username = 'admin';
+      const userID = 456;
+      const logger = mockServices.logger.mock();
+      logger.child.mockReturnValue(logger);
+
+      mockAnsibleService.getOrgsByUserId.mockResolvedValue([
+        { name: 'Other Org', id: 2, groupName: 'other-org' },
+      ]);
+      mockAnsibleService.getUserInfoById.mockResolvedValue({
+        id: 456,
+        username: 'admin',
+        email: 'admin@example.com',
+        first_name: 'Admin',
+        last_name: 'User',
+        is_superuser: true,
+        is_orguser: false,
+        url: 'https://test.example.com/users/456',
+      });
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
+      mockAnsibleService.listSystemUsers.mockRejectedValue(
+        new Error('listSystemUsers failed'),
+      );
+
+      const failingProvider = AAPEntityProvider.fromConfig(
+        new ConfigReader(MOCK_CONFIG.data),
+        mockAnsibleService,
+        {
+          schedule: new PersistingTaskRunner(),
+          logger,
+        },
+      )[0];
+      await failingProvider.connect(mockConnection);
+
+      const result = await failingProvider.createSingleUser(username, userID);
+
+      expect(result).toBe(true);
+      expect(mockAnsibleService.listSystemUsers).toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to update aap-admins group to include new superuser for admin',
+        ),
+      );
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [
+          {
+            entity: expect.objectContaining({
+              kind: 'User',
+              metadata: expect.objectContaining({ name: 'admin' }),
+            }),
+            locationKey: 'AapEntityProvider:development',
+          },
+        ],
+        removed: [],
+      });
+    });
+
     it('should fail when connection is not initialized', async () => {
       const uninitializedProvider = AAPEntityProvider.fromConfig(
         new ConfigReader(MOCK_CONFIG.data),

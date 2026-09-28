@@ -4,6 +4,8 @@ import {
   PassportProfile,
   SignInInfo,
 } from '@backstage/plugin-auth-node';
+import { AuthenticationError } from '@backstage/errors';
+import { ConfigSources } from '@backstage/config-loader';
 import { AAPAuthSignInResolvers } from './resolvers';
 import { ConfigReader } from '@backstage/config';
 
@@ -199,6 +201,59 @@ describe('resolvers', () => {
       expect(error?.message).toBe(
         'Oauth2 user profile does not contain a username',
       );
+    });
+
+    it('rejects when catalog user is missing', async () => {
+      jest.spyOn(ConfigSources, 'default').mockReturnValue({} as any);
+      const fallbackConfig = new ConfigReader({
+        dangerouslyAllowSignInWithoutUserInCatalog: false,
+      });
+      jest
+        .spyOn(ConfigSources, 'toConfig')
+        .mockResolvedValue(
+          Object.assign(fallbackConfig, { close: () => undefined }),
+        );
+
+      const resolver = (AAPAuthSignInResolvers.usernameMatchingUser as any)();
+      const info = {
+        result: {
+          fullProfile: {
+            id: '42',
+            username: 'missing_user',
+          },
+        },
+      } as any;
+      const context = {
+        findCatalogUser: jest
+          .fn()
+          .mockRejectedValue(new Error('User not found')),
+        issueToken: jest.fn(),
+      } satisfies Partial<AuthResolverContext>;
+
+      await expect(resolver(info, context as any)).rejects.toThrow(
+        /User not found in the RH AAP software catalog/,
+      );
+      expect(context.issueToken).not.toHaveBeenCalled();
+    });
+
+    it('rethrows AuthenticationError from catalog lookup', async () => {
+      const resolver = (AAPAuthSignInResolvers.usernameMatchingUser as any)();
+      const info = {
+        result: {
+          fullProfile: {
+            id: '42',
+            username: 'blocked_user',
+          },
+        },
+      } as any;
+      const authError = new AuthenticationError('catalog auth denied');
+      const context = {
+        findCatalogUser: jest.fn().mockRejectedValue(authError),
+        issueToken: jest.fn(),
+      } satisfies Partial<AuthResolverContext>;
+
+      await expect(resolver(info, context as any)).rejects.toBe(authError);
+      expect(context.issueToken).not.toHaveBeenCalled();
     });
   });
 
