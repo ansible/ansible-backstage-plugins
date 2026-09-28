@@ -147,17 +147,17 @@ describe('helpers', () => {
     });
 
     it('should return default namespace for single org named Default', () => {
-      expect(getEffectiveNamespace('Default', ['default'])).toEqual(
-        'default',
-      );
+      expect(getEffectiveNamespace('Default', ['default'])).toEqual('default');
     });
 
     it('should return id-based namespace when multi-org is enabled', () => {
       const allOrgs = ['engineering', 'platform-ops'];
-      expect(getEffectiveNamespace('Engineering', allOrgs, {
-        multiOrgEnabled: true,
-        orgId: 42,
-      })).toEqual('aap-42');
+      expect(
+        getEffectiveNamespace('Engineering', allOrgs, {
+          multiOrgEnabled: true,
+          orgId: 42,
+        }),
+      ).toEqual('aap-42');
     });
   });
 

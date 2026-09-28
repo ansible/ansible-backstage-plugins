@@ -119,11 +119,11 @@ export namespace AAPAuthSignInResolvers {
             });
             return issueTokenWithOwnership(ctx, entity);
           } catch (e) {
-            const config = await ConfigSources.toConfig(
+            const fallbackConfig = await ConfigSources.toConfig(
               ConfigSources.default({}),
             );
             const dangerouslyAllowSignInWithoutUserInCatalog =
-              config.getOptionalBoolean(
+              fallbackConfig.getOptionalBoolean(
                 'dangerouslyAllowSignInWithoutUserInCatalog',
               ) || false;
             if (!dangerouslyAllowSignInWithoutUserInCatalog) {

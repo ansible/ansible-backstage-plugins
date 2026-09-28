@@ -164,9 +164,8 @@ export class AAPEntityProvider implements EntityProvider {
 
       let error = false;
       try {
-        const allOrgsDetails = await this.ansibleServiceRef.getOrganizations(
-          true,
-        );
+        const allOrgsDetails =
+          await this.ansibleServiceRef.getOrganizations(true);
         this.logger.info(
           `[${AAPEntityProvider.pluginLogName}]: Fetched ${allOrgsDetails.length} organizations from AAP.`,
         );
