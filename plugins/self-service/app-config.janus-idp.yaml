@@ -1,6 +1,14 @@
 dynamicPlugins:
   frontend:
     ansible.plugin-backstage-self-service:
+      # ADR-010: empty Git Repos slots. Guest plugins replace this factory.
+      # API factories listed here (not only createPlugin apis) — Scalprum may
+      # eval PluginRoot more than once.
+      apiFactories:
+        - importName: AAPApis
+        - importName: AapAuthApi
+        - importName: EEBuildApis
+        - importName: defaultGitRepositoriesExtensionsApiFactory
       signInPage:
         importName: SignInPage
       providerSettings:
@@ -17,6 +25,7 @@ dynamicPlugins:
         - importName: PackagesPickerFieldExtension
         - importName: MCPServersPickerFieldExtension
         - importName: AdditionalBuildStepsPickerFieldExtension
+        - importName: GitHubRepoUrlFieldExtension
       dynamicRoutes:
         - importName: LandingPage
           path: /

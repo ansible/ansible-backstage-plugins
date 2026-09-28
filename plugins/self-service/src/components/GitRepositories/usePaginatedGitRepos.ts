@@ -30,6 +30,8 @@ export interface UsePaginatedGitReposResult {
   allSources: Array<{ value: string; label: string }>;
   sourceFilter: string;
   setSourceFilter: (filter: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   refresh: () => void;
 }
 
@@ -42,6 +44,7 @@ export function usePaginatedGitRepos({
     Array<{ value: string; label: string }>
   >([{ value: 'All', label: 'All' }]);
   const [sourceFilter, setSourceFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const onSourcesStatusChangeRef = useRef(onSourcesStatusChange);
   onSourcesStatusChangeRef.current = onSourcesStatusChange;
@@ -65,12 +68,23 @@ export function usePaginatedGitRepos({
     });
 
   const filteredEntities = useMemo(() => {
+    const searchLower = searchQuery.normalize('NFC').toLowerCase().trim();
     return allEntities
       .filter(entity => {
         const matchesSource =
           sourceFilter === 'All' || getRepoHost(entity) === sourceFilter;
         const matchesEntityFilter = !entityFilter || entityFilter(entity);
-        return matchesSource && matchesEntityFilter;
+        const name = (entity.metadata?.name ?? '')
+          .normalize('NFC')
+          .toLowerCase();
+        const title = (entity.metadata?.title ?? '')
+          .normalize('NFC')
+          .toLowerCase();
+        const matchesSearch =
+          !searchLower ||
+          name.includes(searchLower) ||
+          title.includes(searchLower);
+        return matchesSource && matchesEntityFilter && matchesSearch;
       })
       .sort((a, b) => {
         const nameA = (
@@ -85,12 +99,12 @@ export function usePaginatedGitRepos({
         ).toLowerCase();
         return nameA.localeCompare(nameB);
       });
-  }, [sourceFilter, allEntities, entityFilter]);
+  }, [sourceFilter, searchQuery, allEntities, entityFilter]);
 
   const pagination = usePagination({
     totalItems: filteredEntities.length,
     pageSize: PAGE_SIZE,
-    resetDeps: [sourceFilter, entityFilter],
+    resetDeps: [sourceFilter, searchQuery, entityFilter],
   });
 
   const paginatedEntities = useMemo(
@@ -121,6 +135,8 @@ export function usePaginatedGitRepos({
     allSources,
     sourceFilter,
     setSourceFilter,
+    searchQuery,
+    setSearchQuery,
     refresh,
   };
 }

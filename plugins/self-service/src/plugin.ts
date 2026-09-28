@@ -3,6 +3,7 @@ import {
   createPlugin,
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
+import { defaultGitRepositoriesExtensionsApiFactory } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
 
 import {
   rootRouteRef,
@@ -16,7 +17,15 @@ import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
 
 export const selfServicePlugin = createPlugin({
   id: 'self-service',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
+  apis: [
+    AAPApis,
+    AapAuthApi,
+    EEBuildApis,
+    // Empty default so Git Repos has a bound apiRef with no guest installed
+    // (same pattern as AAPApis). Guests replace this from packages/app or
+    // Janus apiFactories; self-service does not import guest packages (ADR-010).
+    defaultGitRepositoriesExtensionsApiFactory,
+  ],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,

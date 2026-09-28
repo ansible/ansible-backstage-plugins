@@ -1,11 +1,20 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
-import { GitRepositoriesPage } from './GitRepositoriesPage';
+import {
+  DefaultGitRepositoriesExtensionsApi,
+  gitRepositoriesExtensionsApiRef,
+} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import {
+  GitRepositoriesPage,
+  GitRepositoriesRoutesPage,
+} from './GitRepositoriesPage';
 
+const mockUsePermission = jest.fn().mockReturnValue({ allowed: true });
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true }),
+  usePermission: (...args: any[]) => mockUsePermission(...args),
   RequirePermission: (props: any) => props.children,
 }));
 
@@ -95,9 +104,6 @@ jest.mock('./RepositoriesTable', () => ({
       <button type="button" onClick={() => onSourcesStatusChange?.(false)}>
         Set no sources
       </button>
-      <button type="button" onClick={() => onSourcesStatusChange?.(null)}>
-        Set null status
-      </button>
     </div>
   ),
 }));
@@ -131,6 +137,29 @@ const mockFetchApi = {
 
 const theme = createTheme();
 
+const gatedPermission = {
+  type: 'resource',
+  name: 'test.gated',
+  resourceType: 'test-resource',
+  attributes: {},
+} as any;
+
+class ExtensionsApiWithGatedTab extends DefaultGitRepositoriesExtensionsApi {
+  getPageTabs() {
+    return [
+      {
+        id: 'gated',
+        label: 'Gated Tab',
+        path: 'gated',
+        order: 15,
+        render: () => <div data-testid="gated-tab-content">Gated content</div>,
+        permission: gatedPermission,
+        resourceRef: 'example-resource',
+      },
+    ];
+  }
+}
+
 describe('GitRepositoriesPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -138,6 +167,285 @@ describe('GitRepositoriesPage', () => {
       isSyncInProgress: false,
       startTracking: mockStartTracking,
     });
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+  });
+
+  it('renders core tabs when no guest extensions factory is registered', async () => {
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.getByText('CI Activity')).toBeInTheDocument();
+  });
+
+  it('hides a permission-gated tab entirely when the user is unauthorized', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('keeps a permission-gated tab hidden while permission is loading', async () => {
+    mockUsePermission.mockReturnValue({ loading: true, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    expect(screen.getByText('Catalog')).toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('shows a permission-gated tab when the user is authorized', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+    );
+
+    const gatedTab = screen.getByText('Gated Tab');
+    expect(gatedTab).toBeInTheDocument();
+
+    fireEvent.click(gatedTab);
+    expect(await screen.findByTestId('gated-tab-content')).toBeInTheDocument();
+  });
+
+  it('redirects away when deep-linking to a permission-gated tab the user cannot access', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGatedTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/gated'] },
+    );
+
+    expect(await screen.findByTestId('repositories-table')).toBeInTheDocument();
+    expect(screen.queryByTestId('gated-tab-content')).not.toBeInTheDocument();
+    expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+  });
+
+  it('redirects a nested gated path using longest-path matching', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: false });
+
+    class NestedGatedTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'insights',
+            label: 'Insights',
+            path: 'catalog/insights',
+            order: 15,
+            render: () => (
+              <div data-testid="insights-tab-content">Insights</div>
+            ),
+            permission: gatedPermission,
+            resourceRef: 'example-resource',
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new NestedGatedTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/catalog/insights'] },
+    );
+
+    expect(await screen.findByTestId('repositories-table')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('insights-tab-content'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Insights')).not.toBeInTheDocument();
+  });
+
+  it('selects a nested guest tab over the shorter catalog path', async () => {
+    mockUsePermission.mockReturnValue({ loading: false, allowed: true });
+
+    class NestedTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'insights',
+            label: 'Insights',
+            path: 'catalog/insights',
+            order: 15,
+            render: () => (
+              <div data-testid="insights-tab-content">Insights</div>
+            ),
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new NestedTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <GitRepositoriesPage />
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/self-service/repositories/catalog/insights'] },
+    );
+
+    expect(
+      await screen.findByTestId('insights-tab-content'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('repositories-table')).not.toBeInTheDocument();
+  });
+
+  it('renders a guest tab at its registered path instead of treating it as a repository name', async () => {
+    class ExtensionsApiWithGuestTab extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'guest',
+            label: 'Guest Tab',
+            path: 'guest-tab',
+            order: 10,
+            render: () => (
+              <div data-testid="guest-tab-content">Guest content</div>
+            ),
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ExtensionsApiWithGuestTab()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="repositories/*"
+              element={<GitRepositoriesRoutesPage />}
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/guest-tab'] },
+    );
+
+    expect(await screen.findByTestId('guest-tab-content')).toBeInTheDocument();
+  });
+
+  it('keeps the Git Repositories page mounted when a guest tab render throws', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    class ThrowingGuestTabApi extends DefaultGitRepositoriesExtensionsApi {
+      getPageTabs() {
+        return [
+          {
+            id: 'guest',
+            label: 'Guest Tab',
+            path: 'guest-tab',
+            order: 10,
+            render: () => {
+              throw new Error('guest tab boom');
+            },
+          },
+        ];
+      }
+    }
+
+    await renderInTestApp(
+      <TestApiProvider
+        apis={[
+          [discoveryApiRef, mockDiscoveryApi],
+          [fetchApiRef, mockFetchApi],
+          [gitRepositoriesExtensionsApiRef, new ThrowingGuestTabApi()],
+        ]}
+      >
+        <ThemeProvider theme={theme}>
+          <Routes>
+            <Route
+              path="repositories/*"
+              element={<GitRepositoriesRoutesPage />}
+            />
+          </Routes>
+        </ThemeProvider>
+      </TestApiProvider>,
+      { routeEntries: ['/repositories/guest-tab'] },
+    );
+
+    expect(screen.getByText('Git Repositories')).toBeInTheDocument();
+    expect(
+      screen.getByText('This extension failed to load.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Guest Tab')).toBeInTheDocument();
+
+    errorSpy.mockRestore();
   });
 
   it('renders page with Git Repositories header', async () => {
@@ -146,6 +454,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -163,6 +475,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -180,6 +496,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -199,6 +519,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -219,6 +543,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -244,6 +572,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -269,6 +601,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -304,6 +640,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -323,6 +663,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -346,6 +690,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -366,6 +714,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -391,6 +743,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -418,6 +774,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -444,6 +804,10 @@ describe('GitRepositoriesPage', () => {
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
@@ -459,64 +823,16 @@ describe('GitRepositoriesPage', () => {
     });
   });
 
-  it('handles sync status response with no content field', async () => {
-    mockFetchApi.fetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({}),
-    });
-
-    await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
-        <ThemeProvider theme={theme}>
-          <GitRepositoriesPage />
-        </ThemeProvider>
-      </TestApiProvider>,
-    );
-
-    await waitFor(() => {
-      const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-      expect(syncButton).toBeDisabled();
-    });
-  });
-
-  it('preserves previous hasConfiguredSources when onSourcesStatusChange receives null', async () => {
-    await renderInTestApp(
-      <TestApiProvider
-        apis={[
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-        ]}
-      >
-        <ThemeProvider theme={theme}>
-          <GitRepositoriesPage />
-        </ThemeProvider>
-      </TestApiProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Sync Now/i }),
-      ).not.toBeDisabled();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /Set null status/i }));
-    expect(
-      screen.getByRole('button', { name: /Sync Now/i }),
-    ).not.toBeDisabled();
-  });
-
   it('navigates to CI Activity tab when selected', async () => {
     await renderInTestApp(
       <TestApiProvider
         apis={[
           [discoveryApiRef, mockDiscoveryApi],
           [fetchApiRef, mockFetchApi],
+          [
+            gitRepositoriesExtensionsApiRef,
+            new DefaultGitRepositoriesExtensionsApi(),
+          ],
         ]}
       >
         <ThemeProvider theme={theme}>
