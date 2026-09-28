@@ -28,7 +28,10 @@ import {
   SchedulerService,
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
+import {
+  catalogEntityDeletePermission,
+  catalogEntityReadPermission,
+} from '@backstage/plugin-catalog-common/alpha';
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
@@ -408,14 +411,15 @@ export async function createRouter(options: {
   /**
    * Best-effort cleanup of an existing EE catalog entity before re-registration.
    * Removes SCM-managed locations or provider-managed entities so a recreate with
-   * the same name can claim the entity ref (AAP-85231).
+   * the same name can claim the entity ref. Catalog mutations run on behalf of
+   * the caller so catalog RBAC (delete permission) applies.
    */
   router.delete('/ansible/ee/:name', async (request, response) => {
-    await httpAuth.credentials(
+    const credentials = await httpAuth.credentials(
       // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
       request,
       {
-        allow: ['service'],
+        allow: ['user', 'service'],
       },
     );
 
@@ -428,17 +432,34 @@ export async function createRouter(options: {
     }
 
     try {
-      const { token } = await auth.getPluginRequestToken({
-        onBehalfOf: await auth.getOwnServiceCredentials(),
-        targetPluginId: 'catalog',
-      });
-      const catalogOpts = { token };
-
       const entityRef = stringifyEntityRef({
         kind: 'Component',
         namespace: 'default',
         name,
       });
+
+      const [deleteDecision] = await permissions.authorize(
+        [
+          {
+            permission: catalogEntityDeletePermission,
+            resourceRef: entityRef,
+          },
+        ],
+        { credentials },
+      );
+      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+        response.status(403).json({
+          error: 'Forbidden: insufficient permissions to delete entity',
+        });
+        return;
+      }
+
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: credentials,
+        targetPluginId: 'catalog',
+      });
+      const catalogOpts = { token };
+
       const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
 
       if (!entity) {
@@ -462,22 +483,20 @@ export async function createRouter(options: {
       );
 
       if (location?.id) {
-        const managedByLocation =
-          entity.metadata?.annotations?.['backstage.io/managed-by-location'];
-        let colocatedCount = 1;
-        if (managedByLocation) {
-          const { items } = await catalogClient.getEntities(
-            {
-              filter: {
-                'metadata.annotations.backstage.io/managed-by-location':
-                  managedByLocation,
-              },
-              fields: ['kind', 'metadata.name', 'metadata.namespace'],
+        // Count entities owned by this registered location (not the entity's
+        // own managed-by-location annotation, which can point at a child file).
+        const originLocationRef = `${location.type}:${location.target}`;
+        const { items } = await catalogClient.getEntities(
+          {
+            filter: {
+              'metadata.annotations.backstage.io/managed-by-origin-location':
+                originLocationRef,
             },
-            catalogOpts,
-          );
-          colocatedCount = items.length;
-        }
+            fields: ['kind', 'metadata.name', 'metadata.namespace'],
+          },
+          catalogOpts,
+        );
+        const colocatedCount = items.length;
 
         // Never wipe a shared location that owns sibling entities.
         if (colocatedCount > 1) {
@@ -526,7 +545,7 @@ export async function createRouter(options: {
         `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
       );
       response.status(500).json({
-        error: `Failed to unregister Execution Environment: ${errorMessage}`,
+        error: 'Failed to unregister Execution Environment',
       });
     }
   });

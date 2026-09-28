@@ -479,7 +479,7 @@ describe('EEFileNamePickerExtension', () => {
         ).toBeInTheDocument();
         expect(
           screen.getByText(
-            /If you proceed, the existing catalog entry will be replaced/i,
+            /If you proceed, your existing definition will be updated/i,
           ),
         ).toBeInTheDocument();
       });

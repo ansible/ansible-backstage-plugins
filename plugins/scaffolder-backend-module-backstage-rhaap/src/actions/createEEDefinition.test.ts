@@ -67,6 +67,9 @@ describe('createEEDefinition', () => {
       workspacePath: mockWorkspacePath,
       output: jest.fn(),
       user: { ref: 'user:default/testuser' },
+      getInitiatorCredentials: jest.fn().mockResolvedValue({
+        principal: { type: 'user', userEntityRef: 'user:default/testuser' },
+      }),
     } as any;
   }
 
@@ -92,6 +95,15 @@ describe('createEEDefinition', () => {
     discovery.getBaseUrl.mockResolvedValue('http://localhost:7007/api/catalog');
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
       const u = typeof url === 'string' ? url : url.toString();
+      // EE cleanup probe: no existing provider-managed EE by default.
+      if (u.includes('/entities/by-name/component/default/')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      }
       if (u.includes('/entities/by-name/')) {
         return Promise.resolve({
           ok: true,
@@ -254,7 +266,59 @@ describe('createEEDefinition', () => {
       'http://localhost:7007/api/catalog/ansible/ee',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(ctx.getInitiatorCredentials).toHaveBeenCalled();
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
+  });
+
+  it('skips DELETE for provider-managed EE on non-SCM recreate', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: false,
+    });
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (u.includes('/entities/by-name/component/default/test-ee')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              metadata: {
+                name: 'test-ee',
+                annotations: { 'ansible.io/download-experience': 'true' },
+              },
+            }),
+          } as any);
+        }
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'skipped');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee',
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 
   it('best-effort deletes existing EE before SCM publish path', async () => {
@@ -285,7 +349,15 @@ describe('createEEDefinition', () => {
     mockFetch.mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u = typeof url === 'string' ? url : url.toString();
-        if (init?.method === 'DELETE' || u.includes('/ansible/ee/test-ee')) {
+        if (u.includes('/entities/by-name/component/default/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        if (init?.method === 'DELETE') {
           return Promise.resolve({
             ok: false,
             status: 500,
@@ -304,6 +376,9 @@ describe('createEEDefinition', () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('best-effort EE cleanup'),
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('returned 500'),
     );
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
     expect(ctx.output).toHaveBeenCalledWith(
@@ -339,12 +414,12 @@ describe('createEEDefinition', () => {
 
     await expect(action.handler(ctx)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('best-effort EE cleanup'),
+      expect.stringContaining('network down'),
     );
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
     expect(ctx.output).toHaveBeenCalledWith(
       'eeCleanupWarning',
-      expect.stringContaining('network down'),
+      expect.stringContaining('Failed to replace existing EE'),
     );
   });
 
@@ -403,10 +478,13 @@ describe('createEEDefinition', () => {
     );
 
     await expect(action.handler(ctx)).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Unknown error'),
+    );
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
     expect(ctx.output).toHaveBeenCalledWith(
       'eeCleanupWarning',
-      expect.stringContaining('Unknown error'),
+      expect.stringContaining('Failed to replace existing EE'),
     );
   });
 
@@ -419,7 +497,16 @@ describe('createEEDefinition', () => {
     });
 
     mockFetch.mockImplementation(
-      (_url: RequestInfo | URL, init?: RequestInit) => {
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (u.includes('/entities/by-name/component/default/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
         if (init?.method === 'DELETE') {
           return Promise.reject('catalog unavailable');
         }
@@ -433,9 +520,12 @@ describe('createEEDefinition', () => {
 
     await action.handler(ctx);
 
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('catalog unavailable'),
+    );
     expect(ctx.output).toHaveBeenCalledWith(
       'eeCleanupWarning',
-      expect.stringContaining('catalog unavailable'),
+      expect.stringContaining('Failed to replace existing EE'),
     );
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/catalog/ansible/ee',
@@ -452,7 +542,16 @@ describe('createEEDefinition', () => {
     });
 
     mockFetch.mockImplementation(
-      (_url: RequestInfo | URL, init?: RequestInit) => {
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (u.includes('/entities/by-name/component/default/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
         if (init?.method === 'DELETE') {
           return Promise.resolve({
             ok: true,
@@ -482,7 +581,16 @@ describe('createEEDefinition', () => {
     });
     // DELETE succeeds (best-effort cleanup), then POST registration fails
     mockFetch.mockImplementation(
-      (_url: RequestInfo | URL, init?: RequestInit) => {
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof url === 'string' ? url : url.toString();
+        if (u.includes('/entities/by-name/component/default/')) {
+          return Promise.resolve({
+            ok: false,
+            status: 404,
+            json: async () => ({}),
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
         if (init?.method === 'DELETE') {
           return Promise.resolve({
             ok: true,

@@ -1057,6 +1057,15 @@ describe('createRouter', () => {
         .expect(200);
 
       expect(response.body).toEqual({ success: true, mode: 'location' });
+      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: {
+            'metadata.annotations.backstage.io/managed-by-origin-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        }),
+        expect.objectContaining({ token: 'mock-token' }),
+      );
       expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
         'loc-1',
         expect.objectContaining({ token: 'mock-token' }),
@@ -1073,7 +1082,7 @@ describe('createRouter', () => {
           ...eeEntity.metadata,
           annotations: {
             'backstage.io/managed-by-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
+              'url:https://github.com/org/repo/ee1/catalog-info.yaml',
           },
         },
       } as any);
@@ -1099,6 +1108,15 @@ describe('createRouter', () => {
         .expect(200);
 
       expect(response.body).toEqual({ success: true, mode: 'entity' });
+      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: {
+            'metadata.annotations.backstage.io/managed-by-origin-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        }),
+        expect.any(Object),
+      );
       expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
       expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
         'uid-ee1',
@@ -1221,13 +1239,16 @@ describe('createRouter', () => {
       );
     });
 
-    it('removes location without colocated lookup when managed-by-location is absent', async () => {
+    it('still checks origin-location siblings when managed-by-location is absent', async () => {
       mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
       mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
         id: 'loc-1',
         type: 'url',
         target: 'https://github.com/org/repo/catalog-info.yaml',
       } as any);
+      mockCatalogClient.getEntities.mockResolvedValueOnce({
+        items: [eeEntity as any],
+      });
       const testApp = await createDeleteTestApp();
 
       const response = await request(testApp)
@@ -1235,7 +1256,15 @@ describe('createRouter', () => {
         .expect(200);
 
       expect(response.body).toEqual({ success: true, mode: 'location' });
-      expect(mockCatalogClient.getEntities).not.toHaveBeenCalled();
+      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filter: {
+            'metadata.annotations.backstage.io/managed-by-origin-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        }),
+        expect.any(Object),
+      );
       expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
         'loc-1',
         expect.objectContaining({ token: 'mock-token' }),
@@ -1289,7 +1318,7 @@ describe('createRouter', () => {
         .expect(500);
 
       expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment: catalog down',
+        error: 'Failed to unregister Execution Environment',
       });
     });
 
@@ -1304,11 +1333,27 @@ describe('createRouter', () => {
         .expect(500);
 
       expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment: catalog down',
+        error: 'Failed to unregister Execution Environment',
       });
     });
 
-    it('requires service credentials', async () => {
+    it('returns 403 when delete permission is denied', async () => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ]);
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(403);
+
+      expect(response.body).toEqual({
+        error: 'Forbidden: insufficient permissions to delete entity',
+      });
+      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+    });
+
+    it('requires authenticated credentials', async () => {
       mockHttpAuth.credentials.mockRejectedValueOnce(new Error('Unauthorized'));
       const testApp = await createDeleteTestApp();
 

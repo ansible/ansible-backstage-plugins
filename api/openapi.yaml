@@ -819,9 +819,9 @@ paths:
       summary: Unregister an existing execution environment
       description: |
         Unregisters an existing execution environment entity from the catalog.
-        This endpoint is restricted to backend service-to-service calls only
-        (e.g. from the scaffolder plugin). User requests are rejected.
-        **Permissions**: Service-to-service only (service principal required, user principals rejected).
+        Used by the scaffolder before recreating an EE with the same name.
+        **Permissions**: Requires `catalog.entity.delete` for the caller
+        (user or service principal).
       tags:
         - Execution Environments
       security:
