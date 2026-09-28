@@ -122,6 +122,16 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
         'third',
       ]);
     });
+
+    it('parses format=txt msg arrays when an item contains a closing bracket', () => {
+      const stdout = `
+ok: [localhost] => {
+    "msg": ["step ] completed", "next"]
+}
+`.trim();
+
+      expect(parseStdoutMessages(stdout)).toEqual(['step ] completed', 'next']);
+    });
   });
 
   describe('extractMessagesFromRecord', () => {
@@ -188,6 +198,24 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
       expect(redactSensitiveLogMessage('{"authToken":"super-secret"}')).toBe(
         `{"authToken":"${REDACTION_PLACEHOLDER}"}`,
       );
+    });
+
+    it('redacts access_token and refresh_token assignments', () => {
+      expect(redactSensitiveLogMessage('access_token=supersecret')).toBe(
+        `access_token=${REDACTION_PLACEHOLDER}`,
+      );
+      expect(redactSensitiveLogMessage('refresh_token: supersecret')).toBe(
+        `refresh_token: ${REDACTION_PLACEHOLDER}`,
+      );
+      expect(redactSensitiveLogMessage('{"access_token":"supersecret"}')).toBe(
+        `{"access_token":"${REDACTION_PLACEHOLDER}"}`,
+      );
+      expect(redactSensitiveLogMessage('{"refresh_token":"supersecret"}')).toBe(
+        `{"refresh_token":"${REDACTION_PLACEHOLDER}"}`,
+      );
+      expect(
+        redactSensitiveLogMessage('access_token=supersecret'),
+      ).not.toContain('supersecret');
     });
 
     it('redacts quoted values that contain escaped quotes', () => {
@@ -270,6 +298,22 @@ localhost : ok=2 changed=0 unreachable=0 failed=0
         'third',
       ]);
       expect(lastMessage).toBe('third');
+    });
+
+    it('returns the final msg when a quoted array item contains ]', () => {
+      const stdout = `
+ok: [localhost] => {
+    "msg": ["step ] completed", "next"]
+}
+`.trim();
+
+      const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
+
+      expect(mockLogger.info.mock.calls.map(call => call[0])).toEqual([
+        'step ] completed',
+        'next',
+      ]);
+      expect(lastMessage).toBe('next');
     });
   });
 });

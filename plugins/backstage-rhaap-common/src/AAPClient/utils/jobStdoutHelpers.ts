@@ -11,6 +11,8 @@ const SENSITIVE_KEYS = [
   'token',
   'authToken',
   'auth_token',
+  'access_token',
+  'refresh_token',
   'api_key',
   'api-key',
   'apikey',
@@ -127,6 +129,46 @@ function unescapeJsonString(value: string): string {
 type TxtMsgMatch = { index: number; messages: string[] };
 
 /**
+ * Returns the body of a JSON-like array starting at `start`, stopping at the
+ * first `]` that is outside of a double-quoted string. Returns null if the
+ * closing bracket is missing.
+ */
+function scanQuotedAwareArrayBody(text: string, start: number): string | null {
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+    } else if (ch === '"') {
+      inString = true;
+    } else if (ch === ']') {
+      return text.slice(start, i);
+    }
+  }
+
+  return null;
+}
+
+function extractQuotedStringItems(arrayBody: string): string[] {
+  const items: string[] = [];
+  const itemPattern = /"((?:\\.|[^"\\])*)"/g;
+  let itemMatch = itemPattern.exec(arrayBody);
+  while (itemMatch) {
+    items.push(unescapeJsonString(itemMatch[1]));
+    itemMatch = itemPattern.exec(arrayBody);
+  }
+  return items;
+}
+
+/**
  * Extracts msg values from Controller `format=txt` human-readable stdout.
  * Example snippet:
  *   ok: [localhost] => {
@@ -146,18 +188,19 @@ function extractMessagesFromTxtStdout(stdoutText: string): string[] {
     stringMatch = stringMsgPattern.exec(stdoutText);
   }
 
-  const arrayMsgPattern = /"msg"\s*:\s*\[([^\]]*)\]/g;
-  let arrayMatch = arrayMsgPattern.exec(stdoutText);
-  while (arrayMatch) {
-    const items: string[] = [];
-    const itemPattern = /"((?:\\.|[^"\\])*)"/g;
-    let itemMatch = itemPattern.exec(arrayMatch[1]);
-    while (itemMatch) {
-      items.push(unescapeJsonString(itemMatch[1]));
-      itemMatch = itemPattern.exec(arrayMatch[1]);
+  // Quote-aware scan so "]" inside quoted array items does not truncate early.
+  const arrayMsgStartPattern = /"msg"\s*:\s*\[/g;
+  let arrayStart = arrayMsgStartPattern.exec(stdoutText);
+  while (arrayStart) {
+    const contentStart = arrayStart.index + arrayStart[0].length;
+    const arrayBody = scanQuotedAwareArrayBody(stdoutText, contentStart);
+    if (arrayBody !== null) {
+      matches.push({
+        index: arrayStart.index,
+        messages: extractQuotedStringItems(arrayBody),
+      });
     }
-    matches.push({ index: arrayMatch.index, messages: items });
-    arrayMatch = arrayMsgPattern.exec(stdoutText);
+    arrayStart = arrayMsgStartPattern.exec(stdoutText);
   }
 
   matches.sort((a, b) => a.index - b.index);
