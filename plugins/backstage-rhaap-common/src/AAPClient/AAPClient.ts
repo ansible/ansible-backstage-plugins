@@ -1519,9 +1519,8 @@ export class AAPClient implements IAAPService {
     const { validRepos, urlSearchParams } = validationResult;
     urlSearchParams.set('limit', sanitizedLimit.toString());
 
-    let nextUrl:
-      | string
-      | null = `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
+    let nextUrl: string | null =
+      `/api/galaxy/v3/plugin/ansible/search/collection-versions/?${urlSearchParams.toString()}`;
 
     while (nextUrl) {
       if (signal?.aborted) {
