@@ -435,6 +435,7 @@ export function scmCollectionParser(options: CollectionParserOptions): Entity {
         'backstage.io/view-url': galaxyFileUrl,
         'backstage.io/managed-by-location': `url:${galaxyFileUrl}`,
         'backstage.io/managed-by-origin-location': `url:${galaxyFileUrl}`,
+        'ansible.io/collection-source': 'scm',
         'ansible.io/scm-provider': sourceConfig.scmProvider,
         'ansible.io/scm-host': host,
         'ansible.io/scm-host-name': hostName,

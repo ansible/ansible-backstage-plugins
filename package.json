@@ -16,14 +16,13 @@
     "tsc": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --max-old-space-size=8192\" tsc",
     "tsc:full": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --max-old-space-size=8192\" tsc --skipLibCheck false --incremental false",
     "clean": "backstage-cli repo clean",
-    "test": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --experimental-vm-modules\" backstage-cli repo test --watch=false",
+    "test": "bash scripts/test-with-console-log.sh",
     "test:watch": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --experimental-vm-modules\" backstage-cli repo test",
-    "test:all": "NODE_OPTIONS=\"--experimental-vm-modules\" backstage-cli repo test --coverage",
+    "test:all": "bash scripts/test-with-console-log.sh --coverage",
     "test:e2e": "playwright test",
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
     "lint:all": "backstage-cli repo lint",
-    "lint-staged": "lint-staged -p 10",
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new",
     "openapi:lint": "spectral lint api/openapi.yaml --ruleset api/.spectral.yaml",
@@ -58,7 +57,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "jest-environment-node": "^29.7.0",
     "jest-junit": "^16.0.0",
-    "lint-staged": "15.2.10",
     "node-gyp": "^10.0.0",
     "prettier": "^2.3.2",
     "sonarqube-scanner": "^4.3.2",
@@ -92,7 +90,7 @@
     "fast-uri": "^3.1.7",
     "@babel/plugin-transform-modules-systemjs": "^7.29.4",
     "postcss": "^8.5.19",
-    "vm2": "^3.11.4",
+    "vm2": "^3.11.8",
     "@xmldom/xmldom": "^0.9.10",
     "shell-quote": "^1.8.4",
     "ws": "^8.21.0",
@@ -146,14 +144,5 @@
     "compression": "^1.8.2"
   },
   "prettier": "@spotify/prettier-config",
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
-  },
   "packageManager": "yarn@4.12.0"
 }
