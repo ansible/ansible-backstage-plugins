@@ -79,7 +79,7 @@ describe('AAPEntityProvider', () => {
       metadata: {
         namespace: 'default',
         name: 'default',
-        title: 'Default',
+        title: 'Org: Default',
         annotations: {
           'ansible.com/aap-org-id': '1',
           'backstage.io/managed-by-location':
@@ -94,7 +94,7 @@ describe('AAPEntityProvider', () => {
         members: ['user:default/user2'],
         profile: {
           description: 'Organization: Default',
-          displayName: '[Org] Default',
+          displayName: 'Org: Default',
         },
       },
     },
@@ -121,7 +121,7 @@ describe('AAPEntityProvider', () => {
         members: [],
         profile: {
           description: 'Team: Team A',
-          displayName: '[Team] Team A',
+          displayName: 'Team: Team A',
         },
       },
     },
@@ -148,7 +148,7 @@ describe('AAPEntityProvider', () => {
         members: [],
         profile: {
           description: 'Team: Team B',
-          displayName: '[Team] Team B',
+          displayName: 'Team: Team B',
         },
       },
     },
@@ -158,7 +158,7 @@ describe('AAPEntityProvider', () => {
       metadata: {
         namespace: 'default',
         name: 'user1',
-        title: 'User1 Last1',
+        title: 'User1 Last1 (user1)',
         annotations: {
           'aap.platform/is_superuser': 'false',
           'ansible.com/aap-username': 'user1',
@@ -171,7 +171,7 @@ describe('AAPEntityProvider', () => {
       spec: {
         profile: {
           username: 'user1',
-          displayName: 'User1 Last1',
+          displayName: 'User1 Last1 (user1)',
           email: 'user1@test.com',
         },
         memberOf: ['group:default/team-a', 'group:default/team-b'],
@@ -183,7 +183,7 @@ describe('AAPEntityProvider', () => {
       metadata: {
         namespace: 'default',
         name: 'user2',
-        title: 'User2 Last2',
+        title: 'User2 Last2 (user2)',
         annotations: {
           'aap.platform/is_superuser': 'false',
           'ansible.com/aap-username': 'user2',
@@ -196,7 +196,7 @@ describe('AAPEntityProvider', () => {
       spec: {
         profile: {
           username: 'user2',
-          displayName: 'User2 Last2',
+          displayName: 'User2 Last2 (user2)',
           email: 'user2@test.com',
         },
         memberOf: ['group:default/team-b', 'group:default/default'],
@@ -208,7 +208,7 @@ describe('AAPEntityProvider', () => {
       metadata: {
         namespace: 'default',
         name: 'sys_user3',
-        title: 'SysUser3 Last3',
+        title: 'SysUser3 Last3 (sys_user3)',
         annotations: {
           'aap.platform/is_superuser': 'false',
           'ansible.com/aap-username': 'sys_user3',
@@ -221,7 +221,7 @@ describe('AAPEntityProvider', () => {
       spec: {
         profile: {
           username: 'sys_user3',
-          displayName: 'SysUser3 Last3',
+          displayName: 'SysUser3 Last3 (sys_user3)',
           email: 'sysuser3@test.com',
         },
         memberOf: ['group:default/team-a'],
@@ -1096,7 +1096,7 @@ describe('AAPEntityProvider', () => {
                 kind: 'Group',
                 metadata: expect.objectContaining({
                   name: 'aap-org-1',
-                  title: 'Default',
+                  title: 'Org: Default',
                 }),
               }),
             }),
@@ -1105,7 +1105,7 @@ describe('AAPEntityProvider', () => {
                 kind: 'Group',
                 metadata: expect.objectContaining({
                   name: 'aap-org-2',
-                  title: 'Engineering',
+                  title: 'Org: Engineering',
                 }),
               }),
             }),
@@ -1271,7 +1271,7 @@ describe('AAPEntityProvider', () => {
         ['ansible.com/organization'],
         'Default',
       );
-      expect(teamAlpha.entity.metadata.title).toBe('Team Alpha [Default]');
+      expect(teamAlpha.entity.metadata.title).toBe('Team Alpha (Default)');
 
       // Org group should have org annotation
       const engOrg = call.entities.find(
