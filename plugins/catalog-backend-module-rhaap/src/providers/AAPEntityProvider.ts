@@ -19,8 +19,6 @@ import {
   Users,
   Team,
   Organization,
-} from '@ansible/backstage-rhaap-common';
-import {
   toOrgEntityName,
   toOrgGroupRef,
   toTeamEntityName,

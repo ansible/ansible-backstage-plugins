@@ -5,6 +5,9 @@ import {
   ISpec,
   ISurvey,
   InstanceGroup,
+  toOrgGroupRef,
+  toTemplateEntityName,
+  type CatalogEntityIdentityOptions,
 } from '@ansible/backstage-rhaap-common';
 import {
   ANNOTATION_LOCATION,
@@ -12,11 +15,6 @@ import {
   Entity,
 } from '@backstage/catalog-model';
 import { JsonArray, JsonObject } from '@backstage/types';
-import {
-  toOrgGroupRef,
-  toTemplateEntityName,
-} from '@ansible/backstage-rhaap-common';
-import type { CatalogEntityIdentityOptions } from '@ansible/backstage-rhaap-common';
 import { normalizeBaseUrl } from './helpers';
 
 function scaffolderParametersRef(key: string): string {
