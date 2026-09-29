@@ -857,6 +857,12 @@ paths:
                       - location
                       - provider
                       - entity
+                      - entity-transient
+                  warning:
+                    type: string
+                    description: >-
+                      Present when the removal is not durable (e.g. shared
+                      location may re-ingest the entity on refresh).
                 additionalProperties: false
         '204':
           description: No existing entity to clean up

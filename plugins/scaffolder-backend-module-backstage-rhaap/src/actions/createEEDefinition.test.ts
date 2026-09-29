@@ -121,6 +121,7 @@ describe('createEEDefinition', () => {
       return Promise.resolve({
         ok: true,
         status: 200,
+        json: async () => ({ success: true, mode: 'location' }),
         text: jest.fn().mockResolvedValue(''),
       } as any);
     });
@@ -556,6 +557,7 @@ describe('createEEDefinition', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
+            json: async () => ({ success: true, mode: 'location' }),
             text: jest.fn().mockResolvedValue(''),
           } as any);
         }
@@ -570,6 +572,50 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
+    expect(ctx.output).not.toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      expect.anything(),
+    );
+  });
+
+  it('surfaces eeCleanupWarning when DELETE returns entity-transient mode', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    mockFetch.mockImplementation(
+      (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              mode: 'entity-transient',
+              warning:
+                'Entity removed but the shared catalog location still exists.',
+            }),
+            text: jest.fn().mockResolvedValue(''),
+          } as any);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: jest.fn().mockResolvedValue(''),
+        } as any);
+      },
+    );
+
+    await action.handler(ctx);
+
+    expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
+    expect(ctx.output).toHaveBeenCalledWith(
+      'eeCleanupWarning',
+      'Entity removed but the shared catalog location still exists.',
+    );
   });
 
   it('throws when catalog registration fails', async () => {

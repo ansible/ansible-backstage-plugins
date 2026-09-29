@@ -487,9 +487,30 @@ async function bestEffortUnregisterExistingEE(options: {
     }
 
     if (response.ok) {
+      let body: { mode?: string; warning?: string } | undefined;
+      try {
+        body = (await response.json()) as {
+          mode?: string;
+          warning?: string;
+        };
+      } catch {
+        // Non-JSON 2xx is still a success; proceed without body.
+      }
+
       logger.info(
-        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status})`,
+        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status}, mode ${body?.mode ?? 'unknown'})`,
       );
+
+      if (body?.mode === 'entity-transient') {
+        output?.('eeCleanupStatus', 'ok');
+        output?.(
+          'eeCleanupWarning',
+          body.warning ??
+            `Shared catalog location still exists for "${name}". The old entity may reappear unless the source catalog-info.yaml is also updated.`,
+        );
+        return;
+      }
+
       output?.('eeCleanupStatus', 'ok');
       return;
     }

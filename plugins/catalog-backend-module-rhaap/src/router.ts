@@ -520,7 +520,14 @@ export async function createRouter(options: {
             entity.metadata.uid,
             catalogOpts,
           );
-          response.status(200).json({ success: true, mode: 'entity' });
+          response.status(200).json({
+            success: true,
+            mode: 'entity-transient',
+            warning:
+              'Entity removed but the shared catalog location still exists. ' +
+              'The entity may reappear on the next location refresh unless ' +
+              'the source catalog-info.yaml is also updated.',
+          });
           return;
         }
 

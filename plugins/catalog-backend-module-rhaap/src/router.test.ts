@@ -1132,7 +1132,11 @@ describe('createRouter', () => {
         .delete('/ansible/ee/ee1')
         .expect(200);
 
-      expect(response.body).toEqual({ success: true, mode: 'entity' });
+      expect(response.body).toEqual({
+        success: true,
+        mode: 'entity-transient',
+        warning: expect.stringContaining('shared catalog location'),
+      });
       expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
         expect.objectContaining({
           filter: {
