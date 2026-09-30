@@ -545,11 +545,38 @@ export function createRouter(options: {
             catalogOpts,
           );
         } catch (uidError) {
-          // Entity may already be gone after provider delta; log and continue.
+          // Entity may already be gone after provider delta; verify before
+          // reporting success so we don't claim cleanup when it didn't happen.
+          let stillPresent: boolean;
+          try {
+            stillPresent = !!(await catalogClient.getEntityByRef(
+              entityRef,
+              catalogOpts,
+            ));
+          } catch (verifyError) {
+            logger.warn(
+              `removeEntityByUid failed (${formatUnknownError(uidError)}) and verification also failed (${formatUnknownError(verifyError)})`,
+            );
+            response.status(500).json({
+              error: 'Failed to unregister Execution Environment',
+            });
+            return;
+          }
+          if (stillPresent) {
+            logger.warn(
+              `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
+                uidError,
+              )}`,
+            );
+            response.status(500).json({
+              error: 'Failed to unregister Execution Environment',
+            });
+            return;
+          }
           logger.debug(
-            `removeEntityByUid after provider unregister: ${formatUnknownError(
+            `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
               uidError,
-            )}`,
+            )})`,
           );
         }
       }

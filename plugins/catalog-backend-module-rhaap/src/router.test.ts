@@ -1216,8 +1216,10 @@ describe('createRouter', () => {
       );
     });
 
-    it('still succeeds when removeEntityByUid fails after provider unregister', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+    it('succeeds when removeEntityByUid fails but entity is already gone via delta', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any) // initial lookup
+        .mockResolvedValueOnce(undefined); // verification after failure — gone
       mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
       mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
         new Error('already gone'),
@@ -1230,12 +1232,38 @@ describe('createRouter', () => {
 
       expect(response.body).toEqual({ success: true, mode: 'provider' });
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('removeEntityByUid after provider unregister'),
+        expect.stringContaining('entity already removed by delta'),
       );
     });
 
-    it('still succeeds when removeEntityByUid fails with a non-Error value', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+    it('returns 500 when removeEntityByUid fails and entity still present', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any) // initial lookup
+        .mockResolvedValueOnce(eeEntity as any); // verification — still present
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
+        new Error('permission denied'),
+      );
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error: 'Failed to unregister Execution Environment',
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'removeEntityByUid after provider unregister failed and entity still exists',
+        ),
+      );
+    });
+
+    it('succeeds when removeEntityByUid fails with non-Error value and entity is gone', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any) // initial lookup
+        .mockResolvedValueOnce(undefined); // verification — gone
       mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
       mockCatalogClient.removeEntityByUid.mockRejectedValueOnce('already gone');
       const testApp = await createDeleteTestApp();
@@ -1250,8 +1278,35 @@ describe('createRouter', () => {
       );
     });
 
-    it('still succeeds when removeEntityByUid fails with a plain object', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
+    it('returns 500 when removeEntityByUid fails and verification also throws', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any) // initial lookup
+        .mockRejectedValueOnce(new Error('catalog flapping')); // verification throws
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
+        new Error('uid removal failed'),
+      );
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1')
+        .expect(500);
+
+      expect(response.body).toEqual({
+        error: 'Failed to unregister Execution Environment',
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('removeEntityByUid failed'),
+      );
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('verification also failed'),
+      );
+    });
+
+    it('succeeds when removeEntityByUid fails with a plain object and entity is gone', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any) // initial lookup
+        .mockResolvedValueOnce(undefined); // verification — gone
       mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
       mockCatalogClient.removeEntityByUid.mockRejectedValueOnce({
         reason: 'gone',
