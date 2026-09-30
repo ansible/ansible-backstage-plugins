@@ -89,9 +89,9 @@ describe('helpers', () => {
       expect(formatNameSpace('Test Namespace')).toEqual('test-namespace');
     });
 
-    it('should remove special characters and convert @ to hyphen', () => {
+    it('should remove special characters and convert @ to -at-', () => {
       expect(formatNameSpace('test@namespace#special!')).toEqual(
-        'test-namespacespecial',
+        'test-at-namespacespecial',
       );
     });
 
@@ -108,10 +108,14 @@ describe('helpers', () => {
       expect(formatNameSpace(longName).length).toBeLessThanOrEqual(63);
     });
 
-    it('should throw for special-char-only names', () => {
-      expect(() => formatNameSpace('!!!@@@')).toThrow(
+    it('should throw for special-char-only names with no tokens', () => {
+      expect(() => formatNameSpace('!!!')).toThrow(
         'contains no valid characters',
       );
+    });
+
+    it('should tokenize @-only names instead of rejecting them', () => {
+      expect(formatNameSpace('!!!@@@')).toEqual('at-at-at');
     });
 
     it('should replace spaces with hyphens', () => {
@@ -136,29 +140,24 @@ describe('helpers', () => {
   });
 
   describe('getEffectiveNamespace', () => {
-    it('should return "default" for single-org configs', () => {
+    it('should return default namespace when multi-org is disabled', () => {
       expect(getEffectiveNamespace('Engineering', ['engineering'])).toEqual(
         'default',
       );
     });
 
-    it('should return "default" for single org named Default', () => {
+    it('should return default namespace for single org named Default', () => {
       expect(getEffectiveNamespace('Default', ['default'])).toEqual('default');
     });
 
-    it('should return formatted org name for multi-org configs', () => {
+    it('should return id-based namespace when multi-org is enabled', () => {
       const allOrgs = ['engineering', 'platform-ops'];
-      expect(getEffectiveNamespace('Engineering', allOrgs)).toEqual(
-        'engineering',
-      );
-      expect(getEffectiveNamespace('Platform Ops', allOrgs)).toEqual(
-        'platform-ops',
-      );
-    });
-
-    it('should return "default" for Default org in multi-org mode', () => {
-      const allOrgs = ['default', 'engineering'];
-      expect(getEffectiveNamespace('Default', allOrgs)).toEqual('default');
+      expect(
+        getEffectiveNamespace('Engineering', allOrgs, {
+          multiOrgEnabled: true,
+          orgId: 42,
+        }),
+      ).toEqual('aap-42');
     });
   });
 
