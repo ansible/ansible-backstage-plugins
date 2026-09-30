@@ -30,6 +30,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
   private readonly baseUrl: string;
   private readonly orgs: string[];
+  private readonly multiOrgEnabled: boolean;
   private readonly surveyEnabled: boolean | undefined;
   private readonly jobTemplateLabels: string[];
   private readonly jobTemplateExcludeLabels: string[];
@@ -79,6 +80,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
     this.env = config.id;
     this.baseUrl = config.baseUrl;
     this.orgs = config.organizations;
+    this.multiOrgEnabled = config.multiOrgEnabled;
     this.surveyEnabled = config.surveyEnabled ?? undefined;
     this.jobTemplateLabels = config.jobTemplateLabels ?? [];
     this.jobTemplateExcludeLabels = config.jobTemplateExcludeLabels ?? [];
@@ -136,12 +138,13 @@ export class AAPJobTemplateProvider implements EntityProvider {
       throw new NotFoundError('Not initialized');
     }
 
-    for (const orgName of this.orgs) {
-      const ns = getEffectiveNamespace(orgName, this.orgs);
-      validateNamespace(ns, orgName);
+    if (!this.multiOrgEnabled) {
+      for (const orgName of this.orgs) {
+        validateNamespace(getEffectiveNamespace(orgName, this.orgs), orgName);
+      }
     }
 
-    const isMultiOrg = this.orgs.length > 1;
+    const isMultiOrg = this.multiOrgEnabled;
 
     this.syncState.markSyncStarted();
     try {
@@ -187,8 +190,13 @@ export class AAPJobTemplateProvider implements EntityProvider {
           continue;
         }
 
+        const templateOrgId = job.summary_fields?.organization?.id;
+        const identity = {
+          multiOrgEnabled: this.multiOrgEnabled,
+          orgId: templateOrgId,
+        };
         const ns = templateOrgName
-          ? getEffectiveNamespace(templateOrgName, this.orgs)
+          ? getEffectiveNamespace(templateOrgName, this.orgs, identity)
           : 'default';
 
         entities.push(
@@ -199,6 +207,8 @@ export class AAPJobTemplateProvider implements EntityProvider {
             survey,
             instanceGroup,
             orgName: isMultiOrg ? templateOrgName : undefined,
+            ownerOrgName: templateOrgName,
+            identity,
           }),
         );
         jobTemplateCount++;

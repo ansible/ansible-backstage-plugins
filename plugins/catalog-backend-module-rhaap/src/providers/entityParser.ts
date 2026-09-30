@@ -1,8 +1,4 @@
-import {
-  formatNameSpace,
-  buildFileUrl,
-  getDirectoryFromPath,
-} from '../helpers';
+import { buildFileUrl, getDirectoryFromPath } from '../helpers';
 
 import {
   ANNOTATION_LOCATION,
@@ -17,6 +13,9 @@ import {
   Team,
   User,
   InstanceGroup,
+  toOrgEntityName,
+  toTeamEntityName,
+  toUserEntityName,
 } from '@ansible/backstage-rhaap-common';
 import { generateTemplate } from './dynamicJobTemplate';
 import {
@@ -27,6 +26,7 @@ import {
   sanitizeTagForBackstage,
   sanitizeHostName,
 } from './ansible-collections/utils';
+import type { CatalogEntityIdentityOptions } from '@ansible/backstage-rhaap-common';
 import type {
   CollectionParserOptions,
   RepositoryParserOptions,
@@ -60,6 +60,7 @@ export function organizationParser(options: {
   orgMembers: string[];
   teams: string[];
   orgName?: string;
+  identity?: CatalogEntityIdentityOptions;
 }): Entity {
   const { baseUrl, org, nameSpace, orgMembers, teams, orgName } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
@@ -68,18 +69,19 @@ export function organizationParser(options: {
     kind: 'Group',
     metadata: {
       namespace: nameSpace,
-      name: formatNameSpace(org.name),
-      title: org.name,
+      name: toOrgEntityName(org.name, org.id, options.identity),
+      title: `Org: ${org.name}`,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/organizations/${org.id}/details`,
+        'ansible.com/aap-org-id': String(org.id),
         ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
       type: 'organization',
       profile: {
-        displayName: `[ORG] ${org.name}`,
+        displayName: `Org: ${org.name}`,
         description: `Organization: ${org.name}`,
       },
       children: teams,
@@ -95,29 +97,31 @@ export function teamParser(options: {
   teamMembers: string[];
   orgName?: string;
   orgGroupName?: string;
+  identity?: CatalogEntityIdentityOptions;
 }): Entity {
   const { baseUrl, team, nameSpace, teamMembers, orgName, orgGroupName } =
     options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  const title = orgName ? `${team.name} [${orgName}]` : team.name;
+  const title = orgName ? `${team.name} (${orgName})` : team.name;
   return {
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Group',
     metadata: {
       namespace: nameSpace,
-      name: team.groupName,
+      name: toTeamEntityName(team.name, team.id, options.identity),
       title: title,
       description: team.description,
       annotations: {
         [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
         [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/teams/${team.id}/details`,
+        'ansible.com/aap-team-id': String(team.id),
         ...(orgName && { 'ansible.com/organization': orgName }),
       },
     },
     spec: {
       type: 'team',
       profile: {
-        displayName: `[TEAM] ${title}`,
+        displayName: `Team: ${title}`,
         description: `Team: ${title}`,
       },
       ...(orgGroupName && { parent: orgGroupName }),
@@ -133,8 +137,10 @@ export function userParser(options: {
   user: User;
   groupMemberships: string[];
   orgNames?: string[];
+  identity?: CatalogEntityIdentityOptions;
 }): Entity {
-  const { baseUrl, user, nameSpace, groupMemberships, orgNames } = options;
+  const { baseUrl, user, nameSpace, groupMemberships, orgNames, identity } =
+    options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
   // Add aap-admins group for superusers (this should always be included)
@@ -145,12 +151,16 @@ export function userParser(options: {
 
   const name =
     user.first_name?.length || user.last_name?.length
-      ? `${user.first_name} ${user.last_name}`
+      ? `${user.first_name} ${user.last_name} (${user.username})`
       : user.username;
 
   const annotations: Record<string, string> = {
     [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
     [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
+    'ansible.com/aap-username': user.username,
+    ...(identity?.multiOrgEnabled && {
+      'ansible.com/aap-user-id': String(user.id),
+    }),
   };
 
   // Add RBAC-relevant annotations
@@ -166,7 +176,7 @@ export function userParser(options: {
     kind: 'User',
     metadata: {
       namespace: nameSpace,
-      name: user.username,
+      name: toUserEntityName(user.username, user.id, identity),
       title: name,
       annotations,
     },
@@ -188,6 +198,8 @@ export const aapJobTemplateParser = (options: {
   survey: ISurvey | null;
   instanceGroup: InstanceGroup[];
   orgName?: string;
+  ownerOrgName?: string;
+  identity?: CatalogEntityIdentityOptions;
 }): Entity => {
   return generateTemplate(options);
 };
@@ -454,7 +466,10 @@ export function scmCollectionParser(options: CollectionParserOptions): Entity {
       lifecycle: refType === 'tag' ? 'production' : 'development',
       owner: metadata.namespace,
       system: `${metadata.namespace}-collections`,
-      subcomponentOf: `component:default/${generateRepositoryEntityName(repository, sourceConfig)}`,
+      subcomponentOf: `component:default/${generateRepositoryEntityName(
+        repository,
+        sourceConfig,
+      )}`,
       collection_namespace: metadata.namespace,
       collection_name: metadata.name,
       collection_version: metadata.version,

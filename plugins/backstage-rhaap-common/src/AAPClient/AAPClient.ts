@@ -1289,7 +1289,7 @@ export class AAPClient implements IAAPService {
 
   public async getOrgsByUserId(
     userID: number,
-  ): Promise<{ name: string; groupName: string }[]> {
+  ): Promise<{ name: string; id: number; groupName: string }[]> {
     const endPoint = `/api/gateway/v1/users/${userID}/organizations/`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     this.logger.info(`Fetching orgs for user ID: ${userID} from RH AAP.`);
@@ -1317,6 +1317,7 @@ export class AAPClient implements IAAPService {
       .filter((org: any) => org?.name)
       .map((org: any) => ({
         name: org.name,
+        id: org.id,
         groupName: this.formatNameSpace(org.name),
       }));
   }
