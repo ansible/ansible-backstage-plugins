@@ -253,14 +253,15 @@ export function createEEDefinitionAction(options: {
 
         // Move EE-specific files to the EE directory, and other files to the workspace root
         const entries = await fs.readdir(tempDir, { withFileTypes: true });
-        for (const entry of entries) {
-          const src = path.join(tempDir, entry.name);
-          if (EE_DIR_FILES.has(entry.name)) {
-            await fs.rename(src, path.join(eeDir, entry.name));
-          } else {
-            await fs.rename(src, path.join(workspacePath, entry.name));
-          }
-        }
+        await Promise.all(
+          entries.map(entry => {
+            const src = path.join(tempDir, entry.name);
+            const dest = EE_DIR_FILES.has(entry.name)
+              ? path.join(eeDir, entry.name)
+              : path.join(workspacePath, entry.name);
+            return fs.rename(src, dest);
+          }),
+        );
 
         await fs.rm(tempDir, { recursive: true, force: true });
         logger.info(

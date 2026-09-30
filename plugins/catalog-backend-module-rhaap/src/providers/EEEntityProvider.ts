@@ -15,9 +15,10 @@ export class EEEntityProvider implements EntityProvider {
     return 'EEEntityProvider';
   }
 
-  async connect(connection: EntityProviderConnection): Promise<void> {
+  connect(connection: EntityProviderConnection): Promise<void> {
     this.logger.info('EEEntityProvider connected!');
     this.connection = connection;
+    return Promise.resolve();
   }
 
   async registerExecutionEnvironment(entity: any): Promise<void> {

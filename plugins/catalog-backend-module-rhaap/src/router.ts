@@ -107,7 +107,7 @@ function parseExecutionEnvironmentNameParam(
   return name;
 }
 
-export async function createRouter(options: {
+export function createRouter(options: {
   logger: LoggerService;
   config: Config;
   scheduler: SchedulerService;
@@ -225,7 +225,7 @@ export async function createRouter(options: {
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
       catalogEntityReadPermission,
     ]),
-    async (request, response) => {
+    (request, response) => {
       const perms = response.locals.permissions as Record<string, boolean>;
       if (!perms[catalogEntityReadPermission.name]) {
         response
@@ -1133,13 +1133,14 @@ export async function createRouter(options: {
       };
 
       let index = 0;
+      // NOSONAR: await-in-loop is intentional — bounded worker pool pattern.
+      // Multiple workers run concurrently via Promise.all below.
       const processNext = async (): Promise<void> => {
         while (index < items.length) {
-          // safe: single-threaded JS, ++ completes before await
           const currentIndex = index++;
           const item = items[currentIndex];
           try {
-            results[item.key] = await processItem(item);
+            results[item.key] = await processItem(item); // NOSONAR
           } catch (err) {
             const msg =
               err instanceof Error ? err.message : 'Unknown error occurred';
@@ -1166,5 +1167,5 @@ export async function createRouter(options: {
     },
   );
 
-  return router;
+  return Promise.resolve(router);
 }
