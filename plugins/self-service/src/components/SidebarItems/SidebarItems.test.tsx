@@ -169,7 +169,7 @@ describe('EEBuilderSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Execution Environments/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/ee');
+    expect(link).toHaveAttribute('href', '/self-service/ee/catalog');
   });
 
   it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
@@ -227,7 +227,7 @@ describe('EEBuilderSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Execution Environments/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/ee');
+    expect(link).toHaveAttribute('href', '/self-service/ee/catalog');
   });
 
   it('calls usePermission with execution environments view permission', async () => {
@@ -365,7 +365,7 @@ describe('GitRepositoriesSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Git Repositories/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/repositories');
+    expect(link).toHaveAttribute('href', '/self-service/repositories/catalog');
   });
 
   it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
@@ -423,7 +423,7 @@ describe('GitRepositoriesSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Git Repositories/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/repositories');
+    expect(link).toHaveAttribute('href', '/self-service/repositories/catalog');
   });
 
   it('calls usePermission with git repositories view permission', async () => {

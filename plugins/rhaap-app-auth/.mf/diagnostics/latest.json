@@ -1,0 +1,10 @@
+{
+  "latestErrorEvent": {
+    "code": "TYPE-001",
+    "message": "Failed to generate type declaration. Execute the below cmd to reproduce and fix the error. #TYPE-001\nargs: {\"cmd\":\"yarn tsc --project /home/nchakrab/ansible-backstage-plugins/plugins/rhaap-app-auth/node_modules/.federation/tsconfig.3dd9dfa413be945ad9a86d3828ed6282.json\"}\nView the docs to see how to solve: https://module-federation.io/guide/troubleshooting/type#type-001",
+    "args": {
+      "cmd": "yarn tsc --project /home/nchakrab/ansible-backstage-plugins/plugins/rhaap-app-auth/node_modules/.federation/tsconfig.3dd9dfa413be945ad9a86d3828ed6282.json"
+    },
+    "timestamp": 1790843332105
+  }
+}

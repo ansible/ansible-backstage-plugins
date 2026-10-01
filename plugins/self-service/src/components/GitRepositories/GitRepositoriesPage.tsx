@@ -1,10 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type PropsWithChildren,
+} from 'react';
 import { Page, Content, HeaderTabs } from '@backstage/core-components';
 import { Box, makeStyles } from '@material-ui/core';
 import {
+  matchPath,
   Navigate,
-  Route,
-  Routes,
   useLocation,
   useNavigate,
 } from 'react-router-dom';
@@ -15,11 +20,10 @@ import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/p
 
 import {
   useApi,
-  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { useSyncStatusPolling } from '../../hooks';
+import { useSelfServiceRootLink, useSyncStatusPolling } from '../../hooks';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
 import {
@@ -28,7 +32,6 @@ import {
   useNotifications,
 } from '../notifications';
 
-import { rootRouteRef } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
@@ -62,6 +65,10 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+export const SELF_SERVICE_REPOS = '/self-service/repositories';
+export const SELF_SERVICE_REPOS_CATALOG = '/self-service/repositories/catalog';
+export const SELF_SERVICE_REPOS_CI = '/self-service/repositories/ci-activity';
+
 const tabs = [
   { id: 0, label: 'Catalog', icon: <CategoryOutlinedIcon />, path: 'catalog' },
   { id: 1, label: 'CI Activity', icon: <TimelineIcon />, path: 'ci-activity' },
@@ -78,7 +85,7 @@ export const GitRepositoriesPage = () => {
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const { isSyncInProgress, syncProgress, startTracking } =
     useSyncStatusPolling();
 
@@ -215,19 +222,62 @@ export const GitRepositoriesPage = () => {
   );
 };
 
-// Inner content component that uses the notification context
+const resolveGitRepositoriesRouteElement = (pathname: string) => {
+  if (
+    pathname === SELF_SERVICE_REPOS ||
+    pathname === `${SELF_SERVICE_REPOS}/`
+  ) {
+    return <Navigate to={SELF_SERVICE_REPOS_CATALOG} replace />;
+  }
+
+  const detailMatch =
+    matchPath(
+      { path: '/self-service/repositories/:repositoryName', end: true },
+      pathname,
+    ) || matchPath({ path: ':repositoryName', end: true }, pathname);
+  const repositoryName = detailMatch?.params?.repositoryName;
+  if (
+    repositoryName &&
+    repositoryName !== 'catalog' &&
+    repositoryName !== 'ci-activity'
+  ) {
+    return <RepositoryDetailsPage />;
+  }
+
+  if (
+    pathname === SELF_SERVICE_REPOS_CI ||
+    matchPath({ path: SELF_SERVICE_REPOS_CI, end: true }, pathname) ||
+    pathname.includes('/repositories/ci-activity') ||
+    matchPath({ path: 'ci-activity', end: true }, pathname)
+  ) {
+    return <GitRepositoriesPage />;
+  }
+
+  if (
+    pathname === SELF_SERVICE_REPOS_CATALOG ||
+    matchPath({ path: SELF_SERVICE_REPOS_CATALOG, end: true }, pathname) ||
+    pathname.includes('/repositories/catalog') ||
+    matchPath({ path: 'catalog', end: true }, pathname)
+  ) {
+    return <GitRepositoriesPage />;
+  }
+
+  return <Navigate to={SELF_SERVICE_REPOS_CATALOG} replace />;
+};
+
+const GitRepositoriesPageProviders = ({ children }: PropsWithChildren) => (
+  <RequirePermission permission={gitRepositoriesViewPermission}>
+    <NotificationProvider>{children}</NotificationProvider>
+  </RequirePermission>
+);
+
 const GitRepositoriesRoutesContent = () => {
+  const { pathname } = useLocation();
   const { notifications, removeNotification } = useNotifications();
 
   return (
     <>
-      <Routes>
-        <Route index element={<Navigate to="catalog" replace />} />
-        <Route path="catalog" element={<GitRepositoriesPage />} />
-        <Route path="ci-activity" element={<GitRepositoriesPage />} />
-        <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
-        <Route path="*" element={<Navigate to="catalog" replace />} />
-      </Routes>
+      {resolveGitRepositoriesRouteElement(pathname)}
       <NotificationStack
         notifications={notifications}
         onClose={removeNotification}
@@ -236,14 +286,19 @@ const GitRepositoriesRoutesContent = () => {
   );
 };
 
-// Standalone route wrapper used by the dynamic plugin mount at /self-service/repositories
-// so detail URLs like /self-service/repositories/:repositoryName resolve correctly.
-export const GitRepositoriesRoutesPage = () => {
-  return (
-    <RequirePermission permission={gitRepositoriesViewPermission}>
-      <NotificationProvider>
-        <GitRepositoriesRoutesContent />
-      </NotificationProvider>
-    </RequirePermission>
-  );
-};
+/** RHDH 2.1 NFS: one PageBlueprint per repositories path (no splat). */
+export const GitRepositoriesSectionPage = () => (
+  <GitRepositoriesPageProviders>
+    <GitRepositoriesRoutesContent />
+  </GitRepositoriesPageProviders>
+);
+
+/**
+ * Standalone route wrapper used by the dynamic plugin mount at /self-service/repositories.
+ * Scalprum / RHDH 1.10: mounted once at `/self-service/repositories/*`.
+ */
+export const GitRepositoriesRoutesPage = () => (
+  <GitRepositoriesPageProviders>
+    <GitRepositoriesRoutesContent />
+  </GitRepositoriesPageProviders>
+);

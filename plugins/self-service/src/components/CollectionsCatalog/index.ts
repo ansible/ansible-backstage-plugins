@@ -1,6 +1,8 @@
 export {
   CollectionsCatalogPage,
   CollectionsRoutesPage,
+  CollectionsSectionPage,
+  SELF_SERVICE_COLLECTIONS,
 } from './CollectionsCatalogPage';
 export { CollectionDetailsPage } from './CollectionDetailsPage';
 

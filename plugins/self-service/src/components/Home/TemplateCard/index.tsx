@@ -14,17 +14,16 @@ import {
   useTheme,
 } from '@material-ui/core';
 import { FavoriteEntity } from '@backstage/plugin-catalog-react';
-import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
-import { rootRouteRef } from '../../../routes';
+import { useSelfServiceRootLink } from '../../../hooks';
 
 export function WizardCard({
   template,
 }: Readonly<{ template: TemplateEntityV1beta3 }>) {
   const theme = useTheme();
   const navigate = useNavigate();
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const namespace = template?.metadata?.namespace ?? 'default';
   const name = template?.metadata?.name ?? '';
   const { allowed: canCreateTask } = usePermission({

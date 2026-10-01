@@ -185,61 +185,84 @@ export namespace AAPAuthSignInResolvers {
             );
           }
 
-          try {
-            if (username) {
-              await ctx.findCatalogUser({
-                entityRef: {
-                  name: toCatalogUserEntityName(
-                    username,
-                    userID,
-                    multiOrgEnabled,
-                  ),
-                },
-              });
-            }
-          } catch {
-            await createUserInCatalog(username, userID, discovery, auth);
-          }
-          // Wait a bit more to ensure catalog has processed the user
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          const catalogUserName = toCatalogUserEntityName(
+            username,
+            userID,
+            multiOrgEnabled,
+          );
 
+          // Fast path: user already exists in the catalog (true for every
+          // sign-in after the user's first). Skip straight to token
+          // issuance with no artificial delay - this keeps the OAuth
+          // `/handler/frame` response fast, which matters because the
+          // frontend popup is watching for that response and can perceive
+          // a slow response as a closed/failed popup. Only a failure to
+          // *find* the user triggers the create-and-wait path below; a
+          // failure to issue the token for an already-found user is a
+          // distinct, genuine error and must propagate as-is.
+          let existingEntity: Entity | undefined;
           try {
             const { entity } = await ctx.findCatalogUser({
               entityRef: {
-                name: toCatalogUserEntityName(
-                  username,
-                  userID,
-                  multiOrgEnabled,
-                ),
+                name: catalogUserName,
               },
             });
-            return await issueTokenWithOwnership(ctx, entity);
-          } catch (e) {
-            // Try to find the user again to provide better error information
-            try {
-              await ctx.findCatalogUser({
-                entityRef: {
-                  name: toCatalogUserEntityName(
-                    username,
-                    userID,
-                    multiOrgEnabled,
-                  ),
-                },
-              });
-              // User exists but token issuance failed for another reason
-              throw new AuthenticationError(
-                `Sign in failed: User ${username} exists in catalog but sign-in failed. Error: ${e}`,
-              );
-            } catch (findError) {
-              // User still doesn't exist in catalog
-              throw new AuthenticationError(
-                `Sign in failed: User ${username} not found in the RH AAP catalog after creation attempt. This may indicate a configuration issue with organization membership or catalog sync. Verify that users/groups are synchronized to the software catalog. Original error: ${e}. Find error: ${findError}`,
-              );
-            }
+            existingEntity = entity;
+          } catch {
+            existingEntity = undefined;
           }
+          if (existingEntity) {
+            return await issueTokenWithOwnership(ctx, existingEntity);
+          }
+
+          await createUserInCatalog(username, userID, discovery, auth);
+
+          // The catalog processes the new user/entity asynchronously
+          // (stitching relations, etc.), so poll for it rather than
+          // blindly sleeping for a fixed duration - this returns as soon
+          // as the entity is ready instead of always paying the worst-case
+          // delay, while still bounding the total wait.
+          const entity = await pollForCatalogUser(ctx, catalogUserName, {
+            intervalMs: 300,
+            maxAttempts: 30, // ~9s worst case (excluding network latency)
+          });
+          if (!entity) {
+            throw new AuthenticationError(
+              `Sign in failed: User ${username} not found in the RH AAP catalog after creation attempt. This may indicate a configuration issue with organization membership or catalog sync. Verify that users/groups are synchronized to the software catalog.`,
+            );
+          }
+          return await issueTokenWithOwnership(ctx, entity);
         };
       },
     });
+}
+
+/**
+ * Polls the catalog for a user entity until it appears or `maxAttempts`
+ * is reached. Used after provisioning a new user, since catalog processing
+ * (entity creation + relation stitching) happens asynchronously relative
+ * to the `/aap/create_user` call that triggers it. Bounding by attempt
+ * count (rather than a wall-clock deadline) returns as soon as the entity
+ * is found and keeps behavior deterministic under fake/mocked timers.
+ */
+async function pollForCatalogUser(
+  ctx: AuthResolverContext,
+  catalogUserName: string,
+  { intervalMs, maxAttempts }: { intervalMs: number; maxAttempts: number },
+): Promise<Entity | undefined> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const { entity } = await ctx.findCatalogUser({
+        entityRef: { name: catalogUserName },
+      });
+      return entity;
+    } catch {
+      if (attempt < maxAttempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+    }
+  }
+  return undefined;
 }
 
 async function createUserInCatalog(
@@ -292,10 +315,6 @@ async function createUserInCatalog(
       );
       throw syncError;
     }
-    console.log(
-      `[Auth Resolver] Waiting 3 seconds for catalog to process user ${username}`,
-    );
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds for catalog to process the new user
   } catch (error) {
     console.error(
       `[Auth Resolver] Overall error creating user ${username}:`,
