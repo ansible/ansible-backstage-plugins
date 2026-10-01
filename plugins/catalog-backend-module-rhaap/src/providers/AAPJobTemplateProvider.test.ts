@@ -1207,10 +1207,10 @@ describe('AAPJobTemplateProvider', () => {
       );
 
       // Default and Engineering templates should be present
-      expect(templateNames).toContain('test-job-template');
-      expect(templateNames).toContain('deploy-service');
+      expect(templateNames).toContain('aap-jt-1');
+      expect(templateNames).toContain('aap-jt-2');
       // Finance template should be filtered out
-      expect(templateNames).not.toContain('finance-report');
+      expect(templateNames).not.toContain('aap-jt-3');
       expect(call.entities).toHaveLength(2);
     });
 
@@ -1243,14 +1243,14 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'test-job-template',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
-      expect(defaultTemplate.entity.metadata.namespace).toBe('default');
+      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-1');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'deploy-service',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
-      expect(engTemplate.entity.metadata.namespace).toBe('engineering');
+      expect(engTemplate.entity.metadata.namespace).toBe('aap-2');
     });
 
     it('should add org annotation and display name suffix in multi-org mode', async () => {
@@ -1282,7 +1282,7 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'test-job-template',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
       expect(defaultTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
@@ -1291,7 +1291,7 @@ describe('AAPJobTemplateProvider', () => {
       expect(defaultTemplate.entity.metadata.title).toBe('Test Job Template');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'deploy-service',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
       expect(engTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
