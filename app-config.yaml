@@ -207,7 +207,7 @@ ansible:
 kubernetes: null
 
 permission:
-  enabled: true
+  enabled: false
   rbac:
     # if you want to use a csv file for rbac, uncomment the following lines.
     # Refer default-rbac-policy.csv for the policy file.

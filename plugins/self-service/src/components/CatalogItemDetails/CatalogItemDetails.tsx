@@ -1,6 +1,6 @@
 import { Entity } from '@backstage/catalog-model';
 import { Content, Header, Page } from '@backstage/core-components';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
 import { catalogApiRef, EntityProvider } from '@backstage/plugin-catalog-react';
 import {
   Box,
@@ -15,7 +15,7 @@ import {
 } from '@material-ui/core';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { UnregisterEntityDialog } from '../UnregisterEntityDialog';
 import { TemplateActions } from './TemplateActions';
 
@@ -42,7 +42,7 @@ export const CatalogItemsDetails = () => {
     templateName: string;
   }>();
   const catalogApi = useApi(catalogApiRef);
-  const rootRoute = useRouteRef(rootRouteRef);
+  const rootRoute = useSelfServiceRootLink();
   const [task, setTask] = useState<Entity | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false);

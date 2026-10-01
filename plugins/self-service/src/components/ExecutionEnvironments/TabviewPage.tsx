@@ -4,9 +4,7 @@ import { Typography, Box, makeStyles } from '@material-ui/core';
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import { Header, Page, HeaderTabs, Content } from '@backstage/core-components';
-import { useRouteRef } from '@backstage/core-plugin-api';
-
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { CreateContent } from './create/CreateContent';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 
@@ -63,7 +61,7 @@ export const EETabs: React.FC = () => {
   const classes = useStyles();
   const location = useLocation();
   const navigate = useNavigate();
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   const selectedTab = useMemo(
     () => getTabIndexFromPath(location.pathname),

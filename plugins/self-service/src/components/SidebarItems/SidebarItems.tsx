@@ -1,6 +1,6 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 import { usePermission } from '@backstage/plugin-permission-react';
-import { configApiRef, useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
 import HomeIcon from '@material-ui/icons/Home';
@@ -15,7 +15,7 @@ import {
   historyViewPermission,
 } from '@ansible/backstage-rhaap-common/permissions';
 
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 
 interface PermissionGatedSidebarItemProps {
   permission: BasicPermission;
@@ -47,20 +47,20 @@ export const PermissionGatedSidebarItem = ({
 };
 
 export const EEBuilderSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   return (
     <PermissionGatedSidebarItem
       permission={executionEnvironmentsViewPermission}
       icon={BuildIcon}
-      to={`${rootLink()}/ee`}
+      to={`${rootLink()}/ee/catalog`}
       text="Execution Environments"
     />
   );
 };
 
 export const CollectionsSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   return (
     <PermissionGatedSidebarItem
@@ -73,20 +73,20 @@ export const CollectionsSidebarItem = () => {
 };
 
 export const GitRepositoriesSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   return (
     <PermissionGatedSidebarItem
       permission={gitRepositoriesViewPermission}
       icon={GitHubIcon}
-      to={`${rootLink()}/repositories`}
+      to={`${rootLink()}/repositories/catalog`}
       text="Git Repositories"
     />
   );
 };
 
 export const TemplatesSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   return (
     <PermissionGatedSidebarItem
@@ -99,7 +99,7 @@ export const TemplatesSidebarItem = () => {
 };
 
 export const HistorySidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   return (
     <PermissionGatedSidebarItem

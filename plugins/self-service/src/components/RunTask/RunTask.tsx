@@ -30,7 +30,8 @@ import {
 } from '@material-ui/core';
 import GetAppIcon from '@material-ui/icons/GetApp';
 import ArrowBack from '@material-ui/icons/ArrowBack';
-import { rootRouteRef, selectedTemplateRouteRef } from '../../routes';
+import { selectedTemplateRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { createTarArchive } from '../utils/tarArchiveUtils';
 import {
   resolveEeFileNameFromParameters,
@@ -100,7 +101,7 @@ export const RunTask = () => {
     spec?: { type?: string };
   } | null>(null);
   const navigate = useNavigate();
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
 
   const { allowed: canCancel } = usePermission({

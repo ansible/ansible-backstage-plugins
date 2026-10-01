@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  identityApiRef,
-  useApi,
-  useRouteRef,
-} from '@backstage/core-plugin-api';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { ScaffolderTask } from '@backstage/plugin-scaffolder-common';
 import { TablePaginationActionsProps } from '@material-ui/core/TablePagination/TablePaginationActions';
@@ -35,7 +31,7 @@ import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import BlockIcon from '@material-ui/icons/Block';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { historyViewPermission } from '@ansible/backstage-rhaap-common/permissions';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { useAsync } from 'react-use';
 import { RunTask } from '../RunTask';
 import {
@@ -161,7 +157,7 @@ export const TaskList = () => {
   });
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   const fetchTasks = useCallback(async () => {
     if (!scaffolderApi?.listTasks) {

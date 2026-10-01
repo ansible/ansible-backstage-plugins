@@ -3,7 +3,6 @@ import {
   discoveryApiRef,
   fetchApiRef,
   useApi,
-  useRouteRef,
 } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
@@ -26,7 +25,7 @@ import EditIcon from '@material-ui/icons/Edit';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { rootRouteRef } from '../../../routes';
+import { useSelfServiceRootLink } from '../../../hooks';
 import { parseEEDefinition } from '../../../utils/eeDefinitionUtils';
 import {
   fetchGitFileContentFromBackend,
@@ -145,7 +144,7 @@ export const EEDetailsPage: React.FC = () => {
   const pageClasses = usePageStyles();
   const { templateName } = useParams<{ templateName: string }>();
   const navigate = useNavigate();
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const [tab, setTab] = useState(0);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
