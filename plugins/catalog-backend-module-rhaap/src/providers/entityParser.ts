@@ -149,10 +149,12 @@ export function userParser(options: {
     finalGroupMemberships.push('group:default/aap-admins');
   }
 
-  const name =
-    user.first_name?.length || user.last_name?.length
-      ? `${user.first_name} ${user.last_name} (${user.username})`
-      : user.username;
+  const displayName = [user.first_name, user.last_name]
+    .filter(Boolean)
+    .join(' ');
+  const name = displayName
+    ? `${displayName} (${user.username})`
+    : user.username;
 
   const annotations: Record<string, string> = {
     [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,

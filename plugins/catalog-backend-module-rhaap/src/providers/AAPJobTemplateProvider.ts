@@ -25,6 +25,7 @@ import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { getEffectiveNamespace, validateNamespace } from '../helpers';
 import type { SignalsService } from '@backstage/plugin-signals-node';
+import { deduplicateCatalogEntities } from './deduplicateCatalogEntities';
 
 export class AAPJobTemplateProvider implements EntityProvider {
   private readonly env: string;
@@ -125,6 +126,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return this.syncState.getLastSyncStatus();
   }
 
+  getLastDuplicateEntityCount(): number {
+    return this.syncState.getLastDuplicateEntityCount();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -214,9 +219,16 @@ export class AAPJobTemplateProvider implements EntityProvider {
         jobTemplateCount++;
       }
 
+      const { entities: uniqueEntities, duplicateEntityCount } =
+        deduplicateCatalogEntities(
+          entities,
+          this.logger,
+          AAPJobTemplateProvider.pluginLogName,
+        );
+
       await this.connection.applyMutation({
         type: 'full',
-        entities: entities.map(entity => ({
+        entities: uniqueEntities.map(entity => ({
           entity,
           locationKey: this.getProviderName(),
         })),
@@ -228,7 +240,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
 
-      this.syncState.markSyncSucceeded();
+      this.syncState.markSyncSucceeded(duplicateEntityCount);
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();

@@ -32,6 +32,7 @@ import { SyncStateTracker } from './SyncStateTracker';
 import type { SignalsService } from '@backstage/plugin-signals-node';
 import { AapConfig } from './types';
 import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import { deduplicateCatalogEntities } from './deduplicateCatalogEntities';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
@@ -126,6 +127,10 @@ export class AAPEntityProvider implements EntityProvider {
 
   getLastSyncStatus(): 'success' | 'failure' | null {
     return this.syncState.getLastSyncStatus();
+  }
+
+  getLastDuplicateEntityCount(): number {
+    return this.syncState.getLastDuplicateEntityCount();
   }
 
   getIsSyncing(): boolean {
@@ -336,38 +341,17 @@ export class AAPEntityProvider implements EntityProvider {
                   }
                 }
 
-                // Team group entities come from the bulk org payload; if a team is
-                // missing there, reference the org group so memberOf stays valid.
+                // Team group entities come from the bulk org payload. A missing
+                // team is a source disagreement, not direct org membership.
                 if (!matched) {
-                  for (const org of orgsDetails) {
-                    if (org.organization.id === team.orgId) {
-                      const orgIdentity = {
-                        multiOrgEnabled: this.multiOrgEnabled,
-                        orgId: org.organization.id,
-                      };
-                      const orgNs = getEffectiveNamespace(
-                        org.organization.name,
-                        this.orgs,
-                        orgIdentity,
-                      );
-                      const orgGroupRef = toOrgGroupRef(
-                        orgNs,
-                        org.organization.name,
-                        org.organization.id,
-                        undefined,
-                        orgIdentity,
-                      );
-                      this.logger.warn(
-                        `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; assigning org group ${orgGroupRef} instead`,
-                      );
-                      userMembers.push(orgGroupRef);
-                      break;
-                    }
-                  }
+                  this.logger.warn(
+                    `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; skipping team membership`,
+                  );
                 }
               }
 
-              // Add org group refs to memberOf (consistent with createSingleUser)
+              // Bulk is_orguser data is the only source for direct org access.
+              // Per-user team results must not promote a missing team to org access.
               for (const org of orgsDetails) {
                 if (
                   org.users?.some(
@@ -524,9 +508,18 @@ export class AAPEntityProvider implements EntityProvider {
       const aapAdminsGroup = this.createAapAdminsGroup(systemUsers);
       entities.push(aapAdminsGroup);
 
+      // AAP can return the same logical entity through multiple organization
+      // or membership paths. Catalog identity is the full kind/namespace/name
+      // tuple, so remove later duplicates before the full mutation.
+      const { entities: uniqueEntities, duplicateEntityCount } =
+        deduplicateCatalogEntities(
+          entities,
+          this.logger,
+          AAPEntityProvider.pluginLogName,
+        );
       await this.connection.applyMutation({
         type: 'full',
-        entities: entities.map(entity => ({
+        entities: uniqueEntities.map(entity => ({
           entity,
           locationKey: this.getProviderName(),
         })),
@@ -543,7 +536,7 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.syncState.markSyncSucceeded();
+      this.syncState.markSyncSucceeded(duplicateEntityCount);
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();
