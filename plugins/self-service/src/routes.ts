@@ -1,8 +1,14 @@
 import { createRouteRef, createSubRouteRef } from '@backstage/core-plugin-api';
 
+/** Public URL prefix for all self-service routes (matches NFS PageBlueprint paths). */
+export const SELF_SERVICE_ROOT_PATH = '/self-service';
+
 export const rootRouteRef = createRouteRef({
   id: 'self-service',
 });
+
+// NFS per-page mounts do not bind the legacy root ref; useSelfServiceRootLink() falls back.
+(rootRouteRef as { optional?: boolean }).optional = true;
 
 export const eeRouteRef = createRouteRef({
   id: 'self-service/ee',

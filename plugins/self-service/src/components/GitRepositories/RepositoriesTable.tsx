@@ -29,7 +29,7 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
@@ -47,7 +47,7 @@ import {
   COLUMN_LAST_SYNC_TOOLTIP,
   PAGE_SIZE,
 } from './constants';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { useLatestCIActivity } from './useLatestCIActivity';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 
@@ -96,7 +96,7 @@ const RepositoriesTableInner = ({
   const classes = useCollectionsStyles();
   const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
 

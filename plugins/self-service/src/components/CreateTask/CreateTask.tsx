@@ -6,7 +6,7 @@ import {
   MarkdownContent,
 } from '@backstage/core-components';
 import { StepForm } from './StepForm';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { TemplateParameterSchema } from '@backstage/plugin-scaffolder-common';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -22,7 +22,7 @@ import {
   makeStyles,
 } from '@material-ui/core';
 import ArrowBack from '@material-ui/icons/ArrowBack';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 
 const headerStyles = makeStyles(theme => ({
   header_title_color: {
@@ -65,7 +65,7 @@ export const CreateTask = () => {
   }>();
   const scaffolderApi = useApi(scaffolderApiRef);
   const catalogApi = useApi(catalogApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
   const location = useLocation();
 
   const [entityTemplate, setEntityTemplate] =

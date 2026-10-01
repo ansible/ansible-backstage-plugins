@@ -11,10 +11,9 @@ import {
 import StarBorder from '@material-ui/icons/StarBorder';
 import Star from '@material-ui/icons/Star';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { useRouteRef } from '@backstage/core-plugin-api';
 
 import { CollectionCardProps } from './types';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { useCollectionsStyles } from './styles';
 import { buildSourceString, formatTimeAgo, getSourceUrl } from './utils';
 import { RepositoryBadge } from './RepositoryBadge';
@@ -27,7 +26,7 @@ export const CollectionCard = ({
   syncStatusMap,
 }: CollectionCardProps) => {
   const classes = useCollectionsStyles();
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   const spec = entity.spec || {};
   const collectionNamespace =

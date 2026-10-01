@@ -7,10 +7,15 @@ import { signalsServiceRef } from '@backstage/plugin-signals-node';
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
 import { createRouter } from './router';
-import {
-  catalogModelExtensionPoint,
-  catalogProcessingExtensionPoint,
-} from '@backstage/plugin-catalog-node/alpha';
+// `catalogProcessingExtensionPoint` graduated from alpha to the stable main
+// entry point (the `/alpha` export is deprecated and forwards to this one).
+// `catalogModelExtensionPoint` has not graduated yet, so it still comes from
+// `/alpha`. Importing the graduated one from `/alpha` resolves to `undefined`
+// on newer @backstage/plugin-catalog-node releases (e.g. RHDH's `next` image),
+// which crashes backend startup with
+// "expected a service reference object, received undefined".
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
