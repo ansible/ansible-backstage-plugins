@@ -115,6 +115,7 @@ describe('authenticator', () => {
     );
 
     expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      host: DEFAULT_HOST,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
       token: 'myRefreshToken',
@@ -149,6 +150,7 @@ describe('authenticator', () => {
     );
 
     expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      host: DEFAULT_HOST,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
       token: 'myAccessToken',
