@@ -72,8 +72,10 @@
     "@types/jest": "^29.5.14",
     "@types/js-yaml": "^4",
     "@types/react": "^18.3.3",
+    "cross-fetch": "^4.1.0",
     "msw": "^1.0.0",
     "react": "^18.3.1",
+    "web-streams-polyfill": "^4.3.0",
     "which": "^5.0.0"
   },
   "files": [

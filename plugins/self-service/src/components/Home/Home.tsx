@@ -23,7 +23,12 @@ import {
   UserListPicker,
   useEntityList,
 } from '@backstage/plugin-catalog-react';
-import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import {
+  templatesViewPermission,
+  type ConflictDetail,
+  formatConflictForDisplay,
+} from '@ansible/backstage-rhaap-common';
+// permissions path import removed to use barrel export
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
@@ -80,20 +85,6 @@ function displayNameForAapSyncProvider(provider: string): string {
   return provider.startsWith('aap-job-template')
     ? 'Job Templates'
     : 'Organizations, Users, and Teams';
-}
-
-type ConflictDetail = {
-  key: string;
-  firstAapIds: string;
-  duplicateAapIds: string;
-};
-
-function formatConflictForDisplay(conflict: ConflictDetail): string {
-  // Extract kind and name from key (e.g., "Group:default/engineering" -> "Group 'engineering'")
-  const match = conflict.key.match(/^([^:]+):[^/]+\/(.+)$/);
-  if (!match) return conflict.key;
-  const [, kind, name] = match;
-  return `${kind} '${name}'`;
 }
 
 const HomeCatalogProvider = ({
