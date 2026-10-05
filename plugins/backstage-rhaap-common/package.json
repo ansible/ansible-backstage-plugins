@@ -16,6 +16,7 @@
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
     "./permissions": "./src/permissions.ts",
+    "./catalog-sync": "./src/types/catalog-sync.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {

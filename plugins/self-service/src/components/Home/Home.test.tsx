@@ -18,6 +18,17 @@ import { ansibleApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
 import { mockAnsibleApi } from '../../tests/mockAnsibleApi';
 
+// Mock @ansible/backstage-rhaap-common to avoid loading AAPClient (which uses undici/fetch)
+jest.mock('@ansible/backstage-rhaap-common', () => ({
+  ...jest.requireActual('@ansible/backstage-rhaap-common/permissions'),
+  formatConflictForDisplay: jest.fn((conflict: any) => {
+    const match = conflict.key.match(/^([^:]+):[^/]+\/(.+)$/);
+    if (!match) return conflict.key;
+    const [, kind, name] = match;
+    return `${kind} '${name}'`;
+  }),
+}));
+
 const mockUseIsSuperuser = jest.fn(() => ({
   isSuperuser: true,
   loading: false,

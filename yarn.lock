@@ -336,12 +336,10 @@ __metadata:
     "@types/js-yaml": "npm:^4"
     "@types/react": "npm:^18.3.3"
     clsx: "npm:^2.1.1"
-    cross-fetch: "npm:^4.1.0"
     js-yaml: "npm:^4.3.0"
     msw: "npm:^1.0.0"
     react: "npm:^18.3.1"
     react-use: "npm:^17.2.4"
-    web-streams-polyfill: "npm:^4.3.0"
     which: "npm:^5.0.0"
   peerDependencies:
     react: ^18.3.1
@@ -44026,13 +44024,6 @@ __metadata:
   version: 4.1.0
   resolution: "web-streams-polyfill@npm:4.1.0"
   checksum: 10c0/1022a7d13f0994002c1fa65f53576d85ea76ec59f8ffb3413f052dfcc0ca656bbcbe2611a35180b14f9bca6f3fe83802028b641ec9d200362797c99fa3e68e4e
-  languageName: node
-  linkType: hard
-
-"web-streams-polyfill@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "web-streams-polyfill@npm:4.3.0"
-  checksum: 10c0/b00df8bc814e2a9dcb4b7e80972ff7b0a18415bc3ba58eb1fb94aacc912df936a8f2465ab1e8c548e37ea4e5c9ce1898b407f962e9782ee7ae2dca2396cccd6e
   languageName: node
   linkType: hard
 

@@ -23,12 +23,11 @@ import {
   UserListPicker,
   useEntityList,
 } from '@backstage/plugin-catalog-react';
+import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import {
-  templatesViewPermission,
   type ConflictDetail,
   formatConflictForDisplay,
-} from '@ansible/backstage-rhaap-common';
-// permissions path import removed to use barrel export
+} from '@ansible/backstage-rhaap-common/catalog-sync';
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
