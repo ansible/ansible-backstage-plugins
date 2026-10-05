@@ -134,6 +134,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return this.syncState.getLastMissingOrganizations();
   }
 
+  getLastConflicts() {
+    return this.syncState.getLastConflicts();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -223,12 +227,15 @@ export class AAPJobTemplateProvider implements EntityProvider {
         jobTemplateCount++;
       }
 
-      const { entities: uniqueEntities, duplicateEntityCount } =
-        deduplicateCatalogEntities(
-          entities,
-          this.logger,
-          AAPJobTemplateProvider.pluginLogName,
-        );
+      const {
+        entities: uniqueEntities,
+        duplicateEntityCount,
+        conflicts,
+      } = deduplicateCatalogEntities(
+        entities,
+        this.logger,
+        AAPJobTemplateProvider.pluginLogName,
+      );
 
       await this.connection.applyMutation({
         type: 'full',
@@ -244,7 +251,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
 
-      this.syncState.markSyncSucceeded({ duplicateEntityCount });
+      this.syncState.markSyncSucceeded({ duplicateEntityCount, conflicts });
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();

@@ -138,6 +138,10 @@ export class AAPEntityProvider implements EntityProvider {
     return this.syncState.getLastMissingOrganizations();
   }
 
+  getLastConflicts() {
+    return this.syncState.getLastConflicts();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -522,12 +526,15 @@ export class AAPEntityProvider implements EntityProvider {
       // AAP can return the same logical entity through multiple organization
       // or membership paths. Catalog identity is the full kind/namespace/name
       // tuple, so remove later duplicates before the full mutation.
-      const { entities: uniqueEntities, duplicateEntityCount } =
-        deduplicateCatalogEntities(
-          entities,
-          this.logger,
-          AAPEntityProvider.pluginLogName,
-        );
+      const {
+        entities: uniqueEntities,
+        duplicateEntityCount,
+        conflicts,
+      } = deduplicateCatalogEntities(
+        entities,
+        this.logger,
+        AAPEntityProvider.pluginLogName,
+      );
       await this.connection.applyMutation({
         type: 'full',
         entities: uniqueEntities.map(entity => ({
@@ -550,6 +557,7 @@ export class AAPEntityProvider implements EntityProvider {
       this.syncState.markSyncSucceeded({
         duplicateEntityCount,
         missingOrganizations,
+        conflicts,
       });
       return true;
     } catch (e) {

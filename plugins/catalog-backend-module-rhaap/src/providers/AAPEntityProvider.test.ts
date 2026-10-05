@@ -618,16 +618,11 @@ describe('AAPEntityProvider', () => {
         'Group:default/aap-admins',
       ]);
       expect(childLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Skipped 2 duplicate catalog entity keys'),
+        expect.stringMatching(
+          /Skipped 2 duplicate catalog entity keys.*Group:default\/default/s,
+        ),
       );
-      expect(childLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Duplicate catalog entity details'),
-        expect.objectContaining({
-          conflicts: expect.arrayContaining([
-            expect.stringContaining('Group:default/default'),
-          ]),
-        }),
-      );
+      expect(childLogger.debug).not.toHaveBeenCalled();
       expect(provider.getLastDuplicateEntityCount()).toBe(2);
     });
   });

@@ -35,6 +35,10 @@ describe('SyncStateTracker', () => {
       expect(tracker.getLastMissingOrganizations()).toEqual([]);
     });
 
+    it('should have empty conflicts', () => {
+      expect(tracker.getLastConflicts()).toEqual([]);
+    });
+
     it('should not be syncing', () => {
       expect(tracker.getIsSyncing()).toBe(false);
     });
@@ -77,6 +81,44 @@ describe('SyncStateTracker', () => {
 
       expect(tracker.getLastDuplicateEntityCount()).toBe(2);
       expect(tracker.getLastMissingOrganizations()).toEqual(['Engineering']);
+    });
+
+    it('should record conflicts from details object', () => {
+      tracker.markSyncStarted();
+      tracker.markSyncSucceeded({
+        duplicateEntityCount: 2,
+        conflicts: [
+          {
+            key: 'Group:default/engineering',
+            firstAapIds: 'ansible.com/aap-organization-id=1',
+            duplicateAapIds: 'ansible.com/aap-team-id=42',
+          },
+        ],
+      });
+
+      expect(tracker.getLastDuplicateEntityCount()).toBe(2);
+      expect(tracker.getLastConflicts()).toEqual([
+        {
+          key: 'Group:default/engineering',
+          firstAapIds: 'ansible.com/aap-organization-id=1',
+          duplicateAapIds: 'ansible.com/aap-team-id=42',
+        },
+      ]);
+    });
+
+    it('should clear conflicts on next sync start', () => {
+      tracker.markSyncSucceeded({
+        conflicts: [
+          {
+            key: 'Group:default/ops',
+            firstAapIds: 'ansible.com/aap-organization-id=2',
+            duplicateAapIds: 'ansible.com/aap-team-id=99',
+          },
+        ],
+      });
+      tracker.markSyncStarted();
+
+      expect(tracker.getLastConflicts()).toEqual([]);
     });
 
     it('should clear missing organizations on next sync start', () => {
@@ -167,6 +209,13 @@ describe('SyncStateTracker', () => {
       tracker.markSyncSucceeded({
         duplicateEntityCount: 3,
         missingOrganizations: ['Engineering'],
+        conflicts: [
+          {
+            key: 'Group:default/engineering',
+            firstAapIds: 'ansible.com/aap-organization-id=1',
+            duplicateAapIds: 'ansible.com/aap-team-id=42',
+          },
+        ],
       });
 
       expect(mockSignals.publish).toHaveBeenCalledWith(
@@ -177,6 +226,13 @@ describe('SyncStateTracker', () => {
             lastSyncTime: '2025-06-01T12:00:00.000Z',
             lastDuplicateEntityCount: 3,
             lastMissingOrganizations: ['Engineering'],
+            lastConflicts: [
+              {
+                key: 'Group:default/engineering',
+                firstAapIds: 'ansible.com/aap-organization-id=1',
+                duplicateAapIds: 'ansible.com/aap-team-id=42',
+              },
+            ],
           }),
         }),
       );

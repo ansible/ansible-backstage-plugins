@@ -4,6 +4,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { isError } from '@backstage/errors';
 import type { SignalsService } from '@backstage/plugin-signals-node';
+import type { ConflictDetail } from './deduplicateCatalogEntities';
 
 export const SYNC_SIGNAL_CHANNEL = 'catalog:aap-sync-status';
 
@@ -12,6 +13,7 @@ export type SyncStatus = 'success' | 'failure' | null;
 export type SyncSuccessDetails = {
   duplicateEntityCount?: number;
   missingOrganizations?: string[];
+  conflicts?: ConflictDetail[];
 };
 
 export class SyncStateTracker {
@@ -22,6 +24,8 @@ export class SyncStateTracker {
   private lastDuplicateEntityCount = 0;
   // Configured org names that were not present in AAP during most recent sync.
   private lastMissingOrganizations: string[] = [];
+  // Duplicate entity conflict details from most recent sync.
+  private lastConflicts: ConflictDetail[] = [];
   private isSyncing = false;
   private taskId: string | undefined;
   private signals?: SignalsService;
@@ -44,6 +48,7 @@ export class SyncStateTracker {
           lastSyncStatus: this.lastSyncStatus,
           lastDuplicateEntityCount: this.lastDuplicateEntityCount,
           lastMissingOrganizations: this.lastMissingOrganizations,
+          lastConflicts: this.lastConflicts,
           lastFailedSyncTime: this.lastFailedSyncTime,
         },
       })
@@ -70,6 +75,10 @@ export class SyncStateTracker {
     return this.lastMissingOrganizations;
   }
 
+  getLastConflicts(): ConflictDetail[] {
+    return this.lastConflicts;
+  }
+
   getIsSyncing(): boolean {
     return this.isSyncing;
   }
@@ -81,16 +90,18 @@ export class SyncStateTracker {
   markSyncStarted(): void {
     this.lastDuplicateEntityCount = 0;
     this.lastMissingOrganizations = [];
+    this.lastConflicts = [];
     this.isSyncing = true;
     this.publishSyncSignal(true);
   }
 
-  // Preserve duplicate / missing-org details so consumers can surface them.
+  // Preserve duplicate / missing-org / conflict details so consumers can surface them.
   markSyncSucceeded(details: SyncSuccessDetails | number = {}): void {
     const options: SyncSuccessDetails =
       typeof details === 'number' ? { duplicateEntityCount: details } : details;
     this.lastDuplicateEntityCount = options.duplicateEntityCount ?? 0;
     this.lastMissingOrganizations = [...(options.missingOrganizations ?? [])];
+    this.lastConflicts = [...(options.conflicts ?? [])];
     this.lastSyncTime = new Date().toISOString();
     this.lastSyncStatus = 'success';
     this.isSyncing = false;
