@@ -4,6 +4,7 @@ import {
   catalogFetch,
   discoverOrgGroups,
   discoverOrgNamespaces,
+  findCatalogUserByAapUsername,
 } from '../../utils/backstage-api';
 
 /**
@@ -30,15 +31,24 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
     'Should discover at least one org namespace',
   ).toBeGreaterThan(0);
 
+  const adminEntity = await findCatalogUserByAapUsername(
+    page,
+    token,
+    ADMIN_USERNAME,
+  );
+  expect(
+    adminEntity,
+    'Admin user entity should exist in catalog',
+  ).toBeDefined();
   const adminResult = await catalogFetch(
     page,
-    `/entities/by-name/user/default/${ADMIN_USERNAME}`,
+    `/entities/by-name/user/default/${adminEntity.metadata.name}`,
     token,
   );
   expect(adminResult.ok, 'Admin user entity should exist in catalog').toBe(
     true,
   );
-  expect(adminResult.body.metadata?.name).toBe(ADMIN_USERNAME);
+  expect(adminResult.body.metadata?.name).toMatch(/^aap-user-\d+$/);
 
   const memberOf = adminResult.body.relations?.filter(
     (r: any) => r.type === 'memberOf',
