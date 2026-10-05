@@ -130,6 +130,10 @@ export class AAPJobTemplateProvider implements EntityProvider {
     return this.syncState.getLastDuplicateEntityCount();
   }
 
+  getLastMissingOrganizations(): string[] {
+    return this.syncState.getLastMissingOrganizations();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -240,7 +244,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${jobTemplateCount} job templates added.`,
       );
 
-      this.syncState.markSyncSucceeded(duplicateEntityCount);
+      this.syncState.markSyncSucceeded({ duplicateEntityCount });
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();

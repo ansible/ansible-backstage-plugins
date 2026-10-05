@@ -503,6 +503,67 @@ describe('AAPEntityProvider', () => {
     });
   });
 
+  describe('missing configured organizations', () => {
+    it('records missing org names when AAP omits a configured org', async () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: {
+              development: {
+                multiOrgEnabled: true,
+                orgs: 'Default, Engineering',
+                sync: {
+                  orgsUsersTeams: {
+                    schedule: {
+                      frequency: 'P1M',
+                      timeout: 'PT3M',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      });
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+      const connection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+      await provider.connect(connection);
+      await provider.run();
+
+      expect(provider.getLastMissingOrganizations()).toEqual(['engineering']);
+      expect(provider.getLastSyncStatus()).toBe('success');
+    });
+  });
+
   describe('duplicate catalog entity keys', () => {
     it('warns and keeps the first entity before applying the full mutation', async () => {
       const config = new ConfigReader(MOCK_CONFIG.data);

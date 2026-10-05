@@ -2667,6 +2667,69 @@ describe('AAPClient', () => {
         expect(result).toHaveLength(1);
       });
 
+      it('warns when a configured multi-org name is missing from AAP', async () => {
+        const mockMultiOrgConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg1,TestOrg2';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg1', 'TestOrg2'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest
+                  .fn()
+                  .mockImplementation((path: string) => {
+                    if (path === 'multiOrgEnabled') {
+                      return true;
+                    }
+                    return false;
+                  }),
+                getOptionalStringArray: jest.fn().mockReturnValue([]),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const multiOrgClient = new AAPClient({
+          rootConfig: {
+            ...mockConfig,
+            getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+              if (path === 'catalog.providers.rhaap') {
+                return mockMultiOrgConfig;
+              }
+              return mockConfig.getOptionalConfig(path);
+            }),
+          },
+          logger: mockLogger,
+        });
+
+        jest
+          .spyOn(multiOrgClient as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce([
+            {
+              id: 1,
+              name: 'TestOrg1',
+              namespace: 'testorg1',
+            },
+          ]);
+
+        const result = await multiOrgClient.getOrganizations(false);
+        expect(result).toHaveLength(1);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          "Configured organization 'testorg2' not found in AAP; entities for that org will not sync",
+        );
+      });
+
       it('should handle errors when fetching organization details', async () => {
         jest
           .spyOn(client as any, 'executeCatalogRequest')

@@ -115,3 +115,19 @@ export function resolveActiveOrganizations(config: Config): string[] {
   const multiOrgEnabled = config.getOptionalBoolean('multiOrgEnabled') ?? false;
   return multiOrgEnabled ? allOrgs : [allOrgs[0]];
 }
+
+/**
+ * Returns configured organization names that are absent from the AAP payload.
+ * Comparison is case-insensitive; returned names keep the configured spelling.
+ */
+export function findMissingConfiguredOrganizations(
+  configuredOrganizations: string[],
+  fetchedOrganizationNames: string[],
+): string[] {
+  const found = new Set(
+    fetchedOrganizationNames.map(name => name.toLowerCase()),
+  );
+  return configuredOrganizations.filter(
+    orgName => !found.has(orgName.toLowerCase()),
+  );
+}

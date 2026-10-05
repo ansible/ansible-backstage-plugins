@@ -5,6 +5,8 @@ export const SYNC_COMPLETED_CATEGORY = 'sync-completed';
 export const SYNC_FAILED_CATEGORY = 'sync-failed';
 /** Tracked sync ended without a clear success/failure from the catalog. */
 export const SYNC_FINISHED_CATEGORY = 'sync-finished';
+/** Sync succeeded but reported warnings (duplicates, missing orgs). */
+export const SYNC_WARNING_CATEGORY = 'sync-warning';
 
 export const FAST_POLL_INTERVAL_MS = 3000;
 export const SLOW_POLL_INTERVAL_MS = 15000;
