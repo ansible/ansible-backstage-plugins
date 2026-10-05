@@ -2,6 +2,7 @@ import { test, expect } from '../../fixtures/auth-context';
 import {
   getBackstageToken,
   catalogFetch,
+  discoverOrgGroups,
   discoverOrgNamespaces,
 } from '../../utils/backstage-api';
 
@@ -62,13 +63,20 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   }
 
   // --- Org group entities (always runs for all discovered orgs) ---
-  for (const orgName of orgNamespaces) {
+  const orgGroups = await discoverOrgGroups(page, token);
+  expect(
+    orgGroups.length,
+    'Should discover at least one org group entity',
+  ).toBeGreaterThan(0);
+
+  for (const orgGroup of orgGroups) {
+    const orgRef = `${orgGroup.namespace}/${orgGroup.name}`;
     const orgResult = await catalogFetch(
       page,
-      `/entities/by-name/group/${orgName}/${orgName}`,
+      `/entities/by-name/group/${orgGroup.namespace}/${orgGroup.name}`,
       token,
     );
-    expect(orgResult.ok, `Org '${orgName}' should exist`).toBe(true);
+    expect(orgResult.ok, `Org '${orgRef}' should exist`).toBe(true);
     const org = orgResult.body;
     expect(org.spec?.type).toBe('organization');
     expect(org.kind).toBe('Group');
@@ -76,12 +84,12 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
     const childCount = org.spec?.children?.length ?? 0;
     expect(
       Array.isArray(org.spec?.children),
-      `${orgName} should have a children array`,
+      `${orgRef} should have a children array`,
     ).toBe(true);
 
     if (childCount === 0) {
       console.log(
-        `[Multi-Org] Org '${orgName}' has no child teams (valid for minimal seeding profiles)`,
+        `[Multi-Org] Org '${orgRef}' has no child teams (valid for minimal seeding profiles)`,
       );
     }
   }
