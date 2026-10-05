@@ -14,6 +14,10 @@ Ansible plugins for Red Hat Developer Hub (RHDH) / Backstage. A monorepo of plug
 ./install-deps          # Install all dependencies (run first); includes pre-commit CLI for git hooks
 ```
 
+### Node.js
+
+Plugins in this repo are **tested against Node 22 and Node 24** (see `engines` in root `package.json`). Use the same Node version for `yarn install`, native addons (e.g. `better-sqlite3`), and `yarn test` / `yarn test:all`. If supported or tested Node versions change, update **this file** and `package.json` `engines` together.
+
 ### Build & Run
 
 ```bash
@@ -138,7 +142,7 @@ Plugins support deployment as dynamic plugins in RHDH. Each plugin has a `dist-d
 
 ## Key Conventions
 
-- Node.js 20 or 22, Yarn 4 (via Corepack), TypeScript ~5.8, Backstage ^0.33.1
+- Node.js 22 or 24, Yarn 4 (via Corepack), TypeScript ~5.8, Backstage ^0.33.1
 - Tests co-located with source files (`.test.ts` / `.test.tsx`), mock data in `mock/` directories
 - Uses `msw` for API mocking in tests, `supertest` for backend route testing
 - Pre-commit hooks (`.pre-commit-config.yaml`): `./install-deps` installs the pre-commit CLI; Husky runs `pre-commit` on commit (ESLint, Prettier, gitleaks, and file checks)

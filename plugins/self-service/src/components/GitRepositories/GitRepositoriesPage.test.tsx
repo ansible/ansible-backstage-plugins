@@ -24,6 +24,7 @@ const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
 });
 
 jest.mock('../../hooks', () => ({
+  ...jest.requireActual('../../hooks'),
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,
