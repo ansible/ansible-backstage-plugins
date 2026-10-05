@@ -2,6 +2,7 @@ import { test, expect } from '../../fixtures/auth-context';
 import {
   getBackstageToken,
   catalogFetch,
+  discoverOrgGroups,
   discoverOrgNamespaces,
   findCatalogUserByAapUsername,
 } from '../../utils/backstage-api';
@@ -74,22 +75,22 @@ test('Multi-Org UI: admin user entity page', async ({ page }) => {
 
 test('Multi-Org UI: org group entity pages', async ({ page }) => {
   const token = await getBackstageToken(page);
-  const orgNamespaces = await discoverOrgNamespaces(page, token);
+  const orgGroups = await discoverOrgGroups(page, token);
   expect(
-    orgNamespaces.length,
-    'Should discover at least one org namespace',
+    orgGroups.length,
+    'Should discover at least one org group entity',
   ).toBeGreaterThan(0);
 
-  for (const orgSlug of orgNamespaces) {
+  for (const orgGroup of orgGroups) {
+    const orgRef = `${orgGroup.namespace}/${orgGroup.name}`;
     const result = await catalogFetch(
       page,
-      `/entities/by-name/group/${orgSlug}/${orgSlug}`,
+      `/entities/by-name/group/${orgGroup.namespace}/${orgGroup.name}`,
       token,
     );
-    expect(
-      result.ok,
-      `Org group entity should exist for namespace "${orgSlug}"`,
-    ).toBe(true);
+    expect(result.ok, `Org group entity should exist for "${orgRef}"`).toBe(
+      true,
+    );
     expect(result.body.spec?.type).toBe('organization');
   }
 });
@@ -111,7 +112,7 @@ test('Multi-Org UI: catalog lists org group entities', async ({ page }) => {
 
   const groups: any[] = Array.isArray(result.body)
     ? result.body
-    : result.body?.items ?? [];
+    : (result.body?.items ?? []);
   const groupNamespaces = new Set(
     groups.map((g: any) => g.metadata?.namespace),
   );
