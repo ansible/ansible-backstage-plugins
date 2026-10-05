@@ -19,6 +19,7 @@ import {
   Users,
   Team,
   Organization,
+  findMissingConfiguredOrganizations,
 } from '@ansible/backstage-rhaap-common';
 import {
   toOrgEntityName,
@@ -135,6 +136,10 @@ export class AAPEntityProvider implements EntityProvider {
     return this.syncState.getLastDuplicateEntityCount();
   }
 
+  getLastMissingOrganizations(): string[] {
+    return this.syncState.getLastMissingOrganizations();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -166,6 +171,7 @@ export class AAPEntityProvider implements EntityProvider {
         teams: Team[];
         users: User[];
       }> = [];
+      let missingOrganizations: string[] = [];
 
       let error = false;
       try {
@@ -183,6 +189,11 @@ export class AAPEntityProvider implements EntityProvider {
           `[${AAPEntityProvider.pluginLogName}]: Matched ${
             orgsDetails.length
           } configured organizations (configured: ${this.orgs.join(', ')}).`,
+        );
+
+        missingOrganizations = findMissingConfiguredOrganizations(
+          this.orgs,
+          allOrgsDetails.map(org => org.organization.name),
         );
       } catch (e: any) {
         this.logger.error(
@@ -538,7 +549,10 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.syncState.markSyncSucceeded(duplicateEntityCount);
+      this.syncState.markSyncSucceeded({
+        duplicateEntityCount,
+        missingOrganizations,
+      });
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();
