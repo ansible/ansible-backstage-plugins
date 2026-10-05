@@ -157,6 +157,8 @@ describe('createRouter', () => {
       getLastSyncTime: jest.fn(),
       getLastFailedSyncTime: jest.fn().mockReturnValue(null),
       getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getLastDuplicateEntityCount: jest.fn().mockReturnValue(0),
+      getLastMissingOrganizations: jest.fn().mockReturnValue([]),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AapEntityProvider:test:run'),
     } as unknown as jest.Mocked<AAPEntityProvider>;
@@ -168,6 +170,8 @@ describe('createRouter', () => {
       getLastSyncTime: jest.fn(),
       getLastFailedSyncTime: jest.fn().mockReturnValue(null),
       getLastSyncStatus: jest.fn().mockReturnValue(null),
+      getLastDuplicateEntityCount: jest.fn().mockReturnValue(0),
+      getLastMissingOrganizations: jest.fn().mockReturnValue([]),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
@@ -2824,12 +2828,16 @@ describe('createRouter', () => {
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
         },
         content: {
@@ -2873,15 +2881,47 @@ describe('createRouter', () => {
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
         },
       });
+    });
+
+    it('should include duplicate catalog key and missing-org counts in aap status', async () => {
+      mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T10:00:00Z',
+      );
+      mockAAPEntityProvider.getLastDuplicateEntityCount.mockReturnValue(2);
+      mockAAPEntityProvider.getLastMissingOrganizations.mockReturnValue([
+        'engineering',
+      ]);
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T11:00:00Z',
+      );
+      mockJobTemplateProvider.getLastDuplicateEntityCount.mockReturnValue(1);
+
+      const response = await request(app).get(
+        '/ansible/sync/status?aap_entities=true',
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.aap.orgsUsersTeams.lastDuplicateEntityCount).toBe(2);
+      expect(response.body.aap.orgsUsersTeams.lastMissingOrganizations).toEqual(
+        ['engineering'],
+      );
+      expect(response.body.aap.jobTemplates.lastDuplicateEntityCount).toBe(1);
+      expect(response.body.aap.jobTemplates.lastMissingOrganizations).toEqual(
+        [],
+      );
     });
 
     it('should return only content status when ansible_contents=true', async () => {
@@ -2950,12 +2990,16 @@ describe('createRouter', () => {
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
             syncInProgress: false,
             lastFailedSyncTime: null,
             lastSyncStatus: null,
+            lastDuplicateEntityCount: 0,
+            lastMissingOrganizations: [],
           },
         },
         content: {
