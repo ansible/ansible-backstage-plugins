@@ -108,3 +108,6 @@ deploy/
 
 # Jest stderr and console output captured by yarn test
 test-console.log
+
+# Module Federation build artifacts
+**/.mf/
