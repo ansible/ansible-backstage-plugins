@@ -4,7 +4,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { isError } from '@backstage/errors';
 import type { SignalsService } from '@backstage/plugin-signals-node';
-import type { ConflictDetail } from './deduplicateCatalogEntities';
+import type { ConflictDetail } from '@ansible/backstage-rhaap-common';
 
 export const SYNC_SIGNAL_CHANNEL = 'catalog:aap-sync-status';
 

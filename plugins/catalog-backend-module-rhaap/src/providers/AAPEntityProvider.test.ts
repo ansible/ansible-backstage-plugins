@@ -619,7 +619,7 @@ describe('AAPEntityProvider', () => {
       ]);
       expect(childLogger.warn).toHaveBeenCalledWith(
         expect.stringMatching(
-          /Skipped 2 duplicate catalog entity keys.*Group:default\/default/s,
+          /Skipped 2 duplicate catalog entity keys.*Group 'default'/s,
         ),
       );
       expect(childLogger.debug).not.toHaveBeenCalled();

@@ -34,7 +34,7 @@ describe('deduplicateCatalogEntities', () => {
     });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringMatching(
-        /Skipped 1 duplicate catalog entity keys.*Template:default\/hello-world: first\(ansible\.com\/aap-job-template-id=101\) duplicate\(ansible\.com\/aap-job-template-id=102\)/s,
+        /Skipped 1 duplicate catalog entity keys.*Template 'hello-world': first\(ansible\.com\/aap-job-template-id=101\) duplicate\(ansible\.com\/aap-job-template-id=102\)/s,
       ),
     );
     expect(logger.debug).not.toHaveBeenCalled();

@@ -32,13 +32,13 @@ import {
   catalogEntityDeletePermission,
   catalogEntityReadPermission,
 } from '@backstage/plugin-catalog-common/alpha';
-import type { ConflictDetail } from './providers/deduplicateCatalogEntities';
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
+  type ConflictDetail,
 } from '@ansible/backstage-rhaap-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';

@@ -1,11 +1,9 @@
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type { Entity } from '@backstage/catalog-model';
-
-export type ConflictDetail = {
-  key: string;
-  firstAapIds: string;
-  duplicateAapIds: string;
-};
+import {
+  type ConflictDetail,
+  formatConflictForDisplay,
+} from '@ansible/backstage-rhaap-common';
 
 /**
  * Keep the first entity for each catalog identity and warn about conflicts.
@@ -61,7 +59,7 @@ export function deduplicateCatalogEntities(
     const conflictList = conflicts
       .map(
         c =>
-          `  ${c.key}: first(${c.firstAapIds}) duplicate(${c.duplicateAapIds})`,
+          `  ${formatConflictForDisplay(c)}: first(${c.firstAapIds}) duplicate(${c.duplicateAapIds})`,
       )
       .join('\n');
     const truncationNote =
