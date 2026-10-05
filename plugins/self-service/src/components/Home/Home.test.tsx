@@ -59,6 +59,11 @@ const mockSyncSignal: {
     lastFailedSyncTime: string | null;
     lastDuplicateEntityCount?: number;
     lastMissingOrganizations?: string[];
+    lastConflicts?: Array<{
+      key: string;
+      firstAapIds: string;
+      duplicateAapIds: string;
+    }>;
   } | null;
 } = { lastSignal: null };
 jest.mock('@backstage/plugin-signals-react', () => ({
@@ -1871,6 +1876,157 @@ describe('sync progress tooltip', () => {
     });
 
     mockSyncSignal.lastSignal = null;
+  });
+
+  describe('sync conflict rendering', () => {
+    beforeEach(() => {
+      mockCatalogApi.getEntityFacets.mockResolvedValue({
+        facets: {
+          'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
+          'metadata.tags': [],
+          'spec.type': [{ value: 'service', count: 1 }],
+        },
+      });
+    });
+
+    it('should render conflict details in human-readable form', async () => {
+      mockSyncSignal.lastSignal = {
+        provider: 'aap-entity:development',
+        syncInProgress: false,
+        lastSyncTime: '2026-01-01T00:00:00Z',
+        lastSyncStatus: 'success',
+        lastFailedSyncTime: null,
+        lastDuplicateEntityCount: 2,
+        lastMissingOrganizations: [],
+        lastConflicts: [
+          {
+            key: 'Group:default/engineering',
+            firstAapIds: 'ansible.com/aap-organization-id=1',
+            duplicateAapIds: 'ansible.com/aap-team-id=42',
+          },
+          {
+            key: 'User:default/admin',
+            firstAapIds: 'ansible.com/aap-user-id=10',
+            duplicateAapIds: 'ansible.com/aap-user-id=20',
+          },
+        ],
+      };
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Sync warning',
+            severity: 'warning',
+            description: expect.stringMatching(
+              /Group 'engineering'.*User 'admin'/s,
+            ),
+          }),
+        );
+      });
+
+      mockSyncSignal.lastSignal = null;
+    });
+
+    it('should render at most 5 conflicts when more exist', async () => {
+      const conflicts = Array.from({ length: 10 }, (_, i) => ({
+        key: `Group:default/team-${i}`,
+        firstAapIds: `ansible.com/aap-organization-id=${i}`,
+        duplicateAapIds: `ansible.com/aap-team-id=${i + 100}`,
+      }));
+
+      mockSyncSignal.lastSignal = {
+        provider: 'aap-entity:development',
+        syncInProgress: false,
+        lastSyncTime: '2026-01-01T00:00:00Z',
+        lastSyncStatus: 'success',
+        lastFailedSyncTime: null,
+        lastDuplicateEntityCount: 10,
+        lastMissingOrganizations: [],
+        lastConflicts: conflicts,
+      };
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        const call = mockShowNotification.mock.calls.find((c: any) =>
+          c[0]?.description?.includes('Duplicate catalog keys'),
+        );
+        expect(call).toBeDefined();
+        const description = call[0].description;
+        const renderedConflicts = description.match(/Group 'team-\d+'/g);
+        expect(renderedConflicts).toHaveLength(5);
+      });
+
+      mockSyncSignal.lastSignal = null;
+    });
+
+    it('should show total count and log reference when truncated', async () => {
+      const conflicts = Array.from({ length: 8 }, (_, i) => ({
+        key: `Group:default/team-${i}`,
+        firstAapIds: `ansible.com/aap-organization-id=${i}`,
+        duplicateAapIds: `ansible.com/aap-team-id=${i + 100}`,
+      }));
+
+      mockSyncSignal.lastSignal = {
+        provider: 'aap-entity:development',
+        syncInProgress: false,
+        lastSyncTime: '2026-01-01T00:00:00Z',
+        lastSyncStatus: 'success',
+        lastFailedSyncTime: null,
+        lastDuplicateEntityCount: 8,
+        lastMissingOrganizations: [],
+        lastConflicts: conflicts,
+      };
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Sync warning',
+            severity: 'warning',
+            description: expect.stringMatching(
+              /total 8.*refer to logs for more details/is,
+            ),
+          }),
+        );
+      });
+
+      mockSyncSignal.lastSignal = null;
+    });
+
+    it('should not render conflict details when zero conflicts', async () => {
+      mockSyncSignal.lastSignal = {
+        provider: 'aap-entity:development',
+        syncInProgress: false,
+        lastSyncTime: '2026-01-01T00:00:00Z',
+        lastSyncStatus: 'success',
+        lastFailedSyncTime: null,
+        lastDuplicateEntityCount: 0,
+        lastMissingOrganizations: [],
+        lastConflicts: [],
+      };
+
+      await render(<HomeComponent />);
+
+      await waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Sync completed',
+            severity: 'success',
+          }),
+        );
+        expect(mockShowNotification).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            description: expect.stringContaining('Duplicate'),
+          }),
+        );
+      });
+
+      mockSyncSignal.lastSignal = null;
+    });
   });
 });
 
