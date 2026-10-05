@@ -82,6 +82,20 @@ function displayNameForAapSyncProvider(provider: string): string {
     : 'Organizations, Users, and Teams';
 }
 
+type ConflictDetail = {
+  key: string;
+  firstAapIds: string;
+  duplicateAapIds: string;
+};
+
+function formatConflictForDisplay(conflict: ConflictDetail): string {
+  // Extract kind and name from key (e.g., "Group:default/engineering" -> "Group 'engineering'")
+  const match = conflict.key.match(/^([^:]+):[^/]+\/(.+)$/);
+  if (!match) return conflict.key;
+  const [, kind, name] = match;
+  return `${kind} '${name}'`;
+}
+
 const HomeCatalogProvider = ({
   children,
   jobTemplateIds,
@@ -378,6 +392,7 @@ export const HomeComponent = () => {
     lastFailedSyncTime: string | null;
     lastDuplicateEntityCount?: number;
     lastMissingOrganizations?: string[];
+    lastConflicts?: ConflictDetail[];
   }>('catalog:aap-sync-status');
 
   useEffect(() => {
@@ -403,6 +418,7 @@ export const HomeComponent = () => {
     }
 
     const displayName = displayNameForAapSyncProvider(syncSignal.provider);
+    const conflicts = syncSignal.lastConflicts ?? [];
     const outcomeKey = [
       syncSignal.provider,
       syncSignal.lastSyncTime ?? '',
@@ -410,6 +426,7 @@ export const HomeComponent = () => {
       syncSignal.lastSyncStatus ?? '',
       String(syncSignal.lastDuplicateEntityCount ?? 0),
       (syncSignal.lastMissingOrganizations ?? []).join(','),
+      conflicts.map(c => c.key).join(','),
     ].join('|');
     if (notifiedSyncOutcomesRef.current.has(outcomeKey)) {
       return;
@@ -419,9 +436,27 @@ export const HomeComponent = () => {
     if (syncSignal.lastSyncStatus === 'success') {
       const duplicateCount = syncSignal.lastDuplicateEntityCount ?? 0;
       const missingOrgs = syncSignal.lastMissingOrganizations ?? [];
-      const hasWarnings = duplicateCount > 0 || missingOrgs.length > 0;
+      const hasWarnings =
+        duplicateCount > 0 || missingOrgs.length > 0 || conflicts.length > 0;
 
-      if (duplicateCount > 0) {
+      if (duplicateCount > 0 && conflicts.length > 0) {
+        const displayedConflicts = conflicts.slice(0, 5);
+        const remainingCount = duplicateCount - displayedConflicts.length;
+        const conflictList = displayedConflicts
+          .map(formatConflictForDisplay)
+          .join(', ');
+        const suffix =
+          remainingCount > 0
+            ? ` (total ${duplicateCount}; refer to logs for more details)`
+            : '';
+        showNotification({
+          title: 'Sync warning',
+          description: `Duplicate catalog keys: ${conflictList}${suffix}`,
+          severity: 'warning',
+          category: SYNC_WARNING_CATEGORY,
+          autoHideDuration: 0,
+        });
+      } else if (duplicateCount > 0) {
         const entityWord = duplicateCount === 1 ? 'entity' : 'entities';
         showNotification({
           title: 'Sync warning',
