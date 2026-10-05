@@ -159,6 +159,7 @@ describe('createRouter', () => {
       getLastSyncStatus: jest.fn().mockReturnValue(null),
       getLastDuplicateEntityCount: jest.fn().mockReturnValue(0),
       getLastMissingOrganizations: jest.fn().mockReturnValue([]),
+      getLastConflicts: jest.fn().mockReturnValue([]),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AapEntityProvider:test:run'),
     } as unknown as jest.Mocked<AAPEntityProvider>;
@@ -172,6 +173,7 @@ describe('createRouter', () => {
       getLastSyncStatus: jest.fn().mockReturnValue(null),
       getLastDuplicateEntityCount: jest.fn().mockReturnValue(0),
       getLastMissingOrganizations: jest.fn().mockReturnValue([]),
+      getLastConflicts: jest.fn().mockReturnValue([]),
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
@@ -3349,6 +3351,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
@@ -3357,6 +3360,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
         },
         content: {
@@ -3402,6 +3406,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
@@ -3410,6 +3415,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
         },
       });
@@ -3511,6 +3517,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
           jobTemplates: {
             lastSync: '2024-01-15T11:00:00Z',
@@ -3519,6 +3526,7 @@ describe('createRouter', () => {
             lastSyncStatus: null,
             lastDuplicateEntityCount: 0,
             lastMissingOrganizations: [],
+            lastConflicts: [],
           },
         },
         content: {

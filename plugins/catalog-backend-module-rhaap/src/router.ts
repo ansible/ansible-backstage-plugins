@@ -32,6 +32,7 @@ import {
   catalogEntityDeletePermission,
   catalogEntityReadPermission,
 } from '@backstage/plugin-catalog-common/alpha';
+import type { ConflictDetail } from './providers/deduplicateCatalogEntities';
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
@@ -251,6 +252,7 @@ export function createRouter(options: {
               lastSyncStatus: ProviderSyncStatus;
               lastDuplicateEntityCount: number;
               lastMissingOrganizations: string[];
+              lastConflicts: ConflictDetail[];
             };
             jobTemplates: {
               lastSync: string | null;
@@ -259,6 +261,7 @@ export function createRouter(options: {
               lastSyncStatus: ProviderSyncStatus;
               lastDuplicateEntityCount: number;
               lastMissingOrganizations: string[];
+              lastConflicts: ConflictDetail[];
             };
           };
           content?: {
@@ -293,6 +296,7 @@ export function createRouter(options: {
                 aapEntityProvider.getLastDuplicateEntityCount(),
               lastMissingOrganizations:
                 aapEntityProvider.getLastMissingOrganizations(),
+              lastConflicts: aapEntityProvider.getLastConflicts(),
             },
             jobTemplates: {
               lastSync: jobTemplateProvider.getLastSyncTime(),
@@ -303,6 +307,7 @@ export function createRouter(options: {
                 jobTemplateProvider.getLastDuplicateEntityCount(),
               lastMissingOrganizations:
                 jobTemplateProvider.getLastMissingOrganizations(),
+              lastConflicts: jobTemplateProvider.getLastConflicts(),
             },
           };
         }
