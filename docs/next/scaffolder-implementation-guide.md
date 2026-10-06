@@ -2,7 +2,7 @@
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §7.3–7.5 content/self-service boundary, §6.3 `scaffolder-field` contribution kind)
 > **Related Jira:** [ANSTRAT-2497](https://redhat.atlassian.net/browse/ANSTRAT-2497) (portal SDK, `portal-scaffolder`), [ANSTRAT-1758](https://redhat.atlassian.net/browse/ANSTRAT-1758) (content operations)
-> **Companion docs:** [ANSTRAT-2497 implementation guide](./anstrat-2497-implementation-guide.md), [Picker operation contract (draft)](./anstrat-1758-picker-contract-proposal.md)
+> **Companion docs (planned under `docs/next/`):** ANSTRAT-2497 portal implementation guide; ANSTRAT-1758 picker operation contract (see [ANSTRAT-1758](https://redhat.atlassian.net/browse/ANSTRAT-1758))
 > **Status:** Planning — no code split started for backend modules
 > **Branch baseline:** `main` / `anstrat-2497-poc` in `ansible-backstage-plugins` (frontend rename to `@ansible/portal-scaffolder` done in PoC)
 >
@@ -20,14 +20,14 @@ the data those pickers display.
 
 This guide covers **scaffolder-specific** deliverables:
 
-| Deliverable | Owner team | Purpose |
-| ----------- | ---------- | ------- |
-| `@ansible/portal-scaffolder` (frontend) | Self-service | Templates, tasks, history, EE **definition** catalog, scaffolder field extensions |
-| `self-service-react` (new web-library) | Self-service | Reusable scaffolder fields **without** content imports (`AAPResourcePicker`, `ScmSelector`, …) |
-| `scaffolder-backend-module-self-service` | Self-service | EE definition lifecycle actions, `EEEntityProvider` route, publish prep — **no AAP REST** |
-| `scaffolder-backend-module-content-operations` | Self-service (bridge) | Invokes ANSTRAT-1758 `operationId`s from scaffolder autocomplete/actions; **no content DB** |
-| `scaffolder-backend-module-aap` | AAP integration | `rhaap:*` template actions, AAP autocomplete resources, template filters |
-| Picker → `automation-content-client` migration | Self-service + 1758 | Replace catalog-backed autocomplete for collections / base images (§7.5) |
+| Deliverable                                    | Owner team            | Purpose                                                                                        |
+| ---------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
+| `@ansible/portal-scaffolder` (frontend)        | Self-service          | Templates, tasks, history, EE **definition** catalog, scaffolder field extensions              |
+| `self-service-react` (new web-library)         | Self-service          | Reusable scaffolder fields **without** content imports (`AAPResourcePicker`, `ScmSelector`, …) |
+| `scaffolder-backend-module-self-service`       | Self-service          | EE definition lifecycle actions, `EEEntityProvider` route, publish prep — **no AAP REST**      |
+| `scaffolder-backend-module-content-operations` | Self-service (bridge) | Invokes ANSTRAT-1758 `operationId`s from scaffolder autocomplete/actions; **no content DB**    |
+| `scaffolder-backend-module-aap`                | AAP integration       | `rhaap:*` template actions, AAP autocomplete resources, template filters                       |
+| Picker → `automation-content-client` migration | Self-service + 1758   | Replace catalog-backed autocomplete for collections / base images (§7.5)                       |
 
 **Out of scope for this guide (other teams / tickets):**
 
@@ -46,19 +46,20 @@ browsing, shell pieces, and the full scaffolder surface.
 
 **Eleven scaffolder field extensions** (registered via `scaffolderPlugin.provide(createScaffolderFieldExtension(...))` and re-exported from `src/index.ts`):
 
-| Field extension | Data at runtime | Architecture bucket |
-| --------------- | --------------- | ------------------- |
-| `CollectionsPicker` | `scaffolderApi.autocomplete` → provider `aap-api-cloud`, resources `collections` / `collection_sources` / `collection_versions` | **Content boundary (§7.5)** — must move to `automation-content-client` |
-| `BaseImagePicker` | Static template schema / hardcoded recommended image | **Content boundary** — becomes dynamic via `content.executionEnvironments.listBaseImages` |
-| `AAPResourcePicker`, `AAPTokenField` | AAP APIs via plugin `apis` | `self-service-react` |
-| `ScmSelector`, `FileUploadPicker` | SCM / upload UX | `self-service-react` |
-| `PackagesPicker`, `AdditionalBuildStepsPicker`, `EEFileNamePicker`, `EETagsPicker`, `MCPServersPicker` | Pure form UX (enum/schema driven) | `self-service-react` (no content client) |
+| Field extension                                                                                        | Data at runtime                                                                                                                 | Architecture bucket                                                                       |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `CollectionsPicker`                                                                                    | `scaffolderApi.autocomplete` → provider `aap-api-cloud`, resources `collections` / `collection_sources` / `collection_versions` | **Content boundary (§7.5)** — must move to `automation-content-client`                    |
+| `BaseImagePicker`                                                                                      | Static template schema / hardcoded recommended image                                                                            | **Content boundary** — becomes dynamic via `content.executionEnvironments.listBaseImages` |
+| `AAPResourcePicker`, `AAPTokenField`                                                                   | AAP APIs via plugin `apis`                                                                                                      | `self-service-react`                                                                      |
+| `ScmSelector`, `FileUploadPicker`                                                                      | SCM / upload UX                                                                                                                 | `self-service-react`                                                                      |
+| `PackagesPicker`, `AdditionalBuildStepsPicker`, `EEFileNamePicker`, `EETagsPicker`, `MCPServersPicker` | Pure form UX (enum/schema driven)                                                                                               | `self-service-react` (no content client)                                                  |
 
-**Coupling to fix:** `CollectionsPicker` ultimately loads collection entities via the
-scaffolder autocomplete path → `getCollections()` in the backend module, which queries
-the **catalog** (`discovery` + catalog API). That ties template forms to catalog
-projection and the monolithic `catalog-backend-module-rhaap`, which violates §7.5
-(operations + client, not catalog search).
+**Coupling to fix:** `CollectionsPicker` uses three autocomplete resources. Only
+`collections` is handled by `getCollections()` (catalog entity query via `discovery` +
+catalog API). `collection_sources` and `collection_versions` fall through to
+`ansibleService.getResourceData()` in `handleAutocompleteRequest`. All three should
+eventually use content operations (§7.5), not catalog projection or ad hoc AAP resource
+strings.
 
 ### 2.2 Backend — `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`
 
@@ -67,16 +68,16 @@ One `createBackendModule({ pluginId: 'scaffolder', moduleId: 'ansible' })` regis
 
 **Template actions**
 
-| Action ID | File | Target module |
-| --------- | ---- | ------------- |
-| `ansible:content:create` | `actions/ansible.ts` | **TBD** — creator-service; not AAP; keep with self-service until creator ownership is clear |
-| `ansible:create:ee-definition` | `actions/createEEDefinition.ts` | `scaffolder-backend-module-self-service` |
-| `ansible:prepare:publish` | `actions/prepareForPublish.ts` | `scaffolder-backend-module-self-service` |
-| `rhaap:create-project` | `actions/aapCreateProject.ts` | `scaffolder-backend-module-aap` |
-| `rhaap:create-execution-environment` | `actions/aapCreateEEEnv.ts` | `scaffolder-backend-module-aap` |
-| `rhaap:create-job-template` | `actions/aapCreateJobTemplate.ts` | `scaffolder-backend-module-aap` |
-| `rhaap:launch-job-template` | `actions/aapLaunchJobTemplate.ts` | `scaffolder-backend-module-aap` |
-| `rhaap:clean-up` | `actions/aapCleanUp.ts` | `scaffolder-backend-module-aap` |
+| Action ID                            | File                              | Target module                                                                               |
+| ------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `ansible:content:create`             | `actions/ansible.ts`              | **TBD** — creator-service; not AAP; keep with self-service until creator ownership is clear |
+| `ansible:create:ee-definition`       | `actions/createEEDefinition.ts`   | `scaffolder-backend-module-self-service`                                                    |
+| `ansible:prepare:publish`            | `actions/prepareForPublish.ts`    | `scaffolder-backend-module-self-service`                                                    |
+| `rhaap:create-project`               | `actions/aapCreateProject.ts`     | `scaffolder-backend-module-aap`                                                             |
+| `rhaap:create-execution-environment` | `actions/aapCreateEEEnv.ts`       | `scaffolder-backend-module-aap`                                                             |
+| `rhaap:create-job-template`          | `actions/aapCreateJobTemplate.ts` | `scaffolder-backend-module-aap`                                                             |
+| `rhaap:launch-job-template`          | `actions/aapLaunchJobTemplate.ts` | `scaffolder-backend-module-aap`                                                             |
+| `rhaap:clean-up`                     | `actions/aapCleanUp.ts`           | `scaffolder-backend-module-aap`                                                             |
 
 **Template filters:** `useCaseNameFilter`, `resourceFilter`, `multiResourceFilter`, `uuidFilter` → AAP templates → `scaffolder-backend-module-aap`.
 
@@ -147,10 +148,10 @@ workspaces/aap/plugins/
 
 **Naming migration (when splitting packages):**
 
-| Current | Target |
-| ------- | ------ |
-| `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | Split into three modules above |
-| `moduleId: 'ansible'` | `self-service`, `content-operations`, `aap` (separate backend modules, same `pluginId: 'scaffolder'`) |
+| Current                                                     | Target                                                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | Split into three modules above                                                                        |
+| `moduleId: 'ansible'`                                       | `self-service`, `content-operations`, `aap` (separate backend modules, same `pluginId: 'scaffolder'`) |
 
 **Backward compatibility:** Keep registering all three modules in dev `packages/backend` until RHDH dynamic plugin manifests list them separately. Action IDs and autocomplete provider IDs **must not change** in Phase 1 split (only package boundaries move).
 
@@ -213,11 +214,11 @@ Phase 4 hard-depends on published operations.
 
 **Output:** Machine-readable list of scaffolder action IDs, autocomplete resources, and field extension names (extend WP-001 inventory in `tools/wp-001`).
 
-| Item | Status |
-| ---- | ------ |
-| Register all `ansible:*` and `rhaap:*` action IDs | ❌ |
-| Register autocomplete resources (`collections`, `collection_sources`, …) | ❌ |
-| Document template YAML dependencies on provider id `aap-api-cloud` | ❌ |
+| Item                                                                     | Status |
+| ------------------------------------------------------------------------ | ------ |
+| Register all `ansible:*` and `rhaap:*` action IDs                        | ❌     |
+| Register autocomplete resources (`collections`, `collection_sources`, …) | ❌     |
+| Document template YAML dependencies on provider id `aap-api-cloud`       | ❌     |
 
 ---
 
@@ -227,14 +228,14 @@ Phase 4 hard-depends on published operations.
 
 **Work:**
 
-| Item | Source | Notes |
-| ---- | ------ | ----- |
-| Create `scaffolder-backend-module-aap` | Move `aap*.ts`, AAP branch of `autocomplete.ts`, filters, `ansibleService` deps | `moduleId: 'aap'` |
-| Create `scaffolder-backend-module-self-service` | `createEEDefinition`, `prepareForPublish`, `ansible:content:create` (if kept) | `moduleId: 'self-service'` |
-| Create `scaffolder-backend-module-content-operations` | `getCollections` + catalog autocomplete resources only (temporary) | Thin wrapper; catalog coupling explicit |
-| Deprecate `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | Re-export shim or delete after backend wiring updated | Coordinate RHDH `dynamicPlugins.backend` entries |
-| Update `packages/backend/src/index.ts` | Add three `backend.add(import(...))` | Remove monolithic import |
-| Split unit tests per package | Mirror `src/actions/*.test.ts` layout | |
+| Item                                                                  | Source                                                                          | Notes                                                    |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Create `scaffolder-backend-module-aap`                                | Move `aap*.ts`, AAP branch of `autocomplete.ts`, filters, `ansibleService` deps | `moduleId: 'aap'`                                        |
+| Create `scaffolder-backend-module-self-service`                       | `createEEDefinition`, `prepareForPublish`, `ansible:content:create` (if kept)   | `moduleId: 'self-service'`                               |
+| Create `scaffolder-backend-module-content-operations`                 | `collections` via `getCollections` only (temporary)                             | Thin wrapper; catalog coupling explicit for one resource |
+| Deprecate `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | Re-export shim or delete after backend wiring updated                           | Coordinate RHDH `dynamicPlugins.backend` entries         |
+| Update `packages/backend/src/index.ts`                                | Add three `backend.add(import(...))`                                            | Remove monolithic import                                 |
+| Split unit tests per package                                          | Mirror `src/actions/*.test.ts` layout                                           |                                                          |
 
 **Verification:** Run scaffolder module tests; smoke-test EE template end-to-end in dev app.
 
@@ -244,12 +245,12 @@ Phase 4 hard-depends on published operations.
 
 **Output:** `@ansible/self-service-react` web-library; `portal-scaffolder` imports fields from it.
 
-| Item | Source | Status |
-| ---- | ------ | ------ |
-| Move `plugins/self-service/src/components/Scaffolder/*` except picker-specific data hooks | `self-service-react/src/scaffolder/` | ❌ |
-| Keep `CollectionsPicker` / `BaseImagePicker` in portal-scaffolder or `self-service-react` with injectable `dataSource` prop | Enables Phase 4 swap without file churn | ❌ |
-| Peer deps: `scaffolder-react`, `portal-plugin-sdk`, MUI v4 | Match portal-scaffolder | ❌ |
-| Re-export shims from `portal-scaffolder` for external dynamic plugin consumers | Same pattern as portal-plugin-sdk extraction | ❌ |
+| Item                                                                                                                        | Source                                       | Status |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------ |
+| Move `plugins/self-service/src/components/Scaffolder/*` except picker-specific data hooks                                   | `self-service-react/src/scaffolder/`         | ❌     |
+| Keep `CollectionsPicker` / `BaseImagePicker` in portal-scaffolder or `self-service-react` with injectable `dataSource` prop | Enables Phase 4 swap without file churn      | ❌     |
+| Peer deps: `scaffolder-react`, `portal-plugin-sdk`, MUI v4                                                                  | Match portal-scaffolder                      | ❌     |
+| Re-export shims from `portal-scaffolder` for external dynamic plugin consumers                                              | Same pattern as portal-plugin-sdk extraction | ❌     |
 
 ---
 
@@ -257,38 +258,38 @@ Phase 4 hard-depends on published operations.
 
 **Output:** Catalog mutation for EE definitions owned by self-service module; `catalog-backend-module-rhaap` delegates or drops route.
 
-| Item | Notes |
-| ---- | ----- |
-| Move `EEEntityProvider` class + `POST /ansible/ee` handler | Register router from `scaffolder-backend-module-self-service` or small `self-service-backend` plugin |
-| Keep URL path stable | Architecture §7.7 — no URL regression |
-| Update `createEEDefinition` catalog registration path | Still uses discovery + service token; only provider location changes |
-| Tests from `catalog-backend-module-rhaap/src/router.test.ts` (`POST /ansible/ee`) | Move with route |
+| Item                                                                              | Notes                                                                                                |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Move `EEEntityProvider` class + `POST /ansible/ee` handler                        | Register router from `scaffolder-backend-module-self-service` or small `self-service-backend` plugin |
+| Keep URL path stable                                                              | Architecture §7.7 — no URL regression                                                                |
+| Update `createEEDefinition` catalog registration path                             | Still uses discovery + service token; only provider location changes                                 |
+| Tests from `catalog-backend-module-rhaap/src/router.test.ts` (`POST /ansible/ee`) | Move with route                                                                                      |
 
 ---
 
 ### Phase 4 — Content operation bridge + picker migration (blocked on ANSTRAT-1758)
 
 **Dependency:** Published `@ansible/automation-content-client` with operations agreed in
-[anstrat-1758-picker-contract-proposal.md](./anstrat-1758-picker-contract-proposal.md).
+the ANSTRAT-1758 picker operation contract (draft; to be published under `docs/next/`).
 
 **Output:** Collection and base-image pickers use operations; content-operations module stops calling catalog.
 
-| Item | Notes |
-| ---- | ----- |
-| Implement operation handlers in content backend (`content.collections.search`, `listSources`, `listVersions`, `content.executionEnvironments.listBaseImages`) | ANSTRAT-1758 |
-| `scaffolder-backend-module-content-operations`: map autocomplete resources → `operationId` | Uses `portal-plugin-node` identity on server |
-| `CollectionsPicker`: call new provider or `usePortalContext().apiClient` directly | Prefer client from field if scaffolder autocomplete is redundant |
-| `BaseImagePicker`: dynamic list + recommended badge from operation | Remove hardcoded `RECOMMENDED_BASE_IMAGE_VALUE` as sole source |
-| Remove `getCollections` catalog scan from bridge | Delete catalog dependency from self-service workspace |
-| Feature gate: degrade gracefully when `content.enabled` false | Show message in picker per appliance constraints (architecture §8.3) |
+| Item                                                                                                                                                          | Notes                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Implement operation handlers in content backend (`content.collections.search`, `listSources`, `listVersions`, `content.executionEnvironments.listBaseImages`) | ANSTRAT-1758                                                         |
+| `scaffolder-backend-module-content-operations`: map autocomplete resources → `operationId`                                                                    | Uses `portal-plugin-node` identity on server                         |
+| `CollectionsPicker`: call new provider or `usePortalContext().apiClient` directly                                                                             | Prefer client from field if scaffolder autocomplete is redundant     |
+| `BaseImagePicker`: dynamic list + recommended badge from operation                                                                                            | Remove hardcoded `RECOMMENDED_BASE_IMAGE_VALUE` as sole source       |
+| Remove `getCollections` catalog scan from bridge                                                                                                              | Delete catalog dependency from self-service workspace                |
+| Feature gate: degrade gracefully when `content.enabled` false                                                                                                 | Show message in picker per appliance constraints (architecture §8.3) |
 
 **Contract checklist (from ANSTRAT-2497 §7):**
 
-1. Operation IDs + JSON schemas for all collection picker steps  
-2. `listBaseImages` schema + permissions  
-3. Client package surface (`automation-content-client` vs picker-only API)  
-4. Permission names per operation  
-5. Pagination/cursor semantics for large collection lists  
+1. Operation IDs + JSON schemas for all collection picker steps
+2. `listBaseImages` schema + permissions
+3. Client package surface (`automation-content-client` vs picker-only API)
+4. Permission names per operation
+5. Pagination/cursor semantics for large collection lists
 
 ---
 
@@ -296,11 +297,11 @@ Phase 4 hard-depends on published operations.
 
 **Output:** `scaffolder-backend-module-aap` lives under `workspaces/aap/` with `aap-node` dependency only (no `backstage-rhaap-common` long term).
 
-| Item | Notes |
-| ---- | ----- |
-| Move package physically with `catalog-backend-module-aap` split | Architecture §7.4 |
-| Align autocomplete `aap-api-cloud` naming with AAP plugin id | Document in AAP scaffolder README |
-| `AAPResourcePicker` uses same AAP client as module | Frontend in `aap-frontend` or `self-service-react` |
+| Item                                                            | Notes                                              |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| Move package physically with `catalog-backend-module-aap` split | Architecture §7.4                                  |
+| Align autocomplete `aap-api-cloud` naming with AAP plugin id    | Document in AAP scaffolder README                  |
+| `AAPResourcePicker` uses same AAP client as module              | Frontend in `aap-frontend` or `self-service-react` |
 
 ---
 
@@ -308,17 +309,17 @@ Phase 4 hard-depends on published operations.
 
 **Output:** Scaffolder fields discoverable as capabilities where useful.
 
-| Item | Notes |
-| ---- | ----- |
-| Add `scaffolder-field` entry points to `selfServiceManifest.ts` for first-party fields | `experienceId: SELF_SERVICE`, `appliesToContentTypes: '*'` |
-| Document partner pattern: third-party fields via dynamic plugin + manifest | §6.3 walkthrough / `workflowId` for golden paths |
-| Optional: scaffolder tasks invoke content operations via bridge only | Partner actions = thin `createTemplateAction` + `operationId` (see `content-experience-refactor-and-sdk.md` WP-026) |
+| Item                                                                                   | Notes                                                                                                               |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Add `scaffolder-field` entry points to `selfServiceManifest.ts` for first-party fields | `experienceId: SELF_SERVICE`, `appliesToContentTypes: '*'`                                                          |
+| Document partner pattern: third-party fields via dynamic plugin + manifest             | §6.3 walkthrough / `workflowId` for golden paths                                                                    |
+| Optional: scaffolder tasks invoke content operations via bridge only                   | Partner actions = thin `createTemplateAction` + `operationId` (see `content-experience-refactor-and-sdk.md` WP-026) |
 
 ---
 
 ### Phase 7 — Physical workspace move + rename
 
-Coordinate with [ANSTRAT-2497 Phase 7](./anstrat-2497-implementation-guide.md#phase-7--rename-and-restructure):
+Coordinate with ANSTRAT-2497 Phase 7 (rename and restructure; see [ANSTRAT-2497](https://redhat.atlassian.net/browse/ANSTRAT-2497)):
 
 - `plugins/self-service` → `workspaces/self-service/plugins/portal-scaffolder`
 - Backend modules under `workspaces/self-service/plugins/` and `workspaces/aap/plugins/`
@@ -328,13 +329,13 @@ Coordinate with [ANSTRAT-2497 Phase 7](./anstrat-2497-implementation-guide.md#ph
 
 ## 6. Contracts Published for Other Teams
 
-| Consumer | Contract | Provided by |
-| -------- | -------- | ----------- |
-| ANSTRAT-1758 | Operation IDs + schemas in picker proposal | Content backend + client |
+| Consumer            | Contract                                                  | Provided by                                           |
+| ------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
+| ANSTRAT-1758        | Operation IDs + schemas in picker proposal                | Content backend + client                              |
 | Self-service bridge | Stable autocomplete `resource` string → `operationId` map | `scaffolder-backend-module-content-operations` README |
-| AAP team | Stable `rhaap:*` action schemas | `scaffolder-backend-module-aap` |
-| Template authors | Action IDs unchanged across split | Changelog entry per Phase 1 |
-| RHDH / operator | Three backend dynamic plugin entries instead of one | `portal-plugin.yaml` installGroup |
+| AAP team            | Stable `rhaap:*` action schemas                           | `scaffolder-backend-module-aap`                       |
+| Template authors    | Action IDs unchanged across split                         | Changelog entry per Phase 1                           |
+| RHDH / operator     | Three backend dynamic plugin entries instead of one       | `portal-plugin.yaml` installGroup                     |
 
 **Semver:** Backend module split is **internal packaging** if action IDs stable — minor bump on `@ansible/plugin-scaffolder-backend-module-*` packages. Breaking action schema changes require changelog + template repo coordination (`ansible-rhdh-templates`).
 
@@ -346,7 +347,7 @@ Same as ANSTRAT-2497 §7 — the scaffolder split is blocked on **picker operati
 
 **Minimum to unblock Phase 4:**
 
-1. Agree on [picker contract proposal](./anstrat-1758-picker-contract-proposal.md) (or revised IDs)
+1. Agree on the ANSTRAT-1758 picker operation contract (or revised operation IDs)
 2. Content team ships handlers + client release
 3. Self-service ships bridge + UI switch behind config flag `ansible.scaffolder.useContentOperations: true`
 
@@ -356,58 +357,58 @@ Until then, **Phase 1–3** can proceed (module split, react library, EE provide
 
 ## 8. Open Questions
 
-| Question | Owner | Blocking |
-| -------- | ----- | -------- |
-| Does `ansible:content:create` stay self-service or move to a creator plugin? | Self-service + devtools | Phase 1 package list |
-| Keep autocomplete provider id `aap-api-cloud` for collections during migration? | Self-service | Phase 4 UX |
-| Should `POST /ansible/ee/build` move with EE provider or stay in catalog module? | Self-service | Phase 3 |
-| Partner scaffolder actions: only via content-operations bridge or also direct `portal-plugin-node`? | Portal core | Phase 6 |
-| Register scaffolder fields in `PluginManifest` before host can render them? | Portal core | Phase 6 vs Backstage-only registration |
+| Question                                                                                            | Owner                   | Blocking                               |
+| --------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------- |
+| Does `ansible:content:create` stay self-service or move to a creator plugin?                        | Self-service + devtools | Phase 1 package list                   |
+| Keep autocomplete provider id `aap-api-cloud` for collections during migration?                     | Self-service            | Phase 4 UX                             |
+| Should `POST /ansible/ee/build` move with EE provider or stay in catalog module?                    | Self-service            | Phase 3                                |
+| Partner scaffolder actions: only via content-operations bridge or also direct `portal-plugin-node`? | Portal core             | Phase 6                                |
+| Register scaffolder fields in `PluginManifest` before host can render them?                         | Portal core             | Phase 6 vs Backstage-only registration |
 
 ---
 
 ## 9. Suggested Sequencing with ANSTRAT-2497
 
-| ANSTRAT-2497 phase | Scaffolder work |
-| ------------------ | --------------- |
-| Phase 6 (content extraction) | Phase 4 pickers + remove catalog autocomplete |
-| Phase 7 (rename / workspaces) | Phase 7 physical layout |
-| SDK (`usePortalContext`) | Required for direct client calls from pickers; bridge still works without it |
+| ANSTRAT-2497 phase            | Scaffolder work                                                              |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| Phase 6 (content extraction)  | Phase 4 pickers + remove catalog autocomplete                                |
+| Phase 7 (rename / workspaces) | Phase 7 physical layout                                                      |
+| SDK (`usePortalContext`)      | Required for direct client calls from pickers; bridge still works without it |
 
 ---
 
 ## 10. Documentation Deliverables
 
-| Document | Location | Status |
-| -------- | -------- | ------ |
-| This guide | `docs/next/scaffolder-rearchitecture-implementation-guide.md` | ✅ This file |
-| Picker operation contract | `docs/next/anstrat-1758-picker-contract-proposal.md` | Draft |
-| Per-module README after split | `plugins/scaffolder-backend-module-*/README.md` | ❌ |
-| Dynamic plugin registration (3 modules) | `docs/plugins/scaffolder.md` | Update after Phase 1 |
-| Migration: monolithic → split imports | `docs/sdk/migration-scaffolder-modules.md` | ❌ |
+| Document                                | Location                                                      | Status                  |
+| --------------------------------------- | ------------------------------------------------------------- | ----------------------- |
+| This guide                              | `docs/next/scaffolder-rearchitecture-implementation-guide.md` | ✅ This file            |
+| Picker operation contract               | `docs/next/` (forthcoming)                                    | Draft with ANSTRAT-1758 |
+| Per-module README after split           | `plugins/scaffolder-backend-module-*/README.md`               | ❌                      |
+| Dynamic plugin registration (3 modules) | `docs/plugins/scaffolder.md`                                  | Update after Phase 1    |
+| Migration: monolithic → split imports   | `docs/sdk/migration-scaffolder-modules.md`                    | ❌                      |
 
 ---
 
 ## Appendix A — Autocomplete resource map (current → target)
 
-| Resource (today) | Implementation today | Target |
-| ---------------- | -------------------- | ------ |
-| `collections` | Catalog entity filter via `getCollections` | `content.collections.search` |
-| `collection_sources` | Catalog-derived | `content.collections.listSources` |
-| `collection_versions` | Catalog-derived | `content.collections.listVersions` |
-| `verbosity` | Static list | `scaffolder-backend-module-aap` or self-service |
-| `aaphostname` | Config | `scaffolder-backend-module-aap` |
-| `*` (AAP resources) | `ansibleService.getResourceData` | `scaffolder-backend-module-aap` |
+| Resource (today)      | Implementation today                       | Target                                          |
+| --------------------- | ------------------------------------------ | ----------------------------------------------- |
+| `collections`         | Catalog entity filter via `getCollections` | `content.collections.search`                    |
+| `collection_sources`  | `ansibleService.getResourceData` (AAP)     | `content.collections.listSources`               |
+| `collection_versions` | `ansibleService.getResourceData` (AAP)     | `content.collections.listVersions`              |
+| `verbosity`           | Static list                                | `scaffolder-backend-module-aap` or self-service |
+| `aaphostname`         | Config                                     | `scaffolder-backend-module-aap`                 |
+| `*` (AAP resources)   | `ansibleService.getResourceData`           | `scaffolder-backend-module-aap`                 |
 
 ---
 
 ## Appendix B — Reference map to source files
 
-| Concern | Path |
-| ------- | ---- |
-| Module registration | `plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts` |
-| Catalog-backed collections | `plugins/scaffolder-backend-module-backstage-rhaap/src/autocomplete/utils.ts` |
-| EE definition action | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/createEEDefinition.ts` |
-| Field extensions | `plugins/self-service/src/components/Scaffolder/` |
-| EE push registration | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `router.ts` |
-| Backend wiring | `packages/backend/src/index.ts` |
+| Concern                    | Path                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Module registration        | `plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts`                     |
+| Catalog-backed collections | `plugins/scaffolder-backend-module-backstage-rhaap/src/autocomplete/utils.ts`         |
+| EE definition action       | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/createEEDefinition.ts` |
+| Field extensions           | `plugins/self-service/src/components/Scaffolder/`                                     |
+| EE push registration       | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `router.ts` |
+| Backend wiring             | `packages/backend/src/index.ts`                                                       |
