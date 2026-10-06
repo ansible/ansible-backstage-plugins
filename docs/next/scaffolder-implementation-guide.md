@@ -381,7 +381,7 @@ Until then, **Phase 1–3** can proceed (module split, react library, EE provide
 
 | Document                                | Location                                                      | Status                  |
 | --------------------------------------- | ------------------------------------------------------------- | ----------------------- |
-| This guide                              | `docs/next/scaffolder-rearchitecture-implementation-guide.md` | ✅ This file            |
+| This guide                              | `docs/next/scaffolder-implementation-guide.md`              | ✅ This file            |
 | Picker operation contract               | `docs/next/` (forthcoming)                                    | Draft with ANSTRAT-1758 |
 | Per-module README after split           | `plugins/scaffolder-backend-module-*/README.md`               | ❌                      |
 | Dynamic plugin registration (3 modules) | `docs/plugins/scaffolder.md`                                  | Update after Phase 1    |
