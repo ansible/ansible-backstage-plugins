@@ -30,7 +30,7 @@ The portal runs on RHEL VM, OpenShift, and future managed services — each with
 
 ## Decision
 
-**1. Domain boundary rule.** "If a setting cannot have the same owner on every deployment surface, it is infrastructure." Infrastructure is pre-boot, file/Helm/operator only, never in the web GUI. Application config is post-boot, DB-backed, GUI + API editable.
+**1. Domain boundary rule.** "If a setting cannot have the same owner on every deployment surface, it is infrastructure." Infrastructure is pre-boot, file/Helm/operator only, and is **not** Day 2 web-GUI editable. Application config is post-boot, DB-backed, GUI + API editable. The setup wizard may confirm or correct a documented surface-dependent exception (rule 2); that is not Day 2 settings-page editing.
 
 | Classification | Scope                          | Storage                  | UI                  |
 | -------------- | ------------------------------ | ------------------------ | ------------------- |
@@ -45,19 +45,19 @@ The portal runs on RHEL VM, OpenShift, and future managed services — each with
 
 ### Settings inventory
 
-The application-setting inventory below classifies every setting. Row totals (30 in UI today, ~69 YAML-only, ~99 combined) are the sum of the domain counts; the earlier “~84” figure was a stale roll-up and is not used here. Summary:
+The inventories below classify every setting. `backend.baseUrl` stays in the **infrastructure** Networking row (deployment-owned) and is the rule-2 exception: wizard Step 2 may confirm or correct it. It is not a Day 2 application setting. Row totals for application settings (30 in UI today, ~69 YAML-only, ~99 combined) are the sum of the domain counts; the earlier “~84” figure was a stale roll-up and is not used here. Summary:
 
 #### Infrastructure (~31 settings) — deployment tooling only
 
-| Domain                     | Count | Examples                                                                                             |
-| -------------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
-| Database                   | 7     | `backend.database.connection.host`, `.port`, `.user`, `.password`, `.ssl`                            |
-| Networking / TLS           | 6     | `app.baseUrl`, `backend.baseUrl`, `backend.listen.port`, TLS certs, `clusterRouterBase`              |
-| Container runtime / images | 5     | Container image, plugin loading mode, `global.imageRegistry`, Dev Tools sidecar                      |
-| Auth bootstrap             | 3     | `BACKEND_SECRET`, `PORTAL_ADMIN_PASSWORD_HASH`, `auth.environment`                                   |
-| Backstage core             | 5     | `backend.reading.allow`, `catalog.stitchingStrategy`, `catalog.orphanStrategy`, `permission.enabled` |
-| Environment / telemetry    | 2     | `_environment._production`, `SEGMENT_WRITE_KEY`                                                      |
-| Backup (RHEL only)         | 3     | Backup enabled, schedule, retention                                                                  |
+| Domain                     | Count | Examples                                                                                                              |
+| -------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------- |
+| Database                   | 7     | `backend.database.connection.host`, `.port`, `.user`, `.password`, `.ssl`                                             |
+| Networking / TLS           | 6     | `app.baseUrl`, `backend.baseUrl` (wizard confirm/correct only), `backend.listen.port`, TLS certs, `clusterRouterBase` |
+| Container runtime / images | 5     | Container image, plugin loading mode, `global.imageRegistry`, Dev Tools sidecar                                       |
+| Auth bootstrap             | 3     | `BACKEND_SECRET`, `PORTAL_ADMIN_PASSWORD_HASH`, `auth.environment`                                                    |
+| Backstage core             | 5     | `backend.reading.allow`, `catalog.stitchingStrategy`, `catalog.orphanStrategy`, `permission.enabled`                  |
+| Environment / telemetry    | 2     | `_environment._production`, `SEGMENT_WRITE_KEY`                                                                       |
+| Backup (RHEL only)         | 3     | Backup enabled, schedule, retention                                                                                   |
 
 #### Application (~99 settings) — portal GUI/API + DB
 
