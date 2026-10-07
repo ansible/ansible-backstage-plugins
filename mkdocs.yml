@@ -76,6 +76,41 @@ nav:
       - features/job-templates.md
       - features/home-template-listing.md
       - features/feedback-configuration.md
+  - Third-party plugins:
+      - 3rd-party-plugins/index.md
+      - Plugin development guide: 3rd-party-plugins/plugin-development-guide.md
+  - Architecture decisions:
+      - adrs/index.md
+      - Common:
+          - adrs/common/index.md
+          - adrs/common/010-plugin-factory-composability.md
+          - adrs/common/011-plugin-factory-config-namespace.md
+          - adrs/common/012-plugin-factory-preview-labeling.md
+          - adrs/common/013-plugin-factory-enablement-defaults.md
+          - adrs/common/015-plugin-factory-catalog-first-surfaces.md
+          - adrs/common/016-plugin-factory-template-vs-plugin.md
+          - adrs/common/017-plugin-factory-preview-chip-placement.md
+          - adrs/common/018-plugin-factory-shared-ui-primitives.md
+          - adrs/common/019-plugin-factory-delivery-lifecycle.md
+          - adrs/common/020-multi-org-namespace-isolation.md
+          - adrs/common/022-multi-org-rbac-and-auth.md
+          - adrs/common/026-multi-org-architecture-overview.md
+          - adrs/common/027-catalog-entity-naming-and-namespaces.md
+      - Third-party:
+          - adrs/third-party/index.md
+          - adrs/third-party/028-out-of-tree-plugin-obligations.md
+      - Host:
+          - adrs/host/index.md
+          - adrs/host/001-config-storage-and-precedence.md
+          - adrs/host/002-config-boundary-rule.md
+          - adrs/host/003-admin-experience-wizard-and-settings.md
+          - adrs/host/004-auth-and-restart-lifecycle.md
+          - adrs/host/005-deployment-architecture.md
+          - adrs/host/006-sdlc-document-structure.md
+          - adrs/host/007-agent-skills-location.md
+          - adrs/host/021-template-type-taxonomy.md
+          - adrs/host/023-per-template-rbac-filtering.md
+          - adrs/host/024-sync-ux-backstage-signals.md
 
 exclude_docs: |
   _autofix_rules.md
