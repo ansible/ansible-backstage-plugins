@@ -37,6 +37,7 @@ skills/
 Developers symlink skills into their agent's expected directory:
 
 ```bash
+mkdir -p ~/.claude/skills ~/.cursor/skills
 ln -sf $(pwd)/skills/portal-design ~/.claude/skills/portal-design
 ln -sf $(pwd)/skills/portal-design ~/.cursor/skills/portal-design
 ```

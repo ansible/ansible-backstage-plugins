@@ -18,9 +18,20 @@ Previously, both types lived in `specs/` and `docs/` at the repo root, making it
 
 ## Decision
 
+### Two trees: process source vs public canonical ADRs
+
+This file is the **public** copy of a host SDLC decision. Two locations exist; they are not interchangeable:
+
+| Tree             | Where                                                                                       | Role                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Process source   | `.sdlc/adrs/` in the Portal team’s private SDLC repository                                  | Speckit drafts, review, and iteration. Not this GitHub repository.                        |
+| Public canonical | `docs/adrs/` **in this repository**, split by audience (`common/`, `third-party/`, `host/`) | What third-party authors and this MkDocs site use. **Canonical for published decisions.** |
+
+When they diverge, `docs/adrs/` in this repository wins for readers of this project. Process drafts stay in the private `.sdlc/` tree until they are copied here.
+
 ### `.sdlc/` for process artifacts
 
-All documents generated or consumed during the development lifecycle live under `.sdlc/`:
+All documents generated or consumed during the development lifecycle in the **process repository** live under `.sdlc/`:
 
 ```
 .sdlc/
@@ -39,10 +50,12 @@ This includes any document that:
 
 ### `docs/` for user-facing documentation
 
-All documentation intended for end users, operators, and external contributors lives under `docs/`:
+All documentation intended for end users, operators, and external contributors lives under `docs/`. In **this** repository that includes the public ADR tree:
 
 ```
 docs/
+├── adrs/            Public canonical ADRs (common / third-party / host)
+├── 3rd-party-plugins/
 └── guides/          Developer guides, migration guides, operational docs
 ```
 
@@ -55,10 +68,11 @@ This includes any document that:
 
 ### Agent behavior
 
-- When creating SDLC artifacts (specs, plans, ADRs, research), write to `.sdlc/`
+- When creating SDLC artifacts (specs, plans, ADRs, research) in the process repository, write to `.sdlc/`
+- When a decision is ready to publish, copy the ADR into `docs/adrs/{common,third-party,host}/` in this repository
 - When implementing features, check `docs/` for user-facing documentation that may need updating
 - When a feature ships, consider whether any `.sdlc/` content should produce a corresponding `docs/guides/` entry (migration guide, developer guide)
-- The `/speckit.*` commands operate exclusively on `.sdlc/specs/` and `.sdlc/adrs/`
+- The `/speckit.*` commands operate exclusively on `.sdlc/specs/` and `.sdlc/adrs/` in the process repository
 
 ## Alternatives Considered
 

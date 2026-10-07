@@ -7,11 +7,11 @@ Content Experience Architecture and UI Composability Architecture are **not publ
 
 Honesty tags:
 
-| Tag | Means |
-| --- | --- |
-| **shipped** | Authors can do this against current Portal/RHDH behavior |
-| **specified** | Target contract; describe it; do not invent a private substitute |
-| **not yet** | Unanswered mechanism; fail closed; do not guess YAML, pipelines, or owners |
+| Tag           | Means                                                                      |
+| ------------- | -------------------------------------------------------------------------- |
+| **shipped**   | Authors can do this against current Portal/RHDH behavior                   |
+| **specified** | Target contract; describe it; do not invent a private substitute           |
+| **not yet**   | Unanswered mechanism; fail closed; do not guess YAML, pipelines, or owners |
 
 ## How this guide should work
 
@@ -23,13 +23,13 @@ Honesty tags:
 
 Suggested contributor-kit shape (names can change; install mechanism is **not yet**):
 
-| Artifact | Role |
-| --- | --- |
-| Onboarding skill (`SKILL.md`) | Walkthrough + the guide. Entry point. |
-| Contract skill | Hard rules: manifest, operations, NFS, applicability, anti-patterns |
-| `portal-design` | Visual and content standards; onboarding defers UI craft here. Not published in this repository yet. |
-| ADRs 010–019 plus factory ADRs including [ADR-028](../adrs/third-party/028-out-of-tree-plugin-obligations.md) | Binding decisions the skills cite; never restated as optional style |
-| SDK TypeScript types / package map | What code compiles against, status-tagged |
+| Artifact                                                                                                      | Role                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Onboarding skill (`SKILL.md`)                                                                                 | Walkthrough + the guide. Entry point.                                                                |
+| Contract skill                                                                                                | Hard rules: manifest, operations, NFS, applicability, anti-patterns                                  |
+| `portal-design`                                                                                               | Visual and content standards; onboarding defers UI craft here. Not published in this repository yet. |
+| ADRs 010–019 plus factory ADRs including [ADR-028](../adrs/third-party/028-out-of-tree-plugin-obligations.md) | Binding decisions the skills cite; never restated as optional style                                  |
+| SDK TypeScript types / package map                                                                            | What code compiles against, status-tagged                                                            |
 
 ```text
 human describes capability
@@ -60,13 +60,13 @@ Portal is not a greenfield app. It runs on **Red Hat Developer Hub**, Red Hat’
 - **RHDH** — enterprise Backstage; dynamic plugins and the New Frontend System (NFS).
 - **Automation Portal** — an RHDH product with a **host contract**: Experiences, entitlement-filtered create, registered operations, BUI, AAP RBAC.
 
-Authors write a Backstage plugin **against the published Portal SDK**, not a generic RHDH plugin that assumes stock `/create`, plugin-owned navigation, or arbitrary REST.
+Authors write a Backstage plugin **against the Portal SDK contract** (**specified**; packages are **not yet** on npm), not a generic RHDH plugin that assumes stock `/create`, plugin-owned navigation, or arbitrary REST.
 
 **What to take from Backstage/RHDH.**
 
 - Frontend: React and TypeScript.
 - Backend: a Backstage backend plugin or module.
-- Out-of-tree load path: RHDH **dynamic plugins**. Do not fork the Portal codebase. Portal SDK packages are **shared singletons** (see §3 and §7); a stock dynamic plugin that embeds its own copy of the registry will not compose.
+- Out-of-tree load path: RHDH **dynamic plugins**. Do not fork the Portal codebase. Frontend `portal-extension-api` is a **Module Federation singleton** (see §3 and §7); a stock dynamic plugin that embeds its own copy of the registry will not compose.
 - Catalog entities exist. Prefer catalog- and entity-scoped surfaces ([ADR-015](../adrs/common/015-plugin-factory-catalog-first-surfaces.md)).
 - Scaffolder **field extensions** and **actions** are two real host surfaces. They are not the whole product.
 
@@ -85,7 +85,7 @@ Read the primer, then the delta checklist. Do not stop after “you are writing 
 
 ### 2.1 Definition
 
-A third-party Portal plugin is a BU-approved product-team plugin that is not a base Portal plugin. It lives in **another repository**. It consumes the published SDK and contributor kit. It is not authored inside this repository.
+A third-party Portal plugin is a BU-approved product-team plugin that is not a base Portal plugin. It lives in **another repository**. It is not authored inside this repository. When the SDK ships, consume published `@ansible/portal-*` versions and the contributor kit — not `workspace:^`. Until then that install path is **not yet**; fail closed.
 
 ### 2.2 Delivery vehicle ([ADR-016](../adrs/common/016-plugin-factory-template-vs-plugin.md))
 
@@ -119,19 +119,19 @@ Worked examples stay generic: a quality contribution (one capability, several Bl
 
 A valid RHDH dynamic plugin is **necessary and not sufficient**. If an author says “we already have an RHDH plugin,” map this table first. Do not treat Backstage APIs as done.
 
-| Stock RHDH plugin | Additional Portal obligation | Status |
-| --- | --- | --- |
-| Own pages, sidebar, routes | Contribute to **host-owned Experiences** via abstract Blueprint locations. Do not author the information architecture. | specified |
-| Legacy slots / `moduleName` / inject a card | Static **NFS** plus a matching **manifest**. The host composes placement. | specified |
-| Call a backend URL or proxy | **Registered operations** (schemas, permissions, audit). Same operation for UI, REST, MCP, and Scaffolder. No `apiEndpoint` or `handlerPath`. | specified |
-| Stock Scaffolder `/create` | Entitlement-filtered **Portal create wizard**. Field extensions merge into the host registry. Do not send users to `/create`. | specified (merge may be not yet shipped) |
-| Generic RJSF / MUI | **BUI → PatternFly → custom** (documented reason). Host owns loading, empty, restricted, and error chrome. | specified |
-| Catalog YAML as the data model | Catalog is a **projection**. Domain state lives in the plugin backend, keyed by organization. | specified |
-| Ad hoc feature flags | `ansible.<pluginId>.*` and **zero footprint** when disabled ([ADR-010](../adrs/common/010-plugin-factory-composability.md), [ADR-011](../adrs/common/011-plugin-factory-config-namespace.md)). | shipped as policy; SDK readers specified |
-| Community Preview conventions | EAP / Tech Preview / GA and Preview chip rules ([ADR-012](../adrs/common/012-plugin-factory-preview-labeling.md), [ADR-013](../adrs/common/013-plugin-factory-enablement-defaults.md), [ADR-017](../adrs/common/017-plugin-factory-preview-chip-placement.md), [ADR-019](../adrs/common/019-plugin-factory-delivery-lifecycle.md)). | shipped as policy |
-| Compile against Backstage packages | Compile against the **published Portal SDK** and `apiVersion`. Contributor kit (ADRs and skills) used from the third-party repo. Consume **published versions**, not `workspace:^`. | specified |
-| Each dynamic plugin bundles its own copy of helpers | `portal-extension-api` (and related SDK packages) are **Module Federation singletons**. Declare them `peerDependency`; never `--embed-package`. Host `portal-core` must load first. Two registry copies means contributions never appear. | specified |
-| Admin loads `dynamic-plugins.yaml` | Out-of-tree, no fork. Exact packaging and CI are **not yet**. Fail closed; do not invent. | not yet |
+| Stock RHDH plugin                                   | Additional Portal obligation                                                                                                                                                                                                                                                                                                        | Status                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Own pages, sidebar, routes                          | Contribute to **host-owned Experiences** via abstract Blueprint locations. Do not author the information architecture.                                                                                                                                                                                                              | specified                                |
+| Legacy slots / `moduleName` / inject a card         | Static **NFS** plus a matching **manifest**. The host composes placement.                                                                                                                                                                                                                                                           | specified                                |
+| Call a backend URL or proxy                         | **Registered operations** (schemas, permissions, audit). Same operation for UI, REST, MCP, and Scaffolder. No `apiEndpoint` or `handlerPath`.                                                                                                                                                                                       | specified                                |
+| Stock Scaffolder `/create`                          | Entitlement-filtered **Portal create wizard**. Field extensions merge into the host registry. Do not send users to `/create`.                                                                                                                                                                                                       | specified (merge may be not yet shipped) |
+| Generic RJSF / MUI                                  | **BUI → PatternFly → custom** (documented reason). Host owns loading, empty, restricted, and error chrome.                                                                                                                                                                                                                          | specified                                |
+| Catalog YAML as the data model                      | Catalog is a **projection**. Domain state lives in the plugin backend, keyed by organization.                                                                                                                                                                                                                                       | specified                                |
+| Ad hoc feature flags                                | `ansible.<pluginId>.*` and **zero footprint** when disabled ([ADR-010](../adrs/common/010-plugin-factory-composability.md), [ADR-011](../adrs/common/011-plugin-factory-config-namespace.md)).                                                                                                                                      | shipped as policy; SDK readers specified |
+| Community Preview conventions                       | EAP / Tech Preview / GA and Preview chip rules ([ADR-012](../adrs/common/012-plugin-factory-preview-labeling.md), [ADR-013](../adrs/common/013-plugin-factory-enablement-defaults.md), [ADR-017](../adrs/common/017-plugin-factory-preview-chip-placement.md), [ADR-019](../adrs/common/019-plugin-factory-delivery-lifecycle.md)). | shipped as policy                        |
+| Compile against Backstage packages                  | Compile against the **Portal SDK** and `apiVersion` (**specified**; npm packages **not yet** shipped). Contributor kit (ADRs and skills) used from the third-party repo. When packages exist, consume `@ansible/portal-*` versions, not `workspace:^`.                                                                              | specified                                |
+| Each dynamic plugin bundles its own copy of helpers | `portal-extension-api` (and related SDK packages) are **Module Federation singletons**. Declare them `peerDependency`; never `--embed-package`. Host `portal-core` must load first. Two registry copies means contributions never appear.                                                                                           | specified                                |
+| Admin loads `dynamic-plugins.yaml`                  | Out-of-tree, no fork. Exact packaging and CI are **not yet**. Fail closed; do not invent.                                                                                                                                                                                                                                           | not yet                                  |
 
 Several rows are specified and not yet shipped (field-registry merge, SDK packages). The section still states the delta so authors do not ship a stock RHDH plugin and call it a Portal plugin.
 
@@ -139,11 +139,11 @@ Several rows are specified and not yet shipped (field-registry merge, SDK packag
 
 Three things people mix up. Refuse conflation.
 
-| Term | Meaning | Owner |
-| --- | --- | --- |
-| **Content type** | What the artifact is (collection, execution environment, playbook repository, …) | Content contract |
-| **Experience** | Host-owned user goal (for example Content Quality, Content Authoring, Content Migration) | Host + UX |
-| **Plugin / capability** | A contribution into one or more Experiences, scoped to the content types it actually supports | Plugin |
+| Term                    | Meaning                                                                                       | Owner            |
+| ----------------------- | --------------------------------------------------------------------------------------------- | ---------------- |
+| **Content type**        | What the artifact is (collection, execution environment, playbook repository, …)              | Content contract |
+| **Experience**          | Host-owned user goal (for example Content Quality, Content Authoring, Content Migration)      | Host + UX        |
+| **Plugin / capability** | A contribution into one or more Experiences, scoped to the content types it actually supports | Plugin           |
 
 A page, card, tab, or screenshot is a **realization** of an Experience, not the Experience. Several plugins can contribute to one Experience. One plugin can contribute to several.
 
@@ -168,12 +168,12 @@ Is the user job one-shot create / launch / provision (form → run → done)?
 
 **Author vs host packages** (from the portal-core layout; **specified**).
 
-| Your plugin depends on | You do not depend on |
-| --- | --- |
-| `portal-extension-common` — serialisable vocabulary, no React, no Node | `portal-extension-host` — renders contributions |
+| Your plugin depends on                                                     | You do not depend on                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `portal-extension-common` — serialisable vocabulary, no React, no Node     | `portal-extension-host` — renders contributions              |
 | `portal-extension-api` — frontend registration (peerDependency, singleton) | `portal-core` — RHDH Module Federation glue; must load first |
-| `portal-plugin-sdk` — `usePortalContext()`, tokens, shared UI | `portal-health-backend` — host health aggregation |
-| `portal-plugin-node` — backend factory, identity, health, audit | Host page packages |
+| `portal-plugin-sdk` — `usePortalContext()`, tokens, shared UI              | `portal-health-backend` — host health aggregation            |
+| `portal-plugin-node` — backend factory, identity, health, audit            | Host page packages                                           |
 
 `portal-extension-common` is the dictionary both halves share. Frontend types and hooks stay in `portal-extension-api`. Backend runtime stays in `portal-plugin-node`. Do not put `OperationDescriptor` in a React package.
 
@@ -222,15 +222,17 @@ ANSTRAT-2497 **publishes the specification**. Follow-on Features implement packa
 
 ### 7.1 Compile-against map
 
-| Package | Role | Who uses it |
-| --- | --- | --- |
-| `portal-extension-common` | Serialisable `PluginManifest`, capabilities, entitlements, `OperationDescriptor`. No React, no Node. | Frontend and backend |
-| `portal-extension-api` | Frontend registration, shared `ContributionRegistry`. **PeerDependency / MF singleton.** | Frontend only |
-| `portal-plugin-sdk` | `usePortalContext()`, BUI/tokens, RJSF widget registration, shared UI | Frontend only |
-| `portal-plugin-node` | `createPortalPlugin()`, identity middleware, `pushHealthStatus()`, `emitAuditEvent()`, org-keyed DB helpers | Backend only |
-| Host `apiVersion` | Compatibility the plugin declares and the host validates | Manifest |
+Canonical **specified** npm names use the `@ansible/` scope. They are **not yet** published. Unscoped ids in this guide (`portal-extension-api`) mean the same packages.
 
-Host-only (authors do not depend): `portal-extension-host`, `portal-core`, `portal-health-backend`.
+| Package                            | Role                                                                                                        | Who uses it          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------- |
+| `@ansible/portal-extension-common` | Serialisable `PluginManifest`, capabilities, entitlements, `OperationDescriptor`. No React, no Node.        | Frontend and backend |
+| `@ansible/portal-extension-api`    | Frontend registration, shared `ContributionRegistry`. **PeerDependency / MF singleton.**                    | Frontend only        |
+| `@ansible/portal-plugin-sdk`       | `usePortalContext()`, BUI/tokens, RJSF widget registration, shared UI                                       | Frontend only        |
+| `@ansible/portal-plugin-node`      | `createPortalPlugin()`, identity middleware, `pushHealthStatus()`, `emitAuditEvent()`, org-keyed DB helpers | Backend only         |
+| Host `apiVersion`                  | Compatibility the plugin declares and the host validates                                                    | Manifest             |
+
+Host-only (authors do not depend): `@ansible/portal-extension-host`, `portal-core`, `portal-health-backend`.
 
 ### 7.2 Frontend verbs
 
@@ -252,11 +254,11 @@ A bad or incompatible manifest **fails locally**. It does not prevent the portal
 
 An entry point connects with a discriminated launch. No handler URL.
 
-| Type | Means |
-| --- | --- |
+| Type        | Means                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- |
 | `operation` | Invoke a registered backend operation (`operationId`). Optional `followOn` to a slot or workflow after dispatch. |
-| `workflow` | Start a host-owned guided walkthrough (`workflowId`). Plugin does not supply a URL. |
-| `slot` | Mount a contribution in a host-owned semantic region. Target NFS, not `moduleName`. |
+| `workflow`  | Start a host-owned guided walkthrough (`workflowId`). Plugin does not supply a URL.                              |
+| `slot`      | Mount a contribution in a host-owned semantic region. Target NFS, not `moduleName`.                              |
 
 `scaffolder-field` is a first-class entry-point kind in the manifest types, alongside entity tab, entity action, catalog item action, overview card, table column, settings section, and others. The host still owns placement.
 
@@ -313,10 +315,10 @@ The Portal create wizard must be a **generic superset of the stock RHDH scaffold
 
 Two field models, both valid:
 
-| Model | Who owns the widget | Contract |
-| --- | --- | --- |
-| Host-owned field | Host | Calls a registered operation or typed client |
-| Plugin-owned field | Third-party plugin | Dynamic `scaffolderFieldExtensions` merged into the wizard |
+| Model              | Who owns the widget | Contract                                                   |
+| ------------------ | ------------------- | ---------------------------------------------------------- |
+| Host-owned field   | Host                | Calls a registered operation or typed client               |
+| Plugin-owned field | Third-party plugin  | Dynamic `scaffolderFieldExtensions` merged into the wizard |
 
 Keep the “no arbitrary URL in the template” rule for both.
 
@@ -385,7 +387,7 @@ When asked to onboard a plugin or add a contribution:
 2. Classify delivery vehicle, including the template + field-extension branch. Then frontend vs backend vs both (§5).
 3. Map the Portal-vs-RHDH delta (§3).
 4. Template path: declare scaffolder action and field extensions. Do not invent a Portal page or patch host field lists.
-5. Plugin path: select Blueprint families and content-type scope; draft capability and operation descriptors; draft UI against abstract locations using **BUI → PatternFly → custom**. Declare SDK packages as peerDependencies (singleton). Do not depend on host packages.
+5. Plugin path: select Blueprint families and content-type scope; draft capability and operation descriptors; draft UI against abstract locations using **BUI → PatternFly → custom**. Declare frontend `portal-extension-api` as a `peerDependency` (Module Federation singleton). Do not depend on host packages.
 6. Check anti-patterns (scaffolder refusals in §9, SDK refusals in §7, and the invariant list in §12).
 7. List evidence required for the current lifecycle stage.
 8. Stop with a gap list tagged **host-missing** vs **author-todo**.
@@ -403,12 +405,12 @@ Cite ADRs. Do not paraphrase them into optional style. Rules that exist only in 
 
 **Monorepo-location clauses to amend later** (do not treat these as “in-tree only”):
 
-| ADR | Clause that assumes this repository |
-| --- | --- |
-| [ADR-010](../adrs/common/010-plugin-factory-composability.md) | Scope text: plugins in `ansible-backstage-plugins`; `packages/app` as composition root |
-| [ADR-011](../adrs/common/011-plugin-factory-config-namespace.md) | Product teams contribute plugins in `ansible-backstage-plugins`; upstream `packages/app` wiring |
-| [ADR-016](../adrs/common/016-plugin-factory-template-vs-plugin.md) | Factory plugin path `ansible-backstage-plugins/plugins/backstage-<pluginId>` |
-| [ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) | No static UI in `packages/app`; do not refactor `ansible-backstage-plugins` |
+| ADR                                                                  | Clause that assumes this repository                                                             |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [ADR-010](../adrs/common/010-plugin-factory-composability.md)        | Scope text: plugins in `ansible-backstage-plugins`; `packages/app` as composition root          |
+| [ADR-011](../adrs/common/011-plugin-factory-config-namespace.md)     | Product teams contribute plugins in `ansible-backstage-plugins`; upstream `packages/app` wiring |
+| [ADR-016](../adrs/common/016-plugin-factory-template-vs-plugin.md)   | Factory plugin path `ansible-backstage-plugins/plugins/backstage-<pluginId>`                    |
+| [ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) | No static UI in `packages/app`; do not refactor `ansible-backstage-plugins`                     |
 
 The rules (no cross-plugin implementation deps, config namespace, reuse over custom, template vs plugin) still apply out of tree. Only the repo-location sentences need a later amendment.
 

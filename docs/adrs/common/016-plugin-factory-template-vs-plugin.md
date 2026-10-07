@@ -19,7 +19,7 @@ Contributing teams need a binding decision tree at Propose phase so full Portal 
 
 | Delivery                     | What it is                              | Where it lives                                                                                                        | Typical load path                                                 |
 | ---------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| **Software template**        | Scaffolder form → action → done         | `examples/` or catalog template YAML; runs via `@ansible/plugin-self-service`                                         | No new dynamic plugin; uses existing portal plugins               |
+| **Software template**        | Scaffolder form → action → done         | `examples/` or catalog template YAML; runs via `@ansible/plugin-backstage-self-service`                               | No new dynamic plugin; uses existing portal plugins               |
 | **Factory Backstage plugin** | Persistent UI + optional backend module | `ansible-backstage-plugins/plugins/backstage-<pluginId>` (+ `*-common`, optional `catalog-backend-module-<pluginId>`) | RHDH dynamic plugin OCI tarball and/or `packages/app` composition |
 
 ## Alternatives Considered
@@ -40,8 +40,10 @@ Contributing teams need a binding decision tree at Propose phase so full Portal 
 Is the user job mostly one-shot create / launch / provision
 (form → run → done)?
   YES → Software template (self-service / scaffolder).
-        Skip factory Feature → EAP → Preview → GA plugin path
-        unless you also need persistent UI.
+        Skip factory Feature → EAP → Preview → GA *plugin* path
+        unless you also need persistent UI or custom scaffolder
+        fields / actions (those still need plugin artifacts;
+        they do not require an ongoing workspace).
   NO  → Does the user need an ongoing workspace
         (pages, entity/catalog tabs, capability settings, dashboards)?
           YES → Factory Backstage plugin (new plugin or extend host).
@@ -61,11 +63,11 @@ Is the user job mostly one-shot create / launch / provision
 
 ### Pure software templates
 
-Software templates follow self-service contribution norms. They usually skip the full Portal Plugin Factory Feature → EAP → Preview → GA **Backstage plugin** path unless the team also needs a factory Backstage plugin for persistent UI.
+Software templates follow self-service contribution norms. They usually skip the full Portal Plugin Factory Feature → EAP → Preview → GA **Backstage plugin** path. Custom scaffolder field widgets still need a frontend plugin artifact, and custom scaffolder actions still need a backend module; that is not the same as an ongoing workspace and does not by itself start the EAP → Preview → GA capability path.
 
 ### Out of scope
 
-Portal setup wizard and Day 2 admin settings pages — **ADR-003**, `specs/001-portal-settings-mgmt`.
+Portal setup wizard and Day 2 admin settings pages — [ADR-003](../host/003-admin-experience-wizard-and-settings.md).
 
 ### Verification
 

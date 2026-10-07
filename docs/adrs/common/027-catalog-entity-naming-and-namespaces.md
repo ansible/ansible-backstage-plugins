@@ -29,7 +29,7 @@ Single-org upgrades (`multiOrgEnabled: false`) must not change entity **names** 
 
 | Alternative                                               | Why rejected / deferred                                                                                   |
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Keep slug-only names; namespaces only (ADR-020 as-is)     | Does not fix org↔team or case-only collisions inside one namespace                                        |
+| Keep slug-only names; namespaces only (ADR-020 as-is)     | Does not fix org↔team or case-only collisions inside one namespace                                       |
 | Prefixed names **with** slug + id (`o-aap-{slug}-{id}`)   | Inconsistent type token placement; needs fallback when slug is empty; longer names                        |
 | English synonym replacements (`&` → `-and-`)              | Semantic conversion; `R&D` vs `R-and-D` collide or confuse                                                |
 | One-time catalog migration job for stale entities         | Unnecessary — scheduled providers use `applyMutation({ type: 'full' })`                                   |

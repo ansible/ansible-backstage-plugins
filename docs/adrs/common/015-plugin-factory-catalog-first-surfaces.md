@@ -11,9 +11,9 @@
 
 Factory Backstage plugins often extend capabilities that are naturally catalog- or entity-scoped (content quality, compliance signals, repository metadata). Adding a standalone sidebar entry or top-level route for every plugin fragments navigation and fights the portal's consolidation model.
 
-Early factory Backstage plugins validated catalog-first placement: no dedicated sidebar route; capability surfaces register through host extension APIs (e.g. `gitRepositoriesExtensionsApiRef` on the Git Repositories host, `@ansible/plugin-self-service`).
+Early factory Backstage plugins validated catalog-first placement: no dedicated sidebar route; capability surfaces register through host extension APIs (e.g. `gitRepositoriesExtensionsApiRef` on the Git Repositories host, `@ansible/plugin-backstage-self-service`).
 
-Portal-wide Day 2 admin (Connections, Sync, SCM) is owned by **ADR-003** (`specs/001-portal-settings-mgmt`). This ADR covers **capability-local** settings only (e.g. Git Repos → plugin-specific settings).
+Portal-wide Day 2 admin (Connections, Sync, SCM) is owned by [ADR-003](../host/003-admin-experience-wizard-and-settings.md). This ADR covers **capability-local** settings only (e.g. Git Repos → plugin-specific settings).
 
 ## Alternatives Considered
 

@@ -11,7 +11,7 @@
 
 The **Portal Plugin Factory framework** enables product teams to contribute **Backstage plugins** in `ansible-backstage-plugins`. Those artifacts implement **portal capabilities** — cohesive user-facing features (for example content-quality signals on Git Repositories) that may span a frontend plugin, `*-common` contracts, and an optional backend module.
 
-Runtime configuration is keyed by **capability**, not by individual plugin artifact. Each capability needs settings such as feature toggles, service URLs, TLS options, and dev-only flags. Without a namespace convention, contributing teams invent ad-hoc config paths — some use top-level keys (`quality.enabled`), some nest under `ansible.*` (`ansible.feedback.enabled`, `ansible.devSpaces.baseUrl`), and some follow RHDH manifest conventions (`ansible.plugin-backstage-quality` in `pluginConfig.dynamicPlugins.frontend`).
+Runtime configuration is keyed by **capability**, not by individual plugin artifact. Each capability needs settings such as feature toggles, service URLs, TLS options, and dev-only flags. Without a namespace convention, contributing teams invent ad-hoc config paths — some use top-level keys (`quality.enabled`), some nest under `ansible.*` (`ansible.feedback.enabled`, `ansible.devspaces.baseUrl`), and some follow RHDH manifest conventions (`ansible.plugin-backstage-quality` in `pluginConfig.dynamicPlugins.frontend`).
 
 The Portal Plugin Factory Review acceptance criteria require namespace compliance. A single convention lets the portal admin UI (ADR-003), the config schema validation, and the scaffolding template all rely on a predictable config shape.
 
@@ -33,7 +33,7 @@ RHDH dynamic plugin loading uses a separate manifest namespace (`ansible.plugin-
 
 ### Namespace rules
 
-1. **`<pluginId>`** — short stable slug for the **portal capability** (lowercase, no `@ansible/` prefix, no `plugin-` prefix). Registered during Portal Plugin Factory Phase 1 (Propose). One capability, one config block — regardless of how many frontend/backend artifacts implement it. Examples: `quality`, `feedback`, `devSpaces`, `compliance`, `workflows`.
+1. **`<pluginId>`** — short stable slug for the **portal capability** (lowercase, no `@ansible/` prefix, no `plugin-` prefix). Registered during Portal Plugin Factory Phase 1 (Propose). One capability, one config block — regardless of how many frontend/backend artifacts implement it. Examples: `quality`, `feedback`, `devspaces`, `compliance`, `workflows`.
 2. **Master toggle** — `ansible.<pluginId>.enabled` (boolean). Default `false` when block absent. Turns the **entire capability** off per ADR-010 zero-footprint behavior (all host slots, tabs, routes, and backend modules for that capability).
 3. **Capability-specific keys** — sibling keys under the same block (`baseUrl`, `checkSSL`, `mockMode`, sync schedules, etc.).
 4. **Config reader** — the capability's `*-common` package exposes `get<Capability>Config(config: Config)` reading `ansible.<pluginId>`. All artifacts for that capability use this reader — never scatter string literals. The Portal Plugin Factory scaffolding template generates it once per capability.

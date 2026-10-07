@@ -9,7 +9,7 @@
 
 ## Context
 
-[ADR-010](../common/010-plugin-factory-composability.md) through [ADR-019](../common/019-plugin-factory-delivery-lifecycle.md) bind factory plugins. Several of those ADRs still describe in-tree paths (`plugins/backstage-<pluginId>`, `packages/app`). Third-party plugins are not authored here. They consume a published SDK and load as RHDH dynamic plugins.
+[ADR-010](../common/010-plugin-factory-composability.md) through [ADR-019](../common/019-plugin-factory-delivery-lifecycle.md) bind factory plugins. Several of those ADRs still describe in-tree paths (`plugins/backstage-<pluginId>`, `packages/app`). Third-party plugins are not authored here. They load as RHDH dynamic plugins against the Portal SDK contract. Published `@ansible/portal-*` npm packages are **specified** and **not yet** shipped.
 
 Without an explicit out-of-tree ADR, authors copy `workspace:^`, embed `portal-extension-api`, or patch host UI.
 
@@ -17,9 +17,9 @@ Without an explicit out-of-tree ADR, authors copy `workspace:^`, embed `portal-e
 
 **Common ADRs still apply.** This ADR adds obligations that exist only because the plugin is out of tree.
 
-1. **Other repository.** Do not add a third-party plugin workspace to this monorepo. Consume published `@ansible/portal-*` package versions, not `workspace:^`.
-2. **Author vs host packages.** Depend on `portal-extension-common`, `portal-extension-api`, `portal-plugin-sdk`, and `portal-plugin-node` as appropriate. Do **not** depend on `portal-extension-host`, `portal-core`, or `portal-health-backend`.
-3. **Module Federation singleton.** Declare `portal-extension-api` (and other host-shared SDK packages) as `peerDependency`. Never `--embed-package` the registry. Two copies of the contribution registry means contributions never appear. `portal-core` must load first in the host.
+1. **Other repository.** Do not add a third-party plugin workspace to this monorepo. Do not use `workspace:^`. When the SDK is published, install the scoped packages below; until then this install path is **not yet** — fail closed, do not invent a private substitute.
+2. **Author vs host packages.** Canonical **specified** names (scope `@ansible/`, **not yet** on npm): `@ansible/portal-extension-common`, `@ansible/portal-extension-api`, `@ansible/portal-plugin-sdk`, `@ansible/portal-plugin-node`. Do **not** depend on `@ansible/portal-extension-host`, `portal-core`, or `portal-health-backend`.
+3. **Module Federation singleton.** Declare `@ansible/portal-extension-api` as a frontend `peerDependency`. Never `--embed-package` the registry. Two copies of the contribution registry means contributions never appear. Host `portal-core` must load first. Backend `@ansible/portal-plugin-node` is not an MF singleton.
 4. **Do not patch the host.** Do not add widgets to a hardcoded create-wizard field list, edit installer plugin lists, or open a Portal PR to wire a one-off route. Register `scaffolderFieldExtensions` and capabilities against the published contract.
 5. **No `packages/app` composition.** Out-of-tree plugins cannot be statically imported by the upstream app. Dynamic plugin load is the path.
 6. **Escalate only for host contract changes.** A new Experience, Blueprint family, semantic region, or host `apiVersion` needs Portal engineering. Placement inside an existing Experience is host policy.

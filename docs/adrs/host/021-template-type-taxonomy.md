@@ -4,11 +4,13 @@
 
 - **Status**: Accepted
 - **Date**: 2026-06-23 (updated 2026-07-27)
-- **Deciders**: Portal team, Craig Brandt
+- **Deciders**: Portal team
 
 ## Context
 
-All template entities in the portal catalog use `spec.type: service` regardless of their origin. AAP job templates synced from the controller, custom scaffolder templates imported from GitHub/GitLab, and execution environment definitions all share the same type. This makes it impossible to filter or distinguish them at the catalog query level.
+Historically, template entities in the portal catalog used `spec.type: service` regardless of origin. AAP job templates synced from the controller, custom scaffolder templates imported from GitHub/GitLab, and execution environment definitions all shared the same type, which made catalog-query filtering impossible.
+
+`AAPJobTemplateProvider` (`dynamicJobTemplate.ts`) now emits `spec.type: automation-template` and `ansible.com/template-source: aap-template`. Remaining work is SCM template YAML in the templates repository and the self-service source filter.
 
 The self-service page needs to distinguish template sources for filtering without using separate `spec.type` values per source — which would require new types for every future source (orchestrator, workflows, SCM). A single unified type with a source annotation is more scalable.
 
@@ -38,7 +40,7 @@ Use a single unified type with a source annotation:
 
 ### Changes required
 
-1. `dynamicJobTemplate.ts`: change `type: 'service'` to `type: 'automation-template'` and add `ansible.com/template-source: aap-template` annotation
+1. `dynamicJobTemplate.ts`: **done** — emits `type: 'automation-template'` and `ansible.com/template-source: aap-template`
 2. `ansible-rhdh-templates` repository: update templates to use `type: automation-template` with `ansible.com/template-source: scm`
 3. No changes for `execution-environment` — already uses a distinct type
 4. Self-service UI: add source filter (collections-style) filtering by `ansible.com/template-source` annotation
@@ -48,13 +50,13 @@ Use a single unified type with a source annotation:
 ```typescript
 // All automation templates (any source)
 const allTemplates = await catalogApi.getEntities({
-  filter: { kind: "Template", "spec.type": "automation-template" },
+  filter: { kind: 'Template', 'spec.type': 'automation-template' },
 });
 
 // UI source filter narrows by annotation value (client-side, like collections source filter)
 const aapOnly = allTemplates.filter(
-  (e) =>
-    e.metadata.annotations?.["ansible.com/template-source"] === "aap-template",
+  e =>
+    e.metadata.annotations?.['ansible.com/template-source'] === 'aap-template',
 );
 ```
 
@@ -70,7 +72,7 @@ const aapOnly = allTemplates.filter(
 ### Negative
 
 - Breaking change: `spec.type: service` → `automation-template` applies on all deployments regardless of `multiOrgEnabled` flag. Existing RBAC conditional policies filtering by `spec.type: service` will stop matching
-- Requires coordinated update across two repositories (upstream plugins + ansible-rhdh-templates)
+- Requires a coordinated update across two repositories (upstream plugins + ansible-rhdh-templates)
 - Migration guide must document the breaking change prominently
 
 ## Related

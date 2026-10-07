@@ -38,7 +38,7 @@ Admin functionality (wizard, admin pages, config API, auth modes) must be added 
 
 Admin pages lazy-loaded via `React.lazy()` — non-admin users never download admin code.
 
-**2. Bundled PostgreSQL on RHEL VM.** Ships PostgreSQL via Podman container with auto-generated credentials (Podman secrets). External DB supported but not required. Podman Quadlet `Requires=postgres.service` ensures DB readiness. Migration from bundled to external is manual with downtime.
+**2. Bundled PostgreSQL on RHEL VM.** Ships PostgreSQL via Podman container with auto-generated credentials (Podman secrets). External DB supported but not required. The portal Quadlet uses `Requires=postgres.service` and `After=postgres.service` so systemd starts PostgreSQL first. `After=` orders units; it does not wait for PostgreSQL to accept connections. If portal startup needs a live database, use a separate readiness check (for example a Quadlet `ExecStartPre` that waits on the port). Migration from bundled to external is manual with downtime.
 
 ```mermaid
 flowchart LR

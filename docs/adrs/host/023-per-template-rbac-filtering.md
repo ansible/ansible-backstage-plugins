@@ -62,7 +62,7 @@ Per-template visibility filtering at the database query level using a custom Bac
 }
 ```
 
-Show entity if user has AAP execute permission on it, OR entity is not an AAP template (custom/SCM templates, components, groups, users).
+Show entity if user has AAP execute permission on it, OR the entity has no `aapJobTemplateId` (custom/SCM templates and other catalog kinds). This policy is the **template execute** filter. Organization isolation for Groups and Users is [ADR-020](../common/020-multi-org-namespace-isolation.md) / [ADR-027](../common/027-catalog-entity-naming-and-namespaces.md) namespaces, not this fallback. Tightening the fallback to `kind: Template` is follow-on work; do not treat this `anyOf` as a cross-org Group ACL.
 
 ### AAP RBAC Model (confirmed from AWX source)
 

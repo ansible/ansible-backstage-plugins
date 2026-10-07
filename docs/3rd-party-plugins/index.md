@@ -1,6 +1,6 @@
 # Third-party plugins
 
-Authoring contract for **BU-approved product-team plugins** that are not part of the Automation Portal base plugins. Those plugins live in **other repositories**. They consume a published Portal SDK and load as RHDH dynamic plugins.
+Authoring contract for **BU-approved product-team plugins** that are not part of the Automation Portal base plugins. Those plugins live in **other repositories**. The target load path is RHDH dynamic plugins against the Portal SDK (**specified**; npm packages are **not yet** shipped).
 
 This is not an open vendor marketplace. Partner and broader RHDH ecosystem plugins are out of scope unless the BU explicitly approves them.
 
@@ -13,11 +13,11 @@ This is not an open vendor marketplace. Partner and broader RHDH ecosystem plugi
 
 ## Honesty tags
 
-| Tag | Means |
-| --- | --- |
-| **shipped** | Authors can do this against current Portal/RHDH behavior |
-| **specified** | Target contract; describe it; do not invent a private substitute |
-| **not yet** | Unanswered mechanism; fail closed; do not guess YAML, pipelines, or owners |
+| Tag           | Means                                                                      |
+| ------------- | -------------------------------------------------------------------------- |
+| **shipped**   | Authors can do this against current Portal/RHDH behavior                   |
+| **specified** | Target contract; describe it; do not invent a private substitute           |
+| **not yet**   | Unanswered mechanism; fail closed; do not guess YAML, pipelines, or owners |
 
 Several rows in the guide are **specified** and not yet shipped (SDK npm packages, scaffolder field-registry merge, packaging). The guide still states the contract so authors do not ship a stock RHDH plugin and call it a Portal plugin.
 

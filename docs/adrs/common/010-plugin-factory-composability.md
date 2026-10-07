@@ -29,7 +29,7 @@ The question is how to enforce this boundary in both the upstream Backstage dev 
 
 ### Rules
 
-1. **No cross-plugin `package.json` deps.** A base or host Backstage plugin (e.g. `@ansible/plugin-self-service`) must not depend on an optional factory Backstage plugin (e.g. `@ansible/plugin-backstage-quality`). If a host plugin needs data from a guest plugin, it imports from that plugin's `*-common` library (shared contracts), not the implementation package.
+1. **No cross-plugin `package.json` deps.** A base or host Backstage plugin (e.g. `@ansible/plugin-backstage-self-service`) must not depend on an optional factory Backstage plugin (e.g. `@ansible/plugin-backstage-quality`). If a host plugin needs data from a guest plugin, it imports from that plugin's `*-common` library (shared contracts), not the implementation package.
 
 2. **Shared types and API refs in `*-common`.** Plugin interfaces, API refs, config readers, and catalog helpers live in `*-common`. Host plugins consume contracts via API refs (e.g. `<plugin>ApiRef`), not implementation packages.
 

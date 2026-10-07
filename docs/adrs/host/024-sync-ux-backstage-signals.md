@@ -4,7 +4,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-07-31
-- **Deciders**: Portal team, Craig Brandt, Ganesh Nalawade, Nilashish Chakraborty, Tina Tien, Taufique Rahman
+- **Deciders**: Portal team
 
 ## Context
 
@@ -61,9 +61,9 @@ Use Backstage's native Signals plugin (WebSocket push) instead of REST polling f
 
 ### Signal Channel Design
 
-| Channel                   | Publisher          | Payload                                                      | Consumer             |
-| ------------------------- | ------------------ | ------------------------------------------------------------ | -------------------- |
-| `catalog:aap-sync-status` | `SyncStateTracker` | `{ provider, syncInProgress, lastSyncTime, lastSyncStatus }` | Home.tsx sync button |
+| Channel                   | Publisher          | Payload                                                                          | Consumer             |
+| ------------------------- | ------------------ | -------------------------------------------------------------------------------- | -------------------- |
+| `catalog:aap-sync-status` | `SyncStateTracker` | `{ provider, syncInProgress, lastSyncTime, lastSyncStatus, lastFailedSyncTime }` | Home.tsx sync button |
 
 Future channels follow the same pattern for content sync, job status, and user resolution.
 

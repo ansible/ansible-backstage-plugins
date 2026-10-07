@@ -45,7 +45,7 @@ The portal runs on RHEL VM, OpenShift, and future managed services — each with
 
 ### Settings inventory
 
-The full 84-setting audit (research doc 003 (research not published in this repository)) classifies every setting. Summary:
+The application-setting inventory below classifies every setting. Row totals (30 in UI today, ~69 YAML-only, ~99 combined) are the sum of the domain counts; the earlier “~84” figure was a stale roll-up and is not used here. Summary:
 
 #### Infrastructure (~31 settings) — deployment tooling only
 
@@ -59,7 +59,7 @@ The full 84-setting audit (research doc 003 (research not published in this repo
 | Environment / telemetry    | 2     | `_environment._production`, `SEGMENT_WRITE_KEY`                                                      |
 | Backup (RHEL only)         | 3     | Backup enabled, schedule, retention                                                                  |
 
-#### Application (~84 settings) — portal GUI/API + DB
+#### Application (~99 settings) — portal GUI/API + DB
 
 | Domain                | In UI today | In YAML only | Total   | Examples                                                                                 |
 | --------------------- | ----------- | ------------ | ------- | ---------------------------------------------------------------------------------------- |
@@ -73,7 +73,7 @@ The full 84-setting audit (research doc 003 (research not published in this repo
 | Admin state           | —           | 2            | 2       | `setupComplete`, `localAdminEnabled`                                                     |
 | RBAC                  | —           | 3            | 3       | `permission.rbac.admin.users`, `.superUsers`, `.pluginsWithPermission`                   |
 | Ancillary services    | —           | 6            | 6       | `ansible.devSpaces.baseUrl`, `ansible.automationHub.baseUrl`, `ansible.creatorService.*` |
-| **Totals**            | **30**      | **~54**      | **~84** |                                                                                          |
+| **Totals**            | **30**      | **~69**      | **~99** |                                                                                          |
 
 Full inventory: research doc 003 (research not published in this repository). Classification rules: research doc 001 (research not published in this repository).
 

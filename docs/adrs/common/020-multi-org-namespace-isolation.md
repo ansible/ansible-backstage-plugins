@@ -23,6 +23,8 @@ Additionally, the Backstage-reserved `default` namespace must not collide with a
 
 ## Decision
 
+**Current contract:** [ADR-027](027-catalog-entity-naming-and-namespaces.md) (Accepted) supersedes items 1–2 and the entity mapping table for names and namespaces when `multiOrgEnabled` is on (`{source}-{type}-{id}` names, `{source}-{org-id}` namespaces, including a single configured org). Implement new work against ADR-027. The numbered rules below are the original ADR-020 decision (org-count plus slug namespaces) kept as history.
+
 Use Backstage namespaces to isolate entities per AAP organization via `getEffectiveNamespace()`:
 
 1. **Single-org mode** (1 org configured): all entities stay in the `default` namespace. Zero disruption on upgrade. `getEffectiveNamespace()` returns `"default"` when `allOrgs.length <= 1`.
