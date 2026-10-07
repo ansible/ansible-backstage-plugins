@@ -8,7 +8,7 @@
 
 ## Context
 
-The portal needs persistence for ~84 application settings across RHEL VM, OpenShift, and managed services. Settings include scalars and complex nested structures (~45 settings). The system must define storage, nested-data handling, and precedence when file and DB both define the same key.
+The portal needs persistence for ~99 application settings across RHEL VM, OpenShift, and managed services (see [ADR-002](002-config-boundary-rule.md) inventory). Settings include scalars and complex nested structures. The system must define storage, nested-data handling, and precedence when file and DB both define the same key.
 
 ## Alternatives Considered
 

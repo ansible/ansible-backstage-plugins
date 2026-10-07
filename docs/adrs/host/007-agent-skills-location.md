@@ -18,7 +18,9 @@ Skills were initially placed in `.cursor/skills/` (Cursor-specific) and `.claude
 
 ## Decision
 
-All agent skills live under the top-level `skills/` directory:
+This decision applies to the Portal team's **private process repository**, not this public plugin repository. This checkout has no `skills/` directory; `portal-design` is **not published here**. Do not run the symlink commands below from `ansible-backstage-plugins`.
+
+All agent skills live under the top-level `skills/` directory of the process repository:
 
 ```
 skills/

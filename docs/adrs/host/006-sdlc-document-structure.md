@@ -106,5 +106,5 @@ Rejected: Too rigid. Features don't move linearly through phases. ADRs and resea
 ### Negative
 
 - Dot-prefix hides the directory in `ls` output (visible with `ls -a` and on GitHub)
-- Existing links from external systems (Jira tickets, Slack messages) to old `specs/` and `docs/adrs/` paths will break
+- Existing links from external systems (Jira tickets, Slack messages) to process-repo `specs/` or private `.sdlc/` drafts may not match this public tree. `docs/adrs/` here is the canonical published location, not an obsolete path.
 - Contributors familiar with the old layout need to learn the new convention

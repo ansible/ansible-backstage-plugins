@@ -29,20 +29,22 @@ AAP is the single source of truth for job template permissions. No RBAC replicat
 
 The self-service Home page already implements per-user filtering:
 
-1. `fetchJobTemplates()` calls AAP autocomplete endpoint with the **user's OAuth token**
+1. `JobTemplatesProvider` calls AAP with the **user's OAuth token** and records `ready` or `error`
 2. AAP returns only job templates the user has execute permission on
-3. `catalogApi.getEntities({ kind: 'Template' })` fetches all catalog entities
-4. `isHomePageTemplate()` cross-references: entities with `aapJobTemplateId` are shown only if AAP returned them; custom templates (no `aapJobTemplateId`) are always shown
+3. Home wraps `catalogApi.queryEntities()` via `createHomeCatalogApi()` with `buildVisibilityPredicate()`: show entities whose `metadata.aapJobTemplateId` is in that ID list, or that have no `aapJobTemplateId`
+4. Catalog applies the predicate **before** pagination. `isHomePageTemplate()` no longer exists.
+
+Home renders the catalog only when the job-template request is `ready`. An AAP session error shows the sign-in / retry message instead of a custom-template-only grid.
 
 ### Auth-provider-to-visibility mapping
 
-| Auth Provider                    | AAP Token Available | Job Templates                           | Custom Templates | EE Builder             |
-| -------------------------------- | ------------------- | --------------------------------------- | ---------------- | ---------------------- |
-| AAP OAuth                        | Yes                 | Filtered by AAP RBAC                    | Visible          | Yes (via ScmAuth)      |
-| GitHub/GitLab OAuth              | No                  | Hidden                                  | Visible          | Yes (native SCM token) |
-| Keycloak (federated) _(planned)_ | Via mapping         | Query AAP with service token + username | Visible          | Yes (via ScmAuth)      |
+| Auth Provider                    | AAP Token Available | Job Templates                           | Custom Templates                        | EE Builder             |
+| -------------------------------- | ------------------- | --------------------------------------- | --------------------------------------- | ---------------------- |
+| AAP OAuth                        | Yes                 | Filtered by AAP RBAC                    | Visible (when the AAP request is ready) | Yes (via ScmAuth)      |
+| GitHub/GitLab OAuth              | No                  | Hidden                                  | Not shown — Home shows the AAP error    | Yes (native SCM token) |
+| Keycloak (federated) _(planned)_ | Via mapping         | Query AAP with service token + username | Same as AAP path once mapping exists    | Yes (via ScmAuth)      |
 
-When `rhAapAuthApi.getAccessToken()` fails (no AAP session), the catch block fires, no job templates are returned, and the user sees only custom templates and EE builder content.
+When there is no AAP session, `JobTemplatesProvider` is in `error` and Home does **not** fall back to custom templates. Users must sign in to AAP or retry.
 
 ### SuperUser cross-org access
 
@@ -77,6 +79,7 @@ SCM tokens are acquired on demand via `scmAuthApi.getCredentials({ url: repoUrl 
 - [AAP-80078](https://redhat.atlassian.net/browse/AAP-80078) — Custom permissions and RBAC epic
 - PR #402 — `issueTokenWithOwnership` (merged)
 - ADR-020 — Multi-org namespace isolation
-- `plugins/self-service/src/components/Home/Home.tsx` — `fetchJobTemplates()`, `isHomePageTemplate()`
+- `plugins/self-service/src/components/Home/createHomeCatalogApi.ts` — `queryEntities` visibility predicate
+- `plugins/self-service/src/components/Home/buildVisibilityPredicate.ts`
 - `plugins/auth-backend-module-rhaap-provider/src/resolvers.ts` — `issueTokenWithOwnership()`
 - Backstage RBAC plugin: `workspaces/rbac/plugins/rbac-backend/src/policies/permission-policy.ts`

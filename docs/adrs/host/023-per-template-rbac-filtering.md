@@ -10,23 +10,21 @@
 
 ## Context
 
-ADR-022 established that AAP is the single source of truth for job template permissions and described a frontend-based filtering approach: the self-service page queries AAP with the user's OAuth token, gets permitted template IDs, and cross-references against catalog entities client-side.
+ADR-022 established that AAP is the single source of truth for job template permissions. The original Home implementation fetched catalog entities and filtered them after the response (`isHomePageTemplate()`), which broke pagination and counts.
 
-This approach has fundamental limitations:
+Home now wraps `catalogApi.queryEntities()` with `createHomeCatalogApi()` / `buildVisibilityPredicate()`, so **that page** filters by permitted AAP template IDs (and entities without `aapJobTemplateId`) before offset pagination. The empty-page failure described for post-fetch filtering does not apply to current Home.
 
-- Catalog pagination happens before client-side filtering, causing empty pages and inaccurate counts
-- The left sidebar filter shows the catalog total (e.g., 23) not the user's actual count (e.g., 1)
-- Custom/SCM templates have no AAP permission model and can't be filtered the same way
+A **global** permission rule is still required: entity pages, search, scaffolder, and the catalog API do not use Home's wrapper. A client-only predicate can be bypassed. Custom/SCM templates still have no AAP execute model.
 
 ## Alternatives Considered
 
-| Alternative                                             | Why Rejected                                                                                                            |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Frontend autocomplete + client-side filtering (ADR-022) | Pagination breaks — catalog returns 20 entities per page, client filters to 3, user sees empty pages with "next" button |
-| Annotation-based filtering (ansible.com/execute-users)  | Catalog search index uses varchar(255) — truncates for templates with >20 execute users                                 |
-| DB table for execute mappings                           | toQuery() is synchronous — cannot make async DB calls inline during permission evaluation                               |
-| Org-level filtering via IS_ENTITY_OWNER                 | Too coarse — user in Default org sees all 23 Default templates but may only execute 1                                   |
-| Redis per-user cache                                    | New infrastructure dependency, same staleness issues                                                                    |
+| Alternative                                                     | Why Rejected                                                                                                                      |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend autocomplete + post-fetch filtering (original ADR-022) | Home no longer does this; other catalog surfaces still would. A page-local `queryEntities` wrap is not an authorization boundary. |
+| Annotation-based filtering (ansible.com/execute-users)          | Catalog search index uses varchar(255) — truncates for templates with >20 execute users                                           |
+| DB table for execute mappings                                   | toQuery() is synchronous — cannot make async DB calls inline during permission evaluation                                         |
+| Org-level filtering via IS_ENTITY_OWNER                         | Too coarse — user in Default org sees all 23 Default templates but may only execute 1                                             |
+| Redis per-user cache                                            | New infrastructure dependency, same staleness issues                                                                              |
 
 ## Decision
 
