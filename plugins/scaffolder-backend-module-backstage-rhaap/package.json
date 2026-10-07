@@ -37,7 +37,7 @@
     "@backstage/integration": "^2.0.0",
     "@backstage/plugin-catalog-import": "^0.13.11",
     "@backstage/plugin-scaffolder": "^1.36.1",
-    "@backstage/plugin-scaffolder-backend": "^3.3.0",
+    "@backstage/plugin-scaffolder-backend": "^4.0.0",
     "@backstage/plugin-scaffolder-node": "^0.13.1",
     "@backstage/types": "^1.2.2",
     "@octokit/core": "^5.0.0",
