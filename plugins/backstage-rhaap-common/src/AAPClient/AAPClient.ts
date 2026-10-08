@@ -36,7 +36,11 @@ import {
 } from '../interfaces';
 
 import { TERMINAL_JOB_STATUSES } from '../constants';
-import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import {
+  getAnsibleConfig,
+  getCatalogConfig,
+  findMissingConfiguredOrganizations,
+} from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import { parseAndLogStdoutMessages } from './utils/jobStdoutHelpers';
 import {
@@ -1167,6 +1171,16 @@ export class AAPClient implements IAAPService {
         `${orgEndPoint}?${urlSearchParams.toString()}`,
         token,
       );
+
+      const missingOrganizations = findMissingConfiguredOrganizations(
+        this.catalogConfig.organizations,
+        (rawOrgs as Array<{ name?: string }>).map(org => org.name ?? ''),
+      );
+      for (const orgName of missingOrganizations) {
+        this.logger.warn(
+          `Configured organization '${orgName}' not found in AAP; entities for that org will not sync`,
+        );
+      }
 
       if (!userAndTeamDetails) {
         return rawOrgs.map((org: any) => {
