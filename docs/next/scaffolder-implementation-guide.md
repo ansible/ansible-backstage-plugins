@@ -20,14 +20,14 @@ the data those pickers display.
 
 This guide covers **scaffolder-specific** deliverables:
 
-| Deliverable                                    | Owner team            | Purpose                                                                                        |
-| ---------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
-| `@ansible/portal-scaffolder` (frontend)        | Self-service          | Templates, tasks, history, EE **definition** catalog, scaffolder field extensions              |
-| `self-service-react` (new web-library)         | Self-service          | Reusable scaffolder fields **without** content imports (`AAPResourcePicker`, `ScmSelector`, …) |
-| `scaffolder-backend-module-self-service`       | Self-service          | EE definition lifecycle actions, `EEEntityProvider` route, publish prep — **no AAP REST**      |
-| `scaffolder-backend-module-content-operations` | Self-service (bridge) | Invokes ANSTRAT-1758 `operationId`s from scaffolder autocomplete/actions; **no content DB**    |
-| `scaffolder-backend-module-aap`                | AAP integration       | `rhaap:*` template actions, AAP autocomplete resources, template filters                       |
-| Picker → `automation-content-client` migration | Self-service + 1758   | Replace catalog-backed autocomplete for collections / base images (§7.5)                       |
+| Deliverable                                    | Owner team                  | Purpose                                                                                                                      |
+| ---------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `@ansible/portal-scaffolder` (frontend)        | Self-service                | Templates, tasks, history, EE **definition** catalog, scaffolder field extensions                                            |
+| `self-service-react` (new web-library)         | Self-service                | Reusable scaffolder fields **without** content imports (`AAPResourcePicker`, `ScmSelector`, …)                               |
+| `scaffolder-backend-module-self-service`       | Self-service                | EE definition lifecycle actions, `EEEntityProvider` route, publish prep — **no AAP REST**                                    |
+| `scaffolder-backend-module-content-operations` | Self-service (actions only) | Scaffolder actions invoking registered content operations (publish, certify); **no content DB, not a listing bridge (§4.2)** |
+| `scaffolder-backend-module-aap`                | AAP integration             | `rhaap:*` template actions, AAP autocomplete resources, template filters                                                     |
+| Picker → `automation-content-client` migration | Self-service + 1758         | Replace catalog-backed autocomplete for collections / base images (§7.5)                                                     |
 
 **Out of scope for this guide (other teams / tickets):**
 
@@ -46,20 +46,39 @@ browsing, shell pieces, and the full scaffolder surface.
 
 **Eleven scaffolder field extensions** (registered via `scaffolderPlugin.provide(createScaffolderFieldExtension(...))` and re-exported from `src/index.ts`):
 
-| Field extension                                                                                        | Data at runtime                                                                                                                 | Architecture bucket                                                                       |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `CollectionsPicker`                                                                                    | `scaffolderApi.autocomplete` → provider `aap-api-cloud`, resources `collections` / `collection_sources` / `collection_versions` | **Content boundary (§7.5)** — must move to `automation-content-client`                    |
-| `BaseImagePicker`                                                                                      | Static template schema / hardcoded recommended image                                                                            | **Content boundary** — becomes dynamic via `content.executionEnvironments.listBaseImages` |
-| `AAPResourcePicker`, `AAPTokenField`                                                                   | AAP APIs via plugin `apis`                                                                                                      | `self-service-react`                                                                      |
-| `ScmSelector`, `FileUploadPicker`                                                                      | SCM / upload UX                                                                                                                 | `self-service-react`                                                                      |
-| `PackagesPicker`, `AdditionalBuildStepsPicker`, `EEFileNamePicker`, `EETagsPicker`, `MCPServersPicker` | Pure form UX (enum/schema driven)                                                                                               | `self-service-react` (no content client)                                                  |
+| Field extension                                                                                        | Data at runtime                                                                                                                 | Architecture bucket                                                                               |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `CollectionsPicker`                                                                                    | `scaffolderApi.autocomplete` → provider `aap-api-cloud`, resources `collections` / `collection_sources` / `collection_versions` | **Content boundary (§7.5)** — must move to `automation-content-client`                            |
+| `BaseImagePicker`                                                                                      | Static template schema / hardcoded recommended image                                                                            | **Content boundary** — becomes dynamic via content search on `execution-environment-image` (§4.2) |
+| `AAPResourcePicker`, `AAPTokenField`                                                                   | AAP APIs via plugin `apis`                                                                                                      | `self-service-react`                                                                              |
+| `ScmSelector`, `FileUploadPicker`                                                                      | SCM / upload UX                                                                                                                 | `self-service-react`                                                                              |
+| `PackagesPicker`, `AdditionalBuildStepsPicker`, `EEFileNamePicker`, `EETagsPicker`, `MCPServersPicker` | Pure form UX (enum/schema driven)                                                                                               | `self-service-react` (no content client)                                                          |
 
 **Coupling to fix:** `CollectionsPicker` uses three autocomplete resources. Only
 `collections` is handled by `getCollections()` (catalog entity query via `discovery` +
 catalog API). `collection_sources` and `collection_versions` fall through to
 `ansibleService.getResourceData()` in `handleAutocompleteRequest`. All three should
-eventually use content operations (§7.5), not catalog projection or ad hoc AAP resource
-strings.
+eventually use the content search surface (§7.5, revised in §4.2 below), not catalog
+projection or ad hoc AAP resource strings.
+
+**Reconciling with architecture §7.5's seven pickers:** §7.5 names seven fields on the
+content/self-service boundary — `CollectionsPicker`, `BaseImagePicker`, `EETagsPicker`,
+`EEFileNamePicker`, `PackagesPicker`, `AdditionalBuildStepsPicker`, `MCPServersPicker`.
+The table above buckets five of those as "pure form UX," which needs a caveat:
+
+- Four have no catalog/API data layer today — `PackagesPicker`, `AdditionalBuildStepsPicker`,
+  `EETagsPicker`, `MCPServersPicker` — these are genuinely enum/schema driven.
+- `EEFileNamePicker` **does** call `catalogApi.getEntityByRef` to check for existing EE
+  **definitions** (self-service-owned catalog data per architecture §7.2), so "enum/schema
+  driven" undersells it. It stays in `self-service-react` because the catalog it reads is
+  the definition catalog self-service already owns, not a content-team boundary.
+- The narrow Phase 4 boundary in this guide is **collections + base images only**.
+  The remaining fields are not re-litigated here; where any of them later need
+  content-team data, that is new §7.6 agreement with ANSTRAT-1758, not something this
+  guide settles by omission.
+- Several of these fields may be reshaped or removed entirely once the self-service UI
+  refactor (out of scope for this guide) lands — treat this table as current-state
+  inventory, not a frozen field list.
 
 ### 2.2 Backend — `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`
 
@@ -92,7 +111,8 @@ One `createBackendModule({ pluginId: 'scaffolder', moduleId: 'ansible' })` regis
 ### 2.3 Catalog — `EEEntityProvider` (today in `catalog-backend-module-rhaap`)
 
 `POST /ansible/ee` registers execution environment **definitions** pushed from the scaffolder
-(architecture §7.4). The provider itself is ~50 lines and does not touch OCI/registries.
+(architecture §7.4 cites ~52 lines; on `main` today `EEEntityProvider.ts` is ~88 lines).
+Either way it does not touch OCI/registries.
 
 **Target:** HTTP route stays reachable; provider implementation lives in
 `scaffolder-backend-module-self-service` (or `self-service` backend plugin) and is **wired**
@@ -133,7 +153,9 @@ workspaces/self-service/plugins/
 │   portal-plugin.yaml — installGroup: self-service
 │
 └── scaffolder-backend-module-content-operations/
-    Autocomplete provider(s) that map scaffolder resources → operationId invocations
+    Scaffolder *actions* that invoke registered content operations (publish, certify) —
+    not a listing bridge. Read-only picker lookups go through content search directly
+    from the frontend client (§4.2); this module exists only if actions need it.
     Uses: @ansible/automation-content-client (peer), @ansible/portal-plugin-node
     No direct catalog/database imports — only typed operations from content backend
     portal-plugin.yaml — installGroup: self-service, featureGate: content.enabled
@@ -167,24 +189,48 @@ Long term, field extensions can be declared on `PluginManifest` and discovered b
 to avoid blocking on host RJSF/scaffolder integration. Track manifest entries as a follow-up
 once `portal-extension-host` can mount scaffolder fields.
 
-### 4.2 No handler URLs in manifests (security invariant)
+### 4.2 Content pickers query generic content search, not per-step operations
 
-Picker data fetching must use `usePortalContext().apiClient` (typed
-`automation-content-client`) or scaffolder autocomplete that calls
-**registered operations** on the server — not `catalogApi.getEntities` from field components.
+**Revised per review feedback.** The earlier draft of this section proposed four named
+operations (`content.collections.search`, `listSources`, `listVersions`,
+`content.executionEnvironments.listBaseImages`) mapped one-to-one from today's
+autocomplete resources. That freezes an incidental UI detail — `CollectionsPicker`'s
+three-step name → source → version cascade is hardcoded in the widget
+(`CollectionsPickerExtension.tsx`), not a template-author contract — into a permanent
+backend surface. It also does not reuse the mechanism the architecture doc already
+defines for exactly this: **projectors**. §3 of the architecture doc places
+`search-backend-module-automation-content` alongside the catalog projector, rebuilding a
+declarative, queryable view from the canonical store. That is the surface content
+pickers should query.
 
-The content-operations module is the adapter:
+**Revised model:**
 
 ```
-CollectionsPicker (UI)
-  → scaffolderApi.autocomplete({ provider: 'portal-content-operations', resource: 'collections.search', ... })
-  → bridge resolves resource string → operationId → content backend handler
-  → audit + permission pipeline on content side
+CollectionsPicker (UI widget)
+  → usePortalContext().apiClient.search({ type: 'collection', query, facets: { sourceId, version } })
+  → generic content search surface (search-backend-module-automation-content)
+  → type module declares which fields are queryable/facetable for its type
+  → permission check enforced at the search layer, same as today's per-field check
 ```
 
-Provider ID can remain `aap-api-cloud` for one release with a deprecation log, or switch to
-`portal-content-operations` with a parallel provider during migration (prefer **new provider**
-to make misconfiguration obvious).
+The widget owns the cascade (name → source → version, or whatever the UI needs next);
+the content side owns declaring which fields on a type are searchable and returnable.
+Adding a new content type with a picker requires the type module to declare its
+queryable fields — it does not require ANSTRAT-1758 to ship new operations.
+
+**Open item to carry into the ANSTRAT-1758 conversation, not resolved here:** this model
+assumes type-specific fields (e.g. a collection's `sourceId` and `version[]`, an EE
+image's `recommended` flag and `digest`) are declarable as queryable/returnable fields
+on that type's search projection. That is somewhat more upfront modeling work for
+ANSTRAT-1758 than three flat list endpoints would have been, but it does not grow per
+picker the way named operations would.
+
+**`scaffolder-backend-module-content-operations` scope, corrected:** this module is not
+a `resource → operationId` bridge for listing. Read-only lookups go through content
+search directly from the frontend client. The module's durable job, if it exists at
+all, is **actions** that mutate state and need the audit/permission pipeline — publish,
+certify — invoked via `operationId`, the same pattern `AAPResourcePicker` already uses
+for AAP autocomplete (left untouched — AAP stays on `aap-api-cloud`, out of scope here).
 
 ### 4.3 Definition vs built image (do not conflate)
 
@@ -267,29 +313,33 @@ Phase 4 hard-depends on published operations.
 
 ---
 
-### Phase 4 — Content operation bridge + picker migration (blocked on ANSTRAT-1758)
+### Phase 4 — Content search migration (blocked on ANSTRAT-1758)
 
-**Dependency:** Published `@ansible/automation-content-client` with operations agreed in
-the ANSTRAT-1758 picker operation contract (draft; to be published under `docs/next/`).
+**Revised per review feedback** — see §4.2 for the full design rationale. This phase no
+longer ships named per-step operations; it migrates pickers onto generic content search.
 
-**Output:** Collection and base-image pickers use operations; content-operations module stops calling catalog.
+**Dependency:** Published `@ansible/automation-content-client` with a working `search()`
+surface, and `collection` / `execution-environment-image` types registering their
+queryable fields with `search-backend-module-automation-content` (ANSTRAT-1758).
 
-| Item                                                                                                                                                          | Notes                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Implement operation handlers in content backend (`content.collections.search`, `listSources`, `listVersions`, `content.executionEnvironments.listBaseImages`) | ANSTRAT-1758                                                         |
-| `scaffolder-backend-module-content-operations`: map autocomplete resources → `operationId`                                                                    | Uses `portal-plugin-node` identity on server                         |
-| `CollectionsPicker`: call new provider or `usePortalContext().apiClient` directly                                                                             | Prefer client from field if scaffolder autocomplete is redundant     |
-| `BaseImagePicker`: dynamic list + recommended badge from operation                                                                                            | Remove hardcoded `RECOMMENDED_BASE_IMAGE_VALUE` as sole source       |
-| Remove `getCollections` catalog scan from bridge                                                                                                              | Delete catalog dependency from self-service workspace                |
-| Feature gate: degrade gracefully when `content.enabled` false                                                                                                 | Show message in picker per appliance constraints (architecture §8.3) |
+**Output:** Collection and base-image pickers query content search directly; no scaffolder
+autocomplete round-trip for these two fields; no catalog dependency from self-service.
 
-**Contract checklist (from ANSTRAT-2497 §7):**
+| Item                                                                                                                                     | Notes                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| ANSTRAT-1758: `collection` type declares queryable fields (name, `sourceId`, `version[]`)                                                | Enables faceting without a dedicated endpoint per step               |
+| ANSTRAT-1758: `execution-environment-image` type declares queryable fields (`recommended`, `digest`, `platformVersion`)                  | Powers `BaseImagePicker`'s dynamic list + recommended badge          |
+| `CollectionsPicker`: replace three `scaffolderApi.autocomplete` calls with `apiClient.search()` calls; cascade logic stays in the widget | Widget owns UX; backend owns field declarations only                 |
+| `BaseImagePicker`: replace hardcoded `RECOMMENDED_BASE_IMAGE_VALUE` enum with a search query filtered on `recommended: true`             | No more static template schema                                       |
+| Remove `getCollections` catalog scan from autocomplete backend                                                                           | Delete catalog dependency from self-service workspace                |
+| Feature gate: degrade gracefully when `content.enabled` false                                                                            | Show message in picker per appliance constraints (architecture §8.3) |
 
-1. Operation IDs + JSON schemas for all collection picker steps
-2. `listBaseImages` schema + permissions
-3. Client package surface (`automation-content-client` vs picker-only API)
-4. Permission names per operation
-5. Pagination/cursor semantics for large collection lists
+**Open questions to settle with ANSTRAT-1758 (not frozen by this guide):**
+
+1. Exact shape of `apiClient.search()` — query, facets, pagination/cursor semantics
+2. Which fields each type declares as queryable/returnable, and how (schema, decorator, config)
+3. Permission enforcement point — at search query time, per result, or both
+4. Whether `recommended` / `digest` / `platformVersion` are first-class search fields or post-filtered client-side
 
 ---
 
@@ -329,13 +379,13 @@ Coordinate with ANSTRAT-2497 Phase 7 (rename and restructure; see [ANSTRAT-2497]
 
 ## 6. Contracts Published for Other Teams
 
-| Consumer            | Contract                                                  | Provided by                                           |
-| ------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| ANSTRAT-1758        | Operation IDs + schemas in picker proposal                | Content backend + client                              |
-| Self-service bridge | Stable autocomplete `resource` string → `operationId` map | `scaffolder-backend-module-content-operations` README |
-| AAP team            | Stable `rhaap:*` action schemas                           | `scaffolder-backend-module-aap`                       |
-| Template authors    | Action IDs unchanged across split                         | Changelog entry per Phase 1                           |
-| RHDH / operator     | Three backend dynamic plugin entries instead of one       | `portal-plugin.yaml` installGroup                     |
+| Consumer         | Contract                                                              | Provided by                        |
+| ---------------- | --------------------------------------------------------------------- | ---------------------------------- |
+| ANSTRAT-1758     | Operation IDs + schemas in picker proposal                            | Content backend + client           |
+| Self-service     | Content search query surface (§4.2): fields, facets, permission model | `automation-content-client` README |
+| AAP team         | Stable `rhaap:*` action schemas                                       | `scaffolder-backend-module-aap`    |
+| Template authors | Action IDs unchanged across split                                     | Changelog entry per Phase 1        |
+| RHDH / operator  | Three backend dynamic plugin entries instead of one                   | `portal-plugin.yaml` installGroup  |
 
 **Semver:** Backend module split is **internal packaging** if action IDs stable — minor bump on `@ansible/plugin-scaffolder-backend-module-*` packages. Breaking action schema changes require changelog + template repo coordination (`ansible-rhdh-templates`).
 
@@ -347,7 +397,7 @@ Same as ANSTRAT-2497 §7 — the scaffolder split is blocked on **picker operati
 
 **Minimum to unblock Phase 4:**
 
-1. Agree on the ANSTRAT-1758 picker operation contract (or revised operation IDs)
+1. Agree on the content search query surface and per-type queryable-field model (§4.2)
 2. Content team ships handlers + client release
 3. Self-service ships bridge + UI switch behind config flag `ansible.scaffolder.useContentOperations: true`
 
@@ -391,14 +441,18 @@ Until then, **Phase 1–3** can proceed (module split, react library, EE provide
 
 ## Appendix A — Autocomplete resource map (current → target)
 
-| Resource (today)      | Implementation today                       | Target                                          |
-| --------------------- | ------------------------------------------ | ----------------------------------------------- |
-| `collections`         | Catalog entity filter via `getCollections` | `content.collections.search`                    |
-| `collection_sources`  | `ansibleService.getResourceData` (AAP)     | `content.collections.listSources`               |
-| `collection_versions` | `ansibleService.getResourceData` (AAP)     | `content.collections.listVersions`              |
-| `verbosity`           | Static list                                | `scaffolder-backend-module-aap` or self-service |
-| `aaphostname`         | Config                                     | `scaffolder-backend-module-aap`                 |
-| `*` (AAP resources)   | `ansibleService.getResourceData`           | `scaffolder-backend-module-aap`                 |
+**Target column revised per review feedback (§4.2):** the three collection resources are
+current-implementation rows, not a target contract to preserve. They collapse into one
+widget-driven content search query; there is no per-resource target operation.
+
+| Resource (today)      | Implementation today                       | Target                                                                  |
+| --------------------- | ------------------------------------------ | ----------------------------------------------------------------------- |
+| `collections`         | Catalog entity filter via `getCollections` | Widget calls `apiClient.search({ type: 'collection' })` directly (§4.2) |
+| `collection_sources`  | `ansibleService.getResourceData` (AAP)     | Same search call, faceted on `sourceId` — no separate resource          |
+| `collection_versions` | `ansibleService.getResourceData` (AAP)     | Same search call, faceted on `version` — no separate resource           |
+| `verbosity`           | Static list                                | `scaffolder-backend-module-aap` or self-service                         |
+| `aaphostname`         | Config                                     | `scaffolder-backend-module-aap`                                         |
+| `*` (AAP resources)   | `ansibleService.getResourceData`           | `scaffolder-backend-module-aap`                                         |
 
 ---
 
