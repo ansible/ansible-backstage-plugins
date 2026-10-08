@@ -6,7 +6,6 @@ import { Entity } from '@backstage/catalog-model';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import {
   useApi,
-  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
@@ -19,7 +18,7 @@ import { CollectionResourcesCard } from './CollectionResourcesCard';
 import { CollectionReadmeCard } from './CollectionReadmeCard';
 import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import {
   EmptyState,
   fetchGitFileContentFromBackend,
@@ -33,7 +32,7 @@ const CollectionDetailsPageInner = () => {
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);

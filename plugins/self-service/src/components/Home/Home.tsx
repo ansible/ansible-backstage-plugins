@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  type PropsWithChildren,
+} from 'react';
 import { useSignal } from '@backstage/plugin-signals-react';
-import { useNavigate } from 'react-router';
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { matchPath, useLocation } from 'react-router-dom';
 import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
 import { Content, ItemCardGrid, Page } from '@backstage/core-components';
 import { ApiProvider } from '@backstage/core-app-api';
-import { useApi, useApiHolder, useRouteRef } from '@backstage/core-plugin-api';
+import { useApi, useApiHolder } from '@backstage/core-plugin-api';
 import {
   usePermission,
   RequirePermission,
@@ -27,7 +33,6 @@ import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permiss
 
 import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
-import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
 import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
@@ -320,9 +325,7 @@ const TemplateContent = ({
 };
 
 export const HomeComponent = () => {
-  const navigate = useNavigate();
   const shellPageClasses = useShellPageStyles();
-  const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
   const { showNotification } = useNotifications();
   const {
@@ -770,10 +773,12 @@ export const HomeComponent = () => {
                 <span>
                   <Button
                     data-testid="add-template-button"
-                    onClick={() => navigate(`${rootLink()}/catalog-import`)}
                     variant="contained"
                     color="primary"
                     disabled={addTemplateDisabled}
+                    onClick={() => {
+                      window.location.assign('/self-service/catalog-import');
+                    }}
                   >
                     Add Template
                   </Button>
@@ -802,24 +807,51 @@ export const HomeComponent = () => {
   );
 };
 
+const SELF_SERVICE_CATALOG = '/self-service/catalog';
+
+const resolveTemplatesRouteElement = (pathname: string) => {
+  if (
+    matchPath(
+      { path: '/self-service/catalog/:namespace/:templateName', end: true },
+      pathname,
+    ) ||
+    matchPath({ path: 'catalog/:namespace/:templateName', end: true }, pathname)
+  ) {
+    return <CatalogItemsDetails />;
+  }
+  if (
+    matchPath(
+      {
+        path: '/self-service/create/templates/:namespace/:templateName',
+        end: true,
+      },
+      pathname,
+    ) ||
+    matchPath(
+      { path: 'create/templates/:namespace/:templateName', end: true },
+      pathname,
+    )
+  ) {
+    return <CreateTask />;
+  }
+  if (
+    pathname === SELF_SERVICE_CATALOG ||
+    matchPath({ path: SELF_SERVICE_CATALOG, end: true }, pathname) ||
+    matchPath({ path: 'catalog', end: true }, pathname)
+  ) {
+    return <HomeComponent />;
+  }
+  return <HomeComponent />;
+};
+
 // Inner content component that uses the notification context
 const TemplatesRoutesContent = () => {
+  const { pathname } = useLocation();
   const { notifications, removeNotification } = useNotifications();
 
   return (
     <>
-      <Routes>
-        <Route path="catalog" element={<HomeComponent />} />
-        <Route
-          path="catalog/:namespace/:templateName"
-          element={<CatalogItemsDetails />}
-        />
-        <Route
-          path="create/templates/:namespace/:templateName"
-          element={<CreateTask />}
-        />
-        <Route path="*" element={<Navigate to="catalog" replace />} />
-      </Routes>
+      {resolveTemplatesRouteElement(pathname)}
       <NotificationStack
         notifications={notifications}
         onClose={removeNotification}
@@ -828,6 +860,35 @@ const TemplatesRoutesContent = () => {
   );
 };
 
+const TemplatesPageProviders = ({ children }: PropsWithChildren) => (
+  <RequirePermission permission={templatesViewPermission}>
+    <NotificationProvider>
+      <JobTemplatesProvider>{children}</JobTemplatesProvider>
+    </NotificationProvider>
+  </RequirePermission>
+);
+
+/** RHDH 2.1 NFS: one PageBlueprint per path (no `/self-service/*` splat). */
+export const TemplatesCatalogPage = () => (
+  <div data-testid="templates-catalog-page">
+    <TemplatesPageProviders>
+      <HomeComponent />
+    </TemplatesPageProviders>
+  </div>
+);
+
+export const TemplateDetailPage = () => (
+  <TemplatesPageProviders>
+    <CatalogItemsDetails />
+  </TemplatesPageProviders>
+);
+
+export const TemplateCreatePage = () => (
+  <TemplatesPageProviders>
+    <CreateTask />
+  </TemplatesPageProviders>
+);
+
 /**
  * Standalone route wrapper used by the dynamic plugin mount at /self-service.
  * Handles all routes gated by ansible.templates.view:
@@ -835,14 +896,9 @@ const TemplatesRoutesContent = () => {
  *   /self-service/catalog/:namespace/:templateName            — template detail
  *   /self-service/create/templates/:namespace/:templateName   — run template
  */
-export const TemplatesRoutesPage = () => {
-  return (
-    <RequirePermission permission={templatesViewPermission}>
-      <NotificationProvider>
-        <JobTemplatesProvider>
-          <TemplatesRoutesContent />
-        </JobTemplatesProvider>
-      </NotificationProvider>
-    </RequirePermission>
-  );
-};
+/** Scalprum / RHDH 1.10: mounted once at `/self-service/*`. */
+export const TemplatesRoutesPage = () => (
+  <TemplatesPageProviders>
+    <TemplatesRoutesContent />
+  </TemplatesPageProviders>
+);

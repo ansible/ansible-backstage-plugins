@@ -25,6 +25,7 @@ const mockUseIsSuperuser = jest.fn(() => ({
 }));
 
 jest.mock('../../hooks', () => ({
+  ...jest.requireActual('../../hooks'),
   useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 

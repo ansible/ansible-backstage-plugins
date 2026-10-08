@@ -21,6 +21,7 @@ jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
 }));
 
 jest.mock('../../hooks', () => ({
+  ...jest.requireActual('../../hooks'),
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,

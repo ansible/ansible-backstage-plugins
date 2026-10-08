@@ -9,7 +9,6 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   useApi,
-  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
   type DiscoveryApi,
@@ -25,7 +24,7 @@ import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
-import { rootRouteRef } from '../../routes';
+import { useSelfServiceRootLink } from '../../hooks';
 import { buildRawReadmeFetchUrl } from './scmUtils';
 import {
   EmptyState,
@@ -177,7 +176,7 @@ const RepositoryDetailsPageInner = () => {
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
   const fetchApi = useApi<FetchApi>(fetchApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = useSelfServiceRootLink();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [loading, setLoading] = useState(true);

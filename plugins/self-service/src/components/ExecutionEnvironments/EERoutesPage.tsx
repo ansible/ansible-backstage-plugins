@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, type PropsWithChildren } from 'react';
+import { matchPath, Navigate, useLocation } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import {
   useApi,
@@ -16,10 +16,41 @@ import {
 } from '../notifications';
 import { EETabs } from './TabviewPage';
 
-/**
- * Standalone mount for the dynamic-plugin EE route (e.g. RHDH at /self-service/ee).
- */
-const EERoutesContent = () => {
+export const SELF_SERVICE_EE = '/self-service/ee';
+export const SELF_SERVICE_EE_CATALOG = '/self-service/ee/catalog';
+export const SELF_SERVICE_EE_CREATE = '/self-service/ee/create';
+
+const resolveEERouteElement = (pathname: string) => {
+  if (pathname === SELF_SERVICE_EE || pathname === `${SELF_SERVICE_EE}/`) {
+    return <Navigate to={SELF_SERVICE_EE_CATALOG} replace />;
+  }
+  if (
+    pathname === SELF_SERVICE_EE_CREATE ||
+    matchPath({ path: SELF_SERVICE_EE_CREATE, end: true }, pathname) ||
+    matchPath({ path: 'create', end: true }, pathname) ||
+    pathname.includes('/ee/create')
+  ) {
+    return <EETabs />;
+  }
+  if (
+    pathname === SELF_SERVICE_EE_CATALOG ||
+    matchPath({ path: SELF_SERVICE_EE_CATALOG, end: true }, pathname) ||
+    matchPath({ path: 'catalog', end: true }, pathname) ||
+    pathname.includes('/ee/catalog')
+  ) {
+    return <EETabs />;
+  }
+  return <Navigate to={SELF_SERVICE_EE_CATALOG} replace />;
+};
+
+const EEPageProviders = ({ children }: PropsWithChildren) => (
+  <RequirePermission permission={executionEnvironmentsViewPermission}>
+    <NotificationProvider>{children}</NotificationProvider>
+  </RequirePermission>
+);
+
+const EEPageContent = () => {
+  const { pathname } = useLocation();
   const { notifications, removeNotification } = useNotifications();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -30,12 +61,7 @@ const EERoutesContent = () => {
 
   return (
     <>
-      <Routes>
-        <Route index element={<Navigate to="catalog" replace />} />
-        <Route path="catalog" element={<EETabs />} />
-        <Route path="create" element={<EETabs />} />
-        <Route path="*" element={<Navigate to="catalog" replace />} />
-      </Routes>
+      {resolveEERouteElement(pathname)}
       <NotificationStack
         notifications={notifications}
         onClose={removeNotification}
@@ -44,10 +70,19 @@ const EERoutesContent = () => {
   );
 };
 
+/** RHDH 2.1 NFS: mounted at `/self-service/ee/catalog` or `/self-service/ee/create`. */
+export const EESectionPage = () => (
+  <EEPageProviders>
+    <EEPageContent />
+  </EEPageProviders>
+);
+
+/**
+ * Standalone mount for the dynamic-plugin EE route (e.g. RHDH at /self-service/ee).
+ * Scalprum / RHDH 1.10: mounted once at `/self-service/ee/*`.
+ */
 export const EERoutesPage = () => (
-  <RequirePermission permission={executionEnvironmentsViewPermission}>
-    <NotificationProvider>
-      <EERoutesContent />
-    </NotificationProvider>
-  </RequirePermission>
+  <EEPageProviders>
+    <EEPageContent />
+  </EEPageProviders>
 );

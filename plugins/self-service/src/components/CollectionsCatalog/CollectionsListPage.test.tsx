@@ -105,6 +105,7 @@ jest.mock('@backstage/plugin-catalog-react', () => {
 });
 
 jest.mock('../../hooks', () => ({
+  ...jest.requireActual('../../hooks'),
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,
