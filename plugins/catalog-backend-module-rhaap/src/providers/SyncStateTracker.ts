@@ -9,10 +9,19 @@ export const SYNC_SIGNAL_CHANNEL = 'catalog:aap-sync-status';
 
 export type SyncStatus = 'success' | 'failure' | null;
 
+export type SyncSuccessDetails = {
+  duplicateEntityCount?: number;
+  missingOrganizations?: string[];
+};
+
 export class SyncStateTracker {
   private lastSyncTime: string | null = null;
   private lastFailedSyncTime: string | null = null;
   private lastSyncStatus: SyncStatus = null;
+  // Number of duplicate entities skipped during most recent sync.
+  private lastDuplicateEntityCount = 0;
+  // Configured org names that were not present in AAP during most recent sync.
+  private lastMissingOrganizations: string[] = [];
   private isSyncing = false;
   private taskId: string | undefined;
   private signals?: SignalsService;
@@ -33,6 +42,8 @@ export class SyncStateTracker {
           syncInProgress,
           lastSyncTime: this.lastSyncTime,
           lastSyncStatus: this.lastSyncStatus,
+          lastDuplicateEntityCount: this.lastDuplicateEntityCount,
+          lastMissingOrganizations: this.lastMissingOrganizations,
           lastFailedSyncTime: this.lastFailedSyncTime,
         },
       })
@@ -51,6 +62,14 @@ export class SyncStateTracker {
     return this.lastSyncStatus;
   }
 
+  getLastDuplicateEntityCount(): number {
+    return this.lastDuplicateEntityCount;
+  }
+
+  getLastMissingOrganizations(): string[] {
+    return this.lastMissingOrganizations;
+  }
+
   getIsSyncing(): boolean {
     return this.isSyncing;
   }
@@ -60,11 +79,18 @@ export class SyncStateTracker {
   }
 
   markSyncStarted(): void {
+    this.lastDuplicateEntityCount = 0;
+    this.lastMissingOrganizations = [];
     this.isSyncing = true;
     this.publishSyncSignal(true);
   }
 
-  markSyncSucceeded(): void {
+  // Preserve duplicate / missing-org details so consumers can surface them.
+  markSyncSucceeded(details: SyncSuccessDetails | number = {}): void {
+    const options: SyncSuccessDetails =
+      typeof details === 'number' ? { duplicateEntityCount: details } : details;
+    this.lastDuplicateEntityCount = options.duplicateEntityCount ?? 0;
+    this.lastMissingOrganizations = [...(options.missingOrganizations ?? [])];
     this.lastSyncTime = new Date().toISOString();
     this.lastSyncStatus = 'success';
     this.isSyncing = false;
