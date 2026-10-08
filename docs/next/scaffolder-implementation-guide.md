@@ -379,13 +379,13 @@ Until then, **Phase 1–3** can proceed (module split, react library, EE provide
 
 ## 10. Documentation Deliverables
 
-| Document                                | Location                                                      | Status                  |
-| --------------------------------------- | ------------------------------------------------------------- | ----------------------- |
-| This guide                              | `docs/next/scaffolder-implementation-guide.md`              | ✅ This file            |
-| Picker operation contract               | `docs/next/` (forthcoming)                                    | Draft with ANSTRAT-1758 |
-| Per-module README after split           | `plugins/scaffolder-backend-module-*/README.md`               | ❌                      |
-| Dynamic plugin registration (3 modules) | `docs/plugins/scaffolder.md`                                  | Update after Phase 1    |
-| Migration: monolithic → split imports   | `docs/sdk/migration-scaffolder-modules.md`                    | ❌                      |
+| Document                                | Location                                        | Status                  |
+| --------------------------------------- | ----------------------------------------------- | ----------------------- |
+| This guide                              | `docs/next/scaffolder-implementation-guide.md`  | ✅ This file            |
+| Picker operation contract               | `docs/next/` (forthcoming)                      | Draft with ANSTRAT-1758 |
+| Per-module README after split           | `plugins/scaffolder-backend-module-*/README.md` | ❌                      |
+| Dynamic plugin registration (3 modules) | `docs/plugins/scaffolder.md`                    | Update after Phase 1    |
+| Migration: monolithic → split imports   | `docs/sdk/migration-scaffolder-modules.md`      | ❌                      |
 
 ---
 
