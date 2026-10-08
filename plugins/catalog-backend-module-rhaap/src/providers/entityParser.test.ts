@@ -175,6 +175,7 @@ describe('entityParser', () => {
           email: 'ops@example.com',
           first_name: '',
           last_name: '',
+          is_superuser: false,
         },
         groupMemberships: [],
       });
@@ -195,6 +196,7 @@ describe('entityParser', () => {
           email: 'ops@example.com',
           first_name: '',
           last_name: '',
+          is_superuser: false,
         },
         groupMemberships: [],
         identity: { multiOrgEnabled: true },
@@ -221,6 +223,7 @@ describe('entityParser', () => {
             email: `${id}@example.com`,
             first_name: '',
             last_name: '',
+            is_superuser: false,
           },
           groupMemberships: [],
           identity: { multiOrgEnabled: true },

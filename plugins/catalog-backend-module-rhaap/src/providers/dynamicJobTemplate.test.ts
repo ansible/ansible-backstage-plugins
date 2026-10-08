@@ -1343,7 +1343,7 @@ describe('dynamicJobTemplate', () => {
           'url:https://ansible.example.com/execution/templates/job-template/123/details',
         'ansible.com/template-source': 'aap-template',
       });
-      expect(result.spec.owner).toBeUndefined();
+      expect(result.spec?.owner).toBeUndefined();
 
       expect((result.spec as any).type).toBe('automation-template');
       expect((result.spec as any).parameters).toHaveLength(1);
@@ -1384,7 +1384,7 @@ describe('dynamicJobTemplate', () => {
         identity: { multiOrgEnabled: true, orgId: 7 },
       });
 
-      expect(result.spec.owner).toBe('group:aap-7/aap-org-7');
+      expect(result.spec?.owner).toBe('group:aap-7/aap-org-7');
     });
 
     it('sets slug owner through org group builder when multi-org disabled', () => {
@@ -1398,7 +1398,7 @@ describe('dynamicJobTemplate', () => {
         identity: { multiOrgEnabled: false, orgId: 7 },
       });
 
-      expect(result.spec.owner).toBe('group:default/engineering');
+      expect(result.spec?.owner).toBe('group:default/engineering');
     });
 
     it('should not produce double slashes when baseUrl has a trailing slash', () => {

@@ -556,7 +556,8 @@ export const generateTemplate = (options: {
     spec: {
       type: 'automation-template',
       ...((ownerOrgName ?? orgName) &&
-        Number.isInteger(identity?.orgId) && {
+        identity &&
+        Number.isInteger(identity.orgId) && {
           owner: toOrgGroupRef(
             nameSpace,
             ownerOrgName ?? orgName!,
