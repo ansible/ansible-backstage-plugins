@@ -11,13 +11,13 @@
 
 The **Portal Plugin Factory framework** enables product teams to contribute **Backstage plugins** in `ansible-backstage-plugins`. Those artifacts implement **portal capabilities** — cohesive user-facing features (for example content-quality signals on Git Repositories) that may span a frontend plugin, `*-common` contracts, and an optional backend module.
 
-Runtime configuration is keyed by **capability**, not by individual plugin artifact. Each capability needs settings such as feature toggles, service URLs, TLS options, and dev-only flags. Without a namespace convention, contributing teams invent ad-hoc config paths — some use top-level keys (`quality.enabled`), some nest under `ansible.*` (`ansible.feedback.enabled`, `ansible.devspaces.baseUrl`), and some follow RHDH manifest conventions (`ansible.plugin-backstage-quality` in `pluginConfig.dynamicPlugins.frontend`).
+Runtime configuration is keyed by **capability**, not by individual plugin artifact. Each capability needs settings such as feature toggles, service URLs, TLS options, and dev-only flags. Without a namespace convention, contributing teams invent ad-hoc config paths — some use top-level keys (`quality.enabled`), some nest under `ansible.*` (`ansible.feedback.enabled`, `ansible.devspaces.baseUrl`), and some copy RHDH 2.0 Scalprum keys (`pluginConfig.dynamicPlugins.frontend`).
 
 The Portal Plugin Factory Review acceptance criteria require namespace compliance. A single convention lets the portal admin UI (ADR-003), the config schema validation, and the scaffolding template all rely on a predictable config shape.
 
 ADR-010 requires a master `enabled` toggle with zero-footprint semantics for each **portal capability** — not a separate toggle per Backstage plugin package. Disabling `ansible.<pluginId>.enabled` must remove every surface and backend route that capability contributes. That toggle must live at a predictable path so enabled hooks, config readers, and the admin settings UI all follow one pattern.
 
-RHDH dynamic plugin loading uses a separate manifest namespace (`ansible.plugin-<package>` in `pluginConfig.dynamicPlugins.frontend`, supplied via portal `dynamic-plugins.yaml`) for route/tab/sidebar registration. Runtime config and deployment wiring must not be conflated.
+RHDH 2.1 install and NFS frontend wiring are separate from runtime config. `dynamic-plugins.yaml` controls which packages load. Plugins declare NFS extensions from `./alpha`; operators override with `app.extensions`. Runtime config and deployment wiring must not be conflated.
 
 ## Alternatives Considered
 
@@ -29,7 +29,7 @@ RHDH dynamic plugin loading uses a separate manifest namespace (`ansible.plugin-
 
 ## Decision
 
-**All portal capability runtime configuration lives under `ansible.<pluginId>.*`.** `<pluginId>` names the **portal capability** registered at Propose phase — the combined feature users and operators enable — even when multiple Backstage plugin artifacts implement it. This applies to factory Backstage plugin capabilities and base RHAAP plugin capabilities. It does **not** replace RHDH dynamic-plugin manifest keys (`pluginConfig.dynamicPlugins.frontend.<package-name>`) — those control load-time route/tab registration per artifact (ADR-010 rule 4).
+**All portal capability runtime configuration lives under `ansible.<pluginId>.*`.** `<pluginId>` names the **portal capability** registered at Propose phase — the combined feature users and operators enable — even when multiple Backstage plugin artifacts implement it. This applies to factory Backstage plugin capabilities and base RHAAP plugin capabilities. It does **not** replace RHDH install entries in `dynamic-plugins.yaml` or NFS extension configuration under `app.*` (ADR-010 rule 4).
 
 ### Namespace rules
 
@@ -40,7 +40,7 @@ RHDH dynamic plugin loading uses a separate manifest namespace (`ansible.plugin-
 5. **Config schema** — declared in the capability's primary `config.d.ts`. Portal Plugin Factory Review validates the schema exists and matches this namespace.
 6. **Frontend enabled hook** — `use<Capability>Enabled()` reads `configApi.getOptionalBoolean('ansible.<pluginId>.enabled') ?? false`. All UI entry points for the capability consult this hook.
 7. **Legacy migration** — existing top-level plugin slug keys may be read as fallback during transition with a deprecation comment pointing to this ADR. New plugins must use `ansible.<pluginId>.*` from day one.
-8. **RHDH manifest keys** — `dynamicPlugins.frontend.ansible.plugin-<package>` in each plugin's `pluginConfig` (merged via portal `dynamic-plugins.yaml` into generated `app-config.dynamic-plugins.yaml`) controls route/tab/sidebar registration in RHDH. This is deployment wiring, not the runtime `enabled` toggle. Both may be required on RHDH; upstream dev app uses runtime config + static imports from `packages/app`.
+8. **RHDH install vs NFS vs runtime config** — `dynamic-plugins.yaml` decides whether a package loads. Frontend placement is NFS (`./alpha` extensions; optional `app.extensions` / `app.routes.bindings`). `ansible.<pluginId>.*` is the runtime capability toggle and settings. Do not put route/tab/sidebar registration under `pluginConfig.dynamicPlugins.frontend` (RHDH 2.0 Scalprum). Both install listing and the runtime `enabled` toggle may be required on RHDH; upstream dev app uses runtime config + static imports from `packages/app`.
 
 ### Standard key reference
 

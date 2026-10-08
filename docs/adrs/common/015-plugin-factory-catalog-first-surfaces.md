@@ -29,7 +29,7 @@ Portal-wide Day 2 admin (Connections, Sync, SCM) is owned by [ADR-003](../host/0
 
 ### Standard host surface slots
 
-When a factory Backstage plugin extends a host surface, map UI to these slots via the host's extension API (e.g. `gitRepositoriesExtensionsApiRef` in `backstage-rhaap-common`). The guest plugin registers React through `apiFactories` on its dynamic-plugin manifest; the host renders slots without importing the guest package (ADR-010).
+When a factory Backstage plugin extends a host surface, map UI to these slots via the host's extension API (e.g. `gitRepositoriesExtensionsApiRef` in `backstage-rhaap-common`). The guest plugin registers React as RHDH 2.1 NFS extensions from `./alpha` (`createFrontendPlugin`); the host renders slots without importing the guest package (ADR-010). Do not register via Scalprum `apiFactories` on `pluginConfig.dynamicPlugins.frontend`.
 
 | Slot                      | Purpose                              | Example                    |
 | ------------------------- | ------------------------------------ | -------------------------- |

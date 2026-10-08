@@ -4,6 +4,7 @@
 
 **Status**: Accepted
 **Date**: 2026-07-01
+**Amended**: 2026-10-08 — Rule 4 uses RHDH 2.1 New Frontend System (NFS) vocabulary. RHDH 2.0 Scalprum `pluginConfig.dynamicPlugins.frontend.<package>` mount-point wiring does not apply.
 **Deciders**: Portal team
 **Scope**: Backstage plugins created using the Portal Plugin Factory framework — plugins in `ansible-backstage-plugins` (frontend, `*-common`, optional backend module), loaded as RHDH dynamic plugins or composed in the upstream dev app.
 
@@ -17,11 +18,11 @@ The question is how to enforce this boundary in both the upstream Backstage dev 
 
 ## Alternatives Considered
 
-| Alternative                                              | Source | Why rejected                                                                              |
-| -------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------- |
-| Cross-plugin `package.json` dependencies                 | —      | Removing an optional plugin breaks a host plugin build; violates independence requirement |
-| Feature flags in shared plugin                           | —      | Couples lifecycle; shared plugin must know about every optional feature                   |
-| Runtime plugin discovery (Backstage new frontend system) | —      | Not available in Backstage 0.33.1; future migration path                                  |
+| Alternative                                                          | Source | Why rejected                                                                                                                                              |
+| -------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cross-plugin `package.json` dependencies                             | —      | Removing an optional plugin breaks a host plugin build; violates independence requirement                                                                 |
+| Feature flags in shared plugin                                       | —      | Couples lifecycle; shared plugin must know about every optional feature                                                                                   |
+| NFS extension discovery as a substitute for independence (rules 1–3) | —      | NFS is the RHDH 2.1 load and placement path (rule 4). It does not allow cross-plugin `package.json` deps or host imports of guest implementation packages |
 
 ## Decision
 
@@ -35,9 +36,10 @@ The question is how to enforce this boundary in both the upstream Backstage dev 
 
 3. **Config-gated zero footprint (per capability).** `ansible.<pluginId>.enabled: false` (or block absent) per **ADR-011** turns off the **portal capability** identified by `<pluginId>` — not individual plugin packages in isolation. All surfaces for that capability disappear together: host extension slots, entity tabs, routes, backend proxy registration, and capability-local settings. Verified by toggling config and confirming zero console errors.
 
-4. **RHDH dynamic plugin mode.**
-   - **Portal deployment:** `dynamic-plugins.yaml` lists plugin packages with `disabled` and optional `pluginConfig`.
-   - **Wiring:** `pluginConfig.dynamicPlugins.frontend.<package>` declares routes, entity tabs, mount points, and icons.
+4. **RHDH dynamic plugin mode (RHDH 2.1 New Frontend System).**
+   - **Install:** `dynamic-plugins.yaml` lists plugin packages with `disabled` and optional `pluginConfig`. That list is which artifacts load. `pluginConfig` is an app-config fragment (runtime keys, `app.*` overrides) — not Scalprum frontend wiring.
+   - **Wiring:** frontend plugins export `./alpha` with `createFrontendPlugin`. They declare extensions in code (`PageBlueprint`, `EntityCardBlueprint`, `EntityContentBlueprint`, `ApiBlueprint`, and related blueprints). The host composes; plugins do not publish mount-point YAML.
+   - **Operator overrides:** enable, disable, reorder, and bind extensions through `app.extensions`, `app.routes.bindings`, and `app.packages`. Do **not** declare routes, entity tabs, mount points, icons, or `apiFactories` under `pluginConfig.dynamicPlugins.frontend.<package>` — that is RHDH 2.0 Scalprum wiring and does not apply on RHDH 2.1 NFS.
    - **Runtime merge:** the init container produces `app-config.dynamic-plugins.yaml` (generated; do not hand-edit).
    - **Upstream dev app:** `packages/app` is the composition root — it may import multiple plugins; individual plugins must not import each other.
 
@@ -73,4 +75,5 @@ A catalog-scoped factory Backstage plugin can register entity tabs and catalog c
 
 - ADR-005 (extend existing plugins pattern)
 - [RHDH dynamic plugins — installing plugins](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/installing-plugins.md)
-- RHDH plugin loading architecture
+- [Migrating plugins to the new frontend system](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/migrating-plugins-to-new-frontend-system.md)
+- [Migrating frontend configuration to the new frontend system](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/migrating-config-to-new-frontend-system.md)
