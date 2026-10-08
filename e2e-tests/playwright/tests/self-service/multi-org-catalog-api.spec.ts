@@ -2,7 +2,9 @@ import { test, expect } from '../../fixtures/auth-context';
 import {
   getBackstageToken,
   catalogFetch,
+  discoverOrgGroups,
   discoverOrgNamespaces,
+  findCatalogUserByAapUsername,
 } from '../../utils/backstage-api';
 
 /**
@@ -29,16 +31,25 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   ).toBeGreaterThan(0);
 
   // --- Admin user entity (always runs) ---
+  const adminEntity = await findCatalogUserByAapUsername(
+    page,
+    token,
+    ADMIN_USERNAME,
+  );
+  expect(
+    adminEntity,
+    'Admin user entity should exist in catalog',
+  ).toBeDefined();
   const userResult = await catalogFetch(
     page,
-    `/entities/by-name/user/default/${ADMIN_USERNAME}`,
+    `/entities/by-name/user/default/${adminEntity.metadata.name}`,
     token,
   );
   expect(userResult.ok, 'Admin user entity should exist in catalog').toBe(true);
   const user = userResult.body;
 
   expect(user.kind).toBe('User');
-  expect(user.metadata.name).toBe(ADMIN_USERNAME);
+  expect(user.metadata.name).toMatch(/^aap-user-\d+$/);
 
   // Superuser annotation
   expect(user.metadata.annotations?.['aap.platform/is_superuser']).toBe('true');
@@ -57,18 +68,27 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
     );
     expect(
       orgsWithMembership.length,
-      `Admin should have teams in multiple orgs. Found in: ${orgsWithMembership.join(', ')}. memberOf: ${JSON.stringify(memberOf)}`,
+      `Admin should have teams in multiple orgs. Found in: ${orgsWithMembership.join(
+        ', ',
+      )}. memberOf: ${JSON.stringify(memberOf)}`,
     ).toBeGreaterThan(1);
   }
 
   // --- Org group entities (always runs for all discovered orgs) ---
-  for (const orgName of orgNamespaces) {
+  const orgGroups = await discoverOrgGroups(page, token);
+  expect(
+    orgGroups.length,
+    'Should discover at least one org group entity',
+  ).toBeGreaterThan(0);
+
+  for (const orgGroup of orgGroups) {
+    const orgRef = `${orgGroup.namespace}/${orgGroup.name}`;
     const orgResult = await catalogFetch(
       page,
-      `/entities/by-name/group/${orgName}/${orgName}`,
+      `/entities/by-name/group/${orgGroup.namespace}/${orgGroup.name}`,
       token,
     );
-    expect(orgResult.ok, `Org '${orgName}' should exist`).toBe(true);
+    expect(orgResult.ok, `Org '${orgRef}' should exist`).toBe(true);
     const org = orgResult.body;
     expect(org.spec?.type).toBe('organization');
     expect(org.kind).toBe('Group');
@@ -76,12 +96,12 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
     const childCount = org.spec?.children?.length ?? 0;
     expect(
       Array.isArray(org.spec?.children),
-      `${orgName} should have a children array`,
+      `${orgRef} should have a children array`,
     ).toBe(true);
 
     if (childCount === 0) {
       console.log(
-        `[Multi-Org] Org '${orgName}' has no child teams (valid for minimal seeding profiles)`,
+        `[Multi-Org] Org '${orgRef}' has no child teams (valid for minimal seeding profiles)`,
       );
     }
   }
@@ -95,5 +115,5 @@ test('Multi-Org Catalog API: superuser entity structure', async ({ page }) => {
   expect(adminsResult.ok).toBe(true);
   const adminsGroup = adminsResult.body;
   const members: string[] = adminsGroup.spec?.members ?? [];
-  expect(members).toContain(`user:default/${ADMIN_USERNAME}`);
+  expect(members).toContain(`user:default/${user.metadata.name}`);
 });

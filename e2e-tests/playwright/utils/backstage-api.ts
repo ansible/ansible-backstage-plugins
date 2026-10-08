@@ -150,6 +150,44 @@ export async function catalogRequest(page: Page, path: string, token: string) {
   });
 }
 
+export type OrgGroupRef = {
+  namespace: string;
+  name: string;
+};
+
+function parseOrgGroups(body: any): OrgGroupRef[] {
+  const groups: any[] = Array.isArray(body) ? body : (body?.items ?? []);
+  return groups
+    .map((g: any) => ({
+      namespace: g.metadata?.namespace as string | undefined,
+      name: g.metadata?.name as string | undefined,
+    }))
+    .filter(
+      (g: {
+        namespace: string | undefined;
+        name: string | undefined;
+      }): g is OrgGroupRef => Boolean(g.namespace && g.name),
+    );
+}
+
+/**
+ * Discovers organization Group entities from the catalog API.
+ * Flag-on names are `aap-org-{id}` in namespace `aap-{id}`; do not assume
+ * metadata.name equals metadata.namespace.
+ */
+export async function discoverOrgGroups(
+  page: Page,
+  token: string,
+): Promise<OrgGroupRef[]> {
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    token,
+  );
+  if (!result.ok) return [];
+  return parseOrgGroups(result.body);
+}
+
 /**
  * Discovers org namespaces dynamically from the catalog API.
  * Queries for Group entities with spec.type=organization and returns
@@ -159,20 +197,26 @@ export async function discoverOrgNamespaces(
   page: Page,
   token: string,
 ): Promise<string[]> {
+  const groups = await discoverOrgGroups(page, token);
+  return [...new Set(groups.map(g => g.namespace))];
+}
+
+export async function findCatalogUserByAapUsername(
+  page: Page,
+  token: string,
+  username: string,
+): Promise<any | undefined> {
   const result = await catalogFetch(
     page,
-    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    '/entities?filter=kind=User&limit=1000',
     token,
   );
-  if (!result.ok) return [];
-  const groups: any[] = Array.isArray(result.body)
+  if (!result.ok) return undefined;
+  const users: any[] = Array.isArray(result.body)
     ? result.body
     : (result.body?.items ?? []);
-  return [
-    ...new Set(
-      groups
-        .map((g: any) => g.metadata?.namespace)
-        .filter((ns: string | undefined): ns is string => !!ns),
-    ),
-  ];
+  return users.find(
+    user =>
+      user.metadata?.annotations?.['ansible.com/aap-username'] === username,
+  );
 }
