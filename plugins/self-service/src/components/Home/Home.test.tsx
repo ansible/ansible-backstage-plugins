@@ -597,27 +597,18 @@ describe('self-service', () => {
       });
     });
 
-    /** Latest visibility `$in` ids from createHomeCatalogApi queryEntities calls. */
-    const latestVisibilityIds = (): string[] | undefined => {
-      const calls = mockCatalogApi.queryEntities.mock.calls;
-      for (let i = calls.length - 1; i >= 0; i -= 1) {
-        const request = calls[i]?.[0] as
-          | { query?: { $all?: Array<{ $any?: Array<Record<string, any>> }> } }
-          | undefined;
-        const query = request?.query;
-        for (const branch of query?.$all ?? []) {
-          for (const alt of branch.$any ?? []) {
-            const ids = alt['metadata.aapJobTemplateId']?.$in;
-            if (Array.isArray(ids)) {
-              return ids.map(String);
-            }
-          }
-        }
+    const lastFetchedJobTemplates = async () => {
+      const mock = mockAnsibleApi.getUserJobTemplates as jest.Mock;
+      const lastResult = mock.mock.results.at(-1);
+      if (!lastResult) {
+        return undefined;
       }
-      return undefined;
+      const payload = await lastResult.value;
+      return payload?.items as Array<{ id: number; name: string }> | undefined;
     };
 
-    it('soft-refreshes catalog visibility when a JT is added after sync', async () => {
+    // Catalog $in visibility is covered in createHomeCatalogApi / buildHomeTemplateQuery tests.
+    it('re-fetches expanded JT list after template sync', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -625,49 +616,36 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-        ],
-      });
+      let jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ];
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockImplementation(
+        async () => ({ items: jobTemplateItems }),
+      );
 
       await render(<HomeComponent />);
 
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
-      await waitFor(() => {
-        expect(latestVisibilityIds()).toEqual(
-          expect.arrayContaining(['1', '2']),
-        );
-      });
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-          { id: 3, name: 'New Org JT' },
-        ],
-      });
+      jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+        { id: 3, name: 'New Org JT' },
+      ];
 
-      mockCatalogApi.queryEntities.mockClear();
       await triggerTemplateSync();
 
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
-
-      // Soft refresh must re-query with the new JT id (multi-org visibility).
-      await waitFor(() => {
-        expect(latestVisibilityIds()).toEqual(
-          expect.arrayContaining(['1', '2', '3']),
-        );
+        const items = await lastFetchedJobTemplates();
+        expect(items?.map(t => t.id)).toEqual([1, 2, 3]);
       });
     });
 
-    it('soft-refreshes catalog visibility when a JT is removed after sync', async () => {
+    it('re-fetches reduced JT list after template sync', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -675,44 +653,32 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-          { id: 3, name: 'Template 3' },
-        ],
-      });
+      let jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+        { id: 3, name: 'Template 3' },
+      ];
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockImplementation(
+        async () => ({ items: jobTemplateItems }),
+      );
 
       await render(<HomeComponent />);
 
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
-      await waitFor(() => {
-        expect(latestVisibilityIds()).toEqual(
-          expect.arrayContaining(['1', '2', '3']),
-        );
-      });
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-        ],
-      });
+      jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ];
 
-      mockCatalogApi.queryEntities.mockClear();
       await triggerTemplateSync();
 
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
-
-      await waitFor(() => {
-        const ids = latestVisibilityIds() ?? [];
-        expect(ids).toEqual(expect.arrayContaining(['1', '2']));
-        expect(ids).not.toContain('3');
+        const items = await lastFetchedJobTemplates();
+        expect(items?.map(t => t.id)).toEqual([1, 2]);
       });
     });
 
@@ -756,17 +722,17 @@ describe('self-service', () => {
         expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
-      // Same JT ids — visibility set unchanged, but facets + soft refresh re-query.
-      await waitFor(() => {
+      // Same JT ids — facets + catalog soft refresh still re-query after sync.
+      await waitFor(async () => {
         expect(
           mockCatalogApi.getEntityFacets.mock.calls.length,
         ).toBeGreaterThan(facetCallsBeforeSync);
         expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
           queryCallsBeforeSync,
         );
-        expect(latestVisibilityIds()).toEqual(
-          expect.arrayContaining(['1', '2']),
-        );
+        const items = await lastFetchedJobTemplates();
+        expect(items?.map(t => t.id)).toEqual([1, 2]);
+        expect(items?.[1]?.name).toBe('Renamed Template');
       });
     });
   });

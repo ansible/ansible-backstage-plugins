@@ -386,8 +386,8 @@ export const HomeComponent = () => {
             newTemplates = await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
-          // Soft refresh after JT response — SoftRefresh defers past this commit.
-          invalidateTemplatesCatalog();
+          // Soft refresh after JT ids commit (same macrotask defer as SoftRefresh listener).
+          window.setTimeout(() => invalidateTemplatesCatalog(), 0);
         }
       }
       setSyncOptions([]);
@@ -459,6 +459,30 @@ export const HomeComponent = () => {
     () => jobTemplates.map(template => template.id),
     [jobTemplates],
   );
+  const jobTemplateIdsKey = useMemo(
+    () => jobTemplateIds.join(','),
+    [jobTemplateIds],
+  );
+  const prevJobTemplateIdsKeyRef = useRef<string | null>(null);
+  const skipJobTemplateIdsInvalidateRef = useRef(true);
+
+  // Re-query catalog after JT id set commits (post-sync visibility must not race setState).
+  useEffect(() => {
+    if (jobTemplatesLoadState !== 'ready') {
+      return;
+    }
+    if (skipJobTemplateIdsInvalidateRef.current) {
+      skipJobTemplateIdsInvalidateRef.current = false;
+      prevJobTemplateIdsKeyRef.current = jobTemplateIdsKey;
+      return;
+    }
+    if (prevJobTemplateIdsKeyRef.current === jobTemplateIdsKey) {
+      return;
+    }
+    prevJobTemplateIdsKeyRef.current = jobTemplateIdsKey;
+    invalidateTemplatesCatalog();
+  }, [jobTemplateIdsKey, jobTemplatesLoadState]);
+
   // Remount only when source filters change. JT id updates flow through
   // createHomeCatalogApi + invalidateTemplatesCatalog soft refresh.
   const catalogListKey = selectedSources.join(',') || 'all-sources';
