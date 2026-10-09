@@ -41,6 +41,14 @@ export interface Config {
       /** @visibility frontend */
       checkSSL?: boolean;
       /**
+       * Private Automation Hub repositories used for collection installation.
+       * Omit to inherit catalog synchronization repositories. An empty list
+       * removes all Portal-managed Hub sources. Uses ansible.rhaap credentials
+       * and checkSSL, independently of the Portal-to-APME TLS setting above.
+       * @visibility backend
+       */
+      collectionRepositories?: string[];
+      /**
        * Use mock data instead of the real APME service.
        * @visibility frontend
        */

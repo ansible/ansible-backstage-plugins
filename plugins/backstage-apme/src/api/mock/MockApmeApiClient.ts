@@ -419,6 +419,7 @@ export class MockApmeApiClient implements ApmeApi {
       url: body.url,
       auth_url: body.auth_url ?? '',
       has_token: Boolean(body.token?.trim()),
+      validate_certs: body.validate_certs ?? null,
       created_at: now,
       updated_at: now,
     };
@@ -439,6 +440,10 @@ export class MockApmeApiClient implements ApmeApi {
       name: body.name ?? existing.name,
       url: body.url ?? existing.url,
       auth_url: body.auth_url ?? existing.auth_url,
+      validate_certs:
+        body.validate_certs !== undefined
+          ? body.validate_certs
+          : existing.validate_certs,
       has_token:
         body.token !== undefined
           ? Boolean(body.token.trim())
