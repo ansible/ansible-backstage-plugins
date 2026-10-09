@@ -155,7 +155,11 @@ export const TemplatesPagination = ({
           >
             <NavigateBeforeIcon fontSize="small" />
           </IconButton>
-          <Typography className={classes.pageIndicator} component="span">
+          <Typography
+            className={classes.pageIndicator}
+            component="span"
+            data-testid="templates-page-indicator"
+          >
             {page + 1} / {totalPages}
           </Typography>
           <IconButton

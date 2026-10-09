@@ -549,7 +549,7 @@ describe('self-service', () => {
       ).toBeLessThanOrEqual(1);
     });
 
-    it('should remount EntityListProvider after template sync even when the AAP list is unchanged', async () => {
+    it('should refresh facet pickers after template sync when the AAP list is unchanged', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -597,7 +597,27 @@ describe('self-service', () => {
       });
     });
 
-    it('should remount when a new template is added after sync', async () => {
+    /** Latest visibility `$in` ids from createHomeCatalogApi queryEntities calls. */
+    const latestVisibilityIds = (): string[] | undefined => {
+      const calls = mockCatalogApi.queryEntities.mock.calls;
+      for (let i = calls.length - 1; i >= 0; i -= 1) {
+        const request = calls[i]?.[0] as
+          | { query?: { $all?: Array<{ $any?: Array<Record<string, any>> }> } }
+          | undefined;
+        const query = request?.query;
+        for (const branch of query?.$all ?? []) {
+          for (const alt of branch.$any ?? []) {
+            const ids = alt['metadata.aapJobTemplateId']?.$in;
+            if (Array.isArray(ids)) {
+              return ids.map(String);
+            }
+          }
+        }
+      }
+      return undefined;
+    };
+
+    it('soft-refreshes catalog visibility when a JT is added after sync', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -605,7 +625,6 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      // Mount: IDs 1, 2
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
@@ -618,19 +637,21 @@ describe('self-service', () => {
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
+      await waitFor(() => {
+        expect(latestVisibilityIds()).toEqual(
+          expect.arrayContaining(['1', '2']),
+        );
+      });
 
-      const facetCallsBeforeSync =
-        mockCatalogApi.getEntityFacets.mock.calls.length;
-
-      // After sync: IDs 1, 2, 3 — new template added
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
           { id: 2, name: 'Template 2' },
-          { id: 3, name: 'New Template' },
+          { id: 3, name: 'New Org JT' },
         ],
       });
 
+      mockCatalogApi.queryEntities.mockClear();
       await triggerTemplateSync();
 
       await waitFor(() => {
@@ -638,15 +659,15 @@ describe('self-service', () => {
         expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
-      // EntityListProvider should have remounted — getEntityFacets called again
+      // Soft refresh must re-query with the new JT id (multi-org visibility).
       await waitFor(() => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
+        expect(latestVisibilityIds()).toEqual(
+          expect.arrayContaining(['1', '2', '3']),
+        );
       });
     });
 
-    it('should remount when a template is removed after sync', async () => {
+    it('soft-refreshes catalog visibility when a JT is removed after sync', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -654,7 +675,6 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      // Mount: IDs 1, 2, 3
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
@@ -668,11 +688,12 @@ describe('self-service', () => {
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
+      await waitFor(() => {
+        expect(latestVisibilityIds()).toEqual(
+          expect.arrayContaining(['1', '2', '3']),
+        );
+      });
 
-      const facetCallsBeforeSync =
-        mockCatalogApi.getEntityFacets.mock.calls.length;
-
-      // After sync: IDs 1, 2 — template 3 removed
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
@@ -680,6 +701,7 @@ describe('self-service', () => {
         ],
       });
 
+      mockCatalogApi.queryEntities.mockClear();
       await triggerTemplateSync();
 
       await waitFor(() => {
@@ -687,15 +709,14 @@ describe('self-service', () => {
         expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
-      // EntityListProvider should have remounted — getEntityFacets called again
       await waitFor(() => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
+        const ids = latestVisibilityIds() ?? [];
+        expect(ids).toEqual(expect.arrayContaining(['1', '2']));
+        expect(ids).not.toContain('3');
       });
     });
 
-    it('should remount when a template is renamed after sync', async () => {
+    it('soft-refreshes catalog when a JT is renamed after sync', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
       mockCatalogApi.getEntityFacets.mockResolvedValue(
@@ -703,7 +724,6 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      // Mount: IDs 1, 2 with original names
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
@@ -719,12 +739,13 @@ describe('self-service', () => {
 
       const facetCallsBeforeSync =
         mockCatalogApi.getEntityFacets.mock.calls.length;
+      const queryCallsBeforeSync =
+        mockCatalogApi.queryEntities.mock.calls.length;
 
-      // After sync: same IDs but template 2 was renamed
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
           { id: 1, name: 'Template 1' },
-          { id: '2', title: 'Renamed Template' },
+          { id: 2, name: 'Renamed Template' },
         ],
       });
 
@@ -735,11 +756,17 @@ describe('self-service', () => {
         expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
-      // EntityListProvider should have remounted — getEntityFacets called again
+      // Same JT ids — visibility set unchanged, but facets + soft refresh re-query.
       await waitFor(() => {
         expect(
           mockCatalogApi.getEntityFacets.mock.calls.length,
         ).toBeGreaterThan(facetCallsBeforeSync);
+        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
+          queryCallsBeforeSync,
+        );
+        expect(latestVisibilityIds()).toEqual(
+          expect.arrayContaining(['1', '2']),
+        );
       });
     });
   });
@@ -1872,6 +1899,44 @@ describe('sync progress tooltip', () => {
 
     mockSyncSignal.lastSignal = null;
   });
+
+  it('does not toast on clean AAP sync success', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
+        'metadata.tags': [],
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template-provider',
+      syncInProgress: false,
+      lastSyncTime: '2026-01-01T00:00:00Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+      lastDuplicateEntityCount: 0,
+      lastMissingOrganizations: [],
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync Now')).toBeInTheDocument();
+    });
+
+    expect(mockShowNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sync completed' }),
+    );
+    expect(mockShowNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sync warning' }),
+    );
+    expect(mockShowNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sync failed' }),
+    );
+
+    mockSyncSignal.lastSignal = null;
+  });
 });
 
 describe('HomeCategoryPicker EE exclusion', () => {
@@ -1952,7 +2017,7 @@ describe('HomeCategoryPicker EE exclusion', () => {
       );
     });
 
-    // HomeCatalogProvider sends a predicate query, not a legacy filter object.
+    // TemplatesCatalogProvider sends a predicate query, not a legacy filter object.
     await waitFor(() => {
       const calls = mockCatalogApi.queryEntities.mock.calls;
       const hasNonEETypeQuery = calls.some((call: any[]) => {

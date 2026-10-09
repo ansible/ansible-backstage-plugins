@@ -1,6 +1,6 @@
 import { EntityFilterQuery } from '@backstage/catalog-client';
 import type { FilterPredicate } from '@backstage/filter-predicates';
-import { TEMPLATE_SOURCE_ANNOTATION } from '../utils/SourcePicker';
+import { TEMPLATE_SOURCE_ANNOTATION } from '../../utils/SourcePicker';
 import { buildVisibilityPredicate } from './buildVisibilityPredicate';
 
 const SOURCE_FACET_KEY = `metadata.annotations.${TEMPLATE_SOURCE_ANNOTATION}`;

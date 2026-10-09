@@ -103,6 +103,12 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
 // Test B: admin vs normal user template visibility on self-service page
 // ---------------------------------------------------------------------------
 
+/**
+ * Visible-template count for the logged-in user.
+ *
+ * Prefer pagination total (`N of M templates`) — page-1 card count alone
+ * undercounts when soft-refresh keeps pagination mounted (multi-org scale).
+ */
 async function getTemplateCount(
   page: import('@playwright/test').Page,
 ): Promise<number> {
@@ -111,25 +117,50 @@ async function getTemplateCount(
   });
   await page.waitForLoadState('networkidle', { timeout: 30000 });
 
-  // Wait for template cards to render (Home.tsx filteredEntities -> WizardCard)
-  await page.waitForTimeout(3000);
+  const container = page.getByTestId('templates-container');
+  const loading = page.getByTestId('loading-templates');
+  await expect
+    .poll(
+      async () =>
+        (await container.isVisible().catch(() => false)) ||
+        (await page
+          .getByText(/No templates/i)
+          .isVisible()
+          .catch(() => false)),
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await expect(loading).toHaveCount(0, { timeout: 15000 });
 
-  // Count actual rendered WizardCard components (each has a "Start" button)
-  // This matches filteredEntities.length from Home.tsx after RBAC filtering
-  const cardCount = await page
+  const empty = await page
+    .getByText(/No templates/i)
+    .isVisible()
+    .catch(() => false);
+  if (empty) {
+    return 0;
+  }
+
+  const pagination = page.getByTestId('templates-pagination');
+  if (await pagination.isVisible().catch(() => false)) {
+    const summary = ((await pagination.textContent()) ?? '').replace(
+      /\s+/g,
+      ' ',
+    );
+    const ofTotal = summary.match(/of\s+(\d+)\s+templates/i);
+    if (ofTotal) {
+      return Number(ofTotal[1]);
+    }
+    const single = summary.match(/^1 template/i);
+    if (single) {
+      return 1;
+    }
+  }
+
+  // Single-page fallback: count Start actions on the current page only.
+  return page
     .locator('[data-testid="template-card-actions--create"]')
     .count()
     .catch(() => 0);
-
-  if (cardCount === 0) {
-    const hasEmptyState = await page
-      .getByText(/No templates/i)
-      .isVisible()
-      .catch(() => false);
-    console.log(`[getTemplateCount] No cards, empty state: ${hasEmptyState}`);
-  }
-
-  return cardCount;
 }
 
 test('Template visibility: admin sees >= normal user templates', async ({

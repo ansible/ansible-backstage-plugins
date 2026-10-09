@@ -5,7 +5,12 @@ import {
 } from '@backstage/catalog-client';
 import type { FilterPredicate } from '@backstage/filter-predicates';
 import { buildHomeTemplateCatalogQuery } from './buildHomeTemplateQuery';
+import { normalizeQueryOffset } from './offsetRefresh';
 
+/**
+ * Catalog client that scopes Home templates to the logged-in user's JT set
+ * (and optional source filters). Also normalizes soft-refresh sentinel offsets.
+ */
 export function createHomeCatalogApi(
   catalogApi: CatalogApi,
   jobTemplateIds: number[],
@@ -14,18 +19,21 @@ export function createHomeCatalogApi(
   const withVisibilityQuery = (
     request: QueryEntitiesInitialRequest = {},
   ): QueryEntitiesInitialRequest => {
-    const catalogFilter = request.filter ?? {};
-    const query = buildHomeTemplateCatalogQuery({
-      jobTemplateIds,
-      catalogFilter,
-      selectedSources,
-    });
-
-    const { filter: _filter, ...rest } = request;
-    return {
+    const { filter, offset, ...rest } = request;
+    const next: QueryEntitiesInitialRequest = {
       ...rest,
-      query: query as FilterPredicate,
+      query: buildHomeTemplateCatalogQuery({
+        jobTemplateIds,
+        catalogFilter: filter ?? {},
+        selectedSources,
+      }) as FilterPredicate,
     };
+
+    if (typeof offset === 'number') {
+      next.offset = normalizeQueryOffset(offset);
+    }
+
+    return next;
   };
 
   return new Proxy(catalogApi, {

@@ -3,58 +3,50 @@ import { useSignal } from '@backstage/plugin-signals-react';
 import { useNavigate } from 'react-router';
 import { Route, Routes, Navigate } from 'react-router-dom';
 import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
-import { Content, ItemCardGrid, Page } from '@backstage/core-components';
-import { ApiProvider } from '@backstage/core-app-api';
-import { useApi, useApiHolder, useRouteRef } from '@backstage/core-plugin-api';
+import Alert from '@material-ui/lab/Alert';
+import { Content, Page } from '@backstage/core-components';
+import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   usePermission,
   RequirePermission,
 } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
-  catalogApiRef,
   CatalogFilterLayout,
   EntityKindPicker,
-  EntityListProvider,
   EntityOwnerPicker,
   EntitySearchBar,
-  EntityTagFilter,
-  EntityTypeFilter,
   UserListPicker,
-  useEntityList,
 } from '@backstage/plugin-catalog-react';
 import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
-import { WizardCard } from './TemplateCard';
 import { useIsSuperuser } from '../../hooks';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
-import { SyncConfirmationDialog } from './SyncConfirmationDialog';
-import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 import type { SyncProgressEntry, SyncOutcome } from '../common';
 import {
-  SYNC_COMPLETED_CATEGORY,
   SYNC_FAILED_CATEGORY,
   SYNC_WARNING_CATEGORY,
   useShellPageStyles,
 } from '../common';
-import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
-import Alert from '@material-ui/lab/Alert';
-import { SkeletonLoader } from './SkeletonLoader';
-import { TagFilterPicker } from '../utils/TagFilterPicker';
-import { SourcePicker } from '../utils/SourcePicker';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { CreateTask } from '../CreateTask';
-import { PAGE_SIZE, resolvePageLimit } from './constants';
-import { createHomeCatalogApi } from './createHomeCatalogApi';
-import { createOverridingApiHolder } from './createOverridingApiHolder';
-import { TemplatesPagination } from './TemplatesPagination';
-import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
 import {
   NotificationProvider,
   NotificationStack,
   useNotifications,
 } from '../notifications';
+import { SourcePicker } from '../utils/SourcePicker';
+import { HomeCategoryPicker, HomeTagPicker } from './filters';
+import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
+import { LoadingTemplatesPlaceholder } from './LoadingTemplatesPlaceholder';
+import { SyncConfirmationDialog } from './SyncConfirmationDialog';
+import {
+  TemplatesCatalogProvider,
+  TemplateGrid,
+  invalidateTemplatesCatalog,
+} from './templatesCatalog';
+import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
 const JOB_TEMPLATE_LIST_STALE_RETRY_MS = 450;
@@ -74,250 +66,70 @@ const jobTemplateListsDiffer = (
   return next.some(t => !prevKeys.has(serializeJobTemplateKey(t)));
 };
 
-const isEEType = (type: string) => type.includes('execution-environment');
-
 function displayNameForAapSyncProvider(provider: string): string {
   return provider.startsWith('aap-job-template')
     ? 'Job Templates'
     : 'Organizations, Users, and Teams';
 }
 
-const HomeCatalogProvider = ({
-  children,
+type HomeCatalogPanelProps = {
+  jobTemplateIds: number[];
+  selectedSources: string[];
+  /** Remount only when source filters change — not on JT sync. */
+  listKey: string;
+  syncKey: number;
+  externalLoading: boolean;
+  onSourceChange: (sources: string[]) => void;
+};
+
+/**
+ * Mounted EntityListProvider + filters/grid. Soft refresh via
+ * invalidateTemplatesCatalog keeps this tree mounted across JT sync.
+ */
+function HomeCatalogPanel({
   jobTemplateIds,
   selectedSources,
   listKey,
-}: {
-  children: React.ReactNode;
-  jobTemplateIds: number[];
-  selectedSources: string[];
-  listKey: string;
-}) => {
-  const parentApis = useApiHolder();
-  const catalogApi = useApi(catalogApiRef);
-  const homeCatalogApi = useMemo(
-    () => createHomeCatalogApi(catalogApi, jobTemplateIds, selectedSources),
-    [catalogApi, jobTemplateIds, selectedSources],
-  );
-  const apis = useMemo(
-    () =>
-      createOverridingApiHolder(parentApis, [[catalogApiRef, homeCatalogApi]]),
-    [parentApis, homeCatalogApi],
-  );
-
+  syncKey,
+  externalLoading,
+  onSourceChange,
+}: HomeCatalogPanelProps) {
   return (
-    <ApiProvider apis={apis}>
-      <EntityListProvider
-        key={listKey}
-        pagination={{ mode: 'offset', limit: PAGE_SIZE }}
-      >
-        {children}
-      </EntityListProvider>
-    </ApiProvider>
-  );
-};
-
-const HomeTagPicker = ({ syncKey }: { syncKey: number }) => {
-  const catalogApi = useApi(catalogApiRef);
-  const { filters, updateFilters } = useEntityList();
-  const selectedTags = (filters.tags as EntityTagFilter)?.values ?? [];
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
-
-  useEffect(() => {
-    catalogApi
-      .getEntityFacets({
-        filter: { kind: 'Template' },
-        facets: ['spec.type'],
-      })
-      .then(
-        (response: { facets: Record<string, Array<{ value: string }>> }) => {
-          const nonEETypes = (response.facets['spec.type'] ?? [])
-            .map(f => f.value)
-            .filter(t => !isEEType(t));
-          return catalogApi.getEntityFacets({
-            filter: {
-              kind: 'Template',
-              ...(nonEETypes.length > 0 && { 'spec.type': nonEETypes }),
-            },
-            facets: ['metadata.tags'],
-          });
-        },
-      )
-      .then(
-        (response: { facets: Record<string, Array<{ value: string }>> }) => {
-          const tags = (response.facets['metadata.tags'] ?? [])
-            .map(f => f.value)
-            .sort((a, b) => a.localeCompare(b));
-          setAvailableTags(tags);
-        },
-      )
-      .catch(() => {
-        setAvailableTags([]);
-      });
-  }, [catalogApi, syncKey]);
-
-  const handleTagChange = (newValue: string[]) => {
-    updateFilters({
-      tags: newValue.length > 0 ? new EntityTagFilter(newValue) : undefined,
-    });
-  };
-
-  return (
-    <TagFilterPicker
-      label="Tags"
-      options={availableTags}
-      value={selectedTags}
-      onChange={handleTagChange}
-      noOptionsText="No tags available"
-    />
-  );
-};
-
-const HomeCategoryPicker = ({ syncKey }: { syncKey: number }) => {
-  const catalogApi = useApi(catalogApiRef);
-  const { filters, updateFilters } = useEntityList();
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [userSelection, setUserSelection] = useState<string[]>([]);
-
-  useEffect(() => {
-    catalogApi
-      .getEntityFacets({
-        filter: { kind: 'Template' },
-        facets: ['spec.type'],
-      })
-      .then(
-        (response: { facets: Record<string, Array<{ value: string }>> }) => {
-          const types = (response.facets['spec.type'] ?? []).map(f => f.value);
-          const nonEE = types.filter(t => !isEEType(t));
-          const sorted = [...nonEE].sort((a, b) => a.localeCompare(b));
-          setAllCategories(sorted);
-          if (!filters.type || filters.type.getTypes().length === 0) {
-            updateFilters({
-              type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
-            });
-          }
-        },
-      )
-      .catch(() => {
-        setAllCategories([]);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogApi, syncKey]);
-
-  const handleCategoryChange = (newValue: string[]) => {
-    setUserSelection(newValue);
-    const typesToFilter = newValue.length > 0 ? newValue : allCategories;
-    updateFilters({
-      type:
-        typesToFilter.length > 0
-          ? new EntityTypeFilter(typesToFilter)
-          : undefined,
-    });
-  };
-
-  return (
-    <TagFilterPicker
-      label="Categories"
-      options={allCategories}
-      value={userSelection}
-      onChange={handleCategoryChange}
-      noOptionsText="No categories available"
-    />
-  );
-};
-
-const TemplateContent = ({
-  loading: externalLoading,
-}: {
-  loading: boolean;
-}) => {
-  const {
-    entities,
-    loading: catalogLoading,
-    totalItems,
-    limit,
-    offset,
-    setOffset,
-    setLimit,
-  } = useEntityList();
-
-  const isLoading = externalLoading || catalogLoading;
-  const pageLimit = resolvePageLimit(limit);
-
-  useEffect(() => {
-    if (limit !== undefined && limit !== pageLimit) {
-      setOffset?.(0);
-      setLimit?.(pageLimit);
-    }
-  }, [limit, pageLimit, setLimit, setOffset]);
-
-  const page = offset ? Math.floor(offset / pageLimit) : 0;
-  const totalCount = totalItems ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageLimit));
-  const startIndex = totalCount === 0 ? 0 : page * pageLimit + 1;
-  const endIndex = Math.min(totalCount, (page + 1) * pageLimit);
-
-  const visibleEntities = useMemo(
-    () =>
-      (entities as TemplateEntityV1beta3[]).filter(
-        entity => !entity.spec?.type?.includes('execution-environment'),
-      ),
-    [entities],
-  );
-
-  if (isLoading) {
-    return (
-      <div
-        data-testid="loading-templates"
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: '100%',
-          gap: '10px',
-        }}
-      >
-        {[1, 2, 3].map(id => (
-          <SkeletonLoader key={`skeleton-${id}`} />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="templates-container">
-      {totalCount === 0 && !isLoading ? (
-        <Typography
-          variant="body1"
-          style={{ textAlign: 'center', padding: '40px 0', opacity: 0.6 }}
-        >
-          No templates found.
-        </Typography>
-      ) : (
-        <>
-          <ItemCardGrid>
-            {visibleEntities.map(template => (
-              <WizardCard key={template.metadata.uid} template={template} />
-            ))}
-          </ItemCardGrid>
-          <TemplatesPagination
-            totalCount={totalCount}
-            pageLimit={pageLimit}
-            page={page}
-            totalPages={totalPages}
-            startIndex={startIndex}
-            endIndex={endIndex}
-            onPageChange={nextOffset => setOffset?.(nextOffset)}
-            onPageSizeChange={nextLimit => {
-              setOffset?.(0);
-              setLimit?.(nextLimit);
-            }}
+    <TemplatesCatalogProvider
+      jobTemplateIds={jobTemplateIds}
+      selectedSources={selectedSources}
+      listKey={listKey}
+    >
+      <CatalogFilterLayout>
+        <CatalogFilterLayout.Filters>
+          <div data-testid="search-bar-container">
+            <EntitySearchBar />
+          </div>
+          <EntityKindPicker initialFilter="template" hidden />
+          <div data-testid="user-picker-container">
+            <UserListPicker
+              initialFilter="all"
+              availableFilters={['all', 'starred']}
+            />
+          </div>
+          <div data-testid="categories-picker">
+            <HomeCategoryPicker syncKey={syncKey} />
+          </div>
+          <HomeTagPicker syncKey={syncKey} />
+          <SourcePicker
+            syncKey={syncKey}
+            selectedSources={selectedSources}
+            onSourceChange={onSourceChange}
           />
-        </>
-      )}
-    </div>
+          <EntityOwnerPicker />
+        </CatalogFilterLayout.Filters>
+        <CatalogFilterLayout.Content>
+          <TemplateGrid externalLoading={externalLoading} />
+        </CatalogFilterLayout.Content>
+      </CatalogFilterLayout>
+    </TemplatesCatalogProvider>
   );
-};
+}
 
 export const HomeComponent = () => {
   const navigate = useNavigate();
@@ -417,9 +229,10 @@ export const HomeComponent = () => {
     notifiedSyncOutcomesRef.current.add(outcomeKey);
 
     if (syncSignal.lastSyncStatus === 'success') {
+      // Healthy AAP sync stays quiet — header / popover already show completion.
+      // Toast only for soft issues (duplicates, missing orgs).
       const duplicateCount = syncSignal.lastDuplicateEntityCount ?? 0;
       const missingOrgs = syncSignal.lastMissingOrganizations ?? [];
-      const hasWarnings = duplicateCount > 0 || missingOrgs.length > 0;
 
       if (duplicateCount > 0) {
         const entityWord = duplicateCount === 1 ? 'entity' : 'entities';
@@ -442,15 +255,6 @@ export const HomeComponent = () => {
           severity: 'warning',
           category: SYNC_WARNING_CATEGORY,
           autoHideDuration: 0,
-        });
-      }
-
-      if (!hasWarnings) {
-        showNotification({
-          title: 'Sync completed',
-          description: `Synced content from ${displayName}.`,
-          severity: 'success',
-          category: SYNC_COMPLETED_CATEGORY,
         });
       }
       return;
@@ -569,8 +373,9 @@ export const HomeComponent = () => {
         result = await ansibleApi.syncTemplates();
         if (result) {
           fetchSyncStatus();
+          // Latest JT set for the logged-in user drives catalog visibility.
           const preSyncTemplates = jobTemplatesRef.current;
-          const newTemplates = await fetchJobTemplates({ background: true });
+          let newTemplates = await fetchJobTemplates({ background: true });
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -578,9 +383,11 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            await fetchJobTemplates({ background: true });
+            newTemplates = await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
+          // Soft refresh after JT response — SoftRefresh defers past this commit.
+          invalidateTemplatesCatalog();
         }
       }
       setSyncOptions([]);
@@ -610,14 +417,13 @@ export const HomeComponent = () => {
     fetchSyncStatus();
   }, [fetchSyncStatus]);
 
-  // After fetchJobTemplates completes, schedule a catalog refresh so that
-  // recently imported templates (via "Add Template") have time to be
-  // processed by the catalog backend before we re-query.
+  // After JT load settles: refresh facets + re-query catalog for this JT set.
   useEffect(() => {
     if (loading) return undefined;
     const CATALOG_SETTLE_MS = 750;
     const timerId = setTimeout(() => {
       setSyncKey(prev => prev + 1);
+      invalidateTemplatesCatalog();
     }, CATALOG_SETTLE_MS);
     return () => clearTimeout(timerId);
   }, [loading]);
@@ -653,86 +459,42 @@ export const HomeComponent = () => {
     () => jobTemplates.map(template => template.id),
     [jobTemplates],
   );
-  const catalogListKey = `${syncKey}-${jobTemplateIds.join(
-    ',',
-  )}-${selectedSources.join(',')}`;
-  const canShowCatalog = jobTemplatesLoadState === 'ready';
+  // Remount only when source filters change. JT id updates flow through
+  // createHomeCatalogApi + invalidateTemplatesCatalog soft refresh.
+  const catalogListKey = selectedSources.join(',') || 'all-sources';
 
-  const catalogContent = (() => {
-    if (canShowCatalog) {
-      return (
-        <HomeCatalogProvider
-          jobTemplateIds={jobTemplateIds}
-          selectedSources={selectedSources}
-          listKey={catalogListKey}
-        >
-          <CatalogFilterLayout>
-            <CatalogFilterLayout.Filters>
-              <div data-testid="search-bar-container">
-                <EntitySearchBar />
-              </div>
-              <EntityKindPicker initialFilter="template" hidden />
-              <div data-testid="user-picker-container">
-                <UserListPicker
-                  initialFilter="all"
-                  availableFilters={['all', 'starred']}
-                />
-              </div>
-              <div data-testid="categories-picker">
-                <HomeCategoryPicker syncKey={syncKey} />
-              </div>
-              <HomeTagPicker syncKey={syncKey} />
-              <SourcePicker
-                syncKey={syncKey}
-                selectedSources={selectedSources}
-                onSourceChange={setSelectedSources}
-              />
-              <EntityOwnerPicker />
-            </CatalogFilterLayout.Filters>
-            <CatalogFilterLayout.Content>
-              <TemplateContent loading={loading} />
-            </CatalogFilterLayout.Content>
-          </CatalogFilterLayout>
-        </HomeCatalogProvider>
-      );
-    }
-
-    if (jobTemplatesLoadState === 'error') {
-      return (
-        <Typography
-          variant="body1"
-          style={{ textAlign: 'center', padding: '40px 0' }}
-        >
-          {jobTemplatesErrorMessage ??
-            'Could not load your AAP job templates. Try signing in again or use Retry below.'}
-          <Button
-            color="primary"
-            onClick={() => void refreshJobTemplates()}
-            style={{ display: 'block', margin: '16px auto 0' }}
-          >
-            Retry
-          </Button>
-        </Typography>
-      );
-    }
-
-    return (
-      <div
-        data-testid="loading-templates"
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: '100%',
-          gap: '10px',
-        }}
-      >
-        {[1, 2, 3].map(id => (
-          <SkeletonLoader key={`skeleton-${id}`} />
-        ))}
-      </div>
+  let catalogContent;
+  if (jobTemplatesLoadState === 'ready') {
+    catalogContent = (
+      <HomeCatalogPanel
+        jobTemplateIds={jobTemplateIds}
+        selectedSources={selectedSources}
+        listKey={catalogListKey}
+        syncKey={syncKey}
+        externalLoading={loading}
+        onSourceChange={setSelectedSources}
+      />
     );
-  })();
+  } else if (jobTemplatesLoadState === 'error') {
+    catalogContent = (
+      <Typography
+        variant="body1"
+        style={{ textAlign: 'center', padding: '40px 0' }}
+      >
+        {jobTemplatesErrorMessage ??
+          'Could not load your AAP job templates. Try signing in again or use Retry below.'}
+        <Button
+          color="primary"
+          onClick={() => void refreshJobTemplates()}
+          style={{ display: 'block', margin: '16px auto 0' }}
+        >
+          Retry
+        </Button>
+      </Typography>
+    );
+  } else {
+    catalogContent = <LoadingTemplatesPlaceholder />;
+  }
 
   return (
     <Page themeId="app" className={shellPageClasses.page}>
@@ -802,7 +564,6 @@ export const HomeComponent = () => {
   );
 };
 
-// Inner content component that uses the notification context
 const TemplatesRoutesContent = () => {
   const { notifications, removeNotification } = useNotifications();
 
