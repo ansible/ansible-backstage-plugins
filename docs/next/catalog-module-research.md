@@ -80,7 +80,7 @@ All providers implement Backstage `EntityProvider` and are registered in `src/mo
 | `AAPJobTemplateProvider` | `sync.jobTemplates` | AAP job templates + surveys | `Template` entities | Same; can `enabled: false` |
 | `PAHCollectionProvider` | `sync.pahCollections` | PAH via ansible service | Collection entities | Per repository + optional schedule |
 | `AnsibleGitContentsProvider` | `sync.ansibleGitContents` | GitHub/GitLab crawl | Repos + collections from `galaxy.yml` | Per org or default schedule |
-| `EEEntityProvider` | *(on-demand)* | `POST /ansible/ee` | `Component` (`execution-environment`) | N/A (delta mutations only) |
+| `EEEntityProvider` | *(on-demand)* | `POST /ansible/ee` | `Component` (`execution-environment`) | N/A (delta mutations only); ~88 lines on `main` (architecture §7.4 cites ~52 — stale) |
 
 **Shared infrastructure:**
 
@@ -128,7 +128,7 @@ Router middleware helpers: `createRequireSuperuserMiddleware`, `createRequireUse
 | Consumer | Depends on |
 |----------|------------|
 | `auth-backend-module-rhaap-provider` | Catalog `User` entities from AAP sync |
-| Scaffolder / `portal-scaffolder` | `Template`, collection, repo, EE entities; autocomplete via `aap-api-cloud` reads collections from catalog |
+| Scaffolder / `portal-scaffolder` | `Template`, collection, repo, EE entities; autocomplete: `collections` resource uses `getCollections` (catalog search API), `collection_sources`/`collection_versions` fall through to `ansibleService.getResourceData` (AAP controller), `verbosity`/`aaphostname` are static config |
 | Self-service UI | EE catalog entities + `/ansible/ee*` HTTP API |
 | 3rd-party factory plugins (ANSTRAT-2497) | Catalog entity kinds + annotations (SDK contract) |
 
