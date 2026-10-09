@@ -31,3 +31,25 @@ export function normalizeQueryOffset(
   }
   return resolveCatalogOffset(offset);
 }
+
+/**
+ * Keep the address bar on the real page offset while SoftRefresh uses a
+ * sentinel in EntityListProvider state (provider syncs offset → URL).
+ */
+export function writeCatalogOffsetToUrl(offset: number): void {
+  if (typeof window === 'undefined' || !window.history?.replaceState) {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (offset <= 0) {
+    url.searchParams.delete('offset');
+  } else {
+    url.searchParams.set('offset', String(offset));
+  }
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (next === current) {
+    return;
+  }
+  window.history.replaceState(null, document.title, next);
+}

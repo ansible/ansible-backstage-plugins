@@ -4,6 +4,7 @@ import {
   normalizeQueryOffset,
   resolveCatalogOffset,
   toRefreshOffset,
+  writeCatalogOffsetToUrl,
 } from './offsetRefresh';
 
 describe('offsetRefresh', () => {
@@ -26,5 +27,30 @@ describe('offsetRefresh', () => {
     expect(resolveCatalogOffset(Number.NaN)).toBe(0);
     expect(resolveCatalogOffset(-5)).toBe(0);
     expect(normalizeQueryOffset(undefined)).toBeUndefined();
+  });
+
+  it('writes the real page offset into the URL search params', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/self-service/catalog?offset=1000000020&limit=20',
+    );
+
+    writeCatalogOffsetToUrl(20);
+
+    expect(window.location.pathname).toBe('/self-service/catalog');
+    expect(window.location.search).toBe('?offset=20&limit=20');
+  });
+
+  it('removes offset from the URL when restoring page 0', () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/self-service/catalog?offset=1000000000&limit=20',
+    );
+
+    writeCatalogOffsetToUrl(0);
+
+    expect(window.location.search).toBe('?limit=20');
   });
 });

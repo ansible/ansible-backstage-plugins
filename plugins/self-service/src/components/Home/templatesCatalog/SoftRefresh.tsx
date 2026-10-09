@@ -5,6 +5,7 @@ import {
   isRefreshOffset,
   resolveCatalogOffset,
   toRefreshOffset,
+  writeCatalogOffsetToUrl,
 } from './offsetRefresh';
 
 /**
@@ -13,6 +14,10 @@ import {
  *
  * Invalidation defers one macrotask (`setTimeout(0)`) so JT state that bumps
  * `createHomeCatalogApi` in the same turn commits before the sentinel offset runs.
+ *
+ * Invalidates that arrive while a refresh is in flight set a dirty flag and
+ * re-queue after restore. Sentinel offsets are stripped from the URL so
+ * EntityListProvider's offset→URL sync does not leak `?offset=1e9+n`.
  */
 export const SoftRefresh = () => {
   const { offset, setOffset, loading } = useEntityList();
@@ -22,26 +27,40 @@ export const SoftRefresh = () => {
   const restoreOffsetRef = useRef<number | null>(null);
   /** Coalesce burst invalidations into one deferred refresh. */
   const pendingTimerRef = useRef<number | null>(null);
+  /** Invalidation arrived while a sentinel refresh was in flight. */
+  const dirtyRef = useRef(false);
+  const urlRewriteTimerRef = useRef<number | null>(null);
 
   offsetRef.current = offset;
   setOffsetRef.current = setOffset;
 
-  useEffect(() => {
-    const unsubscribe = addTemplatesCatalogInvalidateListener(() => {
-      if (pendingTimerRef.current !== null) {
+  const scheduleRefresh = () => {
+    if (pendingTimerRef.current !== null) {
+      return;
+    }
+    pendingTimerRef.current = window.setTimeout(() => {
+      pendingTimerRef.current = null;
+      const applyOffset = setOffsetRef.current;
+      if (!applyOffset) {
         return;
       }
-      pendingTimerRef.current = window.setTimeout(() => {
-        pendingTimerRef.current = null;
-        const applyOffset = setOffsetRef.current;
-        // Skip if unmounted or a refresh is already in flight.
-        if (!applyOffset || restoreOffsetRef.current !== null) {
-          return;
-        }
-        const current = resolveCatalogOffset(offsetRef.current);
-        restoreOffsetRef.current = current;
-        applyOffset(toRefreshOffset(current));
-      }, 0);
+      if (restoreOffsetRef.current !== null) {
+        dirtyRef.current = true;
+        return;
+      }
+      const current = resolveCatalogOffset(offsetRef.current);
+      restoreOffsetRef.current = current;
+      applyOffset(toRefreshOffset(current));
+    }, 0);
+  };
+
+  useEffect(() => {
+    const unsubscribe = addTemplatesCatalogInvalidateListener(() => {
+      if (restoreOffsetRef.current !== null) {
+        dirtyRef.current = true;
+        return;
+      }
+      scheduleRefresh();
     });
 
     return () => {
@@ -50,8 +69,48 @@ export const SoftRefresh = () => {
         window.clearTimeout(pendingTimerRef.current);
         pendingTimerRef.current = null;
       }
+      if (urlRewriteTimerRef.current !== null) {
+        window.clearTimeout(urlRewriteTimerRef.current);
+        urlRewriteTimerRef.current = null;
+      }
     };
   }, []);
+
+  // Reload / share-link safety: sentinel left in URL must not stick.
+  useEffect(() => {
+    if (restoreOffsetRef.current !== null || !setOffset) {
+      return;
+    }
+    if (!isRefreshOffset(offset)) {
+      return;
+    }
+    const real = resolveCatalogOffset(offset);
+    setOffset(real);
+    writeCatalogOffsetToUrl(real);
+    // Mount-only hydrate from a stale sentinel URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional once on mount
+  }, []);
+
+  // EntityListProvider writes offset→URL after child effects; defer rewrite.
+  useEffect(() => {
+    if (!isRefreshOffset(offset)) {
+      return undefined;
+    }
+    const real = resolveCatalogOffset(offset);
+    if (urlRewriteTimerRef.current !== null) {
+      window.clearTimeout(urlRewriteTimerRef.current);
+    }
+    urlRewriteTimerRef.current = window.setTimeout(() => {
+      urlRewriteTimerRef.current = null;
+      writeCatalogOffsetToUrl(real);
+    }, 0);
+    return () => {
+      if (urlRewriteTimerRef.current !== null) {
+        window.clearTimeout(urlRewriteTimerRef.current);
+        urlRewriteTimerRef.current = null;
+      }
+    };
+  }, [offset]);
 
   useEffect(() => {
     const restore = restoreOffsetRef.current;
@@ -60,11 +119,20 @@ export const SoftRefresh = () => {
     }
     if (!isRefreshOffset(offset)) {
       restoreOffsetRef.current = null;
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        scheduleRefresh();
+      }
       return;
     }
 
     restoreOffsetRef.current = null;
     setOffset(restore);
+    writeCatalogOffsetToUrl(restore);
+    if (dirtyRef.current) {
+      dirtyRef.current = false;
+      scheduleRefresh();
+    }
   }, [loading, offset, setOffset]);
 
   return null;
