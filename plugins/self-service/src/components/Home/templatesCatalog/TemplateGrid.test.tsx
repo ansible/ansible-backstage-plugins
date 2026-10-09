@@ -15,7 +15,7 @@ const makeTemplate = (name: string, type = 'service'): TemplateEntityV1beta3 =>
     apiVersion: 'scaffolder.backstage.io/v1beta3',
     kind: 'Template',
     metadata: { name, uid: name, title: name },
-    spec: { type, owner: 'team', parameters: [] },
+    spec: { type, owner: 'team', parameters: [], steps: [] },
   }) as TemplateEntityV1beta3;
 
 describe('TemplateGrid', () => {
