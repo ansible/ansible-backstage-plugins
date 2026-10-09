@@ -175,7 +175,9 @@ test.describe.serial('templates01-catalog', () => {
       return;
     }
 
-    const nextAll = page.locator('[aria-label="Next page"]');
+    const pagination = page.getByTestId('templates-pagination');
+    const pageIndicator = page.getByTestId('templates-page-indicator');
+    const nextAll = pagination.getByLabel('Next page');
     if ((await nextAll.count()) === 0) {
       return;
     }
@@ -185,29 +187,37 @@ test.describe.serial('templates01-catalog', () => {
       return;
     }
 
-    await expect(page.getByTestId('templates-pagination')).toBeVisible();
-    await expect(page.getByText(/1\s*\/\s*\d+/)).toBeVisible();
+    await expect(pagination).toBeVisible();
+    await expect(pageIndicator).toHaveText(/1\s*\/\s*\d+/);
+
+    // Header/pagination can paint before cards; wait for real template titles
+    // (MuiCard-root alone races with skeletons / empty ItemCardGrid).
+    const templateTitles = page.locator(
+      '[data-testid="templates-container"] [data-testid="template--title"]',
+    );
+    await expect(templateTitles.first()).toBeVisible({ timeout: 30000 });
 
     await next.scrollIntoViewIfNeeded();
     await expect(next).toBeEnabled();
 
-    const cardsPage1 = await page.locator('main .MuiCard-root').count();
+    const cardsPage1 = await templateTitles.count();
     expect(cardsPage1).toBeGreaterThan(0);
 
-    await next.click({ force: true });
-    await page.waitForTimeout(600);
+    await next.click();
+    await expect(page).toHaveURL(/[?&]offset=(?!0(?:&|$))\d+/, {
+      timeout: 15000,
+    });
+    await expect(pageIndicator).toHaveText(/2\s*\/\s*\d+/, { timeout: 15000 });
+    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
 
-    await expect(page.getByText(/2\s*\/\s*\d+/)).toBeVisible();
-
-    const prev = page.locator('[aria-label="Previous page"]').first();
+    const prev = pagination.getByLabel('Previous page').first();
     await expect(prev).toBeVisible();
     await expect(prev).toBeEnabled();
 
-    await prev.click({ force: true });
-    await page.waitForTimeout(600);
-
-    await expect(page.getByText(/1\s*\/\s*\d+/)).toBeVisible();
-    const cardsBackToPage1 = await page.locator('main .MuiCard-root').count();
+    await prev.click();
+    await expect(pageIndicator).toHaveText(/1\s*\/\s*\d+/, { timeout: 15000 });
+    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+    const cardsBackToPage1 = await templateTitles.count();
     expect(cardsBackToPage1).toBe(cardsPage1);
   });
 });
