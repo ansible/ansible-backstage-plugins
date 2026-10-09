@@ -41,7 +41,7 @@ test('Same team name in different orgs both exist', async ({ page }) => {
 
     const teams: any[] = Array.isArray(result.body)
       ? result.body
-      : result.body?.items ?? [];
+      : (result.body?.items ?? []);
 
     // Look for duplicate team titles (e.g., "Deploy Team (Engineering)" and "Deploy Team (SecOps)")
     const teamTitles = teams.map((t: any) => t.metadata?.title).filter(Boolean);
@@ -190,7 +190,7 @@ test('Special character org/team/user names handled', async ({ page }) => {
 
     const orgs: any[] = Array.isArray(orgResult.body)
       ? orgResult.body
-      : orgResult.body?.items ?? [];
+      : (orgResult.body?.items ?? []);
 
     // Look for orgs with special characters in title
     const specialCharOrgs = orgs.filter((org: any) => {
@@ -214,7 +214,7 @@ test('Special character org/team/user names handled', async ({ page }) => {
 
     const users: any[] = Array.isArray(userResult.body)
       ? userResult.body
-      : userResult.body?.items ?? [];
+      : (userResult.body?.items ?? []);
 
     // Look for users with special chars in AAP username annotation
     const specialCharUsers = users.filter((user: any) => {
@@ -357,7 +357,7 @@ test('User entity uses ID-based naming in catalog', async ({ page }) => {
 
     const users: any[] = Array.isArray(result.body)
       ? result.body
-      : result.body?.items ?? [];
+      : (result.body?.items ?? []);
 
     expect(users.length, 'Should have users in catalog').toBeGreaterThan(0);
 
