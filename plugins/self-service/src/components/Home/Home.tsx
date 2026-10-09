@@ -505,7 +505,7 @@ export const HomeComponent = () => {
         variant="body1"
         style={{ textAlign: 'center', padding: '40px 0' }}
       >
-        {jobTemplatesErrorMessage ??
+        {jobTemplatesErrorMessage ||
           'Could not load your AAP job templates. Try signing in again or use Retry below.'}
         <Button
           color="primary"
