@@ -22,10 +22,9 @@ test('Same team name in different orgs both exist', async ({ page }) => {
   let token: string | null = null;
   try {
     token = await getBackstageToken(page);
-  } catch (error) {
+  } catch {
     console.log(
-      '[Collision Test] Token extraction failed, skipping API validation:',
-      error,
+      '[Collision Test] Token extraction failed, skipping API validation.',
     );
   }
 
@@ -43,8 +42,7 @@ test('Same team name in different orgs both exist', async ({ page }) => {
       ? result.body
       : (result.body?.items ?? []);
 
-    // Look for duplicate team titles (e.g., "Deploy Team (Engineering)" and "Deploy Team (SecOps)")
-    const teamTitles = teams.map((t: any) => t.metadata?.title).filter(Boolean);
+    // Extract team names for validation
     const teamNames = teams.map((t: any) => t.metadata?.name).filter(Boolean);
 
     // Count teams with same display name but different IDs
@@ -172,9 +170,9 @@ test('Special character org/team/user names handled', async ({ page }) => {
   let token: string | null = null;
   try {
     token = await getBackstageToken(page);
-  } catch (error) {
+  } catch {
     console.log(
-      '[Collision Test] Token extraction failed, skipping special char API test',
+      '[Collision Test] Token extraction failed, skipping special char API test.',
     );
   }
 
@@ -339,9 +337,9 @@ test('User entity uses ID-based naming in catalog', async ({ page }) => {
   let token: string | null = null;
   try {
     token = await getBackstageToken(page);
-  } catch (error) {
+  } catch {
     console.log(
-      '[Collision Test] Token extraction failed, skipping user entity API test',
+      '[Collision Test] Token extraction failed, skipping user entity API test.',
     );
   }
 
