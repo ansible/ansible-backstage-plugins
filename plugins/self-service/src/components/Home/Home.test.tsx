@@ -11,12 +11,20 @@ import {
 } from '@backstage/plugin-catalog-react';
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
+import { identityApiRef } from '@backstage/core-plugin-api';
 import { HomeComponent, TemplatesRoutesPage } from './Home';
 import { JobTemplatesProvider } from './JobTemplatesProvider';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
 import { mockAnsibleApi } from '../../tests/mockAnsibleApi';
+
+const mockIdentityApi = {
+  signOut: jest.fn().mockResolvedValue(undefined),
+  getBackstageIdentity: jest.fn(),
+  getCredentials: jest.fn(),
+  getProfileInfo: jest.fn(),
+};
 
 const mockUseIsSuperuser = jest.fn(() => ({
   isSuperuser: true,
@@ -146,6 +154,7 @@ describe('self-service', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -1340,6 +1349,7 @@ describe('TemplatesRoutesPage notifications', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -1406,6 +1416,7 @@ describe('sync signal integration', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -1521,6 +1532,7 @@ describe('sync progress tooltip', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}
@@ -1943,6 +1955,7 @@ describe('HomeCategoryPicker EE exclusion', () => {
         apis={[
           [catalogApiRef, mockCatalogApi],
           [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
           [starredEntitiesApiRef, new MockStarredEntitiesApi()],
           [permissionApiRef, mockApis.permission()],
         ]}

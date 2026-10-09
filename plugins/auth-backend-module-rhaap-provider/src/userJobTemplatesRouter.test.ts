@@ -4,6 +4,7 @@ import { createUserJobTemplatesRouter } from './userJobTemplatesRouter';
 import { MOCK_CONFIG } from './mockData';
 import { ConfigReader } from '@backstage/config';
 import { AuthenticationError, InputError } from '@backstage/errors';
+import { AapHttpError } from '@ansible/backstage-rhaap-common';
 import request from 'supertest';
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -380,6 +381,23 @@ describe('createUserJobTemplatesRouter', () => {
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('token revoked');
+  });
+
+  it('returns 401 when controller GET fails with AapHttpError 401', async () => {
+    mockAnsibleService.getResourceData.mockRejectedValueOnce(
+      new AapHttpError(
+        401,
+        'AAP session expired or token revoked (401 from controller API).',
+      ),
+    );
+    const app = createTestApp();
+
+    const response = await request(app)
+      .get('/rhaap/user-job-templates')
+      .set('X-RHAAP-Access-Token', 'header-access-token');
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toContain('401 from controller API');
   });
 
   it('returns 502 when fetching job templates fails with a non-auth error', async () => {
