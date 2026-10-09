@@ -30,7 +30,7 @@ jobs:
       statuses: write
     steps:
       - name: Checkout PR code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0  # Shallow clones should be disabled for better SonarCloud analysis
@@ -38,7 +38,7 @@ jobs:
       # PR and main push workflows already upload coverage for this commit.
       - name: Wait for coverage-producing tests
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@ccfb013c15c8afb7bf2b7c028fb74dc5a068cccc # v1.3.4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           check-regexp: 'Test with Node.js 22'
@@ -74,7 +74,7 @@ jobs:
 
       - name: Download coverage artifacts
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@ce71cc2ab81d554ebbe88c79ab5975992d79ba08 # v3
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -109,7 +109,7 @@ jobs:
 
       - name: SonarCloud Scan (Pull Request)
         if: github.event_name == 'pull_request_target'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -131,7 +131,7 @@ jobs:
 
       - name: SonarCloud Scan (Branch)
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
