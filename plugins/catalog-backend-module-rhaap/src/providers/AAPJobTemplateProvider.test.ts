@@ -485,6 +485,61 @@ describe('AAPJobTemplateProvider', () => {
       );
     });
 
+    it('warns and keeps the first job template when catalog keys collide', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      const duplicateJobTemplate = {
+        ...MOCK_JOB_TEMPLATE,
+        id: 99,
+        name: 'Test Job Template',
+        description: 'Same display name, different AAP id',
+      };
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        {
+          job: MOCK_JOB_TEMPLATE,
+          survey: MOCK_SURVEY,
+          instanceGroup: [],
+        },
+        {
+          job: duplicateJobTemplate,
+          survey: null,
+          instanceGroup: [],
+        },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        {
+          logger,
+          schedule,
+        },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const mutation = (entityProviderConnection.applyMutation as jest.Mock)
+        .mock.calls[0][0];
+      expect(mutation.entities).toHaveLength(1);
+      expect(mutation.entities[0].entity.metadata.aapJobTemplateId).toBe(1);
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Skipped 1 duplicate catalog entity keys'),
+      );
+      expect(provider.getLastDuplicateEntityCount()).toBe(1);
+    });
+
     it('should handle multiple job templates', async () => {
       const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
       const logger = mockServices.logger.mock();

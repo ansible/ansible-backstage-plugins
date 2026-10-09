@@ -435,8 +435,8 @@ describe('AAPEntityProvider', () => {
     expect(result).toBe(true);
   });
 
-  describe('bulk user team membership fallback', () => {
-    it('warns and assigns org group when team is missing from bulk payload', async () => {
+  describe('bulk/per-user membership reconciliation', () => {
+    it('warns but does not convert a missing bulk team into org membership', async () => {
       const config = new ConfigReader(MOCK_CONFIG.data);
       const childLogger = mockServices.logger.mock();
       const logger = mockServices.logger.mock();
@@ -494,17 +494,141 @@ describe('AAPEntityProvider', () => {
           e.entity.kind === 'User' && e.entity.metadata?.name === 'alice',
       );
 
-      expect(alice.entity.spec.memberOf).toEqual(['group:default/default']);
+      expect(alice.entity.spec.memberOf).toEqual([]);
       expect(childLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining(
           'Team Missing Team (ID: 99) for user alice (ID: 100) not found in bulk org payload',
         ),
       );
-      expect(childLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'assigning org group group:default/default instead',
-        ),
+    });
+  });
+
+  describe('missing configured organizations', () => {
+    it('records missing org names when AAP omits a configured org', async () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: {
+              development: {
+                multiOrgEnabled: true,
+                orgs: 'Default, Engineering',
+                sync: {
+                  orgsUsersTeams: {
+                    schedule: {
+                      frequency: 'P1M',
+                      timeout: 'PT3M',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      });
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        {
+          organization: { id: 1, name: 'Default' },
+          teams: [],
+          users: [],
+        },
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+      const connection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+      await provider.connect(connection);
+      await provider.run();
+
+      expect(provider.getLastMissingOrganizations()).toEqual(['engineering']);
+      expect(provider.getLastSyncStatus()).toBe('success');
+    });
+  });
+
+  describe('duplicate catalog entity keys', () => {
+    it('warns and keeps the first entity before applying the full mutation', async () => {
+      const config = new ConfigReader(MOCK_CONFIG.data);
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      const duplicateOrganization = {
+        organization: { id: 1, name: 'Default' },
+        teams: [
+          {
+            id: 10,
+            organization: 1,
+            name: 'Platform',
+            groupName: 'platform',
+            description: 'Platform team',
+          },
+        ],
+        users: [],
+      };
+      mockAnsibleService.getOrganizations.mockResolvedValue([
+        duplicateOrganization,
+        duplicateOrganization,
+      ] as any);
+      mockAnsibleService.getUserRoleAssignments.mockResolvedValue({});
+      mockAnsibleService.listSystemUsers.mockResolvedValue([]);
+
+      const provider = AAPEntityProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { schedule, logger },
+      )[0];
+      const connection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(connection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const mutation = (connection.applyMutation as jest.Mock).mock.calls[0][0];
+      const keys = mutation.entities.map(
+        ({ entity }: any) =>
+          `${entity.kind}:${entity.metadata.namespace}/${entity.metadata.name}`,
       );
+
+      expect(keys).toEqual([
+        'Group:default/default',
+        'Group:default/platform',
+        'Group:default/aap-admins',
+      ]);
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Skipped 2 duplicate catalog entity keys'),
+      );
+      expect(childLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Duplicate catalog entity details'),
+        expect.objectContaining({
+          conflicts: expect.arrayContaining([
+            expect.stringContaining('Group:default/default'),
+          ]),
+        }),
+      );
+      expect(provider.getLastDuplicateEntityCount()).toBe(2);
     });
   });
 
