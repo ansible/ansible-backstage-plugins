@@ -32,12 +32,22 @@ export function normalizeQueryOffset(
   return resolveCatalogOffset(offset);
 }
 
+type HistoryReplaceState = Pick<History, 'replaceState'>;
+
 /**
  * Keep the address bar on the real page offset while SoftRefresh uses a
  * sentinel in EntityListProvider state (provider syncs offset → URL).
+ *
+ * `historyApi` is injectable for tests (jsdom's History.replaceState is not
+ * configurable enough to stub reliably).
  */
-export function writeCatalogOffsetToUrl(offset: number): void {
-  if (typeof window === 'undefined' || !window.history?.replaceState) {
+export function writeCatalogOffsetToUrl(
+  offset: number,
+  historyApi: HistoryReplaceState | undefined = typeof window !== 'undefined'
+    ? window.history
+    : undefined,
+): void {
+  if (!historyApi?.replaceState) {
     return;
   }
   const url = new URL(window.location.href);
@@ -51,5 +61,5 @@ export function writeCatalogOffsetToUrl(offset: number): void {
   if (next === current) {
     return;
   }
-  window.history.replaceState(null, document.title, next);
+  historyApi.replaceState(null, document.title, next);
 }

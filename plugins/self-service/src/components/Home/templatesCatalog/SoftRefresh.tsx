@@ -58,8 +58,8 @@ export const SoftRefresh = () => {
     const unsubscribe = addTemplatesCatalogInvalidateListener(() => {
       if (restoreOffsetRef.current !== null) {
         dirtyRef.current = true;
-        return;
       }
+      // Always schedule; timer no-ops into dirty if a refresh is already in flight.
       scheduleRefresh();
     });
 
@@ -97,9 +97,6 @@ export const SoftRefresh = () => {
       return undefined;
     }
     const real = resolveCatalogOffset(offset);
-    if (urlRewriteTimerRef.current !== null) {
-      window.clearTimeout(urlRewriteTimerRef.current);
-    }
     urlRewriteTimerRef.current = window.setTimeout(() => {
       urlRewriteTimerRef.current = null;
       writeCatalogOffsetToUrl(real);

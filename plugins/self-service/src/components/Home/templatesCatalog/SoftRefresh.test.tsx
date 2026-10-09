@@ -213,6 +213,177 @@ describe('SoftRefresh', () => {
     expect(setOffset).toHaveBeenCalledTimes(1);
   });
 
+  it('re-queues after dirty when offset leaves the refresh band early', () => {
+    const setOffset = jest.fn();
+    const { rerender } = render(
+      <MockEntityListContextProvider
+        value={{ offset: 20, setOffset, loading: false }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      invalidateTemplatesCatalog();
+      jest.runOnlyPendingTimers();
+    });
+
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      invalidateTemplatesCatalog();
+      jest.runOnlyPendingTimers();
+    });
+
+    // Provider left the sentinel band before restore; dirty still requeues.
+    rerender(
+      <MockEntityListContextProvider
+        value={{ offset: 20, setOffset, loading: false }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(setOffset).toHaveBeenLastCalledWith(toRefreshOffset(20));
+  });
+
+  it('skips applying a refresh when setOffset disappears before the timer', () => {
+    const setOffset = jest.fn();
+    const { rerender } = render(
+      <MockEntityListContextProvider
+        value={{ offset: 0, setOffset, loading: false }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      invalidateTemplatesCatalog();
+    });
+
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: 0,
+          setOffset: undefined,
+          loading: false,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(setOffset).not.toHaveBeenCalled();
+  });
+
+  it('skips mount hydrate when setOffset is missing', () => {
+    expect(() =>
+      render(
+        <MockEntityListContextProvider
+          value={{
+            offset: toRefreshOffset(40),
+            setOffset: undefined,
+            loading: false,
+          }}
+        >
+          <SoftRefresh />
+        </MockEntityListContextProvider>,
+      ),
+    ).not.toThrow();
+  });
+
+  it('clears a pending URL rewrite when the sentinel offset changes', () => {
+    const setOffset = jest.fn();
+    const { rerender } = render(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(0),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    window.history.replaceState(
+      null,
+      '',
+      `/self-service/catalog?offset=${toRefreshOffset(20)}`,
+    );
+
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(window.location.search).toBe('?offset=20');
+  });
+
+  it('clears pending invalidate and URL rewrite timers on unmount', () => {
+    const setOffset = jest.fn();
+    const { rerender, unmount } = render(
+      <MockEntityListContextProvider
+        value={{ offset: 0, setOffset, loading: false }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      invalidateTemplatesCatalog();
+      jest.runOnlyPendingTimers();
+    });
+
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(0),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    // URL rewrite timer is pending; unmount must clear it.
+    unmount();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(setOffset).toHaveBeenCalledTimes(1);
+  });
+
   it('clears a pending invalidate timer on unmount', () => {
     const setOffset = jest.fn();
     const { unmount } = render(

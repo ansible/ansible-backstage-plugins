@@ -39,7 +39,7 @@ export function createHomeCatalogApi(
   return new Proxy(catalogApi, {
     get(target, prop, receiver) {
       if (prop === 'queryEntities') {
-        return async (request?: QueryEntitiesRequest) => {
+        return (request?: QueryEntitiesRequest) => {
           if (request && 'cursor' in request && request.cursor) {
             return target.queryEntities(request);
           }

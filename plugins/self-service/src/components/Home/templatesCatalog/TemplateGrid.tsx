@@ -6,8 +6,7 @@ import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import { WizardCard } from '../TemplateCard';
 import { LoadingTemplatesPlaceholder } from '../LoadingTemplatesPlaceholder';
 import { TemplatesPagination } from '../TemplatesPagination';
-import { resolvePageLimit } from '../constants';
-import { isExecutionEnvironmentType } from '../constants';
+import { isExecutionEnvironmentType, resolvePageLimit } from '../constants';
 import { resolveCatalogOffset } from './offsetRefresh';
 import { useStaleWhileRevalidate } from './useStaleWhileRevalidate';
 

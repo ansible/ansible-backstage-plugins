@@ -93,7 +93,7 @@ function HomeCatalogPanel({
   syncKey,
   externalLoading,
   onSourceChange,
-}: HomeCatalogPanelProps) {
+}: Readonly<HomeCatalogPanelProps>) {
   return (
     <TemplatesCatalogProvider
       jobTemplateIds={jobTemplateIds}
@@ -375,7 +375,7 @@ export const HomeComponent = () => {
           fetchSyncStatus();
           // Latest JT set for the logged-in user drives catalog visibility.
           const preSyncTemplates = jobTemplatesRef.current;
-          let newTemplates = await fetchJobTemplates({ background: true });
+          const newTemplates = await fetchJobTemplates({ background: true });
           const listUnchanged =
             newTemplates &&
             !jobTemplateListsDiffer(preSyncTemplates, newTemplates);
@@ -383,7 +383,8 @@ export const HomeComponent = () => {
             await new Promise(resolve =>
               setTimeout(resolve, JOB_TEMPLATE_LIST_STALE_RETRY_MS),
             );
-            newTemplates = await fetchJobTemplates({ background: true });
+            // Side effect refreshes JT provider state; return value unused.
+            await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
           // Soft refresh after JT ids commit (same macrotask defer as SoftRefresh listener).
