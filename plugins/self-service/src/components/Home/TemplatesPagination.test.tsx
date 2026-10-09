@@ -20,7 +20,9 @@ describe('TemplatesPagination', () => {
     expect(screen.getByTestId('templates-page-size-select')).toHaveTextContent(
       '20',
     );
-    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+    expect(screen.getByTestId('templates-page-indicator')).toHaveTextContent(
+      '1 / 3',
+    );
   });
 
   it('shows 1 / 1 with disabled navigation on a single page', () => {
@@ -37,7 +39,9 @@ describe('TemplatesPagination', () => {
       />,
     );
 
-    expect(screen.getByText('1 / 1')).toBeInTheDocument();
+    expect(screen.getByTestId('templates-page-indicator')).toHaveTextContent(
+      '1 / 1',
+    );
     expect(screen.getByLabelText('Previous page')).toBeDisabled();
     expect(screen.getByLabelText('Next page')).toBeDisabled();
     expect(

@@ -75,4 +75,21 @@ describe('createHomeCatalogApi', () => {
 
     expect((api as unknown as { version: string }).version).toBe('catalog-v1');
   });
+
+  it('rewrites soft-refresh sentinel offsets to the real page offset', async () => {
+    const api = createHomeCatalogApi(baseCatalogApi as any, [1], []);
+
+    await api.queryEntities({
+      filter: { kind: 'template' },
+      limit: 20,
+      offset: 1_000_000_020,
+    });
+
+    expect(baseCatalogApi.queryEntities).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 20,
+        offset: 20,
+      }),
+    );
+  });
 });

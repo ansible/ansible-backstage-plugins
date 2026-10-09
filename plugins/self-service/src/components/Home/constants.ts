@@ -13,3 +13,8 @@ export const TEMPLATE_TOOLTIP =
 
 export const TEMPLATE_DESCRIPTION =
   'Browse available templates. Each template provides a guided experience to get your automation running. Select "Start" to begin the guided task.';
+
+/** True when a template `spec.type` is an execution-environment variant. */
+export function isExecutionEnvironmentType(type: string | undefined): boolean {
+  return Boolean(type?.includes('execution-environment'));
+}
