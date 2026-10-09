@@ -38,7 +38,7 @@ jobs:
       # PR and main push workflows already upload coverage for this commit.
       - name: Wait for coverage-producing tests
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@369769072fe522a3a8a85c03c96af1e5242a1994 # v1.9.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           check-regexp: 'Test with Node.js 22'

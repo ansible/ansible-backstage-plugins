@@ -42,7 +42,7 @@
     "@backstage/cli": "^0.36.0",
     "@backstage/cli-defaults": "^0.1.2",
     "@backstage/e2e-test-utils": "^0.1.2",
-    "@backstage/frontend-test-utils": "^0.5.2",
+    "@backstage/frontend-test-utils": "^0.6.0",
     "@playwright/test": "^1.32.3",
     "@red-hat-developer-hub/cli": "^1.10.2",
     "@spotify/prettier-config": "^12.0.0",
@@ -65,14 +65,14 @@
   "resolutions": {
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@rjsf/utils": "=5.24.0",
+    "@rjsf/utils": "=5.24.13",
     "axios": "^1.16.0",
     "basic-ftp": "^5.3.1",
-    "bfj": "7.0.2",
+    "bfj": "7.1.0",
     "dompurify": "^3.4.13",
     "follow-redirects": "^1.16.0",
     "lodash": "^4.18.0",
-    "protobufjs": "7.6.5",
+    "protobufjs": "7.6.6",
     "undici": "^6.29.0",
     "fast-xml-parser": "^5.5.6",
     "immutable": "^4.0.0",
@@ -81,7 +81,7 @@
     "koa": "^3.1.2",
     "multer": "^2.4.0",
     "adm-zip": "^0.6.1",
-    "@stoplight/spectral-core/minimatch": "3.1.4",
+    "@stoplight/spectral-core/minimatch": "3.1.5",
     "brace-expansion@npm:^1.1.7": "1.1.18",
     "brace-expansion@npm:^2.0.1": "2.1.4",
     "brace-expansion@npm:^2.0.2": "2.1.4",
@@ -135,8 +135,8 @@
     "glob@npm:^10.2.2": "10.5.0",
     "glob@npm:^10.3.10": "10.5.0",
     "glob@npm:^10.4.1": "10.5.0",
-    "path-to-regexp@npm:0.1.12": "0.1.13",
-    "path-to-regexp@npm:~0.1.12": "0.1.13",
+    "path-to-regexp@npm:0.1.12": "0.2.5",
+    "path-to-regexp@npm:~0.1.12": "0.2.5",
     "mysql2": "^3.24.0",
     "csv-parse": "^7.0.2",
     "colord": "^2.9.4",
@@ -144,5 +144,5 @@
     "compression": "^1.8.2"
   },
   "prettier": "@spotify/prettier-config",
-  "packageManager": "yarn@4.12.0"
+  "packageManager": "yarn@4.18.1"
 }

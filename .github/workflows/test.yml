@@ -17,7 +17,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: "3.14"
     - run: pip install pre-commit
     # No yarn install in this job. Skip pre-commit hooks that invoke yarn
     # pr.yml runs them after dependencies are installed 
