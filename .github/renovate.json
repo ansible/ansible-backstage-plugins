@@ -6,7 +6,7 @@
     ":preserveSemverRanges",
     "group:allNonMajor"
   ],
-  "baseBranches": ["main", "/^release-.*/"],
+  "baseBranchPatterns": ["main", "/^release-.*/"],
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true
