@@ -4637,18 +4637,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-common@npm:0.2.2, @backstage/cli-common@npm:^0.2.2":
-  version: 0.2.2
-  resolution: "@backstage/cli-common@npm:0.2.2"
-  dependencies:
-    "@backstage/errors": "npm:^1.3.1"
-    cross-spawn: "npm:^7.0.3"
-    global-agent: "npm:^3.0.0"
-    undici: "npm:^7.24.5"
-  checksum: 10c0/b83af32489662c1af7009d4a4965e5251cbe7e6bd12e5e14f2951e25d953872cba5802d9e6b780d0c93be95cdd9712e3ababeb2e97e34632b5cda6729f92a46d
-  languageName: node
-  linkType: hard
-
 "@backstage/cli-common@npm:^0.2.0":
   version: 0.2.0
   resolution: "@backstage/cli-common@npm:0.2.0"
@@ -4673,6 +4661,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage/cli-common@npm:^0.2.2":
+  version: 0.2.2
+  resolution: "@backstage/cli-common@npm:0.2.2"
+  dependencies:
+    "@backstage/errors": "npm:^1.3.1"
+    cross-spawn: "npm:^7.0.3"
+    global-agent: "npm:^3.0.0"
+    undici: "npm:^7.24.5"
+  checksum: 10c0/b83af32489662c1af7009d4a4965e5251cbe7e6bd12e5e14f2951e25d953872cba5802d9e6b780d0c93be95cdd9712e3ababeb2e97e34632b5cda6729f92a46d
+  languageName: node
+  linkType: hard
+
 "@backstage/cli-common@npm:^0.3.0":
   version: 0.3.0
   resolution: "@backstage/cli-common@npm:0.3.0"
@@ -4693,23 +4693,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-defaults@npm:0.1.3":
-  version: 0.1.3
-  resolution: "@backstage/cli-defaults@npm:0.1.3"
+"@backstage/cli-defaults@npm:^0.1.0":
+  version: 0.1.6
+  resolution: "@backstage/cli-defaults@npm:0.1.6"
   dependencies:
-    "@backstage/cli-module-actions": "npm:^0.1.2"
-    "@backstage/cli-module-auth": "npm:^0.1.3"
-    "@backstage/cli-module-build": "npm:^0.1.4"
-    "@backstage/cli-module-config": "npm:^0.1.3"
-    "@backstage/cli-module-github": "npm:^0.1.3"
-    "@backstage/cli-module-info": "npm:^0.1.3"
-    "@backstage/cli-module-lint": "npm:^0.1.3"
-    "@backstage/cli-module-maintenance": "npm:^0.1.3"
-    "@backstage/cli-module-migrate": "npm:^0.1.3"
-    "@backstage/cli-module-new": "npm:^0.1.4"
-    "@backstage/cli-module-test-jest": "npm:^0.1.3"
-    "@backstage/cli-module-translations": "npm:^0.1.3"
-  checksum: 10c0/e08f4f2224759e8ffb725e13c8bf96cf65502aa2206c5697231cee9a9083b8e91a58b3b6e8363c4b83af0ee2dd553786e816ebb384f47b64daaa66690fb873a6
+    "@backstage/cli-module-actions": "npm:^0.1.3"
+    "@backstage/cli-module-auth": "npm:^0.1.4"
+    "@backstage/cli-module-build": "npm:^0.1.8"
+    "@backstage/cli-module-config": "npm:^0.1.7"
+    "@backstage/cli-module-github": "npm:^0.1.4"
+    "@backstage/cli-module-info": "npm:^0.1.4"
+    "@backstage/cli-module-lint": "npm:^0.1.5"
+    "@backstage/cli-module-maintenance": "npm:^0.1.5"
+    "@backstage/cli-module-migrate": "npm:^0.2.1"
+    "@backstage/cli-module-new": "npm:^0.1.7"
+    "@backstage/cli-module-package-manager-yarn": "npm:^0.1.1"
+    "@backstage/cli-module-test-jest": "npm:^0.1.6"
+    "@backstage/cli-module-translations": "npm:^0.1.4"
+  checksum: 10c0/5d12a371ca4dcaad73fe72cffc07bb27d13bdb1377014f8cb88669891f742d20226e6a9cabe6ca5548b3c0fc1c80377368767e810d1e4df21882a68c489cd5aa
   languageName: node
   linkType: hard
 
@@ -4733,27 +4734,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-defaults@npm:^0.1.3":
-  version: 0.1.6
-  resolution: "@backstage/cli-defaults@npm:0.1.6"
-  dependencies:
-    "@backstage/cli-module-actions": "npm:^0.1.3"
-    "@backstage/cli-module-auth": "npm:^0.1.4"
-    "@backstage/cli-module-build": "npm:^0.1.8"
-    "@backstage/cli-module-config": "npm:^0.1.7"
-    "@backstage/cli-module-github": "npm:^0.1.4"
-    "@backstage/cli-module-info": "npm:^0.1.4"
-    "@backstage/cli-module-lint": "npm:^0.1.5"
-    "@backstage/cli-module-maintenance": "npm:^0.1.5"
-    "@backstage/cli-module-migrate": "npm:^0.2.1"
-    "@backstage/cli-module-new": "npm:^0.1.7"
-    "@backstage/cli-module-package-manager-yarn": "npm:^0.1.1"
-    "@backstage/cli-module-test-jest": "npm:^0.1.6"
-    "@backstage/cli-module-translations": "npm:^0.1.4"
-  checksum: 10c0/5d12a371ca4dcaad73fe72cffc07bb27d13bdb1377014f8cb88669891f742d20226e6a9cabe6ca5548b3c0fc1c80377368767e810d1e4df21882a68c489cd5aa
-  languageName: node
-  linkType: hard
-
 "@backstage/cli-module-actions@npm:^0.1.1":
   version: 0.1.1
   resolution: "@backstage/cli-module-actions@npm:0.1.1"
@@ -4772,7 +4752,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-actions@npm:^0.1.2, @backstage/cli-module-actions@npm:^0.1.3":
+"@backstage/cli-module-actions@npm:^0.1.3":
   version: 0.1.3
   resolution: "@backstage/cli-module-actions@npm:0.1.3"
   dependencies:
@@ -4813,7 +4793,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-auth@npm:^0.1.3, @backstage/cli-module-auth@npm:^0.1.4":
+"@backstage/cli-module-auth@npm:^0.1.4":
   version: 0.1.4
   resolution: "@backstage/cli-module-auth@npm:0.1.4"
   dependencies:
@@ -4911,26 +4891,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-config@npm:0.1.3":
-  version: 0.1.3
-  resolution: "@backstage/cli-module-config@npm:0.1.3"
-  dependencies:
-    "@backstage/cli-common": "npm:^0.2.2"
-    "@backstage/cli-node": "npm:^0.3.3"
-    "@backstage/config": "npm:^1.3.8"
-    "@backstage/config-loader": "npm:^1.10.12"
-    "@backstage/types": "npm:^1.2.2"
-    "@manypkg/get-packages": "npm:^1.1.3"
-    chalk: "npm:^4.0.0"
-    cleye: "npm:^2.6.0"
-    react-dev-utils: "npm:^12.0.0-next.60"
-    yaml: "npm:^2.0.0"
-  bin:
-    cli-module-config: bin/backstage-cli-module-config
-  checksum: 10c0/bd7484f13e6423b29d143af5479f20e8abbed7529cf7c53427e976c3b7fd95cf08678392c6fac06630dbea21aba3eff3102603cd39491307c47bf2c867b5de28
-  languageName: node
-  linkType: hard
-
 "@backstage/cli-module-config@npm:^0.1.2":
   version: 0.1.2
   resolution: "@backstage/cli-module-config@npm:0.1.2"
@@ -4952,7 +4912,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-config@npm:^0.1.3, @backstage/cli-module-config@npm:^0.1.7":
+"@backstage/cli-module-config@npm:^0.1.7":
   version: 0.1.7
   resolution: "@backstage/cli-module-config@npm:0.1.7"
   dependencies:
@@ -4992,7 +4952,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-github@npm:^0.1.3, @backstage/cli-module-github@npm:^0.1.4":
+"@backstage/cli-module-github@npm:^0.1.4":
   version: 0.1.4
   resolution: "@backstage/cli-module-github@npm:0.1.4"
   dependencies:
@@ -5027,7 +4987,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-info@npm:^0.1.3, @backstage/cli-module-info@npm:^0.1.4":
+"@backstage/cli-module-info@npm:^0.1.4":
   version: 0.1.4
   resolution: "@backstage/cli-module-info@npm:0.1.4"
   dependencies:
@@ -5061,7 +5021,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-lint@npm:^0.1.3, @backstage/cli-module-lint@npm:^0.1.5":
+"@backstage/cli-module-lint@npm:^0.1.5":
   version: 0.1.5
   resolution: "@backstage/cli-module-lint@npm:0.1.5"
   dependencies:
@@ -5096,7 +5056,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-maintenance@npm:^0.1.3, @backstage/cli-module-maintenance@npm:^0.1.5":
+"@backstage/cli-module-maintenance@npm:^0.1.5":
   version: 0.1.5
   resolution: "@backstage/cli-module-maintenance@npm:0.1.5"
   dependencies:
@@ -5132,28 +5092,6 @@ __metadata:
   bin:
     cli-module-migrate: bin/backstage-cli-module-migrate
   checksum: 10c0/aee9e2b3d05b7a99992b16131b377fe829afb9977f71269d5dd8dd25df26bed2d3185959bad113d716c35855305a3a356ade0af0197b3bc441e6d659a3ece83b
-  languageName: node
-  linkType: hard
-
-"@backstage/cli-module-migrate@npm:^0.1.3":
-  version: 0.1.3
-  resolution: "@backstage/cli-module-migrate@npm:0.1.3"
-  dependencies:
-    "@backstage/cli-common": "npm:^0.2.2"
-    "@backstage/cli-node": "npm:^0.3.3"
-    "@backstage/errors": "npm:^1.3.1"
-    "@backstage/release-manifests": "npm:^0.0.13"
-    "@manypkg/get-packages": "npm:^1.1.3"
-    chalk: "npm:^4.0.0"
-    cleye: "npm:^2.6.0"
-    fs-extra: "npm:^11.2.0"
-    minimatch: "npm:^10.2.1"
-    ora: "npm:^5.3.0"
-    replace-in-file: "npm:^7.1.0"
-    semver: "npm:^7.5.3"
-  bin:
-    cli-module-migrate: bin/backstage-cli-module-migrate
-  checksum: 10c0/d4c11877f6b8ab96ebf1b28cc47a5daf2baae5b6c30a8e1fe394b70cb6da998d981fd8e48bb53fbbd1b1bab5fdb96682b42b5270a4785b80163fec0f21de6a98
   languageName: node
   linkType: hard
 
@@ -5204,7 +5142,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-new@npm:^0.1.4, @backstage/cli-module-new@npm:^0.1.7":
+"@backstage/cli-module-new@npm:^0.1.7":
   version: 0.1.7
   resolution: "@backstage/cli-module-new@npm:0.1.7"
   dependencies:
@@ -5248,6 +5186,39 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage/cli-module-test-jest@npm:^0.1.0, @backstage/cli-module-test-jest@npm:^0.1.6":
+  version: 0.1.6
+  resolution: "@backstage/cli-module-test-jest@npm:0.1.6"
+  dependencies:
+    "@backstage/cli-common": "npm:^0.3.1"
+    "@backstage/cli-node": "npm:^0.3.4"
+    "@swc/core": "npm:^1.15.6"
+    "@swc/jest": "npm:^0.2.39"
+    cleye: "npm:^2.6.0"
+    cross-fetch: "npm:^4.0.0"
+    fs-extra: "npm:^11.2.0"
+    glob: "npm:^13.0.0"
+    jest-css-modules: "npm:^2.1.0"
+    sucrase: "npm:^3.20.2"
+    yargs: "npm:^16.2.0"
+  peerDependencies:
+    "@jest/environment-jsdom-abstract": ^30.0.0
+    jest: ^29.0.0 || ^30.0.0
+    jest-environment-jsdom: "*"
+    jsdom: ^27.1.0
+  peerDependenciesMeta:
+    "@jest/environment-jsdom-abstract":
+      optional: true
+    jest-environment-jsdom:
+      optional: true
+    jsdom:
+      optional: true
+  bin:
+    cli-module-test-jest: bin/backstage-cli-module-test-jest
+  checksum: 10c0/a09976674948d5c933acc3b22e362b613bb7b1b203a898529aee364948f0d5a4d5682618efa038bd84fd91ff1a8c22783e7e42304f83f84c72bd6c0330850946
+  languageName: node
+  linkType: hard
+
 "@backstage/cli-module-test-jest@npm:^0.1.2":
   version: 0.1.2
   resolution: "@backstage/cli-module-test-jest@npm:0.1.2"
@@ -5281,39 +5252,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-test-jest@npm:^0.1.3, @backstage/cli-module-test-jest@npm:^0.1.6":
-  version: 0.1.6
-  resolution: "@backstage/cli-module-test-jest@npm:0.1.6"
-  dependencies:
-    "@backstage/cli-common": "npm:^0.3.1"
-    "@backstage/cli-node": "npm:^0.3.4"
-    "@swc/core": "npm:^1.15.6"
-    "@swc/jest": "npm:^0.2.39"
-    cleye: "npm:^2.6.0"
-    cross-fetch: "npm:^4.0.0"
-    fs-extra: "npm:^11.2.0"
-    glob: "npm:^13.0.0"
-    jest-css-modules: "npm:^2.1.0"
-    sucrase: "npm:^3.20.2"
-    yargs: "npm:^16.2.0"
-  peerDependencies:
-    "@jest/environment-jsdom-abstract": ^30.0.0
-    jest: ^29.0.0 || ^30.0.0
-    jest-environment-jsdom: "*"
-    jsdom: ^27.1.0
-  peerDependenciesMeta:
-    "@jest/environment-jsdom-abstract":
-      optional: true
-    jest-environment-jsdom:
-      optional: true
-    jsdom:
-      optional: true
-  bin:
-    cli-module-test-jest: bin/backstage-cli-module-test-jest
-  checksum: 10c0/a09976674948d5c933acc3b22e362b613bb7b1b203a898529aee364948f0d5a4d5682618efa038bd84fd91ff1a8c22783e7e42304f83f84c72bd6c0330850946
-  languageName: node
-  linkType: hard
-
 "@backstage/cli-module-translations@npm:^0.1.2":
   version: 0.1.2
   resolution: "@backstage/cli-module-translations@npm:0.1.2"
@@ -5329,7 +5267,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-translations@npm:^0.1.3, @backstage/cli-module-translations@npm:^0.1.4":
+"@backstage/cli-module-translations@npm:^0.1.4":
   version: 0.1.4
   resolution: "@backstage/cli-module-translations@npm:0.1.4"
   dependencies:
@@ -5341,37 +5279,6 @@ __metadata:
   bin:
     cli-module-translations: bin/backstage-cli-module-translations
   checksum: 10c0/6ec372be409b6acf10d49d80786b3b16b34315311d054b5ef9f5b192856218ebed4475682881ada87be94509d7916f17a56701c32e67a768ca4a6a3fadcfab16
-  languageName: node
-  linkType: hard
-
-"@backstage/cli-node@npm:0.3.3, @backstage/cli-node@npm:^0.3.3":
-  version: 0.3.3
-  resolution: "@backstage/cli-node@npm:0.3.3"
-  dependencies:
-    "@backstage/cli-common": "npm:^0.2.2"
-    "@backstage/errors": "npm:^1.3.1"
-    "@backstage/types": "npm:^1.2.2"
-    "@manypkg/get-packages": "npm:^1.1.3"
-    "@yarnpkg/lockfile": "npm:^1.1.0"
-    "@yarnpkg/parsers": "npm:^3.0.0"
-    chalk: "npm:^4.0.0"
-    cleye: "npm:^2.6.0"
-    fs-extra: "npm:^11.2.0"
-    keytar: "npm:^7.9.0"
-    pirates: "npm:^4.0.6"
-    proper-lockfile: "npm:^4.1.2"
-    semver: "npm:^7.5.3"
-    yaml: "npm:^2.0.0"
-    zod: "npm:^3.25.76 || ^4.0.0"
-  peerDependencies:
-    "@swc/core": ^1.15.6
-  dependenciesMeta:
-    keytar:
-      optional: true
-  peerDependenciesMeta:
-    "@swc/core":
-      optional: true
-  checksum: 10c0/02b4369c09137073313cbeb320ae26eaed0cebbd3b4345ba4367c8d20719b44f066d0146c420612e9742c0966ed83255781f05c5da51125897dae2db37587cd2
   languageName: node
   linkType: hard
 
@@ -5437,6 +5344,37 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage/cli-node@npm:^0.3.3":
+  version: 0.3.3
+  resolution: "@backstage/cli-node@npm:0.3.3"
+  dependencies:
+    "@backstage/cli-common": "npm:^0.2.2"
+    "@backstage/errors": "npm:^1.3.1"
+    "@backstage/types": "npm:^1.2.2"
+    "@manypkg/get-packages": "npm:^1.1.3"
+    "@yarnpkg/lockfile": "npm:^1.1.0"
+    "@yarnpkg/parsers": "npm:^3.0.0"
+    chalk: "npm:^4.0.0"
+    cleye: "npm:^2.6.0"
+    fs-extra: "npm:^11.2.0"
+    keytar: "npm:^7.9.0"
+    pirates: "npm:^4.0.6"
+    proper-lockfile: "npm:^4.1.2"
+    semver: "npm:^7.5.3"
+    yaml: "npm:^2.0.0"
+    zod: "npm:^3.25.76 || ^4.0.0"
+  peerDependencies:
+    "@swc/core": ^1.15.6
+  dependenciesMeta:
+    keytar:
+      optional: true
+  peerDependenciesMeta:
+    "@swc/core":
+      optional: true
+  checksum: 10c0/02b4369c09137073313cbeb320ae26eaed0cebbd3b4345ba4367c8d20719b44f066d0146c420612e9742c0966ed83255781f05c5da51125897dae2db37587cd2
+  languageName: node
+  linkType: hard
+
 "@backstage/cli-node@npm:^0.3.4":
   version: 0.3.4
   resolution: "@backstage/cli-node@npm:0.3.4"
@@ -5468,16 +5406,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli@npm:0.36.3":
-  version: 0.36.3
-  resolution: "@backstage/cli@npm:0.36.3"
+"@backstage/cli@npm:0.36.0":
+  version: 0.36.0
+  resolution: "@backstage/cli@npm:0.36.0"
   dependencies:
-    "@backstage/cli-common": "npm:^0.2.2"
-    "@backstage/cli-defaults": "npm:^0.1.3"
-    "@backstage/cli-module-build": "npm:^0.1.4"
-    "@backstage/cli-module-test-jest": "npm:^0.1.3"
-    "@backstage/cli-node": "npm:^0.3.3"
-    "@backstage/eslint-plugin": "npm:^0.3.1"
+    "@backstage/cli-common": "npm:^0.2.0"
+    "@backstage/cli-defaults": "npm:^0.1.0"
+    "@backstage/cli-module-build": "npm:^0.1.0"
+    "@backstage/cli-module-test-jest": "npm:^0.1.0"
+    "@backstage/cli-node": "npm:^0.3.0"
+    "@backstage/errors": "npm:^1.2.7"
+    "@backstage/eslint-plugin": "npm:^0.2.2"
     "@manypkg/get-packages": "npm:^1.1.3"
     "@spotify/eslint-config-base": "npm:^15.0.0"
     "@spotify/eslint-config-react": "npm:^15.0.0"
@@ -5488,6 +5427,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^8.17.0"
     "@typescript-eslint/parser": "npm:^8.16.0"
     chalk: "npm:^4.0.0"
+    commander: "npm:^14.0.3"
     cross-fetch: "npm:^4.0.0"
     eslint: "npm:^8.6.0"
     eslint-config-prettier: "npm:^9.0.0"
@@ -5499,7 +5439,7 @@ __metadata:
     eslint-plugin-react-hooks: "npm:^5.0.0"
     eslint-plugin-unused-imports: "npm:^4.1.4"
     fs-extra: "npm:^11.2.0"
-    glob: "npm:^13.0.0"
+    glob: "npm:^7.1.7"
     jest-css-modules: "npm:^2.1.0"
     pirates: "npm:^4.0.6"
     postcss: "npm:^8.1.0"
@@ -5519,7 +5459,7 @@ __metadata:
       optional: true
   bin:
     backstage-cli: bin/backstage-cli
-  checksum: 10c0/17e8527449122cb5fd1a0a88a4c65a25ddcfeef475f880f9d2c23e1c673b09f5507da2bfea222576d1f49acdfd9573c87edb102ee5a1fd99d6b7fe4f3a0cad83
+  checksum: 10c0/856f8aef4a3406f2067489c9df7ba62b3efbaa310766f7497f015a5fa134f4a65a5311cab39b9e35e32feb15885ab47148c1f35b07a208a5491ef10f2d481dbe
   languageName: node
   linkType: hard
 
@@ -5603,7 +5543,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/config-loader@npm:^1.10.12, @backstage/config-loader@npm:~1.10.12":
+"@backstage/config-loader@npm:^1.10.12":
   version: 1.10.12
   resolution: "@backstage/config-loader@npm:1.10.12"
   dependencies:
@@ -5715,7 +5655,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/config@npm:^1.3.9, @backstage/config@npm:~1.3.8":
+"@backstage/config@npm:^1.3.9":
   version: 1.3.9
   resolution: "@backstage/config@npm:1.3.9"
   dependencies:
@@ -6266,13 +6206,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/errors@npm:^1.3.1, @backstage/errors@npm:~1.3.1":
+"@backstage/errors@npm:^1.3.1":
   version: 1.3.1
   resolution: "@backstage/errors@npm:1.3.1"
   dependencies:
     "@backstage/types": "npm:^1.2.2"
     serialize-error: "npm:^8.0.1"
   checksum: 10c0/b342551f5337f17bcc6d412868f6274509d657cc6037fbb5af96d42156c24c2419e72fd711136e42d05245bd4e5c5d8fe9cd54f89f260d9285a073c28cca0261
+  languageName: node
+  linkType: hard
+
+"@backstage/eslint-plugin@npm:^0.2.2":
+  version: 0.2.3
+  resolution: "@backstage/eslint-plugin@npm:0.2.3"
+  dependencies:
+    "@manypkg/get-packages": "npm:^1.1.3"
+    minimatch: "npm:^10.2.1"
+  checksum: 10c0/9bfd353a4e53fe6caa76b120443ba049da26a562b6b95dd4117e43c4b86be6627ec6cd7f828401570847a75b4b431b0bc7802a688fc786cb9223756f729427e6
   languageName: node
   linkType: hard
 
@@ -6283,16 +6233,6 @@ __metadata:
     "@manypkg/get-packages": "npm:^1.1.3"
     minimatch: "npm:^10.2.1"
   checksum: 10c0/1880725991120bdf5ca141390ec8780653bb855d81ad482e55853383c90699ca66eef9b9f8ca574c31607df6b675420519fbece045798634840facdc40acb3b0
-  languageName: node
-  linkType: hard
-
-"@backstage/eslint-plugin@npm:^0.3.1":
-  version: 0.3.2
-  resolution: "@backstage/eslint-plugin@npm:0.3.2"
-  dependencies:
-    "@manypkg/get-packages": "npm:^1.1.3"
-    minimatch: "npm:^10.2.1"
-  checksum: 10c0/89f8c1b2a70700a5f0761029086e2d0ce864434cacafcc7bd63d06a480752848aaf497e30d6dea45a7764ef1fd04b0f2d34906591de65514a3bae7603071bf69
   languageName: node
   linkType: hard
 
@@ -9876,7 +9816,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/release-manifests@npm:^0.0.14, @backstage/release-manifests@npm:~0.0.13":
+"@backstage/release-manifests@npm:^0.0.14":
   version: 0.0.14
   resolution: "@backstage/release-manifests@npm:0.0.14"
   checksum: 10c0/973e59edac3d511d1140195763fe919b514a4707ab8674013011409e97eba4e7caa32e074e26ac345ca4bfafc8277aa1187c4c8d8282409081099972b10cfcec
@@ -10043,7 +9983,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/types@npm:^1.2.2, @backstage/types@npm:~1.2.2":
+"@backstage/types@npm:^1.2.2":
   version: 1.2.2
   resolution: "@backstage/types@npm:1.2.2"
   checksum: 10c0/3c947cf83c058a56b0cfd90d91483e9a5c1c913f7978a0d5a3c0fd9b502d08e9bdf279afba626826eee84159e698ee4cdaa70040789ac47fc8a25df9f1925612
@@ -17189,21 +17129,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/cli@npm:^1.10.2":
-  version: 1.11.4
-  resolution: "@red-hat-developer-hub/cli@npm:1.11.4"
+"@red-hat-developer-hub/cli@npm:1.10.4":
+  version: 1.10.4
+  resolution: "@red-hat-developer-hub/cli@npm:1.10.4"
   dependencies:
-    "@backstage/cli": "npm:0.36.3"
-    "@backstage/cli-common": "npm:0.2.2"
-    "@backstage/cli-defaults": "npm:0.1.3"
-    "@backstage/cli-module-build": "npm:0.1.4"
-    "@backstage/cli-module-config": "npm:0.1.3"
-    "@backstage/cli-node": "npm:0.3.3"
-    "@backstage/config": "npm:~1.3.8"
-    "@backstage/config-loader": "npm:~1.10.12"
-    "@backstage/errors": "npm:~1.3.1"
-    "@backstage/release-manifests": "npm:~0.0.13"
-    "@backstage/types": "npm:~1.2.2"
+    "@backstage/cli": "npm:0.36.0"
+    "@backstage/cli-common": "npm:^0.2.0"
+    "@backstage/cli-module-build": "npm:0.1.0"
+    "@backstage/cli-node": "npm:^0.3.0"
+    "@backstage/config": "npm:^1.3.6"
+    "@backstage/config-loader": "npm:^1.10.9"
+    "@backstage/errors": "npm:^1.2.7"
+    "@backstage/types": "npm:^1.2.1"
     "@changesets/cli": "npm:^2.29.4"
     "@manypkg/get-packages": "npm:^1.1.3"
     "@openshift/dynamic-plugin-sdk-webpack": "npm:^3.0.0"
@@ -17249,13 +17186,12 @@ __metadata:
     yn: "npm:^4.0.0"
   peerDependencies:
     "@microsoft/api-extractor": ^7.21.2
-    ts-morph: "*"
   peerDependenciesMeta:
     "@microsoft/api-extractor":
       optional: true
   bin:
     rhdh-cli: bin/rhdh-cli
-  checksum: 10c0/1922980b2e452750b9f54fb24564442c1593459d477437b63c4a4b3023fb141e7e06a436f69e6dd48178a8356542fe2ba63d7c8a7b5c14fcb95f2843caf83b3a
+  checksum: 10c0/42ed293e4200197f75b7f214082c09a0f39b67469232a385208933a8a344557ac5b66b1f68f8294562b0741dc478092fefeeb1ebf55f15c6fbfa5a438edb2559
   languageName: node
   linkType: hard
 
@@ -40083,7 +40019,7 @@ __metadata:
     "@backstage/e2e-test-utils": "npm:^0.1.2"
     "@backstage/frontend-test-utils": "npm:^0.5.2"
     "@playwright/test": "npm:^1.32.3"
-    "@red-hat-developer-hub/cli": "npm:^1.10.2"
+    "@red-hat-developer-hub/cli": "npm:1.10.4"
     "@spotify/prettier-config": "npm:^12.0.0"
     "@stoplight/spectral-cli": "npm:^6.15.0"
     "@types/node": "npm:^22.13.4"
