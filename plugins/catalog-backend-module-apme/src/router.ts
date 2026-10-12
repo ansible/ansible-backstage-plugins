@@ -315,7 +315,14 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     jsonBody,
     requireApmeSettingsManage,
     async (req, res) => {
-      const { name, url, token, auth_url } = req.body ?? {};
+      const { name, url, token, auth_url, validate_certs } = req.body ?? {};
+      if (
+        validate_certs !== undefined &&
+        validate_certs !== null &&
+        typeof validate_certs !== 'boolean'
+      ) {
+        throw new InputError('validate_certs must be a boolean or null');
+      }
       if (typeof name !== 'string' || !name.trim()) {
         throw new InputError('name is required');
       }
@@ -334,6 +341,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
         url: url.trim(),
         token: typeof token === 'string' ? token : undefined,
         auth_url: typeof auth_url === 'string' ? auth_url : undefined,
+        validate_certs,
       });
       res.status(201).json(server);
     },
@@ -348,8 +356,14 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       if (!Number.isFinite(serverId)) {
         throw new InputError('serverId must be a number');
       }
-      const { name, url, token, auth_url } = req.body ?? {};
-      const body: Record<string, string> = {};
+      const { name, url, token, auth_url, validate_certs } = req.body ?? {};
+      const body: Record<string, string | boolean | null> = {};
+      if (validate_certs !== undefined) {
+        if (validate_certs !== null && typeof validate_certs !== 'boolean') {
+          throw new InputError('validate_certs must be a boolean or null');
+        }
+        body.validate_certs = validate_certs;
+      }
       if (typeof name === 'string') {
         if (!GALAXY_SERVER_NAME_RE.test(name.trim())) {
           throw new InputError('name must match [A-Za-z0-9_-]+');
@@ -527,14 +541,17 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     await ensureUser(req);
     logger.debug('APME projects list requested');
     const projects = await apmeService.getProjects();
-    const enrichmentCount = projects.filter(projectNeedsSeverityEnrichment).length;
+    const enrichmentCount = projects.filter(
+      projectNeedsSeverityEnrichment,
+    ).length;
     if (enrichmentCount > 0) {
       logger.info(
         `Enriching severity breakdown for ${enrichmentCount} of ${projects.length} APME projects`,
       );
     }
-    const items = await enrichProjectsWithSeverityBreakdown(projects, projectId =>
-      apmeService.getProject(projectId),
+    const items = await enrichProjectsWithSeverityBreakdown(
+      projects,
+      projectId => apmeService.getProject(projectId),
     );
     res.json({ items });
   });

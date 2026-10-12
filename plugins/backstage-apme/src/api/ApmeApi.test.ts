@@ -15,6 +15,32 @@
  */
 
 import { ApmeApiClient } from './ApmeApi';
+import { MockApmeApiClient } from './mock/MockApmeApiClient';
+
+it('preserves nullable TLS policy in mock settings', async () => {
+  const client = new MockApmeApiClient();
+  const server = await client.createGalaxyServer({
+    name: 'hub',
+    url: 'https://hub.example.com/',
+    validate_certs: false,
+  });
+  expect(server.validate_certs).toBe(false);
+  expect(
+    (
+      await client.updateGalaxyServer(server.id, {
+        url: 'https://new.example.com/',
+      })
+    ).validate_certs,
+  ).toBe(false);
+  expect(
+    (await client.updateGalaxyServer(server.id, { validate_certs: true }))
+      .validate_certs,
+  ).toBe(true);
+  expect(
+    (await client.updateGalaxyServer(server.id, { validate_certs: null }))
+      .validate_certs,
+  ).toBeNull();
+});
 
 describe('ApmeApiClient', () => {
   const mockDiscoveryApi = {

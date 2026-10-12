@@ -33,6 +33,7 @@ export interface PortalPahGalaxyServerSpec {
   name: string;
   url: string;
   token?: string;
+  validate_certs?: boolean;
 }
 
 /**
@@ -64,8 +65,9 @@ export function isPortalManagedGalaxyServerName(name: string): boolean {
 }
 
 /**
- * Builds desired galaxy-server specs from
- * `catalog.providers.rhaap.<env>.sync.pahCollections` plus AAP credentials.
+ * Builds installation sources from `ansible.apme.collectionRepositories` and
+ * AAP connection settings. When the repository list is omitted, preserve the
+ * existing catalog synchronization repository fallback.
  */
 export function buildPortalPahGalaxyServers(
   config: Config,
@@ -82,48 +84,57 @@ export function buildPortalPahGalaxyServers(
   }
 
   const token = config.getOptionalString('ansible.rhaap.token')?.trim();
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
-  if (!providerConfigs) {
-    return [];
+  const validateCerts =
+    config.getOptionalBoolean('ansible.rhaap.checkSSL') ?? true;
+  const configuredRepos = config.getOptionalStringArray(
+    'ansible.apme.collectionRepositories',
+  );
+  const repositories: string[] = [];
+
+  if (configuredRepos !== undefined) {
+    repositories.push(...configuredRepos);
+  } else {
+    const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+    if (providerConfigs) {
+      for (const envId of providerConfigs.keys()) {
+        const envConfig = providerConfigs.getConfig(envId);
+        if (
+          envConfig.getOptionalBoolean('sync.pahCollections.enabled') === false
+        ) {
+          continue;
+        }
+        const entries =
+          envConfig.getOptionalConfigArray(
+            'sync.pahCollections.repositories',
+          ) ?? [];
+        repositories.push(...entries.map(entry => entry.getString('name')));
+      }
+    }
   }
 
   const servers: PortalPahGalaxyServerSpec[] = [];
   const seen = new Set<string>();
 
-  for (const envId of providerConfigs.keys()) {
-    const envConfig = providerConfigs.getConfig(envId);
-    if (
-      envConfig.has('sync.pahCollections.enabled') &&
-      !envConfig.getBoolean('sync.pahCollections.enabled')
-    ) {
+  for (const repository of repositories) {
+    const repoName = repository.trim();
+    // Reject path metacharacters before interpolating into a credentialed URL.
+    if (!PAH_REPO_NAME_RE.test(repoName)) {
       continue;
     }
-    if (!envConfig.has('sync.pahCollections.repositories')) {
+    const normalizedRepo = normalizePahRepoIdentifier(repoName);
+    if (!normalizedRepo || seen.has(normalizedRepo)) {
       continue;
     }
-    const entries =
-      envConfig.getOptionalConfigArray('sync.pahCollections.repositories') ??
-      [];
-    for (const entry of entries) {
-      const repoName = entry.getString('name').trim();
-      // Reject path metacharacters before interpolating into a credentialed URL.
-      if (!PAH_REPO_NAME_RE.test(repoName)) {
-        continue;
-      }
-      const normalizedRepo = normalizePahRepoIdentifier(repoName);
-      if (!normalizedRepo || seen.has(normalizedRepo)) {
-        continue;
-      }
-      seen.add(normalizedRepo);
-      const spec: PortalPahGalaxyServerSpec = {
-        name: `${PORTAL_HUB_GALAXY_SERVER_PREFIX}${normalizedRepo}`,
-        url: `${base}/api/galaxy/content/${encodeURIComponent(repoName)}/`,
-      };
-      if (token) {
-        spec.token = token;
-      }
-      servers.push(spec);
+    seen.add(normalizedRepo);
+    const spec: PortalPahGalaxyServerSpec = {
+      name: `${PORTAL_HUB_GALAXY_SERVER_PREFIX}${normalizedRepo}`,
+      url: `${base}/api/galaxy/content/${encodeURIComponent(repoName)}/`,
+      validate_certs: validateCerts,
+    };
+    if (token) {
+      spec.token = token;
     }
+    servers.push(spec);
   }
 
   return servers;
@@ -190,6 +201,9 @@ export async function syncPortalGalaxyServers(
       if (spec.token) {
         body.token = spec.token;
       }
+      if (spec.validate_certs !== undefined) {
+        body.validate_certs = spec.validate_certs;
+      }
       await apmeService.createGalaxyServer(body);
       result.created += 1;
       logger?.info(`Created portal galaxy server ${spec.name}`);
@@ -197,18 +211,21 @@ export async function syncPortalGalaxyServers(
     }
 
     const needsUrlUpdate = !urlsEqual(current.url, spec.url);
+    const needsTlsUpdate =
+      spec.validate_certs !== undefined &&
+      current.validate_certs !== spec.validate_certs;
     // Gateway never returns token values; always refresh when we have one so
     // AAP token rotations converge on the hourly sync.
     const hasToken = Boolean(spec.token);
 
-    if (!needsUrlUpdate && !hasToken) {
+    if (!needsUrlUpdate && !needsTlsUpdate && !hasToken) {
       result.unchanged += 1;
       continue;
     }
 
     // URL matches and token present — still push token, count as unchanged
     // when only the opaque token refresh runs with identical URL.
-    if (!needsUrlUpdate && hasToken && current.has_token) {
+    if (!needsUrlUpdate && !needsTlsUpdate && hasToken && current.has_token) {
       await apmeService.updateGalaxyServer(current.id, {
         token: spec.token,
       });
@@ -219,6 +236,9 @@ export async function syncPortalGalaxyServers(
     const patch: UpdateGalaxyServerRequest = {};
     if (needsUrlUpdate) {
       patch.url = spec.url;
+    }
+    if (needsTlsUpdate) {
+      patch.validate_certs = spec.validate_certs;
     }
     if (spec.token) {
       patch.token = spec.token;

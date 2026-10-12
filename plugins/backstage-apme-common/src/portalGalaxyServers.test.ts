@@ -41,6 +41,47 @@ describe('portalGalaxyServers', () => {
   });
 
   describe('buildPortalPahGalaxyServers', () => {
+    it('uses installation repositories without catalog synchronization', () => {
+      const config = new ConfigReader({
+        ansible: {
+          rhaap: { baseUrl: 'https://aap.example.com', checkSSL: false },
+          apme: {
+            collectionRepositories: ['community', 'published', 'community'],
+          },
+        },
+      });
+      const servers = buildPortalPahGalaxyServers(config);
+      expect(servers.map(s => s.name)).toEqual([
+        'portal_hub_community',
+        'portal_hub_published',
+      ]);
+      expect(servers.every(s => s.validate_certs === false)).toBe(true);
+    });
+
+    it('treats an explicit empty repository list as authoritative', () => {
+      const config = new ConfigReader({
+        ansible: {
+          rhaap: { baseUrl: 'https://aap.example.com' },
+          apme: { collectionRepositories: [] },
+        },
+        catalog: {
+          providers: {
+            rhaap: {
+              production: {
+                sync: {
+                  pahCollections: {
+                    enabled: true,
+                    repositories: [{ name: 'published' }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      expect(buildPortalPahGalaxyServers(config)).toEqual([]);
+    });
+
     it('returns empty when no AAP base URL', () => {
       const config = new ConfigReader({
         catalog: {
@@ -95,6 +136,7 @@ describe('portalGalaxyServers', () => {
         name: `${PORTAL_HUB_GALAXY_SERVER_PREFIX}rh_certified`,
         url: 'https://aap.example.com/api/galaxy/content/rh-certified/',
         token: 'secret-token',
+        validate_certs: true,
       });
       expect(servers.map(s => s.name)).toEqual([
         'portal_hub_rh_certified',
@@ -188,6 +230,37 @@ describe('portalGalaxyServers', () => {
   });
 
   describe('syncPortalGalaxyServers', () => {
+    it('propagates a TLS-only change', async () => {
+      const updateGalaxyServer = jest.fn().mockResolvedValue({});
+      const desired = {
+        name: 'portal_hub_published',
+        url: 'https://aap.example.com/api/galaxy/content/published/',
+        validate_certs: false,
+      };
+      await syncPortalGalaxyServers(
+        {
+          listGalaxyServers: jest.fn().mockResolvedValue([
+            {
+              ...desired,
+              id: 1,
+              validate_certs: true,
+              has_token: false,
+              auth_url: '',
+              created_at: '',
+              updated_at: '',
+            },
+          ]),
+          createGalaxyServer: jest.fn(),
+          updateGalaxyServer,
+          deleteGalaxyServer: jest.fn(),
+        },
+        [desired],
+      );
+      expect(updateGalaxyServer).toHaveBeenCalledWith(1, {
+        validate_certs: false,
+      });
+    });
+
     const emptyServer = (
       id: number,
       name: string,
@@ -241,14 +314,16 @@ describe('portalGalaxyServers', () => {
     });
 
     it('updates URL when changed', async () => {
-      const listGalaxyServers = jest.fn().mockResolvedValue([
-        emptyServer(
-          3,
-          'portal_hub_published',
-          'https://old.example.com/api/galaxy/content/published/',
-          true,
-        ),
-      ]);
+      const listGalaxyServers = jest
+        .fn()
+        .mockResolvedValue([
+          emptyServer(
+            3,
+            'portal_hub_published',
+            'https://old.example.com/api/galaxy/content/published/',
+            true,
+          ),
+        ]);
       const createGalaxyServer = jest.fn();
       const updateGalaxyServer = jest.fn().mockResolvedValue({});
       const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
@@ -280,21 +355,23 @@ describe('portalGalaxyServers', () => {
     });
 
     it('prunes obsolete portal_hub servers and leaves manual ones', async () => {
-      const listGalaxyServers = jest.fn().mockResolvedValue([
-        emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
-        emptyServer(
-          2,
-          'portal_hub_validated',
-          'https://aap.example.com/api/galaxy/content/validated/',
-          true,
-        ),
-        emptyServer(
-          3,
-          'portal_hub_published',
-          'https://aap.example.com/api/galaxy/content/published/',
-          true,
-        ),
-      ]);
+      const listGalaxyServers = jest
+        .fn()
+        .mockResolvedValue([
+          emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
+          emptyServer(
+            2,
+            'portal_hub_validated',
+            'https://aap.example.com/api/galaxy/content/validated/',
+            true,
+          ),
+          emptyServer(
+            3,
+            'portal_hub_published',
+            'https://aap.example.com/api/galaxy/content/published/',
+            true,
+          ),
+        ]);
       const createGalaxyServer = jest.fn();
       const updateGalaxyServer = jest.fn().mockResolvedValue({});
       const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);
@@ -322,15 +399,17 @@ describe('portalGalaxyServers', () => {
     });
 
     it('prunes all portal_hub servers when desired is empty', async () => {
-      const listGalaxyServers = jest.fn().mockResolvedValue([
-        emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
-        emptyServer(
-          2,
-          'portal_hub_published',
-          'https://aap.example.com/api/galaxy/content/published/',
-          true,
-        ),
-      ]);
+      const listGalaxyServers = jest
+        .fn()
+        .mockResolvedValue([
+          emptyServer(1, 'galaxy', 'https://galaxy.ansible.com/api/'),
+          emptyServer(
+            2,
+            'portal_hub_published',
+            'https://aap.example.com/api/galaxy/content/published/',
+            true,
+          ),
+        ]);
       const createGalaxyServer = jest.fn();
       const updateGalaxyServer = jest.fn();
       const deleteGalaxyServer = jest.fn().mockResolvedValue(undefined);

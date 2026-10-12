@@ -524,6 +524,7 @@ describe('catalog-backend-module-apme router', () => {
         name: 'automation_hub',
         url: 'https://console.redhat.com/api/automation-hub/',
         token: 'secret',
+        validate_certs: false,
       });
 
     expect(response.status).toBe(201);
@@ -532,8 +533,29 @@ describe('catalog-backend-module-apme router', () => {
       url: 'https://console.redhat.com/api/automation-hub/',
       token: 'secret',
       auth_url: undefined,
+      validate_certs: false,
     });
     expect(response.body).toEqual(created);
+  });
+
+  it('preserves TLS policy and explicit inheritance in PATCH', async () => {
+    mockApmeService.updateGalaxyServer.mockResolvedValue({});
+    for (const validate_certs of [false, true, null]) {
+      const response = await request(app)
+        .patch('/apme/settings/galaxy-servers/2')
+        .send({ validate_certs });
+      expect(response.status).toBe(200);
+      expect(mockApmeService.updateGalaxyServer).toHaveBeenLastCalledWith(2, {
+        validate_certs,
+      });
+    }
+    expect(
+      (
+        await request(app)
+          .patch('/apme/settings/galaxy-servers/2')
+          .send({ validate_certs: 'false' })
+      ).status,
+    ).toBe(400);
   });
 
   it('deletes galaxy server via DELETE /apme/settings/galaxy-servers/:id', async () => {
