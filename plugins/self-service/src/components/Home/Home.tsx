@@ -32,7 +32,12 @@ import { ansibleApiRef } from '../../apis';
 import { SyncConfirmationDialog } from './SyncConfirmationDialog';
 import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 import type { SyncProgressEntry, SyncOutcome } from '../common';
-import { useShellPageStyles } from '../common';
+import {
+  SYNC_COMPLETED_CATEGORY,
+  SYNC_FAILED_CATEGORY,
+  SYNC_WARNING_CATEGORY,
+  useShellPageStyles,
+} from '../common';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import Alert from '@material-ui/lab/Alert';
 import { SkeletonLoader } from './SkeletonLoader';
@@ -70,6 +75,12 @@ const jobTemplateListsDiffer = (
 };
 
 const isEEType = (type: string) => type.includes('execution-environment');
+
+function displayNameForAapSyncProvider(provider: string): string {
+  return provider.startsWith('aap-job-template')
+    ? 'Job Templates'
+    : 'Organizations, Users, and Teams';
+}
 
 const HomeCatalogProvider = ({
   children,
@@ -313,6 +324,7 @@ export const HomeComponent = () => {
   const shellPageClasses = useShellPageStyles();
   const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
+  const { showNotification } = useNotifications();
   const {
     jobTemplates,
     loadState: jobTemplatesLoadState,
@@ -357,12 +369,15 @@ export const HomeComponent = () => {
   });
   const [localSyncing, setLocalSyncing] = useState(false);
   const [activeSyncTypes, setActiveSyncTypes] = useState<string[]>([]);
+  const notifiedSyncOutcomesRef = useRef<Set<string>>(new Set());
   const { lastSignal: syncSignal } = useSignal<{
     provider: string;
     syncInProgress: boolean;
     lastSyncTime: string | null;
     lastSyncStatus: 'success' | 'failure' | null;
     lastFailedSyncTime: string | null;
+    lastDuplicateEntityCount?: number;
+    lastMissingOrganizations?: string[];
   }>('catalog:aap-sync-status');
 
   useEffect(() => {
@@ -382,7 +397,75 @@ export const HomeComponent = () => {
           : syncSignal.lastSyncStatus,
       },
     }));
-  }, [syncSignal]);
+
+    if (syncSignal.syncInProgress) {
+      return;
+    }
+
+    const displayName = displayNameForAapSyncProvider(syncSignal.provider);
+    const outcomeKey = [
+      syncSignal.provider,
+      syncSignal.lastSyncTime ?? '',
+      syncSignal.lastFailedSyncTime ?? '',
+      syncSignal.lastSyncStatus ?? '',
+      String(syncSignal.lastDuplicateEntityCount ?? 0),
+      (syncSignal.lastMissingOrganizations ?? []).join(','),
+    ].join('|');
+    if (notifiedSyncOutcomesRef.current.has(outcomeKey)) {
+      return;
+    }
+    notifiedSyncOutcomesRef.current.add(outcomeKey);
+
+    if (syncSignal.lastSyncStatus === 'success') {
+      const duplicateCount = syncSignal.lastDuplicateEntityCount ?? 0;
+      const missingOrgs = syncSignal.lastMissingOrganizations ?? [];
+      const hasWarnings = duplicateCount > 0 || missingOrgs.length > 0;
+
+      if (duplicateCount > 0) {
+        const entityWord = duplicateCount === 1 ? 'entity' : 'entities';
+        showNotification({
+          title: 'Sync warning',
+          description: `Skipped ${duplicateCount} duplicate catalog ${entityWord} during ${displayName} sync.`,
+          severity: 'warning',
+          category: SYNC_WARNING_CATEGORY,
+          autoHideDuration: 0,
+        });
+      }
+
+      if (missingOrgs.length > 0) {
+        const orgList = missingOrgs.map(name => `'${name}'`).join(', ');
+        const orgWord =
+          missingOrgs.length === 1 ? 'organization' : 'organizations';
+        showNotification({
+          title: 'Sync warning',
+          description: `Configured ${orgWord} ${orgList} not found in AAP during ${displayName} sync.`,
+          severity: 'warning',
+          category: SYNC_WARNING_CATEGORY,
+          autoHideDuration: 0,
+        });
+      }
+
+      if (!hasWarnings) {
+        showNotification({
+          title: 'Sync completed',
+          description: `Synced content from ${displayName}.`,
+          severity: 'success',
+          category: SYNC_COMPLETED_CATEGORY,
+        });
+      }
+      return;
+    }
+
+    if (syncSignal.lastSyncStatus === 'failure') {
+      showNotification({
+        title: 'Sync failed',
+        description: `Failed to sync content from ${displayName}.`,
+        severity: 'error',
+        category: SYNC_FAILED_CATEGORY,
+        autoHideDuration: 0,
+      });
+    }
+  }, [syncSignal, showNotification]);
 
   const isSyncInProgress =
     localSyncing ||
@@ -570,7 +653,9 @@ export const HomeComponent = () => {
     () => jobTemplates.map(template => template.id),
     [jobTemplates],
   );
-  const catalogListKey = `${syncKey}-${jobTemplateIds.join(',')}-${selectedSources.join(',')}`;
+  const catalogListKey = `${syncKey}-${jobTemplateIds.join(
+    ',',
+  )}-${selectedSources.join(',')}`;
   const canShowCatalog = jobTemplatesLoadState === 'ready';
 
   const catalogContent = (() => {

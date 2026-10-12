@@ -333,9 +333,9 @@ describe('entityParser', () => {
         groupMemberships: [],
       };
       const result = userParser(options);
-      expect(result.metadata.title).toBe('First  (firstonly)');
+      expect(result.metadata.title).toBe('First (firstonly)');
       expect((result.spec as any).profile.displayName).toBe(
-        'First  (firstonly)',
+        'First (firstonly)',
       );
     });
     it('should handle user with undefined is_superuser', () => {

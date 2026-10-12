@@ -185,7 +185,8 @@ test.describe.serial('templates01-catalog', () => {
       return;
     }
 
-    await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
+    await expect(page.getByTestId('templates-pagination')).toBeVisible();
+    await expect(page.getByText(/1\s*\/\s*\d+/)).toBeVisible();
 
     await next.scrollIntoViewIfNeeded();
     await expect(next).toBeEnabled();
@@ -196,7 +197,7 @@ test.describe.serial('templates01-catalog', () => {
     await next.click({ force: true });
     await page.waitForTimeout(600);
 
-    await expect(page.getByText(/Page 2 of \d+/)).toBeVisible();
+    await expect(page.getByText(/2\s*\/\s*\d+/)).toBeVisible();
 
     const prev = page.locator('[aria-label="Previous page"]').first();
     await expect(prev).toBeVisible();
@@ -205,7 +206,7 @@ test.describe.serial('templates01-catalog', () => {
     await prev.click({ force: true });
     await page.waitForTimeout(600);
 
-    await expect(page.getByText(/Page 1 of \d+/)).toBeVisible();
+    await expect(page.getByText(/1\s*\/\s*\d+/)).toBeVisible();
     const cardsBackToPage1 = await page.locator('main .MuiCard-root').count();
     expect(cardsBackToPage1).toBe(cardsPage1);
   });
