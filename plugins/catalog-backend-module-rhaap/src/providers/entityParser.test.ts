@@ -47,12 +47,13 @@ describe('entityParser', () => {
         metadata: {
           namespace: 'test-namespace',
           name: 'test-organization',
-          title: 'Test Organization',
+          title: 'Org: Test Organization',
           annotations: {
             [ANNOTATION_LOCATION]:
               'url:https://example.com/access/organizations/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
               'url:https://example.com/access/organizations/1/details',
+            'ansible.com/aap-org-id': '1',
           },
         },
         spec: {
@@ -61,7 +62,7 @@ describe('entityParser', () => {
           members: ['user1', 'user2'],
           profile: {
             description: 'Organization: Test Organization',
-            displayName: '[ORG] Test Organization',
+            displayName: 'Org: Test Organization',
           },
         },
       });
@@ -79,9 +80,11 @@ describe('entityParser', () => {
         teams: [],
       };
       const result = organizationParser(options);
-      expect(result.metadata.name).toBe('test-org-with-special-characters');
+      expect(result.metadata.name).toBe(
+        'test-org-with-special-at-amp-characters',
+      );
       expect(result.metadata.title).toBe(
-        'Test Org With Special!@#$%^&*()_+Characters',
+        'Org: Test Org With Special!@#$%^&*()_+Characters',
       );
     });
   });
@@ -106,7 +109,7 @@ describe('entityParser', () => {
         kind: 'Group',
         metadata: {
           namespace: 'test-namespace',
-          name: 'test-team-group',
+          name: 'test-team',
           title: 'Test Team',
           description: 'A test team',
           annotations: {
@@ -114,6 +117,7 @@ describe('entityParser', () => {
               'url:https://example.com/access/teams/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
               'url:https://example.com/access/teams/1/details',
+            'ansible.com/aap-team-id': '1',
           },
         },
         spec: {
@@ -121,7 +125,7 @@ describe('entityParser', () => {
           children: [],
           members: ['user1', 'user2', 'user3'],
           profile: {
-            displayName: '[TEAM] Test Team',
+            displayName: 'Team: Test Team',
             description: 'Team: Test Team',
           },
         },
@@ -146,7 +150,90 @@ describe('entityParser', () => {
       expect((result.spec as any).members).toEqual([]);
     });
   });
+
+  it('uses source-type-id names when multi-org is enabled', () => {
+    const result = organizationParser({
+      baseUrl: 'https://example.com',
+      nameSpace: 'aap-2',
+      org: { id: 2, name: 'Engineering' },
+      orgMembers: [],
+      teams: [],
+      identity: { multiOrgEnabled: true },
+    });
+    expect(result.metadata.name).toBe('aap-org-2');
+  });
+
   describe('userParser', () => {
+    it('preserves raw username as catalog identity when multi-org is disabled', () => {
+      const result = userParser({
+        baseUrl: 'https://example.com',
+        nameSpace: 'default',
+        user: {
+          id: 2,
+          url: 'https://example.com/users/2',
+          username: 'ops_admin',
+          email: 'ops@example.com',
+          first_name: '',
+          last_name: '',
+          is_superuser: false,
+        },
+        groupMemberships: [],
+      });
+      expect(result.metadata.name).toBe('ops_admin');
+      expect(result.spec).toMatchObject({
+        profile: { username: 'ops_admin' },
+      });
+    });
+
+    it('uses the AAP user id when multi-org is enabled', () => {
+      const result = userParser({
+        baseUrl: 'https://example.com',
+        nameSpace: 'default',
+        user: {
+          id: 42,
+          url: 'https://example.com/users/42',
+          username: 'ops_admin',
+          email: 'ops@example.com',
+          first_name: '',
+          last_name: '',
+          is_superuser: false,
+        },
+        groupMemberships: [],
+        identity: { multiOrgEnabled: true },
+      });
+      expect(result.metadata.name).toBe('aap-user-42');
+      expect(result.metadata.namespace).toBe('default');
+      expect(result.metadata.annotations?.['ansible.com/aap-user-id']).toBe(
+        '42',
+      );
+      expect(result.spec).toMatchObject({
+        profile: { username: 'ops_admin' },
+      });
+    });
+
+    it('keeps distinct AAP usernames distinct in multi-org mode', () => {
+      const makeUser = (username: string, id: number) =>
+        userParser({
+          baseUrl: 'https://example.com',
+          nameSpace: 'default',
+          user: {
+            id,
+            url: `https://example.com/users/${id}`,
+            username,
+            email: `${id}@example.com`,
+            first_name: '',
+            last_name: '',
+            is_superuser: false,
+          },
+          groupMemberships: [],
+          identity: { multiOrgEnabled: true },
+        });
+
+      expect(makeUser('ops_admin', 42).metadata.name).toBe('aap-user-42');
+      expect(makeUser('ops-admin', 43).metadata.name).toBe('aap-user-43');
+      expect(makeUser('user@host', 44).metadata.name).toBe('aap-user-44');
+    });
+
     it('should parse user data correctly with first and last name', () => {
       const mockUser: User = {
         id: 1,
@@ -170,9 +257,10 @@ describe('entityParser', () => {
         metadata: {
           namespace: 'test-namespace',
           name: 'johndoe',
-          title: 'John Doe',
+          title: 'John Doe (johndoe)',
           annotations: {
             'aap.platform/is_superuser': 'false',
+            'ansible.com/aap-username': 'johndoe',
             [ANNOTATION_LOCATION]:
               'url:https://example.com/access/users/1/details',
             [ANNOTATION_ORIGIN_LOCATION]:
@@ -182,7 +270,7 @@ describe('entityParser', () => {
         spec: {
           profile: {
             username: 'johndoe',
-            displayName: 'John Doe',
+            displayName: 'John Doe (johndoe)',
             email: 'john.doe@example.com',
           },
           memberOf: ['group1', 'group2'],
@@ -245,8 +333,10 @@ describe('entityParser', () => {
         groupMemberships: [],
       };
       const result = userParser(options);
-      expect(result.metadata.title).toBe('First ');
-      expect((result.spec as any).profile.displayName).toBe('First ');
+      expect(result.metadata.title).toBe('First  (firstonly)');
+      expect((result.spec as any).profile.displayName).toBe(
+        'First  (firstonly)',
+      );
     });
     it('should handle user with undefined is_superuser', () => {
       const mockUser: User = {

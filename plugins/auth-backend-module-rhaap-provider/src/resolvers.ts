@@ -14,9 +14,43 @@ import {
   stringifyEntityRef,
 } from '@backstage/catalog-model';
 import { DiscoveryService, AuthService } from '@backstage/backend-plugin-api';
+import type { Config } from '@backstage/config';
+import { toUserEntityName } from '@ansible/backstage-rhaap-common';
 
 const AAP_ADMINS_GROUP = 'group:default/aap-admins';
 const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
+
+function toCatalogUserEntityName(
+  username: string,
+  userId: number | undefined,
+  multiOrgEnabled: boolean,
+): string {
+  if (multiOrgEnabled && userId === undefined) {
+    throw new AuthenticationError(
+      'AAP user ID is required when multi-org mode is enabled',
+    );
+  }
+  return multiOrgEnabled
+    ? toUserEntityName(username, userId, {
+        multiOrgEnabled: true,
+        source: 'aap',
+      })
+    : username;
+}
+
+function readMultiOrgEnabled(config: Config | undefined): boolean {
+  if (!config) return false;
+  const providers = config.getOptionalConfig('catalog.providers.rhaap');
+  return (
+    providers
+      ?.keys()
+      .some(
+        id =>
+          providers.getConfig(id).getOptionalBoolean('multiOrgEnabled') ===
+          true,
+      ) ?? false
+  );
+}
 
 /**
  * Issues a sign-in token with ownership entity refs that include group
@@ -55,63 +89,85 @@ async function issueTokenWithOwnership(
 
 export namespace AAPAuthSignInResolvers {
   // Sign in resolver that lets only catalog users log in if they exist.
-  export const usernameMatchingUser = createSignInResolverFactory({
-    create() {
-      return async (
-        info: SignInInfo<OAuthAuthenticatorResult<PassportProfile>>,
-        ctx: AuthResolverContext,
-      ) => {
-        const { result } = info;
-        const username = result.fullProfile.username;
-        if (!username) {
-          throw new AuthenticationError(
-            `Oauth2 user profile does not contain a username`,
-          );
-        }
-
-        try {
-          const { entity } = await ctx.findCatalogUser({
-            entityRef: { name: username },
-          });
-          return issueTokenWithOwnership(ctx, entity);
-        } catch (e) {
-          const config = await ConfigSources.toConfig(
-            ConfigSources.default({}),
-          );
-          const dangerouslyAllowSignInWithoutUserInCatalog =
-            config.getOptionalBoolean(
-              'dangerouslyAllowSignInWithoutUserInCatalog',
-            ) || false;
-          if (!dangerouslyAllowSignInWithoutUserInCatalog) {
+  export const createUsernameMatchingUser = (config?: Config) =>
+    createSignInResolverFactory({
+      create() {
+        return async (
+          info: SignInInfo<OAuthAuthenticatorResult<PassportProfile>>,
+          ctx: AuthResolverContext,
+        ) => {
+          const { result } = info;
+          const username = result.fullProfile.username;
+          const parsedUserId = Number(result.fullProfile.id);
+          const userId = Number.isNaN(parsedUserId) ? undefined : parsedUserId;
+          const multiOrgEnabled = readMultiOrgEnabled(config);
+          if (!username) {
             throw new AuthenticationError(
-              `Sign in failed: User not found in the RH AAP software catalog. Verify that users/groups are synchronized to the software catalog. For non-production environments, manually provision the user or disable the user provisioning requirement. Refer to the RH AAP Authentication documentation for further details.`,
+              `Oauth2 user profile does not contain a username`,
             );
           }
-          const userEntity = stringifyEntityRef({
-            kind: 'User',
-            name: username,
-            namespace: DEFAULT_NAMESPACE,
-          });
 
-          return ctx.issueToken({
-            claims: {
-              sub: userEntity,
-              ent: [userEntity],
-            },
-          });
-        }
-      };
-    },
-  });
+          // Resolve catalog identity before the catalog lookup try/catch so
+          // multi-org validation errors are not rewritten as "user not found".
+          const catalogUserName = toCatalogUserEntityName(
+            username,
+            userId,
+            multiOrgEnabled,
+          );
+
+          try {
+            const { entity } = await ctx.findCatalogUser({
+              entityRef: {
+                name: catalogUserName,
+              },
+            });
+            return issueTokenWithOwnership(ctx, entity);
+          } catch (e) {
+            if (e instanceof AuthenticationError) {
+              throw e;
+            }
+            const fallbackConfig = await ConfigSources.toConfig(
+              ConfigSources.default({}),
+            );
+            const dangerouslyAllowSignInWithoutUserInCatalog =
+              fallbackConfig.getOptionalBoolean(
+                'dangerouslyAllowSignInWithoutUserInCatalog',
+              ) || false;
+            if (!dangerouslyAllowSignInWithoutUserInCatalog) {
+              throw new AuthenticationError(
+                `Sign in failed: User not found in the RH AAP software catalog. Verify that users/groups are synchronized to the software catalog. For non-production environments, manually provision the user or disable the user provisioning requirement. Refer to the RH AAP Authentication documentation for further details.`,
+              );
+            }
+            const userEntity = stringifyEntityRef({
+              kind: 'User',
+              name: catalogUserName,
+              namespace: DEFAULT_NAMESPACE,
+            });
+
+            return ctx.issueToken({
+              claims: {
+                sub: userEntity,
+                ent: [userEntity],
+              },
+            });
+          }
+        };
+      },
+    });
+
+  // Backwards-compatible single-org factory for direct consumers/tests.
+  export const usernameMatchingUser = createUsernameMatchingUser();
 
   // Default Sign In Resolver
   // Sign in resolver that automatically creates users in the catalog if they don't exist.
   export const allowNewAAPUserSignIn = ({
     discovery,
     auth,
+    config,
   }: {
     discovery: DiscoveryService;
     auth: AuthService;
+    config?: Config;
   }) =>
     createSignInResolverFactory({
       create() {
@@ -122,6 +178,7 @@ export namespace AAPAuthSignInResolvers {
           const { result } = info;
           const username = result.fullProfile.username;
           const userID = Number(result.fullProfile.id);
+          const multiOrgEnabled = readMultiOrgEnabled(config);
           if (!username || !result.fullProfile.id || Number.isNaN(userID)) {
             throw new AuthenticationError(
               `Oauth2 user profile does not contain a username or user ID`,
@@ -131,7 +188,13 @@ export namespace AAPAuthSignInResolvers {
           try {
             if (username) {
               await ctx.findCatalogUser({
-                entityRef: { name: username },
+                entityRef: {
+                  name: toCatalogUserEntityName(
+                    username,
+                    userID,
+                    multiOrgEnabled,
+                  ),
+                },
               });
             }
           } catch {
@@ -142,14 +205,26 @@ export namespace AAPAuthSignInResolvers {
 
           try {
             const { entity } = await ctx.findCatalogUser({
-              entityRef: { name: username },
+              entityRef: {
+                name: toCatalogUserEntityName(
+                  username,
+                  userID,
+                  multiOrgEnabled,
+                ),
+              },
             });
             return await issueTokenWithOwnership(ctx, entity);
           } catch (e) {
             // Try to find the user again to provide better error information
             try {
               await ctx.findCatalogUser({
-                entityRef: { name: username },
+                entityRef: {
+                  name: toCatalogUserEntityName(
+                    username,
+                    userID,
+                    multiOrgEnabled,
+                  ),
+                },
               });
               // User exists but token issuance failed for another reason
               throw new AuthenticationError(
