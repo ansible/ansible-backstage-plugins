@@ -4552,7 +4552,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-common@npm:^0.2.0":
+"@backstage/cli-common@npm:0.2.0, @backstage/cli-common@npm:^0.2.0":
   version: 0.2.0
   resolution: "@backstage/cli-common@npm:0.2.0"
   dependencies:
@@ -4598,7 +4598,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-defaults@npm:^0.1.0":
+"@backstage/cli-defaults@npm:0.1.0, @backstage/cli-defaults@npm:^0.1.0":
   version: 0.1.0
   resolution: "@backstage/cli-defaults@npm:0.1.0"
   dependencies:
@@ -4791,7 +4791,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-module-config@npm:^0.1.0":
+"@backstage/cli-module-config@npm:0.1.0, @backstage/cli-module-config@npm:^0.1.0":
   version: 0.1.0
   resolution: "@backstage/cli-module-config@npm:0.1.0"
   dependencies:
@@ -5163,7 +5163,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/cli-node@npm:^0.3.0":
+"@backstage/cli-node@npm:0.3.0, @backstage/cli-node@npm:^0.3.0":
   version: 0.3.0
   resolution: "@backstage/cli-node@npm:0.3.0"
   dependencies:
@@ -5393,7 +5393,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/config-loader@npm:^1.10.12":
+"@backstage/config-loader@npm:^1.10.12, @backstage/config-loader@npm:~1.10.9":
   version: 1.10.12
   resolution: "@backstage/config-loader@npm:1.10.12"
   dependencies:
@@ -5479,6 +5479,17 @@ __metadata:
     "@backstage/types": "npm:^1.2.2"
     ms: "npm:^2.1.3"
   checksum: 10c0/bd9e1fdd7ab8e56a9814a7f67502ed69f9abd0f014dae44d253a6a02c0c6bf844451d037afa991b200fc09d89e7195593bd5a9459357dafd8101dc826e664dec
+  languageName: node
+  linkType: hard
+
+"@backstage/config@npm:~1.3.6":
+  version: 1.3.9
+  resolution: "@backstage/config@npm:1.3.9"
+  dependencies:
+    "@backstage/errors": "npm:^1.3.1"
+    "@backstage/types": "npm:^1.2.2"
+    ms: "npm:^2.1.3"
+  checksum: 10c0/9b3992ff8a0909840a0f12104545f7ecdbccdb1eb97f9cb493daf293609fe639cbafc4b7137ce535463c888e46e57fe9d58645131b90a8e681b4d50facfc5768
   languageName: node
   linkType: hard
 
@@ -6002,7 +6013,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/errors@npm:^1.2.7":
+"@backstage/errors@npm:^1.2.7, @backstage/errors@npm:~1.2.7":
   version: 1.2.7
   resolution: "@backstage/errors@npm:1.2.7"
   dependencies:
@@ -9632,6 +9643,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage/release-manifests@npm:~0.0.13":
+  version: 0.0.14
+  resolution: "@backstage/release-manifests@npm:0.0.14"
+  checksum: 10c0/973e59edac3d511d1140195763fe919b514a4707ab8674013011409e97eba4e7caa32e074e26ac345ca4bfafc8277aa1187c4c8d8282409081099972b10cfcec
+  languageName: node
+  linkType: hard
+
 "@backstage/test-utils@npm:^1.7.10":
   version: 1.7.10
   resolution: "@backstage/test-utils@npm:1.7.10"
@@ -9792,7 +9810,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/types@npm:^1.2.2":
+"@backstage/types@npm:^1.2.2, @backstage/types@npm:~1.2.2":
   version: 1.2.2
   resolution: "@backstage/types@npm:1.2.2"
   checksum: 10c0/3c947cf83c058a56b0cfd90d91483e9a5c1c913f7978a0d5a3c0fd9b502d08e9bdf279afba626826eee84159e698ee4cdaa70040789ac47fc8a25df9f1925612
@@ -16903,18 +16921,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/cli@npm:^1.10.2":
-  version: 1.10.4
-  resolution: "@red-hat-developer-hub/cli@npm:1.10.4"
+"@red-hat-developer-hub/cli@npm:1.10.8":
+  version: 1.10.8
+  resolution: "@red-hat-developer-hub/cli@npm:1.10.8"
   dependencies:
     "@backstage/cli": "npm:0.36.0"
-    "@backstage/cli-common": "npm:^0.2.0"
+    "@backstage/cli-common": "npm:0.2.0"
+    "@backstage/cli-defaults": "npm:0.1.0"
     "@backstage/cli-module-build": "npm:0.1.0"
-    "@backstage/cli-node": "npm:^0.3.0"
-    "@backstage/config": "npm:^1.3.6"
-    "@backstage/config-loader": "npm:^1.10.9"
-    "@backstage/errors": "npm:^1.2.7"
-    "@backstage/types": "npm:^1.2.1"
+    "@backstage/cli-module-config": "npm:0.1.0"
+    "@backstage/cli-node": "npm:0.3.0"
+    "@backstage/config": "npm:~1.3.6"
+    "@backstage/config-loader": "npm:~1.10.9"
+    "@backstage/errors": "npm:~1.2.7"
+    "@backstage/release-manifests": "npm:~0.0.13"
+    "@backstage/types": "npm:~1.2.2"
     "@changesets/cli": "npm:^2.29.4"
     "@manypkg/get-packages": "npm:^1.1.3"
     "@openshift/dynamic-plugin-sdk-webpack": "npm:^3.0.0"
@@ -16965,7 +16986,7 @@ __metadata:
       optional: true
   bin:
     rhdh-cli: bin/rhdh-cli
-  checksum: 10c0/42ed293e4200197f75b7f214082c09a0f39b67469232a385208933a8a344557ac5b66b1f68f8294562b0741dc478092fefeeb1ebf55f15c6fbfa5a438edb2559
+  checksum: 10c0/1b38639d11edc1687fcb5d0fa802f7fc5d608a6d8152c60f4aaa6b6c82cd10838d5b5bef0eef268a7058de3a52545d0c64bdef0553c706487e15893f3ef45a6a
   languageName: node
   linkType: hard
 
@@ -38836,7 +38857,7 @@ __metadata:
     "@backstage/e2e-test-utils": "npm:^0.1.2"
     "@backstage/frontend-test-utils": "npm:^0.5.2"
     "@playwright/test": "npm:^1.32.3"
-    "@red-hat-developer-hub/cli": "npm:^1.10.2"
+    "@red-hat-developer-hub/cli": "npm:1.10.8"
     "@spotify/prettier-config": "npm:^12.0.0"
     "@stoplight/spectral-cli": "npm:^6.15.0"
     "@types/node": "npm:^22.13.4"
