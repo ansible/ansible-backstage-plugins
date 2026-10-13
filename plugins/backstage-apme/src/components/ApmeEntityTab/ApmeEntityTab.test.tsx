@@ -160,7 +160,7 @@ describe('ApmeEntityTab', () => {
     expect(screen.getByTestId('show-ai-options')).toHaveTextContent('false');
     expect(screen.getByTestId('form-enable-ai')).toHaveTextContent('false');
     expect(
-      screen.getByText('AI is disabled in Quality settings.'),
+      screen.getByText('AI is disabled in Modernization settings.'),
     ).toBeInTheDocument();
 
     await waitFor(() => {
@@ -176,7 +176,7 @@ describe('ApmeEntityTab', () => {
     await screen.findByText('demo-repo');
 
     expect(
-      screen.queryByText('AI is disabled in Quality settings.'),
+      screen.queryByText('AI is disabled in Modernization settings.'),
     ).not.toBeInTheDocument();
   });
 

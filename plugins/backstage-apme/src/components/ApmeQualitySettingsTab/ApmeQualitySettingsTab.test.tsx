@@ -86,7 +86,7 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('loads current ansible-core target and AI toggle from portal settings', async () => {
     renderTab();
-    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(await screen.findByText('Modernization settings')).toBeInTheDocument();
     expect(getPortalSettings).toHaveBeenCalled();
     expect(screen.getByLabelText(/target ansible-core/i)).toHaveTextContent(
       'ansible-core 2.16',
@@ -101,7 +101,7 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('saves ansible-core target, service URL, and enableAi via updatePortalSettings', async () => {
     renderTab();
-    await screen.findByText('Quality settings');
+    await screen.findByText('Modernization settings');
 
     const select = screen.getByLabelText(/target ansible-core/i);
     fireEvent.mouseDown(select);
@@ -133,7 +133,7 @@ describe('ApmeQualitySettingsTab', () => {
       gatewayBaseUrl: 'http://localhost:8080',
     });
     renderTab();
-    await screen.findByText('Quality settings');
+    await screen.findByText('Modernization settings');
 
     fireEvent.click(
       screen.getByRole('checkbox', { name: /AI-assisted remediation/i }),
@@ -151,7 +151,7 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('saves an APME service URL via updatePortalSettings', async () => {
     renderTab();
-    await screen.findByText('Quality settings');
+    await screen.findByText('Modernization settings');
 
     const urlField = screen.getByLabelText('APME service URL');
     fireEvent.change(urlField, {
@@ -179,13 +179,13 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('renders the AI providers card alongside quality settings', async () => {
     renderTab();
-    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(await screen.findByText('Modernization settings')).toBeInTheDocument();
     expect(await screen.findByText('AI providers')).toBeInTheDocument();
   });
 
   it('passes fillHeight to AI providers section when edit permission is granted', async () => {
     renderTab();
-    await screen.findByText('Quality settings');
+    await screen.findByText('Modernization settings');
 
     expect(screen.getByTestId('ai-providers-section')).toHaveAttribute(
       'data-fill-height',
@@ -195,10 +195,10 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('uses stretch layout classes on the quality settings card when edit is allowed', async () => {
     const { container } = renderTab();
-    await screen.findByText('Quality settings');
+    await screen.findByText('Modernization settings');
 
     const qualityCard = screen
-      .getByText('Quality settings')
+      .getByText('Modernization settings')
       .closest('.MuiCard-root');
     expect(qualityCard?.className).toEqual(
       expect.stringMatching(/settingsCard/),
@@ -228,13 +228,13 @@ describe('ApmeQualitySettingsTab', () => {
 
   it('does not render the Galaxy servers section', async () => {
     renderTab();
-    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(await screen.findByText('Modernization settings')).toBeInTheDocument();
     expect(screen.queryByText('Galaxy servers')).not.toBeInTheDocument();
   });
 
   it('renders early-access preview and feedback link at the top', async () => {
     renderTab();
-    const qualitySettings = await screen.findByText('Quality settings');
+    const qualitySettings = await screen.findByText('Modernization settings');
     const previewChip = screen.getByTestId('preview-chip');
     expect(qualitySettings).toBeInTheDocument();
     expect(previewChip).toHaveTextContent('Early access preview');
