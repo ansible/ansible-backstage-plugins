@@ -177,8 +177,8 @@ const ApmeQualitySettingsTabContent = () => {
       >
         <Card className={canEdit ? classes.settingsCard : undefined}>
           <CardHeader
-            title="Quality settings"
-            subheader="Defaults for Quality scans across registered repositories"
+            title="Modernization settings"
+            subheader="Defaults for modernization scans across registered repositories"
           />
           <CardContent
             className={canEdit ? classes.settingsCardContent : undefined}

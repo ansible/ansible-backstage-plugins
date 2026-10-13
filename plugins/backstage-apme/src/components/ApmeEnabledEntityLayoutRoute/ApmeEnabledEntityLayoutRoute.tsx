@@ -28,7 +28,7 @@ export const ApmeEnabledEntityLayoutRoute = () => {
   return (
     <EntityLayout.Route
       path="/apme"
-      title="Quality"
+      title="Modernization"
       if={entity => apmeEnabled && isGitRepositoryEntity(entity)}
     >
       <ApmeEntityTab />

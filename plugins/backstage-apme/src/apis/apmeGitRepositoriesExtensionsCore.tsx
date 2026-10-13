@@ -113,7 +113,7 @@ export function createApmeGitRepositoriesExtensionsApi(
       return [
         {
           id: 'quality',
-          label: 'Quality',
+          label: 'Modernization',
           path: 'quality',
           order: 10,
           render: ({ repositoryDetailPath }: GitRepositoriesPageTabContext) => (
@@ -122,7 +122,7 @@ export function createApmeGitRepositoriesExtensionsApi(
         },
         {
           id: 'quality-settings',
-          label: 'Quality settings',
+          label: 'Modernization settings',
           path: 'quality-settings',
           order: 15,
           render: () => (
@@ -148,7 +148,7 @@ export function createApmeGitRepositoriesExtensionsApi(
       return [
         {
           id: 'quality',
-          label: 'Quality',
+          label: 'Modernization',
           order: 10,
           render: ({
             entity,
@@ -164,7 +164,7 @@ export function createApmeGitRepositoriesExtensionsApi(
         },
         {
           id: 'quality-activity',
-          label: 'Quality activity',
+          label: 'Modernization activity',
           order: 15,
           render: ({ entity }: GitRepositoryDetailTabContext) => (
             <EntityQualityActivityTab entity={entity} />
