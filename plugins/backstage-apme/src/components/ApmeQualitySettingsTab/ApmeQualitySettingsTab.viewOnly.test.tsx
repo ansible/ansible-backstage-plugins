@@ -60,7 +60,7 @@ describe('ApmeQualitySettingsTab (view-only)', () => {
       </TestApiProvider>,
     );
 
-    expect(await screen.findByText('Quality settings')).toBeInTheDocument();
+    expect(await screen.findByText('Modernization settings')).toBeInTheDocument();
     expect(
       screen.getByText(/AI-assisted remediation:\s*enabled \(read-only\)/i),
     ).toBeInTheDocument();
