@@ -139,9 +139,11 @@ export class AAPClient implements IAAPService {
     token?: string,
     data?: any,
     auth: boolean = false,
+    baseUrlOverride?: string,
   ): Promise<any> {
     const normalizedEndPoint = endPoint.replace(/^\/+/, '');
-    const url = `${this.getBaseUrl()}/${normalizedEndPoint}`;
+    const base = baseUrlOverride?.replace(/\/+$/, '') ?? this.getBaseUrl();
+    const url = `${base}/${normalizedEndPoint}`;
     this.logger.info(
       `[${this.pluginLogName}]: Executing post request to ${url}.`,
     );
@@ -980,13 +982,20 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
     data.append('redirect_uri', options.callbackURL);
+    const authBaseUrl = options.host.replace(/\/+$/, '');
     this.logger.info(
-      `[${this.pluginLogName}]: Authenticating with RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
+      `[${this.pluginLogName}]: Authenticating with RH AAP at ${authBaseUrl}/${endPoint}.`,
     );
 
     let response;
     try {
-      response = await this.executePostRequest(endPoint, undefined, data, true);
+      response = await this.executePostRequest(
+        endPoint,
+        undefined,
+        data,
+        true,
+        authBaseUrl,
+      );
     } catch (error) {
       throw new AuthenticationError(
         `AAP token exchange failed: ${
@@ -1017,6 +1026,7 @@ export class AAPClient implements IAAPService {
    * @param options.token - The token to revoke (access or refresh token).
    */
   public async rhAAPRevokeToken(options: {
+    host?: string;
     clientId: string;
     clientSecret: string;
     token: string;
@@ -1027,8 +1037,9 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
 
+    const revokeBaseUrl = options.host?.replace(/\/+$/, '');
     this.logger.info(
-      `[${this.pluginLogName}]: Revoking token from RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
+      `[${this.pluginLogName}]: Revoking token from RH AAP at ${revokeBaseUrl ?? this.getBaseUrl()}/${endPoint}.`,
     );
 
     const response = await this.executePostRequest(
@@ -1036,6 +1047,7 @@ export class AAPClient implements IAAPService {
       undefined,
       data,
       true,
+      revokeBaseUrl,
     );
 
     if (!response.ok) {
