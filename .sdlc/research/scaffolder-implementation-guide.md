@@ -19,25 +19,6 @@ From the canonical architecture ([§7.1](https://github.com/ansible/ansible-rhdh
 **AAP integration** owns Controller/Hub automation actions; **content management** owns
 the data those pickers display.
 
-> **Note on "team" naming:** "Self-service" and "portal core" above name the _pods_ from
-> the canonical architecture's §7.1 table (ANSTRAT-2497 and content-management pods), not
-> a Jira team/component in Automation Portal. There is no separately staffed
-> "Self-service team" — this guide's deliverables are scoped to whoever is driving
-> ANSTRAT-2497 scaffolder work, which today is this repo's maintainers.
-
-> **Frontend is out of scope for this effort.** Per the 2026-10-13 pod sync (Abhinav
-> Anand), the restructure isolates **backend** plugin components — scaffolder actions and
-> the autocomplete provider — into separate backend modules, **leaving the frontend
-> self-service plugin untouched**. No frontend plugin is created, split, renamed, or
-> moved by this guide. Field extensions under
-> `workspaces/self-service/plugins/self-service/src/components/Scaffolder/`
-> stay exactly where they are; they appear in §2.1 only as read-only context for which
-> backend surfaces they consume.
->
-> This also settles two review questions directly: there is **no** new scaffolder-specific
-> frontend plugin, and **no** new frontend common library — because the frontend is not
-> being changed at all.
-
 This guide covers **backend** scaffolder deliverables:
 
 | Deliverable                                    | Owner team                  | Purpose                                                                                                                                                                    |
