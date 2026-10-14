@@ -663,9 +663,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/self-service/plugins/self-service":
+"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/self-service/plugins/portal-scaffolder":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder@workspace:workspaces/self-service/plugins/self-service"
+  resolution: "@ansible/portal-scaffolder@workspace:workspaces/self-service/plugins/portal-scaffolder"
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
