@@ -1,36 +1,51 @@
 # Scaffolder Re-Architecture — Implementation Guide
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) ([§2.2 workspace layout](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#22-proposal-one-workspace-per-experience), [§7.3](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#73-frontend-what-moves-what-stays)–[§7.5 content/self-service boundary](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#75-the-hard-case-seven-scaffolder-pickers), [§6.3 `scaffolder-field` contribution kind](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#63-plugin-manifest))
-> **Related Jira:** [ANSTRAT-2497](https://redhat.atlassian.net/browse/ANSTRAT-2497) (portal SDK, `portal-scaffolder` / self-service), [ANSTRAT-1758](https://redhat.atlassian.net/browse/ANSTRAT-1758) (content operations, content discovery)
+> **Related Jira:** [ANSTRAT-2497](https://redhat.atlassian.net/browse/ANSTRAT-2497) (portal SDK, `@ansible/portal-scaffolder`), [ANSTRAT-1758](https://redhat.atlassian.net/browse/ANSTRAT-1758) (content operations, content discovery)
 > **Companion docs on this branch:** [`docs/next/portal-plugin-factory-implementation-guide.md`](../../docs/next/portal-plugin-factory-implementation-guide.md) (ANSTRAT-2497 portal factory), [`docs/next/portal-content-picker-contract-proposal.md`](../../docs/next/portal-content-picker-contract-proposal.md) (the ANSTRAT-1758 picker boundary this guide consumes)
 > **Status:** Planning — no code split started for backend modules
-> **Branch baseline:** `anstrat-2497-poc` in `ansible-backstage-plugins` — the `workspaces/` layout and `@ansible/portal-*` package family (see §2.4)
+> **Branch baseline:** PoC layout on `anstrat-2497-poc` (`workspaces/`, `@ansible/portal-*`); this PR lands on `feat/portal-plugin-factory-sdk` (see §2.4).
 >
 > **Scope: backend only.** This document is the ordered plan to split the monolithic
 > scaffolder **backend** module — actions, autocomplete, and template filters — into
 > separate backend modules aligned with the PoC's `workspaces/` layout. The **frontend
-> self-service plugin is not changed by this effort** (§1).
+> `@ansible/portal-scaffolder` plugin is not changed by this effort** (§1).
 
 ---
 
 ## 1. What This Effort Owns
 
-From the canonical architecture ([§7.1](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#71-why-the-two-features-cannot-be-planned-separately)), **self-service and portal core** own scaffolder UX;
+From the canonical architecture ([§7.1](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#71-why-the-two-features-cannot-be-planned-separately)), the **portal scaffolder experience** (`@ansible/portal-scaffolder`) and **portal core** own scaffolder UX;
 **AAP integration** owns Controller/Hub automation actions; **content management** owns
 the data those pickers display.
 
+> **Naming — pods vs Jira teams.** The architecture doc still says "self-service" in
+> places (e.g. [§7.5](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#75-the-hard-case-seven-scaffolder-pickers)).
+> In Automation Portal there is **no** staffed team with that name. The experience was
+> renamed to **`@ansible/portal-scaffolder`** (frontend package; directory
+> `workspaces/self-service/plugins/self-service`). Tables below use **Owner (§7.1 pod)** for
+> architecture boundaries, not a Jira team/component. Backend module ids such as
+> `scaffolder-backend-module-self-service` keep the historical **module** name.
+
+> **Frontend is out of scope for this effort.** Per the 2026-10-13 pod sync, this work
+> splits **backend** scaffolder modules only — **no** change to
+> `@ansible/portal-scaffolder`, **no** new scaffolder-specific frontend plugin, **no** new
+> frontend common library, and **no** `scaffolder-field` manifest registration. Field
+> extensions under `workspaces/self-service/plugins/self-service/src/components/Scaffolder/`
+> stay where they are (§2.1 records what backend surfaces they consume).
+
 This guide covers **backend** scaffolder deliverables:
 
-| Deliverable                                    | Owner team                  | Purpose                                                                                                                                                                    |
-| ---------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scaffolder-backend-module-backstage-rhaap`    | AAP integration             | `rhaap:*` template actions, AAP autocomplete resources, template filters — stays in the AAP workspace                                                                      |
-| `scaffolder-backend-module-self-service`       | Self-service                | EE **definition** lifecycle and **publish** actions, `EEEntityProvider` route                                                                                              |
-| `scaffolder-backend-module-content-operations` | Self-service (actions only) | **Conditional — not created by this guide.** Scaffolder actions invoking registered content operations (publish, certify), only if ANSTRAT-1758 ships such operations (§3) |
+| Deliverable                                    | Owner (§7.1 pod)                            | Purpose                                                                                                                                                                    |
+| ---------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scaffolder-backend-module-backstage-rhaap`    | AAP integration                             | `rhaap:*` template actions, AAP autocomplete resources, template filters — stays in the AAP workspace                                                                      |
+| `scaffolder-backend-module-self-service`       | `@ansible/portal-scaffolder`                | EE **definition** lifecycle and **publish** actions, `EEEntityProvider` route                                                                                              |
+| `scaffolder-backend-module-content-operations` | `@ansible/portal-scaffolder` (actions only) | **Conditional — not created by this guide.** Scaffolder actions invoking registered content operations (publish, certify), only if ANSTRAT-1758 ships such operations (§3) |
 
-The AAP / self-service division follows the same sync: **API-related actions stay with
+The AAP / portal-scaffolder division follows the same sync: **API-related actions stay with
 the AAP plugin**; **general EE-definition and publishing actions move out**. Concretely,
 `rhaap:*` → AAP module; `ansible:create:ee-definition` and `ansible:prepare:publish` →
-self-service module.
+`scaffolder-backend-module-self-service`.
 
 **In scope — `EEEntityProvider`:** per architecture §7.4, `EEEntityProvider` and its
 `POST /ansible/ee` route move to `scaffolder-backend-module-self-service` (Phase 2 below).
@@ -109,7 +124,7 @@ that format. It must move as a documented, tested contract, not as an incidental
 **Architecture §7.5's seven pickers.** §7.5 names seven fields on the content boundary,
 including `MCPServersPicker`. Dropping that one leaves six. Of those, only
 `CollectionsPicker` and `BaseImagePicker` are content-data pickers; `EEFileNamePicker`
-reads the **definition** catalog (self-service-owned per architecture §7.2), and the rest
+reads the **definition** catalog (portal-scaffolder / §7.2), and the rest
 are enum/schema driven. Where any of the remaining fields later need content-team data,
 that is a new §7.6 agreement with ANSTRAT-1758. None of this changes the frontend in this
 effort — it records the boundary for whoever picks the frontend work up.
@@ -139,8 +154,8 @@ Renaming it is out of scope for this guide — it's a stable, already-published
 provider id and template authors depend on it; renaming would be a breaking change
 unrelated to the package split this guide covers, so it stays `aap-api-cloud`.
 
-- `collections` → catalog entity query (`getCollections` in `autocomplete/utils.ts`) — **move to content-operations bridge**
-- `verbosity`, `aaphostname` → config / static — split by consumer (AAP vs self-service)
+- `collections` → catalog entity query (`getCollections` in `autocomplete/utils.ts`) — **stays on the AAP module** until Phase 3 removes it; target is frontend **content search** (§4.2), not a content-operations listing bridge
+- `verbosity`, `aaphostname` → config / static — split by consumer (AAP vs portal-scaffolder backend module)
 - All other `resource` strings → `ansibleService.getResourceData` — **AAP module**
 
 **Dependencies:** `@ansible/backstage-rhaap-common` (`ansibleServiceRef`, DTOs), Backstage scaffolder extension points, config, auth, discovery.
@@ -304,9 +319,8 @@ the content side owns declaring which fields on a type are searchable and return
 Adding a new content type with a picker requires the type module to declare its
 queryable fields — it does not require ANSTRAT-1758 to ship new operations.
 
-**Open item to carry into the ANSTRAT-1758 conversation, not resolved here** (flagged for
-explicit discussion with the ANSTRAT-1758 pod, not assumed agreed by writing it down
-here)**:** this model
+**Open item for the ANSTRAT-1758 pod** (explicit discussion required; not assumed agreed
+here): this model
 assumes type-specific fields (e.g. a collection's `sourceId` and `version[]`, an EE
 image's `recommended` flag and `digest`) are declarable as queryable/returnable fields
 on that type's search projection. That is somewhat more upfront modeling work for
@@ -328,7 +342,7 @@ for AAP autocomplete (left untouched — AAP stays on `aap-api-cloud`, out of sc
 
 ### 4.4 EE entity registration stays on the definition path
 
-`EEEntityProvider` + `POST /ansible/ee` remain self-service-owned (§7.4). Content team
+`EEEntityProvider` + `POST /ansible/ee` remain owned by `scaffolder-backend-module-self-service` (§7.4). Content team
 does not absorb this endpoint when PAH/git providers move out of `catalog-backend-module-rhaap`.
 
 ### 4.5 Dependency rules the split must honour
@@ -346,7 +360,7 @@ is meant to be free of AAP, but `ansible:prepare:publish` imports `ScmClientFact
 `AAPService`, and `permissions`. Splitting the scaffolder module alone therefore does
 **not** achieve the stated property — `backstage-rhaap-common` itself has to be split
 (SCM client out to a shared or self-service package; AAP client/service staying on the AAP
-side), or the self-service module keeps a dependency edge straight back into AAP code.
+side), or `scaffolder-backend-module-self-service` keeps a dependency edge straight back into AAP code.
 This is unresolved and is a Phase 1 prerequisite, not a later cleanup.
 
 ---
@@ -356,7 +370,7 @@ This is unresolved and is a Phase 1 prerequisite, not a later cleanup.
 **Why this section exists.** Earlier drafts treated content discovery as
 "ANSTRAT-1758's problem, not resolved here" without explaining the design it refers to.
 This guide does not own or build content discovery — the content management pod does,
-per architecture §7.1 — but Phase 4's two pickers sit directly on top of it, so this
+per architecture §7.1 — but `CollectionsPicker` and `BaseImagePicker` sit directly on top of it, so this
 section documents the design as ANSTRAT-1758 specifies it (architecture [§1.3](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#13-the-four-layers), [§3.2](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#32-the-source-axis-in-code)–[§3.4](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#34-the-type-axis-in-code),
 [§4.1](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md#41-the-five-stages)), then states the narrower consuming contract this guide actually needs.
 
@@ -430,7 +444,7 @@ apiClient.search({
 }>
 ```
 
-Per-type fields this guide's two Phase 4 pickers need declared as queryable/returnable
+Per-type fields the two content pickers (`CollectionsPicker`, `BaseImagePicker`) need declared as queryable/returnable
 on the `collection` and `execution-environment-image` type modules' search projection:
 
 | Content type                  | Picker              | Fields needed                                                                                                       | Used for                                                            |
@@ -449,8 +463,8 @@ contract, four surfaces" rule in architecture [§1.3](https://github.com/ansible
 query time — the picker does not run a second, scaffolder-owned permission check on top
 of what `apiClient.search()` already returns.
 
-**Status:** not built. This is the hard dependency for Phase 4 (§7, "Boundary Agreement
-Needed Now") — Phases 1–3 do not need it.
+**Status:** not built. This is the hard dependency for **Phase 3** (§7, "Boundary Agreement
+Needed Now") — Phases 0–2 do not need it.
 
 ---
 
@@ -480,6 +494,7 @@ Backend only. Phases 0–2 can proceed now; Phase 3 is blocked on ANSTRAT-1758.
 | Item                                                            | Source                                                                                                              | Notes                                                                                                                                                        |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Keep AAP actions in `scaffolder-backend-module-backstage-rhaap` | `aap*.ts`, AAP branch of `autocomplete.ts`, filters, `ansibleService` deps                                          | `moduleId: 'aap'`                                                                                                                                            |
+| Keep full `aap-api-cloud` autocomplete on the AAP module        | `handleAutocompleteRequest`, including `getCollections` until Phase 3                                               | Portal-scaffolder backend module does **not** own listing; unchanged behaviour for `@ansible/portal-scaffolder` until Phase 3                                |
 | Create `scaffolder-backend-module-self-service`                 | `createEEDefinition`, `prepareForPublish`                                                                           | `moduleId: 'self-service'`                                                                                                                                   |
 | Resolve `ansible:content:create` ownership                      | `ansible.ts` + `ansibleContentCreate.ts`                                                                            | Blocks the package list — see §8                                                                                                                             |
 | **Split `config.d.ts`**                                         | One shared schema today (`ansible.rhaap`, `ansible.creatorService`, `ansible.devSpaces`, `catalog.providers.rhaap`) | Each module declares only its own keys. Backstage validates against the union of installed schemas, so a mistake here is a startup failure, not a lint error |
@@ -503,9 +518,9 @@ Backend only. Phases 0–2 can proceed now; Phase 3 is blocked on ANSTRAT-1758.
 
 ---
 
-### Phase 2 — Move `EEEntityProvider` to the self-service backend
+### Phase 2 — Move `EEEntityProvider` to the portal-scaffolder backend module
 
-**Output:** EE-definition catalog mutation owned by the self-service module; `catalog-backend-module-rhaap` delegates or drops the route.
+**Output:** EE-definition catalog mutation owned by `scaffolder-backend-module-self-service`; `catalog-backend-module-rhaap` delegates or drops the route.
 
 | Item                                                              | Notes                                                                |
 | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -585,13 +600,13 @@ on is the ANSTRAT-1758 content search surface (§4.6), not EE actions.
 
 ## 8. Open Questions
 
-| Question                                                                                 | Owner                   | Blocking                |
-| ---------------------------------------------------------------------------------------- | ----------------------- | ----------------------- |
-| Does `ansible:content:create` stay with self-service or move to a creator plugin?        | Self-service + devtools | Phase 1 package list    |
-| Does `backstage-rhaap-common` get split so self-service can drop the AAP edge? (§4.5)    | Self-service + AAP      | Phase 1                 |
-| Does the content/source logic inside `createEEDefinition.ts` stay or migrate to 1758?    | Self-service + 1758     | Phase 1 effort estimate |
-| Should `POST /ansible/ee` be retired via PR #189 rather than moved?                      | Self-service            | Phase 2                 |
-| Should `POST /ansible/ee/build` move with the EE provider or stay in the catalog module? | Self-service            | Phase 2                 |
+| Question                                                                                                      | Owner                                   | Blocking                |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------- |
+| Does `ansible:content:create` stay with `scaffolder-backend-module-self-service` or move to a creator plugin? | `@ansible/portal-scaffolder` + devtools | Phase 1 package list    |
+| Does `backstage-rhaap-common` get split so the portal-scaffolder backend module can drop the AAP edge? (§4.5) | `@ansible/portal-scaffolder` + AAP      | Phase 1                 |
+| Does the content/source logic inside `createEEDefinition.ts` stay or migrate to 1758?                         | `@ansible/portal-scaffolder` + 1758     | Phase 1 effort estimate |
+| Should `POST /ansible/ee` be retired via PR #189 rather than moved?                                           | `@ansible/portal-scaffolder`            | Phase 2                 |
+| Should `POST /ansible/ee/build` move with the EE provider or stay in the catalog module?                      | `@ansible/portal-scaffolder`            | Phase 2                 |
 
 ---
 
