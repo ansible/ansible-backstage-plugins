@@ -199,6 +199,70 @@ PR 744 introduces a new package for RHDH 2.1 Native Federation Scope (NFS):
 This package is **not in the architecture §2.2 layout** but is required for RHDH 2.1
 compatibility. Target name: `aap-app-auth` (under `workspaces/aap/`).
 
+### 2.7 Frontend — `@ansible/plugin-backstage-self-service`
+
+**Package:** `@ansible/plugin-backstage-self-service`
+**Backstage role:** `frontend-plugin` (`pluginId: self-service`)
+**Directory:** `plugins/self-service/`
+
+The self-service plugin is the primary consumer-facing UI for AAP automation. While its
+refactor is owned by ANSTRAT-2497, this section documents its current-state imports from
+`backstage-rhaap-common` so that post-split import expectations are clear.
+
+**Imports from `@ansible/backstage-rhaap-common` (via deep subpaths):**
+
+| Import                                | Subpath             | Used in                                                                                        |
+| ------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| `executionEnvironmentsViewPermission` | `/permissions`      | `SidebarItems.tsx`, `EERoutesPage.tsx`, `RouteView.tsx`                                        |
+| `collectionsViewPermission`           | `/permissions`      | `SidebarItems.tsx`, `CollectionsCatalogPage.tsx`, `CollectionDetailsPage.tsx`, `RouteView.tsx` |
+| `gitRepositoriesViewPermission`       | `/permissions`      | `SidebarItems.tsx`, `GitRepositoriesPage.tsx`, `RepositoryDetailsPage.tsx`, `RouteView.tsx`    |
+| `templatesViewPermission`             | `/permissions`      | `SidebarItems.tsx`, `Home.tsx`, `RouteView.tsx`                                                |
+| `historyViewPermission`               | `/permissions`      | `SidebarItems.tsx`, `TaskList.tsx`, `RouteView.tsx`                                            |
+| `compareVersions`                     | `/constants`        | `CollectionsCatalog/utils.ts`                                                                  |
+| `SCM_INTEGRATION_AUTH_FAILED_CODE`    | `/constants`        | `common/fetchReadme.ts`, re-exported from `common/index.ts`                                    |
+| `SourceVersionDetail` (type)          | Barrel (`index.ts`) | `CollectionsPicker/CollectionsPickerExtension.tsx`                                             |
+
+**Routable extensions (6):**
+
+| Extension             | Mount point               | Route                        |
+| --------------------- | ------------------------- | ---------------------------- |
+| `SelfServicePage`     | `rootRouteRef`            | `/self-service/*`            |
+| `EEPage`              | `eeRouteRef`              | `/self-service/ee`           |
+| `CollectionsPage`     | `collectionsRouteRef`     | `/self-service/collections`  |
+| `GitRepositoriesPage` | `gitRepositoriesRouteRef` | `/self-service/repositories` |
+| `TemplatesPage`       | `templatesRouteRef`       | `/self-service` (templates)  |
+| `HistoryPage`         | `historyRouteRef`         | `/self-service/create/tasks` |
+
+**Component extensions (6):** `LocationListener`, `AppThemeFixer`, `AAPLogoutButton`,
+`EEBuilderSidebarItem`, `CollectionsSidebarItem`, `GitRepositoriesSidebarItem`,
+`TemplatesSidebarItem`, `HistorySidebarItem`.
+
+**Scaffolder field extensions (11 exported from `src/index.ts`):**
+
+| Extension                                  | Data source                                       |
+| ------------------------------------------ | ------------------------------------------------- |
+| `AAPTokenFieldExtension`                   | AAP OAuth token                                   |
+| `AAPResourcePickerExtension`               | AAP APIs via plugin apis                          |
+| `CollectionsPickerFieldExtension`          | Autocomplete (`aap-api-cloud`) — content boundary |
+| `BaseImagePickerFieldExtension`            | Static schema — content boundary                  |
+| `FileUploadPickerFieldExtension`           | File upload UX                                    |
+| `PackagesPickerFieldExtension`             | Pure form UX (enum/schema driven)                 |
+| `AdditionalBuildStepsPickerFieldExtension` | Pure form UX                                      |
+| `EEFileNamePickerFieldExtension`           | Catalog entity ref lookup                         |
+| `EETagsPickerFieldExtension`               | Pure form UX                                      |
+| `ScmSelectorFieldExtension`                | SCM provider selection UX                         |
+| `MCPServersPickerFieldExtension`           | Being removed (not shipped to GA)                 |
+
+**Custom API factories (3):** `AAPApis` (`ansibleApiRef` — sync triggers, user job templates),
+`AapAuthApi` (`rhAapAuthApiRef` — AAP OAuth2 via `rhaap` provider),
+`EEBuildApis` (`eeBuildApiRef` — EE build trigger).
+
+**Post-split import expectations:** Permissions and `compareVersions` move to `aap-common`.
+`SCM_INTEGRATION_AUTH_FAILED_CODE` and `SourceVersionDetail` stay on the `backstage-rhaap-common`
+shim (content-boundary — not AAP). Once the content workspace exists, those imports
+relocate there. Self-service never imports `AAPClient`, `ansibleServiceRef`, or
+`IAAPService` — it communicates with the backend entirely via Backstage proxy/API routes.
+
 ---
 
 ## 3. Target Package Layout
@@ -644,8 +708,48 @@ AAP workspace. Each module's `export-dynamic` script updates to:
 --embed-package @ansible/aap-common --embed-package @ansible/aap-node
 ```
 
-This is a direct replacement — one shared common package becomes two, both still embedded
-by every AAP backend module that needs them.
+**RHDH production deployment — `aap-backend` as a mandatory dynamic plugin:**
+
+In the dev monolith (`packages/backend/src/index.ts`), `ansibleServiceFactory` is
+registered via `backend.add()`. RHDH does not use the monolith backend — it loads
+separate dynamic plugin artifacts. Since `aap-common` and `aap-node` contain only
+types and the service ref (no factory, no `AAPClient`), a mechanism is needed to
+register the service implementation at runtime.
+
+The recommended approach is to ship `@ansible/aap-backend` as a **standalone dynamic
+plugin** that operators add to `dynamic-plugins.yaml`. On startup it registers
+`ansibleServiceFactory`, which backs `ansibleServiceRef` for all other modules.
+The other AAP backend modules only embed `aap-common` + `aap-node` (types and the
+service ref) — they receive the `AAPClient` implementation via dependency injection.
+
+```yaml
+# dynamic-plugins.yaml (RHDH)
+- package: @ansible/aap-backend                          # NEW — registers ansibleServiceFactory
+  disabled: false
+- package: @ansible/backstage-plugin-catalog-backend-module-aap
+  disabled: false
+  pluginConfig:                                          # embeds type-only packages
+    dynamicPlugins:
+      embed:
+        - '@ansible/aap-common'
+        - '@ansible/aap-node'
+- package: @ansible/plugin-scaffolder-backend-module-aap
+  disabled: false
+  pluginConfig:
+    dynamicPlugins:
+      embed:
+        - '@ansible/aap-common'
+        - '@ansible/aap-node'
+```
+
+**Load order:** RHDH resolves service refs lazily, so `aap-backend` does not need to
+load before the other modules — it just needs to be present. Backstage's service
+registry wires the factory to the ref regardless of registration order.
+
+**Transition plan:** During migration, operators who still use the old monolithic
+`backstage-rhaap-common` embed continue to work. The shim (§4.9) re-exports the
+factory, so existing `--embed-package @ansible/backstage-rhaap-common` deployments
+are not broken. Once operators migrate to the new packages, the shim is removed.
 
 ### 4.8 Frontend URL stability
 
@@ -682,17 +786,17 @@ sibling spikes.
 **Output:** Complete inventory of every export, method, type, config path, and permission
 in `backstage-rhaap-common`, classified into target packages. Decision record.
 
-| Item                                                                                                      | Status                |
-| --------------------------------------------------------------------------------------------------------- | --------------------- |
-| Inventory of `backstage-rhaap-common` barrel exports                                                      | Done — `exports.yaml` |
-| Classify each export as KEEP (aap-common) / MOVE (aap-node, aap-backend) / REMOVE (content, self-service) | Done                  |
-| IAAPService method audit (37 methods → 35 AAP + 2 PAH)                                                    | Done                  |
-| Permission audit (5 permissions, 2 purely AAP)                                                            | Done                  |
-| Config path ownership map                                                                                 | Done                  |
-| ScmClient classification (out of AAP)                                                                     | Done                  |
-| Decision record — 4-package split accepted                                                                | Done                  |
-| Cross-spike dependency matrix with AAP-95782, AAP-95785                                                   | Done                  |
-| Document PR 744 constraints on frontend/auth packaging                                                    | Done                  |
+| Item                                                                                                      | Status                              |
+| --------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Inventory of `backstage-rhaap-common` barrel exports                                                      | Captured in §2–3 and Appendix B     |
+| Classify each export as KEEP (aap-common) / MOVE (aap-node, aap-backend) / REMOVE (content, self-service) | Captured in §3.1–3.6 and Appendix B |
+| IAAPService method audit (37 methods → 35 AAP + 2 PAH)                                                    | Captured in §4.2 and Appendix A     |
+| Permission audit (5 permissions, 2 purely AAP)                                                            | Captured in §3.1 and §4.4           |
+| Config path ownership map                                                                                 | Captured in §4.6                    |
+| ScmClient classification (out of AAP)                                                                     | Captured in §4.5                    |
+| Decision record — 4-package split accepted                                                                | Captured in §4.1                    |
+| Cross-spike dependency matrix with AAP-95782, AAP-95785                                                   | Captured in §8                      |
+| Document PR 744 constraints on frontend/auth packaging                                                    | Captured in §7.1                    |
 
 ---
 
@@ -882,15 +986,15 @@ begins:
 
 ## 9. Documentation Deliverables
 
-| Document                            | Location                                                   | Status      |
-| ----------------------------------- | ---------------------------------------------------------- | ----------- |
-| This implementation guide           | `docs/next/aap-integration-implementation-guide.md`        | This file   |
-| Phase 0 inventory (YAML)            | Spike working tree (`inventory/exports.yaml`)              | Done        |
-| Decision record                     | Spike working tree (`decisions/ADR-module-boundaries.md`)  | Done        |
-| Cross-spike coordination matrix     | Spike working tree (`09-CROSS-SPIKE-COORDINATION.md`)      | Done        |
-| Per-package README after split      | `plugins/aap-common/README.md`, `aap-node/README.md`, etc. | Not started |
-| Dynamic plugin registration guide   | `docs/plugins/aap-integration.md`                          | Not started |
-| Migration guide (old imports → new) | `docs/sdk/migration-aap-packages.md`                       | Not started |
+| Document                            | Location                                                      | Status                 |
+| ----------------------------------- | ------------------------------------------------------------- | ---------------------- |
+| This implementation guide           | `docs/next/aap-integration-implementation-guide.md`           | This file              |
+| Phase 0 inventory                   | Inline in §2–3, §3.1–3.6, and Appendix A/B                    | Captured in this guide |
+| Decision record                     | Inline in §4.1 (4-package split) and §4.3 (no defaultFactory) | Captured in this guide |
+| Cross-spike coordination matrix     | Inline in §8 (sequencing matrix)                              | Captured in this guide |
+| Per-package README after split      | `plugins/aap-common/README.md`, `aap-node/README.md`, etc.    | Not started            |
+| Dynamic plugin registration guide   | `docs/plugins/aap-integration.md`                             | Not started            |
+| Migration guide (old imports → new) | `docs/sdk/migration-aap-packages.md`                          | Not started            |
 
 ---
 
