@@ -68,9 +68,11 @@ export const CatalogItemsDetails = () => {
     void fetchTasks();
   }, [fetchTasks]);
 
-  const cleanUpAfterRemoval = async () => {
-    setConfirmationDialogOpen(false);
-    navigate(rootRoute());
+  const cleanUpAfterRemoval = () => {
+    return Promise.resolve().then(() => {
+      setConfirmationDialogOpen(false);
+      navigate(rootRoute());
+    });
   };
 
   if (loading) {

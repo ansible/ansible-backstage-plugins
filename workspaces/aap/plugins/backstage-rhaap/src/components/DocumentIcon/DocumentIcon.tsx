@@ -30,6 +30,8 @@ export const DocumentIcon = () => {
   const classes = useStyles();
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
       width="18"
       height="18"
       viewBox="0 0 18 18"

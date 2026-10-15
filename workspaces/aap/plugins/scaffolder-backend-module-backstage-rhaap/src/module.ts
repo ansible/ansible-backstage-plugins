@@ -71,7 +71,7 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth: coreServices.auth,
         discovery: coreServices.discovery,
       },
-      async init({
+      init({
         scaffolder,
         config,
         logger,
@@ -81,51 +81,53 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth,
         discovery,
       }) {
-        const frontendUrl = config.getString('app.baseUrl');
-        scaffolder.addActions(
-          createAnsibleContentAction(config),
-          createProjectAction(ansibleService),
-          createExecutionEnvironment(ansibleService),
-          createJobTemplate(ansibleService),
-          launchJobTemplate(ansibleService, config),
-          cleanUp(ansibleService),
-          createEEDefinitionAction({
-            frontendUrl,
-            auth,
-            discovery,
-            config,
-          }),
-          prepareForPublishAction({
-            rootConfig: config,
-          }),
-        );
-        scaffolderTemplating.addTemplateFilters({
-          useCaseNameFilter: useCaseNameFilter,
-          resourceFilter: resourceFilter,
-          multiResourceFilter: multiResourceFilter,
-          uuidFilter: uuidFilter,
-        });
-        autocomplete.addAutocompleteProvider({
-          id: 'aap-api-cloud',
-          handler: ({
-            resource,
-            token,
-            context,
-          }: {
-            resource: string;
-            token: string;
-            context: Record<string, string>;
-          }): Promise<{ results: any[] }> =>
-            handleAutocompleteRequest({
+        return Promise.resolve().then(() => {
+          const frontendUrl = config.getString('app.baseUrl');
+          scaffolder.addActions(
+            createAnsibleContentAction(config),
+            createProjectAction(ansibleService),
+            createExecutionEnvironment(ansibleService),
+            createJobTemplate(ansibleService),
+            launchJobTemplate(ansibleService, config),
+            cleanUp(ansibleService),
+            createEEDefinitionAction({
+              frontendUrl,
+              auth,
+              discovery,
+              config,
+            }),
+            prepareForPublishAction({
+              rootConfig: config,
+            }),
+          );
+          scaffolderTemplating.addTemplateFilters({
+            useCaseNameFilter: useCaseNameFilter,
+            resourceFilter: resourceFilter,
+            multiResourceFilter: multiResourceFilter,
+            uuidFilter: uuidFilter,
+          });
+          autocomplete.addAutocompleteProvider({
+            id: 'aap-api-cloud',
+            handler: ({
               resource,
               token,
               context,
-              config,
-              logger,
-              ansibleService,
-              auth,
-              discovery,
-            }),
+            }: {
+              resource: string;
+              token: string;
+              context: Record<string, string>;
+            }): Promise<{ results: any[] }> =>
+              handleAutocompleteRequest({
+                resource,
+                token,
+                context,
+                config,
+                logger,
+                ansibleService,
+                auth,
+                discovery,
+              }),
+          });
         });
       },
     });
