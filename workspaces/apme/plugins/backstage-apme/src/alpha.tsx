@@ -176,8 +176,9 @@ export const apmeQualityTab = EntityDetailTabBlueprint.make({
     enabledByConfig: 'ansible.apme.enabled',
     requiredEntitlements: ['apme.scanning'],
     loader: async ({ entity }) => {
-      const { NativeEntityQualityTab } =
-        await import('./components/EntityQualityTab/NativeEntityQualityTab');
+      const { NativeEntityQualityTab } = await import(
+        './components/EntityQualityTab/NativeEntityQualityTab'
+      );
       return compatWrapper(<NativeEntityQualityTab entity={entity} />);
     },
   },
@@ -207,8 +208,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         icon: <AssessmentIcon />,
         noHeader: true,
         loader: async () => {
-          const { ContentQualityPage } =
-            await import('./components/ContentQuality/ContentQualityPage');
+          const { ContentQualityPage } = await import(
+            './components/ContentQuality/ContentQualityPage'
+          );
           return compatWrapper(
             <ContentQualityPage catalogTabId={fleetEntry.id} />,
           );
@@ -234,7 +236,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
             { GitHubRepoUrlFieldFieldSchema },
             { githubRepoUrlValidation },
           ] = await Promise.all([
-            import('./components/Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension'),
+            import(
+              './components/Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension'
+            ),
             import('./components/Scaffolder/GitHubRepoUrlField/schema'),
             import('./components/Scaffolder/GitHubRepoUrlField/validation'),
           ]);
@@ -259,8 +263,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         tooltip:
           'Open quality violations and highest severity from APME scans.',
         loader: async ({ entity }) => {
-          const { ApmeViolationsCell } =
-            await import('./apis/apmeViolationsCell');
+          const { ApmeViolationsCell } = await import(
+            './apis/apmeViolationsCell'
+          );
           return compatWrapper(<ApmeViolationsCell entity={entity} />);
         },
       },
@@ -294,8 +299,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         attachment: 'catalog.tabs',
         enabledByConfig: 'ansible.apme.enabled',
         loader: async ({ entityDetailPath }) => {
-          const { FleetQualityTab } =
-            await import('./components/FleetQualityTab');
+          const { FleetQualityTab } = await import(
+            './components/FleetQualityTab'
+          );
           return compatWrapper(
             <FleetQualityTab
               repositoryDetailPath={(name, rule) =>
@@ -347,8 +353,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         enabledByConfig: 'ansible.apme.enabled',
         requiredEntitlements: ['apme.scanning'],
         loader: async ({ entity }) => {
-          const { EntityQualityActivityTab } =
-            await import('./components/EntityQualityActivityTab');
+          const { EntityQualityActivityTab } = await import(
+            './components/EntityQualityActivityTab'
+          );
           return compatWrapper(<EntityQualityActivityTab entity={entity} />);
         },
       },
@@ -362,8 +369,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         attachment: 'entity.detail.tabs',
         enabledByConfig: 'ansible.apme.enabled',
         loader: async ({ entity }) => {
-          const { DependenciesTab } =
-            await import('./components/DependenciesTab/DependenciesTab');
+          const { DependenciesTab } = await import(
+            './components/DependenciesTab/DependenciesTab'
+          );
           return compatWrapper(
             <DependenciesTab
               context={{ entity, repoUrl: normalizeRepoUrlFromEntity(entity) }}
@@ -411,8 +419,9 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
         enabledByConfig: 'ansible.apme.enabled',
         requiredEntitlements: ['apme.scanning'],
         loader: async ({ entity, openDetails }) => {
-          const { ApmeRepositoryOverviewCard } =
-            await import('./components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard');
+          const { ApmeRepositoryOverviewCard } = await import(
+            './components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard'
+          );
           return compatWrapper(
             <ApmeRepositoryOverviewCard
               context={{ entity }}

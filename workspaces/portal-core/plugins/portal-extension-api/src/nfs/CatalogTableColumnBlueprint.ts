@@ -5,10 +5,8 @@ import {
 import type { EntityDetailTabDescriptor } from './EntityDetailTabBlueprint';
 import { PORTAL_CONTRIBUTIONS_ATTACHMENT } from './contributions';
 
-export interface CatalogTableColumnDescriptor extends Omit<
-  EntityDetailTabDescriptor,
-  'attachment'
-> {
+export interface CatalogTableColumnDescriptor
+  extends Omit<EntityDetailTabDescriptor, 'attachment'> {
   attachment: 'catalog.table.columns';
   tooltip?: string;
 }

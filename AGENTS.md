@@ -11,7 +11,7 @@ Ansible plugins for Red Hat Developer Hub (RHDH) / Backstage. A monorepo of plug
 ### Setup
 
 ```bash
-./install-deps          # Install all dependencies (run first)
+./install-deps          # Install all dependencies (run first); includes pre-commit CLI for git hooks
 ```
 
 ### Build & Run
@@ -38,24 +38,37 @@ yarn test:e2e                                          # Run Playwright e2e test
 ```bash
 yarn lint               # Lint changes since origin/main
 yarn lint:all           # Lint everything
-yarn tsc                # TypeScript type check
+yarn tsc                # TypeScript type check (full repo)
 yarn tsc:full           # Full TypeScript check (no skipLibCheck)
 yarn fix                # Auto-fix lint issues
 yarn prettier:check     # Check formatting
+
+# Fast feedback — single file or package (use while iterating)
+npx eslint --fix workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx   # run from repo root; resolves the plugin's own .eslintrc.js
+npx prettier --write workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx
+yarn workspace <package> test path/to/File.test.tsx --watch=false
+yarn workspace <package> lint                # package-scoped lint (backstage-cli package lint)
+npx tsc --noEmit -p workspaces/<workspace>/plugins/<plugin>   # package-scoped type check; faster than yarn tsc
+# Note: `yarn workspace <package> exec <bin>` does NOT put node_modules/.bin on PATH in this
+# repo (Yarn 4, nodeLinker: node-modules) — prefer `npx <bin>` or the package.json scripts above.
 ```
 
 ## Architecture
 
 ### Plugin Map
 
-| Directory                                           | Package Name                                                   | Role                                                                | Type            |
-| --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- | --------------- |
-| `plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions                   | Common library  |
-| `plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                    | Frontend plugin |
-| `plugins/self-service`                              | `@ansible/plugin-backstage-self-service`                       | Self-service UI (job templates, EE builder, collections, git repos) | Frontend plugin |
-| `plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog               | Backend module  |
-| `plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                                   | Backend module  |
-| `plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                            | Backend module  |
+This branch organizes plugins into workspaces by ownership: `aap`, `apme`, `portal-core`, and `self-service`.
+
+| Directory                                                          | Package Name                                                   | Role                                                            | Type            |
+| ------------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------- | --------------- |
+| `workspaces/aap/plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions               | Common library  |
+| `workspaces/aap/plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                | Frontend plugin |
+| `workspaces/self-service/plugins/portal-scaffolder`                | `@ansible/portal-scaffolder`                                   | Self-service UI (templates, tasks, EEs, collections, git repos) | Frontend plugin |
+| `workspaces/aap/plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog           | Backend module  |
+| `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                               | Backend module  |
+| `workspaces/aap/plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                        | Backend module  |
+| `workspaces/portal-core/plugins/portal-core`                       | `@ansible/portal-core`                                         | Native frontend host and configurable navigation                | Frontend plugin |
+| `workspaces/portal-core/plugins/portal-plugin-sdk`                 | `@ansible/portal-plugin-sdk`                                   | Reusable frontend components, context, and utilities            | Frontend SDK    |
 
 ### Core Service Pattern
 
@@ -132,8 +145,10 @@ Plugins support deployment as dynamic plugins in RHDH. Each plugin has a `dist-d
 - Node.js 20 or 22, Yarn 4 (via Corepack), TypeScript ~5.8, Backstage ^0.33.1
 - Tests co-located with source files (`.test.ts` / `.test.tsx`), mock data in `mock/` directories
 - Uses `msw` for API mocking in tests, `supertest` for backend route testing
-- Pre-commit hooks via Husky: ESLint + Prettier on staged files
+- Pre-commit hooks (`.pre-commit-config.yaml`): `./install-deps` installs the pre-commit CLI; Husky runs `pre-commit` on commit (ESLint, Prettier, gitleaks, and file checks)
+- AI commit attribution: use `Assisted-by: <tool>` or `Generated by <tool>` (no email required) — `Co-authored-by` for AI tools is rejected by the `commit-msg` hook
 - Workspace references use `workspace:^` in package.json
+- Import boundaries enforced by ESLint (`.config/eslint-architecture.js`): frontend plugins must not import backend modules or AAP/SCM clients from the common barrel; backend modules must not import frontend plugins; `backstage-rhaap-common` must not import other plugins
 
 ## Guidelines for AI Agents
 

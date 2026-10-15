@@ -41,10 +41,7 @@ describe('HomeCategoryPicker', () => {
     });
   });
 
-  const renderPicker = (
-    filters: Record<string, unknown> = {},
-    syncKey = 0,
-  ) =>
+  const renderPicker = (filters: Record<string, unknown> = {}, syncKey = 0) =>
     render(
       <TestApiProvider
         apis={[

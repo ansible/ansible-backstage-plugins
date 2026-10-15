@@ -234,7 +234,9 @@ export async function getUserJobTemplateIds(page: Page): Promise<number[]> {
       if (!jtRes.ok) return [];
       const jtData = await jtRes.json();
       const items: any[] = Array.isArray(jtData?.items) ? jtData.items : [];
-      return items.map(item => item.id).filter((id): id is number => typeof id === 'number');
+      return items
+        .map(item => item.id)
+        .filter((id): id is number => typeof id === 'number');
     },
     { provider: authProvider, env: authEnv },
   );

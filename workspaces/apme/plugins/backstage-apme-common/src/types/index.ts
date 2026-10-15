@@ -15,7 +15,12 @@
  */
 
 export type Severity =
-  'blocker' | 'critical' | 'high' | 'medium' | 'low' | 'info';
+  | 'blocker'
+  | 'critical'
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'info';
 
 export type RemediationClass = 1 | 2 | 3 | 9; // 1=auto, 2=assisted, 3=manual, 9=none
 

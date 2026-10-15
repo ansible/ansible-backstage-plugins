@@ -7,10 +7,8 @@ import type { EntityActionDescriptor } from './EntityActionBlueprint';
 import { PORTAL_CONTRIBUTIONS_ATTACHMENT } from './contributions';
 
 /** Row-scoped operation; placement and navigation belong to the host. */
-export interface CatalogItemActionDescriptor extends Omit<
-  EntityDetailTabDescriptor,
-  'attachment' | 'loader'
-> {
+export interface CatalogItemActionDescriptor
+  extends Omit<EntityDetailTabDescriptor, 'attachment' | 'loader'> {
   attachment: 'catalog.item.actions';
   confirmation?: EntityActionDescriptor['confirmation'];
   completion?: EntityActionDescriptor['completion'];
