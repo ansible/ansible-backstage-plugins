@@ -14,6 +14,22 @@
  * limitations under the License.
  */
 
+/**
+ * @deprecated This monolithic module has been split into two packages:
+ *
+ * - `@ansible/plugin-scaffolder-backend-module-aap` — AAP integration actions (rhaap:*),
+ *   template filters, and the aap-api-cloud autocomplete provider.
+ *   Located at `workspaces/aap/plugins/scaffolder-backend-module-aap/`.
+ *
+ * - `@ansible/plugin-scaffolder-backend-module-self-service` — EE definition authoring
+ *   and publish actions (ansible:content:create, ansible:create:ee-definition,
+ *   ansible:prepare:publish).
+ *   Located at `workspaces/self-service/plugins/scaffolder-backend-module-self-service/`.
+ *
+ * This package remains temporarily as a backward-compatible shim that registers both
+ * modules. Migrate to importing the individual packages directly, then remove this one.
+ */
+
 import {
   coreServices,
   createBackendModule,
@@ -54,7 +70,12 @@ const scaffolderActionsExtensionPoint = ((
 
 /**
  * @public
- * The Ansible Module for the Scaffolder Backend
+ * @deprecated Use `@ansible/plugin-scaffolder-backend-module-aap` and
+ * `@ansible/plugin-scaffolder-backend-module-self-service` instead.
+ *
+ * This monolithic module registers all scaffolder actions, filters, and
+ * autocomplete providers. It exists only for backward compatibility during
+ * the migration to the split packages.
  */
 export const scaffolderModuleAnsible = createBackendModule({
   pluginId: 'scaffolder',
@@ -81,6 +102,12 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth,
         discovery,
       }) {
+        logger.warn(
+          '@ansible/plugin-scaffolder-backend-module-backstage-rhaap is deprecated. ' +
+            'Migrate to @ansible/plugin-scaffolder-backend-module-aap and ' +
+            '@ansible/plugin-scaffolder-backend-module-self-service.',
+        );
+
         const frontendUrl = config.getString('app.baseUrl');
         scaffolder.addActions(
           createAnsibleContentAction(config),
