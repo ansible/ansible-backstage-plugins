@@ -52,7 +52,7 @@ describe('GlobalHeader', () => {
     render(<GlobalHeader />);
 
     // Title/link present
-    expect(screen.getByText('Ansible RHDH')).toBeInTheDocument();
+    expect(screen.getByText('Automation Portal')).toBeInTheDocument();
 
     // Search input - placeholder and aria-label
     const input = screen.getByPlaceholderText('Search...') as HTMLInputElement;

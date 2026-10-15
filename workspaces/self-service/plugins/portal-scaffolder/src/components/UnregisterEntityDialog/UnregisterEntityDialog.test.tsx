@@ -40,7 +40,7 @@ const mockCatalogApi = {
 
 const mockConfigApi = {
   getOptionalString: jest.fn(
-    (_key: string): string | undefined => 'Ansible RHDH',
+    (_key: string): string | undefined => 'Automation Portal',
   ),
 };
 

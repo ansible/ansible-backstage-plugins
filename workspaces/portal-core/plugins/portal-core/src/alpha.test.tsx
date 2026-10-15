@@ -23,6 +23,7 @@ it('keeps the contribution APIs without a duplicate Portal catalog or entity UI'
     portalPlugin as unknown as { extensions: Array<{ id: string }> }
   ).extensions;
   expect(extensions.map(extension => extension.id)).toEqual([
+    'app-root-element:portal/theme-baseline',
     'page:portal/landing',
     'api:portal/contributions',
     'api:portal/operations',

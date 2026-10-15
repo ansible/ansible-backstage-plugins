@@ -1,4 +1,4 @@
-# Ansible RHDH / Self-Service Configuration
+# Automation Portal Configuration
 # 
 # This configuration includes a DYNAMIC RBAC solution for AAP superusers:
 # 
@@ -17,7 +17,7 @@
 #
 
 app:
-  title: Ansible RHDH / Self-Service
+  title: Automation Portal
   baseUrl: http://localhost:3000
   extensions:
     - nav-content:app/sidebar: false
@@ -54,7 +54,7 @@ portal:
         title: Settings
         placement: bottom
 organization:
-  name: Ansible RHDH
+  name: Automation Portal
 backend:
   auth:
     keys:
