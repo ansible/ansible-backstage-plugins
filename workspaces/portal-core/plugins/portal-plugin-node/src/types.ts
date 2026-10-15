@@ -13,24 +13,22 @@
  * `createIdentityMiddleware`. Every route handler that needs the caller's
  * identity reads from here — it does **not** accept caller-supplied IDs.
  *
- * `organizationId` is derived from the Backstage user entity ref namespace:
- * - `user:default/johndoe` → `organizationId = 'default'`
- * - `user:acme-corp/jane.doe` → `organizationId = 'acme-corp'`
- *
- * In single-org deployments the namespace is always `'default'`. This is
- * intentional — even single-org deployments key every query by org so that
- * adding a second org later never requires a schema migration.
+ * `organizationId` comes from the injected host organization resolver, not
+ * the user namespace or request input. Catalog placement is a separate,
+ * explicit host policy; it is not proof of organization membership.
  */
 export interface PortalContext {
   /** Full Backstage entity reference (e.g. `user:default/johndoe`). */
   userEntityRef: string;
-  /** Username extracted from the entity ref (e.g. `johndoe`). */
+  /** Catalog user name; may be ID-based and is not necessarily the AAP login. */
   userId: string;
   /**
-   * Organization derived from the entity ref namespace.
+   * Trusted active organization resolved by the host.
    * Use this as the partition key on every database query.
    */
-  organizationId: string;
+  organizationId?: string;
+  /** Trusted memberships when there is no single active organization. */
+  organizationIds?: readonly string[];
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -70,7 +68,9 @@ export interface AuditEvent {
   /** User who invoked the operation (from `req.portalContext.userId`). */
   userId: string;
   /** Organization for this invocation (from `req.portalContext.organizationId`). */
-  organizationId: string;
+  organizationId?: string;
+  /** Membership context; not ownership of the operation's resource. */
+  organizationIds?: readonly string[];
   /** Sanitised input payload (no secrets). */
   input?: Record<string, unknown>;
   /** Whether the operation succeeded or failed. */

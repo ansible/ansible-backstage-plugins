@@ -1,129 +1,72 @@
-/* eslint-disable no-console */
 import { renderHook, waitFor } from '@testing-library/react';
 import { usePortalContext } from './usePortalContext';
-import { identityApiRef } from '@backstage/core-plugin-api';
+import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { TestApiProvider } from '@backstage/test-utils';
 import type { ReactNode } from 'react';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const makeIdentityApi = (userEntityRef: string | undefined) => ({
-  getBackstageIdentity: jest.fn().mockResolvedValue({ userEntityRef }),
-  getCredentials: jest.fn(),
-  getProfileInfo: jest.fn(),
-  signOut: jest.fn(),
-});
-
-const makeWrapper =
-  (userEntityRef: string | undefined) =>
-  ({ children }: { children: ReactNode }) => (
-    <TestApiProvider apis={[[identityApiRef, makeIdentityApi(userEntityRef)]]}>
+describe('host-resolved Portal context', () => {
+  const fetch = jest.fn();
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <TestApiProvider
+      apis={[
+        [discoveryApiRef, { getBaseUrl: async () => '/api/portal-operations' }],
+        [fetchApiRef, { fetch }],
+      ]}
+    >
       {children}
     </TestApiProvider>
   );
-
-const makeFailWrapper =
-  (error: Error) =>
-  ({ children }: { children: ReactNode }) => {
-    const failingApi = {
-      getBackstageIdentity: jest.fn().mockRejectedValue(error),
-      getCredentials: jest.fn(),
-      getProfileInfo: jest.fn(),
-      signOut: jest.fn(),
-    };
-    return (
-      <TestApiProvider apis={[[identityApiRef, failingApi]]}>
-        {children}
-      </TestApiProvider>
-    );
-  };
-
-// ── usePortalContext ──────────────────────────────────────────────────────────
-
-describe('usePortalContext', () => {
   beforeEach(() => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.resetAllMocks();
   });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('returns the namespace as organizationId', async () => {
-    const { result } = renderHook(() => usePortalContext(), {
-      wrapper: makeWrapper('user:red-hat/alice'),
+  it('does not interpret default namespace as an AAP organization', async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        userEntityRef: 'user:default/aap-user-42',
+        organizationIds: ['engineering', 'finance'],
+      }),
     });
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.organizationId).toBe('red-hat');
-    expect(result.current.error).toBeNull();
-  });
-
-  it('returns "default" for the default namespace', async () => {
-    const { result } = renderHook(() => usePortalContext(), {
-      wrapper: makeWrapper('user:default/alice'),
-    });
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.organizationId).toBe('default');
-  });
-
-  it('falls back to "default" when userEntityRef is undefined (guest)', async () => {
-    const { result } = renderHook(() => usePortalContext(), {
-      wrapper: makeWrapper(undefined),
-    });
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.organizationId).toBe('default');
-    expect(result.current.error).toBeNull();
-  });
-
-  it('starts in loading state with empty organizationId', () => {
-    const { result } = renderHook(() => usePortalContext(), {
-      wrapper: makeWrapper('user:default/alice'),
-    });
-
-    expect(result.current.loading).toBe(true);
-    expect(result.current.organizationId).toBe('');
-  });
-
-  it('sets error and falls back to "default" when identity API rejects', async () => {
-    const { result } = renderHook(() => usePortalContext(), {
-      wrapper: makeFailWrapper(new Error('Auth failure')),
-    });
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.error).toBeInstanceOf(Error);
-    expect(result.current.error?.message).toBe('Auth failure');
-    expect(result.current.organizationId).toBe('default');
-  });
-
-  it('wraps non-Error rejections in an Error', async () => {
-    const wrapper = ({ children }: { children: ReactNode }) => {
-      const api = {
-        getBackstageIdentity: jest.fn().mockRejectedValue('string error'),
-        getCredentials: jest.fn(),
-        getProfileInfo: jest.fn(),
-        signOut: jest.fn(),
-      };
-      return (
-        <TestApiProvider apis={[[identityApiRef, api]]}>
-          {children}
-        </TestApiProvider>
-      );
-    };
-
     const { result } = renderHook(() => usePortalContext(), { wrapper });
-
     await waitFor(() => expect(result.current.loading).toBe(false));
-
+    expect(result.current.organizationIds).toEqual(['engineering', 'finance']);
+    expect(result.current.organizationId).toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith('/api/portal-operations/context');
+  });
+  it('preserves a single unambiguous organization', async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        userEntityRef: 'user:default/alice',
+        organizationId: 'engineering',
+      }),
+    });
+    const { result } = renderHook(() => usePortalContext(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.organizationIds).toEqual(['engineering']);
+    expect(result.current.organizationId).toBe('engineering');
+  });
+  it('fails closed instead of falling back to default on auth errors', async () => {
+    fetch.mockResolvedValue({ ok: false, status: 401 });
+    const { result } = renderHook(() => usePortalContext(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.organizationIds).toEqual([]);
+    expect(result.current.organizationId).toBeUndefined();
     expect(result.current.error).toBeInstanceOf(Error);
+  });
+  it('rejects malformed membership data', async () => {
+    fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        userEntityRef: 'user:default/alice',
+        organizationIds: [42],
+      }),
+    });
+    const { result } = renderHook(() => usePortalContext(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error?.message).toBe(
-      'Failed to resolve portal context',
+      'Invalid Portal organization context',
     );
+    expect(result.current.organizationIds).toEqual([]);
   });
 });

@@ -1,22 +1,20 @@
 # Picker Content Boundary: Query Dimensions + Write Schema
 
-## ANSTRAT-2497 → ANSTRAT-1758 Boundary
+## Portal and content service boundary
 
-> **From:** Portal Plugin Factory team (ANSTRAT-2497)
-> **To:** Content Management team (ANSTRAT-1758)
-> **Date:** 2026-10-06
+> **From:** Portal Plugin Factory team
+> **To:** Content Management team
 > **Status:** Draft — supersedes previous "operation contract" proposal
-> **Context:** §7.5 of the implementation guide (`docs/next/portal-plugin-factory-implementation-guide.md`)
+> **Context:** [Content extraction and picker contracts](portal-plugin-factory-implementation-guide.md#content-extraction-and-picker-contracts)
 
 ---
 
 ## 1. Background
 
-The self-service plugin contains seven scaffolder field pickers. During Phase 6 of
-ANSTRAT-2497 (content extraction), these are split by data ownership:
+The self-service plugin contains seven scaffolder field pickers. As part of the planned content extraction, these are split by data ownership:
 
 - Pickers that query **Ansible content** (collections, EE images) — the content boundary
-  defined in this document. ANSTRAT-1758 owns the data; we own the picker widget.
+  defined in this document. The Content Management team owns the data; we own the picker widget.
 - Pickers that query **AAP resources** (organizations, inventories, projects) — continue
   to use existing AAP API routes. Not part of this contract.
 - Pickers that are **pure user-input** (tags, pip package names, file names, MCP servers,
@@ -30,7 +28,7 @@ ANSTRAT-2497 (content extraction), these are split by data ownership:
 - The **`sourceId` stability** invariant (non-negotiable — stored values must survive upgrades)
 
 **What we are NOT prescribing:** how the query is implemented. Whether sources and versions
-arrive as facets on a search query, relations, or a separate index is ANSTRAT-1758's
+arrive as facets on a search query, relations, or a separate index is the Content Management team's
 decision. The picker is a widget; we do not own the query engine.
 
 ### The two pickers in scope
@@ -70,7 +68,7 @@ interface CollectionItem {
 Currently **static** — available base images are hardcoded as a JSON schema `enum` in
 the template YAML. No API call is made at runtime.
 
-Phase 6 requires this to become dynamic — fetching available base images from the content
+The planned integration requires this to become dynamic — fetching available base images from the content
 catalog so that new AAP releases appear automatically without template edits.
 
 The value stored in the template form is:
@@ -90,11 +88,11 @@ interface EEBaseImageRef {
 
 **What the picker needs to query:**
 
-| Dimension  | Description                                                               | Notes                                                                    |
-| ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `name`     | Full-text / prefix search on collection name (e.g. "community.general")   | Powers the first autocomplete                                            |
-| `sources`  | For a selected collection: what sources carry it (PAH, Galaxy, OCI, etc.) | A relation or facet — not a separate RPC. Sources are IDs + human labels |
-| `versions` | For a selected collection + source: available versions                    | May be live-fetched or indexed — freshness is 1758's concern, not ours   |
+| Dimension  | Description                                                               | Notes                                                                                 |
+| ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `name`     | Full-text / prefix search on collection name (e.g. "community.general")   | Powers the first autocomplete                                                         |
+| `sources`  | For a selected collection: what sources carry it (PAH, Galaxy, OCI, etc.) | A relation or facet — not a separate RPC. Sources are IDs + human labels              |
+| `versions` | For a selected collection + source: available versions                    | May be live-fetched or indexed — freshness is the content service's concern, not ours |
 
 **Write schema (what we store and what must stay stable):**
 
@@ -137,7 +135,7 @@ interface EEBaseImageRef {
 ## 4. Non-Negotiable: `sourceId` Stability
 
 The `source` field in `CollectionItem` is stored inside `execution-environment.yml` files
-committed to source control. If ANSTRAT-1758 changes the opaque ID for a source across
+committed to source control. If the Content Management team changes the opaque ID for a source across
 PAH upgrades (e.g. during a re-registration), existing EE definitions silently reference
 a source that no longer exists.
 
@@ -164,18 +162,18 @@ is a fresh build; this one touches committed customer files.
 
 ---
 
-## 6. What We Commit To (ANSTRAT-2497 Side)
+## 6. What We Commit To (Portal team)
 
 Once the open questions above are answered:
 
 1. Implementing `CollectionsPicker` against the agreed query API — the cascade (name →
-   source → version) maps to the declared query dimensions regardless of how 1758
+   source → version) maps to the declared query dimensions regardless of how the content service
    implements the underlying query.
 2. Implementing `BaseImagePicker` dynamic fetching against the `usableAsBase` filter.
 3. Publishing `CollectionItem` and `EEBaseImageRef` in `portal-extension-common` as the
    stable write schemas both teams import.
 4. **Not coupling picker internals to RHDH APIs.** The picker calls our abstraction layer;
-   that layer calls 1758's client. When RHDH changes the search seam, we update the
+   that layer calls the published content client. When RHDH changes the search seam, we update the
    adapter — not the picker widget and not the template authors.
 
 ---
@@ -184,13 +182,13 @@ Once the open questions above are answered:
 
 The remaining five pickers have no content ownership dependency:
 
-| Picker             | Data source                                    | Phase 6 fate                                               |
-| ------------------ | ---------------------------------------------- | ---------------------------------------------------------- |
-| `EETagsPicker`     | User-provided free text                        | Stays in portal-scaffolder                                 |
-| `PackagesPicker`   | User-provided free text (pip package names)    | Stays in portal-scaffolder                                 |
-| `MCPServersPicker` | Static schema enum from template YAML          | Stays in portal-scaffolder                                 |
-| `AAResourcePicker` | AAP API (organizations, inventories, projects) | Stays in portal-scaffolder, continues to use AAP proxy     |
-| `ScmSelector`      | Static enum (GitHub, GitLab)                   | Stays in portal-scaffolder; may add Gitea if 1758 ships it |
+| Picker             | Data source                                    | Ownership after extraction                                                   |
+| ------------------ | ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `EETagsPicker`     | User-provided free text                        | Stays in portal-scaffolder                                                   |
+| `PackagesPicker`   | User-provided free text (pip package names)    | Stays in portal-scaffolder                                                   |
+| `MCPServersPicker` | Static schema enum from template YAML          | Stays in portal-scaffolder                                                   |
+| `AAResourcePicker` | AAP API (organizations, inventories, projects) | Stays in portal-scaffolder, continues to use AAP proxy                       |
+| `ScmSelector`      | Static enum (GitHub, GitLab)                   | Stays in portal-scaffolder; may add Gitea if the content service supports it |
 
-ANSTRAT-1758 is not blocked on any of these five. They are entirely portal-scaffolder
+The Content Management team is not blocked on any of these five. They are entirely portal-scaffolder
 owned and require no content boundary agreement.

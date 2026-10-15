@@ -2,6 +2,7 @@ import '@testing-library/jest-dom';
 import { fireEvent, screen } from '@testing-library/react';
 import { useApi } from '@backstage/core-plugin-api';
 import { useMemo } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { compatWrapper } from '@backstage/core-compat-api';
 import {
   createFrontendPlugin,
@@ -111,6 +112,29 @@ function CatalogProbe() {
     </>
   );
 }
+
+function QualityDestinationProbe() {
+  const location = useLocation();
+  const [search] = useSearchParams();
+  const context = useMemo(
+    () => ({
+      contentType: 'playbook-repository',
+      entityDetailPath: (name: string) => `/host/${name}`,
+    }),
+    [],
+  );
+  const tabs = useNativeCatalogTabs(context);
+  const tab = tabs?.find(item => item.id === search.get('catalogTab'));
+  return (
+    <>
+      <div>
+        Destination: {location.pathname}
+        {location.search}
+      </div>
+      {tab && <ExtensionTabContent contribution={tab} />}
+    </>
+  );
+}
 jest.mock('./components/EntityQualityActivityTab', () => ({
   EntityQualityActivityTab: ({
     entity,
@@ -145,6 +169,69 @@ jest.mock(
 );
 
 describe('APME NFS entry point', () => {
+  const qualityRouteFeatures = () => [
+    createFrontendPlugin({
+      pluginId: 'portal',
+      extensions: [
+        createPortalContributionProvider(),
+        PageBlueprint.make({
+          name: 'repositories',
+          params: {
+            path: '/self-service/repositories',
+            loader: async () => compatWrapper(<QualityDestinationProbe />),
+          },
+        }),
+      ],
+    }),
+    apmePlugin,
+  ];
+
+  it('discovers the Content Quality route and selects the existing fleet tab', async () => {
+    const before = contributionRegistry.getManifests();
+    await renderTestApp({
+      features: qualityRouteFeatures(),
+      config: {
+        backend: { baseUrl: 'http://localhost:7007' },
+        ansible: { apme: { enabled: true, mockMode: true } },
+      },
+      initialRouteEntries: ['/self-service/content-quality'],
+      apis: [mockApis.permission()],
+    });
+    expect(
+      await screen.findByText(
+        'Destination: /self-service/repositories/catalog?catalogTab=apme.quality-assessment.fleet-quality-tab',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', { name: 'Fleet repository' }),
+    ).toBeInTheDocument();
+    expect(contributionRegistry.getManifests()).toEqual(before);
+  });
+
+  it.each([false, undefined])(
+    'does not redirect to Quality when enablement is %s',
+    async enabled => {
+      await renderTestApp({
+        features: qualityRouteFeatures(),
+        config: {
+          backend: { baseUrl: 'http://localhost:7007' },
+          ansible: {
+            apme: {
+              ...(enabled === undefined ? {} : { enabled }),
+              mockMode: true,
+            },
+          },
+        },
+        initialRouteEntries: ['/self-service/content-quality'],
+        apis: [mockApis.permission()],
+      });
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'Content Quality is unavailable because APME is disabled.',
+      );
+      expect(screen.queryByText(/Destination:/)).not.toBeInTheDocument();
+    },
+  );
+
   it('discovers fleet, settings and rules without legacy registration', async () => {
     const before = contributionRegistry.getManifests();
     await renderTestApp({

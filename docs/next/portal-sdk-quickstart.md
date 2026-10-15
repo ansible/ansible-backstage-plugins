@@ -79,9 +79,10 @@ import type { ActionContext } from '@ansible/portal-extension-api';
 
 // This component receives the catalog entity for the current detail page.
 export function TrustSignalsTab({ entity }: ActionContext) {
-  const { organizationId, loading } = usePortalContext();
+  const { organizationIds, loading, error } = usePortalContext();
 
   if (loading) return <SkeletonLoader count={3} />;
+  if (error) return <p>Organization context is unavailable.</p>;
 
   // Use CSS custom properties injected by ContributionWrapper (no MUI import needed):
   return (
@@ -90,7 +91,7 @@ export function TrustSignalsTab({ entity }: ActionContext) {
         Trust Signals for {entity.metadata.name}
       </h3>
       <p style={{ color: 'var(--portal-color-text-secondary)' }}>
-        Org: {organizationId}
+        Organizations: {organizationIds.join(', ')}
       </p>
       {/* your content */}
     </div>
@@ -189,11 +190,13 @@ import type {
   LoggerService,
 } from '@backstage/backend-plugin-api';
 import { portalPlugin } from './portalPlugin';
+import type { ActiveOrganizationResolver } from '@ansible/portal-plugin-node';
 
 export function createRouter(options: {
   httpAuth: HttpAuthService;
   userInfo: UserInfoService;
   logger: LoggerService;
+  organizations: ActiveOrganizationResolver;
 }): import('express').Router {
   const router = Router();
 
@@ -202,19 +205,30 @@ export function createRouter(options: {
 
   router.get('/trust-signals/:repoId', async (req, res) => {
     const { repoId } = req.params;
-    const { organizationId } = req.portalContext ?? {
-      organizationId: 'default',
-    };
+    const context = req.portalContext;
+    if (!context) {
+      res
+        .status(401)
+        .json({ error: 'Authenticated Portal context is required' });
+      return;
+    }
+    const { organizationId } = context;
+    if (!organizationId) {
+      res
+        .status(403)
+        .json({ error: 'A single validated organization is required' });
+      return;
+    }
 
-    // ... fetch trust signals for this org + repo ...
+    // Apply resource RBAC before reading organization-specific plugin state.
+    // fetchTrustSignals is your domain implementation, not an SDK export.
     const signals = await fetchTrustSignals({ organizationId, repoId });
 
     portalPlugin.emitAuditEvent({
       operationId: 'my-plugin.trust-signals.read',
-      userId: req.portalContext?.userId ?? 'anonymous',
+      userId: context.userId,
       organizationId,
       outcome: 'SUCCESS',
-      resourceRef: `git-repo:${repoId}`,
     });
 
     res.json(signals);
@@ -234,6 +248,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { createRouter } from './router';
 import { portalPlugin } from './portalPlugin';
+import { portalActiveOrganizationServiceRef } from '@ansible/portal-plugin-node';
 
 export const myBackendPlugin = createBackendPlugin({
   pluginId: 'my-plugin',
@@ -244,15 +259,21 @@ export const myBackendPlugin = createBackendPlugin({
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
         httpRouter: coreServices.httpRouter,
+        organizations: portalActiveOrganizationServiceRef,
       },
-      async init({ logger, httpAuth, userInfo, httpRouter }) {
+      async init({ logger, httpAuth, userInfo, httpRouter, organizations }) {
         // Report unknown while initializing
         portalPlugin.pushHealthStatus({
           state: 'UNKNOWN',
           message: 'Initializing...',
         });
 
-        const router = createRouter({ httpAuth, userInfo, logger });
+        const router = createRouter({
+          httpAuth,
+          userInfo,
+          logger,
+          organizations,
+        });
         httpRouter.use(router);
 
         // Signal ready after initialization is complete

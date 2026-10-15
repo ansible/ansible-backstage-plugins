@@ -19,8 +19,13 @@ export default createBackendFeatureLoader({
   loader: async function* () {
     yield createServiceFactory({
       service: portalOperationsServiceRef,
-      deps: { logger: coreServices.rootLogger },
-      factory: ({ logger }) => new PortalOperations(logger),
+      deps: {
+        logger: coreServices.rootLogger,
+        organizations: portalActiveOrganizationServiceRef,
+        entitlements: portalEntitlementsServiceRef,
+      },
+      factory: ({ logger, organizations, entitlements }) =>
+        new PortalOperations(logger, organizations, entitlements),
     });
     yield createServiceFactory({
       service: portalEntitlementsServiceRef,

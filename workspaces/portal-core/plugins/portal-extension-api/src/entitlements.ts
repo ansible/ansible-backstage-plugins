@@ -41,8 +41,15 @@ export class PortalEntitlementsClient implements PortalEntitlementsApi {
       !decision ||
       typeof decision !== 'object' ||
       typeof decision.allowed !== 'boolean' ||
+      (decision.scope !== undefined &&
+        !['global', 'organization'].includes(decision.scope)) ||
       (decision.organizationId !== undefined &&
-        typeof decision.organizationId !== 'string')
+        typeof decision.organizationId !== 'string') ||
+      (decision.organizationIds !== undefined &&
+        (!Array.isArray(decision.organizationIds) ||
+          decision.organizationIds.some(
+            (id: unknown) => typeof id !== 'string' || !id.trim(),
+          )))
     )
       throw new Error('Invalid entitlement decision');
     return decision;

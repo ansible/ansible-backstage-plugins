@@ -19,6 +19,12 @@ import {
   Users,
   Team,
   Organization,
+  findMissingConfiguredOrganizations,
+  toOrgEntityName,
+  toOrgGroupRef,
+  toTeamEntityName,
+  toTeamGroupRef,
+  toUserEntityRef,
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
@@ -26,16 +32,14 @@ import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import type { SignalsService } from '@backstage/plugin-signals-node';
 import { AapConfig } from './types';
-import {
-  formatNameSpace,
-  getEffectiveNamespace,
-  validateNamespace,
-} from '../helpers';
+import { getEffectiveNamespace, validateNamespace } from '../helpers';
+import { deduplicateCatalogEntities } from './deduplicateCatalogEntities';
 
 export class AAPEntityProvider implements EntityProvider {
   private readonly env: string;
   private readonly baseUrl: string;
   private readonly orgs: string[];
+  private readonly multiOrgEnabled: boolean;
   private readonly logger: LoggerService;
   private readonly ansibleServiceRef: IAAPService;
   private readonly scheduleFn: () => Promise<void>;
@@ -84,6 +88,7 @@ export class AAPEntityProvider implements EntityProvider {
     this.env = providerConfig.id;
     this.baseUrl = providerConfig.baseUrl;
     this.orgs = providerConfig.organizations;
+    this.multiOrgEnabled = providerConfig.multiOrgEnabled;
     this.logger = logger.child({
       target: this.getProviderName(),
     });
@@ -125,6 +130,14 @@ export class AAPEntityProvider implements EntityProvider {
     return this.syncState.getLastSyncStatus();
   }
 
+  getLastDuplicateEntityCount(): number {
+    return this.syncState.getLastDuplicateEntityCount();
+  }
+
+  getLastMissingOrganizations(): string[] {
+    return this.syncState.getLastMissingOrganizations();
+  }
+
   getIsSyncing(): boolean {
     return this.syncState.getIsSyncing();
   }
@@ -138,9 +151,10 @@ export class AAPEntityProvider implements EntityProvider {
       throw new NotFoundError('Not initialized');
     }
 
-    for (const orgName of this.orgs) {
-      const ns = getEffectiveNamespace(orgName, this.orgs);
-      validateNamespace(ns, orgName);
+    if (!this.multiOrgEnabled) {
+      for (const orgName of this.orgs) {
+        validateNamespace(getEffectiveNamespace(orgName, this.orgs), orgName);
+      }
     }
 
     this.syncState.markSyncStarted();
@@ -155,6 +169,7 @@ export class AAPEntityProvider implements EntityProvider {
         teams: Team[];
         users: User[];
       }> = [];
+      let missingOrganizations: string[] = [];
 
       let error = false;
       try {
@@ -172,6 +187,11 @@ export class AAPEntityProvider implements EntityProvider {
           `[${AAPEntityProvider.pluginLogName}]: Matched ${
             orgsDetails.length
           } configured organizations (configured: ${this.orgs.join(', ')}).`,
+        );
+
+        missingOrganizations = findMissingConfiguredOrganizations(
+          this.orgs,
+          allOrgsDetails.map(org => org.organization.name),
         );
       } catch (e: any) {
         this.logger.error(
@@ -218,27 +238,28 @@ export class AAPEntityProvider implements EntityProvider {
         return false;
       }
 
-      const isMultiOrg = this.orgs.length > 1;
+      const isMultiOrg = this.multiOrgEnabled;
 
       for (const org of Object.values(orgsDetails)) {
         const orgName = org.organization.name;
-        const ns = getEffectiveNamespace(orgName, this.orgs);
+        const identity = {
+          multiOrgEnabled: this.multiOrgEnabled,
+          orgId: org.organization.id,
+        };
+        const ns = getEffectiveNamespace(orgName, this.orgs, identity);
         const orgTeams = org.teams
-          ? Object.values(org.teams).map(team => team.groupName)
+          ? Object.values(org.teams).map(team =>
+              toTeamEntityName(team.name, team.id, identity),
+            )
           : [];
         const orgUsers = org.users
-          ? (Object.values(org.users)
-              .map(user => {
-                if (user.is_orguser === false) {
-                  return null;
-                }
-                return user.username;
-              })
-              .filter(user => !!user) as string[])
+          ? Object.values(org.users).filter(user => user.is_orguser !== false)
           : [];
 
         // Users live in 'default' namespace as they can be part of multiple orgs
-        const orgMemberRefs = orgUsers.map(u => `user:default/${u}`);
+        const orgMemberRefs = orgUsers.map(u =>
+          toUserEntityRef(u.username, u.id, identity),
+        );
 
         entities.push(
           organizationParser({
@@ -248,6 +269,7 @@ export class AAPEntityProvider implements EntityProvider {
             orgMembers: orgMemberRefs,
             teams: orgTeams,
             orgName: isMultiOrg ? orgName : undefined,
+            identity,
           }),
         );
         groupCount += 1;
@@ -261,7 +283,12 @@ export class AAPEntityProvider implements EntityProvider {
               team: team as unknown as Team,
               teamMembers: [],
               orgName: isMultiOrg ? orgName : undefined,
-              orgGroupName: formatNameSpace(orgName),
+              orgGroupName: toOrgEntityName(
+                orgName,
+                org.organization.id,
+                identity,
+              ),
+              identity,
             }),
           );
           groupCount += 1;
@@ -302,50 +329,62 @@ export class AAPEntityProvider implements EntityProvider {
                 for (const org of orgsDetails) {
                   const matchingTeam = org.teams.find(t => t.id === team.id);
                   if (matchingTeam) {
+                    const memberIdentity = {
+                      multiOrgEnabled: this.multiOrgEnabled,
+                      orgId: org.organization.id,
+                    };
                     const memberNs = getEffectiveNamespace(
                       org.organization.name,
                       this.orgs,
+                      memberIdentity,
                     );
                     userMembers.push(
-                      `group:${memberNs}/${matchingTeam.groupName}`,
+                      toTeamGroupRef(
+                        memberNs,
+                        matchingTeam.name,
+                        matchingTeam.id,
+                        undefined,
+                        memberIdentity,
+                      ),
                     );
                     matched = true;
                     break;
                   }
                 }
 
-                // Team group entities come from the bulk org payload; if a team is
-                // missing there, reference the org group so memberOf stays valid.
+                // Team group entities come from the bulk org payload. A missing
+                // team is a source disagreement, not direct org membership.
                 if (!matched) {
-                  for (const org of orgsDetails) {
-                    if (org.organization.id === team.orgId) {
-                      const orgNs = getEffectiveNamespace(
-                        org.organization.name,
-                        this.orgs,
-                      );
-                      const orgGroupRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
-                      this.logger.warn(
-                        `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; assigning org group ${orgGroupRef} instead`,
-                      );
-                      userMembers.push(orgGroupRef);
-                      break;
-                    }
-                  }
+                  this.logger.warn(
+                    `[${AAPEntityProvider.pluginLogName}]: Team ${team.name} (ID: ${team.id}) for user ${user.username} (ID: ${user.id}) not found in bulk org payload; skipping team membership`,
+                  );
                 }
               }
 
-              // Add org group refs to memberOf (consistent with createSingleUser)
+              // Bulk is_orguser data is the only source for direct org access.
+              // Per-user team results must not promote a missing team to org access.
               for (const org of orgsDetails) {
                 if (
                   org.users?.some(
                     u => u.id === user.id && u.is_orguser !== false,
                   )
                 ) {
+                  const orgIdentity = {
+                    multiOrgEnabled: this.multiOrgEnabled,
+                    orgId: org.organization.id,
+                  };
                   const orgNs = getEffectiveNamespace(
                     org.organization.name,
                     this.orgs,
+                    orgIdentity,
                   );
-                  const orgRef = `group:${orgNs}/${formatNameSpace(org.organization.name)}`;
+                  const orgRef = toOrgGroupRef(
+                    orgNs,
+                    org.organization.name,
+                    org.organization.id,
+                    undefined,
+                    orgIdentity,
+                  );
                   if (!userMembers.includes(orgRef)) {
                     userMembers.push(orgRef);
                   }
@@ -363,6 +402,7 @@ export class AAPEntityProvider implements EntityProvider {
                 user: user as User,
                 groupMemberships: userMembers,
                 orgNames: isMultiOrg ? userOrgNames : undefined,
+                identity: { multiOrgEnabled: isMultiOrg },
               });
               entities.push(userEntity);
               processedOrgUserIds.add(user.id);
@@ -394,7 +434,11 @@ export class AAPEntityProvider implements EntityProvider {
         u => !processedUserIds.has(u.id),
       );
       this.logger.info(
-        `[${AAPEntityProvider.pluginLogName}]: Processing ${uniqueSystemUsers.length} system users in batches of ${batchSize} (${systemUsers.length - uniqueSystemUsers.length} already processed as org users)`,
+        `[${AAPEntityProvider.pluginLogName}]: Processing ${
+          uniqueSystemUsers.length
+        } system users in batches of ${batchSize} (${
+          systemUsers.length - uniqueSystemUsers.length
+        } already processed as org users)`,
       );
 
       for (let i = 0; i < uniqueSystemUsers.length; i += batchSize) {
@@ -414,9 +458,22 @@ export class AAPEntityProvider implements EntityProvider {
                     const sysNs = getEffectiveNamespace(
                       org.organization.name,
                       this.orgs,
+                      {
+                        multiOrgEnabled: this.multiOrgEnabled,
+                        orgId: org.organization.id,
+                      },
                     );
                     userMembers.push(
-                      `group:${sysNs}/${matchingTeam.groupName}`,
+                      toTeamGroupRef(
+                        sysNs,
+                        matchingTeam.name,
+                        matchingTeam.id,
+                        undefined,
+                        {
+                          multiOrgEnabled: this.multiOrgEnabled,
+                          orgId: org.organization.id,
+                        },
+                      ),
                     );
                     break;
                   }
@@ -433,6 +490,7 @@ export class AAPEntityProvider implements EntityProvider {
                 user: user as User,
                 groupMemberships: userMembers,
                 orgNames: isMultiOrg ? sysUserOrgNames : undefined,
+                identity: { multiOrgEnabled: isMultiOrg },
               });
               entities.push(userEntity);
               return { success: true, user };
@@ -461,9 +519,18 @@ export class AAPEntityProvider implements EntityProvider {
       const aapAdminsGroup = this.createAapAdminsGroup(systemUsers);
       entities.push(aapAdminsGroup);
 
+      // AAP can return the same logical entity through multiple organization
+      // or membership paths. Catalog identity is the full kind/namespace/name
+      // tuple, so remove later duplicates before the full mutation.
+      const { entities: uniqueEntities, duplicateEntityCount } =
+        deduplicateCatalogEntities(
+          entities,
+          this.logger,
+          AAPEntityProvider.pluginLogName,
+        );
       await this.connection.applyMutation({
         type: 'full',
-        entities: entities.map(entity => ({
+        entities: uniqueEntities.map(entity => ({
           entity,
           locationKey: this.getProviderName(),
         })),
@@ -480,7 +547,10 @@ export class AAPEntityProvider implements EntityProvider {
         }]: Refreshed ${this.getProviderName()}: ${usersCount} users added.`,
       );
 
-      this.syncState.markSyncSucceeded();
+      this.syncState.markSyncSucceeded({
+        duplicateEntityCount,
+        missingOrganizations,
+      });
       return true;
     } catch (e) {
       this.syncState.markSyncFailed();
@@ -502,8 +572,10 @@ export class AAPEntityProvider implements EntityProvider {
     const currentSuperusers = allUsers.filter(
       user => user.is_superuser === true,
     );
-    const memberNames = currentSuperusers.map(
-      user => `user:default/${user.username}`,
+    const memberNames = currentSuperusers.map(user =>
+      toUserEntityRef(user.username, user.id, {
+        multiOrgEnabled: this.multiOrgEnabled,
+      }),
     );
 
     this.logger.info(

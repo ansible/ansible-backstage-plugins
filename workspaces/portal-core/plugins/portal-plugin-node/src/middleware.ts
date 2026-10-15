@@ -5,6 +5,8 @@ import type {
   LoggerService,
 } from '@backstage/backend-plugin-api';
 import type { PortalContext } from './types';
+import type { ActiveOrganizationResolver } from './entitlements';
+import { resolvePortalContext } from './organizationContext';
 
 /**
  * Parses a Backstage entity reference and returns its namespace and name.
@@ -34,15 +36,9 @@ export interface IdentityMiddlewareOptions {
   userInfo: UserInfoService;
   /** Logger for auth failures and warnings. */
   logger: LoggerService;
-  /**
-   * `organizationId` to use when the user's entity ref namespace is `'default'`.
-   *
-   * In single-org deployments, every user is in the `default` namespace and
-   * this value is the canonical org ID. Defaults to `'default'`.
-   *
-   * In multi-org deployments, each org has its own Backstage namespace and
-   * this value is not used.
-   */
+  /** Inject portalActiveOrganizationServiceRef; never derive tenant from namespace. */
+  organizations: ActiveOrganizationResolver;
+  /** @deprecated Use the injected organization resolver. This value is ignored. */
   defaultOrgId?: string;
 }
 
@@ -51,14 +47,14 @@ export interface IdentityMiddlewareOptions {
  * authenticated request.
  *
  * The middleware resolves the caller's identity from the Backstage auth token
- * and derives `organizationId` from the user entity ref namespace. It never
+ * and resolves `organizationId` through the injected host service. It never
  * blocks unauthenticated requests — that responsibility belongs to the route
  * handler. If identity resolution fails, `req.portalContext` is left undefined
  * and a warning is logged.
  *
  * **Usage:**
  * ```ts
- * const middleware = createIdentityMiddleware({ httpAuth, userInfo, logger });
+ * const middleware = createIdentityMiddleware({ httpAuth, userInfo, logger, organizations });
  * router.use(middleware);
  *
  * router.get('/data', (req, res) => {
@@ -70,26 +66,24 @@ export interface IdentityMiddlewareOptions {
 export function createIdentityMiddleware(
   options: IdentityMiddlewareOptions,
 ): RequestHandler {
-  const { httpAuth, userInfo, logger, defaultOrgId = 'default' } = options;
+  const { httpAuth, userInfo, logger, organizations } = options;
 
   return async (req, _res, next) => {
     try {
       const credentials = await httpAuth.credentials(req as any, {
         allow: ['user'],
       });
-      const info = await userInfo.getUserInfo(credentials);
-      const { namespace, name } = parseEntityRef(info.userEntityRef);
-
-      const portalContext: PortalContext = {
-        userEntityRef: info.userEntityRef,
-        userId: name,
-        organizationId: namespace === 'default' ? defaultOrgId : namespace,
-      };
+      const portalContext: PortalContext = await resolvePortalContext({
+        credentials,
+        userInfo,
+        organizations,
+      });
 
       // Cast to any because the global type augmentation may not be seen in
       // all consuming TypeScript configurations.
       (req as any).portalContext = portalContext;
     } catch (err) {
+      delete (req as any).portalContext;
       // Auth failures are common for unauthenticated routes (health checks,
       // public endpoints). Log at debug, not warn, to avoid noisy logs.
       logger.debug(

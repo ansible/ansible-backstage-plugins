@@ -4,7 +4,9 @@
 [![codecov](https://codecov.io/gh/ansible/ansible-backstage-plugins/graph/badge.svg)](https://codecov.io/gh/ansible/ansible-backstage-plugins)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ansible_ansible-backstage-plugins&metric=coverage)](https://sonarcloud.io/component_measures?id=ansible_ansible-backstage-plugins&metric=coverage)
 
-Welcome to the Ansible plugins for Backstage project! This repository provides plugins for [backstage.io](https://backstage.io) to deliver Ansible-specific user experiences in the developer portal, enabling self-service automation and integration with Ansible Automation Platform (AAP).
+This repository contains Automation Portal plugins and shared SDK packages for
+Backstage and Red Hat Developer Hub (RHDH): Portal host contracts, self-service
+workflows, AAP integrations, and APME quality contributions.
 
 ## Table of Contents
 
@@ -20,7 +22,6 @@ Welcome to the Ansible plugins for Backstage project! This repository provides p
 - [Development](#development)
   - [Testing](#testing)
   - [Building](#building)
-  - [Plugin Development](#plugin-development)
 - [Troubleshooting](#troubleshooting)
 - [Documentation](#documentation)
 - [Changelog](#changelog)
@@ -39,7 +40,13 @@ The Ansible Backstage Plugins project brings Ansible Automation Platform capabil
 - Integrate AAP with software catalogs
 - Generate scaffolder actions for AAP resources
 
-This is a monorepo containing multiple plugins that work together to provide a comprehensive Ansible experience in Backstage.
+Packages are organized into Portal core, self-service, AAP, and APME workspaces.
+The source app defaults to native NFS composition. APME demonstrates a third-party
+contributor without direct dependencies on self-service page components.
+
+This branch is an experimental SDK implementation. Native composition does not
+complete content extraction or establish production compatibility for
+every RHDH version. See the [implementation guide](./docs/next/portal-plugin-factory-implementation-guide.md).
 
 ## Features
 
@@ -50,6 +57,9 @@ This is a monorepo containing multiple plugins that work together to provide a c
 - **Authentication**: Integrate AAP authentication with Backstage auth
 - **RBAC Support**: Leverage AAP's role-based access control
 - **Dynamic Plugin Support**: Deploy as dynamic plugins in Red Hat Developer Hub
+- **Portal SDK**: Shared frontend/backend contracts with native Blueprint contributions
+- **APME Integration**: Quality views, scan actions, and repository registration workflows
+- **Configurable Navigation**: Select discovered page links or expandable groups without changing permissions
 
 ## Prerequisites
 
@@ -57,12 +67,14 @@ Before setting up the development environment, ensure you have:
 
 ### Required Software
 
-- **Node.js**: Version **20** or **22** (LTS versions)
+- **Node.js**: Version **22** or **24**, matching the root package engines and CI matrix
+
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
 
-- **Yarn**: Version **4.9.2** (managed via Corepack)
-  - Corepack is included with Node.js 16.10+
+- **Yarn**: Version **4.12.0** (managed via Corepack, as pinned in `package.json`)
+
+  - Install Corepack if your Node.js distribution does not include it
   - Enable Corepack: `corepack enable`
   - Verify: `yarn --version`
 
@@ -78,6 +90,7 @@ Before setting up the development environment, ensure you have:
 ### Optional But Recommended
 
 - **Ansible Automation Platform**: Access to an AAP instance for full functionality
+
   - Version 2.4 or later recommended
   - API access token with appropriate permissions
 
@@ -97,19 +110,19 @@ cd ansible-backstage-plugins
 
 2. **Install Dependencies**
 
-Run the installation script to set up all dependencies:
+Enable Corepack and install the root Yarn workspace dependencies:
 
 ```bash
-./install-deps
+corepack enable
+yarn install --immutable
 ```
 
-This script will:
+The root `packageManager` field selects Yarn 4.12.0. Installation resolves all
+configured workspaces and runs the root Husky preparation script. Do not install
+each plugin separately or ignore dependency/native-build errors.
 
-- Install Yarn 4.x via Corepack
-- Install all workspace dependencies
-- Set up Git hooks via Husky for pre-commit checks
-
-**Note**: On systems with strict security policies, some native package builds may fail. This is usually acceptable as they're often optional dependencies.
+The older `install-deps` helper still targets the removed root `plugins/` directory;
+use the root workspace command above for this branch.
 
 3. **Verify Installation**
 
@@ -117,10 +130,10 @@ Check that installation was successful:
 
 ```bash
 # Check Node.js version
-node --version  # Should show v20.x.x or v22.x.x
+node --version  # Should show v22.x.x or v24.x.x
 
 # Check Yarn version
-yarn --version  # Should show 4.9.1 or similar
+yarn --version  # Should show 4.12.0
 
 # Verify workspace structure
 yarn workspaces list
@@ -186,7 +199,7 @@ This will:
 
 #### What to Expect
 
-1. **First Launch**: Initial compilation takes 2-3 minutes
+1. **First Launch**: Wait for frontend compilation and backend initialization
 2. **Browser Opens**: Navigate to `http://localhost:3000`
 3. **Login**: Use Guest login or configured auth provider
 4. **Hot Reload**: Changes to source files automatically reload
@@ -204,11 +217,23 @@ Normal startup logs include:
 
 #### Accessing Different Sections
 
-- **Home**: `http://localhost:3000`
-- **Catalog**: `http://localhost:3000/catalog`
-- **Ansible Plugin**: `http://localhost:3000/ansible`
-- **Ansible Self-service Plugin**: `http://localhost:3000/self-service` (AAP Related)
-- **API Docs**: `http://localhost:7007/api/docs`
+The source app defaults to the new frontend system (NFS). Its user-facing routes include:
+
+- **Templates**: `http://localhost:3000/self-service` (also the destination of `/`)
+- **History**: `http://localhost:3000/self-service/create/tasks`
+- **Execution Environments**: `http://localhost:3000/self-service/ee`
+- **Collections**: `http://localhost:3000/self-service/collections`
+- **Git repositories**: `http://localhost:3000/self-service/repositories`
+- **Administration/RBAC**: `http://localhost:3000/rbac`, subject to permissions
+- **Settings**: `http://localhost:3000/settings`
+
+Sidebar configuration selects installed page extensions; it does not install plugins or
+grant permissions. `?portalFrontend=legacy` explicitly selects the legacy app.
+The local header retains account/logout controls. RHDH uses its platform header.
+The duplicate `/portal/*` pages have been removed. See
+[Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md) for integration,
+navigation configuration, and verification boundaries. Backend port 7007 is the checked-in
+default; local configuration can override it.
 
 ## Repository Structure
 
@@ -218,17 +243,14 @@ ansible-backstage-plugins/
 │   ├── openapi.yaml          # API specification (source of truth)
 │   └── README.md             # Swagger UI setup and testing guide
 │
-├── packages/                  # Core Backstage application
-│   ├── app/                  # Frontend React application
-│   └── backend/              # Backend Node.js service
-│
-├── plugins/                   # Ansible-specific plugins
-│   ├── backstage-rhaap/                    # Provides access to the frontend plugin
-│   ├── backstage-rhaap-common/             # Shared utilities and types
-│   ├── auth-backend-module-rhaap-provider/ # Authentication provider
-│   ├── catalog-backend-module-rhaap/       # Catalog integration
-│   ├── scaffolder-backend-module-backstage-rhaap/ # Scaffolder actions
-│   └── self-service/                       # Self-service UI plugin
+├── workspaces/                # Packages grouped by ownership
+│   ├── portal-core/
+│   │   ├── packages/app/      # Source frontend development harness
+│   │   ├── packages/backend/  # Source backend development harness
+│   │   └── plugins/           # Portal host, SDK, operations, and health
+│   ├── self-service/plugins/  # Templates, tasks, and current content pages
+│   ├── aap/plugins/           # AAP clients, authentication, catalog, actions
+│   └── apme/plugins/          # Third-party contribution example and backend modules
 │
 ├── docs/                      # Documentation
 │   ├── features/             # Feature documentation
@@ -248,63 +270,44 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-### Frontend Plugins
+The 19 packages below include installable plugins/modules and shared libraries.
+A library does not create a page or sidebar item merely by being installed.
 
-#### [@ansible/plugin-backstage-rhaap](./plugins/backstage-rhaap)
+### Portal core and SDK
 
-Enables the Ansible sidebar option and provides access to the frontend plugin
+- [`@ansible/portal-core`](./docs/plugins/portal-core.md): native frontend host and configurable navigation.
+- [`@ansible/portal-extension-api`](./docs/plugins/portal-extension-api.md): frontend Blueprint contracts, API references, and clients.
+- [`@ansible/portal-extension-common`](./docs/plugins/portal-extension-common.md): shared manifest, launch, operation, and entitlement contracts.
+- [`@ansible/portal-extension-host`](./docs/plugins/portal-extension-host.md): contribution validation, filtering, and rendering.
+- [`@ansible/portal-health-backend`](./docs/plugins/portal-health-backend.md): backend health aggregation.
+- [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
+- [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
+- [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
 
-**Features**:
+### AAP integration
 
-- Ansible specific UI
-- Allows to view ansible specific catalog information
-- Allows to view and run ansible specific software templates
-- Ansible related learning paths.
+- [`@ansible/backstage-plugin-auth-backend-module-rhaap-provider`](./docs/plugins/auth.md): AAP authentication.
+- [`@ansible/plugin-backstage-rhaap`](./docs/plugins/backstage-frontend.md): existing AAP frontend integration.
+- [`@ansible/backstage-rhaap-common`](./docs/plugins/backstage-rhaap-common.md): AAP/SCM clients, service contracts, types, and permissions.
+- [`@ansible/backstage-plugin-catalog-backend-module-rhaap`](./docs/plugins/catalog.md): AAP resource and content synchronization.
+- [`@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner`](./docs/plugins/catalog-user-provisioner.md): on-demand catalog user provisioning.
+- [`@ansible/plugin-scaffolder-backend-module-backstage-rhaap`](./docs/plugins/scaffolder.md): AAP scaffolder actions.
 
-#### [@ansible/plugin-self-service](./plugins/self-service)
+### Self-service
 
-Self-service UI plugin for simplified automation access.
+- [`@ansible/portal-scaffolder`](./docs/plugins/self-service.md): templates, tasks/history,
+  native fields, and current collection/EE/repository pages awaiting content extraction.
 
-**Features**:
+### APME integration
 
-- Simplified job template interface
-- Role-based view filtering
-- Quick launch capabilities
+- [`@ansible/plugin-backstage-apme`](./docs/plugins/backstage-apme.md): native Quality contributions and repository workflows.
+- [`@ansible/backstage-apme-common`](./docs/plugins/backstage-apme-common.md): shared APME types, services, operations, and permissions.
+- [`@ansible/backstage-plugin-catalog-backend-module-apme`](./docs/plugins/catalog-apme.md): catalog providers, operation handlers, settings, and synchronization.
+- [`@ansible/scaffolder-backend-module-apme`](./docs/plugins/scaffolder-apme.md): repository-registration scaffolder action.
 
-### Backend Plugins
-
-#### [@ansible/auth-backend-module-rhaap-provider](./plugins/auth-backend-module-rhaap-provider)
-
-Authentication provider for integrating AAP authentication with Backstage.
-
-#### [@ansible/catalog-backend-module-rhaap](./plugins/catalog-backend-module-rhaap)
-
-Catalog provider that syncs AAP resources into the Backstage catalog.
-
-**Syncs**:
-
-- Organizations
-- Teams
-- Users
-- Projects
-- Inventories
-
-#### [@ansible/scaffolder-backend-module-backstage-rhaap](./plugins/scaffolder-backend-module-backstage-rhaap)
-
-Scaffolder actions for creating software templates that interact with AAP.
-
-**Actions**:
-
-- Launch job templates
-- Create projects
-- Manage inventories
-- Configure credentials
-
-### Shared Packages
-
-#### [@ansible/plugin-backstage-rhaap-common](./plugins/backstage-rhaap-common)
-
-Shared utilities, types, and API clients used across all plugins.
+See the [workspace overview](./workspaces/README.md) for source ownership and
+the [implementation guide](./docs/next/portal-plugin-factory-implementation-guide.md)
+for remaining architecture work.
 
 ## Development
 
@@ -338,6 +341,8 @@ yarn workspace @ansible/plugin-backstage-rhaap test --coverage
 - Maintain >80% code coverage for all plugins
 - Coverage reports are generated in `coverage/` directory
 - View HTML report: `open coverage/lcov-report/index.html`
+- CI publishes plugin-only coverage from all four workspace plugin roots;
+  app/backend harness packages are excluded from that filtered report.
 
 #### E2E Tests
 
@@ -384,10 +389,11 @@ yarn build:all
 
 #### Issue: `yarn install` fails with native package errors
 
-**Solution**: Some native packages (like `esbuild`) may fail in restricted environments. This is usually acceptable:
+**Solution**: Inspect the failing package's build log and resolve its platform
+prerequisites or permissions. Do not suppress an installation failure:
 
 ```bash
-yarn install --immutable || echo "Some optional dependencies failed, continuing..."
+yarn install --immutable
 ```
 
 #### Issue: Out of memory during build
@@ -404,8 +410,8 @@ yarn build:all
 **Solution**: Either stop the conflicting process or use different ports:
 
 ```bash
-# Find process using port
-lsof -ti:3000 | xargs kill -9  # macOS/Linux
+# Inspect the listeners before stopping a confirmed application process
+lsof -nP -iTCP:3000 -iTCP:7007 -sTCP:LISTEN
 
 # Or configure different ports in app-config.local.yaml
 ```
@@ -468,6 +474,8 @@ If you encounter issues:
 - **[Installation Guide](./docs/installation.md)**: Deployment instructions
 - **[Features Overview](./docs/index.md)**: Comprehensive feature documentation
 - **[Changelog](./CHANGELOG.md)**: Release notes, breaking changes, and upgrade hints
+- **[Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md)**: Native plugin contracts, navigation, and acceptance scope
+- **[Portal implementation guide](./docs/next/portal-plugin-factory-implementation-guide.md)**: Current delivery scope and remaining architecture work
 
 ### API Reference
 
@@ -475,11 +483,32 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-- **[Frontend Plugin](./docs/plugins/backstage-frontend.md)**: AAP frontend integration
-- **[Self-Service Plugin](./docs/plugins/self-service.md)**: Simplified automation UI
-- **[Auth Provider](./docs/plugins/auth.md)**: AAP authentication
-- **[Catalog Module](./docs/plugins/catalog.md)**: Catalog integration
-- **[Scaffolder Module](./docs/plugins/scaffolder.md)**: Scaffolder actions
+All 19 package references are linked in [Available Plugins](#available-plugins).
+The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
+APME, and Self-service ownership.
+
+### Portal SDK Guides
+
+- [Native NFS composition](./docs/next/portal-sdk-nfs-composition.md)
+- [Implementation and remaining architecture](./docs/next/portal-plugin-factory-implementation-guide.md)
+- [Content picker contract proposal](./docs/next/portal-content-picker-contract-proposal.md)
+- [Design tokens](./docs/next/portal-sdk-design-tokens.md)
+- [Quickstart — legacy compatibility example](./docs/next/portal-sdk-quickstart.md)
+- [RHDH dynamic plugin deployment](./docs/next/portal-sdk-rhdh-dynamic-plugin.md)
+
+### Building the Documentation
+
+Install the documentation dependencies into an isolated environment, including
+the `mkdocs-ansible` theme package, then build from the repository root:
+
+```bash
+uv run --no-project --with-requirements .config/requirements.txt mkdocs build --strict
+```
+
+If `uv` is unavailable, use a Python virtual environment and install
+`.config/requirements.txt` there before running `python -m mkdocs build --strict`.
+The Material social-card generator also requires Cairo shared-library discovery;
+an installed Python CairoSVG package alone is not sufficient.
 
 ### Feature Documentation
 

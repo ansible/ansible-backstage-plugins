@@ -34,7 +34,7 @@ export interface PortalPlugin {
    *
    * Apply this middleware early in your router:
    * ```ts
-   * const middleware = portalPlugin.createMiddleware({ httpAuth, userInfo, logger });
+   * const middleware = portalPlugin.createMiddleware({ httpAuth, userInfo, organizations, logger });
    * router.use(middleware);
    * ```
    *
@@ -136,7 +136,7 @@ export interface PortalPlugin {
  * const portalPlugin = createPortalPlugin({ pluginId: 'content-quality' });
  *
  * // In your Backstage backend module init:
- * const middleware = portalPlugin.createMiddleware({ httpAuth, userInfo, logger });
+ * const middleware = portalPlugin.createMiddleware({ httpAuth, userInfo, organizations, logger });
  * router.use(middleware);
  *
  * // Signal readiness after workers are running:

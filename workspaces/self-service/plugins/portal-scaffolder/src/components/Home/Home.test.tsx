@@ -55,6 +55,7 @@ jest.mock('@backstage/plugin-permission-react', () => ({
 }));
 
 const mockRemoveNotification = jest.fn();
+const mockShowNotification = jest.fn();
 const mockNotifications = [
   {
     id: 'n1',
@@ -71,6 +72,8 @@ const mockSyncSignal: {
     lastSyncTime: string | null;
     lastSyncStatus: string | null;
     lastFailedSyncTime: string | null;
+    lastDuplicateEntityCount?: number;
+    lastMissingOrganizations?: string[];
   } | null;
 } = { lastSignal: null };
 jest.mock('@backstage/plugin-signals-react', () => ({
@@ -98,7 +101,7 @@ jest.mock('../notifications', () => ({
   useNotifications: () => ({
     notifications: mockNotifications,
     removeNotification: mockRemoveNotification,
-    showNotification: jest.fn(),
+    showNotification: mockShowNotification,
     clearAll: jest.fn(),
   }),
 }));
@@ -106,6 +109,7 @@ jest.mock('../notifications', () => ({
 describe('self-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSyncSignal.lastSignal = null;
     mockUseIsSuperuser.mockReturnValue({
       isSuperuser: true,
       loading: false,
@@ -1549,6 +1553,7 @@ describe('sync signal integration', () => {
 describe('sync progress tooltip', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSyncSignal.lastSignal = null;
     mockUseIsSuperuser.mockReturnValue({
       isSuperuser: true,
       loading: false,
@@ -1867,6 +1872,126 @@ describe('sync progress tooltip', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('Failed')).toBeInTheDocument();
     });
+
+    mockSyncSignal.lastSignal = null;
+  });
+
+  it.each([
+    ['success', 'Sync completed', 'success', 'sync-completed'],
+    ['failure', 'Sync failed', 'error', 'sync-failed'],
+  ] as const)(
+    'reports outcome %s without inventing a warning',
+    async (status, title, severity, category) => {
+      mockCatalogApi.getEntityFacets.mockResolvedValue({
+        facets: {
+          'relations.ownedBy': [],
+          'metadata.tags': [],
+          'spec.type': [{ value: 'service', count: 1 }],
+        },
+      });
+      mockSyncSignal.lastSignal = {
+        provider: 'aap-job-template:development',
+        syncInProgress: false,
+        lastSyncTime: '2026-01-01T00:00:00Z',
+        lastSyncStatus: status,
+        lastFailedSyncTime:
+          status === 'failure' ? '2026-01-02T00:00:00Z' : null,
+        lastDuplicateEntityCount: 0,
+        lastMissingOrganizations: [],
+      };
+      await render(<HomeComponent />);
+      await waitFor(() =>
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title,
+            severity,
+            category,
+            description: expect.stringContaining('Job Templates'),
+            ...(status === 'failure' ? { autoHideDuration: 0 } : {}),
+          }),
+        ),
+      );
+      expect(mockShowNotification).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not report a completed outcome while a sync is still running', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [],
+        'metadata.tags': [],
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-job-template:development',
+      syncInProgress: true,
+      lastSyncTime: '2026-01-01T00:00:00Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+      lastDuplicateEntityCount: 2,
+      lastMissingOrganizations: ['Engineering'],
+    };
+    await render(<HomeComponent />);
+    expect(mockShowNotification).not.toHaveBeenCalled();
+  });
+
+  it('shows warning toasts for duplicates and missing orgs, not failed', async () => {
+    mockCatalogApi.getEntityFacets.mockResolvedValue({
+      facets: {
+        'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
+        'metadata.tags': [],
+        'spec.type': [{ value: 'service', count: 1 }],
+      },
+    });
+
+    mockSyncSignal.lastSignal = {
+      provider: 'aap-entity:development',
+      syncInProgress: false,
+      lastSyncTime: '2026-01-01T00:00:00Z',
+      lastSyncStatus: 'success',
+      lastFailedSyncTime: null,
+      lastDuplicateEntityCount: 2,
+      lastMissingOrganizations: ['Engineering'],
+    };
+
+    await render(<HomeComponent />);
+
+    await waitFor(() => {
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync warning',
+          severity: 'warning',
+          description: expect.stringContaining('Skipped 2 duplicate'),
+          category: 'sync-warning',
+          autoHideDuration: 0,
+        }),
+      );
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync warning',
+          severity: 'warning',
+          description: expect.stringContaining("'Engineering'"),
+          category: 'sync-warning',
+          autoHideDuration: 0,
+        }),
+      );
+      expect(mockShowNotification).not.toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Sync completed' }),
+      );
+      expect(mockShowNotification).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Sync failed',
+          severity: 'error',
+        }),
+      );
+    });
+
+    // Redelivering the same outcome must not stack another pair of warnings.
+    mockSyncSignal.lastSignal = { ...mockSyncSignal.lastSignal! };
+    fireEvent.click(screen.getByText('Sync Now'));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+    expect(mockShowNotification).toHaveBeenCalledTimes(2);
 
     mockSyncSignal.lastSignal = null;
   });

@@ -1,99 +1,87 @@
 import { useState, useEffect } from 'react';
-import { useApi, identityApiRef } from '@backstage/core-plugin-api';
-import { parseEntityRef } from '@backstage/catalog-model';
+import {
+  useApi,
+  discoveryApiRef,
+  fetchApiRef,
+} from '@backstage/core-plugin-api';
 
-/**
- * The portal context available to any plugin frontend component.
- *
- * **Roadmap:** `apiClient` (the typed `automation-content-client`) will be
- * added here once `@ansible/automation-content-client` is published by
- * ANSTRAT-1758. Adding a field to this interface is non-breaking for existing
- * consumers.
- */
+/** Display context from the authenticated host. Never use it as backend authority. */
 export interface PortalContext {
-  /**
-   * The organization identifier for the current session.
-   *
-   * Derived from the Backstage user entity ref namespace:
-   *   `user:red-hat/alice` → `organizationId = "red-hat"`
-   *   `user:default/alice` → `organizationId = "default"`
-   *
-   * All plugin backend DB queries must be keyed by this value.
-   * Never accept `organizationId` from request parameters — always read it
-   * from the authenticated session (see `portal-plugin-node` middleware).
-   */
-  organizationId: string;
+  /** Present only when one organization is unambiguous. */
+  organizationId?: string;
+  /** Trusted configured memberships; repositories do not acquire these owners. */
+  organizationIds: readonly string[];
+  userEntityRef?: string;
 }
-
 export interface UsePortalContextResult extends PortalContext {
-  /** True while the identity API call is in-flight. */
   loading: boolean;
-  /** Set if the identity API rejected. `organizationId` falls back to `'default'`. */
   error: Error | null;
 }
 
-/**
- * Returns the portal context for the current authenticated session.
- *
- * @example
- * ```tsx
- * import { usePortalContext } from '@ansible/portal-plugin-sdk';
- *
- * function MyPluginPage() {
- *   const { organizationId, loading } = usePortalContext();
- *   if (loading) return <Progress />;
- *   return <div>Org: {organizationId}</div>;
- * }
- * ```
- */
+/** Reads host-resolved memberships, never the user entity's catalog namespace. */
 export function usePortalContext(): UsePortalContextResult {
-  const identityApi = useApi(identityApiRef);
-
-  const [organizationId, setOrganizationId] = useState('');
+  const discovery = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const [context, setContext] = useState<PortalContext>({
+    organizationIds: [],
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-
   useEffect(() => {
     let mounted = true;
-
-    identityApi
-      .getBackstageIdentity()
-      .then(identity => {
-        if (!mounted) return;
-
-        const { userEntityRef } = identity;
-
-        if (!userEntityRef) {
-          // Guest or unauthenticated — fall back to 'default'
-          setOrganizationId('default');
-          setLoading(false);
-          return;
-        }
-
-        const { namespace } = parseEntityRef(userEntityRef);
-        setOrganizationId(namespace ?? 'default');
-        setLoading(false);
+    setContext({ organizationIds: [] });
+    setLoading(true);
+    setError(null);
+    (async () => {
+      const baseUrl = await discovery.getBaseUrl('portal-operations');
+      const response = await fetchApi.fetch(`${baseUrl}/context`);
+      if (!response.ok)
+        throw new Error(`Portal context failed (HTTP ${response.status})`);
+      const value = await response.json();
+      if (
+        !value ||
+        typeof value.userEntityRef !== 'string' ||
+        (value.organizationId !== undefined &&
+          (typeof value.organizationId !== 'string' ||
+            !value.organizationId.trim())) ||
+        (value.organizationIds !== undefined &&
+          (!Array.isArray(value.organizationIds) ||
+            value.organizationIds.some(
+              (id: unknown) => typeof id !== 'string' || !id.trim(),
+            )))
+      ) {
+        throw new Error('Invalid Portal organization context');
+      }
+      const organizationIds: string[] =
+        value.organizationIds ??
+        (value.organizationId ? [value.organizationId] : []);
+      if (
+        !organizationIds.length ||
+        (value.organizationId &&
+          !organizationIds.includes(value.organizationId))
+      )
+        throw new Error('Invalid Portal organization context');
+      if (mounted)
+        setContext({
+          organizationId: value.organizationId,
+          organizationIds,
+          userEntityRef: value.userEntityRef,
+        });
+    })()
+      .catch((cause: unknown) => {
+        if (mounted)
+          setError(
+            cause instanceof Error
+              ? cause
+              : new Error('Failed to resolve portal context'),
+          );
       })
-      .catch((err: unknown) => {
-        if (!mounted) return;
-        // eslint-disable-next-line no-console
-        console.error(
-          '[usePortalContext] Failed to resolve portal context:',
-          err instanceof Error ? err.message : err,
-        );
-        setError(
-          err instanceof Error
-            ? err
-            : new Error('Failed to resolve portal context'),
-        );
-        setOrganizationId('default');
-        setLoading(false);
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
-
     return () => {
       mounted = false;
     };
-  }, [identityApi]);
-
-  return { organizationId, loading, error };
+  }, [discovery, fetchApi]);
+  return { ...context, loading, error };
 }

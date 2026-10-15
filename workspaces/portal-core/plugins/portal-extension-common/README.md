@@ -29,12 +29,12 @@ Both frontend packages (`portal-extension-api`, `portal-extension-host`) and bac
 
 ## What does NOT live here
 
-| Concern                                                                 | Package                          |
-| ----------------------------------------------------------------------- | -------------------------------- |
-| `ContributionRegistry` and `useExtensionTabs` hooks                     | `@ansible/portal-extension-api`  |
-| `TabContribution`, `CardContribution`, `ActionContribution` (PoC types) | `@ansible/portal-extension-api`  |
-| `createPortalPlugin()`, identity middleware, audit emitter              | `@ansible/portal-plugin-node`    |
-| Host components (`ExperienceSlot`, `PortalHealthStatus`)                | `@ansible/portal-extension-host` |
+| Concern                                                                                  | Package                          |
+| ---------------------------------------------------------------------------------------- | -------------------------------- |
+| `ContributionRegistry` and `useExtensionTabs` hooks                                      | `@ansible/portal-extension-api`  |
+| `TabContribution`, `CardContribution`, `ActionContribution` (legacy compatibility types) | `@ansible/portal-extension-api`  |
+| `createPortalPlugin()`, identity middleware, audit emitter                               | `@ansible/portal-plugin-node`    |
+| Host components (`ExperienceSlot`, `PortalHealthStatus`)                                 | `@ansible/portal-extension-host` |
 
 ## Usage
 

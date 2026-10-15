@@ -31,6 +31,7 @@ export interface RegisterRepositoryInput {
 }
 
 export const apmeRepositoryRegisterOperation = {
+  organizationScope: 'shared' as const,
   id: 'apme.repository.register',
   version: '1.0.0',
   permission: apmeRepositoryRegisterPermission,
@@ -72,6 +73,7 @@ export const apmeRepositoryDeregisterPermission = createPermission({
   attributes: { action: 'delete' },
 });
 export const apmeRepositoryDeregisterOperation = {
+  organizationScope: 'shared' as const,
   id: 'apme.repository.deregister',
   version: '1.0.0',
   permission: apmeRepositoryDeregisterPermission,
@@ -88,6 +90,8 @@ export const apmeQualityScanPermission = createPermission({
 });
 
 export const apmeQualityScanOperation = {
+  organizationScope: 'shared' as const,
+  requiredEntitlements: [apmeScanningEntitlement.id],
   id: 'apme.quality.scan',
   version: '1.0.0',
   permission: apmeQualityScanPermission,

@@ -46,7 +46,7 @@ const MOCK_SUPERUSER = {
   is_superuser: true,
 };
 
-const MOCK_ORGS = [{ name: 'Default', groupName: 'default' }];
+const MOCK_ORGS = [{ name: 'Default', id: 1, groupName: 'default' }];
 const MOCK_TEAMS = [
   {
     name: 'ops-team',
@@ -145,7 +145,9 @@ describe('UserProvisionerProvider', () => {
 
       expect(result).toBe(true);
       expect(mockAnsibleService.getUserInfoById).toHaveBeenCalledWith(42);
-      expect(mockAnsibleService.getOrgsByUserId).toHaveBeenCalledWith(42);
+      expect(mockAnsibleService.getOrgsByUserId).toHaveBeenCalledWith(42, [
+        'default',
+      ]);
       expect(mockAnsibleService.getTeamsByUserId).toHaveBeenCalledWith(42);
 
       expect(mockConnection.applyMutation).toHaveBeenCalledWith(
@@ -249,7 +251,7 @@ describe('UserProvisionerProvider', () => {
 
     it('throws when user does not belong to any configured organization', async () => {
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'OtherOrg', groupName: 'otherorg' },
+        { name: 'OtherOrg', id: 3, groupName: 'otherorg' },
       ]);
       mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
 
@@ -279,6 +281,7 @@ describe('UserProvisionerProvider', () => {
         .calls[0][0] as any;
       const userEntity = mutationCall.added[0].entity;
       expect(userEntity.spec.memberOf).toContain('group:default/ops-team');
+      expect(userEntity.spec.memberOf).not.toContain('group:default/default');
     });
 
     it('logs a warning and continues when aap-admins group update fails', async () => {
@@ -307,6 +310,39 @@ describe('UserProvisionerProvider', () => {
   });
 
   describe('multi-org config', () => {
+    it('keeps single-org flag-on user and admin identities aligned with auth', async () => {
+      const config = new ConfigReader({
+        ansible: { rhaap: { baseUrl: MOCK_BASE_URL } },
+        catalog: {
+          providers: {
+            rhaap: { dev: { orgs: ['Default'], multiOrgEnabled: true } },
+          },
+        },
+      });
+      mockAnsibleService.getUserInfoById.mockResolvedValue(MOCK_SUPERUSER);
+      mockAnsibleService.listSystemUsers.mockResolvedValue([MOCK_SUPERUSER]);
+      const idProvisioner = new UserProvisionerProvider({
+        ansibleService: mockAnsibleService,
+        config,
+        logger: mockServices.logger.mock(),
+      });
+      await idProvisioner.connect(mockConnection);
+      await idProvisioner.createUser('admin', 1);
+      const entities =
+        mockConnection.applyMutation.mock.calls[0][0].type === 'delta'
+          ? (
+              mockConnection.applyMutation.mock.calls[0][0] as {
+                added: Array<{ entity: any }>;
+              }
+            ).added.map(item => item.entity)
+          : [];
+      expect(entities.find(item => item.kind === 'User').metadata.name).toBe(
+        'aap-user-1',
+      );
+      expect(
+        entities.find(item => item.metadata.name === 'aap-admins').spec.members,
+      ).toEqual(['user:default/aap-user-1']);
+    });
     it('uses org-scoped namespaces when multiple orgs are configured', async () => {
       const multiOrgConfig = new ConfigReader({
         ansible: {
@@ -325,7 +361,7 @@ describe('UserProvisionerProvider', () => {
       });
 
       mockAnsibleService.getOrgsByUserId.mockResolvedValue([
-        { name: 'Default', groupName: 'default' },
+        { name: 'Default', id: 1, groupName: 'default' },
       ]);
       mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
 
@@ -341,8 +377,12 @@ describe('UserProvisionerProvider', () => {
       const mutationCall = (mockConnection.applyMutation as jest.Mock).mock
         .calls[0][0] as any;
       const userEntity = mutationCall.added[0].entity;
-      // With multi-org, org namespace is sanitized org name, not 'default'
-      expect(userEntity.spec.memberOf).toContain('group:default/default');
+      expect(userEntity.spec.memberOf).toContain('group:aap-1/aap-org-1');
+      expect(userEntity.metadata.namespace).toBe('default');
+      expect(userEntity.metadata.name).toBe('aap-user-42');
+      expect(userEntity.metadata.annotations['ansible.com/aap-user-id']).toBe(
+        '42',
+      );
       // org annotation should be set in multi-org mode
       expect(userEntity.metadata.annotations['ansible.com/organizations']).toBe(
         'Default',

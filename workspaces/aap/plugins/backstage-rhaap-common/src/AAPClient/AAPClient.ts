@@ -36,8 +36,13 @@ import {
 } from '../interfaces';
 
 import { TERMINAL_JOB_STATUSES } from '../constants';
-import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import {
+  getAnsibleConfig,
+  getCatalogConfig,
+  findMissingConfiguredOrganizations,
+} from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
+import { parseAndLogStdoutMessages } from './utils/jobStdoutHelpers';
 import {
   PAHHelperContext,
   sanitizePAHLimit,
@@ -66,6 +71,7 @@ export interface IAAPService extends Pick<
   | 'fetchResult'
   | 'launchJobTemplate'
   | 'launchJobTemplateNoWait'
+  | 'logJobStdoutMessages'
   | 'getJobStatus'
   | 'cancelJob'
   | 'cleanUp'
@@ -670,24 +676,17 @@ export class AAPClient implements IAAPService {
     let result;
     try {
       result = await this.fetchResult(jobID, token);
-      const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
-      const stdoutResponse = await this.executeGetRequest(
-        stdoutEndPoint,
-        token,
-      );
-      const stdoutRespText = await stdoutResponse.text();
-      const messageRegex = /"msg":\s*"([^"]+)"|"msg":\s*\[(.*?)\]/gs;
-      const matchRegex = [...stdoutRespText.matchAll(messageRegex)];
-      matchRegex.forEach(macthingMsg => {
-        if (macthingMsg[1]) {
-          this.logger.info(macthingMsg[1]);
-        } else if (macthingMsg[2]) {
-          const arrayItems = [...macthingMsg[2].matchAll(/"([^"]+)"/g)];
-          arrayItems.forEach(arrayItem => this.logger.info(arrayItem[1]));
-        }
-      });
+      try {
+        lastEvent = await this.logJobStdoutMessages(jobID, token);
+      } catch (stdoutError) {
+        this.logger.warn(
+          `Failed to fetch job stdout for job ${jobID}: ${stdoutError}`,
+        );
+      }
       if (result.jobData.status !== 'successful') {
-        lastEvent = matchRegex.at(-1)![1];
+        lastEvent =
+          lastEvent ??
+          'Undefined Error. Please check the RHAAP portal for job execution logs.';
         this.logger.error(`Job failed: ${lastEvent}`);
         throw new Error(`Job execution failed due to ${lastEvent}`);
       }
@@ -712,6 +711,20 @@ export class AAPClient implements IAAPService {
       events: result.jobEvents,
       url: `${this.getBaseUrl()}/execution/jobs/playbook/${jobID}/output`,
     };
+  }
+
+  /**
+   * Fetches job stdout and logs ansible.builtin.debug msg values at info level.
+   * Returns the last string msg found (for failure reporting).
+   */
+  public async logJobStdoutMessages(
+    jobID: number,
+    token: string,
+  ): Promise<string | undefined> {
+    const stdoutEndPoint = `api/controller/v2/jobs/${jobID}/stdout/?format=txt`;
+    const stdoutResponse = await this.executeGetRequest(stdoutEndPoint, token);
+    const stdoutRespText = await stdoutResponse.text();
+    return parseAndLogStdoutMessages(stdoutRespText, this.logger);
   }
 
   /**
@@ -1158,6 +1171,16 @@ export class AAPClient implements IAAPService {
         token,
       );
 
+      const missingOrganizations = findMissingConfiguredOrganizations(
+        this.catalogConfig.organizations,
+        (rawOrgs as Array<{ name?: string }>).map(org => org.name ?? ''),
+      );
+      for (const orgName of missingOrganizations) {
+        this.logger.warn(
+          `Configured organization '${orgName}' not found in AAP; entities for that org will not sync`,
+        );
+      }
+
       if (!userAndTeamDetails) {
         return rawOrgs.map((org: any) => {
           return {
@@ -1289,7 +1312,8 @@ export class AAPClient implements IAAPService {
 
   public async getOrgsByUserId(
     userID: number,
-  ): Promise<{ name: string; groupName: string }[]> {
+    organizations: readonly string[] = this.catalogConfig.organizations,
+  ): Promise<{ name: string; id: number; groupName: string }[]> {
     const endPoint = `/api/gateway/v1/users/${userID}/organizations/`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     this.logger.info(`Fetching orgs for user ID: ${userID} from RH AAP.`);
@@ -1297,15 +1321,12 @@ export class AAPClient implements IAAPService {
     urlSearchParams.set('page_size', '200');
 
     // Fetch details of orgs that are configured in app-config.
-    if (this.catalogConfig.organizations.length === 1) {
-      urlSearchParams.set(
-        'name__iexact',
-        this.catalogConfig.organizations.toString(),
-      );
+    if (organizations.length === 1) {
+      urlSearchParams.set('name__iexact', organizations.toString());
     }
     // Adds support for multiple orgs with OR operator
-    else if (this.catalogConfig.organizations.length > 1) {
-      this.catalogConfig.organizations.forEach(orgName => {
+    else if (organizations.length > 1) {
+      organizations.forEach(orgName => {
         urlSearchParams.append('or__name__iexact', orgName);
       });
     }
@@ -1317,6 +1338,7 @@ export class AAPClient implements IAAPService {
       .filter((org: any) => org?.name)
       .map((org: any) => ({
         name: org.name,
+        id: org.id,
         groupName: this.formatNameSpace(org.name),
       }));
   }
@@ -1327,7 +1349,7 @@ export class AAPClient implements IAAPService {
     this.logger.info(`Fetching user details for ID: ${userID} from RH AAP.`);
     const userResponse: any = await this.executeGetRequest(endPoint, token);
     const userJson = await userResponse.json();
-    this.logger.info(`User information ${JSON.stringify(userJson)}`);
+    this.logger.debug(`Retrieved AAP user information for ID ${userID}`);
 
     return {
       id: userJson.id,

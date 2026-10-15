@@ -1,15 +1,19 @@
 # Self-Service Extension SDK — Architecture & Implementation Plan
 
+> **Historical planning reference:** The registry, Scalprum wiring and package
+> proposals below preserve an earlier design; they are not native integration
+> instructions. Use [SDK architecture](../next/portal-sdk-architecture.md) and the
+> [plugin author guide](../next/portal-sdk-plugin-author-guide.md) for the current implementation.
+
 > **Status:** Draft
-> **Date:** 2026-09-28
 > **Author:** AI-assisted design session
 > **Scope:** Extract reusable components and create an extension SDK for the self-service plugin
-> **Jira:** [ANSTRAT-2497](https://redhat.atlassian.net/browse/ANSTRAT-2497) — Portal Plugin Factory: Plugin Development Guide and SDK
+> **Jira:** [Portal Plugin Factory feature](https://redhat.atlassian.net/browse/ANSTRAT-2497) — Portal Plugin Factory: Plugin Development Guide and SDK
 
-> **Positioning:** This document is **Phase 1** of the broader Automation Portal Plugin Factory
-> SDK described in ANSTRAT-2497. It delivers the self-service plugin's extension surface:
+> **Positioning:** This document proposes an initial extension layer for the broader Automation Portal Plugin Factory
+> SDK. It delivers the self-service plugin's extension surface:
 > the `backstage-rhaap-react` component library and `backstage-rhaap-extension-api` contracts
-> package. ANSTRAT-2497's full factory scope (portal-wide RBAC delegation, settings
+> package. The full factory scope (portal-wide RBAC delegation, settings
 > registration, capability metadata, scaffold CLI, contributor kit) is beyond this document's
 > implementation boundary. The packages produced here establish the package naming, versioning,
 > and contract patterns that the broader factory SDK will extend.
@@ -19,7 +23,7 @@
 > - [Ganesh's Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) — target state, workspace structure, plugin manifest model
 > - [Brad's migration plan (PR #712)](https://github.com/ansible/ansible-backstage-plugins/pull/712) — 45 work packages under `docs/next/`
 >
-> **Alignment review (Oct 1, 2026):** Brad Thornton reviewed this plan against the full architecture and identified six conflicts. Each is documented in §12 with an agreed resolution. The implementation plan below remains valid — §12 records which specific design decisions need updating as we move from PoC to production implementation.
+> **Alignment review:** Brad Thornton reviewed this plan against the full architecture and identified six conflicts. Each is documented in §12 with an agreed resolution. The implementation plan below remains valid — §12 records which specific design decisions need updating as the design moves toward a supported implementation.
 
 ---
 
@@ -99,8 +103,7 @@ Reusable, self-contained React components, hooks, and utilities extracted from t
 | All types from `common/types.ts`         | `components/common/types.ts`                       | SyncStatus, SyncStatusMap, etc.                  |
 | All constants from `common/constants.ts` | `components/common/constants.ts`                   | Sync category constants, intervals               |
 
-> **Note — domain utilities stay in self-service:**
-> `parseMarkdownLinks` (returns JSX — requires React + MUI `Link`),
+> **Note — domain utilities stay in self-service:** > `parseMarkdownLinks` (returns JSX — requires React + MUI `Link`),
 > `parseEEDefinition` (EE domain, depends on `js-yaml`),
 > `fetchReadmeFromBackend`, and `fetchGitFileContentFromBackend`
 > (use `fetchApiRef` / `DiscoveryApi` from `@backstage/core-plugin-api` — frontend
@@ -279,9 +282,9 @@ const EXTENSION_POINTS = {
 ```
 
 > **Note:** `SELF_SERVICE_SECTIONS` (top-level navigation contributions) is deferred to
-> Phase 5. A navigation section has a fundamentally different shape (route, icon, label,
+> navigation contributions. A navigation section has a fundamentally different shape (route, icon, label,
 > permission check) than tabs/cards/actions and needs a dedicated
-> `SectionContribution` type. See §8 Phase 5 for a design sketch and open questions.
+> `SectionContribution` type. See §8 navigation contributions for a design sketch and open questions.
 
 #### Contribution registry
 
@@ -518,7 +521,9 @@ Contributed components are rendered inside `RhaapThemeProvider` (MUI v4 only —
 ```typescript
 <PermissionGate permission={contribution.permission}>
   <RhaapThemeProvider>
-    <ErrorBoundary fallback={<ContributionErrorFallback id={contribution.id} />}>
+    <ErrorBoundary
+      fallback={<ContributionErrorFallback id={contribution.id} />}
+    >
       <Suspense fallback={<SkeletonLoader />}>
         <ContributedComponent entity={entity} />
       </Suspense>
@@ -578,7 +583,7 @@ const cssVars = {
 
 <div className="rhaap-extension-container" style={cssVars}>
   {children}
-</div>
+</div>;
 ```
 
 These properties automatically adapt to dark mode, custom Backstage themes, and any theme overrides the deployer has configured.
@@ -682,9 +687,9 @@ Community plugin (e.g. @acme/plugin-security-scan)
 
 ---
 
-## 8. Implementation Phases
+## 8. Implementation Workstreams
 
-### Phase 1: Create `backstage-rhaap-react` (component library)
+### Create `backstage-rhaap-react` (component library)
 
 **Pre-requisite:** Map internal dependency chains of extracted components. Verified import chains (from codebase):
 
@@ -733,7 +738,7 @@ Community plugin (e.g. @acme/plugin-security-scan)
 - Add re-export shims in self-service for backward compatibility
 - Verify all self-service tests still pass
 
-### Phase 2: Create `backstage-rhaap-extension-api` (extension contracts)
+### Create `backstage-rhaap-extension-api` (extension contracts)
 
 - Create package scaffolding
 - Implement `ContributionRegistry` with full test coverage, including:
@@ -745,7 +750,7 @@ Community plugin (e.g. @acme/plugin-security-scan)
 - Implement `useExtensionTabs`, `useExtensionCards`, `useExtensionActions` hooks
 - Implement convenience registration helpers
 
-### Phase 3: Wire self-service detail pages
+### Wire self-service detail pages
 
 - Refactor `RepositoryDetailsPage` to use `useExtensionTabs`
 - Refactor `EEDetailsPage` to use `useExtensionTabs`
@@ -761,10 +766,10 @@ Community plugin (e.g. @acme/plugin-security-scan)
 - Add CSS custom properties container wrapping
 - Update all affected tests
 
-### Phase 4: Content discovery extraction (future — separate plan)
+### Content discovery extraction (future — separate plan)
 
 > **First named external consumer:** APME (Automation Portal Management Experience)
-> is the first external product team targeting the SDK per ANSTRAT-2497. The content
+> is the first external product team targeting the SDK for the Portal Plugin Factory. The content
 > discovery extraction below serves as the first-party proof-of-SDK, validating the
 > extension points before APME begins integration.
 
@@ -773,12 +778,12 @@ Community plugin (e.g. @acme/plugin-security-scan)
 - Register as first-party extension consumer (proof of SDK)
 - Remove extracted components from self-service
 
-### Phase 5: Navigation section contributions
+### Navigation section contributions
 
 > **Status:** Deferred. This is the hardest extension point because Backstage's
 > routing system is designed for static, compile-time route registration. The design
 > below is a sketch — not committed to implementation until a concrete consumer
-> (e.g., content discovery extraction in Phase 4) validates the need.
+> (e.g., content discovery extraction in content discovery extraction) validates the need.
 
 **Problem:** A community plugin wants to add a top-level page (e.g., `/self-service/compliance`)
 with its own sidebar link, permission gate, and routed component. The current SDK only supports
@@ -813,21 +818,23 @@ and render additional `<Route>` elements dynamically, each wrapped in `<RequireP
 ```typescript
 const contributedSections = useExtensionSections();
 // Inside <Routes>:
-{contributedSections.map(section => (
-  <Route
-    key={section.id}
-    path={section.path}
-    element={
-      section.permission ? (
-        <RequirePermission permission={section.permission}>
+{
+  contributedSections.map(section => (
+    <Route
+      key={section.id}
+      path={section.path}
+      element={
+        section.permission ? (
+          <RequirePermission permission={section.permission}>
+            <ExtensionRenderer contribution={section} />
+          </RequirePermission>
+        ) : (
           <ExtensionRenderer contribution={section} />
-        </RequirePermission>
-      ) : (
-        <ExtensionRenderer contribution={section} />
-      )
-    }
-  />
-))}
+        )
+      }
+    />
+  ));
+}
 ```
 
 **Sidebar injection:** A `ContributedSidebarItems` component renders sidebar links
@@ -898,7 +905,7 @@ const ContributedSidebarItems = () => {
 | Risk                                                                     | Mitigation                                                                                                                            |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Circular dependency between new packages and self-service                | Strict dependency direction enforcement; re-export shims only in self-service                                                         |
-| Breaking existing dynamic plugin artifacts                               | Phase 1 uses re-exports; no public API changes                                                                                        |
+| Breaking existing dynamic plugin artifacts                               | shared UI extraction uses re-exports; no public API changes                                                                           |
 | Late-loading dynamic plugins cause UI flicker                            | `useExtensionTabs` subscription + graceful rendering (no layout shift)                                                                |
 | Community plugins use incompatible React version                         | Peer dependency on `react ^18.3.1`; documented requirement                                                                            |
 | CSS custom property names collide with other plugins                     | `--rhaap-` prefix is unique; documented naming convention                                                                             |
@@ -907,18 +914,18 @@ const ContributedSidebarItems = () => {
 | **Duplicate registration in HMR / dev mode**                             | **Second registration replaces first with console warning; deterministic behavior**                                                   |
 | **Non-deterministic ordering at equal priority**                         | **Stable sort guarantees insertion-order tiebreaker; documented**                                                                     |
 | **DynamicExtensionDiscovery fails in non-RHDH Backstage**                | **Scalprum detection; clean no-op when absent**                                                                                       |
-| **Internal dependency chains break during Phase 1 extraction**           | **Dependency graph verified from actual imports; extraction order enforced; `syncPollingService` refactor noted as prerequisite**     |
+| **Internal dependency chains break during shared UI extraction**         | **Dependency graph verified from actual imports; extraction order enforced; `syncPollingService` refactor noted as prerequisite**     |
 | **Community plugin's filter callback throws inside useMemo**             | **Registry getters wrap `filter()` in try/catch; throwing filter omits contribution + logs warning**                                  |
 | **Community plugin's action handler throws or returns rejected promise** | **`ExtensionRenderer` wraps handler invocation in try/catch + await; surfaces error via `alertApi`; host page unaffected**            |
-| **Scalprum integration is net-new with no local examples**               | **Target `@scalprum/react-core` API documented; RHDH docs linked; higher implementation risk flagged for Phase 3**                    |
+| **Scalprum integration is net-new with no local examples**               | **Target `@scalprum/react-core` API documented; RHDH docs linked; higher implementation risk flagged for detail-page integration**    |
 | **Registry singleton duplicated across dynamic plugins**                 | **`backstage-rhaap-extension-api` must be in RHDH `sharedPackages` scope; community plugins use peerDep only — no `--embed-package`** |
-| **`syncPollingService` has page-specific hard imports**                  | **Must refactor to callback-based invalidation before extraction (documented in Phase 1 pre-requisite)**                              |
+| **`syncPollingService` has page-specific hard imports**                  | **Must refactor to callback-based invalidation before extraction (documented in shared UI extraction pre-requisite)**                 |
 
 ---
 
-## 12. Alignment with Full Architecture (Oct 2026)
+## 12. Alignment with Full Architecture
 
-Brad Thornton reviewed this plan against the full architecture (Ganesh's doc + PR #712) and identified six conflicts. Each has an agreed resolution. The implementation phases above remain the right sequence — the items below are corrections to specific design decisions within those phases.
+Brad Thornton reviewed this plan against the full architecture (Ganesh's doc + PR #712) and identified six conflicts. Each has an agreed resolution. The implementation workstreams above remain the right sequence — the items below are corrections to specific design decisions within those workstreams.
 
 ### 12.1 Who owns the extension host?
 
@@ -928,7 +935,7 @@ pages act as hosts.
 **Full architecture:** `portal-core` owns `portal-extension-host`. Self-service is a
 _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
-**Resolution:** The PoC's `ContributionRegistry` + `ExtensionRenderer` are the first implementation of `portal-extension-host`. Before production use, they move to a `portal-core` workspace and are published as `@ansible/portal-extension-host`. Self-service becomes a contributor, not a host. The Phase 3 work (§8 Phase 3) is still the right implementation step — it just lands in the right package at the end.
+**Resolution:** The earlier implementation's `ContributionRegistry` + `ExtensionRenderer` are the first implementation of `portal-extension-host`. Before production use, they move to a `portal-core` workspace and are published as `@ansible/portal-extension-host`. Self-service becomes a contributor, not a host. The detail-page integration work in §8 is still the right implementation step — it just lands in the right package at the end.
 
 ### 12.2 `handler()` vs `CapabilityLaunch`
 
@@ -940,7 +947,7 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
 - Keep `handler()` **for pure UI/navigation only** (open a dialog, navigate, copy to clipboard). Document clearly: no network requests.
 - Server-side effects (start a scan, trigger a build) must use `operationId` or `workflowId` — registered operations with schemas, permissions, and audit records.
-- Update `ActionContribution` to add `launches?: CapabilityLaunch` alongside `handler`. Phase 2 implementation should ship both.
+- Update `ActionContribution` to add `launches?: CapabilityLaunch` alongside `handler`. The extension-contract implementation should ship both.
 
 ### 12.3 Frozen IDs vs experiences
 
@@ -953,7 +960,7 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 - The `rhaap.*.detail.tabs` IDs become **compatibility aliases** for current pages during the transition, not the primary contract.
 - No new extension point IDs should follow the `rhaap.*` frozen-ID pattern.
 - New capability registrations should target `experienceId` once `portal-core` defines experiences.
-- The `EXTENSION_POINTS` constants in Phase 2 are still the right step for the PoC — just documented as aliases.
+- The `EXTENSION_POINTS` constants in extension contracts are still the right step for the earlier implementation — just documented as aliases.
 
 ### 12.4 `filter?` vs `appliesToContentTypes`
 
@@ -963,7 +970,7 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
 **Resolution:**
 
-- Add `appliesToContentTypes?: string[]` to all contribution types in Phase 2.
+- Add `appliesToContentTypes?: string[]` to all contribution types in extension contracts.
 - `filter` stays as an _additional_ UI-side predicate for narrow annotation-level cases.
 - `appliesToContentTypes` is evaluated by the host before the component loads; `filter` runs at render time.
 
@@ -976,8 +983,8 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 **Resolution:**
 
 - Two content type IDs from day one: `execution-environment-definition` and `execution-environment-image`.
-- Phase 1 wires only the definition pages that exist today.
-- Update Phase 2 to split `EE_DETAIL_TABS` into two constants with the correct type IDs.
+- Shared UI extraction wires only the definition pages described in this plan.
+- Update extension contracts to split `EE_DETAIL_TABS` into two constants with the correct type IDs.
 
 ### 12.6 Package naming
 
@@ -985,10 +992,10 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
 **Full architecture:** `portal-extension-common`, `portal-extension-api`, `portal-extension-host`, `portal-plugin-sdk` — all in `workspaces/portal-core/`. Repository proposes renaming to `automation-portal-plugins`. (Ganesh's doc §2.2, §2.6)
 
-**Resolution:** Rename before any external publishing. Since the PoC is unpublished this
+**Resolution:** Rename before any external publishing. Since the earlier implementation is unpublished this
 costs nothing now.
 
-| PoC name                            | Target name               |
+| Original package name               | Target name               |
 | ----------------------------------- | ------------------------- |
 | `backstage-rhaap-react`             | `portal-plugin-sdk`       |
 | `backstage-rhaap-extension-api`     | `portal-extension-api`    |
@@ -1006,7 +1013,7 @@ Per Brad's analysis — the plugin today bundles four distinct concerns:
 | Create / run templates | Templates catalog, `CreateTask`, `RunTask`, task history        | `workspaces/self-service/` (→ `portal-scaffolder`)                 |
 | Scaffolder fields      | 11 field extensions                                             | Stay in `self-service` or `scaffolder-backend-module-self-service` |
 
-After Phase 4 (content extraction), the remaining plugin (templates + tasks + fields) should
+After content discovery extraction, the remaining plugin (templates + tasks + fields) should
 be named `portal-scaffolder` (plugin ID `portal-scaffolder`, package
 `@ansible/backstage-plugin-portal-scaffolder`). Keep `/self-service/*` as redirects.
 

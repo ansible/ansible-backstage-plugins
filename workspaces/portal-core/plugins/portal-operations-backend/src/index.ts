@@ -5,6 +5,7 @@ import {
 import {
   portalOperationsServiceRef,
   portalEntitlementsServiceRef,
+  portalActiveOrganizationServiceRef,
 } from '@ansible/portal-plugin-node';
 import { CatalogClient } from '@backstage/catalog-client';
 import { createRouter } from './router';
@@ -21,6 +22,7 @@ export default createBackendPlugin({
         userInfo: coreServices.userInfo,
         permissions: coreServices.permissions,
         entitlements: portalEntitlementsServiceRef,
+        organizations: portalActiveOrganizationServiceRef,
         discovery: coreServices.discovery,
         auth: coreServices.auth,
       },

@@ -5,7 +5,7 @@ Server-side SDK for Ansible portal backend plugins. Provides identity middleware
 ## When to use this package
 
 - You are writing a **backend plugin** (Backstage backend module or Express router) that participates in the Portal ecosystem.
-- You need to attach `req.portalContext` (organization ID, user ref) to authenticated requests.
+- You need to attach `req.portalContext` (trusted memberships and user ref) to authenticated requests.
 - You want to report plugin health to the aggregated health endpoint.
 - You want to emit structured audit log entries for state-changing operations.
 - You need to scope database queries by organization ID.
@@ -19,7 +19,10 @@ yarn workspace my-backend-plugin add @ansible/portal-plugin-node
 ## Quick start
 
 ```ts
-import { createPortalPlugin } from '@ansible/portal-plugin-node';
+import {
+  createPortalPlugin,
+  portalActiveOrganizationServiceRef,
+} from '@ansible/portal-plugin-node';
 
 // Create once per backend module
 const portalPlugin = createPortalPlugin({ pluginId: 'my-plugin' });
@@ -30,13 +33,20 @@ export const myBackendModule = createBackendModule({
   moduleId: 'my-module',
   register(reg) {
     reg.registerInit({
-      deps: { logger, httpAuth, userInfo, scheduler },
-      async init({ logger, httpAuth, userInfo }) {
+      deps: {
+        logger,
+        httpAuth,
+        userInfo,
+        scheduler,
+        organizations: portalActiveOrganizationServiceRef,
+      },
+      async init({ logger, httpAuth, userInfo, organizations }) {
         // Configure logger and attach identity middleware to your router
         const middleware = portalPlugin.createMiddleware({
           httpAuth,
           userInfo,
           logger,
+          organizations,
         });
         router.use(middleware);
 
@@ -80,6 +90,7 @@ const middleware = portalPlugin.createMiddleware({
   httpAuth,
   userInfo,
   logger,
+  organizations,
 });
 router.use(middleware);
 ```
@@ -88,14 +99,30 @@ Also configures the plugin's audit emitter with the provided logger.
 
 **Options:**
 
-| Field           | Type              | Description                                                                |
-| --------------- | ----------------- | -------------------------------------------------------------------------- |
-| `httpAuth`      | `HttpAuthService` | Backstage HTTP auth service                                                |
-| `userInfo`      | `UserInfoService` | Backstage user info service                                                |
-| `logger`        | `LoggerService`   | Logger for auth failures                                                   |
-| `defaultOrgId?` | `string`          | Org ID to use when user namespace is `'default'`. Defaults to `'default'`. |
+| Field           | Type                         | Description                                                                        |
+| --------------- | ---------------------------- | ---------------------------------------------------------------------------------- |
+| `httpAuth`      | `HttpAuthService`            | Backstage HTTP auth service                                                        |
+| `userInfo`      | `UserInfoService`            | Backstage user info service                                                        |
+| `logger`        | `LoggerService`              | Logger for auth failures                                                           |
+| `organizations` | `ActiveOrganizationResolver` | Injected host resolver for trusted memberships, independent of identity namespace. |
+| `defaultOrgId?` | `string`                     | Deprecated and ignored; configure the host resolver instead.                       |
 
-The middleware never blocks unauthenticated requests — route handlers must check for `req.portalContext` when they require it.
+The middleware never blocks unauthenticated requests — route handlers must check for `req.portalContext` when they require it. Unresolved identity or organization clears any stale context. Missing organization does not fall back to the user's namespace.
+
+`resolvePortalContext` returns `organizationId` for one membership or
+`organizationIds` for several; the latter does not choose an active organization.
+The AAP adapter validates current direct/team memberships against configured
+organizations. Resolver implementations can expose `resolveAll(credentials)`;
+the shared `resolveOrganizationMemberships` helper also supports existing
+single-organization `resolve(credentials)` adapters.
+
+Operation descriptors default to `organizationScope: 'organization'` and require
+one validated organization. Shared-resource operations opt into
+`organizationScope: 'shared'`; any granted membership enables their required
+capability, subject to operation and resource RBAC. Shared Git repositories need
+no AAP ownership annotation or catalog namespace mapping. See the
+[operations reference](../../../../docs/plugins/portal-operations-backend.md)
+for policy examples and identity compatibility.
 
 **TypeScript augmentation:** Declare `req.portalContext` in your module:
 
@@ -171,27 +198,31 @@ if (wasDegraded) {
 Emits a structured audit log entry. Requires a logger (call `createMiddleware` or `withLogger` first).
 
 ```ts
+const context = req.portalContext;
+if (!context) {
+  throw new Error('Authenticated Portal context is required');
+}
 portalPlugin.emitAuditEvent({
   operationId: 'my-plugin.jobs.launch',
-  userId: req.portalContext!.userId,
-  organizationId: req.portalContext!.organizationId,
+  userId: context.userId,
+  organizationId: context.organizationId,
+  organizationIds: context.organizationIds,
   input: { jobTemplateId, extraVars },
   outcome: 'SUCCESS',
-  resourceRef: `job-template:${jobTemplateId}`,
 });
 ```
 
 **`AuditEvent` fields:**
 
-| Field            | Type                                 | Required | Description                                                 |
-| ---------------- | ------------------------------------ | -------- | ----------------------------------------------------------- |
-| `operationId`    | `string`                             | ✓        | Dot-namespaced operation ID, e.g. `'my-plugin.jobs.launch'` |
-| `userId`         | `string`                             | ✓        | User entity ref from `req.portalContext`                    |
-| `organizationId` | `string`                             | ✓        | Org ID from `req.portalContext`                             |
-| `outcome`        | `'SUCCESS' \| 'FAILURE' \| 'DENIED'` | ✓        | Result of the operation                                     |
-| `input`          | `Record<string, unknown>`            | —        | Sanitized input parameters                                  |
-| `resourceRef`    | `string`                             | —        | Stable reference to the affected resource                   |
-| `error`          | `string`                             | —        | Error message on `FAILURE` outcome                          |
+| Field             | Type                      | Required | Description                                                  |
+| ----------------- | ------------------------- | -------- | ------------------------------------------------------------ |
+| `operationId`     | `string`                  | ✓        | Dot-namespaced operation ID, e.g. `'my-plugin.jobs.launch'`  |
+| `userId`          | `string`                  | ✓        | Catalog user name from `req.portalContext`; may be ID-based. |
+| `organizationId`  | `string`                  | —        | Single validated organization, when available.               |
+| `organizationIds` | `readonly string[]`       | —        | Trusted memberships; not resource ownership.                 |
+| `outcome`         | `'SUCCESS' \| 'FAILURE'`  | ✓        | Result of the operation                                      |
+| `input`           | `Record<string, unknown>` | —        | Sanitized input parameters                                   |
+| `error`           | `string`                  | —        | Error message on `FAILURE` outcome                           |
 
 #### `.withLogger(logger)`
 
@@ -220,7 +251,12 @@ Lower-level exports if you need to create the identity middleware without a `Por
 
 ```ts
 import { createIdentityMiddleware } from '@ansible/portal-plugin-node';
-const middleware = createIdentityMiddleware({ httpAuth, userInfo, logger });
+const middleware = createIdentityMiddleware({
+  httpAuth,
+  userInfo,
+  logger,
+  organizations,
+});
 ```
 
 ### `HealthRegistry` / `getAllHealthStatuses()`
@@ -234,21 +270,22 @@ import { getAllHealthStatuses } from '@ansible/portal-plugin-node';
 const snapshot = getAllHealthStatuses();
 ```
 
-### `withOrganization(db, orgId, fn)`
+### `withOrganization(orgId, fn)`
 
-Org-keyed database helper that wraps a Knex transaction and enforces every query carries the `organizationId` key.
+Validates a non-empty organization key and passes it to your callback. The
+callback must apply the key to its queries; the helper does not create a
+transaction or automatically filter queries. Use it for organization-specific
+domain state, not to assign an AAP organization to a shared catalog repository.
 
 ```ts
 import { withOrganization } from '@ansible/portal-plugin-node';
 
-const results = await withOrganization(
-  db,
-  req.portalContext!.organizationId,
-  async knex => {
-    return knex('my_table')
-      .where({ org_id: knex.raw('?', [orgId]) })
-      .select('*');
-  },
+const organizationId = req.portalContext?.organizationId;
+if (!organizationId) {
+  throw new Error('A single validated organization is required');
+}
+const results = await withOrganization(organizationId, orgId =>
+  db('my_table').where({ org_id: orgId }).select('*'),
 );
 ```
 

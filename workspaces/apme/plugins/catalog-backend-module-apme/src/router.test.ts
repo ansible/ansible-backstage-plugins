@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { ConfigReader } from '@backstage/config';
-import { InputError } from '@backstage/errors';
+import { InputError, NotAllowedError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { createRouter } from './router';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
@@ -62,6 +62,7 @@ describe('catalog-backend-module-apme router', () => {
     authorize: jest.fn().mockResolvedValue([{ result: AuthorizeResult.ALLOW }]),
     authorizeConditional: jest.fn().mockResolvedValue([]),
   };
+  const authorizeProjectOperation = jest.fn();
 
   let app: express.Express;
   let settingsPath: string;
@@ -69,6 +70,7 @@ describe('catalog-backend-module-apme router', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    authorizeProjectOperation.mockReset().mockResolvedValue(undefined);
     mockApmeService.getProject.mockResolvedValue({
       id: 'proj-1',
       name: 'terrible-playbook',
@@ -101,6 +103,7 @@ describe('catalog-backend-module-apme router', () => {
       }),
       portalSettingsStore,
       permissions: mockPermissions as never,
+      authorizeProjectOperation,
     });
     app = express().use(router);
     app.use(
@@ -114,6 +117,10 @@ describe('catalog-backend-module-apme router', () => {
           res.status(400).json({ error: err.message });
           return;
         }
+        if (err instanceof NotAllowedError) {
+          res.status(403).json({ error: err.message });
+          return;
+        }
         next(err);
       },
     );
@@ -122,6 +129,64 @@ describe('catalog-backend-module-apme router', () => {
   afterEach(async () => {
     await fs.unlink(settingsPath).catch(() => undefined);
   });
+
+  it('denies workflow forwarding when the host authorizer is missing', async () => {
+    const router = await createRouter({
+      apmeService: mockApmeService as never,
+      logger: logger as never,
+      httpAuth: { credentials: jest.fn().mockResolvedValue({}) } as never,
+      rootConfig: new ConfigReader({
+        ansible: { apme: { enabled: true, baseUrl: 'http://localhost:8080' } },
+      }),
+      permissions: mockPermissions as never,
+    });
+    const isolatedApp = express()
+      .use(router)
+      .use(
+        (
+          error: Error,
+          _req: express.Request,
+          res: express.Response,
+          _next: express.NextFunction,
+        ) => {
+          res
+            .status(error instanceof NotAllowedError ? 403 : 500)
+            .json({ error: error.message });
+        },
+      );
+    const response = await request(isolatedApp)
+      .post('/apme/projects/proj-1/operation')
+      .send({});
+    expect(response.status).toBe(403);
+    expect(mockApmeService.getProject).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['post', '/apme/projects/proj-1/operation'],
+    ['post', '/apme/projects/proj-1/operation/approve'],
+    ['get', '/apme/projects/proj-1/operation/events'],
+    ['post', '/apme/projects/proj-1/submit'],
+  ] as const)(
+    'denies %s %s before credential resolution or gateway forwarding',
+    async (method, route) => {
+      authorizeProjectOperation.mockRejectedValue(
+        new NotAllowedError('Entitlement denied'),
+      );
+      const response = await request(app)
+        [method](route)
+        .send({ scm_token: 'untrusted-token', activity_id: 'activity-1' });
+      expect(response.status).toBe(403);
+      expect(authorizeProjectOperation).toHaveBeenCalledWith(
+        'proj-1',
+        expect.anything(),
+        method !== 'get',
+      );
+      expect(mockApmeService.getProject).not.toHaveBeenCalled();
+      expect(mockApmeService.submitRemediation).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalled();
+    },
+  );
 
   it('looks up projects by repo URL and branch', async () => {
     const project = {

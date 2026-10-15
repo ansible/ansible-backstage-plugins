@@ -1,10 +1,14 @@
-# Portal SDK — RHDH Dynamic Plugin Deployment Guide
+# Portal SDK — Legacy Dynamic Plugin Deployment Notes
 
-> **Scope:** The singleton/Scalprum wiring below describes the legacy PoC, not
-> the target RHDH 2.1 NFS architecture. The additive entity-tab implementation
-> uses static declarations and typed host inputs; see
-> [NFS composition](portal-sdk-nfs-composition.md). Existing local app wiring
-> remains legacy until the app migration is complete.
+> **Historical compatibility notes:** The singleton, Scalprum, Janus CLI and
+> mount-point YAML examples below describe the earlier implementation. They are not instructions
+> for the current native app or RHDH `next-2.1` deployment. Native composition is
+> now the default and does not use a shared mutable registry for contributions.
+> Use the [plugin author guide](portal-sdk-plugin-author-guide.md) and
+> [NFS composition guide](portal-sdk-nfs-composition.md) for current contracts.
+> Use checked-in `export-dynamic` scripts and the local development runbook for
+> current packaging; do not copy the legacy commands or compatibility table as
+> supported-release guidance.
 
 This guide covers how to export and deploy portal frontend and backend plugins as RHDH dynamic plugins, with specific attention to the singleton registry requirement.
 
@@ -250,8 +254,8 @@ The backend plugin has not called `pushHealthStatus`. Check that:
 
 ## Version compatibility
 
-| Portal SDK version  | Backstage version | RHDH version |
-| ------------------- | ----------------- | ------------ |
-| `0.x` (current PoC) | ^1.39.1           | 2.0+         |
+| Portal SDK version | Backstage version | RHDH version |
+| ------------------ | ----------------- | ------------ |
+| `0.x` (historical) | ^1.39.1           | 2.0+         |
 
 The SDK packages follow semantic versioning. Shared package declarations in `dynamic-plugins.yaml` should pin to a minor version to prevent breaking changes from automatically deployed updates.

@@ -23,8 +23,10 @@ import {
   portalOperationsServiceRef,
   portalEntitlementsServiceRef,
   portalHealthServiceRef,
+  portalActiveOrganizationServiceRef,
 } from '@ansible/portal-plugin-node';
 import { registerApmeOperations } from './operations';
+import { createProjectOperationAuthorizer } from './projectOperationAuthorization';
 import { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
 import { createManualRepositoriesRouter } from './manualRepositories/router';
 import { registerRepositoryOperation } from './manualRepositories/registerOperation';
@@ -94,6 +96,7 @@ export const catalogModuleApme = createBackendModule({
         operations: portalOperationsServiceRef,
         entitlements: portalEntitlementsServiceRef,
         health: portalHealthServiceRef,
+        organizations: portalActiveOrganizationServiceRef,
       },
       async init({
         logger,
@@ -111,6 +114,7 @@ export const catalogModuleApme = createBackendModule({
         operations,
         entitlements,
         health,
+        organizations,
       }) {
         const apmePortalPlugin = createPortalPlugin({
           pluginId: 'apme',
@@ -182,6 +186,8 @@ export const catalogModuleApme = createBackendModule({
           return store.global?.enableAi ?? false;
         };
 
+        const catalogClient = new CatalogClient({ discoveryApi: discovery });
+        const manualProvider = new ManualGitRepositoryProvider();
         const router = await createRouter({
           apmeService,
           logger,
@@ -189,6 +195,17 @@ export const catalogModuleApme = createBackendModule({
           rootConfig,
           portalSettingsStore,
           permissions,
+          authorizeProjectOperation: createProjectOperationAuthorizer({
+            userInfo,
+            organizations,
+            entitlements,
+            permissions,
+            auth,
+            catalogClient,
+            apmeService,
+            rootConfig,
+            manualProvider,
+          }),
         });
 
         // Mounted on the catalog plugin stack — never apply global body parsers
@@ -201,8 +218,6 @@ export const catalogModuleApme = createBackendModule({
           message: 'APME initialized. Routes registered, schedulers starting.',
         });
 
-        const catalogClient = new CatalogClient({ discoveryApi: discovery });
-        const manualProvider = new ManualGitRepositoryProvider();
         catalogProcessing.addEntityProvider(manualProvider);
         registerRepositoryOperation({
           operations,
@@ -218,9 +233,11 @@ export const catalogModuleApme = createBackendModule({
             userInfo,
             permissions,
             operations,
+            organizations,
           }),
         );
         registerApmeOperations({
+          rootConfig,
           manualProvider,
           operations,
           catalogClient,

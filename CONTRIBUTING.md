@@ -310,16 +310,19 @@ For security reasons, workflows that require access to repository secrets (such 
 When developing plugins:
 
 1. **Plugin Structure**:
+
    - Follow Backstage plugin architecture
    - Use plugin IDs consistently (e.g., `ansible`)
    - Export plugin from `src/plugin.ts`
 
 2. **API Clients**:
+
    - Use `@ansible/plugin-backstage-rhaap-common` for shared utilities
    - Implement proper error handling
    - Use TypeScript interfaces for API responses
 
 3. **UI Components**:
+
    - Use Material-UI v4 components
    - Follow Backstage design patterns
    - Implement loading and error states
@@ -342,6 +345,7 @@ yarn new
 ### Documentation Requirements
 
 - **README.md**: Each plugin must have a README with:
+
   - Purpose and features
   - Installation instructions
   - Configuration guide
@@ -349,6 +353,7 @@ yarn new
   - Screenshots (for UI plugins)
 
 - **Code Comments**: Add JSDoc for:
+
   - Public APIs
   - Complex functions
   - Type definitions
@@ -414,5 +419,3 @@ By contributing, you agree that your contributions will be licensed under the Ap
 Thank you for contributing to Ansible Backstage Plugins! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
 
 ---
-
-Last updated: October 2025

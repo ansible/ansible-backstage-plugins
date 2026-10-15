@@ -232,5 +232,3 @@ For questions about the release process:
 - **Security Releases**: secalert@redhat.com
 
 ---
-
-Last updated: October 2025

@@ -25,7 +25,8 @@ import {
   PermissionsService,
 } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
-import { InputError } from '@backstage/errors';
+import { InputError, NotAllowedError } from '@backstage/errors';
+import type { ProjectOperationAuthorizer } from './projectOperationAuthorization';
 import {
   IApmeService,
   getApmeConfig,
@@ -62,6 +63,8 @@ export interface RouterOptions {
   rootConfig: Config;
   portalSettingsStore?: ApmePortalSettingsStore;
   permissions: PermissionsService;
+  /** Missing authorizer denies interactive workflow traffic. */
+  authorizeProjectOperation?: ProjectOperationAuthorizer;
 }
 
 function scmTokenFromBody(body: unknown): string | undefined {
@@ -185,6 +188,21 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
       {
         allow: ['user'],
       },
+    );
+  };
+  const authorizeWorkflow = async (req: {
+    method: string;
+    params: { projectId: string };
+  }) => {
+    const credentials = await ensureUser(req);
+    if (!options.authorizeProjectOperation)
+      throw new NotAllowedError(
+        'Project operation authorization is unavailable',
+      );
+    await options.authorizeProjectOperation(
+      req.params.projectId,
+      credentials,
+      !['GET', 'HEAD'].includes(req.method),
     );
   };
 
@@ -601,7 +619,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     '/apme/projects/:projectId/operation',
     jsonBodyUnlessGet,
     async (req, res) => {
-      await ensureUser(req);
+      await authorizeWorkflow(req);
       const { projectId } = req.params;
       const scmToken = await resolveScmTokenForProject(req, projectId);
       await proxyProjectOperation({
@@ -621,7 +639,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     '/apme/projects/:projectId/operation/*',
     jsonBodyUnlessGet,
     async (req, res) => {
-      await ensureUser(req);
+      await authorizeWorkflow(req);
       const { projectId } = req.params;
       const scmToken = await resolveScmTokenForProject(req, projectId);
       // Express splat (`*`) is exposed as params[0] at runtime.
@@ -802,7 +820,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     '/apme/projects/:projectId/submit',
     jsonBody,
     async (req, res) => {
-      await ensureUser(req);
+      await authorizeWorkflow(req);
       const { projectId } = req.params;
       const {
         activity_id: activityId,

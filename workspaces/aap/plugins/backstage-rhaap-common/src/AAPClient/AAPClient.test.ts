@@ -1154,6 +1154,43 @@ describe('AAPClient', () => {
         expect(infoSpy).toHaveBeenCalledWith('Message item 2');
       });
 
+      it('should return successful result when stdout retrieval fails', async () => {
+        const warnSpy = jest.spyOn(mockLogger, 'warn');
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: [{ id: 456, name: 'test-template' }],
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ job: 123 }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ status: 'successful' }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({
+              results: [{ event_data: { test: 'data' } }],
+              next: null,
+            }),
+          })
+          .mockRejectedValueOnce(new Error('stdout unavailable'));
+
+        const result = await client.launchJobTemplate(
+          { template: 'test-template' },
+          'test-token',
+        );
+
+        expect(result.status).toBe('successful');
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to fetch job stdout for job 123'),
+        );
+      });
+
       describe('Parameter Setting Tests', () => {
         let launchSpy: jest.SpyInstance;
 
@@ -2667,6 +2704,69 @@ describe('AAPClient', () => {
         expect(result).toHaveLength(1);
       });
 
+      it('warns when a configured multi-org name is missing from AAP', async () => {
+        const mockMultiOrgConfig = {
+          keys: jest.fn().mockReturnValue(['development']),
+          getConfig: jest.fn().mockImplementation((key: string) => {
+            if (key === 'development') {
+              return {
+                getString: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return 'TestOrg1,TestOrg2';
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getStringArray: jest.fn().mockImplementation((path: string) => {
+                  if (path === 'orgs') {
+                    return ['TestOrg1', 'TestOrg2'];
+                  }
+                  throw new Error(`No value for ${path}`);
+                }),
+                getOptionalBoolean: jest
+                  .fn()
+                  .mockImplementation((path: string) => {
+                    if (path === 'multiOrgEnabled') {
+                      return true;
+                    }
+                    return false;
+                  }),
+                getOptionalStringArray: jest.fn().mockReturnValue([]),
+              };
+            }
+            throw new Error(`No config for key ${key}`);
+          }),
+        };
+
+        const multiOrgClient = new AAPClient({
+          rootConfig: {
+            ...mockConfig,
+            getOptionalConfig: jest.fn().mockImplementation((path: string) => {
+              if (path === 'catalog.providers.rhaap') {
+                return mockMultiOrgConfig;
+              }
+              return mockConfig.getOptionalConfig(path);
+            }),
+          },
+          logger: mockLogger,
+        });
+
+        jest
+          .spyOn(multiOrgClient as any, 'executeCatalogRequest')
+          .mockResolvedValueOnce([
+            {
+              id: 1,
+              name: 'TestOrg1',
+              namespace: 'testorg1',
+            },
+          ]);
+
+        const result = await multiOrgClient.getOrganizations(false);
+        expect(result).toHaveLength(1);
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          "Configured organization 'testorg2' not found in AAP; entities for that org will not sync",
+        );
+      });
+
       it('should handle errors when fetching organization details', async () => {
         jest
           .spyOn(client as any, 'executeCatalogRequest')
@@ -2858,10 +2958,12 @@ describe('AAPClient', () => {
         expect(result).toEqual([
           {
             name: 'Development Org',
+            id: 1,
             groupName: 'development-org',
           },
           {
             name: 'QA Organization',
+            id: 2,
             groupName: 'qa-organization',
           },
         ]);
@@ -5022,6 +5124,35 @@ describe('AAPClient', () => {
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
         'Insufficient privileges',
       );
+    });
+  });
+
+  describe('logJobStdoutMessages', () => {
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('should fetch stdout and log msg values at info level', async () => {
+      const infoSpy = jest.spyOn(mockLogger, 'info');
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            '{"msg": "Single message"}\n{"msg": ["Message item 1", "Message item 2"]}',
+          ),
+      });
+
+      const lastMessage = await client.logJobStdoutMessages(123, 'test-token');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/jobs/123/stdout/?format=txt'),
+        expect.any(Object),
+      );
+      expect(infoSpy).toHaveBeenCalledWith('Single message');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 1');
+      expect(infoSpy).toHaveBeenCalledWith('Message item 2');
+      expect(lastMessage).toBe('Message item 2');
     });
   });
 });

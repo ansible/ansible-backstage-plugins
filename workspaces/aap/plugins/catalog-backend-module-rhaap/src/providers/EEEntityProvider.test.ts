@@ -143,4 +143,63 @@ describe('EEEntityProvider', () => {
       );
     });
   });
+
+  describe('unregisterExecutionEnvironment', () => {
+    beforeEach(async () => {
+      await provider.connect(mockConnection);
+    });
+
+    it('should successfully unregister an execution environment by name', async () => {
+      await provider.unregisterExecutionEnvironment('test-ee');
+
+      expect(logger.info).toHaveBeenCalledWith('Unregistering entity test-ee');
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [],
+        removed: [
+          {
+            entityRef: 'component:default/test-ee',
+            locationKey: 'EEEntityProvider',
+          },
+        ],
+      });
+    });
+
+    it('should trim whitespace from the name', async () => {
+      await provider.unregisterExecutionEnvironment('  my-ee  ');
+
+      expect(mockConnection.applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [],
+        removed: [
+          {
+            entityRef: 'component:default/my-ee',
+            locationKey: 'EEEntityProvider',
+          },
+        ],
+      });
+    });
+
+    it('should throw error when not connected', async () => {
+      const unconnectedProvider = new EEEntityProvider(logger);
+
+      await expect(
+        unconnectedProvider.unregisterExecutionEnvironment('test-ee'),
+      ).rejects.toThrow('EEEntityProvider is not connected yet');
+    });
+
+    it('should throw error when name is empty', async () => {
+      await expect(provider.unregisterExecutionEnvironment('')).rejects.toThrow(
+        'Name is required for Execution Environment unregistration',
+      );
+    });
+
+    it('should throw error when name is only whitespace', async () => {
+      await expect(
+        provider.unregisterExecutionEnvironment('   '),
+      ).rejects.toThrow(
+        'Name is required for Execution Environment unregistration',
+      );
+    });
+  });
 });

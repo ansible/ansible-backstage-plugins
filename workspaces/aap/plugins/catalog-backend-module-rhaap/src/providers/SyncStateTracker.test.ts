@@ -27,6 +27,14 @@ describe('SyncStateTracker', () => {
       expect(tracker.getLastSyncStatus()).toBeNull();
     });
 
+    it('should have zero duplicate entity count', () => {
+      expect(tracker.getLastDuplicateEntityCount()).toBe(0);
+    });
+
+    it('should have empty missing organizations', () => {
+      expect(tracker.getLastMissingOrganizations()).toEqual([]);
+    });
+
     it('should not be syncing', () => {
       expect(tracker.getIsSyncing()).toBe(false);
     });
@@ -51,6 +59,31 @@ describe('SyncStateTracker', () => {
       expect(tracker.getLastSyncTime()).toBe('2025-06-01T12:00:00.000Z');
       expect(tracker.getLastSyncStatus()).toBe('success');
       expect(tracker.getIsSyncing()).toBe(false);
+    });
+
+    it('should record duplicate entity count', () => {
+      tracker.markSyncStarted();
+      tracker.markSyncSucceeded(12);
+
+      expect(tracker.getLastDuplicateEntityCount()).toBe(12);
+    });
+
+    it('should record missing organizations from details object', () => {
+      tracker.markSyncStarted();
+      tracker.markSyncSucceeded({
+        duplicateEntityCount: 2,
+        missingOrganizations: ['Engineering'],
+      });
+
+      expect(tracker.getLastDuplicateEntityCount()).toBe(2);
+      expect(tracker.getLastMissingOrganizations()).toEqual(['Engineering']);
+    });
+
+    it('should clear missing organizations on next sync start', () => {
+      tracker.markSyncSucceeded({ missingOrganizations: ['Ops'] });
+      tracker.markSyncStarted();
+
+      expect(tracker.getLastMissingOrganizations()).toEqual([]);
     });
 
     it('should not update lastFailedSyncTime', () => {
@@ -131,7 +164,10 @@ describe('SyncStateTracker', () => {
       const mockSignals = { publish: jest.fn().mockResolvedValue(undefined) };
       tracker.setSignals(mockSignals as any, 'test-provider');
 
-      tracker.markSyncSucceeded();
+      tracker.markSyncSucceeded({
+        duplicateEntityCount: 3,
+        missingOrganizations: ['Engineering'],
+      });
 
       expect(mockSignals.publish).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -139,6 +175,8 @@ describe('SyncStateTracker', () => {
             syncInProgress: false,
             lastSyncStatus: 'success',
             lastSyncTime: '2025-06-01T12:00:00.000Z',
+            lastDuplicateEntityCount: 3,
+            lastMissingOrganizations: ['Engineering'],
           }),
         }),
       );

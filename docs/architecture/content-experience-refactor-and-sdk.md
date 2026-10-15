@@ -1,5 +1,10 @@
 # Content Experience Architecture Refactoring — What Needs to Be Done
 
+> **Historical planning reference:** This document preserves an earlier proposed
+> migration sequence, not the current delivery status. For the implemented SDK,
+> see [SDK architecture](../next/portal-sdk-architecture.md) and the
+> [implementation guide](../next/portal-plugin-factory-implementation-guide.md).
+
 > **Source documents:** [Migration Plan](https://github.com/cidrblock/ansible-backstage-plugins/blob/1c62d85d20a25d70198dc3855adb4f4911b7a132/docs/next/Content%20Experience%20Architecture%20Refactoring%20and%20Migration%20Plan.md), [V4 Architecture Guide](https://github.com/cidrblock/ansible-backstage-plugins/blob/1c62d85d20a25d70198dc3855adb4f4911b7a132/docs/next/Content%20Experience%20Architecture%20%26%20Integration%20Guide%20V3.md), and 45 work packages in `docs/next/content-experience-migration/work-packages/`.
 
 ---
@@ -11,11 +16,11 @@
 The existing `ansible-backstage-plugins` repo has several architectural problems:
 
 - **Mixed concerns**: Backend adapters (OCI, Galaxy/Pulp, Git), content-type interpretation, catalog projection, and UI are all tangled together in a few large packages (`catalog-backend-module-rhaap`, `self-service`, `backstage-rhaap-common`).
-- **No durable state**: The proof-of-concept (`automation-content-plugins`) uses in-memory indexes — content observations, EE digest caches, OCI reconcile history — that are lost on restart.
+- **No durable state**: The earlier implementation (`automation-content-plugins`) uses in-memory indexes — content observations, EE digest caches, OCI reconcile history — that are lost on restart.
 - **Hard-coded domain knowledge**: The core portal directly imports APME code. Adding or removing APME requires rebuilding and redeploying the entire portal.
 - **No stable public contracts**: External plugins and field teams have no published SDK to depend on. Any integration must directly import internal code.
 - **Arbitrary URL exposure**: Some capabilities allow plugins to register endpoint URLs that get proxied. This is unsafe and un-auditable.
-- **Two diverging implementations**: The `automation-content-plugins` PoC (which handles OCI/EE sources) and the main portal are separate codebases solving overlapping problems.
+- **Two diverging implementations**: The earlier `automation-content-plugins` implementation (which handles OCI/EE sources) and the main portal are separate codebases solving overlapping problems.
 
 ### Target state — the V4 architecture
 
@@ -180,9 +185,9 @@ A core SDK principle that prevents supply-chain risk:
 
 ---
 
-## 4. The 45 Work Packages — Phase by Phase
+## 4. The 45 Work Packages by Workstream
 
-### Phase 0 — Freeze behavior (2 WPs)
+### Freeze behavior (2 WPs)
 
 **Goal:** Capture an immutable, machine-readable record of every current contract before anything moves.
 
@@ -191,7 +196,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-001 | Contract and behavior fixture inventory | Auto-generates inventories of all public exports, backend plugin/module registrations, REST routes, entity shapes, permissions, scaffolder action IDs, browser storage keys, and dynamic artifacts from both pinned baseline repos. CI fails if any contract is unregistered.   |
 | WP-002 | Architecture ADR set                    | Writes and approves Architecture Decision Records for every cross-package boundary: adapter separation, digest identity, Catalog-as-projection, typed operation registration, PostgreSQL ownership, outbox, search, credential delegation, compatibility policy, and packaging. |
 
-### Phase 1 — Common contracts (3 WPs)
+### Common contracts (3 WPs)
 
 **Goal:** Publish the portable SDK contracts that everything else builds on.
 
@@ -201,9 +206,9 @@ A core SDK principle that prevents supply-chain risk:
 | WP-004 | Node adapter/processor contracts | Creates `content-primitives-node` — backend-neutral interfaces for backend adapters, content-type adapters, processors, enrichers, projectors, repositories, and operation handlers. Capability-based (no backend ID branching). |
 | WP-005 | Shared API DTO client            | Creates `content-primitives-client` — one browser/Node-safe authenticated REST client for normalized content, primitives, provenance, search, operations, jobs, and SSE. Auth/retry injected by caller.                          |
 
-### Phase 2 — Unified ingestion (4 WPs)
+### Unified ingestion (4 WPs)
 
-**Goal:** Extract the OCI/EE proof-of-concept into the new adapter structure; unify with the portal's existing ingestion.
+**Goal:** Extract the earlier OCI/EE implementation into the new adapter structure; unify with the portal's existing ingestion.
 
 | WP     | Title                                   | What it does                                                                                                                                                                         |
 | ------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -212,7 +217,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-008 | EE runtime split and adapter correction | Splits EE code into `content-type-execution-environment-common/node/frontend`. Removes all `backendId: 'oci'` hardcoding; EE detection works over any capable source.                |
 | WP-041 | Automation Hub adapter extraction       | Moves the Galaxy v3 + Pulp client into `adapter-automation-hub`. Preserves all collection entities, pagination, documentation reads, and sync behavior. Explicitly not OCI.          |
 
-### Phase 3 — Durable state (2 WPs)
+### Durable state (2 WPs)
 
 **Goal:** Replace in-memory indexes with PostgreSQL-backed repositories.
 
@@ -221,19 +226,19 @@ A core SDK principle that prevents supply-chain risk:
 | WP-009 | PostgreSQL content schema      | Adds migrations and repository implementations for sources, observations, mutable references, manifests, primitive records, evidence, reconciliation runs, jobs, outbox events, and idempotency keys. Backfills existing OCI observations. |
 | WP-010 | Reconcile outbox + idempotency | Implements the transactional outbox pattern — content/primitive changes emit ordered, deduplicated events consumed by Catalog and Search projectors. Enables restart-safe enrichment.                                                      |
 
-### Phase 4 — Read/write API (5 WPs)
+### Read/write API (5 WPs)
 
 **Goal:** Expose the canonical normalized REST API and the typed operation system.
 
-| WP     | Title                             | What it does                                                                                                                                                                                                                    |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| WP-011 | Normalized read API               | Implements the stable `GET /v1/content/*`, `/v1/collections/*`, `/v1/content-items/*`, `/v1/content/{id}/primitives`, `/v1/content/{id}/provenance` endpoints in `content-primitives-backend`. OpenAPI-first; generated client. |
-| WP-012 | Operation registry and invocation | Implements typed `OperationDescriptor` registration, discovery, durable job invocation, idempotency, cancellation, SSE job events, and typed errors. Replaces arbitrary URL execution for all write operations.                 |
-| WP-013 | Permission audit pipeline         | Implements the shared authentication → resource resolution → Backstage permission check → redaction → audit emission pipeline used by all REST, Scaffolder, UI, and MCP invocations.                                            |
-| WP-014 | Legacy content API aliases        | Adds `content-compatibility` — compatibility route aliases for all 13 RHAAP Catalog router paths and 20 PoC automation-content router paths, preserving exact auth, status, and body semantics during migration.                |
-| WP-044 | AAP delegated authorization       | Implements the AAP user credential delegation model — how Backstage-authenticated users invoke AAP operations using their own controller credentials rather than a shared service account.                                      |
+| WP     | Title                             | What it does                                                                                                                                                                                                                                 |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WP-011 | Normalized read API               | Implements the stable `GET /v1/content/*`, `/v1/collections/*`, `/v1/content-items/*`, `/v1/content/{id}/primitives`, `/v1/content/{id}/provenance` endpoints in `content-primitives-backend`. OpenAPI-first; generated client.              |
+| WP-012 | Operation registry and invocation | Implements typed `OperationDescriptor` registration, discovery, durable job invocation, idempotency, cancellation, SSE job events, and typed errors. Replaces arbitrary URL execution for all write operations.                              |
+| WP-013 | Permission audit pipeline         | Implements the shared authentication → resource resolution → Backstage permission check → redaction → audit emission pipeline used by all REST, Scaffolder, UI, and MCP invocations.                                                         |
+| WP-014 | Legacy content API aliases        | Adds `content-compatibility` — compatibility route aliases for all 13 RHAAP Catalog router paths and 20 automation-content router paths from the earlier implementation, preserving exact auth, status, and body semantics during migration. |
+| WP-044 | AAP delegated authorization       | Implements the AAP user credential delegation model — how Backstage-authenticated users invoke AAP operations using their own controller credentials rather than a shared service account.                                                   |
 
-### Phase 5 — Remaining adapters (4 WPs)
+### Remaining adapters (4 WPs)
 
 **Goal:** Extract Git and collection adapters; add filesystem; add source administration UI.
 
@@ -244,7 +249,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-017 | Filesystem adapter              | Creates `adapter-filesystem` — root-allowlisted recursive discovery, hashing, marker reads, watch/poll, symlink safety. New capability; no predecessor.                                                                  |
 | WP-042 | Source settings administration  | Creates admin UI for managing backend adapter source configurations (registries, repositories, Hub endpoints) via typed operations through WP-012.                                                                       |
 
-### Phase 6 — Catalog + processors (4 WPs)
+### Catalog + processors (4 WPs)
 
 **Goal:** Replace current Catalog providers with projectors over the canonical content store; add the processor framework.
 
@@ -255,7 +260,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-020 | Initial trust processors          | Implements the first trust primitive processors (certification status, publisher identity, signing status, provenance chain) via `content-primitives-backend-module-trust`.                                                      |
 | WP-021 | Initial quality/intent processors | Implements the first quality/intent processors (code quality, documentation completeness, structure compliance, business use cases) via `content-primitives-backend-module-quality-intent`.                                      |
 
-### Phase 7 — Portal composition (5 WPs)
+### Portal composition (5 WPs)
 
 **Goal:** Build the extension SDK for dynamic plugins; refactor the portal shell.
 
@@ -267,7 +272,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-025 | Generic content frontend            | Creates `content-primitives-frontend` — reusable React components for content browser, trust badge, provenance view, intent facets, quality graphs, compatibility and dependency panels.                                           |
 | WP-043 | Dynamic runtime registration ledger | Creates a continuously-generated, machine-readable ledger of every deployed package, artifact digest, plugin/module ID, route, API ref, permission, and config schema. Reconciles against every deployment overlay before cutover. |
 
-### Phase 8 — Typed operations (2 WPs)
+### Typed operations (2 WPs)
 
 **Goal:** Wire Scaffolder into the operation system; register AAP operations.
 
@@ -276,7 +281,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-026 | Scaffolder operation bridge | Extracts `portal-scaffolder-frontend` and `scaffolder-backend-module-portal`, then creates `scaffolder-backend-module-content-operations` — a generic bridge that discovers WP-012 operations and invokes them from Scaffolder tasks. Partner template contribution model is also documented here. |
 | WP-027 | AAP operation registrations | Registers typed `OperationDescriptor` handlers for all current AAP capabilities: job template launch, EE build, project create, organization sync, Git CI dispatch, source registration/deregistration. These replace the direct route implementations.                                            |
 
-### Phase 9 — APME extraction (6 WPs)
+### APME extraction (6 WPs)
 
 **Goal:** Move APME out of the portal core into its own independently releasable dynamic plugin.
 
@@ -289,7 +294,7 @@ A core SDK principle that prevents supply-chain risk:
 | WP-032 | APME dynamic extraction                  | Packages APME as a standalone RHDH Dynamic Plugin deliverable. Dual-registration parity verified. After this, APME releases independently.                                                              |
 | WP-045 | APME browser state compatibility         | Preserves the `AI_MODEL_STORAGE_KEY` (`localStorage`) behavior used by `@apme/ui-workflow` — server `defaultAiModelId` takes precedence, then local storage, then provider fallback.                    |
 
-### Phase 10 — Search, MCP, quality gates (6 WPs)
+### Search, MCP, quality gates (6 WPs)
 
 **Goal:** Add intelligent search; expose the full API to AI agents via MCP; run cross-surface parity validation.
 
@@ -302,14 +307,14 @@ A core SDK principle that prevents supply-chain risk:
 | WP-037 | MCP dynamic operation tools  | Generates additional MCP tools from WP-012 operation descriptors that pass an explicit exposure allowlist. Includes confirmation gates, audit links, emergency disable, and versioned tool naming.                                                         |
 | WP-038 | Cross-surface parity suite   | Verifies that Portal UI, REST API, Scaffolder, and MCP callers receive equivalent authorized facts and behavior for the same principal and request. The final quality gate before deprecation.                                                             |
 
-### Phase 11 — Cleanup (2 WPs)
+### Cleanup (2 WPs)
 
-**Goal:** Retire compatibility shims; archive or repurpose the PoC repo.
+**Goal:** Retire compatibility shims; archive or repurpose the earlier content repository.
 
 | WP     | Title                                   | What it does                                                                                                                                                                                                                                  |
 | ------ | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | WP-039 | Compatibility telemetry and deprecation | Adds usage metrics to every compatibility alias. Removes aliases in a documented, sequenced process only after their contract-family retirement gate passes (WP-038 parity + measured zero use).                                              |
-| WP-040 | PoC repository disposition              | Decides (requires named owner approval) whether `automation-content-plugins` is archived after ADR/history transfer or retained as an integration harness consuming published packages. It must not remain a second divergent implementation. |
+| WP-040 | Content repository disposition          | Decides (requires named owner approval) whether `automation-content-plugins` is archived after ADR/history transfer or retained as an integration harness consuming published packages. It must not remain a second divergent implementation. |
 
 ---
 
@@ -317,16 +322,16 @@ A core SDK principle that prevents supply-chain risk:
 
 ### Packages being split or renamed
 
-| Current package                                             | Splits into                                                                                                                                        | Phase |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `@ansible/backstage-rhaap-common`                           | `aap-common` + `aap-node`                                                                                                                          | P1/P8 |
-| `@ansible/plugin-backstage-rhaap`                           | `portal-theme` + `aap-frontend`                                                                                                                    | P7/P8 |
-| `@ansible/plugin-backstage-self-service`                    | `portal-scaffolder-frontend` + `content-primitives-frontend` + `aap-frontend` + `portal-extension-host`                                            | P7/P8 |
-| `@ansible/backstage-plugin-catalog-backend-module-rhaap`    | `catalog-backend-module-aap` + `adapter-automation-hub` + `adapter-git` + EE type/projector + `content-compatibility`                              | P2–P8 |
-| `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | `scaffolder-backend-module-portal` + `scaffolder-backend-module-aap` + content operation bridge                                                    | P8    |
-| `@ansible/backstage-apme-common`                            | `apme-common` in APME repository                                                                                                                   | P9    |
-| `@ansible/plugin-backstage-apme`                            | `apme-frontend` in APME repository                                                                                                                 | P9    |
-| `@ansible/backstage-plugin-catalog-backend-module-apme`     | `apme-backend` + `apme-backend-module-content-operations` + `apme-backend-module-content-processors` + `catalog-backend-module-apme-compatibility` | P9    |
+| Current package                                             | Splits into                                                                                                                                        | Workstream                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `@ansible/backstage-rhaap-common`                           | `aap-common` + `aap-node`                                                                                                                          | Common contracts / typed operations   |
+| `@ansible/plugin-backstage-rhaap`                           | `portal-theme` + `aap-frontend`                                                                                                                    | Portal composition / typed operations |
+| `@ansible/plugin-backstage-self-service`                    | `portal-scaffolder-frontend` + `content-primitives-frontend` + `aap-frontend` + `portal-extension-host`                                            | Portal composition / typed operations |
+| `@ansible/backstage-plugin-catalog-backend-module-rhaap`    | `catalog-backend-module-aap` + `adapter-automation-hub` + `adapter-git` + EE type/projector + `content-compatibility`                              | Ingestion through typed operations    |
+| `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` | `scaffolder-backend-module-portal` + `scaffolder-backend-module-aap` + content operation bridge                                                    | Typed operations                      |
+| `@ansible/backstage-apme-common`                            | `apme-common` in APME repository                                                                                                                   | APME extraction                       |
+| `@ansible/plugin-backstage-apme`                            | `apme-frontend` in APME repository                                                                                                                 | APME extraction                       |
+| `@ansible/backstage-plugin-catalog-backend-module-apme`     | `apme-backend` + `apme-backend-module-content-operations` + `apme-backend-module-content-processors` + `catalog-backend-module-apme-compatibility` | APME extraction                       |
 
 ### Compatibility rules during migration
 
@@ -437,12 +442,12 @@ The work-package README defines these execution rules:
 
 ## 9. Key Decision Gates Still Required
 
-Before implementation of some phases can begin, named owners must approve decisions:
+Before implementation of some workstreams can begin, named owners must approve decisions:
 
 - **Persistence ADR** (required before WP-009): PostgreSQL schema layout, transaction boundaries, retention, backup/restore, and downgrade behavior.
 - **AAP delegated authorization** (WP-044): Exactly how Backstage-authenticated users delegate their AAP credentials to backend operations.
 - **Gitea support** (WP-002): Confirm delivery or produce a dated deviation with a named owner and tracking issue.
-- **`automation-content-plugins` disposition** (before Phase 10): Archive vs. integration harness — confirmed by named owners before WP-040.
+- **`automation-content-plugins` disposition** (before search, MCP, and quality gates): Archive vs. integration harness — confirmed by named owners before WP-040.
 - **Embedding model and privacy** (before WP-034): Approved by architecture and security before vector search implementation begins.
 - **MCP stable tool inventory** (before WP-036): The exact list of approved stable tools must be confirmed before implementation.
 
@@ -450,18 +455,18 @@ Before implementation of some phases can begin, named owners must approve decisi
 
 ## 10. Summary — What Needs to Be Done
 
-| #   | What                                                                                          | When           |
-| --- | --------------------------------------------------------------------------------------------- | -------------- |
-| 1   | Run WP-001 scanners — generate the complete behavioral inventory of both repos                | First          |
-| 2   | Write and approve the ADR set (WP-002) — every boundary decision must be explicit             | Before Phase 1 |
-| 3   | Publish the common contracts and client SDK (WP-003, 004, 005)                                | Phase 1        |
-| 4   | Extract OCI, Hub, and EE adapters into the unified ingestion pipeline (WP-006, 007, 008, 041) | Phase 2        |
-| 5   | Replace in-memory state with PostgreSQL (WP-009, 010)                                         | Phase 3        |
-| 6   | Ship the normalized REST API and typed operation registry (WP-011, 012, 013, 014, 044)        | Phase 4        |
-| 7   | Extract Git, collection, and filesystem adapters; add source admin (WP-015, 016, 017, 042)    | Phase 5        |
-| 8   | Replace Catalog providers with projectors; add primitive processor framework (WP-018–021)     | Phase 6        |
-| 9   | Ship the extension SDK (WP-022, 023, 024, 025, 043) — this is the public plugin API           | Phase 7        |
-| 10  | Wire Scaffolder to operation system; register all AAP operations (WP-026, 027)                | Phase 8        |
-| 11  | Extract APME to its own repo and dynamic plugin (WP-028–032, 045)                             | Phase 9        |
-| 12  | Add lexical + semantic search and MCP tools (WP-033–038)                                      | Phase 10       |
-| 13  | Remove compatibility shims; archive PoC (WP-039, 040)                                         | Phase 11       |
+| #   | What                                                                                          | When                           |
+| --- | --------------------------------------------------------------------------------------------- | ------------------------------ |
+| 1   | Run WP-001 scanners — generate the complete behavioral inventory of both repos                | First                          |
+| 2   | Write and approve the ADR set (WP-002) — every boundary decision must be explicit             | Before common contracts        |
+| 3   | Publish the common contracts and client SDK (WP-003, 004, 005)                                | common contracts               |
+| 4   | Extract OCI, Hub, and EE adapters into the unified ingestion pipeline (WP-006, 007, 008, 041) | unified ingestion              |
+| 5   | Replace in-memory state with PostgreSQL (WP-009, 010)                                         | durable state                  |
+| 6   | Ship the normalized REST API and typed operation registry (WP-011, 012, 013, 014, 044)        | read/write API                 |
+| 7   | Extract Git, collection, and filesystem adapters; add source admin (WP-015, 016, 017, 042)    | remaining adapters             |
+| 8   | Replace Catalog providers with projectors; add primitive processor framework (WP-018–021)     | catalog and processors         |
+| 9   | Ship the extension SDK (WP-022, 023, 024, 025, 043) — this is the public plugin API           | Portal composition             |
+| 10  | Wire Scaffolder to operation system; register all AAP operations (WP-026, 027)                | typed operations               |
+| 11  | Extract APME to its own repo and dynamic plugin (WP-028–032, 045)                             | APME extraction                |
+| 12  | Add lexical + semantic search and MCP tools (WP-033–038)                                      | search, MCP, and quality gates |
+| 13  | Remove compatibility shims; archive the earlier content repository (WP-039, 040)              | compatibility cleanup          |

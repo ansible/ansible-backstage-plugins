@@ -21,6 +21,26 @@ export type { EntitlementDecision } from '@ansible/portal-extension-common';
 /** Trusted deployment context. No client input or user-namespace inference. */
 export interface ActiveOrganizationResolver {
   resolve(credentials: BackstageCredentials): Promise<string | undefined>;
+  /** Trusted configured memberships, not a selection supplied by the browser. */
+  resolveAll?(credentials: BackstageCredentials): Promise<readonly string[]>;
+}
+
+export async function resolveOrganizationMemberships(
+  resolver: ActiveOrganizationResolver,
+  credentials: BackstageCredentials,
+): Promise<readonly string[]> {
+  const values = resolver.resolveAll
+    ? await resolver.resolveAll(credentials)
+    : [await resolver.resolve(credentials)].filter(
+        (id): id is string => id !== undefined,
+      );
+  if (
+    !Array.isArray(values) ||
+    values.some(id => typeof id !== 'string' || !id.trim() || id !== id.trim())
+  ) {
+    throw new InputError('Invalid organization memberships');
+  }
+  return [...new Set(values)].sort();
 }
 
 export class ConfiguredOrganizationResolver implements ActiveOrganizationResolver {
@@ -85,21 +105,27 @@ export class PortalEntitlements {
     const definition = this.definitions.get(id);
     if (!definition) return { allowed: false };
     try {
-      const organizationId = await this.organizations.resolve(credentials);
+      const memberships = await resolveOrganizationMemberships(
+        this.organizations,
+        credentials,
+      );
+      const organizationId =
+        memberships.length === 1 ? memberships[0] : undefined;
       const denied = { allowed: false, organizationId };
-      if (definition.scope === 'organization' && !organizationId) return denied;
+      if (definition.scope === 'organization' && !memberships.length)
+        return denied;
       const grants =
         this.config.getOptionalConfigArray('portal.entitlements.grants') ?? [];
-      const available = grants.some(grant => {
-        if (grant.getString('id') !== id) return false;
-        const organizations = grant.getStringArray('organizations');
-        return (
-          organizations.includes('*') ||
-          (definition.scope === 'organization' &&
-            !!organizationId &&
-            organizations.includes(organizationId))
-        );
-      });
+      const granted = new Set(
+        grants
+          .filter(grant => grant.getString('id') === id)
+          .flatMap(grant => grant.getStringArray('organizations')),
+      );
+      const matching = memberships.filter(
+        member => granted.has('*') || granted.has(member),
+      );
+      const available =
+        definition.scope === 'global' ? granted.has('*') : matching.length > 0;
       if (!available) return denied;
       const [decision] = await permissions.authorize(
         [
@@ -114,7 +140,15 @@ export class PortalEntitlements {
       );
       return {
         allowed: decision?.result === AuthorizeResult.ALLOW,
-        organizationId,
+        ...(definition.scope === 'global' ? { scope: 'global' as const } : {}),
+        ...(definition.scope === 'organization' && matching.length > 1
+          ? { organizationIds: matching }
+          : {
+              organizationId:
+                definition.scope === 'organization'
+                  ? matching[0]
+                  : organizationId,
+            }),
       };
     } catch {
       // Missing/invalid policy, organization resolution, and permission errors deny.

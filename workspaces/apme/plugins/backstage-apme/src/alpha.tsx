@@ -1,5 +1,6 @@
 import {
   ApiBlueprint,
+  PageBlueprint,
   createFrontendPlugin,
   type FrontendPlugin,
 } from '@backstage/frontend-plugin-api';
@@ -21,6 +22,7 @@ import { apmeManifest } from './apmeManifest';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
 import { apmeRepositoryDeregisterOperation } from '@ansible/backstage-apme-common/operations';
 import { isManuallyRegisteredRepository } from './hooks/useDeregisterRepository';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 
 // Native declarations reuse domain components without legacy side effects.
 const capability = apmeManifest.capabilities.find(
@@ -197,6 +199,22 @@ export const apmeScanAction = EntityActionBlueprint.make({
 const apmePlugin: FrontendPlugin = createFrontendPlugin({
   pluginId: 'apme',
   extensions: [
+    PageBlueprint.make({
+      name: 'content-quality',
+      params: {
+        path: '/self-service/content-quality',
+        title: 'Content Quality',
+        icon: <AssessmentIcon />,
+        noHeader: true,
+        loader: async () => {
+          const { ContentQualityPage } =
+            await import('./components/ContentQuality/ContentQualityPage');
+          return compatWrapper(
+            <ContentQualityPage catalogTabId={fleetEntry.id} />,
+          );
+        },
+      },
+    }),
     ApiBlueprint.make({
       name: 'apme',
       params: define => define(apmeApiFactory),

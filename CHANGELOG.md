@@ -10,7 +10,7 @@ where versioned packages apply.
 
 ### Added
 
-- **Portal NFS PoC** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
+- **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
 
 - Scaffolder **payload normalization** (`rhaapActionPayloadUtils`, `parseAapActionValues`) so `rhaap:*` actions receive consistent shapes for launch and resource-creation flows, with expanded unit tests.
 - **Survey → JSON Schema** improvements for catalog-generated job templates: multiselect / multiple-choice **choices** normalized to string arrays; multiselect **defaults** normalized (including newline-separated strings); safer **Nunjucks** parameter references for variable names that are not simple identifiers (`parameters[...]`, `secrets[...]`).
@@ -18,7 +18,7 @@ where versioned packages apply.
 
 ### Changed
 
-- **Portal NFS PoC** removes the experimental duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start` UI; existing `/self-service/*` pages remain the user-facing destinations.
+- **Portal NFS** removes the experimental duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start` UI; existing `/self-service/*` pages remain the user-facing destinations.
 
 - **Catalog backend HTTP routes** (superuser manual sync triggers on the catalog plugin router):
   - **Removed:** `GET .../aap/sync_orgs_users_teams`, `GET .../aap/sync_job_templates`
@@ -30,6 +30,14 @@ where versioned packages apply.
 
 ### Fixed
 
+- **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
+
+- **AAP identity and membership** aligns flag-controlled ID-based identities across authentication, scheduled catalog sync, and the extracted user provisioner; keeps direct organization membership separate from team membership and deduplicates catalog keys before mutation.
+
+- **Frontend SDK context** reads authenticated backend memberships instead of deriving organization from the user namespace or falling back to `default`.
+
+- **Workspace CI coverage** includes plugin source paths across all four workspaces and rejects empty filtered reports; Sonar source/test roots and generated-artifact exclusions now match the workspace layout.
+
 - **Portal NFS app** restores distinct self-service sidebar icons, native RBAC and Settings pages, and the source development app's global header and account/logout controls.
 
 - **AAP resource picker** (self-service): selection handling and typing for single vs multi-select resource lists.
@@ -37,7 +45,13 @@ where versioned packages apply.
 
 ### Upgrade notes
 
-1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete Phase 6 content extraction.
+1. **Backend SDK consumers:** inject `portalActiveOrganizationServiceRef` into identity middleware and use operation `requiredEntitlements` for server-side gates. `organizationId` is optional; multi-membership contexts carry `organizationIds`. Default organization-specific operations require one validated organization. Use `organizationScope: 'shared'` only for shared-resource operations. APME scanning requires a registered `apme.scanning` grant for any trusted membership as well as RBAC; registration/removal do not require scanning entitlement. Remove obsolete `portal.organization.catalogMappings`; `ansible.io/portal-organization` is no longer an AAP ownership boundary. Existing records are not rewritten.
+
+1. **AAP deployments:** `multiOrgEnabled: true` uses stable AAP ID-based entity names, including `user:default/aap-user-<id>`, consistently across sign-in and provisioning. With the flag off, legacy usernames remain supported. Synchronize the catalog and sign in again when changing identity mode. Entitlement grants use canonical lowercase configured AAP organization names, not catalog namespaces or SCM owners.
+
+1. **Frontend SDK consumers:** `usePortalContext` requires authenticated access to the host context endpoint. Handle `loading`, `error`, an optional `organizationId`, and multiple `organizationIds`; do not pass browser context as backend authorization authority.
+
+1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete content extraction.
 
 1. **Custom callers** of catalog sync GET endpoints: update URLs as listed above.
 1. **Template authors:** ensure `rhaap:launch-job-template` (and other `rhaap:*` actions that require `token`) use **`secrets.aapToken`** (or your chosen secret key) in the template YAML, not `parameters.token`, if you relied on values carrying the token.

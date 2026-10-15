@@ -5,9 +5,12 @@ import type {
   PermissionsService,
   UserInfoService,
 } from '@backstage/backend-plugin-api';
-import { parseEntityRef } from '@backstage/catalog-model';
 import { InputError } from '@backstage/errors';
-import type { PortalOperations } from '@ansible/portal-plugin-node';
+import {
+  resolvePortalContext,
+  type ActiveOrganizationResolver,
+  type PortalOperations,
+} from '@ansible/portal-plugin-node';
 import { apmeRepositoryRegisterOperation } from '@ansible/backstage-apme-common/operations';
 import { jsonBody } from '../jsonBody';
 
@@ -17,6 +20,7 @@ export function createManualRepositoriesRouter(options: {
   userInfo: UserInfoService;
   permissions: PermissionsService;
   operations: PortalOperations;
+  organizations: ActiveOrganizationResolver;
 }): Router {
   const router = PromiseRouter();
   router.post('/apme/repositories', jsonBody, async (req, res) => {
@@ -24,8 +28,7 @@ export function createManualRepositoriesRouter(options: {
       req as unknown as Parameters<HttpAuthService['credentials']>[0],
       { allow: ['user'] },
     );
-    const identity = await options.userInfo.getUserInfo(credentials);
-    const user = parseEntityRef(identity.userEntityRef);
+    const context = await resolvePortalContext({ ...options, credentials });
     const submitted = req.body?.entity;
     if (
       submitted?.kind !== 'Component' ||
@@ -39,7 +42,7 @@ export function createManualRepositoriesRouter(options: {
     const result = (await options.operations.execute(
       apmeRepositoryRegisterOperation.id,
       {
-        subject: { entityRef: identity.userEntityRef },
+        subject: { entityRef: context.userEntityRef },
         input: {
           sourceControlProvider: annotations['ansible.io/scm-provider'],
           repositoryOwner: annotations['ansible.io/scm-organization'],
@@ -53,9 +56,7 @@ export function createManualRepositoriesRouter(options: {
       },
       {
         credentials,
-        userEntityRef: identity.userEntityRef,
-        userId: user.name,
-        organizationId: user.namespace,
+        ...context,
       },
       options.permissions,
     )) as { entityRef: string };

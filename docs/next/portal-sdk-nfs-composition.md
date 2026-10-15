@@ -1,29 +1,9 @@
 # Portal NFS composition
 
-## Current scope
-
-The ANSTRAT-2497 PoC composes entity tabs, overview cards, entity actions,
-catalog item actions, and scaffolder fields through static NFS declarations.
-The original self-service collections, execution environment, repository,
-template, and task routes remain available. Built-in detail content retains
-its layout; native contributions extend it rather than replace it.
-
-The source development app defaults to NFS; `?portalFrontend=legacy` is an
-explicit fallback. This experimental contract does not complete Phase 6 content
-extraction or the full architecture.
-
-Dynamic loading and original-page contributions have been exercised on
-`quay.io/rhdh-community/rhdh:next-2.1`, including installation from packed
-exports. That deployment uses mock AAP authentication and the local APME
-gateway. Separately, the source NFS app has been exercised with real AAP login,
-native scan-only operations reaching `completed`, persisted findings, and
-automatic summary refresh. These are separate acceptance checks; successful
-discovery or scan submission alone does not prove a completed assessment.
-
-The duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start`
-routes and their page components are removed. They are not hidden compatibility
-pages. The root `/` redirects to Templates; contribution APIs remain installed
-independently of any catalog or detail page.
+For package/runtime Mermaid diagrams, see
+[SDK architecture](portal-sdk-architecture.md). For contributor repository
+structure, APIs, examples and acceptance requirements, see the
+[third-party plugin author guide](portal-sdk-plugin-author-guide.md).
 
 ## Composition model
 
@@ -70,11 +50,11 @@ from presentation and receive the current subject, not contributor-supplied URLs
    `compatWrapper`, as demonstrated in the composition tests.
 4. Supply `availableExperiences` when an experience is disabled.
 5. Supply `checkEntitlement` from host authorization. It receives the declared
-   entitlement and subject; the host resolves active organization scope.
+   entitlement and subject; the host resolves trusted organization memberships.
    Missing resolvers, denied decisions, and failed checks suppress entitled tabs.
 6. Install the contributor's NFS feature through app discovery or dynamic
    loading. Do not import its legacy `index.ts` for side effects.
-7. Rebuild the host and contributors together. Earlier PoC declarations
+7. Rebuild the host and contributors together. Earlier extension declarations
    attached to `page:portal/entity`; they must use the shared provider attachment.
 
 ### Verification
@@ -82,7 +62,7 @@ from presentation and receive the current subject, not contributor-supplied URLs
 From the repository root, run:
 
 ```bash
-yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/self-service/plugins/self-service/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
+yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/self-service/plugins/portal-scaffolder/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
 ```
 
 The host tests exercise real NFS discovery, filtering, selection, permission
@@ -148,9 +128,17 @@ workflow launcher, and deregistration. Scanning requires
 - The earlier AWS dependency-resolution failure is not evidence against native
   discovery, but scans of that larger repository still need their own successful
   assessment evidence. Do not weaken Galaxy server validation to make them pass.
-- Complete Phase 6 content extraction, query/write contracts, and picker migration.
+- Complete content extraction, query/write contracts, and picker migration.
 - Compatibility validation is intentionally limited to `next-2.1` for this slice.
-  The host resolves one active organization from server configuration, never user namespace.
+  The AAP resolver validates caller memberships against configured organizations.
+  REST operations, registration adapters, and APME interactive workflows use the
+  same resolver, independently of identity namespace. Any granted membership
+  enables a shared capability, subject to operation and repository RBAC. Multiple
+  memberships do not select an active organization for organization-specific
+  handlers. Git repositories need no AAP ownership annotation or namespace
+  mapping; new manual entries stay in `default`. Remaining legacy mutations and
+  automatic scan policy are not guarantees supplied by frontend gates. See the
+  [operations backend policy](../plugins/portal-operations-backend.md).
 - The native app does not import APME's legacy entry point for registration side
   effects. The explicitly selected legacy fallback still has its own registration.
   Do not install both registration paths in the same native app.

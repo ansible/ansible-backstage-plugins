@@ -14,6 +14,9 @@ import {
   type ScaffolderFieldDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import plugin from './alpha';
+import { notificationStore } from './components/notifications';
+
+afterEach(() => notificationStore.clearAll());
 
 const mockSuperuser = jest.fn(() => ({ isSuperuser: true, loading: false }));
 jest.mock('./hooks', () => ({
@@ -24,7 +27,29 @@ jest.mock('./components/CatalogImport', () => ({
   CatalogImport: () => <div>Native catalog import</div>,
 }));
 jest.mock('./components/ExecutionEnvironments/catalog/EEDetailsPage', () => ({
-  EEDetailsPage: () => <div>Native execution environment details</div>,
+  EEDetailsPage: () => {
+    const { useNotifications } = jest.requireActual(
+      './components/notifications',
+    );
+    const { showNotification } = useNotifications();
+    return (
+      <>
+        <div>Native execution environment details</div>
+        <button
+          onClick={() =>
+            showNotification({
+              title: 'EE build notification',
+              description: 'Build progress is available.',
+              severity: 'info',
+              autoHideDuration: 0,
+            })
+          }
+        >
+          Show EE build notification
+        </button>
+      </>
+    );
+  },
 }));
 
 jest.mock('./components/CreateTask/formExtraFields', () => ({
@@ -221,6 +246,19 @@ it.each([
     );
   },
 );
+
+it('provides the real notification context and visible stack when opening EE details directly', async () => {
+  await renderTestApp({
+    features: [plugin],
+    initialRouteEntries: ['/self-service/catalog/newly-created-ee'],
+    apis: [mockApis.permission()],
+  });
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Show EE build notification' }),
+  );
+  expect(await screen.findByText('EE build notification')).toBeInTheDocument();
+  expect(screen.getByText('Build progress is available.')).toBeInTheDocument();
+});
 
 it('does not expose catalog import to a non-superuser', async () => {
   mockSuperuser.mockReturnValueOnce({ isSuperuser: false, loading: false });

@@ -41,6 +41,9 @@ export class AuditEmitter {
       operationId: event.operationId,
       userId: event.userId,
       organizationId: event.organizationId,
+      ...(event.organizationIds !== undefined && {
+        organizationIds: event.organizationIds,
+      }),
       outcome: event.outcome,
       ...(event.input !== undefined && { input: event.input }),
       ...(event.error !== undefined && { error: event.error }),
