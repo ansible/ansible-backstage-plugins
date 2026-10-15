@@ -5,6 +5,7 @@
  */
 
 import type { ApmePortalSettingsData } from './resolveScanTarget';
+import { trimTrailingSlashes } from './trimTrailingSlashes';
 
 export type GatewayBaseUrlSource = 'global' | 'config';
 
@@ -55,7 +56,7 @@ export function normalizeGatewayBaseUrl(
     );
   }
 
-  const path = parsed.pathname.replace(/\/+$/, '');
+  const path = trimTrailingSlashes(parsed.pathname);
   return `${parsed.origin}${path === '/' ? '' : path}`;
 }
 
@@ -90,7 +91,7 @@ export function resolveGatewayBaseUrl(
     fromConfig = undefined;
   }
   return {
-    effective: fromConfig ?? input.configBaseUrl.replace(/\/+$/, ''),
+    effective: fromConfig ?? trimTrailingSlashes(input.configBaseUrl),
     source: 'config',
   };
 }

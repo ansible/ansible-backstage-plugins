@@ -21,6 +21,7 @@ import { collectionsViewPermission } from '@ansible/backstage-rhaap-common/permi
 import { CollectionBreadcrumbs } from './CollectionBreadcrumbs';
 import { CollectionAboutCard } from './CollectionAboutCard';
 import { CollectionResourcesCard } from './CollectionResourcesCard';
+import { collectionReadmeFetchUrl } from './collectionResourceUrls';
 import { CollectionReadmeCard } from './CollectionReadmeCard';
 import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
@@ -250,19 +251,7 @@ const CollectionDetailsPageInner = () => {
 
     setScmIntegrationAuthError(false);
 
-    let fetchUrl = readmeUrl;
-    if (
-      readmeUrl.includes('github.com') &&
-      !readmeUrl.includes('raw.githubusercontent.com')
-    ) {
-      fetchUrl = readmeUrl
-        .replace('github.com', 'raw.githubusercontent.com')
-        .replace('/blob/', '/');
-    } else if (readmeUrl.includes('gitlab') && !readmeUrl.includes('/raw/')) {
-      fetchUrl = readmeUrl.replace('/-/blob/', '/-/raw/');
-    }
-
-    fetch(fetchUrl)
+    fetch(collectionReadmeFetchUrl(readmeUrl))
       .then(response => (response.ok ? response.text() : ''))
       .then(setReadmeContent)
       .catch(() => setReadmeContent(''))

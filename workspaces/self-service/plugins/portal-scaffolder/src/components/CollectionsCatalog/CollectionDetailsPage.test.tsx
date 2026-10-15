@@ -752,6 +752,35 @@ describe('CollectionDetailsPage', () => {
     });
   });
 
+  it.each([
+    'https://github.com.evil.example/org/repo/blob/main/README.md',
+    'https://github.com@evil.example/org/repo/blob/main/README.md',
+    'https://evil.example/github.com/org/repo/blob/main/README.md',
+  ])('does not rewrite a GitHub hostname lookalike: %s', async readmeUrl => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: async () => 'Unmodified readme',
+    } as Response);
+    try {
+      mockCatalogApi.getEntities.mockResolvedValue({
+        items: [
+          {
+            ...mockEntity,
+            metadata: {
+              ...mockEntity.metadata,
+              annotations: { 'ansible.io/collection-source': 'scm' },
+            },
+            spec: { ...mockEntity.spec, collection_readme_url: readmeUrl },
+          },
+        ],
+      });
+      renderWithRouter('my-namespace-my-collection');
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(readmeUrl));
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('fetches readme from GitHub raw URL when no backend params', async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = jest.fn().mockResolvedValue({

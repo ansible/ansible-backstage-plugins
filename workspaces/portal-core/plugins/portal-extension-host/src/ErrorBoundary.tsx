@@ -9,7 +9,6 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
 }
 
 /**
@@ -21,8 +20,8 @@ interface State {
  * cannot take down an entire detail page or experience slot.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(_error: Error): State {
+    return { hasError: true };
   }
 
   constructor(props: Props) {

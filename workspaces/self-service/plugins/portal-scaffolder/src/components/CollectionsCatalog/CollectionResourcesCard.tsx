@@ -9,10 +9,10 @@ import CodeIcon from '@material-ui/icons/Code';
 
 import { CollectionResourcesCardProps } from './types';
 import { useCollectionsStyles } from './styles';
+import { isGitHubUrl } from './collectionResourceUrls';
 
 const getLinkIcon = (title: string, url: string) => {
   const titleLower = title.toLowerCase();
-  const urlLower = url.toLowerCase();
 
   if (titleLower.includes('readme')) {
     return DescriptionOutlinedIcon;
@@ -20,7 +20,7 @@ const getLinkIcon = (title: string, url: string) => {
   if (titleLower.includes('doc') || titleLower.includes('documentation')) {
     return MenuBookOutlinedIcon;
   }
-  if (titleLower.includes('github') || urlLower.includes('github.com')) {
+  if (titleLower.includes('github') || isGitHubUrl(url)) {
     return GitHubIcon;
   }
   if (titleLower.includes('issue') || titleLower.includes('bug')) {

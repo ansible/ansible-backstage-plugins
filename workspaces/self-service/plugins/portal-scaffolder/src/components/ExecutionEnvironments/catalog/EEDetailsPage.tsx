@@ -598,15 +598,14 @@ export const EEDetailsPage: React.FC = () => {
                     </ListItemIcon>
                     <Typography variant="body2">Delete</Typography>
                   </MenuItem>
-                  {entity &&
-                    extensionActions.map(ea => (
-                      <ExtensionActionMenuItem
-                        key={ea.id}
-                        contribution={ea}
-                        entity={entity as Entity}
-                        onMenuClose={handleMenuClose}
-                      />
-                    ))}
+                  {extensionActions.map(ea => (
+                    <ExtensionActionMenuItem
+                      key={ea.id}
+                      contribution={ea}
+                      entity={entity as Entity}
+                      onMenuClose={handleMenuClose}
+                    />
+                  ))}
                 </Menu>
               </>
             )}

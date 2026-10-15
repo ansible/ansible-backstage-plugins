@@ -17,6 +17,7 @@
 import { Config } from '@backstage/config';
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type { IApmeService } from './ApmeService';
+import { trimTrailingSlashes } from './trimTrailingSlashes';
 import type {
   CreateGalaxyServerRequest,
   GalaxyServer,
@@ -138,7 +139,7 @@ export interface SyncPortalGalaxyServersResult {
 }
 
 function urlsEqual(a: string, b: string): boolean {
-  const normalize = (u: string) => u.trim().replace(/\/+$/, '');
+  const normalize = (u: string) => trimTrailingSlashes(u.trim());
   return normalize(a) === normalize(b);
 }
 

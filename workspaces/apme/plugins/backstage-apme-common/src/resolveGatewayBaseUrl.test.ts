@@ -41,6 +41,14 @@ describe('normalizeGatewayBaseUrl', () => {
 });
 
 describe('resolveGatewayBaseUrl', () => {
+  it('preserves slash runs in the fallback without regex backtracking', () => {
+    const value = `not-a-url${'/'.repeat(100_000)}x///`;
+    expect(resolveGatewayBaseUrl({ configBaseUrl: value })).toEqual({
+      effective: value.slice(0, -3),
+      source: 'config',
+    });
+  });
+
   it('prefers a persisted portal-settings override', () => {
     const result = resolveGatewayBaseUrl({
       configBaseUrl: 'http://localhost:8080',
