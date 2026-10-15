@@ -27,8 +27,9 @@ it('does not expose native catalog import when create permission is denied', asy
     await screen.findByText(
       'ERROR 404: PAGE NOT FOUND',
       {},
-      { timeout: 10000 },
+      // Cold NFS route loading is substantially slower with coverage instrumentation.
+      { timeout: 30000 },
     ),
   ).toBeInTheDocument();
   expect(screen.queryByText('Native catalog import')).not.toBeInTheDocument();
-});
+}, 45000);
