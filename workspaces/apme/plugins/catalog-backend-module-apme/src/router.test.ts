@@ -69,7 +69,11 @@ describe('catalog-backend-module-apme router', () => {
   let portalSettingsStore: ApmePortalSettingsStore;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    mockPermissions.authorize.mockResolvedValue([
+      { result: AuthorizeResult.ALLOW },
+    ]);
+    mockPermissions.authorizeConditional.mockResolvedValue([]);
     authorizeProjectOperation.mockReset().mockResolvedValue(undefined);
     mockApmeService.getProject.mockResolvedValue({
       id: 'proj-1',
@@ -128,6 +132,245 @@ describe('catalog-backend-module-apme router', () => {
 
   afterEach(async () => {
     await fs.unlink(settingsPath).catch(() => undefined);
+  });
+
+  describe('request validation and endpoint contracts', () => {
+    it.each([
+      [{}, 'At least one'],
+      [{ targetAnsibleCoreVersion: '' }, 'non-empty string'],
+      [{ targetAnsibleCoreVersion: 17 }, 'non-empty string'],
+      [
+        { targetAnsibleCoreVersion: 'not-supported' },
+        'Unsupported ansible-core version',
+      ],
+      [{ defaultAiModelId: 42 }, 'string or null'],
+      [{ enableAi: 'true' }, 'must be a boolean'],
+      [{ gatewayBaseUrl: 17 }, 'string or null'],
+    ])('rejects malformed global settings %j', async (body, message) => {
+      const response = await request(app).put('/apme/settings').send(body);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain(message);
+    });
+
+    it.each([
+      [{}, 'name is required'],
+      [
+        { name: 'bad name', url: 'https://galaxy.example.com' },
+        'name must match',
+      ],
+      [{ name: 'valid' }, 'url is required'],
+    ])('rejects malformed Galaxy server creation %j', async (body, message) => {
+      const response = await request(app)
+        .post('/apme/settings/galaxy-servers')
+        .send(body);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain(message);
+      expect(mockApmeService.createGalaxyServer).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['invalid', {}, 'serverId must be a number'],
+      ['3', {}, 'At least one field'],
+      ['3', { name: 'bad name' }, 'name must match'],
+      ['3', { url: 'file:///etc/passwd' }, 'url'],
+      ['3', { auth_url: 'file:///etc/passwd' }, 'auth_url'],
+    ])(
+      'rejects invalid Galaxy updates to %s with %j',
+      async (id, body, message) => {
+        const response = await request(app)
+          .patch(`/apme/settings/galaxy-servers/${id}`)
+          .send(body);
+        expect(response.status).toBe(400);
+        expect(response.body.error).toContain(message);
+        expect(mockApmeService.updateGalaxyServer).not.toHaveBeenCalled();
+      },
+    );
+
+    it('forwards validated and normalized Galaxy updates and permits clearing authentication', async () => {
+      const updated = {
+        id: 3,
+        name: 'private',
+        url: 'https://galaxy.example.com/api/',
+      };
+      mockApmeService.updateGalaxyServer.mockResolvedValue(updated);
+      const response = await request(app)
+        .patch('/apme/settings/galaxy-servers/3')
+        .send({
+          name: ' private ',
+          url: 'https://galaxy.example.com/api/',
+          token: 'test-token',
+          auth_url: 'https://login.example.com/token',
+        });
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual(updated);
+      expect(mockApmeService.updateGalaxyServer).toHaveBeenCalledWith(3, {
+        name: 'private',
+        url: updated.url,
+        token: 'test-token',
+        auth_url: 'https://login.example.com/token',
+      });
+      await request(app)
+        .patch('/apme/settings/galaxy-servers/3')
+        .send({ auth_url: '' })
+        .expect(200);
+      expect(mockApmeService.updateGalaxyServer).toHaveBeenLastCalledWith(3, {
+        auth_url: '',
+      });
+    });
+
+    it('validates optional Galaxy authentication on creation', async () => {
+      mockApmeService.createGalaxyServer.mockResolvedValue({ id: 7 });
+      await request(app)
+        .post('/apme/settings/galaxy-servers')
+        .send({
+          name: 'private',
+          url: 'https://galaxy.example.com',
+          auth_url: 'https://login.example.com/token',
+        })
+        .expect(201);
+      expect(mockApmeService.createGalaxyServer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auth_url: 'https://login.example.com/token',
+        }),
+      );
+      await request(app)
+        .delete('/apme/settings/galaxy-servers/invalid')
+        .expect(400);
+      expect(mockApmeService.deleteGalaxyServer).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {},
+      { targetAnsibleCoreVersion: '' },
+      { targetAnsibleCoreVersion: 17 },
+      { targetAnsibleCoreVersion: 'not-supported' },
+    ])('rejects malformed per-project scan targets %j', async body => {
+      await request(app)
+        .put('/apme/projects/proj-1/scan-target')
+        .send(body)
+        .expect(400);
+    });
+
+    it.each([
+      ['', undefined],
+      ['?limit=10', { limit: 10 }],
+      ['?offset=20', { offset: 20 }],
+      ['?limit=10&offset=20', { limit: 10, offset: 20 }],
+      ['?limit=invalid&offset=invalid', undefined],
+      ['?limit=10&offset=invalid', { limit: 10 }],
+      ['?limit=invalid&offset=20', { offset: 20 }],
+      ['?limit=1&limit=2&offset=0', { offset: 0 }],
+    ])(
+      'forwards only numeric violation pagination for %s',
+      async (query, options) => {
+        mockApmeService.getViolations.mockResolvedValue([
+          { id: 1, rule_id: 'R001' },
+        ]);
+        const response = await request(app).get(
+          `/apme/projects/proj-1/violations${query}`,
+        );
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual([{ id: 1, rule_id: 'R001' }]);
+        expect(mockApmeService.getViolations).toHaveBeenCalledWith(
+          'proj-1',
+          options,
+        );
+      },
+    );
+
+    it('forwards authenticated health and project reads and repository removal', async () => {
+      mockApmeService.getHealth.mockResolvedValue({ status: 'ok' });
+      const health = await request(app).get('/apme/health').expect(200);
+      expect(health.body).toEqual({ status: 'ok' });
+      const project = await request(app)
+        .get('/apme/projects/proj-1')
+        .expect(200);
+      expect(project.body.id).toBe('proj-1');
+      await request(app).delete('/apme/projects/proj-1').expect(204);
+      expect(mockApmeService.deleteProject).toHaveBeenCalledWith('proj-1');
+    });
+
+    it.each([undefined, 'org/repo'])(
+      'lists suppressions with scope %s',
+      async scope => {
+        mockApmeService.getSuppressions.mockResolvedValue([{ id: 3 }]);
+        const response = await request(app)
+          .get('/apme/suppressions')
+          .query(scope === undefined ? {} : { scope });
+        expect(response.status).toBe(200);
+        expect(response.body).toEqual([{ id: 3 }]);
+        expect(mockApmeService.getSuppressions).toHaveBeenCalledWith(scope);
+      },
+    );
+
+    it('validates suppression identifiers before removing a suppression', async () => {
+      await request(app).delete('/apme/suppressions/invalid').expect(400);
+      expect(mockApmeService.deleteSuppression).not.toHaveBeenCalled();
+      await request(app).delete('/apme/suppressions/3').expect(204);
+      expect(mockApmeService.deleteSuppression).toHaveBeenCalledWith(3);
+    });
+
+    it.each([
+      {},
+      { rule_id: 1 },
+      { rule_id: 'R001' },
+      { rule_id: 'R001', scope: 1 },
+    ])('rejects malformed suppression creation %j', async body => {
+      await request(app).post('/apme/suppressions').send(body).expect(400);
+      expect(mockApmeService.createSuppression).not.toHaveBeenCalled();
+    });
+
+    it('rejects rule configuration without a supported field', async () => {
+      await request(app)
+        .put('/apme/rules/R001/config')
+        .send({ unexpected: true })
+        .expect(400);
+      expect(mockApmeService.updateRuleConfig).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['/apme/lookup', {}],
+      ['/apme/repos/branch-check', {}],
+      [
+        '/apme/repos/branch-check',
+        { repo_url: 'https://github.com/acme/repo' },
+      ],
+    ])(
+      'rejects a missing repository/branch query on %s',
+      async (url, query) => {
+        await request(app).get(url).query(query).expect(400);
+      },
+    );
+
+    it.each([
+      {},
+      { name: 17 },
+      { name: 'repo' },
+      { name: 'repo', repo_url: 17 },
+      { name: 'repo', repo_url: 'https://github.com/acme/repo' },
+    ])('rejects incomplete project registration %j', async body => {
+      await request(app).post('/apme/projects').send(body).expect(400);
+      expect(mockApmeService.createProject).not.toHaveBeenCalled();
+    });
+
+    it('registers a validated project and accepts an explicitly supplied SCM token', async () => {
+      const body = {
+        name: 'repo',
+        repo_url: 'https://github.com/acme/repo',
+        branch: 'main',
+        scm_token: 'scoped-test-token',
+      };
+      mockApmeService.createProject.mockResolvedValue({
+        id: 'registered',
+        ...body,
+      });
+      const response = await request(app)
+        .post('/apme/projects')
+        .send(body)
+        .expect(201);
+      expect(response.body.id).toBe('registered');
+      expect(mockApmeService.createProject).toHaveBeenCalledWith(body);
+    });
   });
 
   it('denies workflow forwarding when the host authorizer is missing', async () => {
