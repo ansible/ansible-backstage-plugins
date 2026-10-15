@@ -225,7 +225,7 @@ export function createRouter(options: {
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
       catalogEntityReadPermission,
     ]),
-    async (request, response) => {
+    (request, response) => {
       const perms = response.locals.permissions as Record<string, boolean>;
       if (!perms[catalogEntityReadPermission.name]) {
         response
@@ -572,10 +572,10 @@ export function createRouter(options: {
     } catch (error) {
       const errorMessage = formatUnknownError(error);
       logger.error(
-        `Failed to unregister Execution Environment: ${errorMessage}`,
+        `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
       );
       response.status(500).json({
-        error: `Failed to unregister Execution Environment: ${errorMessage}`,
+        error: 'Failed to unregister Execution Environment',
       });
     }
   });
@@ -1147,13 +1147,14 @@ export function createRouter(options: {
       };
 
       let index = 0;
+      // NOSONAR: await-in-loop is intentional — bounded worker pool pattern.
+      // Multiple workers run concurrently via Promise.all below.
       const processNext = async (): Promise<void> => {
         while (index < items.length) {
-          // safe: single-threaded JS, ++ completes before await
           const currentIndex = index++;
           const item = items[currentIndex];
           try {
-            results[item.key] = await processItem(item);
+            results[item.key] = await processItem(item); // NOSONAR
           } catch (err) {
             const msg =
               err instanceof Error ? err.message : 'Unknown error occurred';

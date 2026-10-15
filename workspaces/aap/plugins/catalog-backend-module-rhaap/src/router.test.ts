@@ -1055,7 +1055,7 @@ describe('createRouter', () => {
         .expect(500);
 
       expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment: catalog down',
+        error: 'Failed to unregister Execution Environment',
       });
     });
 
@@ -1070,7 +1070,7 @@ describe('createRouter', () => {
         .expect(500);
 
       expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment: catalog down',
+        error: 'Failed to unregister Execution Environment',
       });
     });
 
