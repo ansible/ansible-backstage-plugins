@@ -1,5 +1,9 @@
 import { test, expect } from '../../fixtures/auth-context';
-import { getBackstageToken, catalogFetch } from '../../utils/backstage-api';
+import {
+  getBackstageToken,
+  catalogFetch,
+  getUserJobTemplateIds,
+} from '../../utils/backstage-api';
 import { loginAAP } from '../../utils/auth';
 
 /**
@@ -313,20 +317,20 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
       'Normal user should see at least one permitted template card',
     ).toBeGreaterThan(0);
 
-    const normalToken = await getBackstageToken(normalPage);
-    const normalResult = await catalogFetch(
-      normalPage,
-      '/entities?filter=kind=template&limit=500',
-      normalToken,
+    // Home filters AAP templates using the signed-in user's AAP-scoped
+    // job-template list, not raw catalog read permissions (which may be
+    // broader under the default portal-users policy). Use that same
+    // endpoint as the visibility oracle instead of a raw catalog filter.
+    const normalJobTemplateIds = new Set(
+      (await getUserJobTemplateIds(normalPage)).map(String),
     );
-    expect(normalResult.ok).toBe(true);
-    const normalTemplates = catalogItems(normalResult.body).filter(
-      (t: any) => t.metadata?.aapJobTemplateId,
+    const normalTemplates = adminTemplates.filter((t: any) =>
+      normalJobTemplateIds.has(String(t.metadata?.aapJobTemplateId)),
     );
 
     expect(
       normalTemplates.length,
-      'Normal user catalog scope should not exceed admin-visible AAP templates',
+      'Normal user AAP-scoped job templates should not exceed admin-visible AAP templates',
     ).toBeLessThanOrEqual(adminTemplates.length);
 
     const permittedCardIds = new Set(

@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -709,6 +709,13 @@ describe('self-service', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
+      });
+
+      // Let the initial-mount CATALOG_SETTLE_MS (750ms) effect fire and
+      // settle before capturing the baseline, so its own invalidate doesn't
+      // get mistaken for the sync-triggered one below.
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1200));
       });
 
       const facetCallsBeforeSync =

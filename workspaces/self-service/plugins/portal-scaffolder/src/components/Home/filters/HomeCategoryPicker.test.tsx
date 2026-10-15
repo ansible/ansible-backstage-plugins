@@ -110,6 +110,39 @@ describe('HomeCategoryPicker', () => {
     expect(mockUpdateFilters).not.toHaveBeenCalled();
   });
 
+  it('does not reapply an unchanged category filter on facet refresh', async () => {
+    // Regression test: the real EntityListProvider resets the page offset
+    // to 0 on every updateFilters call, which would defeat the soft
+    // refresh's page-preserving intent if we reapplied an identical filter
+    // on every sync-triggered facet refresh.
+    const { rerender } = renderPicker();
+
+    await waitFor(() => {
+      expect(mockUpdateFilters).toHaveBeenCalledWith({
+        type: expect.any(EntityTypeFilter),
+      });
+    });
+    expect(mockUpdateFilters).toHaveBeenCalledTimes(1);
+    mockUpdateFilters.mockClear();
+
+    rerender(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, { getEntityFacets: mockGetEntityFacets } as any],
+        ]}
+      >
+        <MockEntityListContextProvider
+          value={{ filters: {}, updateFilters: mockUpdateFilters }}
+        >
+          <HomeCategoryPicker syncKey={1} />
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => expect(mockGetEntityFacets).toHaveBeenCalledTimes(2));
+    expect(mockUpdateFilters).not.toHaveBeenCalled();
+  });
+
   it('clears categories when facets fail', async () => {
     mockGetEntityFacets.mockRejectedValue(new Error('boom'));
     const { getByTestId } = renderPicker();

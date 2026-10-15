@@ -387,6 +387,10 @@ export const HomeComponent = () => {
             await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
+          // Refresh catalog content for every successful sync, even when JT
+          // ids are unchanged (e.g. a rename or content edit) — the id-keyed
+          // effect below only fires when the id set itself changes.
+          invalidateTemplatesCatalog();
         }
       }
       setSyncOptions([]);

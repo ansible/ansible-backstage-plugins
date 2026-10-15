@@ -31,6 +31,20 @@ describe('SoftRefresh', () => {
 
     expect(setOffset).toHaveBeenCalledWith(toRefreshOffset(20));
 
+    // EntityListProvider's debounced fetch starts (loading flips true) for
+    // the sentinel offset before it ever completes.
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
     rerender(
       <MockEntityListContextProvider
         value={{
@@ -44,6 +58,71 @@ describe('SoftRefresh', () => {
     );
 
     expect(setOffset).toHaveBeenCalledWith(20);
+  });
+
+  it('does not restore the offset before the debounced fetch has started', () => {
+    // Regression test: EntityListProvider debounces its fetch (~10ms), so the
+    // first render after applying the sentinel offset still has
+    // `loading: false`. Restoring immediately here would cancel the
+    // debounced fetch before it fires, silently dropping the soft refresh.
+    const setOffset = jest.fn();
+    const { rerender } = render(
+      <MockEntityListContextProvider
+        value={{ offset: 20, setOffset, loading: false }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    act(() => {
+      invalidateTemplatesCatalog();
+      jest.runOnlyPendingTimers();
+    });
+    expect(setOffset).toHaveBeenCalledWith(toRefreshOffset(20));
+
+    // Debounced fetch has not started yet — still on the sentinel offset,
+    // still loading: false.
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: false,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    // Must not restore yet — the sentinel fetch has not actually started.
+    expect(setOffset).toHaveBeenCalledTimes(1);
+
+    // Fetch starts, then completes.
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: true,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+    rerender(
+      <MockEntityListContextProvider
+        value={{
+          offset: toRefreshOffset(20),
+          setOffset,
+          loading: false,
+        }}
+      >
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+
+    expect(setOffset).toHaveBeenCalledWith(20);
+    expect(setOffset).toHaveBeenCalledTimes(2);
   });
 
   it('coalesces burst invalidations into one deferred refresh', () => {

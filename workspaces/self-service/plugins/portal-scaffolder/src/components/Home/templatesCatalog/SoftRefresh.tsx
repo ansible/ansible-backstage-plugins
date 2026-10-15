@@ -25,6 +25,14 @@ export const SoftRefresh = () => {
   const setOffsetRef = useRef(setOffset);
   /** Real page offset to restore after the sentinel refetch finishes. */
   const restoreOffsetRef = useRef<number | null>(null);
+  /**
+   * True once `loading` has been observed true for the current sentinel
+   * refetch. EntityListProvider debounces its fetch (~10ms), so the first
+   * render after applying the sentinel offset still has `loading: false`.
+   * Restoring the real offset on that render would cancel the debounced
+   * fetch before it starts, leaving the soft refresh silently dropped.
+   */
+  const requestStartedRef = useRef(false);
   /** Coalesce burst invalidations into one deferred refresh. */
   const pendingTimerRef = useRef<number | null>(null);
   /** Invalidation arrived while a sentinel refresh was in flight. */
@@ -50,6 +58,7 @@ export const SoftRefresh = () => {
       }
       const current = resolveCatalogOffset(offsetRef.current);
       restoreOffsetRef.current = current;
+      requestStartedRef.current = false;
       applyOffset(toRefreshOffset(current));
     }, 0);
   };
@@ -111,19 +120,33 @@ export const SoftRefresh = () => {
 
   useEffect(() => {
     const restore = restoreOffsetRef.current;
-    if (loading || restore === null || !setOffset) {
+    if (restore === null || !setOffset) {
+      return;
+    }
+    if (loading) {
+      // Debounced provider fetch has started; safe to restore once it ends.
+      requestStartedRef.current = true;
       return;
     }
     if (!isRefreshOffset(offset)) {
+      // Offset left the sentinel band on its own (not via our restore) —
+      // clear bookkeeping regardless of whether the fetch ever started.
       restoreOffsetRef.current = null;
+      requestStartedRef.current = false;
       if (dirtyRef.current) {
         dirtyRef.current = false;
         scheduleRefresh();
       }
       return;
     }
+    if (!requestStartedRef.current) {
+      // Still the sentinel offset, but the debounced fetch has not fired
+      // yet. Restoring now would cancel it before it starts.
+      return;
+    }
 
     restoreOffsetRef.current = null;
+    requestStartedRef.current = false;
     setOffset(restore);
     writeCatalogOffsetToUrl(restore);
     if (dirtyRef.current) {
