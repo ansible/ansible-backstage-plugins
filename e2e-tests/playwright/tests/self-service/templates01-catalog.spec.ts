@@ -205,6 +205,7 @@ test.describe.serial('templates01-catalog', () => {
 
     const cardsPage1 = await templateTitles.count();
     expect(cardsPage1).toBeGreaterThan(0);
+    const titlesPage1 = await templateTitles.allTextContents();
 
     await next.click();
     await expect(page).toHaveURL(/[?&]offset=(?!0(?:&|$))\d+/, {
@@ -212,6 +213,11 @@ test.describe.serial('templates01-catalog', () => {
     });
     await expect(pageIndicator).toHaveText(/2\s*\/\s*\d+/, { timeout: 15000 });
     await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+    const titlesPage2 = await templateTitles.allTextContents();
+    expect(
+      titlesPage2,
+      'Page 2 should show different templates than page 1',
+    ).not.toEqual(titlesPage1);
 
     const prev = pagination.getByLabel('Previous page').first();
     await expect(prev).toBeVisible();

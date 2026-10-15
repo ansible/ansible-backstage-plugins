@@ -103,12 +103,7 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
 // Test B: admin vs normal user template visibility on self-service page
 // ---------------------------------------------------------------------------
 
-/**
- * Visible-template count for the logged-in user.
- *
- * Prefer pagination total (`N of M templates`) — page-1 card count alone
- * undercounts when soft-refresh keeps pagination mounted (multi-org scale).
- */
+/** Count templates actually rendered for the logged-in user (not pagination totals). */
 async function getTemplateCount(
   page: import('@playwright/test').Page,
 ): Promise<number> {
@@ -140,27 +135,11 @@ async function getTemplateCount(
     return 0;
   }
 
-  const pagination = page.getByTestId('templates-pagination');
-  if (await pagination.isVisible().catch(() => false)) {
-    const summary = ((await pagination.textContent()) ?? '').replace(
-      /\s+/g,
-      ' ',
-    );
-    const ofTotal = summary.match(/of\s+(\d+)\s+templates/i);
-    if (ofTotal) {
-      return Number(ofTotal[1]);
-    }
-    const single = summary.match(/^1 template/i);
-    if (single) {
-      return 1;
-    }
-  }
-
-  // Single-page fallback: count Start actions on the current page only.
-  return page
-    .locator('[data-testid="template-card-actions--create"]')
-    .count()
-    .catch(() => 0);
+  const templateTitles = page.locator(
+    '[data-testid="templates-container"] [data-testid="template--title"]',
+  );
+  await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+  return templateTitles.count();
 }
 
 test('Template visibility: admin sees >= normal user templates', async ({
