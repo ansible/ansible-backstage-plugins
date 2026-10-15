@@ -9,10 +9,132 @@ self-service or importing another optional plugin's implementation. Declare
 frontend extensions statically through NFS and register backend operations
 through injected host services.
 
-This guide describes the current experimental SDK. Published package versions,
-supported-release compatibility guarantees, and backend authorization closure
-are not yet complete. Use it for architecture review and coordinated internal
-development, not as a production-readiness certification.
+This guide describes the current experimental SDK for teams developing plugins
+inside this repository's workspaces. The preview uses `workspace:^` SDK
+dependencies and the shared root lockfile; npm publication is not required.
+Supported-release compatibility guarantees and backend authorization closure
+are not yet complete. Use this guide for coordinated internal development,
+not as a production-readiness certification.
+
+## Internal developer-preview contract
+
+This section defines the proposed contract for coordinated internal plugin
+development. The implemented behavior below is available on the SDK branch;
+the compatibility and migration policy still requires agreement between SDK
+maintainers and consuming teams. This document does not announce a published
+preview release or certify every existing backend path.
+
+### Preview API boundary
+
+The preview surface consists of the documented shared contracts in
+`@ansible/portal-extension-common`, native Blueprints and descriptors in
+`@ansible/portal-extension-api/alpha`, operation and entitlement clients,
+documented frontend SDK utilities, and injected backend services from
+`@ansible/portal-plugin-node`. Use the API entry points and native interaction
+contracts listed below; an exported type alone does not make every field or
+launch combination supported.
+
+The host owns contribution validation, attachment regions, rendering, and
+navigation. Contributor packages must not import another optional plugin's
+implementation or take over host composition. Legacy registry helpers and
+module-load registration are compatibility-only, not the native authoring API.
+Use host-owned attachments rather than imperative `moduleName` resolution.
+
+Manifests must use the actual Backstage plugin ID, owner-prefixed capability
+and entry-point IDs, a known `experienceId`, and canonical content types.
+Entry-point scope must not broaden capability scope. Although the shared type
+still contains `appliesTo`, native validators reject that manifest predicate;
+put executable predicates on frontend descriptors as `isApplicable` instead.
+
+The supported launch subset is:
+
+- Slot contributions render through the matching native Blueprint and its
+  allowed host attachment; a slot is not an arbitrary module or route resolver.
+- Entity actions and catalog item actions invoke registered operations using
+  the current subject.
+- An entity operation action may follow on to an eligible entity detail tab.
+  Declare a slot follow-on targeting `entity.detail.tabs` and the matching
+  descriptor `followOnEntryPointId`. Navigation follows a successful operation
+  response; it is not proof that a background job has completed.
+- Catalog-header actions start workflows mapped by
+  `ScaffolderWorkflowBlueprint` to registered scaffolder template references.
+  They do not accept arbitrary workflow URLs.
+
+Catalog item action follow-ons, operation-to-workflow follow-ons, arbitrary
+multi-step launch chains, and workflow launches on other action surfaces are
+outside this preview subset. A `CapabilityLaunch` union member is not a promise
+that a host renderer supports it on every surface.
+
+### Backend guarantees and author responsibilities
+
+The operation dispatcher requires an authenticated user, trusted organization
+context, a registered owner-prefixed operation ID, a permission, and REST
+exposure. It checks RBAC, validates supplied input schemas, and enforces every
+declared `requiredEntitlements` requirement before calling the handler. It
+validates supplied output schemas after the handler returns. Schemas remain
+optional in the current TypeScript descriptor; preview authors should define
+input/output schemas for their public operation contracts.
+
+The handler must independently authorize the subject resource, verify its
+supported content type, and scope domain data appropriately. Frontend filtering
+does not provide backend resource authorization. A deployment administrator
+configures entitlement grants; plugin authors declare requirements and register
+their definitions.
+
+For shared resources, any trusted configured membership with the required grant
+can enable the capability, subject to operation and resource RBAC. Git
+repositories do not acquire AAP organization ownership. Organization-specific
+operations require one validated organization; multiple memberships do not
+implicitly select the first organization. There is no SDK organization selector.
+
+The following are not dispatcher guarantees:
+
+- `idempotent` metadata does not deduplicate requests, provide an idempotency
+  key, or make retries safe. An output validation failure does not roll back
+  effects already performed by the handler.
+- `auditCategory` metadata does not select a durable audit destination. Current
+  operation auditing emits structured logs, not a durable audit store.
+- `exposure.mcp` does not automatically install an MCP adapter or publish tools.
+- A successful response does not provide generic job execution, cancellation,
+  progress storage, or background authorization revalidation. Plugins must
+  define acceptance/progress/completion semantics for long-running work.
+- Native enablement and interactive authorization do not secure every legacy
+  mutation or automatic scheduler path. Do not copy those paths as the model
+  for a new plugin.
+
+### Proposed compatibility and migration policy
+
+The initial host contract is `0.1.0`; coordinate compatible SDK packages and
+contributors as one preview baseline. This is not a requirement that every
+domain operation use the same version. `OperationDescriptor.version` records
+the operation contract; it does not implement version negotiation or dispatch
+multiple versions of the same operation ID.
+
+The implemented manifest validator requires matching major and minor API
+versions before `1.0.0` and checks `minimumHostApiVersion`. The proposed release
+policy keeps `0.1.x` changes compatible with the documented preview subset and
+uses a new minor version for incompatible changes. Package publication and
+release automation for that policy are not established by this document.
+
+Before a breaking preview update, SDK maintainers and affected consuming teams
+should agree on the replacement API, migration instructions, required package
+and artifact rebuilds, and acceptance checks. Record the change in the changelog
+and affected author references. Do not silently remove a contract or promise an
+unimplemented compatibility window.
+
+The verified development deployment baseline is RHDH `next-2.1` with this
+branch's platform dependencies, not a supported release matrix. The image tag
+can change; record the tested image digest, SDK revision, package versions, and
+dynamic artifacts for a reproducible acceptance run. Validation beyond this
+baseline is not required for the current preview scope.
+
+The shared SDK packages remain private workspace packages. Preview teams develop
+their plugins in this monorepo using `workspace:^` dependencies, the shared root
+lockfile, and repository build/test tooling. Acceptance starts from a fresh
+clone and includes dynamic export and installation in RHDH. Public npm packages,
+an external repository starter, and out-of-tree onboarding are outside this
+preview scope, not release prerequisites. A third-party plugin is architecturally
+independent of the host even when its source lives in the same repository.
 
 ## Contribution and experience model
 
@@ -57,10 +179,12 @@ A frontend-only contribution does not require a backend. A shared domain package
 is useful when frontend and backend consume the same contracts. A scaffolder
 action can live in a separate backend module, as APME demonstrates.
 
-An out-of-tree plugin can use its own repository. Replace `workspace:^` with
-agreed available package versions; workspace protocols do not resolve published
-dependencies in an unrelated repository. A new in-tree ownership group also
-requires root workspace/CI registration rather than only creating a directory.
+Create preview plugins under the appropriate `workspaces/<contributor>/plugins/`
+ownership group and declare SDK dependencies with `workspace:^`. A new ownership
+group also requires root workspace/CI registration rather than only creating a
+directory. Repository co-location does not permit imports of host internals or
+another optional plugin's implementation. Out-of-tree development would require
+a separately agreed dependency delivery model and is not part of this preview.
 
 ## API entry points
 
@@ -209,7 +333,7 @@ and confirm the contribution disappears. Confirm it does not load on an
 execution-environment page. Add integration tests for invalid manifests,
 permission/entitlement denial where declared, and contained loader failures.
 
-This sample demonstrates declaration shape, not a complete published package.
+This sample demonstrates declaration shape, not a complete workspace plugin.
 Sensitive domain data requires explicit permission and resource checks; the
 sample only displays metadata already supplied by the host page.
 
@@ -356,12 +480,15 @@ generic single-organization fallback and identity compatibility details.
 Use the repository's `export-dynamic` scripts and actual `rhdh-cli` embedding
 options, rather than the historical Janus/Scalprum examples. Re-export consumers
 when shared contracts change. Packaging compatibility has only been exercised
-against `next-2.1` in this work; publication and supported version policy remain
-to be agreed. There is no plugin-author requirement to create a shared mutable
-registry singleton or publish mount-point YAML.
+against `next-2.1` in this work; supported version policy remains to be agreed.
+Build SDK dependencies from the same repository revision and export the
+resulting dynamic plugin artifacts for RHDH. This does not require npm
+publication, a shared mutable registry singleton, or mount-point YAML.
 
 ## Author acceptance checklist
 
+- [ ] SDK and consuming-team reviewers agree on the preview subset and migration policy.
+- [ ] The SDK revision, package versions, tested RHDH image digest, and dynamic artifacts are recorded.
 - [ ] Static `./alpha` declarations match the manifest and actual plugin owner.
 - [ ] IDs, host API version, known experience, content scope and attachments are valid.
 - [ ] Entry-point scope does not broaden capability scope.
@@ -378,6 +505,30 @@ registry singleton or publish mount-point YAML.
 - [ ] Health uses injected host services; audit/idempotency guarantees are stated honestly.
 - [ ] Dynamic exports and the agreed platform version are verified.
 - [ ] Tests cover enabled/disabled, matching/nonmatching, denied and failure cases.
+
+### Preview onboarding acceptance
+
+Before declaring the in-repository preview ready for a consuming team, SDK
+maintainers and that team must complete the following from a fresh clone:
+
+1. Check out the agreed SDK revision, install dependencies from the repository
+   root with `./install-deps`, and confirm the team's plugin is included in root
+   workspace/CI configuration. Keep SDK dependencies as `workspace:^` and use the
+   shared root lockfile; no separately published SDK packages are required.
+2. Run the repository checks below, build the required SDK and plugin packages,
+   and export the plugin dynamically. Install it on the recorded RHDH baseline
+   without importing its implementation into the host plugin.
+3. Verify a supported contribution and operation, including nonmatching content,
+   disabled configuration, permission/entitlement denial, and contained failures.
+4. Record the results and resolve or explicitly exclude required unsupported
+   behavior before the consuming team depends on it.
+
+APME provides an in-tree integration reference. Each consuming team's plugin
+still needs fresh-clone acceptance; success in an existing developer checkout
+does not prove reproducibility. The checklist does not require npm publication
+or an external-plugin repository and does not claim this acceptance is complete.
+
+### Repository checks
 
 From the root, run the repository's normal checks:
 
