@@ -139,7 +139,31 @@ async function getTemplateCount(
     '[data-testid="templates-container"] [data-testid="template--title"]',
   );
   await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
-  return templateTitles.count();
+
+  // Pagination caps page-1 title count; sum across all pages so admin vs
+  // normal-user comparisons reflect total visible templates, not page size.
+  const pagination = page.getByTestId('templates-pagination');
+  if (!(await pagination.isVisible().catch(() => false))) {
+    return templateTitles.count();
+  }
+
+  let total = 0;
+  const pageIndicator = page.getByTestId('templates-page-indicator');
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    total += await templateTitles.count();
+    const next = pagination.getByLabel('Next page').first();
+    if ((await next.count()) === 0 || (await next.isDisabled())) {
+      break;
+    }
+    const indicatorBefore = await pageIndicator.textContent();
+    await next.click();
+    await expect
+      .poll(async () => pageIndicator.textContent(), { timeout: 15000 })
+      .not.toBe(indicatorBefore);
+    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+  }
+  return total;
 }
 
 test('Template visibility: admin sees >= normal user templates', async ({

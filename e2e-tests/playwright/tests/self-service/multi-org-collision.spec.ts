@@ -125,32 +125,21 @@ test('Same job template name in different orgs both exist', async ({
   await expect(templateTitles.first()).toBeVisible({ timeout: 30000 });
 
   const searchBox = page.locator('input[placeholder*="Search"]').first();
-  if (await searchBox.isVisible()) {
-    await searchBox.fill('Deploy');
-    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
-  }
+  await expect(searchBox).toBeVisible({ timeout: 15000 });
+  await searchBox.fill('Deploy');
 
-  const visibleDeployCount = (await templateTitles.allTextContents())
-    .map(t => t.trim())
-    .filter(t => t === 'Deploy').length;
+  const exactDeployTitles = templateTitles.filter({ hasText: /^Deploy$/ });
+  await expect
+    .poll(() => exactDeployTitles.count(), { timeout: 15000 })
+    .toBeGreaterThanOrEqual(2);
+
+  const visibleDeployCount = await exactDeployTitles.count();
   expect(
     visibleDeployCount,
     'At least two exactly "Deploy" templates should be visible on the catalog page',
   ).toBeGreaterThanOrEqual(2);
 
-  const titleCount = await templateTitles.count();
-  let clickedDeploy = false;
-  for (let i = 0; i < titleCount; i += 1) {
-    const text = (await templateTitles.nth(i).textContent())?.trim();
-    if (text === 'Deploy') {
-      await templateTitles.nth(i).click({ timeout: 10000 });
-      clickedDeploy = true;
-      break;
-    }
-  }
-  expect(clickedDeploy, 'Should open a Deploy template from the catalog').toBe(
-    true,
-  );
+  await exactDeployTitles.first().click({ timeout: 10000 });
 
   await page.waitForURL(/\/catalog\/.*\/aap-jt-\d+/, { timeout: 10000 });
 
