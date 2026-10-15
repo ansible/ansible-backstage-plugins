@@ -7,6 +7,7 @@ import {
   rhAapAuthApiRef,
 } from './apis.ts';
 import { OAuth2 } from '@backstage/core-app-api';
+import { AapSessionExpiredError } from './utils/aapSessionExpired';
 
 const mockRhaapAuthApi = {
   getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
@@ -262,8 +263,8 @@ describe('Ansible API module', () => {
       fetchApi: { fetch: jest.fn() } as any,
     });
 
-    await expect(client.getUserJobTemplates()).rejects.toThrow(
-      'Your AAP sign-in session expired. Sign out and sign in again.',
+    await expect(client.getUserJobTemplates()).rejects.toBeInstanceOf(
+      AapSessionExpiredError,
     );
   });
 
@@ -315,7 +316,7 @@ describe('Ansible API module', () => {
     'AAP token exchange failed: invalid_grant',
     'OAuth refresh failed: invalid_grant',
   ])(
-    'AnsibleApiClient.getUserJobTemplates maps %s to a sign-in message',
+    'AnsibleApiClient.getUserJobTemplates maps %s to AapSessionExpiredError',
     async apiError => {
       const mockDiscovery = {
         getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
@@ -333,11 +334,33 @@ describe('Ansible API module', () => {
         fetchApi: mockFetch,
       });
 
-      await expect(client.getUserJobTemplates()).rejects.toThrow(
-        'Your AAP sign-in session expired. Sign out and sign in again.',
+      await expect(client.getUserJobTemplates()).rejects.toBeInstanceOf(
+        AapSessionExpiredError,
       );
     },
   );
+
+  it('AnsibleApiClient.getUserJobTemplates treats bare 401 as session expired', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: jest.fn().mockResolvedValue({ error: 'Unauthorized' }),
+      }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    await expect(client.getUserJobTemplates()).rejects.toBeInstanceOf(
+      AapSessionExpiredError,
+    );
+  });
 
   it('AAPApis factory produces an AnsibleApiClient wired with the provided apis', () => {
     const mockDiscovery = {

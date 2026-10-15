@@ -1,10 +1,22 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
+import { identityApiRef } from '@backstage/core-plugin-api';
 import { ansibleApiRef } from '../../apis';
+import {
+  AapSessionExpiredError,
+  resetAapSessionLogoutStateForTests,
+} from '../../utils/aapSessionExpired';
 import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
 
 const mockAnsibleApi = {
   getUserJobTemplates: jest.fn(),
+};
+
+const mockIdentityApi = {
+  signOut: jest.fn().mockResolvedValue(undefined),
+  getBackstageIdentity: jest.fn(),
+  getCredentials: jest.fn(),
+  getProfileInfo: jest.fn(),
 };
 
 function Probe() {
@@ -17,22 +29,30 @@ function Probe() {
   );
 }
 
+function renderProvider(children: React.ReactNode = <Probe />) {
+  return render(
+    <TestApiProvider
+      apis={[
+        [ansibleApiRef, mockAnsibleApi],
+        [identityApiRef, mockIdentityApi],
+      ]}
+    >
+      <JobTemplatesProvider>{children}</JobTemplatesProvider>
+    </TestApiProvider>,
+  );
+}
+
 describe('JobTemplatesProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetAapSessionLogoutStateForTests();
     mockAnsibleApi.getUserJobTemplates.mockResolvedValue({
       items: [{ id: 1, name: 'Demo' }],
     });
   });
 
   it('keeps loaded job templates when the consumer remounts', async () => {
-    const { rerender } = render(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
-        <JobTemplatesProvider>
-          <Probe />
-        </JobTemplatesProvider>
-      </TestApiProvider>,
-    );
+    const { rerender } = renderProvider();
 
     await waitFor(() => {
       expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
@@ -42,7 +62,12 @@ describe('JobTemplatesProvider', () => {
     expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(1);
 
     rerender(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+      <TestApiProvider
+        apis={[
+          [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
+        ]}
+      >
         <JobTemplatesProvider>
           <div />
         </JobTemplatesProvider>
@@ -50,7 +75,12 @@ describe('JobTemplatesProvider', () => {
     );
 
     rerender(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
+      <TestApiProvider
+        apis={[
+          [ansibleApiRef, mockAnsibleApi],
+          [identityApiRef, mockIdentityApi],
+        ]}
+      >
         <JobTemplatesProvider>
           <Probe />
         </JobTemplatesProvider>
@@ -81,13 +111,7 @@ describe('JobTemplatesProvider', () => {
       return <Probe />;
     }
 
-    render(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
-        <JobTemplatesProvider>
-          <RefreshCapture />
-        </JobTemplatesProvider>
-      </TestApiProvider>,
-    );
+    renderProvider(<RefreshCapture />);
 
     await waitFor(() => {
       expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
@@ -107,29 +131,18 @@ describe('JobTemplatesProvider', () => {
       new Error('Controller unavailable'),
     );
 
-    render(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
-        <JobTemplatesProvider>
-          <Probe />
-        </JobTemplatesProvider>
-      </TestApiProvider>,
-    );
+    renderProvider();
 
     await waitFor(() => {
       expect(screen.getByTestId('load-state')).toHaveTextContent('error');
     });
+    expect(mockIdentityApi.signOut).not.toHaveBeenCalled();
   });
 
   it('stringifies non-error rejections during the initial fetch', async () => {
     mockAnsibleApi.getUserJobTemplates.mockRejectedValue('plain failure');
 
-    render(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
-        <JobTemplatesProvider>
-          <Probe />
-        </JobTemplatesProvider>
-      </TestApiProvider>,
-    );
+    renderProvider();
 
     await waitFor(() => {
       expect(screen.getByTestId('load-state')).toHaveTextContent('error');
@@ -156,13 +169,7 @@ describe('JobTemplatesProvider', () => {
       );
     }
 
-    render(
-      <TestApiProvider apis={[[ansibleApiRef, mockAnsibleApi]]}>
-        <JobTemplatesProvider>
-          <RefreshCapture />
-        </JobTemplatesProvider>
-      </TestApiProvider>,
-    );
+    renderProvider(<RefreshCapture />);
 
     await waitFor(() => {
       expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
@@ -176,5 +183,18 @@ describe('JobTemplatesProvider', () => {
       );
     });
     expect(screen.getByTestId('load-state')).toHaveTextContent('ready');
+  });
+
+  it('signs out of the portal when AAP session is expired', async () => {
+    mockAnsibleApi.getUserJobTemplates.mockRejectedValue(
+      new AapSessionExpiredError(),
+    );
+
+    renderProvider();
+
+    await waitFor(() => {
+      expect(mockIdentityApi.signOut).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByTestId('load-state')).toHaveTextContent('loading');
   });
 });
