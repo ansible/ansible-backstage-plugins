@@ -41,7 +41,7 @@ jest.mock('@ansible/portal-extension-api', () => ({
   ],
 }));
 
-jest.mock('../../apis', () => ({
+jest.mock('@ansible/aap-app-auth', () => ({
   rhAapAuthApiRef: {},
 }));
 

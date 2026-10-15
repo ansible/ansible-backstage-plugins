@@ -3,7 +3,7 @@ import { CollectionsPickerExtension } from './CollectionsPickerExtension';
 import { CollectionItem } from './types';
 import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 // Mock the API hooks
 jest.mock('@backstage/core-plugin-api', () => ({

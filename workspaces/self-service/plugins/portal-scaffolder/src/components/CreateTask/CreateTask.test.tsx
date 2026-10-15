@@ -11,7 +11,7 @@ import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { CreateTask } from './CreateTask';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { rhAapAuthApiRef } from '../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { rootRouteRef } from '../../routes';
 
 // Mock the module

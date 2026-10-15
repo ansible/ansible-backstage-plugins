@@ -11,7 +11,7 @@ import {
   Box,
 } from '@material-ui/core';
 
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 export const AAPTokenField = ({
   onChange,
@@ -31,7 +31,9 @@ export const AAPTokenField = ({
   const fieldName =
     (typeof customTitle === 'string' ? customTitle : schema?.title) ||
     'AAP Token';
-  const fieldId = `aap-token-field-${Math.random().toString(36).substring(2, 11)}`;
+  const fieldId = `aap-token-field-${Math.random()
+    .toString(36)
+    .substring(2, 11)}`;
 
   useEffect(() => {
     const fetchToken = async () => {

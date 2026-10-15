@@ -1,11 +1,6 @@
 import type { ApiFactory } from '@backstage/core-plugin-api';
 
 const mockAAPApis = { api: 'AAPApis' } as unknown as ApiFactory<any, any, any>;
-const mockAapAuthApi = { api: 'AapAuthApi' } as unknown as ApiFactory<
-  any,
-  any,
-  any
->;
 const mockEEBuildApis = { api: 'EEBuildApis' } as unknown as ApiFactory<
   any,
   any,
@@ -21,7 +16,6 @@ const mockHistoryRouteRef = { id: 'history-route-ref' };
 // Mocks for local files (applied before module import)
 jest.mock('./apis', () => ({
   AAPApis: mockAAPApis,
-  AapAuthApi: mockAapAuthApi,
   EEBuildApis: mockEEBuildApis,
 }));
 jest.mock('./routes', () => ({
@@ -40,7 +34,6 @@ describe('self-service plugin module', () => {
   let SelfServicePage: any;
   let AppThemeFixer: any;
   let LocationListener: any;
-  let AAPLogoutButton: any;
   let EEPage: any;
   let EEBuilderSidebarItem: any;
   let CollectionsPage: any;
@@ -80,7 +73,6 @@ describe('self-service plugin module', () => {
       SelfServicePage = mod.SelfServicePage;
       AppThemeFixer = mod.AppThemeFixer;
       LocationListener = mod.LocationListener;
-      AAPLogoutButton = mod.AAPLogoutButton;
       EEPage = mod.EEPage;
       EEBuilderSidebarItem = mod.EEBuilderSidebarItem;
       CollectionsPage = mod.CollectionsPage;
@@ -106,7 +98,7 @@ describe('self-service plugin module', () => {
     expect(callArg).toHaveProperty('apis');
     expect(Array.isArray(callArg.apis)).toBe(true);
     expect(callArg.apis).toContain(mockAAPApis);
-    expect(callArg.apis).toContain(mockAapAuthApi);
+    expect(callArg.apis).toHaveLength(2);
     expect(callArg.apis).toContain(mockEEBuildApis);
     expect(callArg).toHaveProperty('routes');
     expect(callArg.routes).toHaveProperty('root', mockRootRouteRef);
@@ -181,7 +173,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports LocationListener as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[0].value;
     expect(LocationListener).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[0][0];
@@ -190,21 +182,11 @@ describe('self-service plugin module', () => {
     expect(typeof calledWith.component.lazy).toBe('function');
   });
 
-  it('exports AAPLogoutButton as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[2].value;
-    expect(AAPLogoutButton).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[2][0];
-    expect(calledWith).toHaveProperty('name', 'AAPLogoutButton');
-    expect(calledWith.component).toHaveProperty('lazy');
-    expect(typeof calledWith.component.lazy).toBe('function');
-  });
-
   it('exports EEBuilderSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[3].value;
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[2].value;
     expect(EEBuilderSidebarItem).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[3][0];
+    const calledWith = createComponentExtensionMock.mock.calls[2][0];
     expect(calledWith).toHaveProperty('name', 'EEBuilderSidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
@@ -216,7 +198,7 @@ describe('self-service plugin module', () => {
       AppThemeFixer: MockAppThemeFixerComponent,
     }));
 
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[1].value;
     expect(AppThemeFixer).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[1][0];
@@ -228,40 +210,40 @@ describe('self-service plugin module', () => {
   });
 
   it('exports CollectionsSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[4].value;
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[3].value;
     expect(CollectionsSidebarItem).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[4][0];
+    const calledWith = createComponentExtensionMock.mock.calls[3][0];
     expect(calledWith).toHaveProperty('name', 'CollectionsSidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
   });
 
   it('exports GitRepositoriesSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[5].value;
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[4].value;
     expect(GitRepositoriesSidebarItem).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[5][0];
+    const calledWith = createComponentExtensionMock.mock.calls[4][0];
     expect(calledWith).toHaveProperty('name', 'GitRepositoriesSidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
   });
 
   it('exports TemplatesSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[6].value;
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[5].value;
     expect(TemplatesSidebarItem).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[6][0];
+    const calledWith = createComponentExtensionMock.mock.calls[5][0];
     expect(calledWith).toHaveProperty('name', 'TemplatesSidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
   });
 
   it('exports HistorySidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(8);
-    const created = createComponentExtensionMock.mock.results[7].value;
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[6].value;
     expect(HistorySidebarItem).toBe(created);
-    const calledWith = createComponentExtensionMock.mock.calls[7][0];
+    const calledWith = createComponentExtensionMock.mock.calls[6][0];
     expect(calledWith).toHaveProperty('name', 'HistorySidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');

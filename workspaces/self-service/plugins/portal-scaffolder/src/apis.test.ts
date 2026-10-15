@@ -1,12 +1,9 @@
 import {
   AnsibleApiClient,
   AAPApis,
-  AapAuthApi,
   EEBuildApiClient,
   ansibleApiRef,
-  rhAapAuthApiRef,
 } from './apis.ts';
-import { OAuth2 } from '@backstage/core-app-api';
 
 const mockRhaapAuthApi = {
   getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
@@ -365,39 +362,10 @@ describe('Ansible API module', () => {
     });
   });
 
-  it('AapAuthApi factory calls OAuth2.create with expected options and returns the created provider', () => {
-    // spy on OAuth2.create and provide a fake return
-    const fakeProvider = { providerId: 'fake' };
-    const createSpy = jest
-      .spyOn(OAuth2, 'create' as any)
-      .mockReturnValue(fakeProvider as any);
-
-    const mockDiscovery = { getBaseUrl: jest.fn() };
-    const mockOAuthReq = {};
-    const mockConfig = {
-      getOptionalString: jest.fn().mockReturnValue('development'),
-    } as any;
-
-    const factoryResult = AapAuthApi.factory({
-      discoveryApi: mockDiscovery as any,
-      oauthRequestApi: mockOAuthReq as any,
-      configApi: mockConfig as any,
-    });
-
-    expect(createSpy).toHaveBeenCalled();
-    expect(factoryResult).toBe(fakeProvider);
-
-    // Inspect the args passed to OAuth2.create
-    const calledWith = createSpy.mock.calls[0][0] as any;
-    expect(calledWith).toHaveProperty('configApi', mockConfig);
-    expect(calledWith).toHaveProperty('discoveryApi', mockDiscovery);
-    expect(calledWith).toHaveProperty('oauthRequestApi', mockOAuthReq);
-    expect(calledWith.provider).toMatchObject({ id: 'rhaap', title: 'RH AAP' });
-  });
-
   it('exports api refs', () => {
     expect(ansibleApiRef).toBeDefined();
-    expect(rhAapAuthApiRef).toBeDefined();
+    expect(require('./apis')).not.toHaveProperty('rhAapAuthApiRef');
+    expect(require('./apis')).not.toHaveProperty('AapAuthApi');
   });
 });
 

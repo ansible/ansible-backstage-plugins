@@ -8,7 +8,7 @@ import {
 import { TestApiProvider } from '@backstage/test-utils';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { AAPResourcePicker } from './AAPResourcePicker';
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 // Mock the Material-UI styles
 jest.mock('@material-ui/core/styles', () => ({

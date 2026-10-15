@@ -19,7 +19,7 @@ import {
   configApiRef,
   errorApiRef,
 } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '@ansible/portal-scaffolder';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { useState } from 'react';
 
 const useStyles = makeStyles(theme => ({

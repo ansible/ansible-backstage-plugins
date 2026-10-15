@@ -35,7 +35,7 @@ import {
   TableRow,
   Typography,
 } from '@material-ui/core';
-import { rhAapAuthApiRef } from '../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { formExtraFields } from './formExtraFields';
 import { findUnavailableFields } from './findUnavailableFields';
 import {

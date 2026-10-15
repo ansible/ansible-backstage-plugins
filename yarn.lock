@@ -163,6 +163,34 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ansible/aap-app-auth@workspace:^, @ansible/aap-app-auth@workspace:workspaces/aap/plugins/aap-app-auth":
+  version: 0.0.0-use.local
+  resolution: "@ansible/aap-app-auth@workspace:workspaces/aap/plugins/aap-app-auth"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/config": "npm:^1.3.6"
+    "@backstage/core-app-api": "npm:^1.19.6"
+    "@backstage/core-compat-api": "npm:0.5.11"
+    "@backstage/core-components": "npm:^0.18.8"
+    "@backstage/core-plugin-api": "npm:^1.12.4"
+    "@backstage/frontend-plugin-api": "npm:0.17.1"
+    "@backstage/frontend-test-utils": "npm:^0.5.2"
+    "@backstage/plugin-app-react": "npm:^0.2.3"
+    "@backstage/test-utils": "npm:^1.7.16"
+    "@mui/icons-material": "npm:^5.17.1"
+    "@mui/material": "npm:^5.14.18"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^16.0.0"
+    "@testing-library/user-event": "npm:^14.0.0"
+    "@types/jest": "npm:^29.5.14"
+    "@types/react": "npm:^18.3.3"
+    typescript: "npm:~5.8.0"
+  peerDependencies:
+    react: ^18.3.1
+    react-dom: ^18.3.1
+  languageName: unknown
+  linkType: soft
+
 "@ansible/backstage-apme-common@workspace:^, @ansible/backstage-apme-common@workspace:workspaces/apme/plugins/backstage-apme-common":
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-apme-common@workspace:workspaces/apme/plugins/backstage-apme-common"
@@ -668,6 +696,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/self-service/plugins/portal-scaffolder"
   dependencies:
+    "@ansible/aap-app-auth": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@backstage/catalog-client": "npm:^1.14.0"
@@ -25330,6 +25359,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "app@workspace:workspaces/portal-core/packages/app"
   dependencies:
+    "@ansible/aap-app-auth": "workspace:^"
     "@ansible/plugin-backstage-apme": "workspace:^"
     "@ansible/plugin-backstage-rhaap": "workspace:^"
     "@ansible/portal-core": "workspace:^"

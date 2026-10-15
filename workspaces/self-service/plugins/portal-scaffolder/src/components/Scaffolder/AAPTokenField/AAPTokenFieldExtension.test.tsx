@@ -3,7 +3,7 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { SecretsContextProvider } from '@backstage/plugin-scaffolder-react';
 
 import { AAPTokenField } from './AAPTokenFieldExtension';
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 describe('AAPTokenField', () => {
   const mockOnChange = jest.fn();

@@ -1,12 +1,6 @@
 dynamicPlugins:
   frontend:
     ansible.portal-scaffolder:
-      signInPage:
-        importName: SignInPage
-      providerSettings:
-        - title: Ansible Automation Platform
-          description: Sign in with Ansible Automation Platform
-          provider: ansible.auth.rhaap
       scaffolderFieldExtensions:
         - importName: AAPTokenFieldExtension
         - importName: AAPResourcePickerExtension
@@ -34,7 +28,3 @@ dynamicPlugins:
           importName: AppThemeFixer
         - mountPoint: application/listener
           importName: LocationListener
-        - importName: AAPLogoutButton
-          mountPoint: global.header/profile
-          config:
-            priority: 100

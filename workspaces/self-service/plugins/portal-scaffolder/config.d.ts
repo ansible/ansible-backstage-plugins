@@ -2,16 +2,6 @@ export interface Config {
   /** Configurations for the Ansible plugin */
   ansible?: {
     /**
-     * AAP base URL
-     * @deepVisibility frontend
-     */
-    rhaap?: {
-      /**
-       * @visibility frontend
-       */
-      baseUrl?: string;
-    };
-    /**
      * Feedback form configuration
      * @deepVisibility frontend
      */

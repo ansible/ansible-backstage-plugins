@@ -1,10 +1,10 @@
 import { SignInPageProps } from '@backstage/core-plugin-api';
-import { SignInPage as SelfServiceSignInPage } from '@backstage/core-components';
-import { rhAapAuthApiRef } from '../../apis';
+import { SignInPage as CoreSignInPage } from '@backstage/core-components';
+import { rhAapAuthApiRef } from '../../api';
 
 export function SignInPage(props: SignInPageProps): React.JSX.Element {
   return (
-    <SelfServiceSignInPage
+    <CoreSignInPage
       {...props}
       align="center"
       title="Select a Sign-in method"

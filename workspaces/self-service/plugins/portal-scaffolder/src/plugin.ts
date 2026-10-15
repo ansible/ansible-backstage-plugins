@@ -12,11 +12,11 @@ import {
   templatesRouteRef,
   historyRouteRef,
 } from './routes';
-import { AAPApis, AapAuthApi, EEBuildApis } from './apis';
+import { AAPApis, EEBuildApis } from './apis';
 
 export const selfServicePlugin = createPlugin({
   id: 'portal-scaffolder',
-  apis: [AAPApis, AapAuthApi, EEBuildApis],
+  apis: [AAPApis, EEBuildApis],
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,
@@ -54,22 +54,6 @@ export const AppThemeFixer = selfServicePlugin.provide(
     component: {
       lazy: () =>
         import('./components/AppThemeFixer').then(m => m.AppThemeFixer),
-    },
-  }),
-);
-
-/**
- * Custom logout button that revokes the AAP OAuth token,
- * ends the AAP browser session, and signs out of Backstage.
- *
- * @public
- */
-export const AAPLogoutButton = selfServicePlugin.provide(
-  createComponentExtension({
-    name: 'AAPLogoutButton',
-    component: {
-      lazy: () =>
-        import('./components/AAPLogoutButton').then(m => m.AAPLogoutButton),
     },
   }),
 );

@@ -24,7 +24,7 @@ const mockSignOut = jest.fn().mockResolvedValue(undefined);
 
 const mockErrorPost = jest.fn();
 
-jest.mock('@ansible/portal-scaffolder', () => ({
+jest.mock('@ansible/aap-app-auth', () => ({
   __esModule: true,
   rhAapAuthApiRef: Symbol('rhAapAuthApiRef'),
 }));
