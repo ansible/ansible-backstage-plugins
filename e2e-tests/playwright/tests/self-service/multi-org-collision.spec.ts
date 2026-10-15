@@ -65,6 +65,47 @@ test('Same team name in different orgs both exist', async ({ page }) => {
 test('Same job template name in different orgs both exist', async ({
   page,
 }) => {
+  const token = await getBackstageToken(page);
+  const catalogResult = await catalogFetch(
+    page,
+    '/entities?filter=kind=template&limit=500',
+    token,
+  );
+  expect(catalogResult.ok, 'Should list template entities').toBe(true);
+
+  const deployTemplates = catalogItems(catalogResult.body).filter((t: any) => {
+    const title = (t.metadata?.title ?? '').trim();
+    return title === 'Deploy';
+  });
+
+  expect(
+    deployTemplates.length,
+    'At least two templates with display name exactly "Deploy" should exist',
+  ).toBeGreaterThanOrEqual(2);
+
+  const entityNames = deployTemplates
+    .map((t: any) => t.metadata?.name)
+    .filter(Boolean);
+  expect(
+    new Set(entityNames).size,
+    'Deploy templates must have distinct ID-based entity names',
+  ).toBe(entityNames.length);
+  for (const name of entityNames) {
+    expect(name, 'Template entity ref should be ID-based').toMatch(/^aap-jt-\d+$/);
+  }
+
+  const orgIdentities = deployTemplates
+    .map(
+      (t: any) =>
+        t.metadata?.annotations?.['ansible.com/organization'] ??
+        t.metadata?.namespace,
+    )
+    .filter(Boolean);
+  expect(
+    new Set(orgIdentities).size,
+    'Deploy templates should belong to different organizations',
+  ).toBeGreaterThanOrEqual(2);
+
   await page.goto('/self-service/catalog', {
     waitUntil: 'networkidle',
     timeout: 30000,
@@ -81,16 +122,27 @@ test('Same job template name in different orgs both exist', async ({
     await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
   }
 
-  const titles = (await templateTitles.allTextContents()).map(t => t.trim());
-  const deployTitles = titles.filter(t => /^Deploy$/i.test(t));
+  const visibleDeployCount = (await templateTitles.allTextContents())
+    .map(t => t.trim())
+    .filter(t => t === 'Deploy').length;
   expect(
-    deployTitles.length,
-    'At least two "Deploy" templates should be visible',
+    visibleDeployCount,
+    'At least two exactly "Deploy" templates should be visible on the catalog page',
   ).toBeGreaterThanOrEqual(2);
 
-  await templateTitles.filter({ hasText: /^Deploy$/i }).first().click({
-    timeout: 10000,
-  });
+  const titleCount = await templateTitles.count();
+  let clickedDeploy = false;
+  for (let i = 0; i < titleCount; i += 1) {
+    const text = (await templateTitles.nth(i).textContent())?.trim();
+    if (text === 'Deploy') {
+      await templateTitles.nth(i).click({ timeout: 10000 });
+      clickedDeploy = true;
+      break;
+    }
+  }
+  expect(clickedDeploy, 'Should open a Deploy template from the catalog').toBe(
+    true,
+  );
 
   await page.waitForURL(/\/catalog\/.*\/aap-jt-\d+/, { timeout: 10000 });
 
@@ -182,7 +234,12 @@ test('Display names preserved, refs use IDs', async ({ page }) => {
   );
   await expect(templateTitles.first()).toBeVisible({ timeout: 30000 });
 
-  const deployTemplate = templateTitles.filter({ hasText: /^Deploy$/i }).first();
+  const allTitles = (await templateTitles.allTextContents()).map(t => t.trim());
+  const deployIndex = allTitles.findIndex(t => t === 'Deploy');
+  expect(deployIndex, 'Deploy template should be visible').toBeGreaterThanOrEqual(
+    0,
+  );
+  const deployTemplate = templateTitles.nth(deployIndex);
   await expect(deployTemplate).toBeVisible({ timeout: 10000 });
 
   const displayName = (await deployTemplate.textContent())?.trim() ?? '';
@@ -235,16 +292,10 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
   const normalPage = await normalContext.newPage();
 
   try {
-    const origId = process.env.AAP_USER_ID;
-    const origPass = process.env.AAP_USER_PASS;
-    try {
-      process.env.AAP_USER_ID = normalUserId;
-      process.env.AAP_USER_PASS = normalUserPass;
-      await loginAAP(normalPage);
-    } finally {
-      process.env.AAP_USER_ID = origId;
-      process.env.AAP_USER_PASS = origPass;
-    }
+    await loginAAP(normalPage, {
+      userId: normalUserId,
+      password: normalUserPass,
+    });
 
     await normalPage.goto('/self-service/catalog', {
       waitUntil: 'networkidle',
@@ -255,9 +306,11 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
       '[data-testid="templates-container"] [data-testid="template--title"]',
     );
     await expect(visibleTitles.first()).toBeVisible({ timeout: 30000 });
-    const normalVisibleCount = await visibleTitles.count();
+    const visibleTitleTexts = (await visibleTitles.allTextContents()).map(t =>
+      t.trim(),
+    );
     expect(
-      normalVisibleCount,
+      visibleTitleTexts.length,
       'Normal user should see at least one permitted template',
     ).toBeGreaterThan(0);
 
@@ -277,14 +330,46 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
       'Normal user catalog scope should not exceed admin-visible AAP templates',
     ).toBeLessThanOrEqual(adminTemplates.length);
 
-    if (adminTemplates.length > normalTemplates.length) {
-      const normalNames = new Set(
-        normalTemplates.map((t: any) => t.metadata?.name),
-      );
-      const adminOnly = adminTemplates.filter(
-        (t: any) => !normalNames.has(t.metadata?.name),
-      );
-      expect(adminOnly.length).toBeGreaterThan(0);
+    const normalNames = new Set(
+      normalTemplates.map((t: any) => t.metadata?.name),
+    );
+    const permittedTitles = new Set(
+      normalTemplates
+        .map((t: any) => (t.metadata?.title ?? '').trim())
+        .filter(Boolean),
+    );
+    for (const title of visibleTitleTexts) {
+      expect(
+        permittedTitles.has(title),
+        `Visible template "${title}" should be in the normal user's permitted catalog scope`,
+      ).toBe(true);
+    }
+
+    const adminOnly = adminTemplates.filter(
+      (t: any) => !normalNames.has(t.metadata?.name),
+    );
+    expect(
+      adminOnly.length,
+      'Fixture should include templates visible to admin but not the normal user',
+    ).toBeGreaterThan(0);
+
+    const excludedByTitle = adminOnly.filter((t: any) => {
+      const title = (t.metadata?.title ?? '').trim();
+      return title && !permittedTitles.has(title);
+    });
+    if (excludedByTitle.length > 0) {
+      for (const template of excludedByTitle) {
+        const title = (template.metadata?.title ?? '').trim();
+        expect(
+          visibleTitleTexts,
+          `Normal user should not see admin-only template "${title}"`,
+        ).not.toContain(title);
+      }
+    } else {
+      expect(
+        normalTemplates.length,
+        'Normal user should have a strictly narrower catalog scope than admin',
+      ).toBeLessThan(adminTemplates.length);
     }
   } finally {
     await normalPage.close();
