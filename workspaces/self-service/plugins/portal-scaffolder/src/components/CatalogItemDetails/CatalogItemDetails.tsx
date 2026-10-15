@@ -65,7 +65,7 @@ export const CatalogItemsDetails = () => {
   }, [namespace, templateName, catalogApi]); // Dependencies
 
   useEffect(() => {
-    fetchTasks();
+    void fetchTasks();
   }, [fetchTasks]);
 
   const cleanUpAfterRemoval = async () => {

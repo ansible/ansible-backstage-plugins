@@ -59,7 +59,7 @@ export const AAPTokenField = ({
       }
     };
 
-    fetchToken();
+    void fetchToken();
   }, [aapAuth, onChange, setSecrets]);
 
   const getHelperText = () => {

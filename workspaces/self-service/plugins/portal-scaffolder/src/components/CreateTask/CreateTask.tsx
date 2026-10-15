@@ -146,7 +146,7 @@ export const CreateTask = ({
       }
     };
 
-    fetchEntity();
+    void fetchEntity();
   }, [templateName, namespace, scaffolderApi, catalogApi]);
 
   if (loading) {
