@@ -23,5 +23,5 @@ test('App should render the welcome page', async ({ page }) => {
   await expect(enterButton).toBeVisible();
   await enterButton.click();
 
-  await expect(page.getByText('Ansible RHDH Catalog')).toBeVisible();
+  await expect(page.getByText('Automation Portal Catalog')).toBeVisible();
 });

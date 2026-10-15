@@ -2,7 +2,9 @@ import {
   createFrontendPlugin,
   ApiBlueprint,
   PageBlueprint,
+  AppRootElementBlueprint,
 } from '@backstage/frontend-plugin-api';
+import CssBaseline from '@material-ui/core/CssBaseline';
 import { Navigate } from 'react-router-dom';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
@@ -15,6 +17,11 @@ import {
 export default createFrontendPlugin({
   pluginId: 'portal',
   extensions: [
+    // The active theme owns font faces and body styles in both app shells.
+    AppRootElementBlueprint.make({
+      name: 'theme-baseline',
+      params: { element: compatWrapper(<CssBaseline />) },
+    }),
     PageBlueprint.make({
       name: 'landing',
       params: {
