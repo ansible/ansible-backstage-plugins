@@ -103,6 +103,7 @@ test('Template org metadata: annotations and namespaces', async ({ page }) => {
 // Test B: admin vs normal user template visibility on self-service page
 // ---------------------------------------------------------------------------
 
+/** Count templates actually rendered for the logged-in user (not pagination totals). */
 async function getTemplateCount(
   page: import('@playwright/test').Page,
 ): Promise<number> {
@@ -111,25 +112,58 @@ async function getTemplateCount(
   });
   await page.waitForLoadState('networkidle', { timeout: 30000 });
 
-  // Wait for template cards to render (Home.tsx filteredEntities -> WizardCard)
-  await page.waitForTimeout(3000);
+  const container = page.getByTestId('templates-container');
+  const loading = page.getByTestId('loading-templates');
+  await expect
+    .poll(
+      async () =>
+        (await container.isVisible().catch(() => false)) ||
+        (await page
+          .getByText(/No templates/i)
+          .isVisible()
+          .catch(() => false)),
+      { timeout: 30000 },
+    )
+    .toBe(true);
+  await expect(loading).toHaveCount(0, { timeout: 15000 });
 
-  // Count actual rendered WizardCard components (each has a "Start" button)
-  // This matches filteredEntities.length from Home.tsx after RBAC filtering
-  const cardCount = await page
-    .locator('[data-testid="template-card-actions--create"]')
-    .count()
-    .catch(() => 0);
-
-  if (cardCount === 0) {
-    const hasEmptyState = await page
-      .getByText(/No templates/i)
-      .isVisible()
-      .catch(() => false);
-    console.log(`[getTemplateCount] No cards, empty state: ${hasEmptyState}`);
+  const empty = await page
+    .getByText(/No templates/i)
+    .isVisible()
+    .catch(() => false);
+  if (empty) {
+    return 0;
   }
 
-  return cardCount;
+  const templateTitles = page.locator(
+    '[data-testid="templates-container"] [data-testid="template--title"]',
+  );
+  await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+
+  // Pagination caps page-1 title count; sum across all pages so admin vs
+  // normal-user comparisons reflect total visible templates, not page size.
+  const pagination = page.getByTestId('templates-pagination');
+  if (!(await pagination.isVisible().catch(() => false))) {
+    return templateTitles.count();
+  }
+
+  let total = 0;
+  const pageIndicator = page.getByTestId('templates-page-indicator');
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    total += await templateTitles.count();
+    const next = pagination.getByLabel('Next page').first();
+    if ((await next.count()) === 0 || (await next.isDisabled())) {
+      break;
+    }
+    const indicatorBefore = await pageIndicator.textContent();
+    await next.click();
+    await expect
+      .poll(async () => pageIndicator.textContent(), { timeout: 15000 })
+      .not.toBe(indicatorBefore);
+    await expect(templateTitles.first()).toBeVisible({ timeout: 15000 });
+  }
+  return total;
 }
 
 test('Template visibility: admin sees >= normal user templates', async ({

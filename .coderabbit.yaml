@@ -41,6 +41,7 @@ reviews:
     base_branches:
       - "main"
       - "release/.*"
+      - "feat/portal-plugin-factory-sdk"
 
   path_instructions:
 

@@ -201,6 +201,45 @@ export async function discoverOrgNamespaces(
   return [...new Set(groups.map(g => g.namespace))];
 }
 
+/**
+ * Fetches the signed-in user's AAP-scoped job template ids via the same
+ * `/api/auth/rhaap/user-job-templates` endpoint Home uses to filter
+ * catalog templates (see AnsibleApiClient.getUserJobTemplates). Raw catalog
+ * read permissions can be broader than this AAP-scoped list, so this is the
+ * correct visibility oracle for "what templates does this user see" tests —
+ * not a catalog entity filter.
+ */
+export async function getUserJobTemplateIds(page: Page): Promise<number[]> {
+  const authProvider = process.env.BACKSTAGE_AUTH_PROVIDER ?? 'rhaap';
+  const authEnv = process.env.BACKSTAGE_AUTH_ENV ?? 'production';
+
+  return page.evaluate(
+    async ({ provider, env }) => {
+      const refreshRes = await fetch(
+        `/api/auth/${provider}/refresh?scope=read%20write&env=${env}`,
+        {
+          credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        },
+      );
+      if (!refreshRes.ok) return [];
+      const refreshData = await refreshRes.json();
+      const accessToken: string | undefined = refreshData?.accessToken;
+      if (!accessToken) return [];
+
+      const jtRes = await fetch(`/api/auth/${provider}/user-job-templates`, {
+        credentials: 'include',
+        headers: { 'X-RHAAP-Access-Token': accessToken },
+      });
+      if (!jtRes.ok) return [];
+      const jtData = await jtRes.json();
+      const items: any[] = Array.isArray(jtData?.items) ? jtData.items : [];
+      return items.map(item => item.id).filter((id): id is number => typeof id === 'number');
+    },
+    { provider: authProvider, env: authEnv },
+  );
+}
+
 export async function findCatalogUserByAapUsername(
   page: Page,
   token: string,
