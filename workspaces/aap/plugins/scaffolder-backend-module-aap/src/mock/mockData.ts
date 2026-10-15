@@ -1,3 +1,0 @@
-export const MOCK_BASE_URL = 'https://rhaap.test';
-export const MOCK_TOKEN = 'mock-token';
-export const MOCK_CHECK_SSL = false;
