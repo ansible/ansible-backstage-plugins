@@ -17,7 +17,12 @@
 import type { Severity } from './types';
 
 export type SeverityLevel =
-  'critical' | 'error' | 'high' | 'medium' | 'low' | 'info';
+  | 'critical'
+  | 'error'
+  | 'high'
+  | 'medium'
+  | 'low'
+  | 'info';
 
 export interface ViolationCountsBySeverity {
   critical: number;

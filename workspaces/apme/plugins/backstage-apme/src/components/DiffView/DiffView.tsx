@@ -361,17 +361,21 @@ export const DiffView = ({
     }
     if (before && after) return computeUnifiedDiff(before, after);
     if (before)
-      return before.split('\n').map((c, i): DiffLine => ({
-        type: 'removed',
-        content: c,
-        oldNum: i + 1,
-      }));
+      return before.split('\n').map(
+        (c, i): DiffLine => ({
+          type: 'removed',
+          content: c,
+          oldNum: i + 1,
+        }),
+      );
     if (after)
-      return after.split('\n').map((c, i): DiffLine => ({
-        type: 'added',
-        content: c,
-        newNum: i + 1,
-      }));
+      return after.split('\n').map(
+        (c, i): DiffLine => ({
+          type: 'added',
+          content: c,
+          newNum: i + 1,
+        }),
+      );
     return [];
   }, [before, after, diff, showSideBySide]);
 

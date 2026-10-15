@@ -21,7 +21,8 @@ export type {
  *  `ExtensionRenderer` always wraps in `<Suspense>` — the fallback
  *  never activates for synchronous components. */
 export type ContributionComponent =
-  LazyExoticComponent<ComponentType<any>> | ComponentType<any>;
+  | LazyExoticComponent<ComponentType<any>>
+  | ComponentType<any>;
 
 /**
  * Context passed to an action's `onActivate` callback at invocation time.

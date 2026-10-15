@@ -36,7 +36,8 @@ export class UserProvisioner
   implements IUserProvisioner, IUserProvisionerConnectable
 {
   private createUserFn:
-    ((username: string, userID: number) => Promise<boolean>) | null = null;
+    | ((username: string, userID: number) => Promise<boolean>)
+    | null = null;
 
   /**
    * Called by the catalog module to register the actual user creation implementation.

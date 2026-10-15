@@ -65,7 +65,12 @@ const useActivityListStyles = makeStyles({
 });
 
 type ActivitySortColumn =
-  'type' | 'violations' | 'fixable' | 'remediated' | 'manual' | 'time';
+  | 'type'
+  | 'violations'
+  | 'fixable'
+  | 'remediated'
+  | 'manual'
+  | 'time';
 
 /** In-page panel dismiss — labeled (not icon-only); keeps control on the right. */
 function CloseDetailButton({ onClose }: { onClose: () => void }) {

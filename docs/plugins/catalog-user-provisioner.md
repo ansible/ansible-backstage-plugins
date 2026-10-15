@@ -18,7 +18,9 @@ for the Portal host's active-organization entitlement resolver.
 
 ```ts
 backend.add(
-  import('@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner'),
+  import(
+    '@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner'
+  ),
 );
 ```
 

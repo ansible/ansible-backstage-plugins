@@ -71,26 +71,30 @@ import { githubRepoUrlValidation } from '../components/Scaffolder/GitHubRepoUrlF
 // page that renders one of these contributions. The host wraps each in Suspense.
 
 const EntityQualityTab = lazy(async () => {
-  const { EntityQualityTab: C } =
-    await import('../components/EntityQualityTab/EntityQualityTab');
+  const { EntityQualityTab: C } = await import(
+    '../components/EntityQualityTab/EntityQualityTab'
+  );
   return { default: C };
 });
 
 const ApmeQualityActivityTab = lazy(async () => {
-  const { ApmeQualityActivityTab: C } =
-    await import('../components/ApmeQualityActivityTab/ApmeQualityActivityTab');
+  const { ApmeQualityActivityTab: C } = await import(
+    '../components/ApmeQualityActivityTab/ApmeQualityActivityTab'
+  );
   return { default: C };
 });
 
 const DependenciesTab = lazy(async () => {
-  const { DependenciesTab: C } =
-    await import('../components/DependenciesTab/DependenciesTab');
+  const { DependenciesTab: C } = await import(
+    '../components/DependenciesTab/DependenciesTab'
+  );
   return { default: C };
 });
 
 const ApmeRepositoryOverviewCard = lazy(async () => {
-  const { ApmeRepositoryOverviewCard: C } =
-    await import('../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard');
+  const { ApmeRepositoryOverviewCard: C } = await import(
+    '../components/ApmeRepositoryOverviewCard/ApmeRepositoryOverviewCard'
+  );
   return { default: C };
 });
 

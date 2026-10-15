@@ -64,7 +64,9 @@ backend.add(import('@backstage/plugin-signals-backend'));
 
 backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
 backend.add(
-  import('@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner'),
+  import(
+    '@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner'
+  ),
 );
 backend.add(import('@ansible/backstage-plugin-catalog-backend-module-apme'));
 backend.add(

@@ -6,10 +6,8 @@ import type { EntityDetailTabDescriptor } from './EntityDetailTabBlueprint';
 import { PORTAL_CONTRIBUTIONS_ATTACHMENT } from './contributions';
 
 /** Declarative operation action. No endpoint, component loader, or mutation callback. */
-export interface EntityActionDescriptor extends Omit<
-  EntityDetailTabDescriptor,
-  'attachment' | 'loader'
-> {
+export interface EntityActionDescriptor
+  extends Omit<EntityDetailTabDescriptor, 'attachment' | 'loader'> {
   attachment: 'entity.actions';
   /** Registered entity-tab entry to select after an accepted operation. */
   followOnEntryPointId?: string;

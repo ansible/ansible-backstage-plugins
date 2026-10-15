@@ -23,7 +23,9 @@ export const gitRepositoriesCatalogApiRef =
   });
 
 /** No-op when self-service host is not loaded. */
-export class DefaultGitRepositoriesCatalogApi implements GitRepositoriesCatalogApi {
+export class DefaultGitRepositoriesCatalogApi
+  implements GitRepositoriesCatalogApi
+{
   invalidateCatalogCache(): void {
     // intentional no-op
   }
