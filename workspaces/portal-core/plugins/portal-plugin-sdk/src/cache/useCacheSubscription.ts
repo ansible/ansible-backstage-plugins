@@ -109,7 +109,7 @@ export function useCacheSubscription<TState extends BaseCacheState>({
 
   useEffect(() => {
     isMountedRef.current = true;
-    fetchInitial();
+    void fetchInitial();
 
     return () => {
       isMountedRef.current = false;

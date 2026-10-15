@@ -279,41 +279,47 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
       setLoading(false);
       return;
     }
-    aapAuth.getAccessToken().then((token: string) => {
-      if (scaffolderApi.autocomplete) {
-        setLoading(true);
-        scaffolderApi
-          .autocomplete({
-            token: token,
-            resource: resource,
-            provider: 'aap-api-cloud',
-            context: {},
-          })
-          .then(({ results }) => {
-            if (initialFormData) {
-              applyInitialSelectionAfterAutocomplete({
-                results,
-                formData: formDataRef.current,
-                multiple,
-                idKey: _idKey,
-                nameKey: _nameKey,
-                setSelected,
-              });
-            }
-            setAvailableResources(results);
-            setLoading(false);
-            // Clear initial form data since we now have resources loaded
-            setInitialFormData(null);
-          })
-          .catch(() => {
-            setAvailableResources([]);
-            setLoading(false);
-          });
-      } else {
+    aapAuth
+      .getAccessToken()
+      .then((token: string) => {
+        if (scaffolderApi.autocomplete) {
+          setLoading(true);
+          scaffolderApi
+            .autocomplete({
+              token: token,
+              resource: resource,
+              provider: 'aap-api-cloud',
+              context: {},
+            })
+            .then(({ results }) => {
+              if (initialFormData) {
+                applyInitialSelectionAfterAutocomplete({
+                  results,
+                  formData: formDataRef.current,
+                  multiple,
+                  idKey: _idKey,
+                  nameKey: _nameKey,
+                  setSelected,
+                });
+              }
+              setAvailableResources(results);
+              setLoading(false);
+              // Clear initial form data since we now have resources loaded
+              setInitialFormData(null);
+            })
+            .catch(() => {
+              setAvailableResources([]);
+              setLoading(false);
+            });
+        } else {
+          setAvailableResources([]);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
         setAvailableResources([]);
         setLoading(false);
-      }
-    });
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aapAuth, resource, scaffolderApi]);
   useEffect(updateAvailableResources, [updateAvailableResources]);

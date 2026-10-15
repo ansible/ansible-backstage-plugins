@@ -252,7 +252,7 @@ export function useLatestCIActivity(entities: Entity[]): {
       }
     };
 
-    fetchLatest();
+    void fetchLatest();
 
     return () => {
       cancelled = true;

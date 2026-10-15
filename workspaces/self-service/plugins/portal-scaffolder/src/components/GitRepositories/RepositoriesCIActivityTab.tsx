@@ -59,20 +59,24 @@ export const RepositoriesCIActivityTab = ({
     const unsubscribe = ciActivityCache.subscribe(setCacheState);
 
     if (filterByEntity) {
-      ciActivityCache.startLoading([filterByEntity], discoveryApi, fetchApi);
+      void ciActivityCache.startLoading(
+        [filterByEntity],
+        discoveryApi,
+        fetchApi,
+      );
     } else if (cachedEntities && cachedEntities.length > 0) {
-      ciActivityCache.startLoading(cachedEntities, discoveryApi, fetchApi);
+      void ciActivityCache.startLoading(cachedEntities, discoveryApi, fetchApi);
     } else {
       catalogApi
         .getEntities({
           filter: [{ kind: 'Component', 'spec.type': 'git-repository' }],
         })
         .then(response => {
-          if (cancelled) return;
+          if (cancelled) return undefined;
           const items = Array.isArray(response)
             ? response
             : (response?.items ?? []);
-          ciActivityCache.startLoading(items, discoveryApi, fetchApi);
+          return ciActivityCache.startLoading(items, discoveryApi, fetchApi);
         })
         .catch(e => {
           if (cancelled) return;

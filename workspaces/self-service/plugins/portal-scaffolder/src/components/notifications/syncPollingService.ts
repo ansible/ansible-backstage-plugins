@@ -132,12 +132,7 @@ class SyncPollingService {
 
     const startPollChain = () => {
       const gen = this.pollGeneration;
-      this.checkSyncStatus().then(anyInProgress => {
-        if (!this.isCurrentGeneration(gen)) {
-          return;
-        }
-        this.scheduleNextPoll(anyInProgress);
-      });
+      this.pollAndScheduleNext(gen);
     };
 
     if (!this.pollLoopStarted) {
@@ -533,6 +528,21 @@ class SyncPollingService {
     return inFlightRef.promise;
   }
 
+  private pollAndScheduleNext(gen: number): void {
+    this.checkSyncStatus()
+      .then(anyInProgress => {
+        if (this.isCurrentGeneration(gen)) {
+          this.scheduleNextPoll(anyInProgress);
+        }
+      })
+      .catch(() => {
+        // A failed poll must not terminate the chain or revive a cleared session.
+        if (this.isCurrentGeneration(gen)) {
+          this.scheduleNextPoll(true);
+        }
+      });
+  }
+
   private scheduleNextPoll(anyInProgress: boolean): void {
     if (this.pollTimer !== null) {
       clearTimeout(this.pollTimer);
@@ -543,15 +553,10 @@ class SyncPollingService {
       : SLOW_POLL_INTERVAL_MS;
 
     const gen = this.pollGeneration;
-    this.pollTimer = setTimeout(async () => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
+    this.pollTimer = setTimeout(() => {
+      if (this.isCurrentGeneration(gen)) {
+        this.pollAndScheduleNext(gen);
       }
-      const stillInProgress = await this.checkSyncStatus();
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(stillInProgress);
     }, interval);
   }
 
@@ -590,12 +595,7 @@ class SyncPollingService {
     }
 
     const gen = this.pollGeneration;
-    this.checkSyncStatus().then(anyInProgress => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(anyInProgress);
-    });
+    this.pollAndScheduleNext(gen);
   }
 
   clear(): void {

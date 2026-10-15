@@ -136,7 +136,7 @@ export class PaginatedEntityCache<
       this.notifyListeners();
 
       if (items.length < total) {
-        this.continueBackgroundLoading();
+        void this.continueBackgroundLoading();
       } else {
         this.clearLoadingPromiseIfCurrent(epoch);
       }

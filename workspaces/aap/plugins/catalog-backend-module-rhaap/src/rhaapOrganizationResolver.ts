@@ -110,7 +110,8 @@ export class RhaapOrganizationResolver implements ActiveOrganizationResolver {
       )
         return [];
       // Match Portal's existing AAP superuser access policy; grants/RBAC still apply.
-      if (user.is_superuser === true) return [...configured].sort();
+      if (user.is_superuser === true)
+        return [...configured].sort((a, b) => a.localeCompare(b));
       const [direct, teams] = await Promise.all([
         this.client.getOrgsByUserId(userId, [...configured]),
         this.client.getTeamsByUserId(userId),
@@ -121,7 +122,7 @@ export class RhaapOrganizationResolver implements ActiveOrganizationResolver {
       ].map(name => name.trim().toLowerCase());
       return [
         ...new Set(memberships.filter(name => configured.has(name))),
-      ].sort();
+      ].sort((a, b) => a.localeCompare(b));
     } catch {
       // Failed identity lookup or membership fetch must never become an all-org grant.
       return [];

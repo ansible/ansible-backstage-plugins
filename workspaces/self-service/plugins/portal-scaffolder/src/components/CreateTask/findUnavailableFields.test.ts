@@ -29,3 +29,12 @@ it('does not mistake ordinary enums or nulls for widget declarations', () => {
     ),
   ).toEqual([]);
 });
+
+it('alphabetically orders missing fields with mixed-case names', () => {
+  expect(
+    findUnavailableFields(
+      [{ 'ui:field': 'Zulu' }, { 'ui:field': 'alpha' }],
+      new Set(),
+    ),
+  ).toEqual(['alpha', 'Zulu']);
+});

@@ -292,8 +292,8 @@ export function usePaginatedCollections({
   }, [discoveryApi, fetchApi]);
 
   useEffect(() => {
-    fetchFacets();
-    fetchSyncStatus();
+    void fetchFacets();
+    void fetchSyncStatus();
   }, [fetchFacets, fetchSyncStatus]);
 
   const fetchPage = useCallback(
@@ -366,7 +366,7 @@ export function usePaginatedCollections({
 
         const lastPage = Math.max(1, Math.ceil(result.totalItems / PAGE_SIZE));
         if (page > lastPage && page > 1) {
-          fetchPage(lastPage);
+          await fetchPage(lastPage);
           return;
         }
 
@@ -399,14 +399,14 @@ export function usePaginatedCollections({
   // Reset to page 1 and fetch when filters/search/mode changes
   useEffect(() => {
     setCurrentPage(1);
-    fetchPage(1);
+    void fetchPage(1);
   }, [fetchPage]);
 
   // Register invalidation callback
   useEffect(() => {
     return addCollectionsInvalidateCallback(() => {
-      fetchPage(1);
-      fetchFacets();
+      void fetchPage(1);
+      void fetchFacets();
     });
   }, [fetchPage, fetchFacets]);
 
@@ -417,27 +417,27 @@ export function usePaginatedCollections({
   const goToPage = useCallback(
     (page: number) => {
       const clamped = Math.max(1, Math.min(page, totalPages));
-      fetchPage(clamped);
+      void fetchPage(clamped);
     },
     [fetchPage, totalPages],
   );
 
   const nextPage = useCallback(() => {
     if (hasNextPage) {
-      fetchPage(currentPage + 1);
+      void fetchPage(currentPage + 1);
     }
   }, [hasNextPage, currentPage, fetchPage]);
 
   const prevPage = useCallback(() => {
     if (hasPrevPage) {
-      fetchPage(currentPage - 1);
+      void fetchPage(currentPage - 1);
     }
   }, [hasPrevPage, currentPage, fetchPage]);
 
   const refresh = useCallback(() => {
-    fetchPage(1);
-    fetchFacets();
-    fetchSyncStatus();
+    void fetchPage(1);
+    void fetchFacets();
+    void fetchSyncStatus();
   }, [fetchPage, fetchFacets, fetchSyncStatus]);
 
   return {

@@ -234,7 +234,7 @@ export const EEDetailsPage: React.FC = () => {
   }, [entity, catalogApi]);
 
   useEffect(() => {
-    getOwnerName().then(name => setOwnerName(name));
+    void getOwnerName().then(name => setOwnerName(name));
   }, [getOwnerName]);
 
   const callApi = useCallback(() => {
@@ -261,7 +261,7 @@ export const EEDetailsPage: React.FC = () => {
   }, [catalogApi, templateName]);
 
   useEffect(() => {
-    callApi();
+    void callApi();
   }, [callApi]);
 
   useEffect(() => {
@@ -465,7 +465,7 @@ export const EEDetailsPage: React.FC = () => {
     setIsRefreshing(true);
     setDefaultReadme('');
     setFetchedDefinition(null);
-    callApi().finally(() => {
+    void callApi().finally(() => {
       setIsRefreshing(false);
     });
   };

@@ -160,7 +160,7 @@ export function SettingsShell<T extends Record<string, unknown>>({
 
   // Trigger load on first render
   useEffect(() => {
-    loadSettings();
+    void loadSettings();
   }, [loadSettings]);
 
   const handleChange = useCallback((evt: IChangeEvent<T>) => {

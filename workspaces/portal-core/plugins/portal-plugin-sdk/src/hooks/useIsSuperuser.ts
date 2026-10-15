@@ -220,7 +220,7 @@ export function useIsSuperuser(): UseIsSuperuserResult {
       }
     };
 
-    checkSuperuserStatus();
+    void checkSuperuserStatus();
 
     return () => {
       mounted = false;

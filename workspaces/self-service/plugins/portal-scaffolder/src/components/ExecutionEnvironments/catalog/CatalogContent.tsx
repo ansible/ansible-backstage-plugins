@@ -37,6 +37,7 @@ import OpenInNew from '@material-ui/icons/OpenInNew';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityLinkButton } from '../../common';
 import { UnregisterEntityDialog } from '../../UnregisterEntityDialog';
+import { useNotifications } from '../../notifications';
 import { PAGE_SIZE } from './constants';
 import { CreateCatalog } from './CreateCatalog';
 import { EEBuildDialog } from './EEBuildDialog';
@@ -165,6 +166,7 @@ export const EEListPage = ({
   const classes = useStyles();
   const theme = useTheme();
   const catalogApi = useApi(catalogApiRef);
+  const { showNotification } = useNotifications();
   const {
     filters,
     entities: rawEntities,
@@ -299,7 +301,7 @@ export const EEListPage = ({
         setOwnerNames(prev => new Map([...prev, ...fallback]));
       }
     };
-    resolveOwners();
+    void resolveOwners();
   }, [entities, catalogApi]);
 
   const initialLoading = catalogLoading;
@@ -619,6 +621,14 @@ export const EEListPage = ({
                                 if (entity) {
                                   downloadEntityAsTarArchive(entity);
                                 }
+                              })
+                              .catch(() => {
+                                showNotification({
+                                  title: 'Download failed',
+                                  description:
+                                    'Could not load the execution environment. Please try again.',
+                                  severity: 'error',
+                                });
                               });
                           }}
                         >

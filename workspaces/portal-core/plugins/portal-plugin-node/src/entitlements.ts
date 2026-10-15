@@ -40,7 +40,7 @@ export async function resolveOrganizationMemberships(
   ) {
     throw new InputError('Invalid organization memberships');
   }
-  return [...new Set(values)].sort();
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
 export class ConfiguredOrganizationResolver

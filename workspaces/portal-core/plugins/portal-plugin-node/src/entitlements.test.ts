@@ -11,6 +11,7 @@ import {
   PortalEntitlements,
   portalActiveOrganizationServiceRef,
   portalEntitlementsServiceRef,
+  resolveOrganizationMemberships,
 } from './entitlements';
 
 describe('host entitlements', () => {
@@ -54,6 +55,15 @@ describe('host entitlements', () => {
     permissions.authorize.mockResolvedValue([
       { result: AuthorizeResult.ALLOW },
     ]);
+  });
+  it('deduplicates and alphabetically orders trusted organization memberships', async () => {
+    const resolver = {
+      resolve: async () => undefined,
+      resolveAll: async () => ['Zulu', 'alpha', 'alpha'],
+    };
+    await expect(
+      resolveOrganizationMemberships(resolver, user),
+    ).resolves.toEqual(['alpha', 'Zulu']);
   });
   it('uses the deployment organization service override through root DI', async () => {
     const resolver = { resolve: jest.fn().mockResolvedValue('acme') };

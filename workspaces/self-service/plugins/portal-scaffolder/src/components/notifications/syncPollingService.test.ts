@@ -55,6 +55,41 @@ describe('syncPollingService', () => {
   });
 
   describe('initialize', () => {
+    it('retries when the polling operation unexpectedly rejects', async () => {
+      const poll = jest
+        .spyOn(syncPollingService as any, 'checkSyncStatus')
+        .mockRejectedValueOnce(new Error('Poll failed'));
+      try {
+        syncPollingService.initialize(mockDiscoveryApi, mockFetchApi);
+        await jest.advanceTimersByTimeAsync(0);
+        expect(poll).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS);
+        expect(poll).toHaveBeenCalledTimes(2);
+      } finally {
+        poll.mockRestore();
+      }
+    });
+
+    it('does not revive cleared polling after a stale rejection', async () => {
+      let rejectPoll!: (error: Error) => void;
+      const poll = jest
+        .spyOn(syncPollingService as any, 'checkSyncStatus')
+        .mockReturnValueOnce(
+          new Promise((_resolve, reject) => {
+            rejectPoll = reject;
+          }),
+        );
+      try {
+        syncPollingService.initialize(mockDiscoveryApi, mockFetchApi);
+        syncPollingService.clear();
+        rejectPoll(new Error('Stale poll failed'));
+        await jest.advanceTimersByTimeAsync(FAST_POLL_INTERVAL_MS * 2);
+        expect(poll).toHaveBeenCalledTimes(1);
+      } finally {
+        poll.mockRestore();
+      }
+    });
+
     it('stores the APIs', async () => {
       syncPollingService.initialize(
         mockDiscoveryApi as any,

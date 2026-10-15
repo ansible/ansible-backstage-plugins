@@ -159,7 +159,7 @@ const CollectionDetailsPageInner = () => {
       }
     };
 
-    fetchSyncStatus();
+    void fetchSyncStatus();
   }, [entity, discoveryApi, fetchApi]);
 
   const parseReadmeFilePath = useCallback((readmeUrl: string): string => {
