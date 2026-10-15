@@ -16,9 +16,6 @@
 //
 // If this file is ever moved, update the segment count accordingly.
 
-const BASE =
-  '../../../../../../../node_modules/@backstage/plugin-scaffolder/dist/components/fields';
-
 export { EntityPicker } from '../../../../../../../node_modules/@backstage/plugin-scaffolder/dist/components/fields/EntityPicker/EntityPicker.esm.js';
 
 export { EntityNamePicker } from '../../../../../../../node_modules/@backstage/plugin-scaffolder/dist/components/fields/EntityNamePicker/EntityNamePicker.esm.js';
