@@ -19,10 +19,14 @@ for arg in "$@"; do
 done
 
 NODE_OPTIONS="${NODE_OPTIONS:-} --experimental-vm-modules" \
-  backstage-cli repo test --watch=false "${worker_args[@]}" "$@" \
+  backstage-cli repo test --watch=false ${worker_args[@]+"${worker_args[@]}"} "$@" \
   2> "$log_file"
 status=$?
 
-# Keep console.warn/console.error output out of the terminal. The command
+# Keep console.warn/console.error output out of the terminal on success.
+# Replay it on failure so the primary error output isn't lost; the command
 # status still comes from Jest, so CI fails normally when tests fail.
+if [ "$status" -ne 0 ]; then
+  cat "$log_file" >&2
+fi
 exit "$status"

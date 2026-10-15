@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload Jest log on failure
         if: ${{ always() && steps.tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jest-log-${{ matrix.node-version }}
           path: test-console.log
@@ -106,7 +106,7 @@ jobs:
           verbose: true
 
       - name: Upload Code Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report-${{ matrix.node-version }}
           path: |
