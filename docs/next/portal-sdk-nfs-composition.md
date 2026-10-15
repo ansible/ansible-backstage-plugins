@@ -98,6 +98,29 @@ logged and omitted without removing the rest of the page. Filtering proceeds
 through content/source scope, experience/configuration, permission, entitlement,
 and predicate before component loading. Selected components are error-bounded.
 
+### Supported native launches
+
+The [internal developer-preview contract](portal-sdk-plugin-author-guide.md#internal-developer-preview-contract)
+defines the author-facing boundary and proposed compatibility policy. Native
+launch support is limited to the following combinations:
+
+- Slots render through the matching declared Blueprint and its allowed host
+  region. The host does not resolve arbitrary `moduleName` values.
+- Entity and catalog item actions dispatch registered operations for the
+  current subject.
+- Entity operation actions may select an eligible detail tab after a successful
+  response. The manifest follow-on must target `entity.detail.tabs`, and the
+  descriptor must identify the matching tab with `followOnEntryPointId`. The
+  destination must also pass eligibility checks. Selection does not wait for a
+  background job to complete.
+- Catalog-header workflow actions resolve owner-prefixed workflow IDs through
+  `ScaffolderWorkflowBlueprint` to template entity references, not supplied URLs.
+
+Catalog item action follow-ons, operation-to-workflow follow-ons, arbitrary
+launch chains, and workflow launches on other action surfaces are unsupported.
+The common `CapabilityLaunch` union is broader than the native renderer subset;
+legacy launcher behavior is not the native contract.
+
 ## APME entry point
 
 `@ansible/plugin-backstage-apme/alpha` default-exports an `apme` frontend plugin.

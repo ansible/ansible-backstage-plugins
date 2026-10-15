@@ -16,6 +16,37 @@ Use [Portal NFS composition](portal-sdk-nfs-composition.md) for the current
 frontend integration contract. Earlier registry and Scalprum descriptions in
 historical architecture documents are not instructions for the native app.
 
+## Internal developer-preview readiness
+
+The [internal developer-preview contract](portal-sdk-plugin-author-guide.md#internal-developer-preview-contract)
+defines the proposed API boundary, supported launch subset, backend
+responsibilities, exclusions, and compatibility policy for consuming teams.
+Its implemented behavior is distinct from the policy awaiting joint agreement.
+Preview teams develop plugins in this repository's workspaces using
+`workspace:^` SDK dependencies and the shared root lockfile. Native composition
+being complete does not mean team onboarding or all architecture requirements
+are complete; npm publication is not a preview requirement.
+
+Before declaring a consumable preview:
+
+1. Agree on the documented API subset and breaking-change migration policy
+   with SDK maintainers and consuming teams.
+2. Review the intended consumer's mutation and background-work paths. Migrate
+   paths that bypass the agreed authorization/operation boundary, or explicitly
+   exclude those features; frontend gates alone are not an exclusion mechanism.
+3. Complete the author guide's fresh-clone acceptance with the consuming team's
+   workspace plugin: install dependencies from the root, build/test the required
+   packages, export dynamically, and install the artifacts in RHDH. No external
+   plugin repository or npm publication is required.
+4. Record the SDK revision, dependency versions, RHDH image digest, and tested
+   artifacts. The current deployment baseline remains `next-2.1` only.
+
+Broader content extraction, additional launch combinations, and a standalone
+theme package are separate architecture work. They become preview prerequisites
+only if the agreed consumer use case requires them. Idempotency deduplication,
+automatic MCP exposure, and durable auditing are not current dispatcher
+guarantees; do not advertise them merely because metadata fields exist.
+
 ## Workspace ownership
 
 The repository remains named `ansible-backstage-plugins`. Package ownership is
@@ -169,12 +200,18 @@ It is still a proposal, not a jointly frozen production contract.
 
 ### Production contracts and delivery
 
+Use the [preview contract](portal-sdk-plugin-author-guide.md#internal-developer-preview-contract)
+for the bounded internal authoring surface. Its proposed `0.1.x` compatibility
+policy is not a jointly approved supported-release commitment.
+
 Authorization migration remains for legacy mutation routes and automatic
 background scans. The current interactive checks do not create organization
 selection, gateway tenancy, or cancellation of already-running work.
 
 Before broader release, agree on contract versioning, compatibility guarantees,
-package publication, and delivery ownership with the consuming teams. Complete
+and delivery ownership with the consuming teams. Package publication and
+out-of-tree onboarding are separate future delivery decisions, not prerequisites
+for this in-repository preview. Complete
 remaining architecture requirements independently of native UI composition;
 in particular, do not infer full multi-organization session support or durable
 audit storage from the current SDK helpers.
