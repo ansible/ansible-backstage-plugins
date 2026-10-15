@@ -10,9 +10,9 @@
  * structural: it signals intent, blocks accidental omissions via TypeScript,
  * and makes the key easy to grep.
  *
- * **Single-org deployments:** Even when there is only one organization, every
- * row must carry `organizationId = 'default'`. This ensures that adding a
- * second organization later never requires a schema migration.
+ * Use a validated organization when persisting organization-scoped domain
+ * state. Catalog namespace is not that identity. Shared repository identity
+ * does not acquire an AAP owner through this helper.
  *
  * @example
  * ```ts

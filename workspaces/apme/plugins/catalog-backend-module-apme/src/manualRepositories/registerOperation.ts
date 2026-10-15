@@ -83,7 +83,7 @@ export function registerRepositoryOperation(options: {
         kind: 'Component',
         metadata: {
           name: entityName,
-          namespace: context.organizationId,
+          namespace: 'default',
           title: name,
           description: values.description || `Git repository: ${owner}/${name}`,
           tags: ['git-repository', scm, 'manually-registered'],
@@ -114,7 +114,6 @@ export function registerRepositoryOperation(options: {
         {
           filter: {
             kind: 'Component',
-            'metadata.namespace': context.organizationId,
             'metadata.annotations.ansible.io/scm-provider': scm,
             'metadata.annotations.ansible.io/scm-organization': owner,
             'metadata.annotations.ansible.io/scm-repository': name,

@@ -13,8 +13,12 @@ import type {
 import {
   IAAPService,
   User,
-  sanitizeAapName,
   resolveActiveOrganizations,
+  toUserEntityName,
+  toUserEntityRef,
+  toSourceNamespace,
+  toOrgGroupRef,
+  toTeamGroupRef,
 } from '@ansible/backstage-rhaap-common';
 
 const PROVIDER_NAME = 'rhaap-user-provisioner';
@@ -22,11 +26,6 @@ const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replaceAll(/\/$/g, '');
-}
-
-function getEffectiveNamespace(orgName: string, allOrgs: string[]): string {
-  if (allOrgs.length <= 1) return 'default';
-  return sanitizeAapName(orgName);
 }
 
 function validateNamespace(namespace: string, orgName: string): void {
@@ -44,8 +43,16 @@ function createUserEntity(options: {
   user: User;
   groupMemberships: string[];
   orgNames?: string[];
+  multiOrgEnabled: boolean;
 }): Entity {
-  const { baseUrl, user, nameSpace, groupMemberships, orgNames } = options;
+  const {
+    baseUrl,
+    user,
+    nameSpace,
+    groupMemberships,
+    orgNames,
+    multiOrgEnabled,
+  } = options;
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
 
   const finalGroupMemberships = [...groupMemberships];
@@ -53,14 +60,16 @@ function createUserEntity(options: {
     finalGroupMemberships.push('group:default/aap-admins');
   }
 
-  const displayName =
-    user.first_name?.length || user.last_name?.length
-      ? `${user.first_name} ${user.last_name}`
-      : user.username;
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+  const displayName = fullName
+    ? `${fullName} (${user.username})`
+    : user.username;
 
   const annotations: Record<string, string> = {
     [ANNOTATION_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
     [ANNOTATION_ORIGIN_LOCATION]: `url:${normalizedBaseUrl}/access/users/${user.id}/details`,
+    'ansible.com/aap-username': user.username,
+    ...(multiOrgEnabled && { 'ansible.com/aap-user-id': String(user.id) }),
   };
 
   if (user.is_superuser !== undefined) {
@@ -75,7 +84,7 @@ function createUserEntity(options: {
     kind: 'User',
     metadata: {
       namespace: nameSpace,
-      name: user.username,
+      name: toUserEntityName(user.username, user.id, { multiOrgEnabled }),
       title: displayName,
       annotations,
     },
@@ -93,10 +102,11 @@ function createUserEntity(options: {
 function createAapAdminsGroupEntity(
   superusers: User[],
   providerName: string,
+  multiOrgEnabled: boolean,
 ): Entity {
   const memberNames = superusers
     .filter(u => u.is_superuser === true)
-    .map(u => `user:default/${u.username}`);
+    .map(u => toUserEntityRef(u.username, u.id, { multiOrgEnabled }));
 
   return {
     apiVersion: 'backstage.io/v1alpha1',
@@ -124,6 +134,7 @@ export class UserProvisionerProvider implements EntityProvider {
   private readonly ansibleService: IAAPService;
   private readonly baseUrl: string;
   private readonly orgs: string[];
+  private readonly multiOrgEnabled: boolean;
   private readonly logger: LoggerService;
 
   constructor(options: {
@@ -141,6 +152,15 @@ export class UserProvisionerProvider implements EntityProvider {
       'catalog.providers.rhaap',
     );
     const allOrgs = new Set<string>();
+    this.multiOrgEnabled =
+      providerConfigs
+        ?.keys()
+        .some(
+          key =>
+            providerConfigs
+              .getConfig(key)
+              .getOptionalBoolean('multiOrgEnabled') === true,
+        ) ?? false;
     if (providerConfigs) {
       for (const envKey of providerConfigs.keys()) {
         const envConfig = providerConfigs.getConfig(envKey);
@@ -174,7 +194,7 @@ export class UserProvisionerProvider implements EntityProvider {
     );
 
     let foundUser: User;
-    let userOrgs: { name: string; groupName: string }[];
+    let userOrgs: { name: string; id: number; groupName: string }[];
     let userTeams: {
       name: string;
       groupName: string;
@@ -186,7 +206,7 @@ export class UserProvisionerProvider implements EntityProvider {
     try {
       [foundUser, userOrgs, userTeams] = await Promise.all([
         this.ansibleService.getUserInfoById(userID),
-        this.ansibleService.getOrgsByUserId(userID),
+        this.ansibleService.getOrgsByUserId(userID, this.orgs),
         this.ansibleService.getTeamsByUserId(userID),
       ]);
     } catch (e: any) {
@@ -204,21 +224,23 @@ export class UserProvisionerProvider implements EntityProvider {
     }
 
     const isSuperuser = foundUser.is_superuser;
-    const isMultiOrg = this.orgs.length > 1;
+    const isMultiOrg = this.multiOrgEnabled;
 
     const matchingOrgs = userOrgs
       .filter(org => this.orgs.includes(org.name.toLowerCase()))
       .map(org => {
-        const ns = getEffectiveNamespace(org.name, this.orgs);
+        const identity = { multiOrgEnabled: isMultiOrg, orgId: org.id };
+        const ns = toSourceNamespace(org.name, 'aap', identity);
         validateNamespace(ns, org.name);
-        return `group:${ns}/${org.groupName}`;
+        return toOrgGroupRef(ns, org.name, org.id, undefined, identity);
       });
 
     const teamsInConfiguredOrgs = userTeams
       .filter(team => this.orgs.includes(team.orgName.toLowerCase()))
       .map(team => {
-        const ns = getEffectiveNamespace(team.orgName, this.orgs);
-        return `group:${ns}/${team.groupName}`;
+        const identity = { multiOrgEnabled: isMultiOrg, orgId: team.orgId };
+        const ns = toSourceNamespace(team.orgName, 'aap', identity);
+        return toTeamGroupRef(ns, team.name, team.id, undefined, identity);
       });
 
     const hasDirectOrgAccess = matchingOrgs.length > 0;
@@ -248,6 +270,7 @@ export class UserProvisionerProvider implements EntityProvider {
       user: foundUser,
       groupMemberships,
       orgNames: isMultiOrg ? matchedOrgNames : undefined,
+      multiOrgEnabled: isMultiOrg,
     });
 
     const entitiesToAdd: Array<{ entity: Entity; locationKey: string }> = [
@@ -261,6 +284,7 @@ export class UserProvisionerProvider implements EntityProvider {
         const aapAdminsGroup = createAapAdminsGroupEntity(
           superusers,
           this.getProviderName(),
+          isMultiOrg,
         );
         entitiesToAdd.push({
           entity: aapAdminsGroup,
@@ -283,7 +307,9 @@ export class UserProvisionerProvider implements EntityProvider {
     });
 
     this.logger.info(
-      `[${PROVIDER_NAME}]: Created user "${username}" with groups: ${groupMemberships.join(', ')}`,
+      `[${PROVIDER_NAME}]: Created user "${username}" with groups: ${groupMemberships.join(
+        ', ',
+      )}`,
     );
 
     return true;

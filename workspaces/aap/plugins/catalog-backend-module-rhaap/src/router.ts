@@ -207,12 +207,16 @@ export async function createRouter(options: {
               syncInProgress: boolean;
               lastFailedSyncTime: string | null;
               lastSyncStatus: ProviderSyncStatus;
+              lastDuplicateEntityCount: number;
+              lastMissingOrganizations: string[];
             };
             jobTemplates: {
               lastSync: string | null;
               syncInProgress: boolean;
               lastFailedSyncTime: string | null;
               lastSyncStatus: ProviderSyncStatus;
+              lastDuplicateEntityCount: number;
+              lastMissingOrganizations: string[];
             };
           };
           content?: {
@@ -243,12 +247,20 @@ export async function createRouter(options: {
               syncInProgress: aapEntityProvider.getIsSyncing(),
               lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
               lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
+              lastDuplicateEntityCount:
+                aapEntityProvider.getLastDuplicateEntityCount(),
+              lastMissingOrganizations:
+                aapEntityProvider.getLastMissingOrganizations(),
             },
             jobTemplates: {
               lastSync: jobTemplateProvider.getLastSyncTime(),
               syncInProgress: jobTemplateProvider.getIsSyncing(),
               lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
               lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
+              lastDuplicateEntityCount:
+                jobTemplateProvider.getLastDuplicateEntityCount(),
+              lastMissingOrganizations:
+                jobTemplateProvider.getLastMissingOrganizations(),
             },
           };
         }

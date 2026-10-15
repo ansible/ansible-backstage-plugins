@@ -7,6 +7,7 @@ describe('registerGitRepository action adapter', () => {
   const auth = mockServices.auth.mock();
   const userInfo = mockServices.userInfo.mock();
   const permissions = mockServices.permissions.mock();
+  const organizations = { resolve: jest.fn() };
   const credentials = {
     $$type: '@backstage/BackstageCredentials',
     principal: { type: 'user', userEntityRef: 'user:acme/alice' },
@@ -16,6 +17,7 @@ describe('registerGitRepository action adapter', () => {
       auth,
       userInfo,
       permissions,
+      organizations,
       operations: { execute } as unknown as PortalOperations,
     });
   const ctx = () =>
@@ -35,6 +37,7 @@ describe('registerGitRepository action adapter', () => {
     }) as any;
   beforeEach(() => {
     jest.resetAllMocks();
+    organizations.resolve.mockResolvedValue('acme');
     auth.isPrincipal.mockReturnValue(true);
     userInfo.getUserInfo.mockResolvedValue({
       userEntityRef: 'user:acme/alice',
@@ -80,6 +83,29 @@ describe('registerGitRepository action adapter', () => {
   it('rejects service initiators before invoking the operation', async () => {
     auth.isPrincipal.mockReturnValue(false);
     await expect(action().handler(ctx())).rejects.toThrow('requires a user');
+    expect(execute).not.toHaveBeenCalled();
+  });
+  it('uses the trusted organization for a default-namespace initiator', async () => {
+    userInfo.getUserInfo.mockResolvedValue({
+      userEntityRef: 'user:default/alice',
+      ownershipEntityRefs: [],
+    });
+    await action().handler(ctx());
+    expect(execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ subject: { entityRef: 'user:default/alice' } }),
+      expect.objectContaining({
+        userEntityRef: 'user:default/alice',
+        organizationId: 'acme',
+      }),
+      permissions,
+    );
+  });
+  it('does not dispatch registration when organization resolution fails', async () => {
+    organizations.resolve.mockResolvedValue(undefined);
+    await expect(action().handler(ctx())).rejects.toThrow(
+      'missing or ambiguous',
+    );
     expect(execute).not.toHaveBeenCalled();
   });
   it('propagates operation failures without emitting success outputs', async () => {

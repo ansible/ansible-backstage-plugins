@@ -13,7 +13,37 @@ import {
   stringifyEntityRef,
 } from '@backstage/catalog-model';
 import type { Config } from '@backstage/config';
-import { IUserProvisioner } from '@ansible/backstage-rhaap-common';
+import {
+  IUserProvisioner,
+  toUserEntityName,
+} from '@ansible/backstage-rhaap-common';
+
+function readMultiOrgEnabled(config?: Config): boolean {
+  const providers = config?.getOptionalConfig('catalog.providers.rhaap');
+  return (
+    providers
+      ?.keys()
+      .some(
+        key =>
+          providers.getConfig(key).getOptionalBoolean('multiOrgEnabled') ===
+          true,
+      ) ?? false
+  );
+}
+
+function catalogUserName(
+  username: string,
+  id: number,
+  config?: Config,
+): string {
+  const multiOrgEnabled = readMultiOrgEnabled(config);
+  if (multiOrgEnabled && (!Number.isSafeInteger(id) || id < 1)) {
+    throw new AuthenticationError(
+      'AAP user ID is required when multi-org mode is enabled',
+    );
+  }
+  return toUserEntityName(username, id, { multiOrgEnabled });
+}
 
 const AAP_ADMINS_GROUP = 'group:default/aap-admins';
 const SUPERUSER_ANNOTATION = 'aap.platform/is_superuser';
@@ -59,7 +89,7 @@ export namespace AAPAuthSignInResolvers {
    * Users must be pre-provisioned in the catalog (e.g. via the scheduled
    * AAPEntityProvider sync) before they can sign in.
    */
-  export const usernameMatchingUser = ({ config }: { config: Config }) =>
+  export const usernameMatchingUser = ({ config }: { config?: Config }) =>
     createSignInResolverFactory({
       create() {
         return async (
@@ -74,14 +104,23 @@ export namespace AAPAuthSignInResolvers {
             );
           }
 
+          const name = catalogUserName(
+            username,
+            Number(result.fullProfile.id),
+            config,
+          );
+
           try {
             const { entity } = await ctx.findCatalogUser({
-              entityRef: { name: username },
+              entityRef: { name },
             });
             return issueTokenWithOwnership(ctx, entity);
           } catch (e) {
+            if (e instanceof AuthenticationError) {
+              throw e;
+            }
             const dangerouslyAllowSignInWithoutUserInCatalog =
-              config.getOptionalBoolean(
+              config?.getOptionalBoolean(
                 'dangerouslyAllowSignInWithoutUserInCatalog',
               ) ?? false;
 
@@ -93,7 +132,7 @@ export namespace AAPAuthSignInResolvers {
 
             const userEntity = stringifyEntityRef({
               kind: 'User',
-              name: username,
+              name,
               namespace: DEFAULT_NAMESPACE,
             });
 
@@ -108,6 +147,10 @@ export namespace AAPAuthSignInResolvers {
       },
     });
 
+  /** Config-based factory compatible with the upstream resolver entry point. */
+  export const createUsernameMatchingUser = (config?: Config) =>
+    usernameMatchingUser({ config });
+
   /**
    * Sign in resolver that automatically creates users in the catalog if they
    * don't exist yet, using the userProvisionerRef service.
@@ -115,8 +158,10 @@ export namespace AAPAuthSignInResolvers {
    */
   export const allowNewAAPUserSignIn = ({
     userProvisioner,
+    config,
   }: {
     userProvisioner: IUserProvisioner;
+    config?: Config;
   }) =>
     createSignInResolverFactory({
       create() {
@@ -133,10 +178,12 @@ export namespace AAPAuthSignInResolvers {
             );
           }
 
+          const name = catalogUserName(username, userID, config);
+
           // Check if user already exists in catalog.
           let userExists = false;
           try {
-            await ctx.findCatalogUser({ entityRef: { name: username } });
+            await ctx.findCatalogUser({ entityRef: { name } });
             userExists = true;
           } catch {
             // User not found — provision them.
@@ -161,7 +208,7 @@ export namespace AAPAuthSignInResolvers {
             }
             try {
               const { entity } = await ctx.findCatalogUser({
-                entityRef: { name: username },
+                entityRef: { name },
               });
               return await issueTokenWithOwnership(ctx, entity);
             } catch (e) {

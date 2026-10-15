@@ -6,6 +6,8 @@ import {
 } from '@backstage/plugin-auth-node';
 import { AAPAuthSignInResolvers } from './resolvers';
 import { IUserProvisioner } from '@ansible/backstage-rhaap-common';
+import { ConfigReader } from '@backstage/config';
+import { AuthenticationError } from '@backstage/errors';
 
 function mockUserEntity(
   name: string,
@@ -41,11 +43,140 @@ function makeUserProvisioner(
 
 const mockConfig = {
   getOptionalBoolean: jest.fn().mockReturnValue(false),
+  getOptionalConfig: jest.fn().mockReturnValue(undefined),
 };
 
 describe('resolvers', () => {
+  const multiOrgConfig = new ConfigReader({
+    catalog: {
+      providers: {
+        rhaap: {
+          dev: { orgs: ['Engineering', 'Finance'], multiOrgEnabled: true },
+        },
+      },
+    },
+  });
+  const multiOrgInfo = {
+    profile: { email: undefined, picture: undefined, displayName: 'Alice' },
+    result: {
+      session: {
+        accessToken: 'at',
+        tokenType: 'Bearer',
+        scope: 'read',
+        expiresInSeconds: 3600,
+        refreshToken: 'rt',
+      },
+      fullProfile: {
+        id: '42',
+        provider: 'AAP oauth2',
+        username: 'alice',
+        displayName: 'Alice',
+      },
+    },
+  };
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+  it('uses the stable multi-org catalog identity during sign-in', async () => {
+    const factory = AAPAuthSignInResolvers.usernameMatchingUser({
+      config: multiOrgConfig,
+    });
+    const resolver = (factory as any)();
+    const context = {
+      findCatalogUser: jest
+        .fn()
+        .mockResolvedValue({ entity: mockUserEntity('aap-user-42') }),
+      issueToken: jest.fn().mockResolvedValue({ token: 'token' }),
+    };
+    await resolver(multiOrgInfo, context);
+    expect(context.findCatalogUser).toHaveBeenCalledWith({
+      entityRef: { name: 'aap-user-42' },
+    });
+    expect(context.issueToken).toHaveBeenCalledWith({
+      claims: {
+        sub: 'user:default/aap-user-42',
+        ent: ['user:default/aap-user-42'],
+      },
+    });
+  });
+  it.each([
+    ['multi-org', multiOrgConfig, 'aap-user-42'],
+    ['legacy', undefined, 'alice'],
+  ] as const)(
+    'supports the upstream config-based resolver factory in %s mode',
+    async (_mode, config, catalogName) => {
+      const resolver = (
+        AAPAuthSignInResolvers.createUsernameMatchingUser(config) as any
+      )();
+      const context = {
+        findCatalogUser: jest
+          .fn()
+          .mockResolvedValue({ entity: mockUserEntity(catalogName) }),
+        issueToken: jest.fn().mockResolvedValue({ token: 'token' }),
+      };
+      await resolver(multiOrgInfo, context);
+      expect(context.findCatalogUser).toHaveBeenCalledWith({
+        entityRef: { name: catalogName },
+      });
+    },
+  );
+
+  it('preserves authentication errors instead of invoking the missing-user fallback', async () => {
+    const resolver = (
+      AAPAuthSignInResolvers.createUsernameMatchingUser(
+        new ConfigReader({ dangerouslyAllowSignInWithoutUserInCatalog: true }),
+      ) as any
+    )();
+    const error = new AuthenticationError('Catalog authentication denied');
+    const context = {
+      findCatalogUser: jest.fn().mockRejectedValue(error),
+      issueToken: jest.fn(),
+    };
+    await expect(resolver(multiOrgInfo, context)).rejects.toBe(error);
+    expect(context.issueToken).not.toHaveBeenCalled();
+  });
+
+  it('provisions a missing multi-org user through the extracted provisioner and looks up the same identity', async () => {
+    const userProvisioner = makeUserProvisioner();
+    const factory = AAPAuthSignInResolvers.allowNewAAPUserSignIn({
+      config: multiOrgConfig,
+      userProvisioner,
+    });
+    const resolver = (factory as any)();
+    const context = {
+      findCatalogUser: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Missing'))
+        .mockResolvedValue({ entity: mockUserEntity('aap-user-42') }),
+      issueToken: jest.fn().mockResolvedValue({ token: 'token' }),
+    };
+    await resolver(multiOrgInfo, context);
+    expect(userProvisioner.createUser).toHaveBeenCalledWith('alice', 42);
+    expect(context.findCatalogUser).toHaveBeenNthCalledWith(1, {
+      entityRef: { name: 'aap-user-42' },
+    });
+    expect(context.findCatalogUser).toHaveBeenNthCalledWith(2, {
+      entityRef: { name: 'aap-user-42' },
+    });
+  });
+  it('rejects missing AAP IDs in multi-org mode before catalog lookup', async () => {
+    const resolver = (
+      AAPAuthSignInResolvers.createUsernameMatchingUser(multiOrgConfig) as any
+    )();
+    const context = { findCatalogUser: jest.fn(), issueToken: jest.fn() };
+    await expect(
+      resolver(
+        {
+          ...multiOrgInfo,
+          result: {
+            ...multiOrgInfo.result,
+            fullProfile: { ...multiOrgInfo.result.fullProfile, id: undefined },
+          },
+        },
+        context,
+      ),
+    ).rejects.toThrow('AAP user ID is required');
+    expect(context.findCatalogUser).not.toHaveBeenCalled();
   });
 
   describe('usernameMatchingUser', () => {
@@ -222,6 +353,7 @@ describe('resolvers', () => {
 
     it('should issue minimal token when user not in catalog and dangerously flag is true', async () => {
       const dangerousConfig = {
+        getOptionalConfig: jest.fn().mockReturnValue(undefined),
         getOptionalBoolean: jest.fn().mockReturnValue(true),
       };
       const resolverFactory = AAPAuthSignInResolvers.usernameMatchingUser({

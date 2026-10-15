@@ -5,7 +5,7 @@ Frontend SDK for building Automation Portal plugins. Provides shared React compo
 ## When to use this package
 
 - You are writing a **frontend plugin** and need shared UI components (page headers, empty states, loaders).
-- You need `usePortalContext()` to access the current organization ID.
+- You need `usePortalContext()` to display trusted organization memberships.
 - You need `useIsSuperuser()` to gate UI features behind AAP superuser status.
 - You need the `AppThemeFixer` or `RhaapThemeProvider` for MUI theme setup.
 
@@ -88,27 +88,35 @@ if (error?.type === 'auth') return <ScmIntegrationAuthError />;
 
 ### `usePortalContext()`
 
-Returns the portal context for the current authenticated session.
+Reads the current authenticated context from the discovered
+`portal-operations` backend's `GET /context` endpoint.
 
 ```tsx
 import { usePortalContext } from '@ansible/portal-plugin-sdk';
 
 function MyPluginPage() {
-  const { organizationId, loading, error } = usePortalContext();
+  const { organizationIds, loading, error } = usePortalContext();
   if (loading) return <CircularProgress />;
-  return <div>Fetching data for org: {organizationId}</div>;
+  if (error) return <p>Organization context is unavailable.</p>;
+  return <div>Organizations: {organizationIds.join(', ')}</div>;
 }
 ```
 
 **Returns:**
 
-| Field            | Type            | Description                                                            |
-| ---------------- | --------------- | ---------------------------------------------------------------------- |
-| `organizationId` | `string`        | Derived from the user entity ref namespace. Falls back to `'default'`. |
-| `loading`        | `boolean`       | True while the identity API call is in-flight.                         |
-| `error`          | `Error \| null` | Set if identity resolution fails.                                      |
+| Field             | Type                  | Description                                                       |
+| ----------------- | --------------------- | ----------------------------------------------------------------- |
+| `organizationId`  | `string \| undefined` | Present only when the host supplies one unambiguous organization. |
+| `organizationIds` | `readonly string[]`   | Trusted memberships; empty until resolution succeeds.             |
+| `userEntityRef`   | `string \| undefined` | Authenticated catalog user reference returned by the backend.     |
+| `loading`         | `boolean`             | True while authenticated host context is being fetched.           |
+| `error`           | `Error \| null`       | Set if the request or response validation fails.                  |
 
-`organizationId` is the multi-tenancy key for all backend queries. Pass it to your API client instead of deriving it yourself.
+There is no namespace-derived or `default` organization fallback. Multiple
+memberships do not select an active organization. Use this hook for display,
+not as permission or backend authority. Registered operations send subject and
+input; the backend independently resolves memberships, grants and resource
+permissions. Shared repositories do not acquire AAP organization ownership.
 
 ### `useIsSuperuser()`
 

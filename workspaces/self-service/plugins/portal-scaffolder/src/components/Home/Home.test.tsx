@@ -1502,6 +1502,7 @@ describe('sync signal integration', () => {
 describe('sync progress tooltip', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSyncSignal.lastSignal = null;
     mockUseIsSuperuser.mockReturnValue({
       isSuperuser: true,
       loading: false,

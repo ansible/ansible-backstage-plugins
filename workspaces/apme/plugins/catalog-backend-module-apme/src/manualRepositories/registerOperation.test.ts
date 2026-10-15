@@ -36,12 +36,18 @@ describe('repository registration operation', () => {
     userId: 'alice',
     organizationId: 'acme',
   };
-  async function operations() {
+  async function operations(
+    catalogMappings?: Array<{ organizationId: string; namespaces: string[] }>,
+  ) {
     const provider = new ManualGitRepositoryProvider();
     await provider.connect({
       applyMutation,
     } as unknown as EntityProviderConnection);
-    const registry = new PortalOperations(logger);
+    const registry = new PortalOperations(
+      logger,
+      { resolve: async () => 'acme' },
+      { check: jest.fn() },
+    );
     registerRepositoryOperation({
       operations: registry,
       provider,
@@ -49,6 +55,9 @@ describe('repository registration operation', () => {
       auth: mockServices.auth(),
       rootConfig: new ConfigReader({
         integrations: { github: [{ host: 'github.com' }] },
+        ...(catalogMappings
+          ? { portal: { organization: { catalogMappings } } }
+          : {}),
       }),
       catalogClient: {
         getEntities,
@@ -88,12 +97,15 @@ describe('repository registration operation', () => {
       });
       expect(result).toEqual({
         entityRef:
-          'component:acme/test-rhaap-portal-3-test-amazon-aws-github-manual',
+          'component:default/test-rhaap-portal-3-test-amazon-aws-github-manual',
         entityName: 'test-rhaap-portal-3-test-amazon-aws-github-manual',
       });
       const entity = applyMutation.mock.calls[0][0].added[0].entity;
       expect(entity.spec.owner).toBe(context.userEntityRef);
-      expect(entity.metadata.namespace).toBe(context.organizationId);
+      expect(entity.metadata.namespace).toBe('default');
+      expect(entity.metadata.annotations).not.toHaveProperty(
+        'ansible.io/portal-organization',
+      );
       expect(
         entity.metadata.annotations['backstage.io/managed-by-location'],
       ).toBe('apme-manual:ManualGitRepositoryProvider');
@@ -108,6 +120,25 @@ describe('repository registration operation', () => {
     await expect(execute()).rejects.toThrow('permission');
     expect(ScmClientFactory).not.toHaveBeenCalled();
     expect(applyMutation).not.toHaveBeenCalled();
+  });
+  it('does not let obsolete organization namespace mappings change repository identity', async () => {
+    const registry = await operations([
+      { organizationId: 'acme', namespaces: ['private'] },
+    ]);
+    await registry.execute(
+      'apme.repository.register',
+      { subject: { entityRef: context.userEntityRef }, input },
+      context,
+      permissions,
+    );
+    const entity = applyMutation.mock.calls[0][0].added[0].entity;
+    expect(entity.metadata.namespace).toBe('default');
+    expect(entity.metadata.annotations).not.toHaveProperty(
+      'ansible.io/portal-organization',
+    );
+    expect(getEntities.mock.calls[0][0].filter).not.toHaveProperty(
+      'metadata.namespace',
+    );
   });
   it('rejects a spoofed creation subject', async () => {
     await expect(execute(input, 'user:other/person')).rejects.toThrow(

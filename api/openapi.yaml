@@ -74,6 +74,8 @@ components:
         - syncInProgress
         - lastFailedSyncTime
         - lastSyncStatus
+        - lastDuplicateEntityCount
+        - lastMissingOrganizations
       properties:
         lastSync:
           type:
@@ -97,6 +99,15 @@ components:
             - failure
             - null
           description: Status of the last sync attempt
+        lastDuplicateEntityCount:
+          type: integer
+          minimum: 0
+          description: Duplicate catalog keys skipped during the last successful sync
+        lastMissingOrganizations:
+          type: array
+          items:
+            type: string
+          description: Configured organizations absent from AAP during the last successful sync
       additionalProperties: false
 
     SyncResultStatus:
@@ -267,6 +278,39 @@ components:
 
 
 paths:
+  /context:
+    servers:
+      - url: /api/portal-operations
+    get:
+      operationId: getPortalContext
+      summary: Get authenticated Portal identity and configured organization memberships
+      description: Returns server-resolved memberships for the authenticated user without deriving organization from catalog namespace or accepting client-supplied organization claims.
+      tags: [Portal Operations]
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Trusted memberships; a single organizationId is present only when unambiguous
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userEntityRef, userId]
+                properties:
+                  userEntityRef:
+                    type: string
+                  userId:
+                    type: string
+                  organizationId:
+                    type: string
+                  organizationIds:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: User authentication required
+        '403':
+          description: No authorized configured organization membership
   /entitlements/{entitlementId}:
     servers:
       - url: /api/portal-operations
@@ -275,8 +319,8 @@ paths:
       summary: Check host-owned capability availability
       description: |
         Requires authenticated user credentials and read access to the catalog subject.
-        The host resolves a server-configured active organization, checks its availability
-        grant, and evaluates the registered Backstage permission. Unknown entitlements,
+        The host resolves trusted configured memberships, checks whether any has an availability
+        grant, and evaluates the registered Backstage permission. Repositories do not acquire AAP ownership. Unknown entitlements,
         missing organization context or grants, and authorization failures deny access.
         Clients cannot supply organization IDs, grants, permission names, or scopes.
         This read-only check does not authorize a subsequent mutation.
@@ -299,7 +343,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Availability and permission decision for the current deployment organization
+          description: Availability and permission decision for the caller's authorized memberships
           content:
             application/json:
               schema:
@@ -311,6 +355,13 @@ paths:
                     type: boolean
                   organizationId:
                     type: string
+                  organizationIds:
+                    type: array
+                    items:
+                      type: string
+                  scope:
+                    type: string
+                    enum: [global, organization]
         '400':
           description: Invalid entity reference or unsupported query fields
         '401':
@@ -327,8 +378,11 @@ paths:
       summary: Execute a registered Portal operation
       description: |
         Dispatches an operation exposed for REST after checking its declared permission
-        and input schema. The handler resolves the catalog subject and applies its
-        resource and organization checks. Plugin URLs and project IDs are not subjects.
+        and input schema, with server-side entitlement enforcement. Shared-resource operations
+        use granted caller memberships without assigning an AAP owner to the resource.
+        Organization-scoped operations require an authorized selected organization.
+        The handler resolves the catalog subject and applies resource checks.
+        Plugin URLs and project IDs are not subjects.
         An accepted long-running operation can return a scan or job reference; HTTP 200
         does not mean the job has completed. Unregistered operations return HTTP 404.
       tags:

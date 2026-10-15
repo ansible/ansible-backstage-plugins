@@ -485,6 +485,61 @@ describe('AAPJobTemplateProvider', () => {
       );
     });
 
+    it('warns and keeps the first job template when catalog keys collide', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+
+      const duplicateJobTemplate = {
+        ...MOCK_JOB_TEMPLATE,
+        id: 99,
+        name: 'Test Job Template',
+        description: 'Same display name, different AAP id',
+      };
+
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        {
+          job: MOCK_JOB_TEMPLATE,
+          survey: MOCK_SURVEY,
+          instanceGroup: [],
+        },
+        {
+          job: duplicateJobTemplate,
+          survey: null,
+          instanceGroup: [],
+        },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        {
+          logger,
+          schedule,
+        },
+      )[0];
+
+      const entityProviderConnection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+
+      await provider.connect(entityProviderConnection);
+      const taskDef = schedule.getTasks()[0];
+      await (taskDef.fn as () => Promise<void>)();
+
+      const mutation = (entityProviderConnection.applyMutation as jest.Mock)
+        .mock.calls[0][0];
+      expect(mutation.entities).toHaveLength(1);
+      expect(mutation.entities[0].entity.metadata.aapJobTemplateId).toBe(1);
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Skipped 1 duplicate catalog entity keys'),
+      );
+      expect(provider.getLastDuplicateEntityCount()).toBe(1);
+    });
+
     it('should handle multiple job templates', async () => {
       const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
       const logger = mockServices.logger.mock();
@@ -1207,10 +1262,10 @@ describe('AAPJobTemplateProvider', () => {
       );
 
       // Default and Engineering templates should be present
-      expect(templateNames).toContain('test-job-template');
-      expect(templateNames).toContain('deploy-service');
+      expect(templateNames).toContain('aap-jt-1');
+      expect(templateNames).toContain('aap-jt-2');
       // Finance template should be filtered out
-      expect(templateNames).not.toContain('finance-report');
+      expect(templateNames).not.toContain('aap-jt-3');
       expect(call.entities).toHaveLength(2);
     });
 
@@ -1243,14 +1298,14 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'test-job-template',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
-      expect(defaultTemplate.entity.metadata.namespace).toBe('default');
+      expect(defaultTemplate.entity.metadata.namespace).toBe('aap-1');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'deploy-service',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
-      expect(engTemplate.entity.metadata.namespace).toBe('engineering');
+      expect(engTemplate.entity.metadata.namespace).toBe('aap-2');
     });
 
     it('should add org annotation and display name suffix in multi-org mode', async () => {
@@ -1282,7 +1337,7 @@ describe('AAPJobTemplateProvider', () => {
         .calls[0][0];
 
       const defaultTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'test-job-template',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-1',
       );
       expect(defaultTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],
@@ -1291,7 +1346,7 @@ describe('AAPJobTemplateProvider', () => {
       expect(defaultTemplate.entity.metadata.title).toBe('Test Job Template');
 
       const engTemplate = call.entities.find(
-        (e: any) => e.entity.metadata?.name === 'deploy-service',
+        (e: any) => e.entity.metadata?.name === 'aap-jt-2',
       );
       expect(engTemplate.entity.metadata.annotations).toHaveProperty(
         ['ansible.com/organization'],

@@ -165,7 +165,10 @@ test.describe.serial('templates01-catalog', () => {
         skeletonCount > 0 ||
         hasEmptyState ||
         hasLoadingIndicator,
-      `Expected cards (${cardCount}), skeletons (${skeletonCount}), empty state, or loading indicator. Main text: ${mainText.substring(0, 100)}`,
+      `Expected cards (${cardCount}), skeletons (${skeletonCount}), empty state, or loading indicator. Main text: ${mainText.substring(
+        0,
+        100,
+      )}`,
     ).toBeTruthy();
   });
 

@@ -245,6 +245,10 @@ export interface EntitlementDefinition {
  * Fields marked optional here may become required in Phase 5.
  */
 export interface OperationDescriptor {
+  /** Shared resources do not acquire an AAP owner. Default requires a selected organization. */
+  organizationScope?: 'organization' | 'shared';
+  /** Entitlements checked by the server before invoking the handler. */
+  requiredEntitlements?: readonly string[];
   /** Stable, unique operation ID. Convention: `'<pluginId>.<domain>.<verb>'`. */
   id: string;
   /** Semantic version of the operation contract. */

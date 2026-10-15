@@ -4,9 +4,12 @@ import type {
   PermissionsService,
   UserInfoService,
 } from '@backstage/backend-plugin-api';
-import { parseEntityRef } from '@backstage/catalog-model';
 import { NotAllowedError } from '@backstage/errors';
-import type { PortalOperations } from '@ansible/portal-plugin-node';
+import {
+  resolvePortalContext,
+  type ActiveOrganizationResolver,
+  type PortalOperations,
+} from '@ansible/portal-plugin-node';
 import { apmeRepositoryRegisterOperation } from '@ansible/backstage-apme-common/operations';
 
 export function registerGitRepositoryAction(options: {
@@ -14,6 +17,7 @@ export function registerGitRepositoryAction(options: {
   userInfo: UserInfoService;
   permissions: PermissionsService;
   operations: PortalOperations;
+  organizations: ActiveOrganizationResolver;
 }) {
   return createTemplateAction({
     id: 'ansible:register:git-repository',
@@ -54,14 +58,13 @@ export function registerGitRepositoryAction(options: {
       if (!options.auth.isPrincipal(credentials, 'user')) {
         throw new NotAllowedError('Repository registration requires a user');
       }
-      const identity = await options.userInfo.getUserInfo(credentials);
-      const user = parseEntityRef(identity.userEntityRef);
+      const context = await resolvePortalContext({ ...options, credentials });
       // Legacy owner input is accepted for template compatibility, never as authority.
       const { owner: _owner, ...input } = ctx.input;
       const result = (await options.operations.execute(
         apmeRepositoryRegisterOperation.id,
         {
-          subject: { entityRef: identity.userEntityRef },
+          subject: { entityRef: context.userEntityRef },
           input: {
             ...input,
             sourceControlProvider: input.sourceControlProvider.toLowerCase(),
@@ -69,9 +72,7 @@ export function registerGitRepositoryAction(options: {
         },
         {
           credentials,
-          userEntityRef: identity.userEntityRef,
-          userId: user.name,
-          organizationId: user.namespace,
+          ...context,
         },
         options.permissions,
       )) as { entityRef: string; entityName: string };

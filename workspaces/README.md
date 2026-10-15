@@ -99,9 +99,15 @@ through platform APIs rather than directly contacting AAP.
 - Operations receive the selected subject, not a manifest-supplied handler URL.
 - Health reporting is backend-only in the deployed composition. A host health
   component exists but is not installed as a dashboard.
-- Backend tenant/entitlement consistency and remaining legacy mutations still
-  need hardening; do not treat frontend gates as backend authorization.
-- Server-configured organization resolution is not a membership-validated org switcher.
+- Registered operations enforce trusted organization context and declared
+  entitlements. APME interactive workflows also authorize repository access.
+  Remaining legacy mutations and automatic scan policy still need migration;
+  frontend gates are not backend authorization.
+- The AAP resolver validates current memberships against configured organizations.
+  Any granted membership enables a shared capability, subject to RBAC. Shared
+  Git repositories have no mandatory AAP owner; new manual entries use `default`.
+  Multiple memberships do not select an active organization for tenant-specific
+  handlers. No organization selector is provided.
 - Query/write contracts and content extraction remain separate work.
 - Packed acceptance was bounded to `next-2.1`; published preview compatibility
   and release delivery are not complete.

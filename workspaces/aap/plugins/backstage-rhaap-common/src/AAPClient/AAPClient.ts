@@ -36,7 +36,11 @@ import {
 } from '../interfaces';
 
 import { TERMINAL_JOB_STATUSES } from '../constants';
-import { getAnsibleConfig, getCatalogConfig } from './utils/config';
+import {
+  getAnsibleConfig,
+  getCatalogConfig,
+  findMissingConfiguredOrganizations,
+} from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
 import {
   PAHHelperContext,
@@ -1158,6 +1162,16 @@ export class AAPClient implements IAAPService {
         token,
       );
 
+      const missingOrganizations = findMissingConfiguredOrganizations(
+        this.catalogConfig.organizations,
+        (rawOrgs as Array<{ name?: string }>).map(org => org.name ?? ''),
+      );
+      for (const orgName of missingOrganizations) {
+        this.logger.warn(
+          `Configured organization '${orgName}' not found in AAP; entities for that org will not sync`,
+        );
+      }
+
       if (!userAndTeamDetails) {
         return rawOrgs.map((org: any) => {
           return {
@@ -1289,7 +1303,8 @@ export class AAPClient implements IAAPService {
 
   public async getOrgsByUserId(
     userID: number,
-  ): Promise<{ name: string; groupName: string }[]> {
+    organizations: readonly string[] = this.catalogConfig.organizations,
+  ): Promise<{ name: string; id: number; groupName: string }[]> {
     const endPoint = `/api/gateway/v1/users/${userID}/organizations/`;
     const token = this.ansibleConfig.rhaap?.token ?? null;
     this.logger.info(`Fetching orgs for user ID: ${userID} from RH AAP.`);
@@ -1297,15 +1312,12 @@ export class AAPClient implements IAAPService {
     urlSearchParams.set('page_size', '200');
 
     // Fetch details of orgs that are configured in app-config.
-    if (this.catalogConfig.organizations.length === 1) {
-      urlSearchParams.set(
-        'name__iexact',
-        this.catalogConfig.organizations.toString(),
-      );
+    if (organizations.length === 1) {
+      urlSearchParams.set('name__iexact', organizations.toString());
     }
     // Adds support for multiple orgs with OR operator
-    else if (this.catalogConfig.organizations.length > 1) {
-      this.catalogConfig.organizations.forEach(orgName => {
+    else if (organizations.length > 1) {
+      organizations.forEach(orgName => {
         urlSearchParams.append('or__name__iexact', orgName);
       });
     }
@@ -1317,6 +1329,7 @@ export class AAPClient implements IAAPService {
       .filter((org: any) => org?.name)
       .map((org: any) => ({
         name: org.name,
+        id: org.id,
         groupName: this.formatNameSpace(org.name),
       }));
   }
@@ -1327,7 +1340,7 @@ export class AAPClient implements IAAPService {
     this.logger.info(`Fetching user details for ID: ${userID} from RH AAP.`);
     const userResponse: any = await this.executeGetRequest(endPoint, token);
     const userJson = await userResponse.json();
-    this.logger.info(`User information ${JSON.stringify(userJson)}`);
+    this.logger.debug(`Retrieved AAP user information for ID ${userID}`);
 
     return {
       id: userJson.id,

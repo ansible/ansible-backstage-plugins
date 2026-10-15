@@ -15,6 +15,7 @@ import { TemplatesRoutesPage } from './Home';
 import { HistoryRoutesPage } from './TaskList';
 import { CatalogImport } from './CatalogImport';
 import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
+import { EENotificationBoundary } from './ExecutionEnvironments/EENotificationBoundary';
 
 const EEDetailsPage = lazy(() =>
   import('./ExecutionEnvironments/catalog/EEDetailsPage').then(module => ({
@@ -35,9 +36,11 @@ export function NativeScaffolderPage({
         path="catalog/:templateName"
         element={
           <RequirePermission permission={executionEnvironmentsViewPermission}>
-            <Suspense fallback={<Progress />}>
-              <EEDetailsPage />
-            </Suspense>
+            <EENotificationBoundary>
+              <Suspense fallback={<Progress />}>
+                <EEDetailsPage />
+              </Suspense>
+            </EENotificationBoundary>
           </RequirePermission>
         }
       />

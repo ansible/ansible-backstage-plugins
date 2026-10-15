@@ -1,4 +1,5 @@
 import type { CatalogClient } from '@backstage/catalog-client';
+import type { Config } from '@backstage/config';
 import type {
   AuthService,
   PermissionsService,
@@ -18,6 +19,7 @@ import {
 
 export function registerApmeOperations(options: {
   operations: PortalOperations;
+  rootConfig: Config;
   catalogClient: CatalogClient;
   auth: AuthService;
   permissions: PermissionsService;
@@ -56,13 +58,6 @@ export function registerApmeOperations(options: {
         entity.spec?.type !== 'git-repository'
       ) {
         throw new InputError('Quality scan requires a Git repository');
-      }
-      // PoC organization convention: identity and repository catalog namespace.
-      // This is deliberately restrictive until the organization resolver is agreed.
-      if ((entity.metadata.namespace ?? 'default') !== context.organizationId) {
-        throw new NotAllowedError(
-          'Repository is outside the active organization',
-        );
       }
       const repoUrl = normalizeRepoUrlFromEntity(entity);
       if (options.manualProvider?.isTrackingStopped(entity)) {
@@ -113,13 +108,6 @@ export function registerApmeOperations(options: {
           { token },
         );
         if (!entity) throw new NotFoundError('Repository not found');
-        if (
-          (entity.metadata.namespace ?? 'default') !== context.organizationId
-        ) {
-          throw new NotAllowedError(
-            'Repository is outside the active organization',
-          );
-        }
         if (
           entity.kind.toLowerCase() !== 'component' ||
           entity.spec?.type !== 'git-repository' ||

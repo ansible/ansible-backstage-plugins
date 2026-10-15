@@ -60,12 +60,15 @@ describe('parseEntityRef', () => {
 describe('createIdentityMiddleware', () => {
   const makeOptions = (entityRef: string) => ({
     httpAuth: {
-      credentials: jest.fn().mockResolvedValue({ type: 'user', token: 'tok' }),
+      credentials: jest.fn().mockResolvedValue({
+        principal: { type: 'user', userEntityRef: entityRef },
+      }),
     } as any,
     userInfo: {
       getUserInfo: jest.fn().mockResolvedValue({ userEntityRef: entityRef }),
     } as any,
     logger: mockLogger as any,
+    organizations: { resolve: jest.fn().mockResolvedValue('default') },
   });
 
   it('attaches portalContext with correct userId and organizationId', async () => {
@@ -84,8 +87,9 @@ describe('createIdentityMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it('uses entity ref namespace as organizationId for non-default namespace', async () => {
+  it('uses the resolver rather than the user namespace', async () => {
     const options = makeOptions('user:acme-corp/jane.doe');
+    options.organizations.resolve.mockResolvedValue('configured-org');
     const middleware = createIdentityMiddleware(options);
     const req: any = {};
     const next = jest.fn();
@@ -94,11 +98,11 @@ describe('createIdentityMiddleware', () => {
 
     expect(req.portalContext).toMatchObject({
       userId: 'jane.doe',
-      organizationId: 'acme-corp',
+      organizationId: 'configured-org',
     });
   });
 
-  it('uses defaultOrgId when namespace is "default" and defaultOrgId is provided', async () => {
+  it('ignores the legacy defaultOrgId rather than overriding the resolver', async () => {
     const options = {
       ...makeOptions('user:default/johndoe'),
       defaultOrgId: 'my-single-org',
@@ -108,7 +112,18 @@ describe('createIdentityMiddleware', () => {
 
     await middleware(req, {} as any, jest.fn());
 
-    expect(req.portalContext?.organizationId).toBe('my-single-org');
+    expect(req.portalContext?.organizationId).toBe('default');
+  });
+
+  it('clears stale context when the trusted organization cannot be resolved', async () => {
+    const options = makeOptions('user:default/johndoe');
+    options.organizations.resolve.mockRejectedValue(new Error('Unavailable'));
+    const middleware = createIdentityMiddleware(options);
+    const req: any = { portalContext: { organizationId: 'untrusted' } };
+    const next = jest.fn();
+    await middleware(req, {} as any, next);
+    expect(req.portalContext).toBeUndefined();
+    expect(next).toHaveBeenCalledTimes(1);
   });
 
   it('calls next() without setting portalContext when auth fails', async () => {
@@ -118,6 +133,7 @@ describe('createIdentityMiddleware', () => {
       } as any,
       userInfo: { getUserInfo: jest.fn() } as any,
       logger: mockLogger as any,
+      organizations: { resolve: async () => 'default' },
     };
     const middleware = createIdentityMiddleware(options);
     const req: any = {};
@@ -138,12 +154,13 @@ describe('createIdentityMiddleware', () => {
       httpAuth: {
         credentials: jest
           .fn()
-          .mockResolvedValue({ type: 'user', token: 'tok' }),
+          .mockResolvedValue({ principal: { type: 'user' } }),
       } as any,
       userInfo: {
         getUserInfo: jest.fn().mockRejectedValue(new Error('User not found')),
       } as any,
       logger: mockLogger as any,
+      organizations: { resolve: async () => 'default' },
     };
     const middleware = createIdentityMiddleware(options);
     const req: any = {};
@@ -369,7 +386,12 @@ describe('createPortalPlugin', () => {
       }),
     } as any;
 
-    plugin.createMiddleware({ httpAuth, userInfo, logger: mockLogger as any });
+    plugin.createMiddleware({
+      httpAuth,
+      userInfo,
+      logger: mockLogger as any,
+      organizations: { resolve: async () => 'default' },
+    });
 
     // emitAuditEvent should work (not warn about missing logger).
     const consoleSpy = jest.spyOn(console, 'warn');

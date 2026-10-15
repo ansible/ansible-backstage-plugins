@@ -30,6 +30,12 @@ where versioned packages apply.
 
 ### Fixed
 
+- **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
+
+- **AAP identity and membership** aligns flag-controlled ID-based identities across authentication, scheduled catalog sync, and the extracted user provisioner; keeps direct organization membership separate from team membership and deduplicates catalog keys before mutation.
+
+- **Frontend SDK context** reads authenticated backend memberships instead of deriving organization from the user namespace or falling back to `default`.
+
 - **Workspace CI coverage** includes plugin source paths across all four workspaces and rejects empty filtered reports; Sonar source/test roots and generated-artifact exclusions now match the workspace layout.
 
 - **Portal NFS app** restores distinct self-service sidebar icons, native RBAC and Settings pages, and the source development app's global header and account/logout controls.
@@ -38,6 +44,12 @@ where versioned packages apply.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
 ### Upgrade notes
+
+1. **Backend SDK consumers:** inject `portalActiveOrganizationServiceRef` into identity middleware and use operation `requiredEntitlements` for server-side gates. `organizationId` is optional; multi-membership contexts carry `organizationIds`. Default organization-specific operations require one validated organization. Use `organizationScope: 'shared'` only for shared-resource operations. APME scanning requires a registered `apme.scanning` grant for any trusted membership as well as RBAC; registration/removal do not require scanning entitlement. Remove obsolete `portal.organization.catalogMappings`; `ansible.io/portal-organization` is no longer an AAP ownership boundary. Existing records are not rewritten.
+
+1. **AAP deployments:** `multiOrgEnabled: true` uses stable AAP ID-based entity names, including `user:default/aap-user-<id>`, consistently across sign-in and provisioning. With the flag off, legacy usernames remain supported. Synchronize the catalog and sign in again when changing identity mode. Entitlement grants use canonical lowercase configured AAP organization names, not catalog namespaces or SCM owners.
+
+1. **Frontend SDK consumers:** `usePortalContext` requires authenticated access to the host context endpoint. Handle `loading`, `error`, an optional `organizationId`, and multiple `organizationIds`; do not pass browser context as backend authorization authority.
 
 1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete content extraction.
 
