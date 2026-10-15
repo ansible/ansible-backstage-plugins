@@ -30,7 +30,12 @@ function collectPluginDirs() {
   if (statSync(workspacesRoot, { throwIfNoEntry: false })?.isDirectory()) {
     for (const workspace of readdirSync(workspacesRoot)) {
       if (workspace.startsWith('.')) continue;
-      const workspacePlugins = resolve(workspacesRoot, workspace, 'plugins');
+      const workspacePath = resolve(workspacesRoot, workspace);
+      // Skip files (e.g. README.md) — only process directories
+      if (!statSync(workspacePath, { throwIfNoEntry: false })?.isDirectory()) {
+        continue;
+      }
+      const workspacePlugins = resolve(workspacePath, 'plugins');
       if (
         statSync(workspacePlugins, { throwIfNoEntry: false })?.isDirectory()
       ) {

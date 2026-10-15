@@ -44,7 +44,8 @@ const SYNC_TASK_ID = 'apme-learned-deps-sync';
 const LEARNED_DEPS_FETCH_CONCURRENCY = 8;
 
 type RepoSyncOutcome =
-  { kind: 'entities'; entities: Entity[] } | { kind: 'abort'; message: string };
+  | { kind: 'entities'; entities: Entity[] }
+  | { kind: 'abort'; message: string };
 
 /**
  * Run async work over items with a fixed worker pool.

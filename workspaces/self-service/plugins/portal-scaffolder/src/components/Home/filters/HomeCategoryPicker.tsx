@@ -53,8 +53,7 @@ export const HomeCategoryPicker = ({ syncKey }: HomeCategoryPickerProps) => {
           if (!unchanged) {
             appliedTypesRef.current = nonEE;
             updateFilters({
-              type:
-                nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
+              type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
             });
           }
         }

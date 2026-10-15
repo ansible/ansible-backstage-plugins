@@ -13,10 +13,8 @@ export interface EntityOverviewCardContext extends EntityContributionContext {
   openDetails?: () => void;
 }
 
-export interface EntityOverviewCardDescriptor extends Omit<
-  EntityDetailTabDescriptor,
-  'attachment' | 'loader'
-> {
+export interface EntityOverviewCardDescriptor
+  extends Omit<EntityDetailTabDescriptor, 'attachment' | 'loader'> {
   attachment: 'entity.overview.main' | 'entity.overview.secondary';
   detailsEntryPointId?: string;
   loader: (context: EntityOverviewCardContext) => Promise<JSX.Element>;

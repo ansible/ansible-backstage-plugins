@@ -57,9 +57,10 @@ test('Same team name in different orgs both exist', async ({ page }) => {
   ).toBeGreaterThanOrEqual(2);
 
   const names = deployTeams.map((t: any) => t.metadata?.name).filter(Boolean);
-  expect(new Set(names).size, 'Deploy teams must have distinct entity names').toBe(
-    names.length,
-  );
+  expect(
+    new Set(names).size,
+    'Deploy teams must have distinct entity names',
+  ).toBe(names.length);
 
   const orgIds = deployTeams
     .map(
@@ -103,7 +104,9 @@ test('Same job template name in different orgs both exist', async ({
     'Deploy templates must have distinct ID-based entity names',
   ).toBe(entityNames.length);
   for (const name of entityNames) {
-    expect(name, 'Template entity ref should be ID-based').toMatch(/^aap-jt-\d+$/);
+    expect(name, 'Template entity ref should be ID-based').toMatch(
+      /^aap-jt-\d+$/,
+    );
   }
 
   const orgIdentities = deployTemplates
@@ -148,10 +151,9 @@ test('Same job template name in different orgs both exist', async ({
   await page.waitForURL(/\/catalog\/.*\/aap-jt-\d+/, { timeout: 10000 });
 
   const url = page.url();
-  expect(
-    url,
-    'Template URL should use ID-based entity ref (aap-jt-*)',
-  ).toMatch(/aap-jt-\d+/);
+  expect(url, 'Template URL should use ID-based entity ref (aap-jt-*)').toMatch(
+    /aap-jt-\d+/,
+  );
 
   const ownerRef = page.getByText(/group:[^/\s]+\/aap-org-\d+/);
   await expect(ownerRef).toBeVisible({ timeout: 10000 });
@@ -237,16 +239,18 @@ test('Display names preserved, refs use IDs', async ({ page }) => {
 
   const allTitles = (await templateTitles.allTextContents()).map(t => t.trim());
   const deployIndex = allTitles.findIndex(t => t === 'Deploy');
-  expect(deployIndex, 'Deploy template should be visible').toBeGreaterThanOrEqual(
-    0,
-  );
+  expect(
+    deployIndex,
+    'Deploy template should be visible',
+  ).toBeGreaterThanOrEqual(0);
   const deployTemplate = templateTitles.nth(deployIndex);
   await expect(deployTemplate).toBeVisible({ timeout: 10000 });
 
   const displayName = (await deployTemplate.textContent())?.trim() ?? '';
-  expect(displayName.length, 'Deploy template should have a display title').toBeGreaterThan(
-    0,
-  );
+  expect(
+    displayName.length,
+    'Deploy template should have a display title',
+  ).toBeGreaterThan(0);
 
   await deployTemplate.click({ timeout: 10000 });
 
@@ -393,9 +397,10 @@ test('User entity uses ID-based naming in catalog', async ({ page }) => {
   ).toBeGreaterThan(0);
 
   for (const user of aapBackedUsers) {
-    expect(user.metadata?.name, 'AAP user entity name should be ID-based').toMatch(
-      /^aap-user-\d+$/,
-    );
+    expect(
+      user.metadata?.name,
+      'AAP user entity name should be ID-based',
+    ).toMatch(/^aap-user-\d+$/);
   }
 
   const names = aapBackedUsers.map((u: any) => u.metadata?.name);

@@ -1,32 +1,35 @@
 #!/bin/bash
 
-# Variables
-pluginsDir="plugins"
-
-# Check if the plugins directory exists
-if [ ! -d "$pluginsDir" ]; then
-  echo "The directory $pluginsDir does not exist."
-  exit 1
-fi
-
-# Loop through each subdirectory in the ./plugins directory
-for pluginDir in "$pluginsDir"/*; do
-  if [ -d "$pluginDir" ]; then
-    echo "==================== $pluginDir ===================="
-    yarn install
-    printf "\n"
-  fi
-done
-printf "==================== Step: Plugin Deps Installation => Complete ====================\n"
+# This branch uses workspaces (workspaces/{aap,apme,portal-core,self-service}/plugins/*).
+# Root yarn install resolves all workspace dependencies automatically.
 
 printf "==================== Step: Root Deps Installation => Start ====================\n"
 yarn install
 printf "==================== Step: Root Deps Installation => Complete ====================\n"
 
+printf "==================== Step: pre-commit CLI => Start ====================\n"
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Error: python3 not found. pre-commit is required for Git hooks." >&2
+  echo "Install Python 3 and then: pip install pre-commit" >&2
+  exit 1
+fi
+
+python3 -m pip install pre-commit || true
+
+if ! command -v pre-commit >/dev/null 2>&1; then
+  echo "Error: pre-commit is installed as a Python module but not on PATH." >&2
+  echo "The Husky hooks require the 'pre-commit' executable on PATH." >&2
+  echo "Add the Python scripts directory to PATH, or reinstall with:" >&2
+  echo "  pip install --user pre-commit  # then add ~/.local/bin to PATH" >&2
+  exit 1
+fi
+
+pre-commit install-hooks
+printf "==================== Step: pre-commit CLI => Complete ====================\n"
+
 printf "==================== Step: yarn tsc => Start ====================\n"
 if ! yarn tsc; then
   echo "==================== Step: yarn tsc => Failed ===================="
-  popd > /dev/null || exit
   exit 1
 fi
 echo "==================== Step: yarn tsc => Complete ===================="

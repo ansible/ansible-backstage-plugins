@@ -43,7 +43,9 @@ export async function resolveOrganizationMemberships(
   return [...new Set(values)].sort();
 }
 
-export class ConfiguredOrganizationResolver implements ActiveOrganizationResolver {
+export class ConfiguredOrganizationResolver
+  implements ActiveOrganizationResolver
+{
   constructor(private readonly config: Config) {}
   async resolve(
     _credentials: BackstageCredentials,

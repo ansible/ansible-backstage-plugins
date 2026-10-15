@@ -103,7 +103,10 @@ export type ContributionKind =
  * - `experience-slot` — an always-on contribution inside the experience layout
  */
 export type EntrySurface =
-  'catalog-item' | 'entity-page' | 'definition' | 'experience-slot';
+  | 'catalog-item'
+  | 'entity-page'
+  | 'definition'
+  | 'experience-slot';
 
 /**
  * A single affordance a capability offers on a specific surface.

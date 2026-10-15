@@ -50,8 +50,9 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
         noHeader: true,
         routeRef: convertLegacyRouteRef(collectionsRouteRef),
         loader: async () => {
-          const { CollectionsRoutesPage } =
-            await import('./components/CollectionsCatalog');
+          const { CollectionsRoutesPage } = await import(
+            './components/CollectionsCatalog'
+          );
           return compatWrapper(<CollectionsRoutesPage />);
         },
       },
@@ -65,8 +66,9 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
         noHeader: true,
         routeRef: convertLegacyRouteRef(eeRouteRef),
         loader: async () => {
-          const { EERoutesPage } =
-            await import('./components/ExecutionEnvironments');
+          const { EERoutesPage } = await import(
+            './components/ExecutionEnvironments'
+          );
           return compatWrapper(<EERoutesPage />);
         },
       },
@@ -80,8 +82,9 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
         noHeader: true,
         routeRef: convertLegacyRouteRef(gitRepositoriesRouteRef),
         loader: async () => {
-          const { GitRepositoriesRoutesPage } =
-            await import('./components/GitRepositories');
+          const { GitRepositoriesRoutesPage } = await import(
+            './components/GitRepositories'
+          );
           return compatWrapper(<GitRepositoriesRoutesPage />);
         },
       },
@@ -90,8 +93,9 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
       path: '/self-service',
       routeRef: convertLegacyRouteRef(rootRouteRef),
       loader: async fields => {
-        const { NativeScaffolderPage } =
-          await import('./components/NativeScaffolderPage');
+        const { NativeScaffolderPage } = await import(
+          './components/NativeScaffolderPage'
+        );
         return compatWrapper(<NativeScaffolderPage declarations={fields} />);
       },
     }),

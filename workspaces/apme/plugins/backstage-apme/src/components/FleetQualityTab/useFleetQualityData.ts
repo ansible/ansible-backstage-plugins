@@ -54,7 +54,8 @@ function entityProjectLookupKey(entity: Entity): string | undefined {
   const match = loc.match(/url:(https?:\/\/[^\s]+)/);
   const repoUrl = match ? match[1] : loc.replace(/^url:/, '');
   const spec = entity.spec as
-    { repository_default_branch?: string } | undefined;
+    | { repository_default_branch?: string }
+    | undefined;
   const branch = spec?.repository_default_branch ?? 'main';
   return projectLookupKey(repoUrl, branch);
 }
