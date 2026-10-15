@@ -27,8 +27,10 @@ export default createFrontendPlugin({
       params: {
         path: '/',
         noHeader: true,
-        loader: async () =>
-          compatWrapper(<Navigate to="/self-service" replace />),
+        loader: () =>
+          Promise.resolve(
+            compatWrapper(<Navigate to="/self-service" replace />),
+          ),
       },
     }),
     createPortalContributionProvider(),

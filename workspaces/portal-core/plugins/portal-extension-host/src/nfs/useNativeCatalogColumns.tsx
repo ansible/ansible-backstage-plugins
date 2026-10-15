@@ -28,11 +28,11 @@ function CatalogCell({
   column,
   entity,
   contentType,
-}: {
+}: Readonly<{
   column: CatalogTableColumnDescriptor;
   entity: Entity;
   contentType: string;
-}) {
+}>) {
   const holder = useApiHolder();
   const entitlements = holder.get(portalEntitlementsApiRef);
   const context = useMemo(
@@ -103,7 +103,9 @@ export function useNativeCatalogColumns(contentType: string) {
           if (
             !entry?.appliesToContentTypes.includes(contentType) ||
             !capability ||
-            !DEFAULT_EXPERIENCES.some(id => id === capability.experienceId) ||
+            !(DEFAULT_EXPERIENCES as readonly string[]).includes(
+              capability.experienceId,
+            ) ||
             (column.enabledByConfig &&
               config?.getOptionalBoolean(column.enabledByConfig) !== true)
           )

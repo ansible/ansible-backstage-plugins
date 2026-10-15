@@ -27,9 +27,9 @@ const reservedNames = formExtraFields.map(field => field.name);
 
 export function NativeScaffolderPage({
   declarations,
-}: {
+}: Readonly<{
   declarations: readonly ScaffolderFieldDescriptor[];
-}) {
+}>) {
   return (
     <Routes>
       <Route

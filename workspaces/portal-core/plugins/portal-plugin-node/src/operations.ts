@@ -104,7 +104,7 @@ export class PortalOperations {
     permissions: PermissionsService,
   ): Promise<unknown> {
     const entry = this.registrations.get(operationId);
-    if (!entry || !entry.registration.descriptor.exposure?.rest) {
+    if (!entry?.registration.descriptor.exposure?.rest) {
       throw new NotFoundError(`Operation is not available: ${operationId}`);
     }
     const { registration } = entry;
@@ -211,15 +211,17 @@ export class PortalOperations {
 export const portalOperationsServiceRef = createServiceRef<PortalOperations>({
   id: 'portal.operations',
   scope: 'root',
-  defaultFactory: async service =>
-    createServiceFactory({
-      service,
-      deps: {
-        logger: coreServices.rootLogger,
-        organizations: portalActiveOrganizationServiceRef,
-        entitlements: portalEntitlementsServiceRef,
-      },
-      factory: async ({ logger, organizations, entitlements }) =>
-        new PortalOperations(logger, organizations, entitlements),
-    }),
+  defaultFactory: service =>
+    Promise.resolve(
+      createServiceFactory({
+        service,
+        deps: {
+          logger: coreServices.rootLogger,
+          organizations: portalActiveOrganizationServiceRef,
+          entitlements: portalEntitlementsServiceRef,
+        },
+        factory: ({ logger, organizations, entitlements }) =>
+          new PortalOperations(logger, organizations, entitlements),
+      }),
+    ),
 });

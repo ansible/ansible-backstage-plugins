@@ -38,7 +38,9 @@ export function partitionNavigationItems(
   };
 }
 
-export function PortalNavigation({ navItems }: NavContentComponentProps) {
+export function PortalNavigation({
+  navItems,
+}: Readonly<NavContentComponentProps>) {
   const config = useApi(configApiRef);
   const discovered = navItems.rest();
   const configured = config.getOptional<NavigationItemConfig[]>(

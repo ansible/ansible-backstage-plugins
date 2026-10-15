@@ -31,7 +31,9 @@ export function collectEntityTabs(
           !capability.appliesTo &&
           (capability.appliesToContentTypes === '*' ||
             capability.appliesToContentTypes.every(type =>
-              Object.values(CONTENT_TYPES).some(known => known === type),
+              (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+                type,
+              ),
             )) &&
           capability.id.startsWith(`${tab.manifest.id}.`) &&
           entry.id.startsWith(`${tab.manifest.id}.`) &&
@@ -43,7 +45,9 @@ export function collectEntityTabs(
           entry.appliesToContentTypes.length > 0 &&
           entry.appliesToContentTypes.every(
             type =>
-              Object.values(CONTENT_TYPES).some(known => known === type) &&
+              (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+                type,
+              ) &&
               (capability.appliesToContentTypes === '*' ||
                 capability.appliesToContentTypes.includes(type)),
           ) &&

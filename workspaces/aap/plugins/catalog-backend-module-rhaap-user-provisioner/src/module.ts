@@ -29,23 +29,25 @@ export const catalogModuleRhaapUserProvisioner = createBackendModule({
         config: coreServices.rootConfig,
         logger: coreServices.logger,
       },
-      async init({ catalog, ansibleService, userProvisioner, config, logger }) {
-        const provider = new UserProvisionerProvider({
-          ansibleService,
-          config,
-          logger,
+      init({ catalog, ansibleService, userProvisioner, config, logger }) {
+        return Promise.resolve().then(() => {
+          const provider = new UserProvisionerProvider({
+            ansibleService,
+            config,
+            logger,
+          });
+
+          // Cast to IUserProvisionerConnectable to access the wiring method.
+          // This interface is separate from IUserProvisioner (the public consumer API)
+          // so registerCreateUserFn doesn't leak into the auth plugin's surface.
+          (
+            userProvisioner as unknown as IUserProvisionerConnectable
+          ).registerCreateUserFn((username, userID) =>
+            provider.createUser(username, userID),
+          );
+
+          catalog.addEntityProvider(provider);
         });
-
-        // Cast to IUserProvisionerConnectable to access the wiring method.
-        // This interface is separate from IUserProvisioner (the public consumer API)
-        // so registerCreateUserFn doesn't leak into the auth plugin's surface.
-        (
-          userProvisioner as unknown as IUserProvisionerConnectable
-        ).registerCreateUserFn((username, userID) =>
-          provider.createUser(username, userID),
-        );
-
-        catalog.addEntityProvider(provider);
       },
     });
   },

@@ -28,7 +28,7 @@ export const authModuleRhaapProvider = createBackendModule({
         httpAuth: coreServices.httpAuth,
         logger: coreServices.logger,
       },
-      async init({
+      init({
         providers,
         ansibleService,
         userProvisioner,
@@ -37,35 +37,37 @@ export const authModuleRhaapProvider = createBackendModule({
         httpAuth,
         logger,
       }) {
-        providers.registerProvider({
-          providerId: 'rhaap',
-          factory: createOAuthProviderFactory({
-            authenticator: aapAuthAuthenticator(ansibleService),
-            signInResolverFactories: {
-              usernameMatchingUser:
-                AAPAuthSignInResolvers.createUsernameMatchingUser(config),
-              allowNewAAPUserSignIn:
-                AAPAuthSignInResolvers.allowNewAAPUserSignIn({
-                  userProvisioner,
-                  config,
-                }),
-            },
-          }),
-        });
+        return Promise.resolve().then(() => {
+          providers.registerProvider({
+            providerId: 'rhaap',
+            factory: createOAuthProviderFactory({
+              authenticator: aapAuthAuthenticator(ansibleService),
+              signInResolverFactories: {
+                usernameMatchingUser:
+                  AAPAuthSignInResolvers.createUsernameMatchingUser(config),
+                allowNewAAPUserSignIn:
+                  AAPAuthSignInResolvers.allowNewAAPUserSignIn({
+                    userProvisioner,
+                    config,
+                  }),
+              },
+            }),
+          });
 
-        const authBaseUrl = config.getString('backend.baseUrl');
-        const userJobTemplatesRouter = createUserJobTemplatesRouter({
-          logger,
-          config,
-          httpAuth,
-          ansibleService,
-          authBaseUrl,
-        });
+          const authBaseUrl = config.getString('backend.baseUrl');
+          const userJobTemplatesRouter = createUserJobTemplatesRouter({
+            logger,
+            config,
+            httpAuth,
+            ansibleService,
+            authBaseUrl,
+          });
 
-        httpRouter.use(userJobTemplatesRouter as any);
-        httpRouter.addAuthPolicy({
-          path: '/rhaap/user-job-templates',
-          allow: 'unauthenticated',
+          httpRouter.use(userJobTemplatesRouter as any);
+          httpRouter.addAuthPolicy({
+            path: '/rhaap/user-job-templates',
+            allow: 'unauthenticated',
+          });
         });
       },
     });

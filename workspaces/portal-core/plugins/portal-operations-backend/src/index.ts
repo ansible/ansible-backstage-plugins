@@ -26,19 +26,21 @@ export default createBackendPlugin({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
       },
-      async init({ httpRouter, ...options }) {
-        // Express 4/5 declaration variance at the Backstage router seam.
-        httpRouter.use(
-          createRouter(options) as unknown as Parameters<
-            typeof httpRouter.use
-          >[0],
-        );
-        httpRouter.use(
-          createEntitlementsRouter({
-            ...options,
-            catalog: new CatalogClient({ discoveryApi: options.discovery }),
-          }) as unknown as Parameters<typeof httpRouter.use>[0],
-        );
+      init({ httpRouter, ...options }) {
+        return Promise.resolve().then(() => {
+          // Express 4/5 declaration variance at the Backstage router seam.
+          httpRouter.use(
+            createRouter(options) as unknown as Parameters<
+              typeof httpRouter.use
+            >[0],
+          );
+          httpRouter.use(
+            createEntitlementsRouter({
+              ...options,
+              catalog: new CatalogClient({ discoveryApi: options.discovery }),
+            }) as unknown as Parameters<typeof httpRouter.use>[0],
+          );
+        });
       },
     });
   },

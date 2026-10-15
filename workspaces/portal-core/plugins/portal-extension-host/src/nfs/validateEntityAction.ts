@@ -86,8 +86,7 @@ export function collectOperationActions<
           if (
             followOn.type !== 'slot' ||
             followOn.targetSlot !== 'entity.detail.tabs' ||
-            !target ||
-            target.kind !== 'entity-tab' ||
+            target?.kind !== 'entity-tab' ||
             target.surface !== 'entity-page' ||
             target.launches.type !== 'slot' ||
             target.launches.targetSlot !== followOn.targetSlot

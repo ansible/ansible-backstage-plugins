@@ -21,14 +21,14 @@ export function PortalCatalogItemActions({
   availableExperiences = DEFAULT_EXPERIENCES,
   presentation,
   onSubjectRemoved,
-}: {
+}: Readonly<{
   actions: readonly CatalogItemActionDescriptor[];
   context: EntityContributionContext;
   checkEntitlement?: EntitlementCheck;
   availableExperiences?: readonly string[];
   presentation?: 'button' | 'menu-item';
   onSubjectRemoved?: () => void;
-}) {
+}>) {
   const eligible = useEligibleContributions(
     actions,
     context,
@@ -36,8 +36,8 @@ export function PortalCatalogItemActions({
     checkEntitlement,
   );
   return (
-    <div
-      role="group"
+    <fieldset
+      style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
       aria-label={`Actions for ${
         context.entity.metadata.title ?? context.entity.metadata.name
       }`}
@@ -58,6 +58,6 @@ export function PortalCatalogItemActions({
           </ContributionWrapper>
         </ErrorBoundary>
       ))}
-    </div>
+    </fieldset>
   );
 }

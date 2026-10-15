@@ -23,10 +23,10 @@ const useStyles = makeStyles(theme => ({
 export function NavigationGroup({
   entry,
   activePath,
-}: {
+}: Readonly<{
   entry: Extract<ResolvedNavigationItem, { children: unknown }>;
   activePath?: string;
-}) {
+}>) {
   const classes = useStyles();
   const { isOpen } = useSidebarOpenState();
   const [expanded, setExpanded] = useState(

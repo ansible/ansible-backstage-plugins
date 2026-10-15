@@ -133,7 +133,7 @@ export function SettingsShell<T extends Record<string, unknown>>({
   saveLabel = 'Save',
   resetLabel = 'Reset to saved',
   readOnly = false,
-}: SettingsShellProps<T>) {
+}: Readonly<SettingsShellProps<T>>) {
   const classes = useStyles();
   const alertApi = useApi(alertApiRef);
 

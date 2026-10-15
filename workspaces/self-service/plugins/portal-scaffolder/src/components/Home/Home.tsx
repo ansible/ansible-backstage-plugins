@@ -72,6 +72,14 @@ function displayNameForAapSyncProvider(provider: string): string {
     : 'Organizations, Users, and Teams';
 }
 
+function pluralizeSyncItem(
+  count: number,
+  singular: string,
+  plural: string,
+): string {
+  return count === 1 ? singular : plural;
+}
+
 type HomeCatalogPanelProps = {
   jobTemplateIds: number[];
   selectedSources: string[];
@@ -196,17 +204,18 @@ export const HomeComponent = () => {
     if (!syncSignal) return;
     const isJT = syncSignal.provider.startsWith('aap-job-template');
     const key = isJT ? 'jobTemplates' : 'orgsUsersTeams';
+    const completion = syncSignal.syncInProgress
+      ? {}
+      : {
+          lastSync: syncSignal.lastSyncTime,
+          lastSyncStatus: syncSignal.lastSyncStatus,
+        };
     setSyncStatus(prev => ({
       ...prev,
       [key]: {
         ...prev[key],
-        lastSync: syncSignal.syncInProgress
-          ? prev[key].lastSync
-          : syncSignal.lastSyncTime,
+        ...completion,
         syncInProgress: syncSignal.syncInProgress,
-        lastSyncStatus: syncSignal.syncInProgress
-          ? prev[key].lastSyncStatus
-          : syncSignal.lastSyncStatus,
       },
     }));
 
@@ -235,7 +244,11 @@ export const HomeComponent = () => {
       const missingOrgs = syncSignal.lastMissingOrganizations ?? [];
 
       if (duplicateCount > 0) {
-        const entityWord = duplicateCount === 1 ? 'entity' : 'entities';
+        const entityWord = pluralizeSyncItem(
+          duplicateCount,
+          'entity',
+          'entities',
+        );
         showNotification({
           title: 'Sync warning',
           description: `Skipped ${duplicateCount} duplicate catalog ${entityWord} during ${displayName} sync.`,
@@ -247,8 +260,11 @@ export const HomeComponent = () => {
 
       if (missingOrgs.length > 0) {
         const orgList = missingOrgs.map(name => `'${name}'`).join(', ');
-        const orgWord =
-          missingOrgs.length === 1 ? 'organization' : 'organizations';
+        const orgWord = pluralizeSyncItem(
+          missingOrgs.length,
+          'organization',
+          'organizations',
+        );
         showNotification({
           title: 'Sync warning',
           description: `Configured ${orgWord} ${orgList} not found in AAP during ${displayName} sync.`,

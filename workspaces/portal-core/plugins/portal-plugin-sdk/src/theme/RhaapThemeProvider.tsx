@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
-import { ThemeProvider } from '@material-ui/core/styles';
-import { useTheme } from '@material-ui/core/styles';
+import { ThemeProvider, useTheme } from '@material-ui/core/styles';
 import type { BackstageTheme } from '@backstage/theme';
 
 interface RhaapThemeProviderProps {

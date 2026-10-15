@@ -82,7 +82,7 @@ export interface TabContribution {
 
 export interface CardContribution {
   id: string;
-  slot: 'overview-left' | 'overview-right' | 'sidebar' | string;
+  slot: string;
   component: ContributionComponent;
   /** Content type IDs this card applies to. See `TabContribution.appliesToContentTypes`. */
   appliesToContentTypes?: string[] | '*';

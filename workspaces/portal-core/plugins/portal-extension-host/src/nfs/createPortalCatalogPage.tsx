@@ -16,9 +16,12 @@ export function createPortalCatalogPage(options: {
       title: 'Portal content',
       routeRef: options.routeRef,
       noHeader: true,
-      loader: async () => (
-        <ContributionPage loader={api => options.loader(api.catalogActions)} />
-      ),
+      loader: () =>
+        Promise.resolve(
+          <ContributionPage
+            loader={api => options.loader(api.catalogActions)}
+          />,
+        ),
     },
   });
 }

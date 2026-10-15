@@ -84,12 +84,14 @@ export class PortalHealth {
 export const portalHealthServiceRef = createServiceRef<PortalHealth>({
   id: 'portal.health',
   scope: 'root',
-  defaultFactory: async service =>
-    createServiceFactory({
-      service,
-      deps: {},
-      factory: async () => new PortalHealth(),
-    }),
+  defaultFactory: service =>
+    Promise.resolve(
+      createServiceFactory({
+        service,
+        deps: {},
+        factory: () => new PortalHealth(),
+      }),
+    ),
 });
 
 const globalHealthRegistries = new Map<string, HealthRegistry>();

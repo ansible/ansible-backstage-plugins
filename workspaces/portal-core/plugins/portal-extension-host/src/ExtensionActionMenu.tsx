@@ -19,13 +19,13 @@ export function ExtensionActionMenu({
   anchorEl,
   onClose,
   onSuccess,
-}: {
+}: Readonly<{
   contributions: ActionContribution[];
   entity: Entity;
   anchorEl: HTMLElement | null;
   onClose(): void;
   onSuccess?: (result: unknown) => void;
-}) {
+}>) {
   const [confirmation, setConfirmation] = useState<{
     contribution: ActionContribution;
     execute: () => Promise<boolean>;

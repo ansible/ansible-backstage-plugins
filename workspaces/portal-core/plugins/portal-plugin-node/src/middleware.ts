@@ -22,7 +22,7 @@ function parseEntityRef(entityRef: string): {
   namespace: string;
   name: string;
 } {
-  const match = entityRef.match(/^[^:]+:([^/]+)\/(.+)$/);
+  const match = /^[^:]+:([^/]+)\/(.+)$/.exec(entityRef);
   if (!match) {
     return { namespace: 'default', name: entityRef };
   }

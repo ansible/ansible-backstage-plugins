@@ -15,10 +15,10 @@ import { resolveCatalogHeaderAction } from './catalogHeaderActions';
 export function NativeCatalogHeaderActions({
   contentType,
   templatePath,
-}: {
+}: Readonly<{
   contentType: string;
   templatePath: (namespace: string, name: string) => string;
-}) {
+}>) {
   const holder = useApiHolder();
   const provider = holder.get(portalContributionsApiRef);
   const config = holder.get(configApiRef);

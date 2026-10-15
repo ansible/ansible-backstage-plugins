@@ -35,6 +35,15 @@ import { PortalEntityOverviewCards } from './PortalEntityOverviewCards';
 
 const EMPTY_CARDS: readonly EntityOverviewCardDescriptor[] = [];
 
+function confirmsSubjectRemoval(result: unknown): boolean {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'subjectRemoved' in result &&
+    result.subjectRemoved === true
+  );
+}
+
 export function PortalOperationAction({
   action,
   context,
@@ -42,14 +51,14 @@ export function PortalOperationAction({
   onSelect,
   presentation = 'button',
   onSubjectRemoved,
-}: {
+}: Readonly<{
   action: EntityActionDescriptor | CatalogItemActionDescriptor;
   context: EntityContributionContext;
   eligibleTabs?: readonly EntityDetailTabDescriptor[];
   onSelect: (id: string) => void;
   presentation?: 'button' | 'menu-item';
   onSubjectRemoved?: () => void;
-}) {
+}>) {
   const operations = useApi(portalOperationsApiRef);
   const catalog = useApiHolder().get(catalogApiRef);
   const removalAccepted = useRef(false);
@@ -68,7 +77,7 @@ export function PortalOperationAction({
     [context],
   );
   const { entry } = resolveEntityContribution(action);
-  if (!entry || entry.launches.type !== 'operation') return null;
+  if (entry?.launches.type !== 'operation') return null;
   const launch = entry.launches;
   const targetAvailable =
     !launch.followOn ||
@@ -76,6 +85,35 @@ export function PortalOperationAction({
       eligibleTabs?.some(
         tab => tab.entryPointId === action.followOnEntryPointId,
       ));
+  async function reconcileRemoval(
+    result: unknown,
+    subjectRef: string,
+    started: number,
+  ): Promise<boolean> {
+    if (!removalAccepted.current && !confirmsSubjectRemoval(result)) {
+      throw new Error('Removal not confirmed');
+    }
+    removalAccepted.current = true;
+    const removed = catalog
+      ? await reconcileSubjectRemoval(
+          () => catalog.getEntityByRef(subjectRef),
+          () => started === generation.current,
+        )
+      : false;
+    if (started !== generation.current) return false;
+    if (!removed) {
+      setFeedback({
+        error: false,
+        message:
+          'Removal accepted. Catalog cleanup is still pending. Check again without resubmitting the removal.',
+      });
+      return false;
+    }
+    setConfirmOpen(false);
+    onSubjectRemoved?.();
+    return true;
+  }
+
   async function execute() {
     if (inFlight.current || !targetAvailable) return;
     inFlight.current = true;
@@ -91,32 +129,8 @@ export function PortalOperationAction({
           });
       if (started !== generation.current) return;
       if (action.completion === 'subject-removed') {
-        if (
-          !removalAccepted.current &&
-          (typeof response?.result !== 'object' ||
-            response.result === null ||
-            !('subjectRemoved' in response.result) ||
-            response.result.subjectRemoved !== true)
-        )
-          throw new Error('Removal not confirmed');
-        removalAccepted.current = true;
-        const removed = catalog
-          ? await reconcileSubjectRemoval(
-              () => catalog.getEntityByRef(subjectRef),
-              () => started === generation.current,
-            )
-          : false;
-        if (started !== generation.current) return;
-        if (!removed) {
-          setFeedback({
-            error: false,
-            message:
-              'Removal accepted. Catalog cleanup is still pending. Check again without resubmitting the removal.',
-          });
+        if (!(await reconcileRemoval(response?.result, subjectRef, started)))
           return;
-        }
-        setConfirmOpen(false);
-        onSubjectRemoved?.();
       }
       setFeedback({
         error: false,
@@ -227,7 +241,7 @@ export function PortalEntitySurface({
   availableExperiences = DEFAULT_EXPERIENCES,
   checkEntitlement,
   onSubjectRemoved,
-}: {
+}: Readonly<{
   tabs: readonly EntityDetailTabDescriptor[];
   actions: readonly EntityActionDescriptor[];
   cards?: readonly EntityOverviewCardDescriptor[];
@@ -235,7 +249,7 @@ export function PortalEntitySurface({
   availableExperiences?: readonly string[];
   checkEntitlement?: EntitlementCheck;
   onSubjectRemoved?: () => void;
-}) {
+}>) {
   const eligibleTabs = useEligibleContributions(
     tabs,
     context,
@@ -264,7 +278,10 @@ export function PortalEntitySurface({
   const subjectKey = stringifyEntityRef(context.entity);
   return (
     <>
-      <div role="group" aria-label="Entity actions">
+      <fieldset
+        aria-label="Entity actions"
+        style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
+      >
         {eligibleActions?.map(action => (
           <ErrorBoundary
             key={`${subjectKey}:${action.entryPointId}`}
@@ -281,7 +298,7 @@ export function PortalEntitySurface({
             </ContributionWrapper>
           </ErrorBoundary>
         ))}
-      </div>
+      </fieldset>
       <PortalEntityOverviewCards
         key={`cards:${subjectKey}:${resultsRevision}`}
         eligibleCards={eligibleCards}

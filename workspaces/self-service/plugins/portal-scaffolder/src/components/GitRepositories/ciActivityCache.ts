@@ -54,136 +54,138 @@ function subscribe(listener: Listener): () => void {
   };
 }
 
-async function startLoading(
+function startLoading(
   entities: Entity[],
   discoveryApi: DiscoveryApi,
   fetchApi: FetchApi,
 ): Promise<void> {
-  const key = buildEntityKey(entities);
+  return Promise.resolve().then(() => {
+    const key = buildEntityKey(entities);
 
-  if (key === entityKey) {
-    if (fetchPromise !== null) return;
+    if (key === entityKey) {
+      if (fetchPromise !== null) return;
 
-    const cached = getState();
-    if (cached && !cached.loading && !cached.fetchingMore) return;
-  } else {
-    generation += 1;
-    state = null;
-    fetchPromise = null;
-    entityKey = key;
-  }
+      const cached = getState();
+      if (cached && !cached.loading && !cached.fetchingMore) return;
+    } else {
+      generation += 1;
+      state = null;
+      fetchPromise = null;
+      entityKey = key;
+    }
 
-  const { items: batchItems, entityMap } = buildBatchItems(entities, 15);
+    const { items: batchItems, entityMap } = buildBatchItems(entities, 15);
 
-  if (batchItems.length === 0) {
-    state = {
-      rows: [],
-      loading: false,
-      fetchingMore: false,
-      error: null,
-      timestamp: Date.now(),
-    };
-    notify();
-    return;
-  }
-
-  state = {
-    rows: [],
-    loading: true,
-    fetchingMore: false,
-    error: null,
-    timestamp: Date.now(),
-  };
-  notify();
-
-  const runGeneration = generation;
-
-  const promise = (async () => {
-    const allResults: Record<
-      string,
-      { status: number; data: unknown } | { error: string }
-    > = {};
-
-    try {
-      const catalogBase = await discoveryApi.getBaseUrl('catalog');
-      const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
-
-      const chunks: BatchItem[][] = [];
-      for (let i = 0; i < batchItems.length; i += CI_BATCH_CHUNK_SIZE) {
-        chunks.push(batchItems.slice(i, i + CI_BATCH_CHUNK_SIZE));
-      }
-
-      for (let i = 0; i < chunks.length; i += CI_PARALLEL_LIMIT) {
-        if (runGeneration !== generation) return;
-
-        const batch = chunks.slice(i, i + CI_PARALLEL_LIMIT);
-        const results = await Promise.all(
-          batch.map(async chunk => {
-            const res = await fetchApi.fetch(batchUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ items: chunk }),
-            });
-            if (!res.ok) {
-              throw new Error(
-                `Batch CI activity request failed: ${res.status}`,
-              );
-            }
-            return res.json();
-          }),
-        );
-
-        if (runGeneration !== generation) return;
-
-        results.forEach(
-          (body: {
-            results: Record<
-              string,
-              { status: number; data: unknown } | { error: string }
-            >;
-          }) => Object.assign(allResults, body.results),
-        );
-
-        state = {
-          rows: buildRowsFromResults(allResults, entityMap),
-          loading: false, // first chunk arrived
-          fetchingMore: true,
-          error: null,
-          timestamp: Date.now(),
-        };
-        notify();
-      }
-
-      if (runGeneration !== generation) return;
-
+    if (batchItems.length === 0) {
       state = {
-        rows: buildRowsFromResults(allResults, entityMap),
+        rows: [],
         loading: false,
         fetchingMore: false,
         error: null,
         timestamp: Date.now(),
       };
       notify();
-    } catch (e) {
-      if (runGeneration !== generation) return;
-
-      state = {
-        rows: state?.rows ?? [],
-        loading: false,
-        fetchingMore: false,
-        error: e instanceof Error ? e.message : 'Failed to load CI activity',
-        timestamp: Date.now(),
-      };
-      notify();
-    } finally {
-      if (runGeneration === generation) {
-        fetchPromise = null;
-      }
+      return;
     }
-  })();
 
-  fetchPromise = promise;
+    state = {
+      rows: [],
+      loading: true,
+      fetchingMore: false,
+      error: null,
+      timestamp: Date.now(),
+    };
+    notify();
+
+    const runGeneration = generation;
+
+    const promise = (async () => {
+      const allResults: Record<
+        string,
+        { status: number; data: unknown } | { error: string }
+      > = {};
+
+      try {
+        const catalogBase = await discoveryApi.getBaseUrl('catalog');
+        const batchUrl = `${catalogBase}/ansible/git/ci-activity`;
+
+        const chunks: BatchItem[][] = [];
+        for (let i = 0; i < batchItems.length; i += CI_BATCH_CHUNK_SIZE) {
+          chunks.push(batchItems.slice(i, i + CI_BATCH_CHUNK_SIZE));
+        }
+
+        for (let i = 0; i < chunks.length; i += CI_PARALLEL_LIMIT) {
+          if (runGeneration !== generation) return;
+
+          const batch = chunks.slice(i, i + CI_PARALLEL_LIMIT);
+          const results = await Promise.all(
+            batch.map(async chunk => {
+              const res = await fetchApi.fetch(batchUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ items: chunk }),
+              });
+              if (!res.ok) {
+                throw new Error(
+                  `Batch CI activity request failed: ${res.status}`,
+                );
+              }
+              return res.json();
+            }),
+          );
+
+          if (runGeneration !== generation) return;
+
+          results.forEach(
+            (body: {
+              results: Record<
+                string,
+                { status: number; data: unknown } | { error: string }
+              >;
+            }) => Object.assign(allResults, body.results),
+          );
+
+          state = {
+            rows: buildRowsFromResults(allResults, entityMap),
+            loading: false, // first chunk arrived
+            fetchingMore: true,
+            error: null,
+            timestamp: Date.now(),
+          };
+          notify();
+        }
+
+        if (runGeneration !== generation) return;
+
+        state = {
+          rows: buildRowsFromResults(allResults, entityMap),
+          loading: false,
+          fetchingMore: false,
+          error: null,
+          timestamp: Date.now(),
+        };
+        notify();
+      } catch (e) {
+        if (runGeneration !== generation) return;
+
+        state = {
+          rows: state?.rows ?? [],
+          loading: false,
+          fetchingMore: false,
+          error: e instanceof Error ? e.message : 'Failed to load CI activity',
+          timestamp: Date.now(),
+        };
+        notify();
+      } finally {
+        if (runGeneration === generation) {
+          fetchPromise = null;
+        }
+      }
+    })();
+
+    fetchPromise = promise;
+  });
 }
 
 function setError(message: string): void {

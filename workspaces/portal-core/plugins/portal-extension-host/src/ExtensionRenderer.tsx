@@ -36,11 +36,11 @@ const Fallback = () => (
  *  Injects portal CSS custom properties (`--portal-color-*`) on a
  *  `display: contents` wrapper so contributed components can use them
  *  without importing MUI or Backstage theme utilities. */
-export const ExtensionTabContent = ({
+const ExtensionContributionContent = ({
   contribution,
   entity,
 }: {
-  contribution: TabContribution;
+  contribution: TabContribution | CardContribution;
   entity?: Entity;
 }) => {
   const { allowed } = usePermission({
@@ -63,37 +63,13 @@ export const ExtensionTabContent = ({
   );
 };
 
-/** Renders a card contribution's component inside `<ErrorBoundary>` + `<Suspense>`.
- *  Returns null while loading or if the user lacks the required permission.
- *  Injects portal CSS custom properties (`--portal-color-*`) on a
- *  `display: contents` wrapper so contributed components can use them
- *  without importing MUI or Backstage theme utilities. */
-export const ExtensionCardContent = ({
-  contribution,
-  entity,
-}: {
-  contribution: CardContribution;
-  entity?: Entity;
-}) => {
-  const { allowed } = usePermission({
-    permission: contribution.permission ?? null!,
-  });
-
-  if (contribution.permission && !allowed) return null;
-
-  const Component = contribution.component as ComponentType<{
-    entity?: Entity;
-  }>;
-  return (
-    <ContributionWrapper>
-      <ErrorBoundary contributionId={contribution.id}>
-        <Suspense fallback={<Fallback />}>
-          <Component entity={entity} />
-        </Suspense>
-      </ErrorBoundary>
-    </ContributionWrapper>
-  );
-};
+/** Both contribution kinds share permission, theme, error, and loading behavior. */
+export const ExtensionTabContent: (
+  props: Readonly<{ contribution: TabContribution; entity?: Entity }>,
+) => JSX.Element | null = ExtensionContributionContent;
+export const ExtensionCardContent: (
+  props: Readonly<{ contribution: CardContribution; entity?: Entity }>,
+) => JSX.Element | null = ExtensionContributionContent;
 
 /**
  * Builds an action activation wrapper that:

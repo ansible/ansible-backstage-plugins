@@ -6,8 +6,10 @@ import {
   useMemo,
   Fragment,
 } from 'react';
-import { NativeCatalogHeaderActions } from '@ansible/portal-extension-host/alpha';
-import { useNativeCatalogTabs } from '@ansible/portal-extension-host/alpha';
+import {
+  NativeCatalogHeaderActions,
+  useNativeCatalogTabs,
+} from '@ansible/portal-extension-host/alpha';
 import { portalContributionsApiRef } from '@ansible/portal-extension-api/alpha';
 import {
   Page,
@@ -243,12 +245,10 @@ export const GitRepositoriesPage = () => {
         if (tab) {
           navigate(`${rootLink()}/repositories/${tab.path}`);
         }
-      } else {
-        if (nativeContributions) {
-          const id = extensionTabs[index - GIT_REPO_BUILT_IN_TABS]?.id;
-          if (id) setSearchParams({ catalogTab: id });
-        } else setActiveExtTabIndex(index - GIT_REPO_BUILT_IN_TABS);
-      }
+      } else if (nativeContributions) {
+        const id = extensionTabs[index - GIT_REPO_BUILT_IN_TABS]?.id;
+        if (id) setSearchParams({ catalogTab: id });
+      } else setActiveExtTabIndex(index - GIT_REPO_BUILT_IN_TABS);
     },
     [navigate, rootLink, nativeContributions, extensionTabs, setSearchParams],
   );

@@ -15,12 +15,12 @@ function OverviewCard({
   context,
   eligibleTabs,
   onSelect,
-}: {
+}: Readonly<{
   card: EntityOverviewCardDescriptor;
   context: EntityContributionContext;
   eligibleTabs?: readonly EntityDetailTabDescriptor[];
   onSelect: (id: string) => void;
-}) {
+}>) {
   const destination = eligibleTabs?.find(
     tab =>
       tab.entryPointId === card.detailsEntryPointId &&
@@ -68,12 +68,12 @@ export function PortalEntityOverviewCards({
   eligibleTabs,
   context,
   onSelect,
-}: {
+}: Readonly<{
   eligibleCards?: readonly EntityOverviewCardDescriptor[];
   eligibleTabs?: readonly EntityDetailTabDescriptor[];
   context: EntityContributionContext;
   onSelect: (id: string) => void;
-}) {
+}>) {
   if (!eligibleCards)
     return <CircularProgress aria-label="Loading available overview cards" />;
   if (eligibleCards.length === 0) return null;
@@ -95,11 +95,7 @@ export function PortalEntityOverviewCards({
               md={region === 'entity.overview.main' ? 8 : 4}
               key={region}
             >
-              <div
-                role="region"
-                aria-label={region}
-                style={{ display: 'grid', gap: 16 }}
-              >
+              <section aria-label={region} style={{ display: 'grid', gap: 16 }}>
                 {cards.map(card => (
                   <OverviewCard
                     key={`${subjectKey}:${card.entryPointId}`}
@@ -109,7 +105,7 @@ export function PortalEntityOverviewCards({
                     onSelect={onSelect}
                   />
                 ))}
-              </div>
+              </section>
             </Grid>
           );
         },

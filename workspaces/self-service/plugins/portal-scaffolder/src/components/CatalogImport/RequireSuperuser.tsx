@@ -4,7 +4,9 @@ import { Navigate } from 'react-router-dom';
 import { useIsSuperuser } from '../../hooks';
 
 /** Keep catalog import's AAP administrator guard identical across app systems. */
-export function RequireSuperuser({ children }: { children: ReactNode }) {
+export function RequireSuperuser({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   const { isSuperuser, loading, error } = useIsSuperuser();
   if (loading) {
     return (

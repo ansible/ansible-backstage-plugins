@@ -96,12 +96,14 @@ export abstract class BaseScmClient implements ScmClient {
     repo: string,
     signal?: AbortSignal,
   ): Promise<boolean>;
-  async getProjectId(
+  getProjectId(
     _owner: string,
     _repo: string,
     _signal?: AbortSignal,
   ): Promise<number | undefined> {
-    return undefined;
+    return Promise.resolve().then(() => {
+      return undefined;
+    });
   }
   abstract buildUrl(options: UrlBuildOptions): string;
   abstract buildSourceLocation(

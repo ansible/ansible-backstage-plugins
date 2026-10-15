@@ -30,13 +30,15 @@ export function collectScaffolderFields(
         entry.appliesToContentTypes.length > 0 &&
         entry.appliesToContentTypes.every(
           type =>
-            Object.values(CONTENT_TYPES).some(known => type === known) &&
+            (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+              type,
+            ) &&
             (capability.appliesToContentTypes === '*' ||
               capability.appliesToContentTypes.includes(type)),
         ) &&
         (capability.appliesToContentTypes === '*' ||
           capability.appliesToContentTypes.every(type =>
-            Object.values(CONTENT_TYPES).some(known => type === known),
+            (Object.values(CONTENT_TYPES) as readonly string[]).includes(type),
           )) &&
         /^[A-Za-z][A-Za-z0-9_-]*$/.test(field.fieldName) &&
         typeof field.loader === 'function'

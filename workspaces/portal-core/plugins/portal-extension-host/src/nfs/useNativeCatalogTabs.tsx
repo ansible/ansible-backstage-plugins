@@ -36,8 +36,8 @@ export function useNativeCatalogTabs(context: CatalogContributionContext) {
               !capability ||
               !entry ||
               !entry.appliesToContentTypes.includes(context.contentType) ||
-              !Object.values(EXPERIENCE_IDS).some(
-                id => id === capability.experienceId,
+              !(Object.values(EXPERIENCE_IDS) as readonly string[]).includes(
+                capability.experienceId,
               ) ||
               (tab.enabledByConfig &&
                 config?.getOptionalBoolean(tab.enabledByConfig) !== true)

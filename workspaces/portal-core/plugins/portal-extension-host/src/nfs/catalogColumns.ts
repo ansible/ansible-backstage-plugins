@@ -29,7 +29,9 @@ export function collectCatalogColumns(
           !entry.appliesToContentTypes.length ||
           !entry.appliesToContentTypes.every(
             type =>
-              Object.values(CONTENT_TYPES).some(known => known === type) &&
+              (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+                type,
+              ) &&
               (capability.appliesToContentTypes === '*' ||
                 capability.appliesToContentTypes.includes(type)),
           ) ||

@@ -8,9 +8,9 @@ import {
 
 export function ContributionPage({
   loader,
-}: {
+}: Readonly<{
   loader: (api: PortalContributionsApi) => Promise<JSX.Element>;
-}) {
+}>) {
   const api = useApi(portalContributionsApiRef);
   const Content = useMemo(
     () =>

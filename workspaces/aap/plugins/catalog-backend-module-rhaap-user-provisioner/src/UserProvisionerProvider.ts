@@ -177,8 +177,10 @@ export class UserProvisionerProvider implements EntityProvider {
     return PROVIDER_NAME;
   }
 
-  async connect(connection: EntityProviderConnection): Promise<void> {
-    this.connection = connection;
+  connect(connection: EntityProviderConnection): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.connection = connection;
+    });
   }
 
   async createUser(username: string, userID: number): Promise<boolean> {
