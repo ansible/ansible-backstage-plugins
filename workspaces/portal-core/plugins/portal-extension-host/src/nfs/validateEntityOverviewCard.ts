@@ -13,7 +13,7 @@ export function collectEntityOverviewCards(
       try {
         const { capability, entry } = resolveEntityContribution(card);
         const known = (type: string) =>
-          Object.values(CONTENT_TYPES).some(value => value === type);
+          (Object.values(CONTENT_TYPES) as readonly string[]).includes(type);
         if (
           !validateManifest(card.manifest, hostApiVersion).valid ||
           !capability ||
