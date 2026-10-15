@@ -41,7 +41,10 @@ describe('HomeCategoryPicker', () => {
     });
   });
 
-  const renderPicker = (filters: Record<string, unknown> = {}) =>
+  const renderPicker = (
+    filters: Record<string, unknown> = {},
+    syncKey = 0,
+  ) =>
     render(
       <TestApiProvider
         apis={[
@@ -51,7 +54,7 @@ describe('HomeCategoryPicker', () => {
         <MockEntityListContextProvider
           value={{ filters, updateFilters: mockUpdateFilters }}
         >
-          <HomeCategoryPicker syncKey={0} />
+          <HomeCategoryPicker syncKey={syncKey} />
         </MockEntityListContextProvider>
       </TestApiProvider>,
     );
@@ -68,14 +71,42 @@ describe('HomeCategoryPicker', () => {
     expect(filter.getTypes()).toEqual(['service', 'workflow']);
   });
 
-  it('does not overwrite an existing type filter', async () => {
+  it('re-seeds type filter from facets when user has not selected categories', async () => {
     renderPicker({
       type: new EntityTypeFilter(['service']),
     });
 
     await waitFor(() => {
-      expect(mockGetEntityFacets).toHaveBeenCalled();
+      expect(mockUpdateFilters).toHaveBeenCalledWith({
+        type: expect.any(EntityTypeFilter),
+      });
     });
+  });
+
+  it('does not re-seed type filter after user selects categories', async () => {
+    const { rerender } = renderPicker();
+    await waitFor(() => expect(lastOnChange).toBeDefined());
+
+    act(() => {
+      lastOnChange?.(['service']);
+    });
+    mockUpdateFilters.mockClear();
+
+    rerender(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, { getEntityFacets: mockGetEntityFacets } as any],
+        ]}
+      >
+        <MockEntityListContextProvider
+          value={{ filters: {}, updateFilters: mockUpdateFilters }}
+        >
+          <HomeCategoryPicker syncKey={1} />
+        </MockEntityListContextProvider>
+      </TestApiProvider>,
+    );
+
+    await waitFor(() => expect(mockGetEntityFacets).toHaveBeenCalledTimes(2));
     expect(mockUpdateFilters).not.toHaveBeenCalled();
   });
 

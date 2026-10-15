@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import {
   catalogApiRef,
@@ -15,31 +15,42 @@ type HomeCategoryPickerProps = {
 /** Facet-driven category (`spec.type`) filter for Home templates. */
 export const HomeCategoryPicker = ({ syncKey }: HomeCategoryPickerProps) => {
   const catalogApi = useApi(catalogApiRef);
-  const { filters, updateFilters } = useEntityList();
+  const { updateFilters } = useEntityList();
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [userSelection, setUserSelection] = useState<string[]>([]);
+  const userSelectionRef = useRef(userSelection);
+  userSelectionRef.current = userSelection;
 
   useEffect(() => {
+    let active = true;
     catalogApi
       .getEntityFacets({
         filter: { kind: 'Template' },
         facets: ['spec.type'],
       })
       .then(response => {
+        if (!active) {
+          return;
+        }
         const nonEE = (response.facets['spec.type'] ?? [])
           .map(f => f.value)
           .filter(t => !isExecutionEnvironmentType(t))
           .sort((a, b) => a.localeCompare(b));
         setAllCategories(nonEE);
-        if (!filters.type || filters.type.getTypes().length === 0) {
+        if (userSelectionRef.current.length === 0) {
           updateFilters({
             type: nonEE.length > 0 ? new EntityTypeFilter(nonEE) : undefined,
           });
         }
       })
       .catch(() => {
-        setAllCategories([]);
+        if (active) {
+          setAllCategories([]);
+        }
       });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh facets on syncKey only
   }, [catalogApi, syncKey]);
 

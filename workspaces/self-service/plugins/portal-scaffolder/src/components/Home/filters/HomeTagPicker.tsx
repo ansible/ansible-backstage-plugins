@@ -20,12 +20,16 @@ export const HomeTagPicker = ({ syncKey }: HomeTagPickerProps) => {
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   useEffect(() => {
+    let active = true;
     catalogApi
       .getEntityFacets({
         filter: { kind: 'Template' },
         facets: ['spec.type'],
       })
       .then(response => {
+        if (!active) {
+          return undefined;
+        }
         const nonEETypes = (response.facets['spec.type'] ?? [])
           .map(f => f.value)
           .filter(t => !isExecutionEnvironmentType(t));
@@ -38,14 +42,22 @@ export const HomeTagPicker = ({ syncKey }: HomeTagPickerProps) => {
         });
       })
       .then(response => {
+        if (!active || !response) {
+          return;
+        }
         const tags = (response.facets['metadata.tags'] ?? [])
           .map(f => f.value)
           .sort((a, b) => a.localeCompare(b));
         setAvailableTags(tags);
       })
       .catch(() => {
-        setAvailableTags([]);
+        if (active) {
+          setAvailableTags([]);
+        }
       });
+    return () => {
+      active = false;
+    };
   }, [catalogApi, syncKey]);
 
   const handleTagChange = (newValue: string[]) => {

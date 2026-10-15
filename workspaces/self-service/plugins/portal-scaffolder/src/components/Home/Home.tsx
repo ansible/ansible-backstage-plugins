@@ -387,8 +387,6 @@ export const HomeComponent = () => {
             await fetchJobTemplates({ background: true });
           }
           setSyncKey(prev => prev + 1);
-          // Soft refresh after JT ids commit (same macrotask defer as SoftRefresh listener).
-          window.setTimeout(() => invalidateTemplatesCatalog(), 0);
         }
       }
       setSyncOptions([]);

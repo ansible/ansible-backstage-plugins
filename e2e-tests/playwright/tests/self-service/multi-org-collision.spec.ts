@@ -22,6 +22,14 @@ function catalogItems(body: unknown): any[] {
   return Array.isArray(body) ? body : ((body as any)?.items ?? []);
 }
 
+function templateCardTestId(template: {
+  metadata?: { namespace?: string; name?: string };
+}): string {
+  const namespace = template.metadata?.namespace ?? 'default';
+  const name = template.metadata?.name ?? '';
+  return `${namespace}-${name}`;
+}
+
 test('Same team name in different orgs both exist', async ({ page }) => {
   const token = await getBackstageToken(page);
 
@@ -302,16 +310,18 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
       timeout: 30000,
     });
 
-    const visibleTitles = normalPage.locator(
-      '[data-testid="templates-container"] [data-testid="template--title"]',
+    const templateCards = normalPage.locator(
+      '[data-testid="templates-container"] .MuiCard-root[data-testid]',
     );
-    await expect(visibleTitles.first()).toBeVisible({ timeout: 30000 });
-    const visibleTitleTexts = (await visibleTitles.allTextContents()).map(t =>
-      t.trim(),
+    await expect(templateCards.first()).toBeVisible({ timeout: 30000 });
+    const visibleCardIds = await templateCards.evaluateAll(cards =>
+      cards
+        .map(card => card.getAttribute('data-testid'))
+        .filter((id): id is string => Boolean(id)),
     );
     expect(
-      visibleTitleTexts.length,
-      'Normal user should see at least one permitted template',
+      visibleCardIds.length,
+      'Normal user should see at least one permitted template card',
     ).toBeGreaterThan(0);
 
     const normalToken = await getBackstageToken(normalPage);
@@ -330,46 +340,33 @@ test('Normal user sees scoped templates only', async ({ page, browser }) => {
       'Normal user catalog scope should not exceed admin-visible AAP templates',
     ).toBeLessThanOrEqual(adminTemplates.length);
 
-    const normalNames = new Set(
-      normalTemplates.map((t: any) => t.metadata?.name),
+    const permittedCardIds = new Set(
+      normalTemplates.map((t: any) => templateCardTestId(t)),
     );
-    const permittedTitles = new Set(
-      normalTemplates
-        .map((t: any) => (t.metadata?.title ?? '').trim())
-        .filter(Boolean),
-    );
-    for (const title of visibleTitleTexts) {
+    for (const cardId of visibleCardIds) {
       expect(
-        permittedTitles.has(title),
-        `Visible template "${title}" should be in the normal user's permitted catalog scope`,
+        permittedCardIds.has(cardId),
+        `Visible template card "${cardId}" should be in the normal user's permitted catalog scope`,
       ).toBe(true);
     }
 
     const adminOnly = adminTemplates.filter(
-      (t: any) => !normalNames.has(t.metadata?.name),
+      (t: any) =>
+        !normalTemplates.some(
+          (n: any) => templateCardTestId(n) === templateCardTestId(t),
+        ),
     );
     expect(
       adminOnly.length,
       'Fixture should include templates visible to admin but not the normal user',
     ).toBeGreaterThan(0);
 
-    const excludedByTitle = adminOnly.filter((t: any) => {
-      const title = (t.metadata?.title ?? '').trim();
-      return title && !permittedTitles.has(title);
-    });
-    if (excludedByTitle.length > 0) {
-      for (const template of excludedByTitle) {
-        const title = (template.metadata?.title ?? '').trim();
-        expect(
-          visibleTitleTexts,
-          `Normal user should not see admin-only template "${title}"`,
-        ).not.toContain(title);
-      }
-    } else {
+    const adminOnlyCardIds = adminOnly.map((t: any) => templateCardTestId(t));
+    for (const cardId of adminOnlyCardIds) {
       expect(
-        normalTemplates.length,
-        'Normal user should have a strictly narrower catalog scope than admin',
-      ).toBeLessThan(adminTemplates.length);
+        visibleCardIds,
+        `Normal user catalog must not render admin-only template "${cardId}"`,
+      ).not.toContain(cardId);
     }
   } finally {
     await normalPage.close();
