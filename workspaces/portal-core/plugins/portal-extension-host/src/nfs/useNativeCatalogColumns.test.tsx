@@ -225,7 +225,12 @@ describe('Native catalog column gating', () => {
         permissionName: 'scanner.read',
       },
     ];
-    check.mockResolvedValue({ allowed: false });
+    let decide!: (decision: { allowed: boolean }) => void;
+    check.mockReturnValue(
+      new Promise<{ allowed: boolean }>(resolve => {
+        decide = resolve;
+      }),
+    );
     const { result } = renderHook(
       () => useNativeCatalogColumns('playbook-repository'),
       { wrapper },
@@ -238,6 +243,9 @@ describe('Native catalog column gating', () => {
         'component:default/repo',
       ),
     );
+    await act(async () => {
+      decide({ allowed: false });
+    });
     expect(columns[0].loader).not.toHaveBeenCalled();
     expect(screen.queryByText('Quality for repo')).not.toBeInTheDocument();
   });

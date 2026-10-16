@@ -222,11 +222,11 @@ describe('AAP client boundary and lifecycle behavior', () => {
   });
 
   it.each([
-    { scmType: 'Github', token: 'github-token' },
-    { scmType: 'Gitlab', token: 'gitlab-token' },
+    { scmType: 'Github', token: 'github-token', host: 'github.com' },
+    { scmType: 'Gitlab', token: 'gitlab-token', host: 'gitlab.com' },
   ])(
     'uses the configured $scmType credential when preparing use-case URLs without mutating the payload',
-    async ({ scmType, token }) => {
+    async ({ scmType, token, host }) => {
       const remove = jest
         .spyOn(client, 'deleteJobTemplateIfExists')
         .mockResolvedValue(undefined);
@@ -246,13 +246,13 @@ describe('AAP client boundary and lifecycle behavior', () => {
           kind: 'scm',
           inputs: { username: 'robot' },
         },
-        extraVariables: { usecases: [{ url: 'https://github.com/team/repo' }] },
+        extraVariables: { usecases: [{ url: `https://${host}/team/repo` }] },
       };
       const before = JSON.stringify(payload);
       await client.createJobTemplate(payload, true, 'token');
       const variables = YAML.parse(post.mock.calls[0][2].extra_vars);
       expect(variables.usecases[0].url).toBe(
-        `https://robot:${token}@github.com/team/repo`,
+        `https://robot:${token}@${host}/team/repo`,
       );
       expect(variables.aap_hostname).toBe('https://aap.example.com');
       expect(remove).toHaveBeenCalledWith('job', organization, 'token');

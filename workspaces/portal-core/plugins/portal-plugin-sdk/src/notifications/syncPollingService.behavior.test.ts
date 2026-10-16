@@ -43,6 +43,7 @@ describe('syncPollingService', () => {
 
   afterEach(() => {
     syncPollingService.clear();
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -100,10 +101,7 @@ describe('syncPollingService', () => {
       );
       await jest.advanceTimersByTimeAsync(0);
 
-      // Should be same or slightly more (but not doubled)
-      expect(mockFetchApi.fetch.mock.calls.length).toBeLessThanOrEqual(
-        callCount + 1,
-      );
+      expect(mockFetchApi.fetch.mock.calls.length).toBe(callCount);
     });
   });
 
@@ -1571,8 +1569,6 @@ describe('syncPollingService', () => {
       );
       // Only one notification despite two timeouts with the same displayName
       expect(failCalls).toHaveLength(1);
-
-      dateNowSpy.mockRestore();
     });
 
     it('backfills syncProgress with pending entry for in-progress provider after page refresh', async () => {
@@ -1767,8 +1763,6 @@ describe('syncPollingService', () => {
           category: 'sync-failed',
         }),
       );
-
-      dateNowSpy.mockRestore();
     });
   });
 
@@ -1972,8 +1966,6 @@ describe('syncPollingService', () => {
         }),
       );
       expect(mockInvalidateFetchedData).toHaveBeenCalled();
-
-      dateNowSpy.mockRestore();
     });
 
     it('returns false when not initialized', () => {

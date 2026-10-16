@@ -339,7 +339,7 @@ describe('ApmeRulesTab interactions', () => {
 
   it('resets an override from the dialog, reloads defaults and closes it', async () => {
     getRules
-      .mockResolvedValueOnce(rules)
+      .mockResolvedValueOnce(rules.map(rule => ({ ...rule })))
       .mockResolvedValueOnce([
         { ...rules[1], hasOverride: false, enforced: false },
       ]);
