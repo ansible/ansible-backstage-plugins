@@ -177,8 +177,11 @@ export class UserProvisionerProvider implements EntityProvider {
     return PROVIDER_NAME;
   }
 
-  async connect(connection: EntityProviderConnection): Promise<void> {
-    this.connection = connection;
+  /** Attach the catalog connection before sign-in can provision entities through this provider. */
+  connect(connection: EntityProviderConnection): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.connection = connection;
+    });
   }
 
   async createUser(username: string, userID: number): Promise<boolean> {

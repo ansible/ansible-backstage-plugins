@@ -13,6 +13,7 @@ export function collectEntityActions(
   return collectOperationActions(actions, 'entity', hostApiVersion);
 }
 
+/** Validate operation-action descriptors before the host evaluates their runtime eligibility. */
 export function collectOperationActions<
   T extends EntityActionDescriptor | CatalogItemActionDescriptor,
 >(
@@ -86,8 +87,7 @@ export function collectOperationActions<
           if (
             followOn.type !== 'slot' ||
             followOn.targetSlot !== 'entity.detail.tabs' ||
-            !target ||
-            target.kind !== 'entity-tab' ||
+            target?.kind !== 'entity-tab' ||
             target.surface !== 'entity-page' ||
             target.launches.type !== 'slot' ||
             target.launches.targetSlot !== followOn.targetSlot

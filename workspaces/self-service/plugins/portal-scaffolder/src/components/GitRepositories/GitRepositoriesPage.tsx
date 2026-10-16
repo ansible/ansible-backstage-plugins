@@ -6,8 +6,10 @@ import {
   useMemo,
   Fragment,
 } from 'react';
-import { NativeCatalogHeaderActions } from '@ansible/portal-extension-host/alpha';
-import { useNativeCatalogTabs } from '@ansible/portal-extension-host/alpha';
+import {
+  NativeCatalogHeaderActions,
+  useNativeCatalogTabs,
+} from '@ansible/portal-extension-host/alpha';
 import { portalContributionsApiRef } from '@ansible/portal-extension-api/alpha';
 import {
   Page,
@@ -99,6 +101,7 @@ const getTabIndexFromPath = (pathname: string): number => {
   return 0;
 };
 
+/** Render the filtered repository catalog with host contributions and permission-gated actions. */
 export const GitRepositoriesPage = () => {
   const classes = useStyles();
   const location = useLocation();
@@ -243,12 +246,10 @@ export const GitRepositoriesPage = () => {
         if (tab) {
           navigate(`${rootLink()}/repositories/${tab.path}`);
         }
-      } else {
-        if (nativeContributions) {
-          const id = extensionTabs[index - GIT_REPO_BUILT_IN_TABS]?.id;
-          if (id) setSearchParams({ catalogTab: id });
-        } else setActiveExtTabIndex(index - GIT_REPO_BUILT_IN_TABS);
-      }
+      } else if (nativeContributions) {
+        const id = extensionTabs[index - GIT_REPO_BUILT_IN_TABS]?.id;
+        if (id) setSearchParams({ catalogTab: id });
+      } else setActiveExtTabIndex(index - GIT_REPO_BUILT_IN_TABS);
     },
     [navigate, rootLink, nativeContributions, extensionTabs, setSearchParams],
   );

@@ -1,6 +1,6 @@
 import { createPortalContributionProvider } from './createPortalContributionProvider';
 import '@testing-library/jest-dom';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
@@ -110,6 +110,40 @@ function descriptor(): EntityActionDescriptor {
 }
 
 describe('confirmed subject removal', () => {
+  it('keeps pending catalog cleanup visible and checks again without resubmitting removal', async () => {
+    const execute = jest
+      .fn()
+      .mockResolvedValue({ result: { subjectRemoved: true } });
+    const read = jest.fn().mockResolvedValue(context.entity);
+    const removed = await renderRemoval(execute, jest.fn(), read);
+    const scan = await screen.findByRole('button', { name: 'Scan' });
+    jest.useFakeTimers();
+    try {
+      fireEvent.click(scan);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Remove repository' }),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(45000);
+      });
+      expect(screen.getByText(/Catalog cleanup is still pending/)).toBeTruthy();
+      expect(screen.getByRole('dialog')).toBeTruthy();
+      expect(removed).not.toHaveBeenCalled();
+      read.mockResolvedValue(undefined);
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Check catalog removal' }),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(removed).toHaveBeenCalledTimes(1);
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(read).toHaveBeenCalledTimes(46);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   function removal() {
     const action = descriptor();
     delete action.followOnEntryPointId;

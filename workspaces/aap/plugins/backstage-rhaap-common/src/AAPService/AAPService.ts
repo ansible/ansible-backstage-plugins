@@ -14,19 +14,22 @@ import { AAPClient, IAAPService } from '../AAPClient/AAPClient';
 export const ansibleServiceRef = createServiceRef<IAAPService>({
   id: 'rhaap.client.service',
   scope: 'plugin',
-  defaultFactory: async (service: any) =>
-    createServiceFactory({
-      service,
-      deps: {
-        rootConfig: coreServices.rootConfig,
-        logger: coreServices.logger,
-      },
-      async factory({ rootConfig, logger }) {
-        logger.info('Creating a new AAP client');
-        return new AAPClient({
-          rootConfig: rootConfig,
-          logger: logger,
-        });
-      },
-    }),
+  defaultFactory: (service: any) =>
+    Promise.resolve(
+      createServiceFactory({
+        service,
+        deps: {
+          rootConfig: coreServices.rootConfig,
+          logger: coreServices.logger,
+        },
+        /** Create the shared AAP client from backend configuration and logging dependencies. */
+        factory({ rootConfig, logger }) {
+          logger.info('Creating a new AAP client');
+          return new AAPClient({
+            rootConfig: rootConfig,
+            logger: logger,
+          });
+        },
+      }),
+    ),
 });

@@ -68,10 +68,12 @@ export class UserProvisioner
 export const userProvisionerRef = createServiceRef<IUserProvisioner>({
   id: 'rhaap.user-provisioner',
   scope: 'root',
-  defaultFactory: async service =>
-    createServiceFactory({
-      service,
-      deps: {},
-      factory: () => new UserProvisioner(),
-    }),
+  defaultFactory: service =>
+    Promise.resolve(
+      createServiceFactory({
+        service,
+        deps: {},
+        factory: () => new UserProvisioner(),
+      }),
+    ),
 });

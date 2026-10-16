@@ -46,9 +46,9 @@ export function projectNameFromRepoUrl(repoUrl: string): string {
   const normalized = normalizeRepoUrl(repoUrl);
   const segments = normalized.split('/').filter(Boolean);
   if (segments.length >= 2) {
-    return `${segments[segments.length - 2]}/${segments[segments.length - 1]}`;
+    return `${segments.at(-2)}/${segments.at(-1)}`;
   }
-  return segments[segments.length - 1] ?? 'repository';
+  return segments.at(-1) ?? 'repository';
 }
 
 /** Normalizes a raw annotation value to a repository root URL. */

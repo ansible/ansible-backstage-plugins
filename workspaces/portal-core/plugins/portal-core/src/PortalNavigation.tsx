@@ -38,7 +38,10 @@ export function partitionNavigationItems(
   };
 }
 
-export function PortalNavigation({ navItems }: NavContentComponentProps) {
+/** Render discovered navigation using host-configured ordering, groups and bottom placement. */
+export function PortalNavigation({
+  navItems,
+}: Readonly<NavContentComponentProps>) {
   const config = useApi(configApiRef);
   const discovered = navItems.rest();
   const configured = config.getOptional<NavigationItemConfig[]>(

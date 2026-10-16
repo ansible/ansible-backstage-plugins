@@ -18,26 +18,12 @@ const Fallback = () => (
 
 // ── Inner renderers (defined first to satisfy no-use-before-define) ───────────
 
-/** Inner renderer for a single card contribution. */
-const CardContributionContent = ({
+/** Shared inner renderer for card and tab contributions. */
+const ContributionContent = ({
   contribution,
   entity,
 }: {
-  contribution: CardContribution;
-  entity?: Entity;
-}) => {
-  const Component = contribution.component as ComponentType<{
-    entity?: Entity;
-  }>;
-  return <Component entity={entity} />;
-};
-
-/** Inner renderer for a single tab contribution. */
-const TabContributionContent = ({
-  contribution,
-  entity,
-}: {
-  contribution: TabContribution;
+  contribution: CardContribution | TabContribution;
   entity?: Entity;
 }) => {
   const Component = contribution.component as ComponentType<{
@@ -99,7 +85,7 @@ export const ExperienceCardSlot = ({
   const rendered = cards.map(card => (
     <ErrorBoundary key={card.id} contributionId={card.id}>
       <Suspense fallback={<Fallback />}>
-        <CardContributionContent contribution={card} entity={entity} />
+        <ContributionContent contribution={card} entity={entity} />
       </Suspense>
     </ErrorBoundary>
   ));
@@ -153,7 +139,7 @@ export const ExperienceTabContent = ({
   return (
     <ErrorBoundary contributionId={contribution.id}>
       <Suspense fallback={<Fallback />}>
-        <TabContributionContent contribution={contribution} entity={entity} />
+        <ContributionContent contribution={contribution} entity={entity} />
       </Suspense>
     </ErrorBoundary>
   );

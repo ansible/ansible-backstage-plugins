@@ -134,7 +134,7 @@ export class RhaapOrganizationResolver implements ActiveOrganizationResolver {
 export const rhaapOrganizationServiceFactory = createServiceFactory({
   service: portalActiveOrganizationServiceRef,
   deps: { config: coreServices.rootConfig, logger: coreServices.rootLogger },
-  factory: async ({ config, logger }) =>
+  factory: ({ config, logger }) =>
     new RhaapOrganizationResolver(
       config,
       new AAPClient({ rootConfig: config, logger }),

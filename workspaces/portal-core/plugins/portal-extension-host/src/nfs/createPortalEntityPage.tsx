@@ -19,11 +19,12 @@ export function createPortalEntityPage(options: {
     name: 'entity',
     params: {
       path: options.path,
-      loader: async () => (
-        <ContributionPage
-          loader={api => options.loader(api.tabs, api.actions, api.cards)}
-        />
-      ),
+      loader: () =>
+        Promise.resolve(
+          <ContributionPage
+            loader={api => options.loader(api.tabs, api.actions, api.cards)}
+          />,
+        ),
     },
   });
 }

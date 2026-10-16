@@ -10,8 +10,8 @@ import { PORTAL_CONTRIBUTIONS_ATTACHMENT } from './contributions';
 export interface CatalogItemActionDescriptor
   extends Omit<EntityDetailTabDescriptor, 'attachment' | 'loader'> {
   attachment: 'catalog.item.actions';
-  confirmation?: EntityActionDescriptor['confirmation'];
-  completion?: EntityActionDescriptor['completion'];
+  confirmation?: NonNullable<EntityActionDescriptor['confirmation']>;
+  completion?: NonNullable<EntityActionDescriptor['completion']>;
 }
 
 export const catalogItemActionDataRef =

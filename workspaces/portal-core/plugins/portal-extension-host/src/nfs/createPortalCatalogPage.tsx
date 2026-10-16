@@ -2,6 +2,7 @@ import { PageBlueprint, type RouteRef } from '@backstage/frontend-plugin-api';
 import type { CatalogItemActionDescriptor } from '@ansible/portal-extension-api/alpha';
 import { ContributionPage } from './ContributionPage';
 
+/** Declare a native catalog page whose loader receives the host's catalog action contributions. */
 export function createPortalCatalogPage(options: {
   path: string;
   routeRef?: RouteRef;
@@ -16,9 +17,12 @@ export function createPortalCatalogPage(options: {
       title: 'Portal content',
       routeRef: options.routeRef,
       noHeader: true,
-      loader: async () => (
-        <ContributionPage loader={api => options.loader(api.catalogActions)} />
-      ),
+      loader: () =>
+        Promise.resolve(
+          <ContributionPage
+            loader={api => options.loader(api.catalogActions)}
+          />,
+        ),
     },
   });
 }

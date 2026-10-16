@@ -22,6 +22,7 @@ import { portalHealthServiceRef } from '@ansible/portal-plugin-node';
  */
 export const portalHealthPlugin = createBackendPlugin({
   pluginId: 'portal-health',
+  /** Declare the HTTP router and shared health registry needed for health aggregation. */
   register(env) {
     env.registerInit({
       deps: {
@@ -29,12 +30,15 @@ export const portalHealthPlugin = createBackendPlugin({
         logger: coreServices.logger,
         health: portalHealthServiceRef,
       },
-      async init({ httpRouter, logger, health }) {
-        logger.info('portal-health: starting health aggregation endpoint');
-        // express-promise-router vs passport/node_modules/@types/express-serve-static-core
-        // variance causes a spurious type mismatch; the runtime value is valid.
-        // @ts-expect-error See above
-        httpRouter.use(createRouter(health));
+      /** Mount the health aggregation router using the shared backend health registry. */
+      init({ httpRouter, logger, health }) {
+        return Promise.resolve().then(() => {
+          logger.info('portal-health: starting health aggregation endpoint');
+          // express-promise-router vs passport/node_modules/@types/express-serve-static-core
+          // variance causes a spurious type mismatch; the runtime value is valid.
+          // @ts-expect-error See above
+          httpRouter.use(createRouter(health));
+        });
       },
     });
   },

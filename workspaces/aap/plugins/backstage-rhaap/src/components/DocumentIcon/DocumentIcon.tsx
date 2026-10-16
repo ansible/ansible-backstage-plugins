@@ -26,10 +26,13 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+/** Render a decorative document icon without adding an accessible control label. */
 export const DocumentIcon = () => {
   const classes = useStyles();
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
       width="18"
       height="18"
       viewBox="0 0 18 18"

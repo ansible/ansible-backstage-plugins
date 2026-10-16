@@ -11,6 +11,7 @@ export function resolveCatalogTab(tab: CatalogTabDescriptor) {
     entry: capability?.entryPoints.find(item => item.id === tab.entryPointId),
   };
 }
+/** Validate catalog-tab declarations and return unique contributions in host presentation order. */
 export function collectCatalogTabs(
   tabs: readonly CatalogTabDescriptor[],
   version = '0.1.0',
@@ -37,7 +38,9 @@ export function collectCatalogTabs(
           !entry.appliesToContentTypes.length ||
           !entry.appliesToContentTypes.every(
             type =>
-              Object.values(CONTENT_TYPES).some(known => known === type) &&
+              (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+                type,
+              ) &&
               (capability.appliesToContentTypes === '*' ||
                 capability.appliesToContentTypes.includes(type)),
           ) ||

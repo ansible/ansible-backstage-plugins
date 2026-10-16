@@ -16,7 +16,7 @@ import plugin from './index';
 
 /** Register host-owned root services once across independently embedded SDKs. */
 export default createBackendFeatureLoader({
-  loader: async function* () {
+  loader: function* () {
     yield createServiceFactory({
       service: portalOperationsServiceRef,
       deps: {

@@ -48,13 +48,14 @@ export class ConfiguredOrganizationResolver
   implements ActiveOrganizationResolver
 {
   constructor(private readonly config: Config) {}
-  async resolve(
-    _credentials: BackstageCredentials,
-  ): Promise<string | undefined> {
-    return (
-      this.config.getOptionalString('portal.organization.id')?.trim() ||
-      undefined
-    );
+  /** Resolve the configured organization asynchronously without inferring scope from the user namespace. */
+  resolve(_credentials: BackstageCredentials): Promise<string | undefined> {
+    return Promise.resolve().then(() => {
+      return (
+        this.config.getOptionalString('portal.organization.id')?.trim() ||
+        undefined
+      );
+    });
   }
 }
 
@@ -164,27 +165,30 @@ export const portalActiveOrganizationServiceRef =
   createServiceRef<ActiveOrganizationResolver>({
     id: 'portal.active-organization',
     scope: 'root',
-    defaultFactory: async service =>
-      createServiceFactory({
-        service,
-        deps: { config: coreServices.rootConfig },
-        factory: async ({ config }) =>
-          new ConfiguredOrganizationResolver(config),
-      }),
+    defaultFactory: service =>
+      Promise.resolve(
+        createServiceFactory({
+          service,
+          deps: { config: coreServices.rootConfig },
+          factory: ({ config }) => new ConfiguredOrganizationResolver(config),
+        }),
+      ),
   });
 
 export const portalEntitlementsServiceRef =
   createServiceRef<PortalEntitlements>({
     id: 'portal.entitlements',
     scope: 'root',
-    defaultFactory: async service =>
-      createServiceFactory({
-        service,
-        deps: {
-          config: coreServices.rootConfig,
-          organizations: portalActiveOrganizationServiceRef,
-        },
-        factory: async ({ config, organizations }) =>
-          new PortalEntitlements(config, organizations),
-      }),
+    defaultFactory: service =>
+      Promise.resolve(
+        createServiceFactory({
+          service,
+          deps: {
+            config: coreServices.rootConfig,
+            organizations: portalActiveOrganizationServiceRef,
+          },
+          factory: ({ config, organizations }) =>
+            new PortalEntitlements(config, organizations),
+        }),
+      ),
   });

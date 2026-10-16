@@ -13,6 +13,7 @@ import { createEntitlementsRouter } from './entitlements/router';
 
 export default createBackendPlugin({
   pluginId: 'portal-operations',
+  /** Declare authentication, authorization, organization and operation-dispatch dependencies. */
   register(env) {
     env.registerInit({
       deps: {
@@ -26,19 +27,22 @@ export default createBackendPlugin({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
       },
-      async init({ httpRouter, ...options }) {
-        // Express 4/5 declaration variance at the Backstage router seam.
-        httpRouter.use(
-          createRouter(options) as unknown as Parameters<
-            typeof httpRouter.use
-          >[0],
-        );
-        httpRouter.use(
-          createEntitlementsRouter({
-            ...options,
-            catalog: new CatalogClient({ discoveryApi: options.discovery }),
-          }) as unknown as Parameters<typeof httpRouter.use>[0],
-        );
+      /** Mount operation and entitlement routers with trusted backend services and catalog access. */
+      init({ httpRouter, ...options }) {
+        return Promise.resolve().then(() => {
+          // Express 4/5 declaration variance at the Backstage router seam.
+          httpRouter.use(
+            createRouter(options) as unknown as Parameters<
+              typeof httpRouter.use
+            >[0],
+          );
+          httpRouter.use(
+            createEntitlementsRouter({
+              ...options,
+              catalog: new CatalogClient({ discoveryApi: options.discovery }),
+            }) as unknown as Parameters<typeof httpRouter.use>[0],
+          );
+        });
       },
     });
   },

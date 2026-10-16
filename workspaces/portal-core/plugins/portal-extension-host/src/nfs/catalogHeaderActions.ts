@@ -42,6 +42,7 @@ export function resolveCatalogHeaderAction(
     ),
   };
 }
+/** Validate header actions against manifests, supported attachments and registered workflows. */
 export function collectCatalogHeaderActions(
   actions: readonly CatalogHeaderActionDescriptor[],
   workflows: readonly ScaffolderWorkflowDescriptor[],
@@ -68,7 +69,9 @@ export function collectCatalogHeaderActions(
           !entry.appliesToContentTypes.length ||
           !entry.appliesToContentTypes.every(
             type =>
-              Object.values(CONTENT_TYPES).some(known => known === type) &&
+              (Object.values(CONTENT_TYPES) as readonly string[]).includes(
+                type,
+              ) &&
               (capability.appliesToContentTypes === '*' ||
                 capability.appliesToContentTypes.includes(type)),
           ) ||

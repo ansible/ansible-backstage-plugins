@@ -7,9 +7,18 @@ import {
   defaultBranchFromEntity,
   projectLookupKey,
   projectLookupKeyFromEntity,
+  projectNameFromRepoUrl,
 } from './catalogEntity';
 
 describe('catalogEntity', () => {
+  it.each([
+    ['', 'repository'],
+    ['solo', 'solo'],
+    ['org/repo', 'org/repo'],
+    ['https://github.com/org/repo.git/', 'org/repo'],
+  ])('derives a project name from %p', (url, expected) => {
+    expect(projectNameFromRepoUrl(url)).toBe(expected);
+  });
   const gitEntity = (branch?: string): Entity => ({
     apiVersion: 'backstage.io/v1alpha1',
     kind: 'Component',

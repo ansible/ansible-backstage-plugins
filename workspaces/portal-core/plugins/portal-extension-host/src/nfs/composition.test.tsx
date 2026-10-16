@@ -22,6 +22,7 @@ import {
   type EntityContributionContext,
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalEntityPage } from './createPortalEntityPage';
+import { createPortalCatalogPage } from './createPortalCatalogPage';
 import { PortalEntityTabs } from './PortalEntityTabs';
 
 const context: EntityContributionContext = {
@@ -33,6 +34,26 @@ const context: EntityContributionContext = {
   contentType: CONTENT_TYPES.PLAYBOOK_REPOSITORY,
   sourceKinds: ['git'],
 };
+
+it('loads a native catalog page with the host-provided catalog action list', async () => {
+  const loader = jest.fn(async actions => (
+    <div>Catalog actions: {actions.length}</div>
+  ));
+  await renderTestApp({
+    features: [
+      createFrontendPlugin({
+        pluginId: 'catalog-host',
+        extensions: [
+          createPortalContributionProvider(),
+          createPortalCatalogPage({ path: '/content', loader }),
+        ],
+      }),
+    ],
+    initialRouteEntries: ['/content'],
+  });
+  expect(await screen.findByText('Catalog actions: 0')).toBeTruthy();
+  expect(loader).toHaveBeenCalledWith([]);
+});
 
 function descriptor(
   overrides: Partial<EntityDetailTabDescriptor> = {},

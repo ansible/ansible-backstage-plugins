@@ -518,45 +518,48 @@ export class AAPClient implements IAAPService {
     }
   }
 
-  private async updateUseCaseUrls(
+  /** Add credentials only to matching integration HTTPS URLs while preserving rejected-error semantics. */
+  private updateUseCaseUrls(
     extraVariables: any,
     git_username: string | undefined,
     git_password: string | undefined,
     scmHost: string | undefined,
   ) {
-    if (
-      !git_username ||
-      !git_password ||
-      !scmHost ||
-      !Array.isArray(extraVariables.usecases)
-    ) {
-      return extraVariables;
-    }
-    return {
-      ...extraVariables,
-      usecases: extraVariables.usecases.map((usecase: any) => {
-        if (typeof usecase?.url !== 'string') return usecase;
-        let url: URL;
-        try {
-          url = new URL(usecase.url);
-        } catch {
-          return usecase;
-        }
-        // Bind the credential to the integration that supplied it, including
-        // its port. Never send that credential to another HTTPS host.
-        if (
-          url.protocol !== 'https:' ||
-          url.host.toLowerCase() !== scmHost.toLowerCase() ||
-          url.username ||
-          url.password
-        ) {
-          return usecase;
-        }
-        url.username = git_username;
-        url.password = git_password;
-        return { ...usecase, url: url.toString() };
-      }),
-    };
+    return Promise.resolve().then(() => {
+      if (
+        !git_username ||
+        !git_password ||
+        !scmHost ||
+        !Array.isArray(extraVariables.usecases)
+      ) {
+        return extraVariables;
+      }
+      return {
+        ...extraVariables,
+        usecases: extraVariables.usecases.map((usecase: any) => {
+          if (typeof usecase?.url !== 'string') return usecase;
+          let url: URL;
+          try {
+            url = new URL(usecase.url);
+          } catch {
+            return usecase;
+          }
+          // Bind the credential to the integration that supplied it, including
+          // its port. Never send that credential to another HTTPS host.
+          if (
+            url.protocol !== 'https:' ||
+            url.host.toLowerCase() !== scmHost.toLowerCase() ||
+            url.username ||
+            url.password
+          ) {
+            return usecase;
+          }
+          url.username = git_username;
+          url.password = git_password;
+          return { ...usecase, url: url.toString() };
+        }),
+      };
+    });
   }
 
   public async createJobTemplate(

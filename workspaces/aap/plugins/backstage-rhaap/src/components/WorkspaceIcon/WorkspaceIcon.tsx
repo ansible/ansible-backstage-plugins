@@ -26,11 +26,18 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+/** Render a decorative workspace icon without duplicating its surrounding label. */
 export const WorkspaceIcon = () => {
   const classes = useStyles();
 
   return (
-    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 80 80"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <g filter="url(#filter0_d_1031_9010)">
         <path
           className={classes.path}

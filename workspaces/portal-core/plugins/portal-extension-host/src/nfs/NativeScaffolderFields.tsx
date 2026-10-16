@@ -28,18 +28,35 @@ class FieldBoundary extends Component<
   }
 }
 
+/** Wrap a loaded field component so widget exceptions report failure to the scaffolder shell. */
+function guardField(
+  field: FieldExtensionOptions<any, any>,
+  onError: () => void,
+): FieldExtensionOptions<any, any> {
+  const Widget = field.component;
+  /** Render the widget inside a boundary without altering its field props or validation contract. */
+  function GuardedField(props: Parameters<typeof Widget>[0]) {
+    return (
+      <FieldBoundary onError={onError}>
+        <Widget {...props} />
+      </FieldBoundary>
+    );
+  }
+  return { ...field, component: GuardedField };
+}
+
 /** Resolve widgets before mounting the wizard; failures never fall back to generic inputs. */
 export function NativeScaffolderFields({
   declarations,
   reservedNames = EMPTY_NAMES,
   availableExperiences = DEFAULT_EXPERIENCES,
   children,
-}: {
+}: Readonly<{
   declarations: readonly ScaffolderFieldDescriptor[];
   reservedNames?: readonly string[];
   availableExperiences?: readonly string[];
   children: (fields: FieldExtensionOptions<any, any>[]) => JSX.Element;
-}) {
+}>) {
   const config = useApi(configApiRef);
   const permissions = useApi(permissionApiRef);
   const [state, setState] = useState<{
@@ -52,6 +69,16 @@ export function NativeScaffolderFields({
   }>();
   useEffect(() => {
     let cancelled = false;
+    /** Mark the current field declaration set as failed when a widget boundary reports an error. */
+    const handleFieldError = () => {
+      if (cancelled) return;
+      setState(previous =>
+        previous?.declarations === declarations
+          ? { ...previous, error: true }
+          : previous,
+      );
+    };
+    /** Resolve permitted field declarations and retain failure details instead of silently replacing widgets. */
     async function load() {
       try {
         const failedNames: string[] = [];
@@ -94,24 +121,7 @@ export function NativeScaffolderFields({
                   (field.validation && typeof field.validation !== 'function')
                 )
                   throw new Error('Invalid loaded field');
-                const Widget = field.component;
-                return {
-                  ...field,
-                  component: (props: Parameters<typeof Widget>[0]) => (
-                    <FieldBoundary
-                      onError={() => {
-                        if (!cancelled)
-                          setState(previous =>
-                            previous?.declarations === declarations
-                              ? { ...previous, error: true }
-                              : previous,
-                          );
-                      }}
-                    >
-                      <Widget {...props} />
-                    </FieldBoundary>
-                  ),
-                };
+                return guardField(field, handleFieldError);
               } catch {
                 failedNames.push(declaration.fieldName);
                 return undefined;
@@ -150,7 +160,11 @@ export function NativeScaffolderFields({
     state.reservedNames !== reservedNames ||
     state.availableExperiences !== availableExperiences
   )
-    return <p role="status">Loading template fields…</p>;
+    return (
+      <output style={{ display: 'block', margin: '1em 0' }}>
+        Loading template fields…
+      </output>
+    );
   if (state.error)
     return (
       <p role="alert">
@@ -169,6 +183,8 @@ export function NativeScaffolderFields({
       {children(state.fields)}
     </>
   ) : (
-    <p role="status">Loading template fields…</p>
+    <output style={{ display: 'block', margin: '1em 0' }}>
+      Loading template fields…
+    </output>
   );
 }

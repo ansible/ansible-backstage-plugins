@@ -23,12 +23,12 @@ export function PortalEntityTabContent({
   context,
   selectedId,
   onSelect,
-}: {
+}: Readonly<{
   eligible?: readonly EntityDetailTabDescriptor[];
   context: EntityContributionContext;
   selectedId?: string;
   onSelect: (id: string) => void;
-}) {
+}>) {
   const selected =
     eligible?.find(tab => tab.entryPointId === selectedId) ?? eligible?.[0];
   const Content = useMemo(
@@ -90,12 +90,12 @@ export function PortalEntityTabs({
   context,
   availableExperiences = DEFAULT_EXPERIENCES,
   checkEntitlement,
-}: {
+}: Readonly<{
   tabs: readonly EntityDetailTabDescriptor[];
   context: EntityContributionContext;
   availableExperiences?: readonly string[];
   checkEntitlement?: EntitlementCheck;
-}) {
+}>) {
   const eligible = useEligibleContributions(
     tabs,
     context,
