@@ -37,6 +37,7 @@ export class RhaapOrganizationResolver implements ActiveOrganizationResolver {
     return organizations.length === 1 ? organizations[0] : undefined;
   }
 
+  /** Resolve verified, configured AAP memberships; unavailable identity fails closed. */
   async resolveAll(
     credentials: BackstageCredentials,
   ): Promise<readonly string[]> {

@@ -96,6 +96,7 @@ export class PortalOperations {
     });
   }
 
+  /** Dispatch a REST operation after organization, RBAC, schema and entitlement checks. */
   async execute(
     operationId: string,
     request: OperationRequest,

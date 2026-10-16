@@ -183,6 +183,7 @@ async function fetchAllChunks(
   return map;
 }
 
+/** Fetch latest CI activity in batches, ignoring stale or cancelled requests. */
 export function useLatestCIActivity(entities: Entity[]): {
   lastActivityMap: Record<string, LatestActivityEntry>;
   loading: boolean;

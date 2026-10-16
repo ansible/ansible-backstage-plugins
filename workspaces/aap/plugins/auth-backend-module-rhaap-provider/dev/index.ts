@@ -5,9 +5,7 @@ const backend = createBackend();
 backend.add(import('@backstage/plugin-auth-backend'));
 backend.add(import('../src'));
 
-backend.start().catch(error => {
-  process.stderr.write(
-    `Failed to start the development backend: ${String(error)}\n`,
-  );
+backend.start().catch(() => {
+  process.stderr.write('Failed to start the development backend.\n');
   process.exitCode = 1;
 });

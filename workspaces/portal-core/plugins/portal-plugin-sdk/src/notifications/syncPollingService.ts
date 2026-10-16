@@ -122,6 +122,7 @@ class SyncPollingService {
     };
   }
 
+  /** Attach API clients and start or resume the polling loop. */
   initialize(discoveryApi: DiscoveryApi, fetchApi: FetchApi): void {
     this.discoveryApi = discoveryApi;
     this.fetchApi = fetchApi;
@@ -524,6 +525,7 @@ class SyncPollingService {
     return inFlightRef.promise;
   }
 
+  /** Poll and retry only while this session generation remains current. */
   private pollAndScheduleNext(gen: number): void {
     this.checkSyncStatus()
       .then(anyInProgress => {
@@ -539,6 +541,7 @@ class SyncPollingService {
       });
   }
 
+  /** Schedule fast active-sync polling or idle polling, guarded by session generation. */
   private scheduleNextPoll(anyInProgress: boolean): void {
     if (this.pollTimer !== null) {
       clearTimeout(this.pollTimer);
@@ -556,6 +559,7 @@ class SyncPollingService {
     }, interval);
   }
 
+  /** Track newly started syncs and immediately poll for progress and completion. */
   startTracking(syncs: StartedSyncInfo[]): void {
     if (syncs.length === 0) {
       return;

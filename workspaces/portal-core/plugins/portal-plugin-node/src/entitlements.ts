@@ -25,6 +25,7 @@ export interface ActiveOrganizationResolver {
   resolveAll?(credentials: BackstageCredentials): Promise<readonly string[]>;
 }
 
+/** Validate trusted memberships and return unique IDs in a stable order. */
 export async function resolveOrganizationMemberships(
   resolver: ActiveOrganizationResolver,
   credentials: BackstageCredentials,

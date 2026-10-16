@@ -33,15 +33,18 @@ function updateCache(isSuperuser: boolean, userRef: string | null): void {
   };
 }
 
-async function fetchUserEntity(
+/** Resolve a catalog user, converting both parse and lookup failures to rejections. */
+function fetchUserEntity(
   catalogApi: CatalogApi,
   userEntityRef: string,
 ): Promise<Entity | undefined> {
-  const { kind, namespace, name } = parseEntityRef(userEntityRef);
-  return catalogApi.getEntityByRef({
-    kind,
-    namespace: namespace || 'default',
-    name,
+  return Promise.resolve().then(() => {
+    const { kind, namespace, name } = parseEntityRef(userEntityRef);
+    return catalogApi.getEntityByRef({
+      kind,
+      namespace: namespace || 'default',
+      name,
+    });
   });
 }
 
@@ -140,6 +143,7 @@ export interface UseIsSuperuserResult {
   error: Error | null;
 }
 
+/** Read cached superuser metadata for UI visibility, never as backend authorization. */
 export function useIsSuperuser(): UseIsSuperuserResult {
   const identityApi = useApi(identityApiRef);
   const catalogApi = useApi(catalogApiRef);

@@ -137,6 +137,7 @@ function buildRepoFilter(repoEntity: Entity): {
   return { filter };
 }
 
+/** Load filtered catalog pages and await fallback queries when the page count shrinks. */
 export function usePaginatedCollections({
   catalogApi,
   discoveryApi,

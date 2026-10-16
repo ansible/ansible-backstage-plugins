@@ -21,6 +21,7 @@ export interface UseCacheSubscriptionResult<TState extends BaseCacheState> {
   cacheState: TState | null;
 }
 
+/** Subscribe to cached pages and resume loading without updating an unmounted consumer. */
 export function useCacheSubscription<TState extends BaseCacheState>({
   cache,
   catalogApi,
