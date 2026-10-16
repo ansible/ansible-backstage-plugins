@@ -134,7 +134,7 @@ The original `scaffolder-backend-module-backstage-rhaap` is retained as a deprec
 
 ### 4.3 EE entity registration
 
-`EEEntityProvider` + `POST /ansible/ee` in `catalog-backend-module-rhaap` are definition-path concerns (architecture §7.4). They move to `portal-scaffolder-backend-module` in Phase 2.
+`EEEntityProvider` in `catalog-backend-module-rhaap` is a definition-path concern (architecture §7.4). Phase 2 may relocate provider implementation closer to portal-scaffolder, but **`POST /ansible/ee` stays registered from a catalog-owned backend module** — not from `portal-scaffolder-backend-module`. The path (`/ansible/ee`) and auth contract (`allow: ['service']`, service-to-catalog calls from scaffolder) must not change.
 
 ---
 
@@ -167,13 +167,13 @@ Two modules replacing one; identical behaviour; all existing tests green.
 
 **Verification:** scaffolder module tests pass; smoke-test an EE template end-to-end in the dev app.
 
-### Phase 2 — Move `EEEntityProvider` to portal-scaffolder
+### Phase 2 — Relocate `EEEntityProvider` (catalog keeps the route)
 
-| Item                                                              | Notes                                                       |
-| ----------------------------------------------------------------- | ----------------------------------------------------------- |
-| Move `EEEntityProvider` class + `POST /ansible/ee` handler        | Register the router from `portal-scaffolder-backend-module` |
-| Keep the URL path stable                                          | No URL regression (architecture §7.7)                       |
-| Move tests from `catalog-backend-module-rhaap/src/router.test.ts` | Coverage travels with the route                             |
+| Item                                                              | Notes                                                                                                                              |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Move `EEEntityProvider` class out of `catalog-backend-module-rhaap` | Implementation may live in portal-scaffolder workspace code; **do not** mount `POST /ansible/ee` from `portal-scaffolder-backend-module` |
+| Keep `POST /ansible/ee` on a catalog-owned module                 | Same URL; preserve `allow: ['service']` (see `catalog-backend-module-rhaap/src/router.ts` today). Optional: thin `catalog-backend-module-*` dedicated to definition entities |
+| Move tests from `catalog-backend-module-rhaap/src/router.test.ts` | `POST /ansible/ee` coverage stays with whichever catalog module owns the route                                                     |
 
 **Open item:** [PR #189](https://github.com/ansible/ansible-backstage-plugins/pull/189) proposes registering the entity directly from the scaffolder action, retiring `POST /ansible/ee` entirely.
 
@@ -221,4 +221,4 @@ Two modules replacing one; identical behaviour; all existing tests green.
 | EE definition schema  | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapActionSchemas.ts` (partial)| `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/actions/schemas/eeDefinitionSchema.ts` |
 | Config                | `plugins/scaffolder-backend-module-backstage-rhaap/config.d.ts`                                        | Split per module                                                                                                  |
 | Backend wiring        | `packages/backend/src/index.ts`                                                                        | Two `backend.add()` calls                                                                                         |
-| EE push registration  | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`                               | Moves to `workspaces/portal-scaffolder/` in Phase 2                                                               |
+| EE push registration  | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `src/router.ts` (`POST /ansible/ee`) | Provider code may move; **route stays catalog-owned** (Phase 2)                                                    |
