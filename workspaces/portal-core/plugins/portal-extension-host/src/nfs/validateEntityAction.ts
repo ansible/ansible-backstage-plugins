@@ -13,6 +13,7 @@ export function collectEntityActions(
   return collectOperationActions(actions, 'entity', hostApiVersion);
 }
 
+/** Validate operation-action descriptors before the host evaluates their runtime eligibility. */
 export function collectOperationActions<
   T extends EntityActionDescriptor | CatalogItemActionDescriptor,
 >(

@@ -3,6 +3,7 @@ import type { EntityOverviewCardDescriptor } from '@ansible/portal-extension-api
 import { validateManifest } from '../validateManifest';
 import { resolveEntityContribution } from './useEligibleContributions';
 
+/** Validate overview-card contracts and supported details destinations before host activation. */
 export function collectEntityOverviewCards(
   cards: readonly EntityOverviewCardDescriptor[],
   hostApiVersion = '0.1.0',
@@ -53,8 +54,7 @@ export function collectEntityOverviewCards(
             .flatMap(item => item.entryPoints)
             .find(item => item.id === card.detailsEntryPointId);
           if (
-            !target ||
-            !target.id.startsWith(`${card.manifest.id}.`) ||
+            !target?.id.startsWith(`${card.manifest.id}.`) ||
             target.kind !== 'entity-tab' ||
             target.surface !== 'entity-page' ||
             target.launches.type !== 'slot' ||

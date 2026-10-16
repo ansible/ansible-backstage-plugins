@@ -24,6 +24,7 @@ import {
   type EntitlementCheck,
 } from './useEligibleContributions';
 
+/** Load a contributed cell for its current catalog entity with isolated loading and error states. */
 function CatalogCell({
   column,
   entity,

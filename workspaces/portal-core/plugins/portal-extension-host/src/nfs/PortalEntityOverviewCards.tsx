@@ -10,6 +10,7 @@ import { ContributionWrapper } from '../ContributionWrapper';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { resolveEntityContribution } from './useEligibleContributions';
 
+/** Lazy-load an eligible overview card inside the host's loading and error boundaries. */
 function OverviewCard({
   card,
   context,

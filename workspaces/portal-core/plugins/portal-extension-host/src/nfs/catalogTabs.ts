@@ -11,6 +11,7 @@ export function resolveCatalogTab(tab: CatalogTabDescriptor) {
     entry: capability?.entryPoints.find(item => item.id === tab.entryPointId),
   };
 }
+/** Validate catalog-tab declarations and return unique contributions in host presentation order. */
 export function collectCatalogTabs(
   tabs: readonly CatalogTabDescriptor[],
   version = '0.1.0',

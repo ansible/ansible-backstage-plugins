@@ -59,6 +59,7 @@ const scaffolderActionsExtensionPoint = ((
 export const scaffolderModuleAnsible = createBackendModule({
   pluginId: 'scaffolder',
   moduleId: 'ansible',
+  /** Declare the services required to register AAP-specific scaffolder actions. */
   register(env) {
     env.registerInit({
       deps: {
@@ -71,6 +72,7 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth: coreServices.auth,
         discovery: coreServices.discovery,
       },
+      /** Register AAP resource, execution-environment and content scaffolder actions. */
       init({
         scaffolder,
         config,

@@ -35,6 +35,7 @@ import { PortalEntityOverviewCards } from './PortalEntityOverviewCards';
 
 const EMPTY_CARDS: readonly EntityOverviewCardDescriptor[] = [];
 
+/** Accept only an explicit subjectRemoved result before reconciling catalog deletion. */
 function confirmsSubjectRemoval(result: unknown): boolean {
   return (
     typeof result === 'object' &&
@@ -44,6 +45,7 @@ function confirmsSubjectRemoval(result: unknown): boolean {
   );
 }
 
+/** Launch an eligible operation with duplicate-submit protection and optional removal reconciliation. */
 export function PortalOperationAction({
   action,
   context,
@@ -85,6 +87,7 @@ export function PortalOperationAction({
       eligibleTabs?.some(
         tab => tab.entryPointId === action.followOnEntryPointId,
       ));
+  /** Verify accepted removal against the catalog without resubmitting a previously accepted operation. */
   async function reconcileRemoval(
     result: unknown,
     subjectRef: string,
@@ -114,6 +117,7 @@ export function PortalOperationAction({
     return true;
   }
 
+  /** Submit an operation once, ignoring obsolete responses and selecting only an available follow-on view. */
   async function execute() {
     if (inFlight.current || !targetAvailable) return;
     inFlight.current = true;

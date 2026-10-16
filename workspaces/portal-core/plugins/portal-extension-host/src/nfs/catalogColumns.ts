@@ -3,6 +3,7 @@ import type { CatalogTableColumnDescriptor } from '@ansible/portal-extension-api
 import { validateManifest } from '../validateManifest';
 import { resolveEntityContribution } from './useEligibleContributions';
 
+/** Validate and deduplicate column contracts, then order them by their declared host contribution order. */
 export function collectCatalogColumns(
   columns: readonly CatalogTableColumnDescriptor[],
   version = '0.1.0',

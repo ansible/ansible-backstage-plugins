@@ -27,6 +27,7 @@ export function useNativeCatalogTabs(context: CatalogContributionContext) {
   useEffect(() => {
     if (!provider) return undefined;
     let cancelled = false;
+    /** Filter catalog tabs by scope, experience, configuration and permission before publishing the current result. */
     async function evaluate() {
       const matches = await Promise.all(
         (provider?.catalogTabs ?? []).map(async tab => {
@@ -34,8 +35,7 @@ export function useNativeCatalogTabs(context: CatalogContributionContext) {
             const { capability, entry } = resolveCatalogTab(tab);
             if (
               !capability ||
-              !entry ||
-              !entry.appliesToContentTypes.includes(context.contentType) ||
+              !entry?.appliesToContentTypes.includes(context.contentType) ||
               !(Object.values(EXPERIENCE_IDS) as readonly string[]).includes(
                 capability.experienceId,
               ) ||

@@ -14,6 +14,7 @@ import { ContributionWrapper } from '../ContributionWrapper';
 
 const noFollowOn = () => {};
 
+/** Render catalog-item contributions using the same eligibility and launch contracts as entity actions. */
 export function PortalCatalogItemActions({
   actions,
   context,

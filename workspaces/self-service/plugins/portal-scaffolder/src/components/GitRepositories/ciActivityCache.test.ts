@@ -115,6 +115,69 @@ describe('ciActivityCache', () => {
   });
 
   describe('startLoading', () => {
+    it.each(['invalidate', 'clear'] as const)(
+      'does not start a deferred load after %s',
+      async reset => {
+        const listener = jest.fn();
+        ciActivityCache.subscribe(listener);
+        const pending = ciActivityCache.startLoading(
+          [makeEntity('obsolete')],
+          mockDiscoveryApi,
+          mockFetchApi,
+        );
+        ciActivityCache[reset]();
+        listener.mockClear();
+        await pending;
+        await flush();
+        expect(mockDiscoveryApi.getBaseUrl).not.toHaveBeenCalled();
+        expect(mockFetchApi.fetch).not.toHaveBeenCalled();
+        expect(ciActivityCache.getState()).toBeNull();
+        expect(listener).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['invalidate', 'clear'] as const)(
+      'allows a new deferred load after %s cancels an older one',
+      async reset => {
+        const obsolete = ciActivityCache.startLoading(
+          [makeEntity('obsolete')],
+          mockDiscoveryApi,
+          mockFetchApi,
+        );
+        ciActivityCache[reset]();
+        const current = ciActivityCache.startLoading(
+          [makeEntity('current')],
+          mockDiscoveryApi,
+          mockFetchApi,
+        );
+        await Promise.all([obsolete, current]);
+        await flush();
+        expect(mockDiscoveryApi.getBaseUrl).toHaveBeenCalledTimes(1);
+        expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+        expect(ciActivityCache.getState()).toEqual(
+          expect.objectContaining({ loading: false, error: null }),
+        );
+      },
+    );
+
+    it('allows successive entity changes without treating them as invalidation', async () => {
+      const first = ciActivityCache.startLoading(
+        [makeEntity('first')],
+        mockDiscoveryApi,
+        mockFetchApi,
+      );
+      const second = ciActivityCache.startLoading(
+        [makeEntity('second')],
+        mockDiscoveryApi,
+        mockFetchApi,
+      );
+      await Promise.all([first, second]);
+      await flush();
+      expect(mockDiscoveryApi.getBaseUrl).toHaveBeenCalledTimes(2);
+      expect(mockFetchApi.fetch).toHaveBeenCalledTimes(1);
+      expect(ciActivityCache.getState()?.loading).toBe(false);
+    });
+
     it('sets loading state and notifies listeners', async () => {
       const listener = jest.fn();
       ciActivityCache.subscribe(listener);

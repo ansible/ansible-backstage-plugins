@@ -2,6 +2,7 @@ import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
 import { validateManifest } from '../validateManifest';
 
+/** Validate unique typed field declarations and reject unsupported manifest contracts. */
 export function collectScaffolderFields(
   fields: readonly ScaffolderFieldDescriptor[],
   hostApiVersion = '0.1.0',

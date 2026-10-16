@@ -518,6 +518,7 @@ export class AAPClient implements IAAPService {
     }
   }
 
+  /** Add credentials only to matching integration HTTPS URLs while preserving rejected-error semantics. */
   private updateUseCaseUrls(
     extraVariables: any,
     git_username: string | undefined,

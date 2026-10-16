@@ -6,6 +6,7 @@ import {
   type PortalContributionsApi,
 } from '@ansible/portal-extension-api/alpha';
 
+/** Lazy-load a contributed page with the host contribution API and a shared loading fallback. */
 export function ContributionPage({
   loader,
 }: Readonly<{

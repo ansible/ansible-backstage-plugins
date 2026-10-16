@@ -28,11 +28,13 @@ class FieldBoundary extends Component<
   }
 }
 
+/** Wrap a loaded field component so widget exceptions report failure to the scaffolder shell. */
 function guardField(
   field: FieldExtensionOptions<any, any>,
   onError: () => void,
 ): FieldExtensionOptions<any, any> {
   const Widget = field.component;
+  /** Render the widget inside a boundary without altering its field props or validation contract. */
   function GuardedField(props: Parameters<typeof Widget>[0]) {
     return (
       <FieldBoundary onError={onError}>
@@ -75,6 +77,7 @@ export function NativeScaffolderFields({
           : previous,
       );
     };
+    /** Resolve permitted field declarations and retain failure details instead of silently replacing widgets. */
     async function load() {
       try {
         const failedNames: string[] = [];

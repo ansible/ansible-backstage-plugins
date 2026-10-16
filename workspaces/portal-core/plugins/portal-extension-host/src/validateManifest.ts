@@ -12,6 +12,7 @@ interface SemVer {
   patch: number;
 }
 
+/** Parse the supported semantic-version shape used to check manifest and host compatibility. */
 function parseSemVer(version: string): SemVer | null {
   const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
   if (!match) return null;

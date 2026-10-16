@@ -38,6 +38,7 @@ export function partitionNavigationItems(
   };
 }
 
+/** Render discovered navigation using host-configured ordering, groups and bottom placement. */
 export function PortalNavigation({
   navItems,
 }: Readonly<NavContentComponentProps>) {

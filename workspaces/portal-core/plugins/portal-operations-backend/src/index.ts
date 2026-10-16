@@ -13,6 +13,7 @@ import { createEntitlementsRouter } from './entitlements/router';
 
 export default createBackendPlugin({
   pluginId: 'portal-operations',
+  /** Declare authentication, authorization, organization and operation-dispatch dependencies. */
   register(env) {
     env.registerInit({
       deps: {
@@ -26,6 +27,7 @@ export default createBackendPlugin({
         discovery: coreServices.discovery,
         auth: coreServices.auth,
       },
+      /** Mount operation and entitlement routers with trusted backend services and catalog access. */
       init({ httpRouter, ...options }) {
         return Promise.resolve().then(() => {
           // Express 4/5 declaration variance at the Backstage router seam.

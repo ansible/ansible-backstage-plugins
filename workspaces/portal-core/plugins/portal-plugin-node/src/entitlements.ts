@@ -48,6 +48,7 @@ export class ConfiguredOrganizationResolver
   implements ActiveOrganizationResolver
 {
   constructor(private readonly config: Config) {}
+  /** Resolve the configured organization asynchronously without inferring scope from the user namespace. */
   resolve(_credentials: BackstageCredentials): Promise<string | undefined> {
     return Promise.resolve().then(() => {
       return (

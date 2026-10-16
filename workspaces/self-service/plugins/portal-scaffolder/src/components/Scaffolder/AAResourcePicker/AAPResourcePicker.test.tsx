@@ -191,6 +191,78 @@ describe('AAPResourcePicker', () => {
   });
 
   describe('API Integration', () => {
+    it.each([
+      'token rejection',
+      'autocomplete rejection',
+      'autocomplete success',
+    ])(
+      'ignores obsolete %s after a newer resource request succeeds',
+      async obsoleteResult => {
+        let resolveOld!: (value: any) => void;
+        let rejectOld!: (error: Error) => void;
+        const oldRequest = new Promise((resolve, reject) => {
+          resolveOld = resolve;
+          rejectOld = reject;
+        });
+        if (obsoleteResult === 'token rejection') {
+          mockRhAapAuthApi.getAccessToken.mockReturnValueOnce(oldRequest);
+        } else {
+          mockScaffolderApi.autocomplete.mockReturnValueOnce(oldRequest);
+        }
+        const picker = (resource: string) => (
+          <TestApiProvider
+            apis={[
+              [rhAapAuthApiRef, mockRhAapAuthApi],
+              [scaffolderApiRef, mockScaffolderApi],
+            ]}
+          >
+            <AAPResourcePicker
+              {...defaultProps}
+              schema={{ ...defaultProps.schema, resource }}
+            />
+          </TestApiProvider>
+        );
+        const { rerender } = render(picker('inventories'));
+        await waitFor(() =>
+          expect(
+            obsoleteResult === 'token rejection'
+              ? mockRhAapAuthApi.getAccessToken
+              : mockScaffolderApi.autocomplete,
+          ).toHaveBeenCalledTimes(1),
+        );
+        mockScaffolderApi.autocomplete.mockResolvedValue({
+          results: [{ id: 9, name: 'Current resource' }],
+        });
+        rerender(picker('organizations'));
+        await waitFor(() =>
+          expect(screen.queryByRole('progressbar')).not.toBeInTheDocument(),
+        );
+        await act(async () => {
+          if (obsoleteResult === 'autocomplete success')
+            resolveOld({ results: [{ id: 8, name: 'Obsolete resource' }] });
+          else rejectOld(new Error('Obsolete request failed'));
+        });
+        fireEvent.mouseDown(screen.getByRole('button'));
+        expect(await screen.findByText('Current resource')).toBeInTheDocument();
+        expect(screen.queryByText('Obsolete resource')).not.toBeInTheDocument();
+      },
+    );
+
+    it('does not request autocomplete when its token resolves after unmount', async () => {
+      let resolveToken!: (token: string) => void;
+      mockRhAapAuthApi.getAccessToken.mockReturnValueOnce(
+        new Promise<string>(resolve => {
+          resolveToken = resolve;
+        }),
+      );
+      const { unmount } = renderComponent();
+      unmount();
+      await act(async () => {
+        resolveToken('obsolete-token');
+      });
+      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
+    });
+
     it('should fetch resources on mount', async () => {
       renderComponent();
 

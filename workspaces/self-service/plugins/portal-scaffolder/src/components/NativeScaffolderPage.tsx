@@ -25,6 +25,7 @@ const EEDetailsPage = lazy(() =>
 
 const reservedNames = formExtraFields.map(field => field.name);
 
+/** Render the native scaffolder with host-provided fields, APIs and notification boundaries. */
 export function NativeScaffolderPage({
   declarations,
 }: Readonly<{

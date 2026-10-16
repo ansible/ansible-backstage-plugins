@@ -51,6 +51,7 @@ export class MockAuthService implements AuthService {
     this.disableDefaultAuthPolicy = options.disableDefaultAuthPolicy;
   }
 
+  /** Validate mock user or service tokens and reject invalid or disallowed limited credentials. */
   authenticate(
     token: string,
     options?: { allowLimitedAccess?: boolean },
@@ -114,12 +115,14 @@ export class MockAuthService implements AuthService {
     });
   }
 
+  /** Return anonymous credentials using the asynchronous auth-service contract. */
   getNoneCredentials() {
     return Promise.resolve().then(() => {
       return mockCredentials.none();
     });
   }
 
+  /** Return service credentials identifying this mock service's owning plugin. */
   getOwnServiceCredentials(): Promise<
     BackstageCredentials<BackstageServicePrincipal>
   > {
@@ -148,6 +151,7 @@ export class MockAuthService implements AuthService {
     return true;
   }
 
+  /** Issue a target-plugin mock token only for principals allowed by the configured auth policy. */
   getPluginRequestToken(options: {
     onBehalfOf: BackstageCredentials;
     targetPluginId: string;
@@ -177,6 +181,7 @@ export class MockAuthService implements AuthService {
     });
   }
 
+  /** Issue an expiring limited token only for an authenticated user principal. */
   getLimitedUserToken(
     credentials: BackstageCredentials<BackstageUserPrincipal>,
   ): Promise<{ token: string; expiresAt: Date }> {

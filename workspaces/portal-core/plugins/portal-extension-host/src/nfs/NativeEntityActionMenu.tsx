@@ -6,6 +6,7 @@ import { PortalOperationAction } from './PortalEntityActions';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 
+/** Render eligible entity actions with isolated failures and host-controlled follow-on selection. */
 export function NativeEntityActionMenu({
   contributions,
   onSubjectRemoved,

@@ -22,6 +22,7 @@ import { portalHealthServiceRef } from '@ansible/portal-plugin-node';
  */
 export const portalHealthPlugin = createBackendPlugin({
   pluginId: 'portal-health',
+  /** Declare the HTTP router and shared health registry needed for health aggregation. */
   register(env) {
     env.registerInit({
       deps: {
@@ -29,6 +30,7 @@ export const portalHealthPlugin = createBackendPlugin({
         logger: coreServices.logger,
         health: portalHealthServiceRef,
       },
+      /** Mount the health aggregation router using the shared backend health registry. */
       init({ httpRouter, logger, health }) {
         return Promise.resolve().then(() => {
           logger.info('portal-health: starting health aggregation endpoint');

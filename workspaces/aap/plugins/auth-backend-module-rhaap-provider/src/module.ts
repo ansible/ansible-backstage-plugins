@@ -17,6 +17,7 @@ import { createUserJobTemplatesRouter } from './userJobTemplatesRouter';
 export const authModuleRhaapProvider = createBackendModule({
   pluginId: 'auth',
   moduleId: 'rhaap-provider',
+  /** Declare dependencies for the AAP OAuth provider and authenticated user-job-template routes. */
   register(reg) {
     reg.registerInit({
       deps: {
@@ -28,6 +29,7 @@ export const authModuleRhaapProvider = createBackendModule({
         httpAuth: coreServices.httpAuth,
         logger: coreServices.logger,
       },
+      /** Register the AAP OAuth provider, sign-in resolvers and user-job-template router. */
       init({
         providers,
         ansibleService,

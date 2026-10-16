@@ -277,11 +277,13 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     if (!resource) {
       setAvailableResources([]);
       setLoading(false);
-      return;
+      return undefined;
     }
+    let isCurrent = true;
     const fetchResources = async () => {
       try {
         const token = await aapAuth.getAccessToken();
+        if (!isCurrent) return;
         if (!scaffolderApi.autocomplete) {
           setAvailableResources([]);
           setLoading(false);
@@ -294,6 +296,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
           provider: 'aap-api-cloud',
           context: {},
         });
+        if (!isCurrent) return;
         if (initialFormData) {
           applyInitialSelectionAfterAutocomplete({
             results,
@@ -309,11 +312,15 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         // Clear initial form data once the available resources are loaded.
         setInitialFormData(null);
       } catch {
+        if (!isCurrent) return;
         setAvailableResources([]);
         setLoading(false);
       }
     };
     void fetchResources();
+    return () => {
+      isCurrent = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aapAuth, resource, scaffolderApi]);
   useEffect(updateAvailableResources, [updateAvailableResources]);

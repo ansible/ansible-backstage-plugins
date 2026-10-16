@@ -72,6 +72,7 @@ function displayNameForAapSyncProvider(provider: string): string {
     : 'Organizations, Users, and Teams';
 }
 
+/** Choose the singular label only for one item when formatting synchronization warnings. */
 function pluralizeSyncItem(
   count: number,
   singular: string,

@@ -42,6 +42,7 @@ export function resolveCatalogHeaderAction(
     ),
   };
 }
+/** Validate header actions against manifests, supported attachments and registered workflows. */
 export function collectCatalogHeaderActions(
   actions: readonly CatalogHeaderActionDescriptor[],
   workflows: readonly ScaffolderWorkflowDescriptor[],

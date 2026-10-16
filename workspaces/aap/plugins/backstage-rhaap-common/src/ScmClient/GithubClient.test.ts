@@ -39,6 +39,11 @@ describe('GithubClient', () => {
   });
 
   describe('constructor', () => {
+    it('resolves an absent numeric project ID without a network request', async () => {
+      await expect(client.getProjectId('org', 'repo')).resolves.toBeUndefined();
+      expect(undici.fetch).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
     it('should use api.github.com for github.com host', () => {
       const config: ScmClientConfig = {
         scmProvider: 'github',

@@ -22,6 +22,7 @@ export const ansibleServiceRef = createServiceRef<IAAPService>({
           rootConfig: coreServices.rootConfig,
           logger: coreServices.logger,
         },
+        /** Create the shared AAP client from backend configuration and logging dependencies. */
         factory({ rootConfig, logger }) {
           logger.info('Creating a new AAP client');
           return new AAPClient({

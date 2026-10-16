@@ -20,6 +20,7 @@ let state: CIActivityCacheState | null = null;
 let entityKey: string | null = null;
 let fetchPromise: Promise<void> | null = null;
 let generation = 0;
+let invalidationEpoch = 0;
 const listeners = new Set<Listener>();
 
 function buildEntityKey(entities: Entity[]): string {
@@ -54,12 +55,15 @@ function subscribe(listener: Listener): () => void {
   };
 }
 
+/** Defer setup without allowing a reset to revive cancelled work; entity changes remain valid. */
 function startLoading(
   entities: Entity[],
   discoveryApi: DiscoveryApi,
   fetchApi: FetchApi,
 ): Promise<void> {
+  const epochAtCall = invalidationEpoch;
   return Promise.resolve().then(() => {
+    if (epochAtCall !== invalidationEpoch) return;
     const key = buildEntityKey(entities);
 
     if (key === entityKey) {
@@ -199,7 +203,9 @@ function setError(message: string): void {
   notify();
 }
 
+/** Cancel queued and in-flight loads, clear cached activity and notify subscribers. */
 function invalidate(): void {
+  invalidationEpoch += 1;
   generation += 1;
   state = null;
   entityKey = null;
@@ -209,6 +215,7 @@ function invalidate(): void {
 
 /** @internal — test use only */
 function clear(): void {
+  invalidationEpoch += 1;
   generation += 1;
   state = null;
   entityKey = null;
