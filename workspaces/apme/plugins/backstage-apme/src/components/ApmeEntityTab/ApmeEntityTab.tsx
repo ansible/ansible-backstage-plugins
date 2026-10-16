@@ -65,7 +65,7 @@ export interface ApmeEntityTabProps {
  * permanent "Starting scan…" spinner (native SPA only mounts it when
  * ``sessionTabVisible``).
  */
-function WorkflowBody({ projectId }: { projectId: string }) {
+function WorkflowBody({ projectId }: Readonly<{ projectId: string }>) {
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
   const portalAiEnabled = useApmeAiEnabled();

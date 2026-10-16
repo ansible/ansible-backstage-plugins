@@ -73,7 +73,7 @@ export function isScmTokenRequiredError(err: unknown): boolean {
   }
 
   // Match HTTP status codes from ApmeApiClient only — not hex IDs in URLs.
-  const statusMatch = message.match(/APME API error:\s*(\d{3})\b/i);
+  const statusMatch = /APME API error:\s*(\d{3})\b/i.exec(message);
   const status = statusMatch ? Number(statusMatch[1]) : undefined;
 
   if (status === 401 || status === 403) {

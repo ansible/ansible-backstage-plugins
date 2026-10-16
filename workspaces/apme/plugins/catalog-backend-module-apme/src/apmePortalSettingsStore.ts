@@ -2,8 +2,8 @@
  * Copyright Red Hat
  */
 
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { ApmePortalSettingsData } from '@ansible/backstage-apme-common';
 
 const DEFAULT_RELATIVE_PATH = path.join('.data', 'apme-portal-settings.json');
@@ -92,7 +92,9 @@ export class ApmePortalSettingsStore {
     gatewayBaseUrl?: string | null;
   }): Promise<void> {
     const current = await this.read();
-    const global = { ...(current.global ?? {}) };
+    const global: typeof current.global = current.global
+      ? { ...current.global }
+      : {};
 
     if (updates.targetAnsibleCoreVersion !== undefined) {
       global.targetAnsibleCoreVersion = updates.targetAnsibleCoreVersion;
@@ -128,7 +130,9 @@ export class ApmePortalSettingsStore {
     targetAnsibleCoreVersion: string | null,
   ): Promise<void> {
     const current = await this.read();
-    const projects = { ...(current.projects ?? {}) };
+    const projects: typeof current.projects = current.projects
+      ? { ...current.projects }
+      : {};
 
     if (targetAnsibleCoreVersion === null) {
       delete projects[projectId];
@@ -151,7 +155,9 @@ export class ApmePortalSettingsStore {
     },
   ): Promise<void> {
     const current = await this.read();
-    const activities = { ...(current.activities ?? {}) };
+    const activities: typeof current.activities = current.activities
+      ? { ...current.activities }
+      : {};
     activities[scanId] = {
       ...activities[scanId],
       ...(outcome.branch_name ? { branch_name: outcome.branch_name } : {}),

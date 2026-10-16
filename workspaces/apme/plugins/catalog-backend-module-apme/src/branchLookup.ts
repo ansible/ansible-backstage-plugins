@@ -77,7 +77,7 @@ export function parseGitRepoUrl(repoUrl: string): ParsedGitRepo {
     provider,
     host,
     owner: segments.slice(0, -1).join('/'),
-    repo: segments[segments.length - 1],
+    repo: segments.at(-1) ?? '',
   };
 }
 

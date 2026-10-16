@@ -36,7 +36,7 @@ export function normalizeAnsibleCoreVersion(
   if (!trimmed) {
     return null;
   }
-  const match = trimmed.match(/^(\d+\.\d+)/);
+  const match = /^(\d+\.\d+)/.exec(trimmed);
   return match ? match[1] : trimmed;
 }
 

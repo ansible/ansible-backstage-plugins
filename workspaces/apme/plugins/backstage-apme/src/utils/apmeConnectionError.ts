@@ -84,7 +84,7 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   // Prefer nested InputError.message from Backstage error JSON bodies.
-  const nestedMessage = raw.match(/"message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const nestedMessage = /"message"\s*:\s*"((?:\\.|[^"\\])*)"/.exec(raw);
   if (nestedMessage?.[1]) {
     const decoded = nestedMessage[1]
       .replace(/\\n/g, ' ')
@@ -107,10 +107,11 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   // "APME API error: 400 - …" → keep status + short body when small
-  const apiMatch = raw.match(/^APME API error:\s*(\d{3})\s*-\s*(.*)$/is);
-  if (apiMatch) {
-    const status = apiMatch[1];
-    const rest = apiMatch[2].trim();
+  // Match API error prefix, then extract rest separately to avoid regex backtracking
+  const apiPrefixMatch = /^APME API error:\s*(\d{3})\s*-\s*/i.exec(raw);
+  if (apiPrefixMatch) {
+    const status = apiPrefixMatch[1];
+    const rest = raw.slice(apiPrefixMatch[0].length).trim();
     if (/remediate activity/i.test(rest)) {
       return 'Push needs a remediation run, not a quality scan. Select fixable issues and try Push branch again.';
     }
@@ -162,17 +163,17 @@ export function parseExistingPrFromError(
   if (!raw?.trim() || !isPrAlreadyCreatedError(raw)) {
     return null;
   }
-  const urlMatch = raw.match(
-    /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i,
+  const urlMatch = /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i.exec(
+    raw,
   );
   if (!urlMatch?.[0]) {
     return null;
   }
   const url = urlMatch[0].replace(/[.,;]+$/, '');
-  const numberMatch = url.match(/\/(?:pull|merge_requests)\/(\d+)/i);
+  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)/i.exec(url);
   return {
     url,
-    prNumber: numberMatch ? parseInt(numberMatch[1], 10) : undefined,
+    prNumber: numberMatch ? Number.parseInt(numberMatch[1], 10) : undefined,
   };
 }
 

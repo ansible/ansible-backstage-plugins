@@ -73,7 +73,7 @@ type ActivitySortColumn =
   | 'time';
 
 /** In-page panel dismiss — labeled (not icon-only); keeps control on the right. */
-function CloseDetailButton({ onClose }: { onClose: () => void }) {
+function CloseDetailButton({ onClose }: Readonly<{ onClose: () => void }>) {
   return (
     <Button
       variant="link"
@@ -111,10 +111,10 @@ function timeAgo(iso: string): string {
 function ActivityList({
   activities,
   onOpen,
-}: {
+}: Readonly<{
   activities: Activity[];
   onOpen: (scanId: string) => void;
-}) {
+}>) {
   const classes = useActivityListStyles();
   const tableClasses = useApmeOutlinedTableStyles();
   const theme = useTheme();
@@ -282,11 +282,11 @@ function ActivityDetailView({
   detail,
   onBack,
   ruleFilter,
-}: {
+}: Readonly<{
   detail: ActivityDetail;
   onBack: () => void;
   ruleFilter?: string;
-}) {
+}>) {
   return (
     <Flex direction={{ default: 'column' }} gap={{ default: 'gapMd' }}>
       <Flex
@@ -355,7 +355,7 @@ function ActivityDetailView({
   );
 }
 
-function QualityActivityBody({ projectId }: { projectId: string }) {
+function QualityActivityBody({ projectId }: Readonly<{ projectId: string }>) {
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
   const { entity } = useEntity();
