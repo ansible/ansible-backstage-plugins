@@ -1,0 +1,42 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}, 'sequence': {'bottomMarginAdj': 40}}}%%
+sequenceDiagram
+  actor Admin as Portal Admin<br/>(superuser)
+  participant Router as catalog-backend-module-rhaap<br/>router
+  participant Sched as Backstage SchedulerService
+  participant Provider as PAHCollectionProvider<br/>(scheduled task)
+
+  Admin->>Router: POST /ansible/sync/from-aap/content<br/>{ filters: [{ repository_name }] }
+  activate Router
+
+  Router->>Router: requireSuperuserMiddleware(request)<br/>(checks is_superuser via Catalog)
+
+  alt caller is not a superuser
+    Router-->>Admin: 403 Forbidden
+  else authorized
+    Router->>Router: parse filters -> repositoryNames[]
+    Router->>Router: resolveProvidersToRun(repositoryNames,<br/>PAH_PROVIDERS)<br/>-> providersToRun[], invalidRepositories[]
+
+    par for each provider to run (concurrent via Promise.all)
+      Router->>Sched: triggerTask(provider.getTaskId())
+      activate Sched
+
+      alt taskId missing (provider not initialized)
+        Note over Router: result = 'failed'<br/>(SYNC_START_FAILED)
+      else sync already in progress
+        Sched-->>Router: ConflictError
+        Note over Router: result = 'already_syncing'
+      else triggered successfully
+        Sched-->>Router: task scheduled (ack)
+        Sched->>Provider: invoke scheduled fn -> run(signal)<br/>(async, fire-and-forget)
+        Note over Provider: See "PAH catalog sync"<br/>sequence diagram for<br/>the full run() flow
+        Note over Router: result = 'sync_started'
+      end
+      deactivate Sched
+    end
+
+    Router->>Router: buildInvalidRepositoryResults(invalidRepositories)<br/>-> append 'invalid' results
+    Router->>Router: build summary<br/>{ total, sync_started, already_syncing,<br/>failed, invalid }
+    Note over Router: statusCode:<br/>202 all started<br/>200 all skipped<br/>207 mixed results<br/>400 all invalid/empty<br/>500 all failed
+    Router-->>Admin: {statusCode} JSON { summary, results }
+  end
+  deactivate Router
