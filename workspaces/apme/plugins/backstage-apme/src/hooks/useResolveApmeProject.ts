@@ -48,7 +48,7 @@ export function useResolveApmeProject(): ResolveApmeProjectState {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const next = await createApmeUiWorkflowAdapter({
           discoveryApi,
@@ -68,7 +68,7 @@ export function useResolveApmeProject(): ResolveApmeProjectState {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       if (!repoUrl) {
         setError(new Error('Entity has no source-location repository URL'));
         return;

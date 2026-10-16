@@ -41,7 +41,7 @@ export function QualityFindingsSection({
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const rules = await apmeApi.getRules();
         if (!cancelled) {

@@ -244,14 +244,14 @@ export const ApmeRulesTab = () => {
 
   const categoryOptions = useMemo(() => {
     const s = new Set(rules.map(r => r.category).filter(Boolean));
-    return [...s].sort();
+    return [...s].sort((a, b) => a.localeCompare(b));
   }, [rules]);
 
   const sourceOptions = useMemo(() => {
     const s = new Set(
       rules.map(r => r.source).filter((v): v is string => Boolean(v)),
     );
-    return [...s].sort();
+    return [...s].sort((a, b) => a.localeCompare(b));
   }, [rules]);
 
   const filtered = useMemo(() => {

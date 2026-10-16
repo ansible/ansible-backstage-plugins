@@ -17,7 +17,9 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
   if (!response.ok) {
     const body = await response.text();
     throw new Error(
-      `Provider discovery failed (${response.status}): ${body || response.statusText}`,
+      `Provider discovery failed (${response.status}): ${
+        body || response.statusText
+      }`,
     );
   }
   return response.json();
@@ -26,9 +28,10 @@ async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
 async function discoverOllamaModels(
   baseUrl: string | undefined,
 ): Promise<DiscoveredAiModel[]> {
+  // NOSONAR - HTTP is intentional for container-internal communication; local Ollama doesn't support HTTPS by default
   const root = normalizeBaseUrl(
     baseUrl,
-    'http://host.containers.internal:11434',
+    'http://host.containers.internal:11434', // NOSONAR
   );
   const data = (await fetchJson(`${root}/api/tags`)) as {
     models?: Array<{ name?: string; model?: string }>;
@@ -83,10 +86,11 @@ export async function discoverAiModelsForEngine(input: {
     return discoverOllamaModels(input.base_url);
   }
 
+  // NOSONAR - vLLM HTTP is intentional for container-internal communication; local vLLM doesn't support HTTPS by default
   const defaultUrls: Record<string, string> = {
     openrouter: 'https://openrouter.ai/api/v1',
     openai: 'https://api.openai.com/v1',
-    vllm: 'http://host.containers.internal:8000/v1',
+    vllm: 'http://host.containers.internal:8000/v1', // NOSONAR
   };
   const baseUrl = normalizeBaseUrl(
     input.base_url,

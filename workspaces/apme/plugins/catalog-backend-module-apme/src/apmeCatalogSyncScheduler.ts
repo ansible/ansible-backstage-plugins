@@ -91,7 +91,7 @@ export function registerApmeCatalogSyncTasks(
     const taskLogger = logger.child({ task: taskId });
     const env = syncConfig.env;
 
-    scheduler.scheduleTask({
+    void scheduler.scheduleTask({
       id: taskId,
       frequency: schedule.frequency,
       timeout: schedule.timeout,
