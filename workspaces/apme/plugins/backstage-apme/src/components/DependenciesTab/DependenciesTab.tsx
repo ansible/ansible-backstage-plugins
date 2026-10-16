@@ -234,18 +234,22 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
           style={{ fontSize: 12, color: theme.palette.text.secondary }}
         >
           Discovered from latest{' '}
-          <span
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             onClick={navigateToQuality}
             onKeyDown={e => activateOnKey(e, navigateToQuality)}
             style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              font: 'inherit',
+              color: 'inherit',
               textDecoration: 'underline',
               cursor: 'pointer',
             }}
           >
             quality scan
-          </span>
+          </button>
           {' · '}
           {lastScanned}
         </Typography>
@@ -327,9 +331,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         {vCount > 0 ? (
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          <button
+                            type="button"
                             onClick={() =>
                               setModalTarget({
                                 title: `${c.fqcn} ${c.version}`,
@@ -347,6 +350,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                               )
                             }
                             style={{
+                              border: 'none',
+                              cursor: 'pointer',
                               fontSize: 11,
                               fontWeight: 600,
                               padding: '1px 7px',
@@ -356,11 +361,10 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                                   .countPillBackground,
                               color:
                                 colorTokens.dependencyViolation.countPillText,
-                              cursor: 'pointer',
                             }}
                           >
                             {vCount}
-                          </span>
+                          </button>
                         ) : (
                           <CheckCircleOutlineIcon
                             style={{
@@ -439,9 +443,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       {vCount > 0 ? (
-                        <span
-                          role="button"
-                          tabIndex={0}
+                        <button
+                          type="button"
                           onClick={() =>
                             setModalTarget({
                               title: p.name,
@@ -459,6 +462,8 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                             )
                           }
                           style={{
+                            border: 'none',
+                            cursor: 'pointer',
                             fontSize: 11,
                             fontWeight: 600,
                             padding: '1px 7px',
@@ -468,11 +473,10 @@ export const DependenciesTab = ({ context }: DependenciesTabProps) => {
                                 .countPillBackground,
                             color:
                               colorTokens.dependencyViolation.countPillText,
-                            cursor: 'pointer',
                           }}
                         >
                           {vCount}
-                        </span>
+                        </button>
                       ) : (
                         <CheckCircleOutlineIcon
                           style={{

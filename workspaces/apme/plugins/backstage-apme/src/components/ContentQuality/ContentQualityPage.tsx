@@ -23,9 +23,9 @@ export function ContentQualityPage({ catalogTabId }: { catalogTabId: string }) {
           }}
         />
       ) : (
-        <p role="status">
+        <output>
           Content Quality is unavailable because APME is disabled.
-        </p>
+        </output>
       )}
     </RequirePermission>
   );

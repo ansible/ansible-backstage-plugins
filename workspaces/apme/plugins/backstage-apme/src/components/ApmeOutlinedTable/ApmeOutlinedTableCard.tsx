@@ -50,7 +50,9 @@ export function useApmeOutlinedTableStyles() {
   return useStyles();
 }
 
-export function ApmeOutlinedTableCard({ children }: { children: ReactNode }) {
+export function ApmeOutlinedTableCard({
+  children,
+}: Readonly<{ children: ReactNode }>) {
   return (
     <Card variant="outlined" style={{ borderRadius: 8, overflow: 'hidden' }}>
       <Box style={{ overflow: 'auto' }}>{children}</Box>
