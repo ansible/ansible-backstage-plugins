@@ -81,7 +81,15 @@ function providerFinishedRunSinceLastPoll(
   return curr.lastSyncTime !== prev.lastSyncTime || prev.syncInProgress;
 }
 
-class SyncPollingService {
+/** Poll catalog sync status with instance-local tracking and a configurable notification sink. */
+export class SyncPollingService {
+  constructor(
+    private readonly notifications: Pick<
+      typeof notificationStore,
+      'showNotification'
+    > = notificationStore,
+  ) {}
+
   private discoveryApi: DiscoveryApi | null = null;
   private fetchApi: FetchApi | null = null;
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
@@ -243,7 +251,7 @@ class SyncPollingService {
     this.notifyProgressListeners();
     if (!this.notifiedDisplayNames.has(displayName)) {
       this.notifiedDisplayNames.add(displayName);
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync failed',
         description,
         severity: 'error',
@@ -274,7 +282,7 @@ class SyncPollingService {
     this.notifiedDisplayNames.add(displayName);
 
     if (provider.lastSyncStatus === 'success') {
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync completed',
         description: buildSyncCompletedMessage(
           displayName,
@@ -289,7 +297,7 @@ class SyncPollingService {
       return;
     }
     if (provider.lastSyncStatus === 'failure') {
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync failed',
         description: `Failed to sync content from ${displayName}.`,
         severity: 'error',
@@ -299,7 +307,7 @@ class SyncPollingService {
       });
       return;
     }
-    notificationStore.showNotification({
+    this.notifications.showNotification({
       title: 'Sync finished',
       description: `Catalog did not report a clear success or failure for ${displayName}.`,
       severity: 'warning',
