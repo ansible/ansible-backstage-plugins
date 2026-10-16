@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { parseEntityRef } from '@backstage/catalog-model';
 import PersonIcon from '@material-ui/icons/Person';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import {
@@ -13,7 +14,10 @@ import {
   Typography,
   useTheme,
 } from '@material-ui/core';
-import { FavoriteEntity } from '@backstage/plugin-catalog-react';
+import {
+  EntityDisplayName,
+  FavoriteEntity,
+} from '@backstage/plugin-catalog-react';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
@@ -114,7 +118,14 @@ export function WizardCard({
                   marginBottom: '16px',
                 }}
               >
-                {template.spec.owner}
+                <EntityDisplayName
+                  entityRef={parseEntityRef(template.spec.owner, {
+                    defaultKind: 'Group',
+                  })}
+                  defaultKind="Group"
+                  hideIcon
+                  disableTooltip
+                />
               </Typography>
             </div>
           )}
