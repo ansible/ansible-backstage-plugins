@@ -209,7 +209,9 @@ export class AAPClient implements IAAPService {
           // @ts-ignore
           throw new Error(errorOutput.__all__.join(' '));
         } else if (errorOutput.constructor === Object) {
-          const errorData = Object.values(errorOutput);
+          const errorData = Object.values(errorOutput).map(value =>
+            typeof value === 'string' ? value : JSON.stringify(value),
+          );
           throw new Error(errorData.join(' '));
         }
       }

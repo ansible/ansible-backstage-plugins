@@ -137,6 +137,34 @@ describe('AAP client boundary and lifecycle behavior', () => {
     );
   });
 
+  it.each([
+    { detail: 'Invalid input', message: 'Invalid input' },
+    {
+      detail: { field: 'Invalid input' },
+      message: '{"field":"Invalid input"}',
+    },
+    {
+      detail: ['First issue', 'Second issue'],
+      message: '["First issue","Second issue"]',
+    },
+    { detail: 0, message: '0' },
+    { detail: false, message: 'false' },
+    { detail: null, message: 'null' },
+  ])(
+    'preserves structured POST error details: $message',
+    async ({ detail, message }) => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({ detail, hint: 'Check the request' }),
+      });
+      await expect(
+        client.executePostRequest('/resource', 'token', {}),
+      ).rejects.toThrow(`${message} Check the request`);
+    },
+  );
+
   it('builds multi-organization and label filters without a survey restriction', async () => {
     const get = jest
       .spyOn(client, 'executeGetRequest')
