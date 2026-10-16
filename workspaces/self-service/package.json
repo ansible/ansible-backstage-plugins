@@ -1,0 +1,6 @@
+{
+  "name": "@ansible/self-service-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-service workspace — portal-scaffolder plugin (ANSTRAT-2497)"
+}

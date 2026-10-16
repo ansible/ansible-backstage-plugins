@@ -4,7 +4,7 @@ Modern end-to-end tests for ansible-backstage-plugins using Playwright.
 
 ## Why Playwright?
 
-This is a proof-of-concept migration from Cypress to Playwright, offering:
+This is a migration from Cypress to Playwright, offering:
 
 - **5-8x faster** execution (parallel by default)
 - **No hard-coded waits** (smart auto-waiting)

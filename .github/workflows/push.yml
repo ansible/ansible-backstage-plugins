@@ -6,8 +6,8 @@ on:
     branches:
       - main
       - devel
-      - "releases/**"
-      - "stable/**"
+      - 'releases/**'
+      - 'stable/**'
   workflow_dispatch:
 
 jobs:
@@ -35,10 +35,10 @@ jobs:
     name: Test with Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     permissions:
-        actions: read
-        checks: read
-        contents: read
-        id-token: write
+      actions: read
+      checks: read
+      contents: read
+      id-token: write
     env:
       NODE_OPTIONS: --max-old-space-size=8192
     strategy:
@@ -64,6 +64,11 @@ jobs:
         with:
           cache-prefix: ${{ runner.os }}-v${{ matrix.node-version }}
 
+      - name: Check dependency version pins
+        run: |
+          node --test scripts/check-dependency-pins.test.mjs
+          bash scripts/check-dependency-pins.sh
+
       - name: Run Lint
         run: yarn lint:all
 
@@ -73,18 +78,18 @@ jobs:
 
       - name: Upload Jest log on failure
         if: ${{ always() && steps.tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jest-log-${{ matrix.node-version }}
           path: test-console.log
           if-no-files-found: ignore
           retention-days: 7
 
-      # Filter coverage to only include plugins/ directory
+      # Keep plugin coverage across all workspaces, excluding app/backend packages.
       - name: Filter coverage for plugins only
         run: |
-          # Create filtered coverage file containing only plugins/ paths
-          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+          awk '/^SF:/{found=/^SF:(.*\/)?workspaces\/[^\/]+\/plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info
+          test -s ./coverage/lcov-plugins.info
 
       - name: Verify coverage files
         run: |
@@ -101,7 +106,7 @@ jobs:
           verbose: true
 
       - name: Upload Code Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report-${{ matrix.node-version }}
           path: |
@@ -124,14 +129,14 @@ jobs:
       - name: Prepare Sonar arguments
         id: sonar-args
         run: |
-            echo "SONAR_ARGS=-Dsonar.organization=${{ env.REPO_OWNER }} \
-            -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }} \
-            -Dsonar.projectName='ansible-backstage-plugins' \
-            -Dsonar.sources=plugins \
-            -Dsonar.tests=plugins \
-            -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx \
-            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js \
-            -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info" >> $GITHUB_ENV
+          echo "SONAR_ARGS=-Dsonar.organization=${{ env.REPO_OWNER }} \
+          -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }} \
+          -Dsonar.projectName='ansible-backstage-plugins' \
+          -Dsonar.sources=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins \
+          -Dsonar.tests=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins \
+          -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx \
+          -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/** \
+          -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info" >> $GITHUB_ENV
 
       # SonarCloud Scan for main branch
       - name: SonarCloud Scan (Main Branch)

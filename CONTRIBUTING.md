@@ -436,5 +436,3 @@ By contributing, you agree that your contributions will be licensed under the Ap
 Thank you for contributing to Ansible Backstage Plugins! Your contributions help make this project better for everyone in the Ansible and Backstage communities.
 
 ---
-
-Last updated: October 2025

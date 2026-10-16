@@ -1,0 +1,41 @@
+# @ansible/plugin-backstage-apme (eap-next)
+
+Thin Portal host for APME Quality on catalog entities.
+
+Architecture (approach, FE/BE wiring, `@apme/ui-workflow`): [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Scope
+
+- Resolves/registers an APME project from the entity source location
+- Mounts shared `@apme/ui-workflow` (`ProjectWorkflowPanel`)
+- Talks to Gateway via `catalog-backend-module-apme` (`/api/catalog/apme`)
+- Owns the **Add repository** scaffolder Template YAML under
+  `templates/apme-register-git-repository/` (catalog content — must be loaded
+  via `catalog.locations`; not included in `export-dynamic` by default)
+
+## Not in this package
+
+- MUI remediation steppers / file-bundle review UI
+- Portal-side git commit/push (forbidden by APME ADR-056)
+- Fleet Analytics
+
+## Local enablement (EAP)
+
+```yaml
+ansible:
+  apme:
+    enabled: true
+    baseUrl: http://localhost:8080
+    checkSSL: false
+    publishViaGateway: true
+```
+
+`@apme/ui-workflow` is installed from an APME GitHub Release tarball (ADR-066),
+not a vendored workspace copy. Bump the dependency URL in `package.json` when
+APME tags a new `ui-workflow-v*` release, then run `yarn install`.
+
+Current pin:
+
+```text
+https://github.com/ansible/apme/releases/download/v2026.9.3/apme-ui-workflow-2026.9.3.tgz
+```

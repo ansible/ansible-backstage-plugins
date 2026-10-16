@@ -78,7 +78,7 @@ repos:
         name: OpenAPI Drift Check
         entry: yarn openapi:check-drift
         language: system
-        files: (^api/openapi\.yaml$|^plugins/.*/router\.ts$)
+        files: (^api/openapi\.yaml$|^(workspaces/[^/]+/)?plugins/.*/router\.ts$)
         types:
           - file
         pass_filenames: false

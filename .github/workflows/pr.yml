@@ -40,10 +40,10 @@ jobs:
     name: Test with Node.js ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     permissions:
-        actions: read
-        checks: read
-        contents: read
-        id-token: write
+      actions: read
+      checks: read
+      contents: read
+      id-token: write
     env:
       NODE_OPTIONS: --max-old-space-size=8192
     strategy:
@@ -67,10 +67,12 @@ jobs:
       - name: Install dependencies
         uses: backstage/actions/yarn-install@b3c1841fd69e1658ac631afafd0fb140a2309024 # v0.6.17
         with:
-            cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
-  
+          cache-prefix: ${{ github.ref_name }}-${{ runner.os }}-${{ matrix.node-version }}
+
       - name: Check dependency version pins
-        run: bash scripts/check-dependency-pins.sh
+        run: |
+          node --test scripts/check-dependency-pins.test.mjs
+          bash scripts/check-dependency-pins.sh
 
       - name: Lint OpenAPI spec
         run: yarn openapi:lint
@@ -90,18 +92,18 @@ jobs:
 
       - name: Upload Jest log on failure
         if: ${{ always() && steps.tests.outcome == 'failure' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: jest-log-${{ matrix.node-version }}
           path: test-console.log
           if-no-files-found: ignore
           retention-days: 7
 
-      # Filter coverage to only include plugins/ directory
+      # Keep plugin coverage across all workspaces, excluding app/backend packages.
       - name: Filter coverage for plugins only
         run: |
-          # Create filtered coverage file containing only plugins/ paths
-          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+          awk '/^SF:/{found=/^SF:(.*\/)?workspaces\/[^\/]+\/plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info
+          test -s ./coverage/lcov-plugins.info
 
       - name: Verify coverage files
         run: |
@@ -118,14 +120,14 @@ jobs:
           verbose: true
 
       - name: Upload Code Coverage Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report-${{ matrix.node-version }}
           path: |
             ./coverage/lcov.info
             ./coverage/lcov-plugins.info
           retention-days: 30
-  
+
       - name: Upload JUnit XML results to PDE
         if: >
           github.event_name != 'pull_request' ||
@@ -147,7 +149,7 @@ jobs:
             echo "junit.xml not found!"
             exit 1
           fi
-          
+
   all-green:
     if: ${{ always() }}
     name: check
@@ -171,4 +173,3 @@ jobs:
             exit(1)
           print('All jobs succeeded!')
           "
-          

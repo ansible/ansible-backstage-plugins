@@ -1,1 +1,1 @@
---8<-- "plugins/scaffolder-backend-module-backstage-rhaap/README.md"
+--8<-- "workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/README.md"

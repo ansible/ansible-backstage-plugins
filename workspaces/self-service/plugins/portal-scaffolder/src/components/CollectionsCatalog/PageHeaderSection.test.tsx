@@ -1,0 +1,113 @@
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@material-ui/core/styles';
+import { PageHeaderSection } from './PageHeaderSection';
+
+const mockUseIsSuperuser = jest.fn().mockReturnValue({
+  isSuperuser: true,
+  loading: false,
+  error: null,
+});
+
+// CollectionsCatalog/PageHeaderSection wraps GenericPageHeaderSection from
+// @ansible/backstage-rhaap-react (via '../common'). That component imports
+// useIsSuperuser from its own internal relative path inside the workspace package.
+// Mocking '../../hooks' alone does not intercept it. Target the workspace package
+// hooks directly so mockUseIsSuperuser controls all usages.
+jest.mock(
+  '../../../../../../portal-core/plugins/portal-plugin-sdk/src/hooks',
+  () => ({
+    useIsSuperuser: () => mockUseIsSuperuser(),
+    clearSuperuserCache: jest.fn(),
+  }),
+);
+
+const theme = createTheme();
+
+const renderWithTheme = (ui: React.ReactElement) => {
+  return render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+};
+
+describe('PageHeaderSection', () => {
+  const mockOnSyncClick = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseIsSuperuser.mockReturnValue({
+      isSuperuser: true,
+      loading: false,
+      error: null,
+    });
+  });
+
+  it('renders Collections title and description', () => {
+    renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
+
+    expect(screen.getByText('Collections')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Browse and discover Ansible collections from all your connected sources/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders Sync Now button when user is superuser', () => {
+    renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeInTheDocument();
+  });
+
+  it('calls onSyncClick when Sync Now is clicked', () => {
+    renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    fireEvent.click(syncButton);
+
+    expect(mockOnSyncClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Sync Now when syncDisabled is true', () => {
+    renderWithTheme(
+      <PageHeaderSection onSyncClick={mockOnSyncClick} syncDisabled />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeDisabled();
+  });
+
+  it('renders help icon with tooltip', () => {
+    renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
+
+    expect(
+      screen.getByTitle(/An Ansible Collection is a package of reusable/),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render Sync Now when user is not superuser', () => {
+    mockUseIsSuperuser.mockReturnValueOnce({
+      isSuperuser: false,
+      loading: false,
+      error: null,
+    });
+
+    renderWithTheme(<PageHeaderSection onSyncClick={mockOnSyncClick} />);
+
+    expect(
+      screen.queryByRole('button', { name: /Sync Now/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows syncDisabledReason in tooltip when sync disabled with reason', () => {
+    renderWithTheme(
+      <PageHeaderSection
+        onSyncClick={mockOnSyncClick}
+        syncDisabled
+        syncDisabledReason="Sync in progress"
+      />,
+    );
+
+    const syncButton = screen.getByRole('button', { name: /Sync Now/i });
+    expect(syncButton).toBeDisabled();
+    expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
+  });
+});

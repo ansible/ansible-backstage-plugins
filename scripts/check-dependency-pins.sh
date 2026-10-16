@@ -19,21 +19,34 @@ for entry in "${PINNED_DEPS[@]}"; do
   found=0
 
   while IFS= read -r pkg_json; do
-    range=$(python3 -c "
-import json, sys
-with open('$pkg_json') as f:
-    deps = json.load(f).get('dependencies', {})
-v = deps.get('$pkg')
-if v:
-    print(v)
-" 2>/dev/null)
+    range=$(node -e '
+const fs = require("node:fs");
+const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const range = manifest.dependencies?.[process.argv[2]];
+if (range) console.log(range);
+' "$pkg_json" "$pkg") || exit 1
 
     [ -z "$range" ] && continue
     found=1
 
-    resolved=$(grep -A1 "\"${pkg}@npm:${range}\":" yarn.lock \
-      | grep 'version:' \
-      | sed 's/.*version: //')
+    # Yarn can group several exact descriptors under one quoted key. Match
+    # descriptor membership, not a regex substring or just the final range.
+    resolved=$(awk -v descriptor="${pkg}@npm:${range}" '
+      /^".*":$/ {
+        key = substr($0, 2, length($0) - 3)
+        count = split(key, descriptors, ", ")
+        matches = 0
+        for (i = 1; i <= count; i++) {
+          if (descriptors[i] == descriptor) matches = 1
+        }
+      }
+      matches && /^  version: / {
+        version = $2
+        gsub(/"/, "", version)
+        print version
+        exit
+      }
+    ' yarn.lock)
 
     if [ -z "$resolved" ]; then
       echo "FAIL: ${pkg}@${range} (from ${pkg_json}) not found in yarn.lock"
@@ -48,7 +61,9 @@ if v:
     else
       echo "OK: ${pkg_json}: ${pkg}@${resolved} >= ${min_ver} (${reason})"
     fi
-  done < <(find packages plugins -name package.json -not -path '*/node_modules/*' 2>/dev/null)
+  done < <(find workspaces e2e-tests \
+    -type d \( -name node_modules -o -name dist -o -name dist-dynamic -o -name .git \) -prune \
+    -o -type f -name package.json -print 2>/dev/null)
 
   if [ "$found" -eq 0 ]; then
     echo "FAIL: ${pkg} not found in any package.json"

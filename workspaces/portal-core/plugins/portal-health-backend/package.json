@@ -1,0 +1,44 @@
+{
+  "name": "@ansible/portal-health-backend",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "Backstage backend plugin that aggregates portal plugin health statuses and exposes them at GET /api/portal-health/status. Reads from the push-based HealthRegistry populated by portal-plugin-node's pushHealthStatus().",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "backend-plugin",
+    "pluginId": "portal-health"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "dependencies": {
+    "@ansible/portal-plugin-node": "workspace:^",
+    "@backstage/backend-plugin-api": "^1.8.0",
+    "express": "^5.1.0",
+    "express-promise-router": "^4.1.1"
+  },
+  "devDependencies": {
+    "@backstage/backend-test-utils": "^1.11.1",
+    "@backstage/cli": "^0.36.0",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^29.5.14",
+    "express": "^5.1.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

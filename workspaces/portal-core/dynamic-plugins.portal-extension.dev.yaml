@@ -1,0 +1,100 @@
+# Portal Extension System — RHDH Dynamic Plugin Overlay (DEV)
+#
+# Drop this file into automation-portal-local/overlay/ and include it
+# alongside dynamic-plugins.portal-apme.dev.yaml to enable the portal
+# extension SDK in a local RHDH instance.
+#
+# Load order is critical:
+#   1. portal-core   — singleton provider for @ansible/portal-extension-api
+#   2. self-service  — consumers useExtensionTabs / useExtensionActions in GitRepositoriesPage
+#   3. backstage-apme — registers tabs, cards, list actions via registerApmeExtensions()
+#
+# @ansible/portal-extension-api is already a peerDependency of both
+# self-service and backstage-apme, so rhdh-cli plugin export treats it as
+# external (MF shared consumer) automatically for those plugins.
+# portal-core declares it under sharedPackages so RHDH's plugin loader
+# exposes portal-core's bundled copy to the MF shared scope — making all
+# three plugins share a single ContributionRegistry instance.
+#
+# Usage:
+#   # In compose.portal.dev.yaml / your Helm/Operator dynamic-plugins list:
+#   includes:
+#     - dynamic-plugins.default.yaml
+#     - dynamic-plugins.portal-extension.dev.yaml    # ← add this
+#   plugins:
+#     - package: ./local-plugins/portal-dev/self-service
+#       ...
+#     - package: ./local-plugins/portal-dev/backstage-apme
+#       ...
+
+plugins:
+  # ── Portal Extension API singleton provider ──────────────────────────────
+  # Must be listed BEFORE self-service and backstage-apme.
+  # RHDH exposes portal-core's bundled @ansible/portal-extension-api and
+  # @ansible/portal-extension-host into the MF shared scope so all portal
+  # content plugins share one ContributionRegistry instance.
+  - package: ./local-plugins/portal-dev/portal-core
+    disabled: false
+    sharedPackages:
+      - '@ansible/portal-extension-api'
+      - '@ansible/portal-extension-host'
+    # portal-core has no UI mount points — no pluginConfig needed.
+
+  # ── APME frontend (after portal-core, so shared scope is populated) ──────
+  # registerApmeExtensions() fires as a side-effect when this plugin loads.
+  # It writes tabs, cards, and list-actions into the ContributionRegistry
+  # provided by portal-core. GitRepositoriesPage (in self-service) renders
+  # them via useExtensionTabs / useExtensionActions.
+  - package: ./local-plugins/portal-dev/backstage-apme
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          ansible.plugin-backstage-apme:
+            # RHDH-managed API factories (not portal-SDK extensions)
+            apiFactories:
+              - importName: apmeApiFactory
+              - importName: gitRepositoriesExtensionsApiFactory
+
+            # RHDH entity page tab (independent of portal-SDK tabs)
+            entityTabs:
+              - path: /apme
+                title: Quality
+                mountPoint: entity.page.apme
+            mountPoints:
+              - mountPoint: entity.page.apme/cards
+                importName: ApmeEntityTab
+                config:
+                  layout:
+                    gridColumn: '1 / -1'
+                  if:
+                    allOf:
+                      - isKind: component
+                      - isType: git-repository
+
+  # ── APME catalog backend module ──────────────────────────────────────────
+  - package: ./local-plugins/portal-dev/catalog-backend-module-apme
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        backend:
+          ansible.backstage-plugin-catalog-backend-module-apme: {}
+
+# ── What the portal-SDK registers (via registerApmeExtensions side-effect) ──
+#
+# These are not RHDH pluginConfig entries — they are contributions written to
+# the ContributionRegistry at runtime when backstage-apme loads:
+#
+#   registerGitRepoDetailTab({ id: 'apme.quality-tab', label: 'Quality', ... })
+#   registerGitRepoDetailTab({ id: 'apme.activity-tab', label: 'Activity', ... })
+#   registerGitRepoDetailTab({ id: 'apme.dependencies-tab', label: 'Dependencies', ... })
+#   registerGitRepoDetailCard({ id: 'apme.quality-card', ... })
+#   registerGitRepoDetailAction({ id: 'apme.deregister', label: 'Deregister repository', ... })
+#   registerGitRepoDetailAction({ id: 'apme.run-scan', label: 'Run scan', ... })
+#   registerGitRepoListAction({ id: 'apme.register-repository', label: 'Add repository',
+#                               to: '/self-service/create/templates/default/apme-register-git-repository' })
+#
+# GitRepositoriesPage (self-service) renders these via:
+#   useExtensionTabs(EXTENSION_POINTS.GIT_REPO_LIST_TABS)     → extra tab strip entries
+#   useExtensionActions(EXTENSION_POINTS.GIT_REPO_LIST_ACTIONS) → "Add repository" button
+#   <ExtensionHost> on the detail page                          → tabs, cards, action menu

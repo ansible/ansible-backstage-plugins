@@ -25,6 +25,12 @@ tags:
     description: Execution environment registration and build
   - name: Git Content
     description: Fetch file content and CI activity from GitHub/GitLab
+  - name: Portal Health
+    description: Portal plugin health aggregation (portal-health-backend)
+  - name: Portal Operations
+    description: Authenticated dispatch of registered Portal operations
+  - name: APME
+    description: Automation Platform Management Experience — quality scanning, settings, AI config, projects, suppressions
 
 components:
   securitySchemes:
@@ -68,6 +74,8 @@ components:
         - syncInProgress
         - lastFailedSyncTime
         - lastSyncStatus
+        - lastDuplicateEntityCount
+        - lastMissingOrganizations
       properties:
         lastSync:
           type:
@@ -91,6 +99,15 @@ components:
             - failure
             - null
           description: Status of the last sync attempt
+        lastDuplicateEntityCount:
+          type: integer
+          minimum: 0
+          description: Duplicate catalog keys skipped during the last successful sync
+        lastMissingOrganizations:
+          type: array
+          items:
+            type: string
+          description: Configured organizations absent from AAP during the last successful sync
       additionalProperties: false
 
     SyncResultStatus:
@@ -261,6 +278,165 @@ components:
 
 
 paths:
+  /context:
+    servers:
+      - url: /api/portal-operations
+    get:
+      operationId: getPortalContext
+      summary: Get authenticated Portal identity and configured organization memberships
+      description: Returns server-resolved memberships for the authenticated user without deriving organization from catalog namespace or accepting client-supplied organization claims.
+      tags: [Portal Operations]
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Trusted memberships; a single organizationId is present only when unambiguous
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userEntityRef, userId]
+                properties:
+                  userEntityRef:
+                    type: string
+                  userId:
+                    type: string
+                  organizationId:
+                    type: string
+                  organizationIds:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: User authentication required
+        '403':
+          description: No authorized configured organization membership
+  /entitlements/{entitlementId}:
+    servers:
+      - url: /api/portal-operations
+    get:
+      operationId: checkPortalEntitlement
+      summary: Check host-owned capability availability
+      description: |
+        Requires authenticated user credentials and read access to the catalog subject.
+        The host resolves trusted configured memberships, checks whether any has an availability
+        grant, and evaluates the registered Backstage permission. Repositories do not acquire AAP ownership. Unknown entitlements,
+        missing organization context or grants, and authorization failures deny access.
+        Clients cannot supply organization IDs, grants, permission names, or scopes.
+        This read-only check does not authorize a subsequent mutation.
+      tags:
+        - Portal Operations
+      security:
+        - JWT: []
+      parameters:
+        - name: entitlementId
+          in: path
+          required: true
+          description: Backend-registered entitlement ID, for example apme.scanning
+          schema:
+            type: string
+        - name: entityRef
+          in: query
+          required: true
+          description: Catalog subject whose read access is checked using caller credentials
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Availability and permission decision for the caller's authorized memberships
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [allowed]
+                properties:
+                  allowed:
+                    type: boolean
+                  organizationId:
+                    type: string
+                  organizationIds:
+                    type: array
+                    items:
+                      type: string
+                  scope:
+                    type: string
+                    enum: [global, organization]
+        '400':
+          description: Invalid entity reference or unsupported query fields
+        '401':
+          description: User authentication required
+        '403':
+          description: Catalog subject not accessible
+        '500':
+          description: Catalog authorization service unavailable
+  /{operationId}:
+    servers:
+      - url: /api/portal-operations
+    post:
+      operationId: executePortalOperation
+      summary: Execute a registered Portal operation
+      description: |
+        Dispatches an operation exposed for REST after checking its declared permission
+        and input schema, with server-side entitlement enforcement. Shared-resource operations
+        use granted caller memberships without assigning an AAP owner to the resource.
+        Organization-scoped operations require an authorized selected organization.
+        The handler resolves the catalog subject and applies resource checks.
+        Plugin URLs and project IDs are not subjects.
+        An accepted long-running operation can return a scan or job reference; HTTP 200
+        does not mean the job has completed. Unregistered operations return HTTP 404.
+      tags:
+        - Portal Operations
+      security:
+        - JWT: []
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          description: Registered operation ID, for example apme.quality.scan
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject]
+              properties:
+                subject:
+                  type: object
+                  additionalProperties: false
+                  required: [entityRef]
+                  properties:
+                    entityRef:
+                      type: string
+                      description: Catalog entity reference resolved by the operation handler
+                input:
+                  type: object
+                  description: Additional input validated against the registered operation schema
+      responses:
+        '200':
+          description: Operation handler result, potentially a pending job reference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: {}
+        '400':
+          description: Invalid subject or operation input
+        '401':
+          description: User authentication required
+        '403':
+          description: Operation or repository access denied
+        '404':
+          description: Operation or subject unavailable
+        '413':
+          description: Request exceeds the 64 KiB payload limit
+        '500':
+          description: Handler or output validation failure
   /health:
     get:
       operationId: getHealth
@@ -359,73 +535,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AAPSyncResponse'
-
-  /aap/create_user:
-    post:
-      operationId: createUser
-      summary: Create a user in the catalog
-      description: |
-        Creates a single user entity in the Backstage catalog from AAP user data.
-        Typically called by the auth resolver during login.
-        **Permissions**: No specific permission check (unauthenticated in current implementation).
-      tags:
-        - AAP Sync
-      security:
-        - JWT: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - username
-                - userID
-              properties:
-                username:
-                  type: string
-                  description: AAP username
-                userID:
-                  oneOf:
-                    - type: string
-                    - type: integer
-                  description: AAP user ID
-              additionalProperties: false
-      responses:
-        '200':
-          description: User created or already exists
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - user
-                  - created
-                properties:
-                  success:
-                    type: boolean
-                    enum:
-                      - true
-                  user:
-                    type: string
-                  created:
-                    type: boolean
-                    description: true if the user was newly created, false if already existed
-                additionalProperties: false
-        '400':
-          description: Missing required fields
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal error creating user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
 
   /ansible/sync/status:
     get:
@@ -1209,6 +1318,1044 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '502':
           description: GitHub workflow_dispatch call failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /status:
+    get:
+      operationId: getPortalHealthStatus
+      summary: Get aggregated portal plugin health status
+      description: |
+        Returns a JSON snapshot of the health state for all registered portal
+        plugins. Health is populated by backend plugins via
+        `portal-plugin-node`'s `pushHealthStatus()`. Served by
+        `@ansible/portal-health-backend`.
+      tags:
+        - Portal Health
+      responses:
+        '200':
+          description: Aggregated health snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                    - state
+                    - message
+                  properties:
+                    state:
+                      type: string
+                      enum:
+                        - READY
+                        - DEGRADED
+                        - UNAVAILABLE
+                        - UNKNOWN
+                    message:
+                      type: string
+                  additionalProperties: false
+
+  /apme/repositories:
+    post:
+      operationId: registerApmeRepository
+      summary: Register an existing repository in the Portal catalog
+      description: Requires a user identity and repository registration permission. The authenticated namespace determines organization scope; APME projects and Git repositories are not created.
+      tags:
+        - APME
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entity]
+              properties:
+                entity:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Repository registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  entityRef:
+                    type: string
+        '400':
+          description: Invalid manual repository or SCM URL
+        '401':
+          description: User authentication required
+        '403':
+          description: Repository registration denied
+        '409':
+          description: Repository already registered
+
+  /apme/health:
+    get:
+      operationId: getApmeHealth
+      summary: APME backend health check
+      description: Returns the health status of the APME backend plugin.
+      tags:
+        - APME
+      responses:
+        '200':
+          description: APME backend is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                additionalProperties: false
+
+  /apme/settings:
+    get:
+      operationId: getApmeSettings
+      summary: Get APME global settings
+      description: Retrieves the current global APME configuration. Requires settings-view permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: APME settings retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateApmeSettings
+      summary: Update APME global settings
+      description: Replaces the APME global configuration. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/settings/galaxy-servers:
+    get:
+      operationId: getApmeGalaxyServers
+      summary: List configured Galaxy / Automation Hub servers
+      description: Returns all configured Ansible Galaxy and Private Automation Hub server connections. Requires settings-view permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of Galaxy server configurations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createApmeGalaxyServer
+      summary: Add a Galaxy / Automation Hub server
+      description: Registers a new Galaxy or Private Automation Hub server connection. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Galaxy server created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/settings/galaxy-servers/{serverId}:
+    patch:
+      operationId: patchApmeGalaxyServer
+      summary: Update a Galaxy / Automation Hub server
+      description: Partially updates an existing Galaxy or Automation Hub server configuration by server ID. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Galaxy server updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteApmeGalaxyServer
+      summary: Remove a Galaxy / Automation Hub server
+      description: Deletes a Galaxy or Automation Hub server configuration by server ID. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Galaxy server deleted
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}/scan-target:
+    get:
+      operationId: getApmeScanTarget
+      summary: Get scan target for a project
+      description: Returns the content scan target configuration (branch, directory) for the specified APME project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scan target configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateApmeScanTarget
+      summary: Update scan target for a project
+      description: Updates the content scan target configuration for the specified APME project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Scan target updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/ai/status:
+    get:
+      operationId: getApmeAiStatus
+      summary: Get AI service status
+      description: Returns the current operational status of the configured AI provider (connectivity, quota, errors).
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: AI service status
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /apme/ai/models:
+    get:
+      operationId: getApmeAiModels
+      summary: List available AI models
+      description: Returns the AI models available from the currently configured provider.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of available AI models
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+
+  /apme/ai/config:
+    get:
+      operationId: getApmeAiConfig
+      summary: Get AI configuration
+      description: Returns the current AI provider and model configuration. Requires settings-view permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: AI configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: updateApmeAiConfig
+      summary: Update AI configuration
+      description: Saves AI provider and model configuration. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: AI configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/ai/providers:
+    get:
+      operationId: getApmeAiProviders
+      summary: List configured AI providers
+      description: Returns all registered AI provider integrations and their connection status.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of AI providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+
+  /apme/ai/engines:
+    get:
+      operationId: getApmeAiEngines
+      summary: List available AI engines
+      description: Returns the AI inference engines supported by the current provider configuration. Requires settings-view permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of AI engines
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/ai/provider/{id}/configure:
+    post:
+      operationId: configureApmeAiProvider
+      summary: Configure an AI provider
+      description: Applies configuration (API key, endpoint, model) for the specified AI provider. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: AI provider configured
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/ai/provider/{id}:
+    delete:
+      operationId: deleteApmeAiProvider
+      summary: Remove an AI provider configuration
+      description: Removes the configuration for the specified AI provider. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: AI provider removed
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects:
+    get:
+      operationId: listApmeProjects
+      summary: List APME projects
+      description: Returns all APME projects visible to the current user.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of APME projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createApmeProject
+      summary: Create an APME project
+      description: Creates a new APME project linked to a Git repository.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}:
+    get:
+      operationId: getApmeProject
+      summary: Get an APME project
+      description: Returns the details of a single APME project by ID.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: APME project details
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteApmeProject
+      summary: Delete an APME project
+      description: Permanently deletes the specified APME project and its scan history.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Project deleted
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}/violations:
+    get:
+      operationId: getApmeProjectViolations
+      summary: Get violations for a project
+      description: Returns the current set of quality gate violations for the specified project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project violations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}/dependencies:
+    get:
+      operationId: getApmeProjectDependencies
+      summary: Get dependencies for a project
+      description: Returns the resolved collection and role dependency graph for the specified project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project dependencies
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}/activity:
+    get:
+      operationId: getApmeProjectActivity
+      summary: Get activity history for a project
+      description: Returns the ordered list of activity records (scans, submissions, branch operations) for the specified project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project activity history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/projects/{projectId}/submit:
+    post:
+      operationId: submitApmeProject
+      summary: Submit a project for publishing (create PR or branch)
+      description: Applies generated file changes to the repository by creating a branch and optionally opening a pull request.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                activity_id:
+                  type: string
+                branch_name:
+                  type: string
+                create_pr:
+                  type: boolean
+                title:
+                  type: string
+                body:
+                  type: string
+                file_overrides:
+                  type: object
+                  additionalProperties: true
+              additionalProperties: false
+      responses:
+        '200':
+          description: Project submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/activity/{activityId}:
+    get:
+      operationId: getApmeActivity
+      summary: Get a specific activity record
+      description: Returns a single activity record by ID, including its status, output, and any associated artifacts.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activity record
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Activity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/rules:
+    get:
+      operationId: listApmeRules
+      summary: List quality gate rules
+      description: Returns all quality gate rules registered with APME, including their default and per-organization configuration.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of quality gate rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/rules/{ruleId}/config:
+    put:
+      operationId: updateApmeRuleConfig
+      summary: Update configuration for a quality gate rule
+      description: Overrides the default configuration for the specified quality gate rule. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Rule configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteApmeRuleConfig
+      summary: Remove configuration override for a quality gate rule (resets to default)
+      description: Removes a custom configuration override for the specified rule, restoring its default behavior. Requires settings-edit permission.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Rule configuration reset
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/suppressions:
+    get:
+      operationId: listApmeSuppresions
+      summary: List active violation suppressions
+      description: Returns all active violation suppressions for the current user's projects.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: List of suppressions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createApmeSuppression
+      summary: Create a violation suppression
+      description: Creates a new suppression that prevents a specific violation from blocking quality gates.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Suppression created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/suppressions/{suppressionId}:
+    delete:
+      operationId: deleteApmeSuppression
+      summary: Remove a violation suppression
+      description: Deletes a violation suppression by ID, re-enabling the suppressed violation check.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      parameters:
+        - name: suppressionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Suppression removed
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/lookup:
+    get:
+      operationId: apmeLookup
+      summary: Look up APME entities by query
+      description: Searches for APME projects and repositories matching the provided query parameters.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Lookup results
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /apme/repos/branch-check:
+    get:
+      operationId: apmeRepoBranchCheck
+      summary: Check if a branch exists in a repository
+      description: Verifies whether a named branch exists in the repository linked to an APME project.
+      tags:
+        - APME
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Branch check result
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:

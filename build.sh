@@ -23,8 +23,8 @@ if [ "${BUILD_TYPE:-}" = "portal" ]; then
   echo "Building for Portal automation - excluding backstage-rhaap plugin"
 
   # Remove backstage-rhaap plugin for portal builds
-  if [ -d "plugins/backstage-rhaap" ]; then
-    rm -rf plugins/backstage-rhaap
+  if [ -d "workspaces/aap/plugins/backstage-rhaap" ]; then
+    rm -rf workspaces/aap/plugins/backstage-rhaap
   fi
 
   # Export dynamic plugins for Portal automation
@@ -34,7 +34,7 @@ elif [ "${BUILD_TYPE:-}" = "rhdh" ]; then
   echo "Building for RHDH - including only backstage-rhaap and scaffolder-backend-module-backstage-rhaap"
 
   # Remove all plugins except the RHDH ones
-  for plugin_dir in plugins/*/; do
+  for plugin_dir in workspaces/aap/plugins/*/; do
     plugin_name=$(basename "$plugin_dir")
     if [ "$plugin_name" != "backstage-rhaap" ] && [ "$plugin_name" != "scaffolder-backend-module-backstage-rhaap" ]; then
       if [ -d "$plugin_dir" ]; then

@@ -44,11 +44,11 @@ yarn fix                # Auto-fix lint issues
 yarn prettier:check     # Check formatting
 
 # Fast feedback — single file or package (use while iterating)
-npx eslint --fix plugins/<plugin>/src/path/to/File.tsx   # run from repo root; resolves the plugin's own .eslintrc.js
-npx prettier --write plugins/<plugin>/src/path/to/File.tsx
+npx eslint --fix workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx   # run from repo root; resolves the plugin's own .eslintrc.js
+npx prettier --write workspaces/<workspace>/plugins/<plugin>/src/path/to/File.tsx
 yarn workspace <package> test path/to/File.test.tsx --watch=false
 yarn workspace <package> lint                # package-scoped lint (backstage-cli package lint)
-npx tsc --noEmit -p plugins/<plugin>         # package-scoped type check; faster than yarn tsc
+npx tsc --noEmit -p workspaces/<workspace>/plugins/<plugin>   # package-scoped type check; faster than yarn tsc
 # Note: `yarn workspace <package> exec <bin>` does NOT put node_modules/.bin on PATH in this
 # repo (Yarn 4, nodeLinker: node-modules) — prefer `npx <bin>` or the package.json scripts above.
 ```
@@ -57,14 +57,18 @@ npx tsc --noEmit -p plugins/<plugin>         # package-scoped type check; faster
 
 ### Plugin Map
 
-| Directory                                           | Package Name                                                   | Role                                                                | Type            |
-| --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- | --------------- |
-| `plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions                   | Common library  |
-| `plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                    | Frontend plugin |
-| `plugins/self-service`                              | `@ansible/plugin-backstage-self-service`                       | Self-service UI (job templates, EE builder, collections, git repos) | Frontend plugin |
-| `plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog               | Backend module  |
-| `plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                                   | Backend module  |
-| `plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                            | Backend module  |
+This branch organizes plugins into workspaces by ownership: `aap`, `apme`, `portal-core`, and `self-service`.
+
+| Directory                                                          | Package Name                                                   | Role                                                            | Type            |
+| ------------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------- | --------------- |
+| `workspaces/aap/plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions               | Common library  |
+| `workspaces/aap/plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                | Frontend plugin |
+| `workspaces/self-service/plugins/portal-scaffolder`                | `@ansible/portal-scaffolder`                                   | Self-service UI (templates, tasks, EEs, collections, git repos) | Frontend plugin |
+| `workspaces/aap/plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog           | Backend module  |
+| `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                               | Backend module  |
+| `workspaces/aap/plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                        | Backend module  |
+| `workspaces/portal-core/plugins/portal-core`                       | `@ansible/portal-core`                                         | Native frontend host and configurable navigation                | Frontend plugin |
+| `workspaces/portal-core/plugins/portal-plugin-sdk`                 | `@ansible/portal-plugin-sdk`                                   | Reusable frontend components, context, and utilities            | Frontend SDK    |
 
 ### Core Service Pattern
 

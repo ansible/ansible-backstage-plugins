@@ -14,8 +14,37 @@ import { parse } from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '../..');
-const pluginsDir = resolve(repoRoot, 'plugins');
 const specPath = resolve(repoRoot, 'api/openapi.yaml');
+
+// Collect all plugin directories to scan.
+// The repo uses a workspaces layout: workspaces/<workspace>/plugins/<plugin>/
+// The legacy root plugins/ directory is kept for backward compatibility but
+// currently contains only a README — real router files live in workspaces.
+function collectPluginDirs() {
+  const dirs = [];
+  const rootPlugins = resolve(repoRoot, 'plugins');
+  if (statSync(rootPlugins, { throwIfNoEntry: false })?.isDirectory()) {
+    dirs.push(rootPlugins);
+  }
+  const workspacesRoot = resolve(repoRoot, 'workspaces');
+  if (statSync(workspacesRoot, { throwIfNoEntry: false })?.isDirectory()) {
+    for (const workspace of readdirSync(workspacesRoot)) {
+      if (workspace.startsWith('.')) continue;
+      const workspacePath = resolve(workspacesRoot, workspace);
+      // Skip files (e.g. README.md) — only process directories
+      if (!statSync(workspacePath, { throwIfNoEntry: false })?.isDirectory()) {
+        continue;
+      }
+      const workspacePlugins = resolve(workspacePath, 'plugins');
+      if (
+        statSync(workspacePlugins, { throwIfNoEntry: false })?.isDirectory()
+      ) {
+        dirs.push(workspacePlugins);
+      }
+    }
+  }
+  return dirs;
+}
 
 const routeRegex =
   /router\.(get|post|put|delete|patch)\(\s*['"`]([^'"`]+)['"`]/g;
@@ -47,7 +76,8 @@ function findRouterFiles(dir) {
 }
 
 // Extract routes from all router files
-const routerFiles = findRouterFiles(pluginsDir);
+const pluginDirs = collectPluginDirs();
+const routerFiles = pluginDirs.flatMap(dir => findRouterFiles(dir));
 const codeRoutes = new Map();
 
 for (const filePath of routerFiles) {

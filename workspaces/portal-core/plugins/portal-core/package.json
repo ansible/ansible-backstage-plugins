@@ -1,0 +1,76 @@
+{
+  "name": "@ansible/portal-core",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "Singleton provider for the Portal plugin extension system. Must be loaded before any portal content plugin in RHDH so that @ansible/portal-extension-api is available as a shared module federation singleton.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alpha": "./src/alpha.tsx",
+    "./app-nav": "./src/appNav.tsx",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "portal-core"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "start": "backstage-cli package start",
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "yarn run -T rhdh-cli plugin export"
+  },
+  "dependencies": {
+    "@ansible/portal-extension-api": "workspace:^",
+    "@ansible/portal-extension-host": "workspace:^",
+    "@backstage/core-compat-api": "0.5.11",
+    "@backstage/core-components": "^0.18.8",
+    "@backstage/core-plugin-api": "^1.12.4",
+    "@backstage/frontend-plugin-api": "0.17.1",
+    "@backstage/plugin-app-react": "^0.2.3",
+    "@backstage/plugin-catalog-react": "^2.1.1"
+  },
+  "peerDependencies": {
+    "@backstage/catalog-model": "^1.7.7",
+    "@backstage/core-plugin-api": "^1.12.4",
+    "@backstage/plugin-permission-react": "^0.4.41",
+    "@material-ui/core": "^4.9.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "*",
+    "react-router-dom": "^6.30.5"
+  },
+  "devDependencies": {
+    "@backstage/catalog-model": "^1.7.7",
+    "@backstage/cli": "^0.36.0",
+    "@backstage/config": "^1.3.6",
+    "@backstage/core-plugin-api": "^1.12.4",
+    "@backstage/frontend-test-utils": "^0.5.2",
+    "@backstage/plugin-permission-common": "^0.9.8",
+    "@backstage/plugin-permission-react": "^0.4.41",
+    "@backstage/test-utils": "^1.7.16",
+    "@material-ui/core": "^4.9.13",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "~5.8.0"
+  },
+  "configSchema": "config.d.ts",
+  "files": [
+    "config.d.ts",
+    "dist"
+  ]
+}

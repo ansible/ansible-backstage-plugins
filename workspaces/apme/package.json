@@ -1,0 +1,6 @@
+{
+  "name": "@ansible/apme-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "APME workspace — Automation Platform Management Experience plugins (third-party portal SDK consumer)"
+}

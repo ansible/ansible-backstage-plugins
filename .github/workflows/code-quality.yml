@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0  # Shallow clones should be disabled for better SonarCloud analysis
+          fetch-depth: 0 # Shallow clones should be disabled for better SonarCloud analysis
 
       # PR and main push workflows already upload coverage for this commit.
       - name: Wait for coverage-producing tests
@@ -92,13 +92,14 @@ jobs:
           # Manual dispatch has no companion PR or push workflow artifact.
           yarn install --frozen-lockfile
           yarn run test:all
-          awk '/^SF:/{found=/^SF:plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info || true
+          awk '/^SF:/{found=/^SF:(.*\/)?workspaces\/[^\/]+\/plugins\//} found' ./coverage/lcov.info > ./coverage/lcov-plugins.info
+          test -s ./coverage/lcov-plugins.info
 
       - name: Verify coverage files
         run: |
           test -s ./coverage/lcov.info
           test -s ./coverage/lcov-plugins.info
-        
+
       - name: Extract and export repo owner/name
         shell: bash
         run: |
@@ -118,10 +119,10 @@ jobs:
             -Dsonar.organization=${{ env.REPO_OWNER }}
             -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }}
             -Dsonar.projectName='ansible-backstage-plugins'
-            -Dsonar.sources=plugins
-            -Dsonar.tests=plugins
+            -Dsonar.sources=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins
+            -Dsonar.tests=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
-            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
+            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
             -Dsonar.scm.revision=${{ github.event.pull_request.head.sha }}
             -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
@@ -140,10 +141,10 @@ jobs:
             -Dsonar.organization=${{ env.REPO_OWNER }}
             -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }}
             -Dsonar.projectName='ansible-backstage-plugins'
-            -Dsonar.sources=plugins
-            -Dsonar.tests=plugins
+            -Dsonar.sources=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins
+            -Dsonar.tests=workspaces/aap/plugins,workspaces/apme/plugins,workspaces/portal-core/plugins,workspaces/self-service/plugins
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
-            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js
+            -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true

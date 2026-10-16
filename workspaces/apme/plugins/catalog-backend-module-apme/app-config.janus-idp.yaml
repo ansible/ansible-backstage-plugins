@@ -1,0 +1,6 @@
+# RHDH Dynamic Plugin Configuration for APME Backend Module
+# This file configures how the APME backend module is loaded in Red Hat Developer Hub
+
+dynamicPlugins:
+  backend:
+    ansible.backstage-plugin-catalog-backend-module-apme: {}

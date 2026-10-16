@@ -30,8 +30,11 @@
   },
   "workspaces": {
     "packages": [
-      "packages/*",
-      "plugins/*",
+      "workspaces/portal-core/packages/*",
+      "workspaces/portal-core/plugins/*",
+      "workspaces/self-service/plugins/*",
+      "workspaces/aap/plugins/*",
+      "workspaces/apme/plugins/*",
       "e2e-tests/*"
     ]
   },
@@ -44,7 +47,7 @@
     "@backstage/e2e-test-utils": "^0.1.2",
     "@backstage/frontend-test-utils": "^0.5.2",
     "@playwright/test": "^1.32.3",
-    "@red-hat-developer-hub/cli": "^1.10.2",
+    "@red-hat-developer-hub/cli": "1.10.8",
     "@spotify/prettier-config": "^12.0.0",
     "@stoplight/spectral-cli": "^6.15.0",
     "@types/node": "^22.13.4",

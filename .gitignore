@@ -39,6 +39,7 @@ dist
 dist-types
 dist-scalprum
 plugins/*/dist-dynamic/*
+*.tsbuildinfo
 storybook-static
 
 # Temporary change files created by Vim

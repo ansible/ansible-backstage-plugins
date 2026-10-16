@@ -1,0 +1,38 @@
+{
+  "name": "@ansible/portal-extension-common",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "Serialisable types shared between frontend and backend portal plugins — plugin manifest, capability contributions, launch types, extension point IDs, and content type constants. No React, no DOM, no Node APIs.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "common-library"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
+  },
+  "peerDependencies": {
+    "@backstage/catalog-model": "^1.7.7",
+    "@backstage/plugin-permission-common": "^0.9.7"
+  },
+  "devDependencies": {
+    "@backstage/catalog-model": "^1.7.7",
+    "@backstage/cli": "^0.36.0",
+    "@backstage/plugin-permission-common": "^0.9.7"
+  },
+  "files": [
+    "dist"
+  ]
+}

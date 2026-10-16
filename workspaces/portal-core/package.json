@@ -1,0 +1,6 @@
+{
+  "name": "@ansible/portal-core-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Portal core workspace — extension SDK, contribution registry, host, and plugin SDKs (ANSTRAT-2497)"
+}

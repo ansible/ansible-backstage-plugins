@@ -1,1 +1,1 @@
---8<-- "plugins/backstage-rhaap/README.md"
+--8<-- "workspaces/aap/plugins/backstage-rhaap/README.md"

@@ -65,11 +65,46 @@ nav:
   - Setup:
       - installation.md
   - Plugins:
-      - plugins/auth.md
-      - plugins/backstage-frontend.md
-      - plugins/catalog.md
-      - plugins/scaffolder.md
-      - plugins/self-service.md
+      - Portal core and SDK:
+          - portal-core: plugins/portal-core.md
+          - portal-extension-api: plugins/portal-extension-api.md
+          - portal-extension-common: plugins/portal-extension-common.md
+          - portal-extension-host: plugins/portal-extension-host.md
+          - portal-health-backend: plugins/portal-health-backend.md
+          - portal-operations-backend: plugins/portal-operations-backend.md
+          - portal-plugin-node: plugins/portal-plugin-node.md
+          - portal-plugin-sdk: plugins/portal-plugin-sdk.md
+      - AAP:
+          - auth-backend-module-rhaap-provider: plugins/auth.md
+          - backstage-rhaap: plugins/backstage-frontend.md
+          - backstage-rhaap-common: plugins/backstage-rhaap-common.md
+          - catalog-backend-module-rhaap: plugins/catalog.md
+          - catalog-backend-module-rhaap-user-provisioner: plugins/catalog-user-provisioner.md
+          - scaffolder-backend-module-backstage-rhaap: plugins/scaffolder.md
+      - APME:
+          - backstage-apme: plugins/backstage-apme.md
+          - backstage-apme-common: plugins/backstage-apme-common.md
+          - catalog-backend-module-apme: plugins/catalog-apme.md
+          - scaffolder-backend-module-apme: plugins/scaffolder-apme.md
+      - Self-service:
+          - portal-scaffolder: plugins/self-service.md
+  - Portal SDK:
+      - SDK architecture: next/portal-sdk-architecture.md
+      - Third-party plugin authors: next/portal-sdk-plugin-author-guide.md
+      - Native NFS composition: next/portal-sdk-nfs-composition.md
+      - Implementation guide: next/portal-plugin-factory-implementation-guide.md
+      - Content picker proposal: next/portal-content-picker-contract-proposal.md
+      - Design tokens: next/portal-sdk-design-tokens.md
+      - Quickstart (legacy compatibility): next/portal-sdk-quickstart.md
+      - Dynamic plugins (legacy notes): next/portal-sdk-rhdh-dynamic-plugin.md
+  - Architecture:
+      - Historical architecture and planning:
+          - Content experience refactoring plan: architecture/content-experience-refactor-and-sdk.md
+          - Historical self-service extensions: architecture/self-service-extension-sdk.md
+      - Diagrams:
+          - Overview: diagrams/README.md
+          - Structure: diagrams/architecture/README.md
+          - Runtime sequences: diagrams/sequence/README.md
   - Features:
       - features/external-authentication.md
       - features/users-teams-organizations.md
@@ -101,7 +136,11 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.magiclink:
       repo_url_shortener: true
       repo_url_shorthand: true

@@ -1,12 +1,22 @@
 {
   "extends": "@backstage/cli/config/tsconfig.json",
   "include": [
-    "packages/*/src",
-    "plugins/*/src",
-    "plugins/*/dev",
-    "packages/*/config.d.ts",
-    "plugins/*/config.d.ts",
-    "plugins/*/migrations"
+    "workspaces/portal-core/packages/*/src",
+    "workspaces/portal-core/packages/*/config.d.ts",
+    "workspaces/portal-core/plugins/*/src",
+    "workspaces/portal-core/plugins/*/dev",
+    "workspaces/portal-core/plugins/*/config.d.ts",
+    "workspaces/portal-core/plugins/*/migrations",
+    "workspaces/self-service/plugins/*/src",
+    "workspaces/self-service/plugins/*/dev",
+    "workspaces/self-service/plugins/*/config.d.ts",
+    "workspaces/aap/plugins/*/src",
+    "workspaces/aap/plugins/*/dev",
+    "workspaces/aap/plugins/*/config.d.ts",
+    "workspaces/aap/plugins/*/migrations",
+    "workspaces/apme/plugins/*/src",
+    "workspaces/apme/plugins/*/dev",
+    "workspaces/apme/plugins/*/config.d.ts"
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {

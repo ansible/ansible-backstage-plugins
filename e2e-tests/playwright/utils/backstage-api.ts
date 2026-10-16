@@ -150,6 +150,44 @@ export async function catalogRequest(page: Page, path: string, token: string) {
   });
 }
 
+export type OrgGroupRef = {
+  namespace: string;
+  name: string;
+};
+
+function parseOrgGroups(body: any): OrgGroupRef[] {
+  const groups: any[] = Array.isArray(body) ? body : (body?.items ?? []);
+  return groups
+    .map((g: any) => ({
+      namespace: g.metadata?.namespace as string | undefined,
+      name: g.metadata?.name as string | undefined,
+    }))
+    .filter(
+      (g: {
+        namespace: string | undefined;
+        name: string | undefined;
+      }): g is OrgGroupRef => Boolean(g.namespace && g.name),
+    );
+}
+
+/**
+ * Discovers organization Group entities from the catalog API.
+ * Flag-on names are `aap-org-{id}` in namespace `aap-{id}`; do not assume
+ * metadata.name equals metadata.namespace.
+ */
+export async function discoverOrgGroups(
+  page: Page,
+  token: string,
+): Promise<OrgGroupRef[]> {
+  const result = await catalogFetch(
+    page,
+    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    token,
+  );
+  if (!result.ok) return [];
+  return parseOrgGroups(result.body);
+}
+
 /**
  * Discovers org namespaces dynamically from the catalog API.
  * Queries for Group entities with spec.type=organization and returns
@@ -159,20 +197,67 @@ export async function discoverOrgNamespaces(
   page: Page,
   token: string,
 ): Promise<string[]> {
+  const groups = await discoverOrgGroups(page, token);
+  return [...new Set(groups.map(g => g.namespace))];
+}
+
+/**
+ * Fetches the signed-in user's AAP-scoped job template ids via the same
+ * `/api/auth/rhaap/user-job-templates` endpoint Home uses to filter
+ * catalog templates (see AnsibleApiClient.getUserJobTemplates). Raw catalog
+ * read permissions can be broader than this AAP-scoped list, so this is the
+ * correct visibility oracle for "what templates does this user see" tests —
+ * not a catalog entity filter.
+ */
+export async function getUserJobTemplateIds(page: Page): Promise<number[]> {
+  const authProvider = process.env.BACKSTAGE_AUTH_PROVIDER ?? 'rhaap';
+  const authEnv = process.env.BACKSTAGE_AUTH_ENV ?? 'production';
+
+  return page.evaluate(
+    async ({ provider, env }) => {
+      const refreshRes = await fetch(
+        `/api/auth/${provider}/refresh?scope=read%20write&env=${env}`,
+        {
+          credentials: 'include',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        },
+      );
+      if (!refreshRes.ok) return [];
+      const refreshData = await refreshRes.json();
+      const accessToken: string | undefined = refreshData?.accessToken;
+      if (!accessToken) return [];
+
+      const jtRes = await fetch(`/api/auth/${provider}/user-job-templates`, {
+        credentials: 'include',
+        headers: { 'X-RHAAP-Access-Token': accessToken },
+      });
+      if (!jtRes.ok) return [];
+      const jtData = await jtRes.json();
+      const items: any[] = Array.isArray(jtData?.items) ? jtData.items : [];
+      return items
+        .map(item => item.id)
+        .filter((id): id is number => typeof id === 'number');
+    },
+    { provider: authProvider, env: authEnv },
+  );
+}
+
+export async function findCatalogUserByAapUsername(
+  page: Page,
+  token: string,
+  username: string,
+): Promise<any | undefined> {
   const result = await catalogFetch(
     page,
-    '/entities?filter=kind=Group,spec.type=organization&limit=100',
+    '/entities?filter=kind=User&limit=1000',
     token,
   );
-  if (!result.ok) return [];
-  const groups: any[] = Array.isArray(result.body)
+  if (!result.ok) return undefined;
+  const users: any[] = Array.isArray(result.body)
     ? result.body
     : (result.body?.items ?? []);
-  return [
-    ...new Set(
-      groups
-        .map((g: any) => g.metadata?.namespace)
-        .filter((ns: string | undefined): ns is string => !!ns),
-    ),
-  ];
+  return users.find(
+    user =>
+      user.metadata?.annotations?.['ansible.com/aap-username'] === username,
+  );
 }
