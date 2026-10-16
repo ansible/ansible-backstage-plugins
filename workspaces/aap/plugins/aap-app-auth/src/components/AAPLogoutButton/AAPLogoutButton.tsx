@@ -5,7 +5,7 @@ import {
   errorApiRef,
   useApi,
 } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '../../apis';
+import { rhAapAuthApiRef } from '../../api';
 import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import Box from '@mui/material/Box';

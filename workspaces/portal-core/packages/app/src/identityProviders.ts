@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { rhAapAuthApiRef } from '@ansible/portal-scaffolder';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 import { githubAuthApiRef } from '@backstage/core-plugin-api';
 

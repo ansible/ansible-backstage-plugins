@@ -5,10 +5,10 @@ import {
 } from '@backstage/frontend-plugin-api';
 import { SignInPageBlueprint } from '@backstage/plugin-app-react';
 import { compatWrapper } from '@backstage/core-compat-api';
-import { AapAuthApi } from './apis';
+import { AapAuthApi } from './api';
 
 /** The sign-in input is app-internal: a Portal plugin cannot attach to it. */
-const appAuth: FrontendModule = createFrontendModule({
+const aapAppAuth: FrontendModule = createFrontendModule({
   pluginId: 'app',
   extensions: [
     ApiBlueprint.make({
@@ -26,4 +26,4 @@ const appAuth: FrontendModule = createFrontendModule({
     }),
   ],
 });
-export default appAuth;
+export default aapAppAuth;

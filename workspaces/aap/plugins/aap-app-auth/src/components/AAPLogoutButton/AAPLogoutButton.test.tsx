@@ -6,7 +6,7 @@ import {
   configApiRef,
   errorApiRef,
 } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '../../apis';
+import { rhAapAuthApiRef } from '../../api';
 import { AAPLogoutButton } from './AAPLogoutButton';
 
 describe('AAPLogoutButton', () => {

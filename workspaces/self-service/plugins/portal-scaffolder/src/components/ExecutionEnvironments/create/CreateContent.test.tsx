@@ -19,7 +19,8 @@ import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 
 import { CreateContent } from './CreateContent';
 import { rootRouteRef } from '../../../routes';
-import { ansibleApiRef, rhAapAuthApiRef } from '../../../apis';
+import { ansibleApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { mockCatalogApi } from '../../../tests/catalogApi_utils';
 import {
   mockAnsibleApi,

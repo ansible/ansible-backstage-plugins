@@ -25,7 +25,7 @@ import {
   Select,
   Typography,
 } from '@material-ui/core';
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
 type AapResourcePickerSelection = string | number | string[] | number[];
 

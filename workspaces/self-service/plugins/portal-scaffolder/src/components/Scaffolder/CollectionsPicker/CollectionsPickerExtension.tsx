@@ -19,7 +19,7 @@ import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
 import { CollectionItem } from './types';
 import { useApi } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '../../../apis';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import type { SourceVersionDetail } from '@ansible/backstage-rhaap-common';
 
 function isSourceVersionDetail(v: unknown): v is SourceVersionDetail {

@@ -3,27 +3,11 @@ import {
   createApiFactory,
   DiscoveryApi,
   FetchApi,
-  OAuthRequestApi,
-  configApiRef,
   discoveryApiRef,
-  oauthRequestApiRef,
   createApiRef,
-  type ApiRef,
-  type BackstageIdentityApi,
-  type OAuthApi,
-  type OpenIdConnectApi,
-  type ProfileInfoApi,
-  type SessionApi,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { OAuth2 } from '@backstage/core-app-api';
-import { Config } from '@backstage/config';
-
-type CustomAuthApiRefType = OAuthApi &
-  OpenIdConnectApi &
-  ProfileInfoApi &
-  BackstageIdentityApi &
-  SessionApi;
+import { rhAapAuthApiRef, type AapAuthApiType } from '@ansible/aap-app-auth';
 
 export interface UserJobTemplate {
   id: number;
@@ -166,29 +150,15 @@ export const eeBuildApiRef = createApiRef<EEBuildApi>({
   id: 'plugin.self-service.ee-build',
 });
 
-export const rhAapAuthApiRef: ApiRef<CustomAuthApiRefType> = createApiRef({
-  id: 'ansible.auth.rhaap',
-});
-
-type AAPAuthApiFactoryType = ApiFactory<
-  CustomAuthApiRefType,
-  OAuth2,
-  {
-    discoveryApi: DiscoveryApi;
-    oauthRequestApi: OAuthRequestApi;
-    configApi: Config;
-  }
->;
-
 export class AnsibleApiClient implements AnsibleApi {
   private readonly discoveryApi: DiscoveryApi;
   private readonly fetchApi: FetchApi;
-  private readonly rhaapAuthApi: CustomAuthApiRefType;
+  private readonly rhaapAuthApi: AapAuthApiType;
 
   constructor(options: {
     discoveryApi: DiscoveryApi;
     fetchApi: FetchApi;
-    rhaapAuthApi: CustomAuthApiRefType;
+    rhaapAuthApi: AapAuthApiType;
   }) {
     this.discoveryApi = options.discoveryApi;
     this.fetchApi = options.fetchApi;
@@ -285,7 +255,7 @@ export const AAPApis: ApiFactory<
   {
     discoveryApi: DiscoveryApi;
     fetchApi: FetchApi;
-    rhaapAuthApi: CustomAuthApiRefType;
+    rhaapAuthApi: AapAuthApiType;
   }
 > = createApiFactory({
   api: ansibleApiRef,
@@ -362,26 +332,4 @@ export const EEBuildApis: ApiFactory<
   deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
   factory: ({ discoveryApi, fetchApi }) =>
     new EEBuildApiClient({ discoveryApi, fetchApi }),
-});
-
-export const AapAuthApi: AAPAuthApiFactoryType = createApiFactory({
-  api: rhAapAuthApiRef,
-  deps: {
-    discoveryApi: discoveryApiRef,
-    oauthRequestApi: oauthRequestApiRef,
-    configApi: configApiRef,
-  },
-  factory: ({ discoveryApi, oauthRequestApi, configApi }) =>
-    OAuth2.create({
-      configApi,
-      discoveryApi,
-      oauthRequestApi,
-      provider: {
-        id: 'rhaap',
-        title: 'RH AAP',
-        icon: () => null,
-      },
-      environment: configApi.getOptionalString('auth.environment'),
-      defaultScopes: ['read', 'write'],
-    }),
 });

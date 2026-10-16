@@ -1,8 +1,7 @@
 import { SignInPage } from './SignInPage';
 import { screen } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
-import { rhAapAuthApiRef } from '../../apis';
-import { rootRouteRef } from '../../routes';
+import { rhAapAuthApiRef } from '../../api';
 
 // Mock the SignInPage from @backstage/core-components
 jest.mock('@backstage/core-components', () => ({
@@ -35,11 +34,6 @@ describe('SignInPage', () => {
       <TestApiProvider apis={[[rhAapAuthApiRef, {}]]}>
         <>{children}</>
       </TestApiProvider>,
-      {
-        mountedRoutes: {
-          '/self-service': rootRouteRef,
-        },
-      },
     );
   };
 

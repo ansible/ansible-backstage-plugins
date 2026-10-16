@@ -6,7 +6,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./alpha": "./src/alpha.tsx",
-    "./app-auth": "./src/appAuth.tsx",
     "./package.json": "./package.json"
   },
   "license": "Apache-2.0",
@@ -17,7 +16,10 @@
     "types": "dist/index.d.ts"
   },
   "backstage": {
-    "role": "frontend-plugin"
+    "role": "frontend-plugin",
+    "features": {
+      "./alpha": "@backstage/FrontendPlugin"
+    }
   },
   "sideEffects": false,
   "scripts": {
@@ -31,6 +33,7 @@
     "export-dynamic": "yarn run -T rhdh-cli plugin export"
   },
   "dependencies": {
+    "@ansible/aap-app-auth": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
     "@backstage/catalog-client": "^1.14.0",

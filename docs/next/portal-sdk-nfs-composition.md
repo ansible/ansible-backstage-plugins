@@ -168,6 +168,42 @@ workflow launcher, and deregistration. Scanning requires
 
 ## Navigation and local app shell
 
+### Loading AAP authentication in a dynamic host
+
+The `@ansible/aap-app-auth` frontend module owns the AAP OAuth API and
+sign-in page. A dependency in `portal-scaffolder/package.json` does not install
+that module into an RHDH host. Each NFS deployment using AAP authentication
+must explicitly load its exported dynamic artifact alongside the Portal plugins.
+
+With the exported tarball available in the host's local plugin directory, add
+this entry to the deployment's `dynamic-plugins.yaml` `plugins` list:
+
+```yaml
+plugins:
+  - package: ./local-plugins/portal/ansible-aap-app-auth-dynamic-0.1.0.tgz
+    disabled: false
+```
+
+For a workspace-mounted development export, use the directory instead:
+
+```yaml
+plugins:
+  - package: ./local-plugins/portal-nfs/aap-app-auth
+    disabled: false
+```
+
+These are alternative artifact paths, not two registrations. Adjust the path
+to match the deployment's exported artifact. NFS discovers the module's
+`./alpha` entry point from its package metadata; no Scalprum `signInPage` or
+`apiFactories` configuration is required.
+
+After exporting and restarting the host, verify that `api:app/rhaap-auth` and
+`sign-in-page:app/rhaap` are discovered. An absent AAP sign-in page or an
+unresolved `ansible.auth.rhaap` API is a reason to check the installed dynamic
+plugin list, not to restore authentication exports in portal-scaffolder.
+
+### Configuring navigation
+
 Plugins own page routes and icon metadata. Portal navigation selects discovered
 pages; it does not install plugins or grant permissions. The self-service native
 pages provide the same Home, History, Build, Collections, and GitHub icons as
