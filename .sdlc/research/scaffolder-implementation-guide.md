@@ -165,11 +165,11 @@ This is an open gap, not resolved by this guide:
 
 Capture a machine-readable inventory before changing anything.
 
-| Item                                                                          | Status |
-| ----------------------------------------------------------------------------- | ------ |
-| Register all `ansible:*` and `rhaap:*` action IDs                             | ❌     |
-| Register autocomplete resources (`collections`, `collection_sources`, …)      | ❌     |
-| Document template YAML dependencies on provider id `aap-api-cloud`            | ❌     |
+| Item                                                                           | Status |
+| ------------------------------------------------------------------------------ | ------ |
+| Register all `ansible:*` and `rhaap:*` action IDs                              | ❌     |
+| Register autocomplete resources (`collections`, `collection_sources`, …)       | ❌     |
+| Document template YAML dependencies on provider id `aap-api-cloud`             | ❌     |
 | Capture the picker↔action source-string format as an explicit contract (§2.5) | ❌     |
 
 ### Phase 1 — Split the backend module (no behaviour change)
