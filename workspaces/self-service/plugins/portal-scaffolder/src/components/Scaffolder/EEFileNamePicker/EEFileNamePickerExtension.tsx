@@ -192,7 +192,7 @@ export const EEFileNamePickerExtension = ({
       if (validation.valid) {
         setFormatError(null);
         timeoutId = setTimeout(() => {
-          checkEntityExists(formData);
+          void checkEntityExists(formData);
         }, 500);
       } else {
         setFormatError(validation.error || null);

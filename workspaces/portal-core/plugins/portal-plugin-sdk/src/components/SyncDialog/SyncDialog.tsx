@@ -218,7 +218,7 @@ export const SyncDialog = ({
       }
     };
 
-    fetchSources();
+    void fetchSources();
   }, [open, discoveryApi, fetchApi]);
 
   const toggleProvider = (provider: string) => {

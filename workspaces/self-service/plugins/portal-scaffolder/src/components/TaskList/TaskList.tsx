@@ -187,7 +187,7 @@ export const TaskList = () => {
   }, [filters, page, rowsPerPage, scaffolderApi]);
 
   useEffect(() => {
-    fetchTasks();
+    void fetchTasks();
   }, [fetchTasks]);
 
   useEffect(() => {

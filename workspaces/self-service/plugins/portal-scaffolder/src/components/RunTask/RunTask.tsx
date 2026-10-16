@@ -147,7 +147,7 @@ export const RunTask = () => {
     };
 
     if (effectiveTask && !templateEntity) {
-      fetchTemplateEntity();
+      void fetchTemplateEntity();
     }
   }, [effectiveTask, catalogApi, templateEntity]);
 

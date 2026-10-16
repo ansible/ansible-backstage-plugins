@@ -205,12 +205,12 @@ export const GitRepositoriesPage = () => {
   }, [discoveryApi, fetchApi]);
 
   useEffect(() => {
-    fetchSyncStatus();
+    void fetchSyncStatus();
   }, [fetchSyncStatus]);
 
   useEffect(() => {
     if (prevSyncInProgressRef.current && !isSyncInProgress) {
-      fetchSyncStatus();
+      void fetchSyncStatus();
     }
     prevSyncInProgressRef.current = isSyncInProgress;
   }, [isSyncInProgress, fetchSyncStatus]);

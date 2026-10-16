@@ -88,7 +88,7 @@ export function usePortalHealthStatus(intervalMs = 30_000): {
       }
     };
 
-    fetchSnapshot();
+    void fetchSnapshot();
     const timer = setInterval(fetchSnapshot, intervalMs);
     return () => {
       mounted = false;

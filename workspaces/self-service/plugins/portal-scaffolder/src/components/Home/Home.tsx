@@ -352,7 +352,7 @@ export const HomeComponent = () => {
   }, [ansibleApi]);
 
   const ShowSyncConfirmationDialog = () => {
-    fetchSyncStatus();
+    void fetchSyncStatus();
     setOpen(true);
   };
 
@@ -366,13 +366,13 @@ export const HomeComponent = () => {
       if (syncOptions.includes('orgsUsersTeams')) {
         result = await ansibleApi.syncOrgsUsersTeam();
         if (result) {
-          fetchSyncStatus();
+          void fetchSyncStatus();
         }
       }
       if (syncOptions.includes('templates')) {
         result = await ansibleApi.syncTemplates();
         if (result) {
-          fetchSyncStatus();
+          void fetchSyncStatus();
           // Latest JT set for the logged-in user drives catalog visibility.
           const preSyncTemplates = jobTemplatesRef.current;
           const newTemplates = await fetchJobTemplates({ background: true });
@@ -417,7 +417,7 @@ export const HomeComponent = () => {
   }, [jobTemplatesErrorMessage]);
 
   useEffect(() => {
-    fetchSyncStatus();
+    void fetchSyncStatus();
   }, [fetchSyncStatus]);
 
   // After JT load settles: refresh facets + re-query catalog for this JT set.
@@ -433,7 +433,13 @@ export const HomeComponent = () => {
 
   useEffect(() => {
     if (syncOptions.length > 0) {
-      handleSync();
+      handleSync().catch(err => {
+        setSyncOptions([]);
+        setControllerSnackbar({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Failed to start sync',
+        });
+      });
     }
   }, [syncOptions, handleSync]);
 

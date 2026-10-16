@@ -81,7 +81,15 @@ function providerFinishedRunSinceLastPoll(
   return curr.lastSyncTime !== prev.lastSyncTime || prev.syncInProgress;
 }
 
-class SyncPollingService {
+/** Poll catalog sync status with instance-local tracking and a configurable notification sink. */
+export class SyncPollingService {
+  constructor(
+    private readonly notifications: Pick<
+      typeof notificationStore,
+      'showNotification'
+    > = notificationStore,
+  ) {}
+
   private discoveryApi: DiscoveryApi | null = null;
   private fetchApi: FetchApi | null = null;
   private readonly trackedSyncs: Map<string, TrackedSync> = new Map();
@@ -122,18 +130,14 @@ class SyncPollingService {
     };
   }
 
+  /** Attach API clients and start or resume the polling loop. */
   initialize(discoveryApi: DiscoveryApi, fetchApi: FetchApi): void {
     this.discoveryApi = discoveryApi;
     this.fetchApi = fetchApi;
 
     const startPollChain = () => {
       const gen = this.pollGeneration;
-      this.checkSyncStatus().then(anyInProgress => {
-        if (!this.isCurrentGeneration(gen)) {
-          return;
-        }
-        this.scheduleNextPoll(anyInProgress);
-      });
+      this.pollAndScheduleNext(gen);
     };
 
     if (!this.pollLoopStarted) {
@@ -247,7 +251,7 @@ class SyncPollingService {
     this.notifyProgressListeners();
     if (!this.notifiedDisplayNames.has(displayName)) {
       this.notifiedDisplayNames.add(displayName);
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync failed',
         description,
         severity: 'error',
@@ -278,7 +282,7 @@ class SyncPollingService {
     this.notifiedDisplayNames.add(displayName);
 
     if (provider.lastSyncStatus === 'success') {
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync completed',
         description: buildSyncCompletedMessage(
           displayName,
@@ -293,7 +297,7 @@ class SyncPollingService {
       return;
     }
     if (provider.lastSyncStatus === 'failure') {
-      notificationStore.showNotification({
+      this.notifications.showNotification({
         title: 'Sync failed',
         description: `Failed to sync content from ${displayName}.`,
         severity: 'error',
@@ -303,7 +307,7 @@ class SyncPollingService {
       });
       return;
     }
-    notificationStore.showNotification({
+    this.notifications.showNotification({
       title: 'Sync finished',
       description: `Catalog did not report a clear success or failure for ${displayName}.`,
       severity: 'warning',
@@ -529,6 +533,23 @@ class SyncPollingService {
     return inFlightRef.promise;
   }
 
+  /** Poll and retry only while this session generation remains current. */
+  private pollAndScheduleNext(gen: number): void {
+    this.checkSyncStatus()
+      .then(anyInProgress => {
+        if (this.isCurrentGeneration(gen)) {
+          this.scheduleNextPoll(anyInProgress);
+        }
+      })
+      .catch(() => {
+        // A failed poll must not terminate the chain or revive a cleared session.
+        if (this.isCurrentGeneration(gen)) {
+          this.scheduleNextPoll(true);
+        }
+      });
+  }
+
+  /** Schedule fast active-sync polling or idle polling, guarded by session generation. */
   private scheduleNextPoll(anyInProgress: boolean): void {
     if (this.pollTimer !== null) {
       clearTimeout(this.pollTimer);
@@ -539,18 +560,14 @@ class SyncPollingService {
       : SLOW_POLL_INTERVAL_MS;
 
     const gen = this.pollGeneration;
-    this.pollTimer = setTimeout(async () => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
+    this.pollTimer = setTimeout(() => {
+      if (this.isCurrentGeneration(gen)) {
+        this.pollAndScheduleNext(gen);
       }
-      const stillInProgress = await this.checkSyncStatus();
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(stillInProgress);
     }, interval);
   }
 
+  /** Track newly started syncs and immediately poll for progress and completion. */
   startTracking(syncs: StartedSyncInfo[]): void {
     if (syncs.length === 0) {
       return;
@@ -586,12 +603,7 @@ class SyncPollingService {
     }
 
     const gen = this.pollGeneration;
-    this.checkSyncStatus().then(anyInProgress => {
-      if (!this.isCurrentGeneration(gen)) {
-        return;
-      }
-      this.scheduleNextPoll(anyInProgress);
-    });
+    this.pollAndScheduleNext(gen);
   }
 
   clear(): void {

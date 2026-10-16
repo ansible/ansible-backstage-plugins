@@ -305,6 +305,20 @@ describe('AAPResourcePicker', () => {
       expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
     });
 
+    it('handles token acquisition failures without requesting autocomplete', async () => {
+      mockRhAapAuthApi.getAccessToken.mockRejectedValue(
+        new Error('Sign-in required'),
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(mockRhAapAuthApi.getAccessToken).toHaveBeenCalled();
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
+    });
+
     it('should handle API errors gracefully', async () => {
       mockScaffolderApi.autocomplete.mockRejectedValue(new Error('API Error'));
 

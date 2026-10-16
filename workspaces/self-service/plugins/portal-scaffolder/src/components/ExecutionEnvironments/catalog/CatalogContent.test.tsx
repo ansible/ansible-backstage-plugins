@@ -1405,6 +1405,38 @@ describe('EEListPage', () => {
       });
     });
 
+    test('reports catalog failures from the Download action', async () => {
+      const entityWithDownload = {
+        ...entityA,
+        metadata: {
+          ...entityA.metadata,
+          annotations: {
+            ...entityA.metadata.annotations,
+            'ansible.io/download-experience': 'true',
+          },
+        },
+      };
+      await renderWithCatalogApi(
+        () => Promise.resolve({ items: [entityWithDownload] }),
+        jest.fn().mockRejectedValue(new Error('Catalog unavailable')),
+      );
+      fireEvent.click(await screen.findByRole('button', { name: /actions/i }));
+      fireEvent.click(
+        await screen.findByRole('menuitem', { name: /download/i }),
+      );
+
+      await waitFor(() => {
+        expect(notificationStore.getNotifications()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              title: 'Download failed',
+              severity: 'error',
+            }),
+          ]),
+        );
+      });
+    });
+
     test('Delete (download-experience) opens unregister dialog', async () => {
       const entityWithDownload = {
         ...entityA,

@@ -96,6 +96,7 @@ export class PortalOperations {
     });
   }
 
+  /** Dispatch a REST operation after organization, RBAC, schema and entitlement checks. */
   async execute(
     operationId: string,
     request: OperationRequest,
@@ -147,8 +148,9 @@ export class PortalOperations {
         (registration.descriptor.organizationScope !== 'shared' &&
           !organizationId) ||
         (context.organizationIds !== undefined &&
-          [...context.organizationIds].sort().join('\0') !==
-            memberships.join('\0'))
+          [...context.organizationIds]
+            .sort((a, b) => a.localeCompare(b))
+            .join('\0') !== memberships.join('\0'))
       ) {
         throw new NotAllowedError(
           'Operation organization context is missing, ambiguous or inconsistent',

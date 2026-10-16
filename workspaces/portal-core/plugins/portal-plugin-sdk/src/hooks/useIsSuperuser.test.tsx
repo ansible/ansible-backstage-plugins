@@ -154,6 +154,36 @@ describe('SDK superuser status', () => {
     );
   });
 
+  it('fails closed and finishes retrying an invalid catalog user reference', async () => {
+    identity.getBackstageIdentity.mockResolvedValue({
+      userEntityRef: 'user:default/',
+    });
+    const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+    await flush();
+    expect(result.current.loading).toBe(true);
+    await flush(3000);
+    expect(result.current.isSuperuser).toBe(false);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(catalog.getEntityByRef).not.toHaveBeenCalled();
+  });
+
+  it('handles a synchronous catalog adapter failure through the normal retry path', async () => {
+    const error = new Error('Catalog adapter unavailable');
+    catalog.getEntityByRef.mockImplementation(() => {
+      throw error;
+    });
+    const { result } = renderHook(() => useIsSuperuser(), { wrapper });
+    await flush();
+    await flush(3000);
+    expect(catalog.getEntityByRef).toHaveBeenCalledTimes(2);
+    expect(result.current).toEqual({
+      isSuperuser: false,
+      loading: false,
+      error,
+    });
+  });
+
   it('normalizes non-Error identity failures', async () => {
     identity.getBackstageIdentity.mockRejectedValue('Unavailable');
     const { result } = renderHook(() => useIsSuperuser(), { wrapper });

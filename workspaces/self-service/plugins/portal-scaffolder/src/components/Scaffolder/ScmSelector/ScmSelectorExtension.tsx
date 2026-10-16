@@ -460,7 +460,7 @@ export const ScmSelectorExtension = ({
       !isAuthenticating
     ) {
       hasInitializedRef.current = true;
-      authenticateWithProvider(selectedProvider);
+      void authenticateWithProvider(selectedProvider);
     }
   }, [
     selectedProvider,

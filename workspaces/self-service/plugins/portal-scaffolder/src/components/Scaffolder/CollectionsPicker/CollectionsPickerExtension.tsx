@@ -312,13 +312,13 @@ export const CollectionsPickerExtension = ({
 
   // Load collections on mount
   useEffect(() => {
-    fetchCollections();
+    void fetchCollections();
   }, [fetchCollections]);
 
   // Load sources when collection changes
   useEffect(() => {
     if (selectedCollection) {
-      fetchSources(selectedCollection);
+      void fetchSources(selectedCollection);
     } else {
       setAvailableSources([]);
       setAvailableVersions([]);
@@ -327,7 +327,7 @@ export const CollectionsPickerExtension = ({
 
   useEffect(() => {
     if (selectedCollection && selectedSource) {
-      fetchVersions(selectedCollection, selectedSource);
+      void fetchVersions(selectedCollection, selectedSource);
     } else {
       setAvailableVersions([]);
     }

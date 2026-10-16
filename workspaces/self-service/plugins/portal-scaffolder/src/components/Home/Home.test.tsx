@@ -491,6 +491,23 @@ describe('self-service', () => {
       fireEvent.click(screen.getByText('Ok'));
     };
 
+    it('shows an error when starting a template sync rejects', async () => {
+      mockAnsibleApi.syncTemplates.mockRejectedValueOnce(
+        new Error('Sync service unavailable'),
+      );
+      mockCatalogApi.getEntityFacets.mockResolvedValue(
+        facetsFromEntityRefs([], []),
+      );
+
+      await render(<HomeComponent />);
+      await triggerTemplateSync();
+
+      expect(
+        await screen.findByText('Sync service unavailable'),
+      ).toBeInTheDocument();
+      expect(mockAnsibleApi.syncTemplates).toHaveBeenCalledTimes(1);
+    });
+
     it('should fetch job templates on mount', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];

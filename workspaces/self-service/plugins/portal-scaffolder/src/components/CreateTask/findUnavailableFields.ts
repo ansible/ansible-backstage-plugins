@@ -19,5 +19,5 @@ export function findUnavailableFields(
     Object.values(record).forEach(inspect);
   }
   inspect(value);
-  return [...missing].sort();
+  return [...missing].sort((a, b) => a.localeCompare(b));
 }

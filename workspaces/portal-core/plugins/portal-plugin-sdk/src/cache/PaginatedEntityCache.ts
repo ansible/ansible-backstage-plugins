@@ -103,6 +103,7 @@ export class PaginatedEntityCache<
     await this.loadingPromise;
   }
 
+  /** Publish the first page before prefetching, ignoring results from stale epochs. */
   private async performInitialLoad(): Promise<void> {
     if (!this.catalogApi) return;
     const epoch = this.fetchEpoch;
@@ -136,7 +137,7 @@ export class PaginatedEntityCache<
       this.notifyListeners();
 
       if (items.length < total) {
-        this.continueBackgroundLoading();
+        void this.continueBackgroundLoading();
       } else {
         this.clearLoadingPromiseIfCurrent(epoch);
       }
