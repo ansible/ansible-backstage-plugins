@@ -26,6 +26,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+/** Render a decorative document icon without adding an accessible control label. */
 export const DocumentIcon = () => {
   const classes = useStyles();
   return (

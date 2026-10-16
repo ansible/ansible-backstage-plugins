@@ -69,6 +69,7 @@ export function NativeScaffolderFields({
   }>();
   useEffect(() => {
     let cancelled = false;
+    /** Mark the current field declaration set as failed when a widget boundary reports an error. */
     const handleFieldError = () => {
       if (cancelled) return;
       setState(previous =>

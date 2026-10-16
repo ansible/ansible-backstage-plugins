@@ -140,6 +140,7 @@ function HomeCatalogPanel({
   );
 }
 
+/** Render the template catalog and synchronize provider status and user notifications. */
 export const HomeComponent = () => {
   const navigate = useNavigate();
   const shellPageClasses = useShellPageStyles();

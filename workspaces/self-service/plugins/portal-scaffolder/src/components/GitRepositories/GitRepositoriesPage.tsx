@@ -101,6 +101,7 @@ const getTabIndexFromPath = (pathname: string): number => {
   return 0;
 };
 
+/** Render the filtered repository catalog with host contributions and permission-gated actions. */
 export const GitRepositoriesPage = () => {
   const classes = useStyles();
   const location = useLocation();

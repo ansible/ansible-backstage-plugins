@@ -26,6 +26,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
+/** Render a decorative workspace icon without duplicating its surrounding label. */
 export const WorkspaceIcon = () => {
   const classes = useStyles();
 

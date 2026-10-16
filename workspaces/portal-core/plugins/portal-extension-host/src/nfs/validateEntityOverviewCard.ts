@@ -13,6 +13,7 @@ export function collectEntityOverviewCards(
     .filter(card => {
       try {
         const { capability, entry } = resolveEntityContribution(card);
+        /** Accept only SDK-defined content type IDs during overview-card contract validation. */
         const known = (type: string) =>
           (Object.values(CONTENT_TYPES) as readonly string[]).includes(type);
         if (

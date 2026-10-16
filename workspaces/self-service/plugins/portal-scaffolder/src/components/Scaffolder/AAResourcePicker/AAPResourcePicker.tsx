@@ -190,6 +190,7 @@ function formatResourceKeyForEmptyMessage(resourceKey: string): string {
   return resourceKey.replaceAll(/[\s.,_]+/g, '-');
 }
 
+/** Load AAP choices while preserving controlled selection and rejecting obsolete request updates. */
 export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const {
     name,
@@ -280,6 +281,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
       return undefined;
     }
     let isCurrent = true;
+    /** Resolve token and autocomplete data, publishing results only for the current effect. */
     const fetchResources = async () => {
       try {
         const token = await aapAuth.getAccessToken();

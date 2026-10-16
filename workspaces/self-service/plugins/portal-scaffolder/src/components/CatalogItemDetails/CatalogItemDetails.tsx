@@ -34,6 +34,7 @@ const headerStyles = makeStyles(theme => ({
   },
 }));
 
+/** Load a template entity and present its catalog details, loading state and removal controls. */
 export const CatalogItemsDetails = () => {
   const classes = headerStyles();
   const theme = useTheme();
@@ -68,6 +69,7 @@ export const CatalogItemsDetails = () => {
     void fetchTasks();
   }, [fetchTasks]);
 
+  /** Close the removal dialog and navigate back to the catalog after successful removal. */
   const cleanUpAfterRemoval = () => {
     return Promise.resolve().then(() => {
       setConfirmationDialogOpen(false);
