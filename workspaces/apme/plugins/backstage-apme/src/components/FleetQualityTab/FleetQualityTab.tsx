@@ -474,9 +474,8 @@ export const FleetQualityTab = ({
                   style={{ height: 20, fontSize: 11, fontWeight: 600 }}
                 />
               ))}
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 onClick={() => {
                   setSeverityFilters(new Set());
                   setCategoryFilters(new Set());
@@ -488,13 +487,16 @@ export const FleetQualityTab = ({
                   }
                 }}
                 style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
                   fontSize: 12,
                   color: theme.palette.primary.main,
                   cursor: 'pointer',
                 }}
               >
                 Clear filters
-              </span>
+              </button>
             </Box>
           )}
 

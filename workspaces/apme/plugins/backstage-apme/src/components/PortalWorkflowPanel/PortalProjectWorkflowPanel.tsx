@@ -71,7 +71,7 @@ export function PortalProjectWorkflowPanel({
   feedbackEnabled,
   onViewDetails,
   hostShipActions,
-}: PortalProjectWorkflowPanelProps) {
+}: Readonly<PortalProjectWorkflowPanelProps>) {
   const {
     operationActive,
     opState,

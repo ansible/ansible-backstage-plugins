@@ -366,11 +366,11 @@ function SideBySideDiff({
   before,
   after,
   afterLabel = 'After (proposed)',
-}: {
+}: Readonly<{
   before?: string;
   after?: string;
   afterLabel?: string;
-}) {
+}>) {
   const classes = useStyles();
   if (!before?.trim() && !after?.trim()) return null;
   return (
