@@ -233,7 +233,7 @@ refactor is owned by ANSTRAT-2497, this section documents its current-state impo
 | `TemplatesPage`       | `templatesRouteRef`       | `/self-service` (templates)  |
 | `HistoryPage`         | `historyRouteRef`         | `/self-service/create/tasks` |
 
-**Component extensions (6):** `LocationListener`, `AppThemeFixer`, `AAPLogoutButton`,
+**Component extensions (8):** `LocationListener`, `AppThemeFixer`, `AAPLogoutButton`,
 `EEBuilderSidebarItem`, `CollectionsSidebarItem`, `GitRepositoriesSidebarItem`,
 `TemplatesSidebarItem`, `HistorySidebarItem`.
 
@@ -392,11 +392,11 @@ Lightweight package. Two source files, no HTTP code.
 
 **Files:**
 
-| File                 | Contents                                                                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/IAAPService.ts` | `IAAPService` interface — `Pick<AAPClient, ...>` with 35 methods (stripped of `isValidPAHRepository` and `syncCollectionsByRepositories`) |
-| `src/AAPService.ts`  | `ansibleServiceRef` — `createServiceRef<IAAPService>({ id: 'rhaap.client.service' })` with no `defaultFactory` (see §4.3)                 |
-| `src/index.ts`       | Barrel exports                                                                                                                            |
+| File                 | Contents                                                                                                                                                                                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/IAAPService.ts` | `IAAPService` interface — standalone interface declaring 35 method signatures using shared types from `aap-common` (not `Pick<AAPClient, ...>` — that is how it is defined today but would create a cycle; the target declares methods directly and `AAPClient` in `aap-backend` implements it) |
+| `src/AAPService.ts`  | `ansibleServiceRef` — `createServiceRef<IAAPService>({ id: 'rhaap.client.service' })` with no `defaultFactory` (see §4.3)                                                                                                                                                                       |
+| `src/index.ts`       | Barrel exports                                                                                                                                                                                                                                                                                  |
 
 **Dependencies:** `@ansible/aap-common` (peer — for types used in `IAAPService` method signatures),
 `@backstage/backend-plugin-api` (for `createServiceRef`).
@@ -536,7 +536,11 @@ imports nothing from common, and `aap-common` is safe to use in any environment.
 ### 4.2 IAAPService interface — strip PAH methods
 
 The current `IAAPService` interface exposes 37 methods via `Pick<AAPClient, ...>`.
-Two of these are PAH (Private Automation Hub) methods that cross the content boundary:
+In the target architecture, `IAAPService` is redeclared as a standalone interface
+with explicit method signatures (using shared types from `aap-common`), breaking
+the `Pick<>` dependency on `AAPClient`. `AAPClient` in `aap-backend` then
+`implements IAAPService`.
+Two of the current 37 methods are PAH (Private Automation Hub) methods that cross the content boundary:
 
 ```typescript
 // REMOVE from IAAPService in aap-node:
@@ -724,22 +728,23 @@ service ref) — they receive the `AAPClient` implementation via dependency inje
 
 ```yaml
 # dynamic-plugins.yaml (RHDH)
-- package: @ansible/aap-backend                          # NEW — registers ansibleServiceFactory
-  disabled: false
-- package: @ansible/backstage-plugin-catalog-backend-module-aap
-  disabled: false
-  pluginConfig:                                          # embeds type-only packages
-    dynamicPlugins:
-      embed:
-        - '@ansible/aap-common'
-        - '@ansible/aap-node'
-- package: @ansible/plugin-scaffolder-backend-module-aap
-  disabled: false
-  pluginConfig:
-    dynamicPlugins:
-      embed:
-        - '@ansible/aap-common'
-        - '@ansible/aap-node'
+plugins:
+  - package: '@ansible/aap-backend' # NEW — registers ansibleServiceFactory
+    disabled: false
+  - package: '@ansible/backstage-plugin-catalog-backend-module-aap'
+    disabled: false
+    pluginConfig: # embeds type-only packages
+      dynamicPlugins:
+        embed:
+          - '@ansible/aap-common'
+          - '@ansible/aap-node'
+  - package: '@ansible/plugin-scaffolder-backend-module-aap'
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        embed:
+          - '@ansible/aap-common'
+          - '@ansible/aap-node'
 ```
 
 **Load order:** RHDH resolves service refs lazily, so `aap-backend` does not need to
