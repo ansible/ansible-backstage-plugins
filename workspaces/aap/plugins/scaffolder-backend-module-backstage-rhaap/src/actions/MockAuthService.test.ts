@@ -169,6 +169,9 @@ describe('MockAuthService', () => {
         onBehalfOf: credentials,
         targetPluginId: pluginId,
       });
+      expect(token.startsWith(MOCK_SERVICE_TOKEN_PREFIX)).toBe(true);
+      const claims = JSON.parse(token.slice(MOCK_SERVICE_TOKEN_PREFIX.length));
+      expect(claims.target).toBe(pluginId);
       await expect(service.authenticate(token)).resolves.toEqual(credentials);
     });
     it('returns a service token for user principal', async () => {
