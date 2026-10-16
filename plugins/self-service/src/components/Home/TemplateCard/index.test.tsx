@@ -1,5 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
+import { TestApiProvider } from '@backstage/test-utils';
+import {
+  defaultEntityPresentation,
+  entityPresentationApiRef,
+} from '@backstage/plugin-catalog-react';
 import { WizardCard } from './index';
 import type { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 
@@ -9,6 +14,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 jest.mock('@backstage/core-plugin-api', () => ({
+  ...jest.requireActual('@backstage/core-plugin-api'),
   useRouteRef: () => () => '/self-service',
 }));
 
@@ -17,6 +23,7 @@ jest.mock('../../../routes', () => ({
 }));
 
 jest.mock('@backstage/plugin-catalog-react', () => ({
+  ...jest.requireActual('@backstage/plugin-catalog-react'),
   FavoriteEntity: () => <span data-testid="favorite-entity" />,
 }));
 
@@ -28,7 +35,11 @@ jest.mock('@backstage/plugin-permission-react', () => ({
 const theme = createTheme();
 
 const renderWithTheme = (ui: React.ReactElement, themeOverride = theme) =>
-  render(<ThemeProvider theme={themeOverride}>{ui}</ThemeProvider>);
+  render(
+    <TestApiProvider apis={[]}>
+      <ThemeProvider theme={themeOverride}>{ui}</ThemeProvider>
+    </TestApiProvider>,
+  );
 
 const makeTemplate = (
   overrides: Partial<TemplateEntityV1beta3['metadata']> = {},
@@ -116,6 +127,45 @@ describe('WizardCard', () => {
   it('renders owner name', () => {
     renderWithTheme(<WizardCard template={makeTemplate()} />);
     expect(screen.getByText('team-a')).toBeInTheDocument();
+  });
+
+  it('renders the resolved organization display name as non-clickable text', () => {
+    const ownerRef = 'group:aap-83/aap-org-83';
+    const organization = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Group',
+      metadata: { namespace: 'aap-83', name: 'aap-org-83' },
+      spec: {
+        type: 'organization',
+        profile: { displayName: 'Org: Engineering' },
+      },
+    };
+    const presentationApi = {
+      forEntity: (ref: string) => {
+        const snapshot = defaultEntityPresentation(
+          ref === ownerRef ? organization : ref,
+        );
+        return { snapshot, promise: Promise.resolve(snapshot) };
+      },
+    };
+    renderWithTheme(
+      <TestApiProvider apis={[[entityPresentationApiRef, presentationApi]]}>
+        <WizardCard template={makeTemplate({}, { owner: ownerRef })} />
+      </TestApiProvider>,
+    );
+
+    const owner = screen.getByText('Org: Engineering');
+    expect(owner.closest('a, button, [role="link"]')).toBeNull();
+    expect(screen.queryByText(ownerRef)).not.toBeInTheDocument();
+    fireEvent.click(owner);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('omits the owner when none is specified', () => {
+    const { container } = renderWithTheme(
+      <WizardCard template={makeTemplate({}, { owner: undefined })} />,
+    );
+    expect(container.querySelector('.owner')).toBeEmptyDOMElement();
   });
 
   it('renders correctly with dark theme', () => {
