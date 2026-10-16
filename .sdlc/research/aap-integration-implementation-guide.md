@@ -988,7 +988,7 @@ begins:
 
 | Document                            | Location                                                      | Status                 |
 | ----------------------------------- | ------------------------------------------------------------- | ---------------------- |
-| This implementation guide           | `docs/next/aap-integration-implementation-guide.md`           | This file              |
+| This implementation guide           | `.sdlc/research/aap-integration-implementation-guide.md`      | This file              |
 | Phase 0 inventory                   | Inline in §2–3, §3.1–3.6, and Appendix A/B                    | Captured in this guide |
 | Decision record                     | Inline in §4.1 (4-package split) and §4.3 (no defaultFactory) | Captured in this guide |
 | Cross-spike coordination matrix     | Inline in §8 (sequencing matrix)                              | Captured in this guide |
