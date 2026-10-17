@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import {
   FieldExtensionComponentProps,
@@ -31,9 +31,16 @@ export const AAPTokenField = ({
   const fieldName =
     (typeof customTitle === 'string' ? customTitle : schema?.title) ||
     'AAP Token';
-  const fieldId = `aap-token-field-${Math.random()
-    .toString(36)
-    .substring(2, 11)}`;
+  // Generate a unique ID for the field element. Uses crypto.randomUUID when available
+  // (browser), falls back to Math.random for test environments (JSDOM).
+  // This is safe because the ID is only used for DOM element identification, not security.
+  const fieldId = useMemo(() => {
+    const randomPart =
+      typeof globalThis.crypto?.randomUUID === 'function'
+        ? globalThis.crypto.randomUUID()
+        : Math.random().toString(36).substring(2, 10); // NOSONAR - fallback for test env only
+    return `aap-token-field-${randomPart}`;
+  }, []);
 
   useEffect(() => {
     const fetchToken = async () => {

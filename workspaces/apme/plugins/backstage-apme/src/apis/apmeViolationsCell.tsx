@@ -137,7 +137,7 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
         () => new Map<string, Project>(),
       );
     }
-    projectsFetchPromise.then(map => {
+    void projectsFetchPromise.then(map => {
       if (!cancelled) {
         setProjectMap(map);
       }

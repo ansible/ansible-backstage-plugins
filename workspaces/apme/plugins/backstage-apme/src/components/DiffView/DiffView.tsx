@@ -165,62 +165,99 @@ interface DiffLine {
   newNum?: number;
 }
 
+interface DiffParseState {
+  oldNum: number;
+  newNum: number;
+}
+
+/** Parse hunk header and extract line numbers */
+function parseHunkHeader(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const match = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+  const newState = match
+    ? {
+        oldNum: Number.parseInt(match[1], 10),
+        newNum: Number.parseInt(match[2], 10),
+      }
+    : state;
+  return { line: { type: 'context', content: raw }, state: newState };
+}
+
+/** Parse a single diff line and return the DiffLine with updated state */
+function parseDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } | null {
+  // Skip empty lines in the middle of results
+  if (!raw) return null;
+
+  // Hunk header
+  if (raw.startsWith('@@')) {
+    return parseHunkHeader(raw, state);
+  }
+
+  // File headers
+  if (raw.startsWith('+++') || raw.startsWith('---')) {
+    return { line: { type: 'context', content: raw }, state };
+  }
+
+  // Added line
+  if (raw.startsWith('+')) {
+    const line: DiffLine = {
+      type: 'added',
+      content: raw.slice(1),
+      newNum: state.newNum > 0 ? state.newNum : undefined,
+    };
+    const newState = {
+      ...state,
+      newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+    };
+    return { line, state: newState };
+  }
+
+  // Removed line
+  if (raw.startsWith('-')) {
+    const line: DiffLine = {
+      type: 'removed',
+      content: raw.slice(1),
+      oldNum: state.oldNum > 0 ? state.oldNum : undefined,
+    };
+    const newState = {
+      ...state,
+      oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
+    };
+    return { line, state: newState };
+  }
+
+  // Context line
+  const content = raw.startsWith(' ') ? raw.slice(1) : raw;
+  const line: DiffLine = {
+    type: 'context',
+    content,
+    oldNum: state.oldNum > 0 ? state.oldNum : undefined,
+    newNum: state.newNum > 0 ? state.newNum : undefined,
+  };
+  const newState = {
+    oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
+    newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+  };
+  return { line, state: newState };
+}
+
 function parseUnifiedDiffHunk(diff: string): DiffLine[] {
   const result: DiffLine[] = [];
-  let oldNum = 0;
-  let newNum = 0;
+  let state: DiffParseState = { oldNum: 0, newNum: 0 };
 
   for (const raw of diff.split('\n')) {
-    if (!raw && result.length > 0) {
-      continue;
-    }
-    if (raw.startsWith('@@')) {
-      const match = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (match) {
-        oldNum = Number.parseInt(match[1], 10);
-        newNum = Number.parseInt(match[2], 10);
-      }
-      result.push({ type: 'context', content: raw });
-      continue;
-    }
-    if (raw.startsWith('+++') || raw.startsWith('---')) {
-      result.push({ type: 'context', content: raw });
-      continue;
-    }
-    if (raw.startsWith('+')) {
-      result.push({
-        type: 'added',
-        content: raw.slice(1),
-        newNum: newNum > 0 ? newNum : undefined,
-      });
-      if (newNum > 0) {
-        newNum += 1;
-      }
-      continue;
-    }
-    if (raw.startsWith('-')) {
-      result.push({
-        type: 'removed',
-        content: raw.slice(1),
-        oldNum: oldNum > 0 ? oldNum : undefined,
-      });
-      if (oldNum > 0) {
-        oldNum += 1;
-      }
-      continue;
-    }
-    const content = raw.startsWith(' ') ? raw.slice(1) : raw;
-    result.push({
-      type: 'context',
-      content,
-      oldNum: oldNum > 0 ? oldNum : undefined,
-      newNum: newNum > 0 ? newNum : undefined,
-    });
-    if (oldNum > 0) {
-      oldNum += 1;
-    }
-    if (newNum > 0) {
-      newNum += 1;
+    // Skip empty lines only when we already have results
+    if (!raw && result.length > 0) continue;
+
+    const parsed = parseDiffLine(raw, state);
+    if (parsed) {
+      result.push(parsed.line);
+      state = parsed.state;
     }
   }
 
@@ -407,7 +444,10 @@ export const DiffView = ({
         {lines.map((line, idx) => (
           <div
             key={idx}
-            className={`${classes.line} ${diffLineClassName(classes, line.type)}`}
+            className={`${classes.line} ${diffLineClassName(
+              classes,
+              line.type,
+            )}`}
           >
             <span className={classes.lineNumber}>{line.oldNum ?? ''}</span>
             <span className={classes.lineNumber}>{line.newNum ?? ''}</span>

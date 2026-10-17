@@ -86,13 +86,17 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   // Prefill from Quality settings / project scan-target (US-004).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const version = await resolveDefaultAnsibleVersionForScan(
-        apmeApi,
-        projectId,
-      );
-      if (!cancelled) {
-        setAnsibleVersion(version);
+    void (async () => {
+      try {
+        const version = await resolveDefaultAnsibleVersionForScan(
+          apmeApi,
+          projectId,
+        );
+        if (!cancelled) {
+          setAnsibleVersion(version);
+        }
+      } catch {
+        // Silently fail - default version will be used
       }
     })();
     return () => {
