@@ -383,7 +383,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-automation-content-backend@workspace:workspaces/content/plugins/automation-content-backend":
+"@ansible/plugin-automation-content-backend@workspace:^, @ansible/plugin-automation-content-backend@workspace:workspaces/content/plugins/automation-content-backend":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-automation-content-backend@workspace:workspaces/content/plugins/automation-content-backend"
   dependencies:
@@ -26488,6 +26488,8 @@ __metadata:
     "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^"
     "@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/plugin-automation-content-backend": "workspace:^"
+    "@ansible/plugin-catalog-backend-module-automation-content": "workspace:^"
     "@ansible/plugin-scaffolder-backend-module-backstage-rhaap": "workspace:^"
     "@ansible/portal-health-backend": "workspace:^"
     "@ansible/portal-operations-backend": "workspace:^"

@@ -24,8 +24,7 @@
   },
   "files": [
     "dist",
-    "dist-scalprum",
-    "app-config.dynamic.yaml"
+    "dist-scalprum"
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
