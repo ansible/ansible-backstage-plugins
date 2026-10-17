@@ -154,11 +154,20 @@ export class OCIClient {
 
     // The realm is advertised by the registry and is therefore untrusted input.
     // Refuse anything that is not plain HTTP(S) — a `file:` or `data:` realm
-    // would direct the credential-bearing request somewhere it must never go.
+    // would direct the credential-bearing request somewhere it must never go —
+    // and refuse a plaintext realm for an HTTPS registry, where sending Basic
+    // credentials would leak them to a network observer.
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
       this.logger?.warn(
         `[${this.connection.name}] refusing auth realm with protocol ` +
           `${url.protocol}`,
+      );
+      return undefined;
+    }
+    if (url.protocol === 'http:' && new URL(this.base).protocol === 'https:') {
+      this.logger?.warn(
+        `[${this.connection.name}] refusing non-TLS auth realm ` +
+          `${url.toString()}`,
       );
       return undefined;
     }

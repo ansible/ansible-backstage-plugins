@@ -208,9 +208,18 @@ export function isContentManifest(
   return (
     typeof candidate.schemaVersion === 'string' &&
     Array.isArray(candidate.collections) &&
-    // Collection entries are dereferenced by every consumer; a null or
-    // non-object entry must be rejected here rather than crash a refresh.
-    candidate.collections.every(c => typeof c === 'object' && c !== null) &&
+    // Collection entries are dereferenced by every consumer; each must be an
+    // object carrying the identity fields the model keys on. Item arrays are
+    // deliberately not required here — `normaliseContentManifest` defaults
+    // them, so a publisher may omit empty ones.
+    candidate.collections.every(
+      c =>
+        typeof c === 'object' &&
+        c !== null &&
+        typeof (c as { namespace?: unknown }).namespace === 'string' &&
+        typeof (c as { name?: unknown }).name === 'string' &&
+        typeof (c as { version?: unknown }).version === 'string',
+    ) &&
     typeof candidate.generatedBy === 'object' &&
     candidate.generatedBy !== null
   );

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useAsync from 'react-use/lib/useAsync';
 import useAsyncFn from 'react-use/lib/useAsyncFn';
-import useDebounce from 'react-use/lib/useDebounce';
 import {
   Box,
   Chip,
@@ -123,7 +122,7 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
         color={exact ? 'primary' : 'default'}
         variant={exact ? 'default' : 'outlined'}
         label={
-          exact ? 'build-time manifest' : (env.enumeration?.source ?? 'unknown')
+          exact ? 'build-time manifest' : env.enumeration?.source ?? 'unknown'
         }
       />
     </Tooltip>
@@ -571,6 +570,16 @@ const TYPES = [
   'event_filter',
 ];
 
+/** Return `value`, updated only after it has been stable for `delayMs`. */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export const CollectionView = ({
   environmentRef,
   collectionFqcn,
@@ -608,9 +617,10 @@ export const CollectionView = ({
   const items = result?.items ?? [];
 
   // Debounce the filter inputs: each keystroke would otherwise fire a full
-  // index search with limit 500.
-  const debouncedQ = useDebounce(q, 250);
-  const debouncedType = useDebounce(type, 250);
+  // index search with limit 500. (react-use's useDebounce is callback-based,
+  // so the value debounce is a small local hook.)
+  const debouncedQ = useDebouncedValue(q, 250);
+  const debouncedType = useDebouncedValue(type, 250);
   const firstEffectRun = useRef(true);
   useEffect(() => {
     // `initial` already covers the first load; only re-run on later changes.

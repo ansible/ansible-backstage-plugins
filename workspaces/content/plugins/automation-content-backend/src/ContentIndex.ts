@@ -463,10 +463,11 @@ export class ContentIndex {
         );
         found.push(...retained);
         this.logger.warn(
-          `[${name}] ${repository}: ${(error as Error).message}` +
-            (retained.length
+          `[${name}] ${repository}: ${(error as Error).message}${
+            retained.length
               ? `; keeping ${retained.length} previously known artifact(s)`
-              : ''),
+              : ''
+          }`,
         );
       }
     }
@@ -522,10 +523,12 @@ export class ContentIndex {
       if (REFERRER_TAG.test(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
-        this.logger.warn(
-          `[${registry}] rate-limited by registry while scanning ${repository}:${tag}; skipping remaining tags`,
+        // Throwing makes this a failed repository rather than a successful
+        // partial scan, so the previous view is kept instead of the remaining
+        // tags being read as absent.
+        throw new Error(
+          `rate-limited by registry while scanning ${repository}:${tag}`,
         );
-        break;
       }
       if (!head.digest) {
         this.logger.debug(

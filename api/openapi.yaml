@@ -2730,9 +2730,15 @@ paths:
     post:
       operationId: syncAllRegistries
       tags: [Automation Content Registries]
+      security:
+        - JWT: []
       summary: Trigger discovery for all configured registries
       description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Sync result per registry
           content:
@@ -2757,6 +2763,8 @@ paths:
     post:
       operationId: pollRegistry
       tags: [Automation Content Registries]
+      security:
+        - JWT: []
       summary: Poll one registry for changes detected by digest comparison
       description: For registries that cannot push change events; drift is detected by comparing digests.
       parameters:
@@ -2765,6 +2773,10 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Poll result
           content:
@@ -2778,6 +2790,8 @@ paths:
     post:
       operationId: syncRegistry
       tags: [Automation Content Registries]
+      security:
+        - JWT: []
       summary: Trigger discovery for one registry
       description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
       parameters:
@@ -2786,6 +2800,10 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '202':
           description: Sync started
           content:
@@ -3220,6 +3238,8 @@ paths:
     post:
       operationId: resolveRequirements
       tags: [Automation Content Resolution]
+      security:
+        - JWT: []
       summary: Find environments satisfying a set of collection requirements
       description: |
         Accepts the same shape as a Galaxy `requirements.yml`. Use it to answer "which
@@ -3247,6 +3267,10 @@ paths:
                             type: string
                             description: Exact version, or `*` for any.
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Resolution result
           content:
@@ -3287,6 +3311,8 @@ paths:
     post:
       operationId: validateContentConfig
       tags: [Automation Content Configuration]
+      security:
+        - JWT: []
       summary: Validate a declarative content configuration without applying it
       description: |
         Intended for CI: validate a proposed change before merge. Reports errors that
@@ -3299,6 +3325,10 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ContentConfig' }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Validation result. A 200 means the document was understood, not that it is valid — check `valid`.
           content:

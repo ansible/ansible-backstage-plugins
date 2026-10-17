@@ -215,6 +215,18 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       );
     }
 
+    // A `full` mutation with the default orphan strategy deletes entities for
+    // repositories that failed this cycle — a transient 5xx, timeout or 429
+    // must not read as "its content is gone". Keep the previous view and let
+    // the next successful cycle catch up.
+    if (errors.length > 0) {
+      logger.warn(
+        `[${registry.name}] keeping previous entities: ` +
+          `${errors.length} repositor(y/ies) failed this cycle`,
+      );
+      return { entities: unique.length, errors };
+    }
+
     await this.connection.applyMutation({
       type: 'full',
       entities: unique.map(entity => ({
@@ -442,11 +454,20 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         `${classification.signals.join('; ')}`;
     }
 
+    // The EE name is also the scope for its collection entities: two
+    // environments shipping the same collection version are distinct facts,
+    // and an unscoped name would collide (see toCollections).
+    const eeName = this.entityName([
+      registry.name,
+      repository,
+      digest.slice(7, 19),
+    ]);
+
     return {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
       metadata: {
-        name: this.entityName([registry.name, repository, digest.slice(7, 19)]),
+        name: eeName,
         title: `${repository}:${tags[0] ?? digest.slice(7, 19)}`,
         description,
         annotations,
@@ -475,6 +496,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
               c =>
                 `component:default/${this.entityName([
                   'collection',
+                  eeName,
                   c.namespace,
                   c.name,
                   c.version,
@@ -526,8 +548,11 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         apiVersion: 'backstage.io/v1alpha1',
         kind: 'Component',
         metadata: {
+          // Scoped by the owning EE so two environments shipping the same
+          // collection version do not collide on one entity ref.
           name: this.entityName([
             'collection',
+            eeName,
             collection.namespace,
             collection.name,
             collection.version,
