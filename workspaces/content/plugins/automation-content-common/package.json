@@ -1,0 +1,32 @@
+{
+  "name": "@ansible/automation-content-common",
+  "version": "0.1.0",
+  "description": "Shared contracts and clients for Ansible automation content management: backend adapters, content-type adapters, signing providers, and an OCI Distribution v2 client.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "common-library"
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@ansible/content-model": "workspace:^"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.0",
+    "msw": "^2.11.4"
+  }
+}

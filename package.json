@@ -35,6 +35,7 @@
       "workspaces/self-service/plugins/*",
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
+      "workspaces/content/plugins/*",
       "e2e-tests/*"
     ]
   },
