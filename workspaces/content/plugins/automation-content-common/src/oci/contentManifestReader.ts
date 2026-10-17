@@ -3,6 +3,7 @@ import {
   AnsibleContentManifest,
   CONTENT_MANIFEST_ARTIFACT_TYPE,
   isContentManifest,
+  normaliseContentManifest,
 } from '@ansible/content-model';
 import { OCIClient } from './OCIClient';
 import { Descriptor } from './types';
@@ -33,6 +34,13 @@ const TAR_PLAIN = 'application/vnd.oci.image.layer.v1.tar';
 const TAR_BLOCK = 512;
 
 /**
+ * Upper bound for decompressed layer payloads. A content manifest is a small
+ * JSON document; anything expanding beyond this is treated as invalid rather
+ * than trusted to be legitimate.
+ */
+const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
+
+/**
  * Extract one file from an uncompressed tar.
  *
  * A dependency-free reader is worth it here: the archive holds a single small JSON
@@ -50,16 +58,19 @@ export function extractFromTar(
     // Two consecutive zero blocks mark end-of-archive.
     if (header.every(byte => byte === 0)) return undefined;
 
-    const name = header
-      .subarray(0, 100)
-      .toString('utf8')
-      .replace(/\0.*$/, '')
-      .trim();
-    const sizeField = header
-      .subarray(124, 136)
-      .toString('utf8')
-      .replace(/\0.*$/, '')
-      .trim();
+    // Tar name/size fields are NUL-padded; cut at the first NUL. Scanned with
+    // indexOf rather than `replace(/\0.*$/, '')` — the field is registry
+    // controlled, and that regex is polynomial on hostile input.
+    const nameField = header.subarray(0, 100).toString('utf8');
+    const nameNul = nameField.indexOf('\0');
+    const name = (
+      nameNul >= 0 ? nameField.slice(0, nameNul) : nameField
+    ).trim();
+    const sizeRaw = header.subarray(124, 136).toString('utf8');
+    const sizeNul = sizeRaw.indexOf('\0');
+    const sizeField = (
+      sizeNul >= 0 ? sizeRaw.slice(0, sizeNul) : sizeRaw
+    ).trim();
     const size = parseInt(sizeField, 8);
     if (!Number.isFinite(size) || size < 0) return undefined;
 
@@ -90,7 +101,9 @@ export function decodeLayerPayload(
 
   if (mediaType === TAR_GZIP || (blob[0] === 0x1f && blob[1] === 0x8b)) {
     try {
-      data = gunzipSync(blob);
+      // Bound decompression: the blob comes from the registry, and a few MB of
+      // gzip can otherwise expand to gigabytes and exhaust backend memory.
+      data = gunzipSync(blob, { maxOutputLength: MAX_DECOMPRESSED_BYTES });
     } catch {
       return undefined;
     }
@@ -114,7 +127,11 @@ export function decodeManifestBlob(
   mediaType?: string,
 ): AnsibleContentManifest | undefined {
   const parsed = decodeLayerPayload(blob, mediaType);
-  return isContentManifest(parsed) ? parsed : undefined;
+  // Normalise at this boundary: every consumer treats the collection item
+  // arrays as present, and the blob is untrusted registry data.
+  return isContentManifest(parsed)
+    ? normaliseContentManifest(parsed)
+    : undefined;
 }
 
 /** POSIX tar sets the `ustar` magic at offset 257. */

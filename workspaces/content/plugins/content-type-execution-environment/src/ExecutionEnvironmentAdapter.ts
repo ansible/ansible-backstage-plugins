@@ -1,6 +1,7 @@
 import {
   CONTENT_MANIFEST_ARTIFACT_TYPE,
   isContentManifest,
+  normaliseContentManifest,
   summariseManifest,
   unknownEnumeration,
 } from '@ansible/content-model';
@@ -190,7 +191,8 @@ export class ExecutionEnvironmentAdapter implements ContentTypeAdapter {
 
     for (const digest of order) {
       const payload = payloads[digest];
-      if (isContentManifest(payload)) return toEnumeration(payload);
+      if (isContentManifest(payload))
+        return toEnumeration(normaliseContentManifest(payload));
     }
 
     return unknownEnumeration(

@@ -208,9 +208,36 @@ export function isContentManifest(
   return (
     typeof candidate.schemaVersion === 'string' &&
     Array.isArray(candidate.collections) &&
+    // Collection entries are dereferenced by every consumer; a null or
+    // non-object entry must be rejected here rather than crash a refresh.
+    candidate.collections.every(c => typeof c === 'object' && c !== null) &&
     typeof candidate.generatedBy === 'object' &&
     candidate.generatedBy !== null
   );
+}
+
+/**
+ * Default every collection's item arrays, so consumers can rely on the
+ * declared shape even when a publisher omitted empty arrays.
+ *
+ * The payload arrives as an untrusted referrer blob; `isContentManifest`
+ * checks only the fields consumers branch on, so normalisation happens here
+ * at the read boundary rather than as `?? []` in every consumer.
+ */
+export function normaliseContentManifest(
+  manifest: AnsibleContentManifest,
+): AnsibleContentManifest {
+  return {
+    ...manifest,
+    collections: manifest.collections.map(collection => ({
+      ...collection,
+      plugins: collection.plugins ?? [],
+      roles: collection.roles ?? [],
+      playbooks: collection.playbooks ?? [],
+      edaPlugins: collection.edaPlugins ?? [],
+      rulebooks: collection.rulebooks ?? [],
+    })),
+  };
 }
 
 /** Counts for display and for cheap comparison between manifest versions. */

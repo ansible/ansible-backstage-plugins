@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useAsync from 'react-use/lib/useAsync';
 import useAsyncFn from 'react-use/lib/useAsyncFn';
+import useDebounce from 'react-use/lib/useDebounce';
 import {
   Box,
   Chip,
@@ -122,7 +123,7 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
         color={exact ? 'primary' : 'default'}
         variant={exact ? 'default' : 'outlined'}
         label={
-          exact ? 'build-time manifest' : env.enumeration?.source ?? 'unknown'
+          exact ? 'build-time manifest' : (env.enumeration?.source ?? 'unknown')
         }
       />
     </Tooltip>
@@ -606,14 +607,31 @@ export const CollectionView = ({
   const result = search.value ?? initial.value;
   const items = result?.items ?? [];
 
+  // Debounce the filter inputs: each keystroke would otherwise fire a full
+  // index search with limit 500.
+  const debouncedQ = useDebounce(q, 250);
+  const debouncedType = useDebounce(type, 250);
+  const firstEffectRun = useRef(true);
+  useEffect(() => {
+    // `initial` already covers the first load; only re-run on later changes.
+    if (firstEffectRun.current) {
+      firstEffectRun.current = false;
+      return;
+    }
+    runSearch({
+      q: debouncedQ || undefined,
+      type: debouncedType || undefined,
+    });
+  }, [debouncedQ, debouncedType, runSearch]);
+
   const push = useCallback(
     (next: { q?: string; type?: string }) => {
       const merged = { q, type, ...next };
       setQ(merged.q ?? '');
       setType(merged.type ?? '');
-      runSearch({ q: merged.q || undefined, type: merged.type || undefined });
+      // The search itself re-runs through the debounced effect above.
     },
-    [q, type, runSearch],
+    [q, type],
   );
 
   const columns: TableColumn<ContentItemSummary>[] = [

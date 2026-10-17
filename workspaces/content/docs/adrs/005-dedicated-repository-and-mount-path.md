@@ -1,9 +1,22 @@
 # ADR-005: Dedicated Repository and Config-Mounted Route
 
-**Status**: Accepted
+**Status**: Accepted — superseded in part (repository decision) by the 2026-10 import below
 **Date**: 2026-09-14
 **Deciders**: Content management team
 **Scope**: Where this plugin set lives, and how it is mounted in Automation Portal.
+
+> **Update, 2026-10: imported into the `ansible-backstage-plugins` monorepo.**
+>
+> The POC now lives in `workspaces/content` of
+> [`ansible-backstage-plugins`](../../..), as the `content` ownership group. The
+> separate-repository decision below is superseded: the monorepo is now the
+> shared development baseline for portal plugin work (ANSTRAT-2497), and the
+> preview SDK contract develops plugins in-repo with `workspace:^`
+> dependencies. Decision points 1 and 2 still apply in spirit: nothing outside
+> `workspaces/content` imports these plugins' internals, this set imports no
+> other optional plugin's implementation (only the published Portal SDK and
+> its own packages), and the mount path remains configuration, not source.
+> The original decision text is kept for context.
 
 ## Context
 

@@ -31,6 +31,20 @@ tags:
     description: Authenticated dispatch of registered Portal operations
   - name: APME
     description: Automation Platform Management Experience — quality scanning, settings, AI config, projects, suppressions
+  - name: Automation Content Registries
+    description: Configured OCI registries and their discovered capabilities (automation-content-backend)
+  - name: Automation Content
+    description: Type-agnostic access to every content artifact over OCI registries (automation-content-backend)
+  - name: Automation Content Execution Environments
+    description: Aliases over /content for execution environments
+  - name: Automation Content Collections
+    description: Ansible collection artifacts
+  - name: Automation Content Items
+    description: Modules, plugins, roles and EDA plugins — documentation and agent grounding. Scope with `in` to a specific artifact
+  - name: Automation Content Resolution
+    description: Match requirements against available content
+  - name: Automation Content Configuration
+    description: Declarative configuration export and validation
 
 components:
   securitySchemes:
@@ -275,6 +289,328 @@ components:
         collectionsDelta:
           type: integer
       additionalProperties: false
+
+    # ---- Automation content (automation-content-backend) ----
+
+    ContentErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Stable machine-readable code, for agents branching on failure
+      additionalProperties: false
+
+    RegistryCapabilities:
+      type: object
+      description: |
+        What a registry was observed to support. Discovered by probing, never assumed:
+        the platform must work against any OCI-compliant registry without relying on
+        vendor-specific extensions, so features gate on this and degrade rather than
+        fail.
+      required: [referrers, catalogEnumeration, delete, notifications, auth]
+      properties:
+        referrers:
+          type: string
+          enum: [native, tag-fallback, none]
+          description: |
+            How artifacts referring to an image are discovered. `native` is the OCI 1.1
+            referrers endpoint; `tag-fallback` is the `sha256-<hex>` tag convention used
+            by registries that predate it.
+        catalogEnumeration:
+          type: boolean
+          description: Whether the registry lists its own repositories. Many hosted registries disable this, in which case repositories must be configured explicitly.
+        tagPagination:
+          type: boolean
+        delete:
+          type: string
+          enum: [manifest, tag, none, unknown]
+          description: |
+            Deletion support. Never probed, because probing would be destructive —
+            `unknown` until declared in configuration, and delete affordances stay
+            hidden while unknown.
+        notifications:
+          type: string
+          enum: [webhook, poll-only]
+          description: Whether the registry can push change events. `poll-only` means drift is detected by digest comparison.
+        auth:
+          type: array
+          items:
+            type: string
+            enum: [anonymous, basic, bearer, oauth2]
+        notes:
+          type: array
+          items: { type: string }
+          description: Human-readable observations from probing, including why a capability was not determined.
+
+    ContentRegistry:
+      type: object
+      required: [name, url]
+      properties:
+        name: { type: string }
+        url: { type: string }
+        namespaces:
+          type: array
+          items: { type: string }
+        repositories:
+          type: array
+          items: { type: string }
+        capabilities:
+          $ref: '#/components/schemas/RegistryCapabilities'
+
+    Enumeration:
+      type: object
+      description: Provenance of a content inventory. Determines how much it can be trusted.
+      required: [status, source]
+      properties:
+        status:
+          type: string
+          enum: [complete, partial, unknown]
+        source:
+          type: string
+          enum: [build-time-manifest, labels, blob-fetch, external-introspection]
+          description: |
+            `build-time-manifest` is exact: generated inside the image by its own
+            ansible-core. Everything else is an approximation whose fidelity decays as
+            the extracting core diverges from the image's.
+        ansibleCore:
+          type: string
+          description: The ansible-core that performed extraction. Absent implies reduced fidelity.
+        extractedAt:
+          type: string
+          format: date-time
+
+    ContentCounts:
+      type: object
+      properties:
+        collections: { type: integer }
+        plugins: { type: integer }
+        pluginsByType:
+          type: object
+          additionalProperties: { type: integer }
+        roles: { type: integer }
+        playbooks: { type: integer }
+        edaPlugins: { type: integer }
+        rulebooks: { type: integer }
+
+    Classification:
+      type: object
+      description: |
+        Why an image was, or was not, recognised as a given content type. Recorded so an
+        operator never has to guess why something is missing from a listing.
+      required: [type, confidence, signals]
+      properties:
+        type:
+          type: string
+          description: '`execution-environment`, or `oci-image` when unrecognised.'
+        confidence:
+          type: string
+          enum: [certain, likely, no]
+        signals:
+          type: array
+          items: { type: string }
+          description: |
+            The signals that fired, in the order checked: a content-manifest referrer,
+            the `ansible-execution-environment` label that ansible-builder emits on
+            every EE it builds, or our own manifest label.
+
+    ExecutionEnvironment:
+      type: object
+      required: [ref, type, registry, repository, digest, contentsKnown]
+      properties:
+        type:
+          type: string
+          description: Result of classification. Only `execution-environment` has enumerable contents.
+        classification:
+          $ref: '#/components/schemas/Classification'
+        ref:
+          type: string
+          description: Stable opaque identifier for this artifact.
+          examples: ['local-registry/demo/network-ee@sha256:05abb921']
+        registry: { type: string }
+        repository: { type: string }
+        digest:
+          type: string
+          description: Immutable content address. Governance and identity key on this, never on a tag.
+        tags:
+          type: array
+          items: { type: string }
+          description: Mutable pointers currently resolving to this digest. Display only.
+        pullReference:
+          type: string
+          description: |
+            A reference a container runtime can pull directly. The portal is never in
+            the artifact data path; clients pull from the registry.
+        contentsKnown:
+          type: boolean
+          description: False when no content manifest is published. Distinct from containing nothing.
+        enumeration:
+          $ref: '#/components/schemas/Enumeration'
+        counts:
+          $ref: '#/components/schemas/ContentCounts'
+        collections:
+          type: array
+          items: { $ref: '#/components/schemas/CollectionRef' }
+
+    CollectionRef:
+      type: object
+      required: [namespace, name, version]
+      properties:
+        namespace: { type: string }
+        name: { type: string }
+        version: { type: string }
+        fqcn:
+          type: string
+          examples: ['cisco.ios']
+
+    Collection:
+      allOf:
+        - $ref: '#/components/schemas/CollectionRef'
+        - type: object
+          properties:
+            description: { type: string }
+            repository: { type: string }
+            counts: { $ref: '#/components/schemas/ContentCounts' }
+            providedBy:
+              type: array
+              description: Execution environments shipping this collection version.
+              items: { type: string }
+
+    OptionSpec:
+      type: object
+      description: An argument specification. Recursive — network resource modules nest several levels deep, and that nesting is the detail agents need.
+      properties:
+        type: { type: string }
+        elements: { type: string }
+        required: { type: boolean }
+        default: {}
+        choices:
+          type: array
+          items: {}
+        aliases:
+          type: array
+          items: { type: string }
+        versionAdded: { type: string }
+        description:
+          type: array
+          items: { type: string }
+        suboptions:
+          type: object
+          additionalProperties: { $ref: '#/components/schemas/OptionSpec' }
+
+    ContentItemSummary:
+      type: object
+      description: A content item inside an artifact — a module, plugin, role or EDA plugin.
+      required: [fqcn, name, type]
+      properties:
+        fqcn:
+          type: string
+          examples: ['cisco.ios.ios_vlans']
+        name: { type: string }
+        type:
+          type: string
+          description: 'Plugin type: module, filter, lookup, test, connection, cliconf, netconf, event_source, event_filter, role, playbook, …'
+        collection: { type: string }
+        collectionVersion: { type: string }
+        shortDescription: { type: string }
+        versionAdded: { type: string }
+        deprecated: { type: boolean }
+
+    ContentItem:
+      allOf:
+        - $ref: '#/components/schemas/ContentItemSummary'
+        - type: object
+          properties:
+            description:
+              type: array
+              items: { type: string }
+            author:
+              type: array
+              items: { type: string }
+            notes:
+              type: array
+              items: { type: string }
+            options:
+              type: object
+              additionalProperties: { $ref: '#/components/schemas/OptionSpec' }
+            examples: { type: string }
+            returns:
+              type: object
+              additionalProperties: true
+            providedBy:
+              type: array
+              description: Execution environments in which this item is available.
+              items: { type: string }
+            enumeration:
+              $ref: '#/components/schemas/Enumeration'
+
+    RequirementsResolution:
+      type: object
+      description: Which execution environments satisfy a set of collection requirements.
+      properties:
+        satisfiedBy:
+          type: array
+          items:
+            type: object
+            properties:
+              ref: { type: string }
+              pullReference: { type: string }
+              matched:
+                type: array
+                items: { $ref: '#/components/schemas/CollectionRef' }
+        unsatisfied:
+          type: array
+          description: Requirements no available environment provides.
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              version: { type: string }
+              reason: { type: string }
+        notes:
+          type: array
+          items: { type: string }
+
+    ContentConfig:
+      type: object
+      description: |
+        Declarative content configuration. Round-trips: what `/config/export` emits can
+        be committed to Git and fed back to `/config/validate`.
+      required: [apiVersion, kind, registries]
+      properties:
+        apiVersion:
+          type: string
+          examples: ['content.ansible.com/v1']
+        kind:
+          type: string
+          examples: ['ContentConfiguration']
+        registries:
+          type: array
+          items: { $ref: '#/components/schemas/ContentRegistry' }
+
+    ValidationResult:
+      type: object
+      required: [valid, errors, warnings]
+      properties:
+        valid: { type: boolean }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
+        warnings:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              message: { type: string }
 
 
 paths:
@@ -2360,3 +2696,611 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  # ---- Automation content (automation-content-backend, mounted at /api/automation-content) ----
+  # Path strings mirror the router's express-4 patterns verbatim, including the
+  # `(*)` wildcard suffix, as required by api/scripts/check-drift.mjs.
+
+  /registries:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: listRegistries
+      tags: [Automation Content Registries]
+      summary: List configured registries and their discovered capabilities
+      description: |
+        Capabilities are probed, not assumed. Use this to understand why a feature is
+        unavailable for a given registry — for example, why contents are unknown, or why
+        delete is not offered.
+      responses:
+        '200':
+          description: Configured registries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentRegistry' }
+
+  /sync:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: syncAllRegistries
+      tags: [Automation Content Registries]
+      summary: Trigger discovery for all configured registries
+      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      responses:
+        '200':
+          description: Sync result per registry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  durationMs: { type: integer }
+                  registries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        registry: { type: string }
+                        ok: { type: boolean }
+                        discovered: { type: integer }
+                        error: { type: string }
+
+  /registries/{name}/poll:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: pollRegistry
+      tags: [Automation Content Registries]
+      summary: Poll one registry for changes detected by digest comparison
+      description: For registries that cannot push change events; drift is detected by comparing digests.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Poll result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /registries/{name}/sync:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: syncRegistry
+      tags: [Automation Content Registries]
+      summary: Trigger discovery for one registry
+      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  discovered: { type: integer }
+        '404':
+          description: No such registry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /content:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: listContent
+      tags: [Automation Content]
+      summary: List content artifacts of any type
+      description: |
+        Type-agnostic artifact listing. `/execution-environments` and `/collections` are
+        thin aliases over this endpoint; they are filters, not separate implementations.
+      parameters:
+        - name: type
+          in: query
+          description: 'e.g. `execution-environment`, `collection`, or `oci-image` for unrecognised images.'
+          schema: { type: string }
+        - name: registry
+          in: query
+          schema: { type: string }
+        - name: collection
+          in: query
+          description: Only artifacts shipping this collection, e.g. `cisco.ios`.
+          schema: { type: string }
+        - name: contentsKnown
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Matching artifacts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+
+  /content/{ref}(*):
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getContent
+      tags: [Automation Content]
+      summary: Get one content artifact
+      description: The artifact, addressed by its opaque stable ref.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The artifact
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecutionEnvironment' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /content/{ref}(*)/contents:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getContentContents
+      tags: [Automation Content]
+      summary: What is inside an artifact
+      description: |
+        `depth=direct` returns the artifacts it contains — for an execution environment,
+        its collections. `depth=flat` returns the content items themselves. The first is
+        how a person browses; the second is how an agent searches.
+
+        When the contents could not be determined, `enumeration.status` is `unknown` and
+        both lists are empty. That is not the same as the artifact being empty, and the
+        `classification` field explains which situation applies.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          schema: { type: string }
+        - name: depth
+          in: query
+          schema:
+            type: string
+            enum: [direct, flat]
+            default: direct
+        - name: type
+          in: query
+          description: Restrict items to one type. Implies `depth=flat`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enumeration: { $ref: '#/components/schemas/Enumeration' }
+                  classification: { $ref: '#/components/schemas/Classification' }
+                  collections:
+                    type: array
+                    items: { type: object }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentItemSummary' }
+
+  /execution-environments:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: listExecutionEnvironments
+      tags: [Automation Content Execution Environments]
+      summary: List execution environments
+      description: Thin alias over `/content?type=execution-environment`.
+      parameters:
+        - name: registry
+          in: query
+          schema: { type: string }
+        - name: collection
+          in: query
+          description: Only environments shipping this collection, e.g. `cisco.ios`.
+          schema: { type: string }
+        - name: contentsKnown
+          in: query
+          description: Filter by whether the contents could be determined.
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Matching environments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+
+  /execution-environments/{ref}(*):
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getExecutionEnvironment
+      tags: [Automation Content Execution Environments]
+      summary: Get one execution environment
+      description: Thin alias over `/content/{ref}`.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The environment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ExecutionEnvironment' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /execution-environments/{ref}(*)/contents:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getExecutionEnvironmentContents
+      tags: [Automation Content Execution Environments]
+      summary: List everything inside an environment
+      description: |
+        Returns content items, not artifacts. When contents could not be determined the
+        response reports `status: unknown` rather than an empty list.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          schema: { type: string }
+        - name: type
+          in: query
+          description: Restrict to one item type, e.g. `module`, `filter`, `event_source`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Contents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enumeration: { $ref: '#/components/schemas/Enumeration' }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentItemSummary' }
+
+  /collections:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: listCollections
+      tags: [Automation Content Collections]
+      summary: List collections available across all registries
+      description: Collections discovered inside artifacts, aggregated across registries.
+      parameters:
+        - name: q
+          in: query
+          description: Substring match on namespace, name or description.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Matching collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Collection' }
+
+  /collections/{namespace}/{name}:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getCollection
+      tags: [Automation Content Collections]
+      summary: Get a collection, including which environments provide it
+      description: The collection plus the execution environments that ship this version of it.
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema: { type: string }
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The collection
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Collection' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /content-items:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: searchContentItemsTypeAgnostic
+      tags: [Automation Content Items]
+      summary: Search content items across all artifacts
+      description: |
+        Type-agnostic content-item search across every artifact. Scope with `in` to a
+        specific artifact ref.
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          description: 'module, filter, lookup, test, role, playbook, event_source, …'
+          schema: { type: string }
+        - name: collection
+          in: query
+          schema: { type: string }
+        - name: in
+          in: query
+          description: Restrict to one artifact, by ref.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        '200':
+          description: Matching items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalItems: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentItemSummary' }
+
+  /content-items/{fqcn}:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getContentItemTypeAgnostic
+      tags: [Automation Content Items]
+      summary: Full documentation for one content item
+      description: |
+        Scope with `in` to resolve within a specific artifact. Unscoped, and where the
+        name exists in more than one, a `variants` array is returned rather than one
+        being chosen — picking silently would produce an answer that looks authoritative
+        and may describe a different collection version than the caller will run.
+      parameters:
+        - name: fqcn
+          in: path
+          required: true
+          schema: { type: string }
+        - name: in
+          in: query
+          description: Artifact ref to resolve within.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The item, or its variants
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ContentItem'
+                  - type: object
+                    properties:
+                      fqcn: { type: string }
+                      variantCount: { type: integer }
+                      variants:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentItem' }
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /plugins:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: searchContentItems
+      tags: [Automation Content Items]
+      summary: Search modules, plugins, roles and EDA plugins
+      description: |
+        The primary agent-grounding endpoint. Answers "does this environment provide the
+        module I am about to generate a task for, and what are its real arguments?"
+        without pulling an image.
+      parameters:
+        - name: q
+          in: query
+          description: Substring match on fully qualified name or short description.
+          schema: { type: string }
+        - name: type
+          in: query
+          description: 'Item type: module, filter, lookup, test, connection, event_source, …'
+          schema: { type: string }
+        - name: collection
+          in: query
+          schema: { type: string }
+        - name: executionEnvironment
+          in: query
+          description: Restrict to items available in one environment.
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        '200':
+          description: Matching items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalItems: { type: integer }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentItemSummary' }
+
+  /plugins/{fqcn}:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getContentItem
+      tags: [Automation Content Items]
+      summary: Full documentation for one content item
+      description: |
+        Returns the complete argument specification including nested suboptions, plus
+        examples and return values where the collection documents them. This is what an
+        agent needs to verify generated syntax against the environment that will run it.
+      parameters:
+        - name: fqcn
+          in: path
+          required: true
+          description: Fully qualified collection name, e.g. `cisco.ios.ios_vlans`.
+          schema: { type: string }
+        - name: executionEnvironment
+          in: query
+          description: |
+            Resolve within a specific environment. Different environments may ship
+            different versions of the same collection, so the documentation differs.
+          schema: { type: string }
+      responses:
+        '200':
+          description: The item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+        '404':
+          description: Not found in any known environment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+
+  /resolve/requirements:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: resolveRequirements
+      tags: [Automation Content Resolution]
+      summary: Find environments satisfying a set of collection requirements
+      description: |
+        Accepts the same shape as a Galaxy `requirements.yml`. Use it to answer "which
+        execution environment can run this project?" before a job is scheduled, rather
+        than discovering a missing collection at runtime.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [collections]
+              properties:
+                collections:
+                  type: array
+                  items:
+                    oneOf:
+                      - type: string
+                        description: 'Bare name, e.g. `cisco.ios`'
+                      - type: object
+                        required: [name]
+                        properties:
+                          name: { type: string }
+                          version:
+                            type: string
+                            description: Exact version, or `*` for any.
+      responses:
+        '200':
+          description: Resolution result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RequirementsResolution' }
+
+  /config/export:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: exportContentConfig
+      tags: [Automation Content Configuration]
+      summary: Export the live content configuration as a declarative document
+      description: |
+        Emits configuration suitable for committing to Git. Secrets are never included;
+        credential fields are emitted as environment-variable references so the exported
+        document is safe to store in version control.
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, yaml]
+            default: json
+      responses:
+        '200':
+          description: The configuration
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentConfig' }
+            application/yaml:
+              schema:
+                type: string
+
+  /config/validate:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: validateContentConfig
+      tags: [Automation Content Configuration]
+      summary: Validate a declarative content configuration without applying it
+      description: |
+        Intended for CI: validate a proposed change before merge. Reports errors that
+        would prevent the configuration loading, and warnings for configurations that
+        would load but behave surprisingly — for example a registry with no repositories
+        listed and no catalog-enumeration support, which would silently discover nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentConfig' }
+      responses:
+        '200':
+          description: Validation result. A 200 means the document was understood, not that it is valid — check `valid`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationResult' }

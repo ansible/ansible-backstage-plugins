@@ -498,10 +498,37 @@ export async function createRouter(
   // -- Resolution ---------------------------------------------------------
 
   router.post('/resolve/requirements', (req, res) => {
-    const raw = (req.body?.collections ?? []) as Array<
-      string | { name: string; version?: string }
-    >;
-    const required = raw.map(entry =>
+    // Validate at the boundary: a malformed body must read as a 400, not a 500
+    // from a `.map` on a non-array or an entry with no name.
+    const raw = req.body?.collections;
+    if (!Array.isArray(raw)) {
+      res
+        .status(400)
+        .json({ error: 'collections must be an array', code: 'BAD_REQUEST' });
+      return;
+    }
+    for (const entry of raw) {
+      const ok =
+        typeof entry === 'string'
+          ? entry.length > 0
+          : typeof entry === 'object' &&
+            entry !== null &&
+            typeof (entry as { name?: unknown }).name === 'string' &&
+            (entry as { name: string }).name.length > 0 &&
+            ((entry as { version?: unknown }).version === undefined ||
+              typeof (entry as { version?: unknown }).version === 'string');
+      if (!ok) {
+        res.status(400).json({
+          error:
+            'each collection must be a non-empty string or { name: string, version?: string }',
+          code: 'BAD_REQUEST',
+        });
+        return;
+      }
+    }
+    const required = (
+      raw as Array<string | { name: string; version?: string }>
+    ).map(entry =>
       typeof entry === 'string'
         ? { name: entry, version: '*' }
         : { version: '*', ...entry },

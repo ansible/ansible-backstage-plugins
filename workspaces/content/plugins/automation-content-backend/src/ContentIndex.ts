@@ -455,8 +455,18 @@ export class ContentIndex {
         );
       } catch (error) {
         failures.push(`${repository}: ${(error as Error).message}`);
+        // A failed read keeps the previous view for that repository: a
+        // transient 5xx, timeout or 429 must not read as "its artifacts are
+        // gone". Total failure is handled below and keeps the whole registry.
+        const retained = this.artifacts.filter(
+          a => a.registry === name && a.repository === repository,
+        );
+        found.push(...retained);
         this.logger.warn(
-          `[${name}] ${repository}: ${(error as Error).message}`,
+          `[${name}] ${repository}: ${(error as Error).message}` +
+            (retained.length
+              ? `; keeping ${retained.length} previously known artifact(s)`
+              : ''),
         );
       }
     }

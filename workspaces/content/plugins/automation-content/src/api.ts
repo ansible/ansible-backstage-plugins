@@ -285,6 +285,18 @@ export class AutomationContentClient implements AutomationContentApi {
     // Scope to the artifact wherever possible: two environments may ship different
     // versions of the same collection, so the documentation genuinely differs.
     const suffix = inArtifact ? `?in=${encodeURIComponent(inArtifact)}` : '';
-    return this.get(`/content-items/${encodeURIComponent(fqcn)}${suffix}`);
+    const body = await this.get<ContentItem | { variants: ContentItem[] }>(
+      `/content-items/${encodeURIComponent(fqcn)}${suffix}`,
+    );
+    // The backend returns a variants object when the unscoped name matches in
+    // more than one artifact — pick the first rather than render an item with
+    // no type, options or documentation.
+    if ('variants' in body) {
+      if (!body.variants.length) {
+        throw new Error(`No documentation found for ${fqcn}`);
+      }
+      return body.variants[0];
+    }
+    return body;
   }
 }

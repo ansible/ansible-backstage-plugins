@@ -41,9 +41,26 @@ export const automationContentPlugin = createBackendPlugin({
 
         httpRouter.use(await createRouter({ index, logger }));
 
-        // Read-only discovery endpoints; authentication is handled by the portal in a
-        // deployed setting, and this keeps the PoC inspectable.
-        httpRouter.addAuthPolicy({ path: '/', allow: 'unauthenticated' });
+        // Read-only discovery endpoints stay unauthenticated so the PoC remains
+        // inspectable and agents can ground on them. State-changing and
+        // configuration routes (POST /sync, /registries/:name/*, /config/*)
+        // keep the portal's default authentication.
+        for (const path of [
+          '/health',
+          '/registries',
+          '/content',
+          '/content/*',
+          '/execution-environments',
+          '/execution-environments/*',
+          '/collections',
+          '/collections/*',
+          '/content-items',
+          '/content-items/*',
+          '/plugins',
+          '/plugins/*',
+        ]) {
+          httpRouter.addAuthPolicy({ path, allow: 'unauthenticated' });
+        }
 
         // Cheap drift check between full refreshes. Lists tags and HEADs each one —
         // no bodies, no blobs — and only triggers a real refresh when the

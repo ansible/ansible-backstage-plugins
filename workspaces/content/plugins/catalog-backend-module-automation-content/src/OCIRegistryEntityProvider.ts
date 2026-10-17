@@ -195,16 +195,36 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       }
     }
 
+    // Deduplicate by canonical entity ref before a `full` mutation. Backstage's
+    // provider contract does not define which duplicate wins when one
+    // submission carries the same ref twice — reachable, for example, when two
+    // tags resolve to the same digest — so collapse them here.
+    const seen = new Set<string>();
+    const unique = entities.filter(entity => {
+      const ref = `${entity.kind}:${entity.metadata.namespace ?? 'default'}/${
+        entity.metadata.name
+      }`;
+      if (seen.has(ref)) return false;
+      seen.add(ref);
+      return true;
+    });
+    if (unique.length < entities.length) {
+      logger.warn(
+        `[${registry.name}] dropped ${entities.length - unique.length} ` +
+          `duplicate entity ref(s) before mutation`,
+      );
+    }
+
     await this.connection.applyMutation({
       type: 'full',
-      entities: entities.map(entity => ({
+      entities: unique.map(entity => ({
         entity,
         locationKey: this.getProviderName(),
       })),
     });
 
-    logger.info(`[${registry.name}] emitted ${entities.length} entities`);
-    return { entities: entities.length, errors };
+    logger.info(`[${registry.name}] emitted ${unique.length} entities`);
+    return { entities: unique.length, errors };
   }
 
   /**
@@ -433,10 +453,14 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         tags: [classification.type, ...(summary ? [] : ['contents-unknown'])],
         links: [
           {
-            url: `http://${registry.url.replace(
-              /^https?:\/\//,
-              '',
-            )}/${repository}`,
+            // Keep the scheme the registry was configured with — forcing
+            // `http://` downgrades HTTPS registries. Default to https when
+            // the configured URL carries no scheme.
+            url: `${
+              registry.url.startsWith('http')
+                ? registry.url
+                : `https://${registry.url}`
+            }/${repository}`,
             title: 'Registry',
           },
         ],

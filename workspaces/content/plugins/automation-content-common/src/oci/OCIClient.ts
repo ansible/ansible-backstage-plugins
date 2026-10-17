@@ -37,6 +37,39 @@ interface AuthChallenge {
 }
 
 /**
+ * Upper bound for a single blob download. Blob descriptors are registry
+ * controlled; anything declaring more than this is refused rather than read
+ * into memory.
+ */
+const MAX_BLOB_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Parse the `k="v"` parameters of a challenge header.
+ *
+ * Quote-aware scanning instead of a `matchAll` regex: the header is registry
+ * controlled, and backtracking patterns like `(\w+)="([^"]*)"` run in
+ * polynomial time on hostile input. Splitting on commas would break values
+ * that legitimately contain one, so the scan tracks quotes explicitly.
+ */
+function parseChallengeParams(input: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  let i = 0;
+  while (i < input.length) {
+    const eq = input.indexOf('="', i);
+    if (eq < 0) break;
+    // The key is the word-character run immediately before `="`.
+    let keyStart = eq;
+    while (keyStart > i && /\w/.test(input[keyStart - 1])) keyStart--;
+    const key = input.slice(keyStart, eq);
+    let valueEnd = eq + 2;
+    while (valueEnd < input.length && input[valueEnd] !== '"') valueEnd++;
+    if (key) params[key] = input.slice(eq + 2, valueEnd);
+    i = valueEnd + 1;
+  }
+  return params;
+}
+
+/**
  * A client for the OCI Distribution Specification v2.
  *
  * Scope is deliberately narrow: metadata only. There is no blob streaming to consumers
@@ -74,7 +107,11 @@ export class OCIClient {
   }
 
   private get base(): string {
-    return this.connection.url.replace(/\/+$/, '');
+    // Trim trailing slashes without a regex — the URL is configuration data, and
+    // `replace(/\/+$/, '')` is a polynomial-time pattern on hostile input.
+    let url = this.connection.url;
+    while (url.endsWith('/')) url = url.slice(0, -1);
+    return url;
   }
 
   // -------------------------------------------------------------------------
@@ -88,13 +125,11 @@ export class OCIClient {
    *          scope="repository:library/nginx:pull"
    */
   static parseChallenge(header: string): AuthChallenge | undefined {
-    const match = /^Bearer\s+(.*)$/i.exec(header.trim());
-    if (!match) return undefined;
+    const trimmed = header.trim();
+    // Literal prefix test — `\s+(.*)`-style regexes are polynomial on hostile input.
+    if (!/^Bearer /i.test(trimmed)) return undefined;
 
-    const params: Record<string, string> = {};
-    for (const part of match[1].matchAll(/(\w+)="([^"]*)"/g)) {
-      params[part[1]] = part[2];
-    }
+    const params = parseChallengeParams(trimmed.slice(7));
     return params.realm
       ? { realm: params.realm, service: params.service, scope: params.scope }
       : undefined;
@@ -117,6 +152,17 @@ export class OCIClient {
 
     const url = new URL(challenge.realm);
 
+    // The realm is advertised by the registry and is therefore untrusted input.
+    // Refuse anything that is not plain HTTP(S) — a `file:` or `data:` realm
+    // would direct the credential-bearing request somewhere it must never go.
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+      this.logger?.warn(
+        `[${this.connection.name}] refusing auth realm with protocol ` +
+          `${url.protocol}`,
+      );
+      return undefined;
+    }
+
     // The advertised realm host may be unreachable from here — a registry configured
     // as `localhost` reached from inside a container, for instance. Only ever done
     // when explicitly enabled, since this changes where credentials are sent.
@@ -138,7 +184,12 @@ export class OCIClient {
     const basic = this.basicHeader();
     if (basic) headers.Authorization = basic;
 
-    const res = await this.fetchImpl(url.toString(), { headers });
+    // Under the shared timeout like every other request: a stalled token
+    // endpoint would otherwise hang the shared priming promise and every
+    // request waiting on it.
+    const res = await this.withTimeout(signal =>
+      this.fetchImpl(url.toString(), { headers, signal } as never),
+    );
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       this.logger?.warn(
@@ -230,6 +281,35 @@ export class OCIClient {
   }
 
   /**
+   * Resolve a request path to a URL, refusing absolute URLs that point away
+   * from the configured registry.
+   *
+   * Pagination `Link` headers are registry controlled; without this check a
+   * hostile registry could direct a credential-bearing request at any host.
+   * The auth realm is exempt — it is fetched separately, by design, since
+   * registries legitimately use separate auth hosts.
+   */
+  private resolveUrl(path: string): string {
+    if (!path.startsWith('http')) return `${this.base}${path}`;
+    try {
+      const target = new URL(path);
+      const origin = new URL(this.base);
+      if (target.origin !== origin.origin) {
+        throw new Error(
+          `absolute URL ${target.origin} is not the configured registry ` +
+            `${origin.origin}`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(`invalid absolute URL: ${path}`);
+      }
+      throw error;
+    }
+    return path;
+  }
+
+  /**
    * Issue a request, transparently handling a 401 bearer challenge.
    *
    * Registries differ in whether they challenge per-endpoint or per-scope, so the retry
@@ -239,7 +319,7 @@ export class OCIClient {
     path: string,
     init: { method?: string; headers?: Record<string, string> } = {},
   ): Promise<Response> {
-    const url = path.startsWith('http') ? path : `${this.base}${path}`;
+    const url = this.resolveUrl(path);
     const headers: Record<string, string> = { ...(init.headers ?? {}) };
 
     await this.primeAuth();
@@ -323,7 +403,7 @@ export class OCIClient {
       auth?: boolean;
     } = {},
   ): Promise<Response> {
-    const url = path.startsWith('http') ? path : `${this.base}${path}`;
+    const url = this.resolveUrl(path);
     const headers: Record<string, string> = { ...(init.headers ?? {}) };
     const staticAuth =
       init.auth === false ? undefined : this.staticAuthHeader();
@@ -605,6 +685,15 @@ export class OCIClient {
     repository: string,
     descriptor: Descriptor,
   ): Promise<Buffer | undefined> {
+    // The descriptor is registry controlled. Refuse to download anything
+    // beyond a sane bound before it can exhaust memory.
+    if (descriptor.size !== undefined && descriptor.size > MAX_BLOB_BYTES) {
+      this.logger?.warn(
+        `[${this.connection.name}] refusing blob ${descriptor.digest}: ` +
+          `declared size ${descriptor.size} exceeds ${MAX_BLOB_BYTES} bytes`,
+      );
+      return undefined;
+    }
     const key = digestKey(
       this.connection.name,
       repository,
@@ -639,8 +728,24 @@ export class OCIClient {
 export function nextLink(header: string | null): string | undefined {
   if (!header) return undefined;
   for (const part of header.split(',')) {
-    const match = /<([^>]+)>\s*;\s*rel="?next"?/i.exec(part.trim());
-    if (match) return match[1];
+    const trimmed = part.trim();
+    if (!trimmed.startsWith('<')) continue;
+    const close = trimmed.indexOf('>');
+    if (close < 0) continue;
+    const target = trimmed.slice(1, close);
+    // Remaining segments are `;`-separated parameters; `rel` may be a
+    // space-separated list. Scanned manually — the value is registry
+    // controlled, and backtracking regexes are polynomial on hostile input.
+    for (const param of trimmed.slice(close + 1).split(';')) {
+      const eq = param.indexOf('=');
+      if (eq < 0) continue;
+      if (param.slice(0, eq).trim().toLowerCase() !== 'rel') continue;
+      let value = param.slice(eq + 1).trim();
+      if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      }
+      if (value.toLowerCase().split(' ').includes('next')) return target;
+    }
   }
   return undefined;
 }
