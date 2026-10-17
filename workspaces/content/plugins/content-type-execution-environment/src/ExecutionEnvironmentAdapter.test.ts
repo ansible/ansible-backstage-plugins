@@ -83,7 +83,7 @@ describe('enumerate', () => {
           referrerPayloads: payloads,
           obtained: ['referrers'],
         }),
-    } as any);
+    }) as any;
 
   const manifest = {
     schemaVersion: '1.0.0',
