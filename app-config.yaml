@@ -222,6 +222,28 @@ catalog:
                 schedule:
                   frequency: { minutes: 60 }
                   timeout: { minutes: 15 }
+          # Automation content discovery from OCI-compliant registries
+          # (workspaces/content — catalog-backend-module-automation-content)
+          automationContent:
+            enabled: false
+            owner: group:default/ansible
+            registries:
+              - name: local-registry
+                url: ${CONTENT_REGISTRY_URL}
+                # Repositories are listed explicitly rather than enumerated. Many
+                # registries disable the _catalog endpoint, so this is the path that
+                # always works — the capability probe reports what the registry
+                # supports and the provider degrades to this list rather than failing.
+                repositories:
+                  - demo/network-ee
+                insecure: true
+                # Credentials come from the environment, never from this file. For a
+                # registry that needs none — a local zot or registry:2 — use
+                # `type: anonymous` and drop the two lines below.
+                auth:
+                  type: basic
+                  username: ${CONTENT_REGISTRY_USERNAME}
+                  password: ${CONTENT_REGISTRY_PASSWORD}
 
 ansible:
   devSpaces:

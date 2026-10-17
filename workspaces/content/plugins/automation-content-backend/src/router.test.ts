@@ -1,0 +1,159 @@
+import express from 'express';
+import request from 'supertest';
+import { ContentIndex } from './ContentIndex';
+import { createRouter } from './router';
+
+const logger = {
+  info: () => {},
+  warn: () => {},
+  debug: () => {},
+  error: () => {},
+  child: () => logger,
+} as never;
+
+async function appWith(index: ContentIndex) {
+  const app = express();
+  app.use(await createRouter({ index, logger }));
+  return app;
+}
+
+/**
+ * Seed the index without touching a registry.
+ *
+ * The private fields are written directly because the point of these tests is the HTTP
+ * contract, not discovery — which has its own coverage.
+ */
+function seed(items: Array<Record<string, unknown>>): ContentIndex {
+  const index = new ContentIndex([], {
+    info: () => {},
+    warn: () => {},
+    debug: () => {},
+  });
+  const artifact = {
+    ref: 'reg/repo@sha256:abc',
+    type: 'execution-environment',
+    registry: 'reg',
+    repository: 'repo',
+    digest: 'sha256:abc',
+    tags: ['latest'],
+    pullReference: 'reg/repo@sha256:abc',
+    contentsKnown: true,
+    classification: {
+      type: 'execution-environment',
+      confidence: 'certain',
+      signals: [],
+    },
+    manifest: { collections: [], generatedBy: {}, complete: true },
+  };
+  (index as unknown as { artifacts: unknown[] }).artifacts = [artifact];
+  const map = new Map<string, unknown>();
+  for (const item of items) {
+    map.set(`${artifact.ref}::${item.fqcn}`, {
+      key: `${artifact.ref}::${item.fqcn}`,
+      artifactRef: artifact.ref,
+      collection: 'cisco.ios',
+      collectionVersion: '1.0.0',
+      ...item,
+    });
+  }
+  (index as unknown as { items: Map<string, unknown> }).items = map;
+  return index;
+}
+
+describe('documentation field normalisation', () => {
+  /**
+   * ansible-doc emits `description`, `author` and `notes` as either a scalar or a list
+   * depending on how each collection author wrote the YAML. The API declares arrays, so
+   * it must deliver arrays — a consumer that trusts the contract crashed on this.
+   */
+  it('coerces a string description to an array', async () => {
+    const index = seed([
+      {
+        fqcn: 'cisco.ios.ios_acls',
+        name: 'ios_acls',
+        type: 'module',
+        detail: { description: 'Resource module to configure ACLs.' },
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios_acls',
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.description).toEqual([
+      'Resource module to configure ACLs.',
+    ]);
+  });
+
+  it('coerces a string author to an array', async () => {
+    const index = seed([
+      {
+        fqcn: 'ansible.netcommon.parse_cli',
+        name: 'parse_cli',
+        type: 'filter',
+        detail: { author: 'Ansible Network Team' },
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/ansible.netcommon.parse_cli',
+    );
+
+    expect(res.body.author).toEqual(['Ansible Network Team']);
+  });
+
+  it('leaves genuine arrays untouched', async () => {
+    const index = seed([
+      {
+        fqcn: 'cisco.ios.ios_vlans',
+        name: 'ios_vlans',
+        type: 'module',
+        detail: { description: ['line one', 'line two'], author: ['A', 'B'] },
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios_vlans',
+    );
+
+    expect(res.body.description).toEqual(['line one', 'line two']);
+    expect(res.body.author).toEqual(['A', 'B']);
+  });
+
+  it('omits the field entirely when absent, rather than emitting null', async () => {
+    const index = seed([
+      { fqcn: 'cisco.ios.ios', name: 'ios', type: 'cliconf', detail: {} },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios',
+    );
+
+    expect('description' in res.body).toBe(false);
+    expect(res.body.fqcn).toBe('cisco.ios.ios');
+  });
+
+  it('always returns providedBy as an array', async () => {
+    const index = seed([
+      {
+        fqcn: 'cisco.ios.ios_vlans',
+        name: 'ios_vlans',
+        type: 'module',
+        detail: {},
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios_vlans',
+    );
+
+    expect(Array.isArray(res.body.providedBy)).toBe(true);
+    expect(res.body.providedBy).toContain('reg/repo@sha256:abc');
+  });
+});
+
+describe('reconcile state', () => {
+  it('reports never-reconciled rather than inventing a timestamp', async () => {
+    const index = seed([]);
+    const res = await request(await appWith(index)).get('/health');
+
+    expect(res.status).toBe(200);
+    expect(res.body.refreshedAt).toBeUndefined();
+  });
+});
