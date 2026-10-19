@@ -1,22 +1,18 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:best-practices",
+    "github>ansible/actions//config/renovate.json",
     ":gitSignOff",
-    ":rebaseStalePrs",
-    ":preserveSemverRanges",
-    "group:allNonMajor"
+    ":preserveSemverRanges"
   ],
-  "baseBranches": ["main", "/^release-.*/"],
-  "lockFileMaintenance": {
-    "enabled": true,
-    "automerge": true
-  },
+  "baseBranchPatterns": ["main"],
   "labels": ["dependency", "skip-changelog"],
-  "npm": {
-    "minimumReleaseAge": "1 day"
-  },
+  "ignorePaths": ["**/dist-dynamic/**"],
   "major": {
     "dependencyDashboardApproval": true
+  },
+  "npm": {
+    "minimumReleaseAge": "1 day"
   },
   "prCreation": "status-success",
   "packageRules": [
@@ -27,63 +23,20 @@
       }
     },
     {
-      "matchDepTypes": ["devDependencies"],
+      "description": "Portal dependency PR labels",
+      "matchPackageNames": ["*"],
+      "addLabels": ["dependency", "skip-changelog"]
+    },
+    {
+      "description": "Security alerts",
       "matchUpdateTypes": ["patch", "minor"],
-      "matchCurrentVersion": "!/^0/",
-      "groupName": "DevDependencies (non-major)",
-      "automerge": true
-    },
-    {
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "DevDependencies "
-    },
-    {
-      "extends": ["packages:test"],
-      "matchUpdateTypes": ["patch", "minor"],
-      "matchCurrentVersion": "!/^0/",
-      "groupName": "Test packages (non-major)"
-    },
-    {
-      "extends": ["packages:test"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "Test packages "
-    },
-    {
-      "extends": ["monorepo:material-ui"],
-      "matchUpdateTypes": ["patch", "minor"],
-      "groupName": "material-ui (non-major)"
-    },
-    {
-      "extends": ["monorepo:material-ui"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "material-ui"
-    },
-    {
-      "extends": ["monorepo:react"],
-      "matchUpdateTypes": ["patch", "minor"],
-      "groupName": "react (non-major)"
-    },
-    {
-      "extends": ["monorepo:react"],
-      "matchUpdateTypes": ["major"],
-      "groupName": "react"
-    },
-    {
-      "matchUpdateTypes": ["patch", "minor"],
-      "groupName": "types (non-major)",
-      "matchPackageNames": ["@types/{/,}**"]
-    },
-    {
-      "matchUpdateTypes": ["major"],
-      "groupName": "types ",
-      "matchPackageNames": ["@types/{/,}**"]
+      "vulnerabilityAlerts": {
+        "enabled": true,
+        "addLabels": ["security"]
+      }
     }
   ],
-  "separateMajorMinor": true,
-  "ignorePaths": ["**/dist-dynamic/**"],
   "vulnerabilityAlerts": {
-    "additionalBranchPrefix": "",
     "enabled": true,
     "addLabels": ["security"]
   },
