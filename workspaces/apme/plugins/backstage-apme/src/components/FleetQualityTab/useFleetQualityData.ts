@@ -95,7 +95,7 @@ export function useFleetQualityData(enabled: boolean) {
 
     const entities = Array.isArray(catalogResponse)
       ? catalogResponse
-      : (catalogResponse.items ?? []);
+      : catalogResponse.items ?? [];
 
     let projects: Project[] = [];
     let gatewayUnavailable = false;
@@ -144,13 +144,10 @@ export function useFleetQualityData(enabled: boolean) {
         );
 
     const ruleMap = new Map<string, RuleAggregate>();
-    const severityCounts = SEVERITY_ORDER.reduce(
-      (acc, sev) => {
-        acc[sev] = 0;
-        return acc;
-      },
-      {} as Record<SeverityLevel, number>,
-    );
+    const severityCounts = SEVERITY_ORDER.reduce((acc, sev) => {
+      acc[sev] = 0;
+      return acc;
+    }, {} as Record<SeverityLevel, number>);
 
     for (const { project, violations } of violationsByProject) {
       const projectKey = projectLookupKey(project.repo_url, project.branch);

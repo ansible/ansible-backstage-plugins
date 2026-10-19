@@ -148,9 +148,9 @@ describe('operationStatus', () => {
         operation_id: 'op',
         project_id: 'p',
         status: 'scanning',
-        progress: [{ phase: 'scan', timestamp: 't1' }],
+        progress: [{ phase: 'scan', message: '', timestamp: 't1' }],
       }),
-    ).toBeNull();
+    ).toBe('');
   });
 
   it('treats legacy string active_operation as in-flight only for active statuses', () => {

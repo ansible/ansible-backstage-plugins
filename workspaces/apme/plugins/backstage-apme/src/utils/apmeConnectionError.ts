@@ -167,7 +167,15 @@ export function extractExistingPrUrlFromError(raw: string): string | null {
 
 /** Numeric PR/MR id from an SCM URL, if present. */
 export function prNumberFromUrl(url: string): number | undefined {
-  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)/i.exec(url);
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url;
+  }
+  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)(?:\/|$)/i.exec(
+    pathname,
+  );
   return numberMatch?.[1] ? Number.parseInt(numberMatch[1], 10) : undefined;
 }
 

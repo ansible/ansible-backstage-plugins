@@ -131,6 +131,22 @@ describe('prNumberFromUrl', () => {
     ).toBe(9);
     expect(prNumberFromUrl('https://github.com/acme/apme')).toBeUndefined();
   });
+
+  it('does not match PR numbers embedded in query strings', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/issues/1?next=/pull/12'),
+    ).toBeUndefined();
+  });
+
+  it('does not match suffixes like /pull/12draft', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/pull/12draft'),
+    ).toBeUndefined();
+  });
+
+  it('matches /pull/12/ with trailing slash', () => {
+    expect(prNumberFromUrl('https://github.com/acme/apme/pull/12/')).toBe(12);
+  });
 });
 
 describe('parseExistingPrFromError', () => {
