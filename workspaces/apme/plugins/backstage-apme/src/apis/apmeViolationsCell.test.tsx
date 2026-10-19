@@ -136,7 +136,7 @@ describe('ApmeViolationsCell', () => {
     });
   });
 
-  it('polls projects while a scan is active', async () => {
+  it('polls projects while a scan is active and stops when complete', async () => {
     jest.useFakeTimers();
     const scanning = project({
       id: 'p1',
@@ -152,8 +152,50 @@ describe('ApmeViolationsCell', () => {
     expect(await screen.findByText('Scanning…')).toBeInTheDocument();
     expect(mockGetProjects).toHaveBeenCalledTimes(1);
 
+    // Fire the poller interval and flush the promise chain
     await act(async () => {
       jest.advanceTimersByTime(5000);
+    });
+    // Allow the fetch promise & .then() to resolve
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockGetProjects).toHaveBeenCalledTimes(2);
+    });
+
+    // Poller should have stopped — advancing more time should not trigger another fetch
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    await waitFor(() => {
+      expect(mockGetProjects).toHaveBeenCalledTimes(2);
+    });
+
+    jest.useRealTimers();
+  });
+
+  it('continues polling when scan remains active', async () => {
+    jest.useFakeTimers();
+    const scanning = project({
+      id: 'p1',
+      total_violations: 0,
+      active_operation: { operation_id: 'op-1', status: 'scanning' },
+    });
+    // Both poll responses still show an active scan
+    mockGetProjects
+      .mockResolvedValueOnce([scanning])
+      .mockResolvedValueOnce([scanning]);
+
+    renderCell([scanning]);
+    expect(await screen.findByText('Scanning…')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    await act(async () => {
+      await Promise.resolve();
     });
 
     await waitFor(() => {

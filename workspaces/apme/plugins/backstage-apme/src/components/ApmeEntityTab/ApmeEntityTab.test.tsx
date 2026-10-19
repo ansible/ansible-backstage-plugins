@@ -34,8 +34,10 @@ jest.mock('../../hooks/useResolveApmeProject', () => ({
   }),
 }));
 
+const mockResolveVersion = jest.fn(async () => '2.16');
 jest.mock('../../utils/resolveDefaultAnsibleVersionForScan', () => ({
-  resolveDefaultAnsibleVersionForScan: jest.fn(async () => '2.16'),
+  resolveDefaultAnsibleVersionForScan: (...args: unknown[]) =>
+    mockResolveVersion(...args),
 }));
 
 jest.mock('../../utils/resolvePostPushDevSpacesUrl', () => ({
@@ -147,6 +149,14 @@ describe('ApmeEntityTab', () => {
       autoApplyTier1: boolean;
     };
   }
+
+  it('keeps default ansible version when resolveDefaultAnsibleVersionForScan rejects', async () => {
+    mockResolveVersion.mockRejectedValueOnce(new Error('network error'));
+    renderTab();
+    expect(await screen.findByText('demo-repo')).toBeInTheDocument();
+    // The catch block should swallow the error silently — no crash
+    expect(screen.getByTestId('workflow-panel')).toBeInTheDocument();
+  });
 
   it('hides the collections input from the portal form (AAP-89526)', async () => {
     renderTab();

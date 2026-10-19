@@ -80,6 +80,35 @@ describe('DiffView', () => {
     expect(screen.getByText('only')).toBeInTheDocument();
   });
 
+  it('assigns line numbers when hunk numbers are positive', () => {
+    const { container } = render(
+      <DiffView diff={'@@ -5,3 +10,3 @@\n-removed\n+added\n ctx'} />,
+    );
+    // removed line should show oldNum 5
+    expect(screen.getByText('5')).toBeInTheDocument();
+    // added line should show newNum 10
+    expect(screen.getByText('10')).toBeInTheDocument();
+    // context should show both 6 and 11
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(screen.getByText('11')).toBeInTheDocument();
+    expect(container.textContent).toContain('removed');
+    expect(container.textContent).toContain('added');
+  });
+
+  it('omits line numbers when diff lines appear before any hunk header', () => {
+    const { container } = render(<DiffView diff={'-old\n+new\n plain'} />);
+    // Lines before any @@ header have state {0,0} → no numeric line numbers
+    expect(screen.getByText('old')).toBeInTheDocument();
+    expect(screen.getByText('new')).toBeInTheDocument();
+    expect(screen.getByText('plain')).toBeInTheDocument();
+    // No digits should appear in the line-number cells
+    const lineNumbers = container.querySelectorAll('span');
+    const numericSpans = Array.from(lineNumbers).filter(el =>
+      /^\d+$/.test(el.textContent ?? ''),
+    );
+    expect(numericSpans).toHaveLength(0);
+  });
+
   it('renders labeled side-by-side panels and tolerates a missing side', () => {
     render(
       <DiffView
