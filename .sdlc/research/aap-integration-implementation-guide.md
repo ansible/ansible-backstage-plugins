@@ -2,7 +2,7 @@
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §2.5 dependency rules, §7.3–7.4 AAP provider/keep-leave boundaries)
 > **Related Jira:** [AAP-95802](https://redhat.atlassian.net/browse/AAP-95802) (this spike — AAP integration research), [AAP-95782](https://redhat.atlassian.net/browse/AAP-95782) (scaffolder split), [AAP-95785](https://redhat.atlassian.net/browse/AAP-95785) (catalog split), [AAP-95616](https://redhat.atlassian.net/browse/AAP-95616) (Research Spikes Epic)
-> **Companion docs (under `docs/next/`):** [ANSTRAT-2497 portal implementation guide](https://github.com/abhikdps/ansible-backstage-plugins/tree/anstrat-2497-poc/docs/next/anstrat-2497-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
+> **Companion docs (under `docs/next/`):** [Portal implementation guide](docs/next/portal-plugin-factory-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
 > **Related PRs:** [PR #744](https://github.com/ansible/ansible-backstage-plugins/pull/744) (RHDH 2.1 NFS migration + `rhaap-app-auth`), [PR #801](https://github.com/ansible/ansible-backstage-plugins/pull/801) (scaffolder implementation guide)
 > **Status:** Research complete — 4-package layer split recommended
 > **Branch baseline:** `main` in `ansible-backstage-plugins`
@@ -25,9 +25,11 @@ This spike and its follow-on implementation deliver:
 1. **`aap-common`** — Wire types (DTOs), AAP-specific permissions, name formatting
    utilities, safe constants. No Node.js APIs, no React, no HTTP client.
 
-2. **`aap-node`** — `IAAPService` interface (stripped of PAH methods) and
+2. **`aap-node`** — `IAAPService` interface and
    `ansibleServiceRef` (Backstage service reference). Backend modules depend on this
-   to interact with AAP — never on the concrete client.
+   to interact with AAP — never on the concrete client. During the transition,
+   `IAAPService` retains all 37 methods (including 2 PAH methods) until the content
+   workspace provides its own service contract; see §4.2 for details.
 
 3. **`aap-backend`** — `AAPClient` implementation, service factory, AAP-only HTTP
    helpers. The only package that makes outbound REST calls to AAP Controller.
@@ -47,12 +49,12 @@ This spike and its follow-on implementation deliver:
 
 **What this effort does NOT own:**
 
-- Content management (PAH collections, git repository browsing, OCI adapters) → ANSTRAT-1758
-- Self-service UI, scaffolder field extensions, EE definition catalog → ANSTRAT-2497 / portal-scaffolder
-- Portal SDK (`portal-extension-common`, `portal-extension-api`, `portal-plugin-sdk`) → ANSTRAT-2497
+- Content management (PAH collections, git repository browsing, OCI adapters) → content workspace effort
+- Self-service UI, scaffolder field extensions, EE definition catalog → portal SDK / portal-scaffolder effort
+- Portal SDK (`portal-extension-common`, `portal-extension-api`, `portal-plugin-sdk`) → portal SDK effort
 - Physically splitting the catalog module into AAP + content providers → AAP-95785
 - Physically splitting the scaffolder module into AAP + self-service actions → AAP-95782
-- Repo rename to `automation-portal-plugins` and `workspaces/` physical move → ANSTRAT-2497 Phase 7
+- Repo rename to `automation-portal-plugins` and `workspaces/` physical move → portal SDK effort (Phase 7)
 
 ---
 
@@ -76,6 +78,7 @@ types with backend-only implementations, and interface contracts with concrete c
 | `./ScmClient`            | `ScmClient` interface, `BaseScmClient`, `GithubClient`, `GitlabClient`, `ScmClientFactory`, `createGithubClientForWorkflowDispatch`, `resolveGithubToken`, SCM types                                                                                                 | **Out of AAP** → content workspace                              |
 | `./permissions`          | 5 `BasicPermission` exports (EE, git-repos, collections, templates, history)                                                                                                                                                                                         | `aap-common` (templates, history); others leave eventually      |
 | `./utils/nameFormatting` | `sanitizeAapName`, `sanitizeAapUsername`, `toOrgEntityName`, `toTeamEntityName`, `toTemplateEntityName`, `toWorkflowEntityName`, `toUserEntityName`, `toUserEntityRef`, `toSourceNamespace`, `toOrgGroupRef`, `toTeamGroupRef`, `CatalogEntityIdentityOptions`, etc. | `aap-common`                                                    |
+| `./UserProvisioner`      | `userProvisionerRef` (root-scoped service ref), `IUserProvisioner` interface, `IUserProvisionerConnectable` wiring interface, `UserProvisioner` class                                                                                                                | `aap-node` (service ref + interfaces + default implementation)  |
 
 **Key problems:**
 
@@ -88,11 +91,12 @@ types with backend-only implementations, and interface contracts with concrete c
 
 **Consumers today** (all use `@ansible/backstage-rhaap-common` via `workspace:^`):
 
-| Consumer                                    | What it imports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `catalog-backend-module-rhaap`              | `ansibleServiceRef`, `IAAPService`, `ansiblePermissions`, individual permission objects, `ScmClientFactory`, `SCM_INTEGRATION_AUTH_FAILED_CODE`, `GitlabClient`, `resolveGithubToken`, `createGithubClientForWorkflowDispatch`, `resolveActiveOrganizations`, types (`Organization`, `User`, `Team`, `RoleAssignments`, `IJobTemplate`, `ISurvey`, `InstanceGroup`, `Collection`, `CatalogEntityIdentityOptions`), name utilities (`sanitizeAapName`, `toOrgEntityName`, `toTeamEntityName`, `toUserEntityRef`, `toOrgGroupRef`, `toTeamGroupRef`, `toSourceNamespace`, `DEFAULT_CATALOG_ENTITY_SOURCE`), `compareVersions` |
-| `scaffolder-backend-module-backstage-rhaap` | `ansibleServiceRef`, `IAAPService`, types (`CleanUp`, `ExecutionEnvironment`, `LaunchJobTemplate`, `Collections`, `SourceVersionDetail`), `TERMINAL_JOB_STATUSES`, `ScmClientFactory`, `getAnsibleConfig`, `getVerbosityLevels`                                                                                                                                                                                                                                                                                                                                                                                             |
-| `auth-backend-module-rhaap-provider`        | `ansibleServiceRef`, `IAAPService`, `toUserEntityName`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Consumer                                        | What it imports                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `catalog-backend-module-rhaap`                  | `ansibleServiceRef`, `IAAPService`, `ansiblePermissions`, individual permission objects, `ScmClientFactory`, `SCM_INTEGRATION_AUTH_FAILED_CODE`, `GitlabClient`, `resolveGithubToken`, `createGithubClientForWorkflowDispatch`, `resolveActiveOrganizations`, types (`Organization`, `User`, `Team`, `RoleAssignments`, `IJobTemplate`, `ISurvey`, `InstanceGroup`, `Collection`, `CatalogEntityIdentityOptions`), name utilities (`sanitizeAapName`, `toOrgEntityName`, `toTeamEntityName`, `toUserEntityRef`, `toOrgGroupRef`, `toTeamGroupRef`, `toSourceNamespace`, `DEFAULT_CATALOG_ENTITY_SOURCE`), `compareVersions` |
+| `scaffolder-backend-module-backstage-rhaap`     | `ansibleServiceRef`, `IAAPService`, types (`CleanUp`, `ExecutionEnvironment`, `LaunchJobTemplate`, `Collections`, `SourceVersionDetail`), `TERMINAL_JOB_STATUSES`, `ScmClientFactory`, `getAnsibleConfig`, `getVerbosityLevels`                                                                                                                                                                                                                                                                                                                                                                                             |
+| `auth-backend-module-rhaap-provider`            | `ansibleServiceRef`, `IAAPService`, `userProvisionerRef`, `toUserEntityName`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `catalog-backend-module-rhaap-user-provisioner` | `ansibleServiceRef`, `userProvisionerRef`, `IUserProvisionerConnectable`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 **`export-dynamic` flag:** All three backend modules use `--embed-package @ansible/backstage-rhaap-common` — the common package is bundled into each dynamic plugin artifact.
 
@@ -132,8 +136,8 @@ One `createBackendModule({ pluginId: 'catalog', moduleId: 'rhaap' })` that regis
 | `AAPEntityProvider`          | AAP Controller orgs, teams, users        | **AAP** (`catalog-backend-module-aap`)                      |
 | `AAPJobTemplateProvider`     | AAP Controller job templates + surveys   | **AAP** (`catalog-backend-module-aap`)                      |
 | `EEEntityProvider`           | Push-based from scaffolder (no AAP REST) | **Self-service** (`scaffolder-backend-module-self-service`) |
-| `PAHCollectionProvider`      | Private Automation Hub collections       | **Content** (ANSTRAT-1758)                                  |
-| `AnsibleGitContentsProvider` | SCM repositories (GitHub/GitLab)         | **Content** (ANSTRAT-1758)                                  |
+| `PAHCollectionProvider`      | Private Automation Hub collections       | **Content** workspace (content extraction effort)           |
+| `AnsibleGitContentsProvider` | SCM repositories (GitHub/GitLab)         | **Content** workspace (content extraction effort)           |
 
 **Permissions:** Registers all 5 `ansiblePermissions` via `permissionsRegistry.addPermissions()`.
 
@@ -180,10 +184,10 @@ the `rhaap` OAuth provider and a user job templates router.
 - Registers OAuth provider (`providerId: 'rhaap'`) using `aapAuthAuthenticator`
 - `aapAuthAuthenticator` calls `AAPClient.rhAAPAuthenticate` and `rhAAPRevokeToken`
   directly via `ansibleServiceRef`
-- `AAPAuthSignInResolvers` creates users in Backstage catalog
+- `AAPAuthSignInResolvers` creates users in Backstage catalog via `userProvisionerRef`
 - `createUserJobTemplatesRouter` exposes `GET /rhaap/user-job-templates` for the frontend
 
-**Dependencies:** `@ansible/backstage-rhaap-common` (for `ansibleServiceRef`),
+**Dependencies:** `@ansible/backstage-rhaap-common` (for `ansibleServiceRef`, `userProvisionerRef`),
 `@backstage/plugin-auth-node`.
 
 ### 2.6 Frontend — `rhaap-app-auth` (PR 744 branch, not yet on main)
@@ -206,7 +210,7 @@ compatibility. Target name: `aap-app-auth` (under `workspaces/aap/`).
 **Directory:** `plugins/self-service/`
 
 The self-service plugin is the primary consumer-facing UI for AAP automation. While its
-refactor is owned by ANSTRAT-2497, this section documents its current-state imports from
+refactor is owned by the portal SDK effort, this section documents its current-state imports from
 `backstage-rhaap-common` so that post-split import expectations are clear.
 
 **Imports from `@ansible/backstage-rhaap-common` (via deep subpaths):**
@@ -388,15 +392,17 @@ Source: extracted from `backstage-rhaap-common`.
 
 ### 3.2 `aap-node` — node-library (interface + service ref only)
 
-Lightweight package. Two source files, no HTTP code.
+Lightweight package. Holds service contracts consumed via dependency injection.
+No HTTP code, no concrete implementations.
 
 **Files:**
 
-| File                 | Contents                                                                                                                                                                                                                                                                                        |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/IAAPService.ts` | `IAAPService` interface — standalone interface declaring 35 method signatures using shared types from `aap-common` (not `Pick<AAPClient, ...>` — that is how it is defined today but would create a cycle; the target declares methods directly and `AAPClient` in `aap-backend` implements it) |
-| `src/AAPService.ts`  | `ansibleServiceRef` — `createServiceRef<IAAPService>({ id: 'rhaap.client.service' })` with no `defaultFactory` (see §4.3)                                                                                                                                                                       |
-| `src/index.ts`       | Barrel exports                                                                                                                                                                                                                                                                                  |
+| File                     | Contents                                                                                                                                                                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/IAAPService.ts`     | `IAAPService` interface — standalone interface declaring method signatures using shared types from `aap-common` (not `Pick<AAPClient, ...>` — that is how it is defined today but would create a cycle; the target declares methods directly and `AAPClient` in `aap-backend` implements it) |
+| `src/AAPService.ts`      | `ansibleServiceRef` — `createServiceRef<IAAPService>({ id: 'rhaap.client.service' })` with no `defaultFactory` (see §4.3)                                                                                                                                                                    |
+| `src/UserProvisioner.ts` | `userProvisionerRef` — `createServiceRef<IUserProvisioner>({ id: 'rhaap.user-provisioner', scope: 'root' })` with default no-op factory; `IUserProvisioner` interface (`createUser`); `IUserProvisionerConnectable` wiring interface (`registerCreateUserFn`); `UserProvisioner` class       |
+| `src/index.ts`           | Barrel exports                                                                                                                                                                                                                                                                               |
 
 **Dependencies:** `@ansible/aap-common` (peer — for types used in `IAAPService` method signatures),
 `@backstage/backend-plugin-api` (for `createServiceRef`).
@@ -428,9 +434,10 @@ The only package that makes HTTP calls to AAP Controller.
 | -------------------------------------- | -------------------------------------------------- |
 | `pahHelpers.ts` + `pahHelpers.test.ts` | PAH collection sync — belongs to content workspace |
 
-**PAH methods removed from AAPClient:** `isValidPAHRepository()`, `syncCollectionsByRepositories()`,
-and all `pahHelpers` imports. These methods stay on the backward-compat shim until the
-content workspace claims them.
+**PAH methods during transition:** `isValidPAHRepository()`, `syncCollectionsByRepositories()`,
+and all `pahHelpers` imports remain on `AAPClient` in `aap-backend` and on `IAAPService` in
+`aap-node` during the transition period (see §4.2). They are only removed when the content
+workspace provides a replacement service contract and `PAHCollectionProvider` has been migrated.
 
 **Dependencies:** `@ansible/aap-common`, `@ansible/aap-node`, `@backstage/backend-plugin-api`,
 `@backstage/config`, `@backstage/plugin-auth-node`, `@backstage/errors`, `@backstage/integration`,
@@ -480,11 +487,12 @@ Rename of current `plugins/backstage-rhaap/`. No changes to contents — just di
 These existing backend modules move to `workspaces/aap/plugins/` and update their
 imports from `backstage-rhaap-common` to `aap-common` + `aap-node`:
 
-| Package                            | Current directory                            | Changes needed                                                                                                                                                                                                           |
-| ---------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auth-backend-module-aap-provider` | `auth-backend-module-rhaap-provider/`        | Update imports: `ansibleServiceRef` from `aap-node`, `IAAPService` from `aap-node`, `toUserEntityName` from `aap-common`                                                                                                 |
-| `catalog-backend-module-aap`       | `catalog-backend-module-rhaap/`              | Update imports: `ansibleServiceRef` from `aap-node`, types/permissions/utilities from `aap-common`. Remove `ScmClientFactory` imports (leaves with content providers).                                                   |
-| `scaffolder-backend-module-aap`    | `scaffolder-backend-module-backstage-rhaap/` | Update imports: `ansibleServiceRef` and `IAAPService` from `aap-node`, types from `aap-common`, `getAnsibleConfig`/`getVerbosityLevels` from `aap-backend`. Remove `ScmClientFactory` import (leaves with self-service). |
+| Package                                       | Current directory                                | Changes needed                                                                                                                                                                                                           |
+| --------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth-backend-module-aap-provider`            | `auth-backend-module-rhaap-provider/`            | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IAAPService` from `aap-node`, `toUserEntityName` from `aap-common`                                                                        |
+| `catalog-backend-module-aap`                  | `catalog-backend-module-rhaap/`                  | Update imports: `ansibleServiceRef` from `aap-node`, types/permissions/utilities from `aap-common`. Remove `ScmClientFactory` imports (leaves with content providers).                                                   |
+| `catalog-backend-module-aap-user-provisioner` | `catalog-backend-module-rhaap-user-provisioner/` | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IUserProvisionerConnectable` from `aap-node`                                                                                              |
+| `scaffolder-backend-module-aap`               | `scaffolder-backend-module-backstage-rhaap/`     | Update imports: `ansibleServiceRef` and `IAAPService` from `aap-node`, types from `aap-common`, `getAnsibleConfig`/`getVerbosityLevels` from `aap-backend`. Remove `ScmClientFactory` import (leaves with self-service). |
 
 ### 3.6 What stays in `backstage-rhaap-common` (backward-compat shim)
 
@@ -516,7 +524,7 @@ Until all consumers migrate, the old package re-exports from the new ones:
 
 ### 4.1 Four-package layer split
 
-Architecture §2.5 rule 2 requires that `common-library` packages contain only isomorphic
+Architecture dependency rules (CEA §6) require that `common-library` packages contain only isomorphic
 code (no Node.js, no React). Today's `backstage-rhaap-common` contains `AAPClient`
 (Node.js `undici` fetch), `ansibleServiceRef` (Node.js `@backstage/backend-plugin-api`),
 and `ScmClient` (Node.js) — all of which violate this rule.
@@ -533,27 +541,39 @@ The recommended split separates concerns into clean layers:
 This ensures backend modules import only `aap-node` (interface via DI), the frontend
 imports nothing from common, and `aap-common` is safe to use in any environment.
 
-### 4.2 IAAPService interface — strip PAH methods
+### 4.2 IAAPService interface — PAH method transition
 
 The current `IAAPService` interface exposes 37 methods via `Pick<AAPClient, ...>`.
 In the target architecture, `IAAPService` is redeclared as a standalone interface
 with explicit method signatures (using shared types from `aap-common`), breaking
 the `Pick<>` dependency on `AAPClient`. `AAPClient` in `aap-backend` then
 `implements IAAPService`.
+
 Two of the current 37 methods are PAH (Private Automation Hub) methods that cross the content boundary:
 
 ```typescript
-// REMOVE from IAAPService in aap-node:
+// PAH methods on IAAPService today:
 | 'isValidPAHRepository'
 | 'syncCollectionsByRepositories'
 ```
 
-These methods, along with `pahHelpers.ts`, move to the content workspace when
-ANSTRAT-1758 ships. Until then, they can remain on `AAPClient` in `aap-backend`
-as internal implementation but **must not** appear on the published `IAAPService`
-interface in `aap-node`.
+**Transition contract (critical):** These two PAH methods **must remain on `IAAPService`
+during the transition period** because `PAHCollectionProvider` (in `catalog-backend-module-rhaap`)
+actively calls `ansibleServiceRef.syncCollectionsByRepositories()` to sync collections
+into the Backstage catalog. Removing them from the interface before a replacement exists
+would break the provider at compile time and stop collection sync in production.
 
-**Methods that stay on IAAPService** (35 total):
+The PAH methods are only removed from `IAAPService` when **all** of the following are true:
+
+1. The content workspace provides its own service interface for PAH operations
+2. `PAHCollectionProvider` has been migrated to use that new content service
+3. No other consumer calls these methods via `ansibleServiceRef`
+
+Until then, the interface retains all **37 methods**. The `pahHelpers.ts` file and the
+PAH method implementations remain on `AAPClient` in `aap-backend`. After the content
+workspace claims them, `IAAPService` drops to **35 methods**.
+
+**Methods that stay on IAAPService** (all 37 during transition, 35 long-term):
 
 - HTTP primitives: `executePostRequest`, `executeGetRequest`, `executeDeleteRequest`
 - Project CRUD: `getProject`, `deleteProject`, `deleteProjectIfExists`, `createProject`
@@ -676,7 +696,7 @@ only `templates.view` and `history.view`.
 all SCM types are **not AAP concerns**. They serve `AnsibleGitContentsProvider` (content)
 and scaffolder publish actions (self-service).
 
-**Migration:** ScmClient moves to the content workspace when ANSTRAT-1758 creates
+**Migration:** ScmClient moves to the content workspace when the content extraction effort creates
 `automation-content-client` or equivalent. Until then, it remains in `backstage-rhaap-common`
 behind a re-export shim — the AAP packages do not import it.
 
@@ -733,18 +753,10 @@ plugins:
     disabled: false
   - package: '@ansible/backstage-plugin-catalog-backend-module-aap'
     disabled: false
-    pluginConfig: # embeds type-only packages
-      dynamicPlugins:
-        embed:
-          - '@ansible/aap-common'
-          - '@ansible/aap-node'
+    # NOTE: aap-common and aap-node are embedded at build time via
+    # --embed-package in the export-dynamic script, not at runtime.
   - package: '@ansible/plugin-scaffolder-backend-module-aap'
     disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        embed:
-          - '@ansible/aap-common'
-          - '@ansible/aap-node'
 ```
 
 **Load order:** RHDH resolves service refs lazily, so `aap-backend` does not need to
@@ -831,13 +843,13 @@ in `backstage-rhaap-common`, classified into target packages. Decision record.
 
 **Output:** `@ansible/aap-node` node-library package with `IAAPService` and `ansibleServiceRef`.
 
-| Item                                                           | Source                     | Notes                                                                        |
-| -------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
-| Create `plugins/aap-node/` with `backstage.role: node-library` | New                        | Package name `@ansible/aap-node`                                             |
-| Move `IAAPService` interface                                   | `AAPClient/AAPClient.ts`   | Strip `isValidPAHRepository`, `syncCollectionsByRepositories` from Pick list |
-| Move `ansibleServiceRef` (without `defaultFactory`)            | `AAPService/AAPService.ts` | Keep service ID `rhaap.client.service`; no factory — see §4.3                |
-| Peer dependency on `@ansible/aap-common`                       | Types                      |                                                                              |
-| Peer dependency on `@backstage/backend-plugin-api`             | `createServiceRef` only    |                                                                              |
+| Item                                                           | Source                     | Notes                                                                                 |
+| -------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------- |
+| Create `plugins/aap-node/` with `backstage.role: node-library` | New                        | Package name `@ansible/aap-node`                                                      |
+| Move `IAAPService` interface                                   | `AAPClient/AAPClient.ts`   | Redeclare as standalone interface; retain all 37 methods during transition (see §4.2) |
+| Move `ansibleServiceRef` (without `defaultFactory`)            | `AAPService/AAPService.ts` | Keep service ID `rhaap.client.service`; no factory — see §4.3                         |
+| Peer dependency on `@ansible/aap-common`                       | Types                      |                                                                                       |
+| Peer dependency on `@backstage/backend-plugin-api`             | `createServiceRef` only    |                                                                                       |
 
 **Dependency:** Phase 1 (`aap-common` types exist).
 
@@ -849,19 +861,19 @@ in `backstage-rhaap-common`, classified into target packages. Decision record.
 
 **Output:** `@ansible/aap-backend` backend-plugin package with `AAPClient` class and `ansibleServiceFactory`.
 
-| Item                                                                       | Source                                                                   | Notes                                                     |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| Create `plugins/aap-backend/` with `backstage.role: backend-plugin`        | New                                                                      | Package name `@ansible/aap-backend`                       |
-| Move `AAPClient` class                                                     | `AAPClient/AAPClient.ts`                                                 | Full implementation                                       |
-| Create `ansibleServiceFactory`                                             | New                                                                      | `createServiceFactory` for `ansibleServiceRef` — see §4.3 |
-| Move `utils/config.ts` (`getAnsibleConfig`, `getCatalogConfig`)            | `AAPClient/utils/config.ts`                                              | AAP config readers                                        |
-| Move `utils/jobStdoutHelpers.ts`                                           | `AAPClient/utils/`                                                       | + tests                                                   |
-| Move `utils/jobTemplateHelpers.ts`                                         | `AAPClient/utils/`                                                       | + tests                                                   |
-| Remove PAH methods from `AAPClient`                                        | `isValidPAHRepository`, `syncCollectionsByRepositories`, `pahHelpers.ts` | Move to content workspace or leave on deprecated shim     |
-| Move `AAPClient.test.ts`, `mockData.ts`                                    | `AAPClient/`                                                             | Adapt imports                                             |
-| Dependency on `@ansible/aap-common` + `@ansible/aap-node`                  |                                                                          |                                                           |
-| Runtime deps: `undici`, `yaml`, `lodash.uniqby`                            | From current common                                                      |                                                           |
-| `config.d.ts` schema: `ansible.rhaap.*` + `catalog.providers.rhaap.*` only | Split from current                                                       |                                                           |
+| Item                                                                       | Source                                                                   | Notes                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Create `plugins/aap-backend/` with `backstage.role: backend-plugin`        | New                                                                      | Package name `@ansible/aap-backend`                                           |
+| Move `AAPClient` class                                                     | `AAPClient/AAPClient.ts`                                                 | Full implementation                                                           |
+| Create `ansibleServiceFactory`                                             | New                                                                      | `createServiceFactory` for `ansibleServiceRef` — see §4.3                     |
+| Move `utils/config.ts` (`getAnsibleConfig`, `getCatalogConfig`)            | `AAPClient/utils/config.ts`                                              | AAP config readers                                                            |
+| Move `utils/jobStdoutHelpers.ts`                                           | `AAPClient/utils/`                                                       | + tests                                                                       |
+| Move `utils/jobTemplateHelpers.ts`                                         | `AAPClient/utils/`                                                       | + tests                                                                       |
+| Remove PAH methods from `AAPClient`                                        | `isValidPAHRepository`, `syncCollectionsByRepositories`, `pahHelpers.ts` | Retained during transition (§4.2); removed when content workspace claims them |
+| Move `AAPClient.test.ts`, `mockData.ts`                                    | `AAPClient/`                                                             | Adapt imports                                                                 |
+| Dependency on `@ansible/aap-common` + `@ansible/aap-node`                  |                                                                          |                                                                               |
+| Runtime deps: `undici`, `yaml`, `lodash.uniqby`                            | From current common                                                      |                                                                               |
+| `config.d.ts` schema: `ansible.rhaap.*` + `catalog.providers.rhaap.*` only | Split from current                                                       |                                                                               |
 
 **Dependency:** Phase 2 (`aap-node` interface exists for `implements IAAPService`).
 
@@ -927,7 +939,7 @@ from `aap-common` / `aap-node`.
 
 ### Phase 7 — Physical workspace move
 
-Coordinate with ANSTRAT-2497 Phase 7 (rename and restructure):
+Coordinate with portal SDK effort Phase 7 (rename and restructure):
 
 - `plugins/aap-common/` → `workspaces/aap/plugins/aap-common/`
 - `plugins/aap-node/` → `workspaces/aap/plugins/aap-node/`
@@ -937,7 +949,7 @@ Coordinate with ANSTRAT-2497 Phase 7 (rename and restructure):
 - Workspace `package.json` + independent `yarn.lock`
 - CI workspace-scoped builds
 
-**Dependency:** ANSTRAT-2497 workspace infrastructure ready.
+**Dependency:** Portal SDK workspace infrastructure ready.
 
 ---
 
@@ -947,8 +959,8 @@ Coordinate with ANSTRAT-2497 Phase 7 (rename and restructure):
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | AAP-95785 (catalog split)    | `aap-common` types + `aap-node` `ansibleServiceRef`                                                        | `aap-common`, `aap-node`         |
 | AAP-95782 (scaffolder split) | `ansibleServiceRef` + AAP action ID ownership table (§2.4)                                                 | `aap-node` + this guide          |
-| ANSTRAT-2497 (portal SDK)    | AAP workspace slot in `workspaces/aap/`; no dependency on portal-extension-api                             | This guide                       |
-| ANSTRAT-1758 (content)       | PAH methods + ScmClient available via deprecated shim until content workspace claims them                  | Shim in `backstage-rhaap-common` |
+| Portal SDK effort            | AAP workspace slot in `workspaces/aap/`; no dependency on portal-extension-api                             | This guide                       |
+| Content workspace effort     | PAH methods + ScmClient available via deprecated shim until content workspace claims them                  | Shim in `backstage-rhaap-common` |
 | PR 744 / RHDH 2.1            | `aap-app-auth` separate FrontendModule; `/ansible` route unchanged                                         | Phase 6                          |
 | RHDH operator                | Service ID `rhaap.client.service` unchanged; `--embed-package` targets updated in dynamic plugin manifests | Phase 5                          |
 | Template authors             | All `rhaap:*` action IDs unchanged; `aap-api-cloud` autocomplete provider ID unchanged                     | Phase 5 changelog                |
@@ -963,7 +975,7 @@ service IDs remain stable. Breaking schema changes require major bump + migratio
 The following boundaries must be confirmed with sibling spike owners before implementation
 begins:
 
-### 7.1 With PR 744 (Nilashish)
+### 7.1 With PR 744 (NFS auth extraction)
 
 1. **`rhaap-app-auth`** becomes `aap-app-auth` — package rename timing.
 2. **`pluginId: 'app'`** must remain for NFS `SignInPageBlueprint`.
@@ -974,7 +986,7 @@ begins:
 
 ## 8. Suggested Sequencing with Sibling Spikes
 
-| This guide phase           | AAP-95785 (catalog)                      | AAP-95782 (scaffolder)                      | ANSTRAT-2497 (portal) |
+| This guide phase           | AAP-95785 (catalog)                      | AAP-95782 (scaffolder)                      | Portal SDK effort     |
 | -------------------------- | ---------------------------------------- | ------------------------------------------- | --------------------- |
 | Phase 0 (inventory)        | Share provider ownership table           | Share action ownership table                | Reference §2.2 layout |
 | Phase 1 (aap-common)       | Unblocked — types available              | Unblocked — types available                 | Independent           |
@@ -1005,45 +1017,45 @@ begins:
 
 ## Appendix A — IAAPService method map (current → target)
 
-| Method                             | AAP Controller? | Target                                               |
-| ---------------------------------- | --------------- | ---------------------------------------------------- |
-| `executePostRequest`               | Yes             | `aap-backend` (on class) + `aap-node` (on interface) |
-| `executeGetRequest`                | Yes             | `aap-backend` + `aap-node`                           |
-| `executeDeleteRequest`             | Yes             | `aap-backend` + `aap-node`                           |
-| `getProject`                       | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteProject`                    | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteProjectIfExists`            | Yes             | `aap-backend` + `aap-node`                           |
-| `createProject`                    | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteExecutionEnvironmentExists` | Yes             | `aap-backend` + `aap-node`                           |
-| `createExecutionEnvironment`       | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteExecutionEnvironment`       | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteJobTemplate`                | Yes             | `aap-backend` + `aap-node`                           |
-| `deleteJobTemplateIfExists`        | Yes             | `aap-backend` + `aap-node`                           |
-| `createJobTemplate`                | Yes             | `aap-backend` + `aap-node`                           |
-| `fetchEvents`                      | Yes             | `aap-backend` + `aap-node`                           |
-| `fetchResult`                      | Yes             | `aap-backend` + `aap-node`                           |
-| `launchJobTemplate`                | Yes             | `aap-backend` + `aap-node`                           |
-| `launchJobTemplateNoWait`          | Yes             | `aap-backend` + `aap-node`                           |
-| `logJobStdoutMessages`             | Yes             | `aap-backend` + `aap-node`                           |
-| `getJobStatus`                     | Yes             | `aap-backend` + `aap-node`                           |
-| `cancelJob`                        | Yes             | `aap-backend` + `aap-node`                           |
-| `cleanUp`                          | Yes             | `aap-backend` + `aap-node`                           |
-| `checkControllerAvailability`      | Yes             | `aap-backend` + `aap-node`                           |
-| `getResourceData`                  | Yes             | `aap-backend` + `aap-node`                           |
-| `getJobTemplatesByName`            | Yes             | `aap-backend` + `aap-node`                           |
-| `setLogger`                        | Yes             | `aap-backend` + `aap-node`                           |
-| `rhAAPAuthenticate`                | Yes             | `aap-backend` + `aap-node`                           |
-| `rhAAPRevokeToken`                 | Yes             | `aap-backend` + `aap-node`                           |
-| `fetchProfile`                     | Yes             | `aap-backend` + `aap-node`                           |
-| `getOrganizations`                 | Yes             | `aap-backend` + `aap-node`                           |
-| `listSystemUsers`                  | Yes             | `aap-backend` + `aap-node`                           |
-| `getTeamsByUserId`                 | Yes             | `aap-backend` + `aap-node`                           |
-| `getUserRoleAssignments`           | Yes             | `aap-backend` + `aap-node`                           |
-| `syncJobTemplates`                 | Yes             | `aap-backend` + `aap-node`                           |
-| `getOrgsByUserId`                  | Yes             | `aap-backend` + `aap-node`                           |
-| `getUserInfoById`                  | Yes             | `aap-backend` + `aap-node`                           |
-| `isValidPAHRepository`             | **No** (PAH)    | **Remove from IAAPService** → content                |
-| `syncCollectionsByRepositories`    | **No** (PAH)    | **Remove from IAAPService** → content                |
+| Method                             | AAP Controller? | Target                                                                                                      |
+| ---------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `executePostRequest`               | Yes             | `aap-backend` (on class) + `aap-node` (on interface)                                                        |
+| `executeGetRequest`                | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `executeDeleteRequest`             | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getProject`                       | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteProject`                    | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteProjectIfExists`            | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `createProject`                    | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteExecutionEnvironmentExists` | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `createExecutionEnvironment`       | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteExecutionEnvironment`       | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteJobTemplate`                | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `deleteJobTemplateIfExists`        | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `createJobTemplate`                | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `fetchEvents`                      | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `fetchResult`                      | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `launchJobTemplate`                | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `launchJobTemplateNoWait`          | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `logJobStdoutMessages`             | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getJobStatus`                     | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `cancelJob`                        | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `cleanUp`                          | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `checkControllerAvailability`      | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getResourceData`                  | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getJobTemplatesByName`            | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `setLogger`                        | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `rhAAPAuthenticate`                | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `rhAAPRevokeToken`                 | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `fetchProfile`                     | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getOrganizations`                 | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `listSystemUsers`                  | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getTeamsByUserId`                 | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getUserRoleAssignments`           | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `syncJobTemplates`                 | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getOrgsByUserId`                  | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `getUserInfoById`                  | Yes             | `aap-backend` + `aap-node`                                                                                  |
+| `isValidPAHRepository`             | **No** (PAH)    | Stays on `IAAPService` during transition; moves to content workspace when content service exists (see §4.2) |
+| `syncCollectionsByRepositories`    | **No** (PAH)    | Stays on `IAAPService` during transition; moves to content workspace when content service exists (see §4.2) |
 
 ---
 
@@ -1066,6 +1078,7 @@ begins:
 | PAH helpers (out of scope)               | `backstage-rhaap-common/src/AAPClient/pahHelpers.ts`               | Content workspace                                                  |
 | ScmClient (out of scope)                 | `backstage-rhaap-common/src/ScmClient/` (11 files)                 | Content workspace                                                  |
 | Config schema                            | `backstage-rhaap-common/config.d.ts`                               | Split: AAP keys → `aap-backend`, remainder → content               |
+| UserProvisioner service ref + interfaces | `backstage-rhaap-common/src/UserProvisioner/index.ts`              | `aap-node`                                                         |
 | Frontend plugin                          | `backstage-rhaap/src/` (28 files)                                  | `aap` (rename, all files stay)                                     |
 | Catalog module registration              | `catalog-backend-module-rhaap/src/module.ts`                       | `catalog-backend-module-aap`                                       |
 | Catalog router (1200 lines)              | `catalog-backend-module-rhaap/src/router.ts`                       | Split: AAP routes stay, content routes leave                       |
@@ -1074,13 +1087,14 @@ begins:
 | Scaffolder actions                       | `scaffolder-backend-module-backstage-rhaap/src/actions/`           | `scaffolder-backend-module-aap`                                    |
 | Autocomplete handler                     | `scaffolder-backend-module-backstage-rhaap/src/autocomplete/`      | `scaffolder-backend-module-aap`                                    |
 | Auth module                              | `auth-backend-module-rhaap-provider/src/module.ts`                 | `auth-backend-module-aap-provider`                                 |
+| User provisioner catalog module          | `catalog-backend-module-rhaap-user-provisioner/src/module.ts`      | `catalog-backend-module-aap-user-provisioner`                      |
 | OAuth authenticator                      | `auth-backend-module-rhaap-provider/src/authenticator.ts`          | `auth-backend-module-aap-provider`                                 |
 | User job templates router                | `auth-backend-module-rhaap-provider/src/userJobTemplatesRouter.ts` | `auth-backend-module-aap-provider`                                 |
 | Backend wiring                           | `packages/backend/src/index.ts`                                    | `workspaces/aap/packages/backend/src/index.ts`                     |
 
 ---
 
-## Appendix C — Architecture rule validation (§2.5)
+## Appendix C — Architecture validation checklist (derived from CEA §6 dependency rules)
 
 | Rule | Description                                  | AAP compliance          | Evidence                                                            |
 | ---- | -------------------------------------------- | ----------------------- | ------------------------------------------------------------------- |
