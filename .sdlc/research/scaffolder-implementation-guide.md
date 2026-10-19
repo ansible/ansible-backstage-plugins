@@ -20,6 +20,8 @@ Per the Content Experience Architecture §2.2, the target is one workspace per e
 | `scaffolder-backend-module-aap`    | `workspaces/aap/plugins/`               | `rhaap:*` actions, template filters, `aap-api-cloud` autocomplete                   |
 | `portal-scaffolder-backend-module` | `workspaces/portal-scaffolder/plugins/` | `ansible:content:create`, `ansible:create:ee-definition`, `ansible:prepare:publish` |
 
+**Naming note.** CEA §2.2 names this workspace/module `self-service` / `scaffolder-backend-module-self-service`. This guide uses `portal-scaffolder` / `portal-scaffolder-backend-module` instead, per a team naming decision communicated after CEA was written — that rename is not yet reflected in CEA or any other written architecture doc. Where this guide says `portal-scaffolder`, read CEA's `self-service`.
+
 The original package is retained as a deprecated shim during migration.
 
 ---
@@ -145,6 +147,13 @@ These are AAP/catalog config keys, not portal-scaffolder's own. Moving the actio
 
 `EEEntityProvider` in `catalog-backend-module-rhaap` is a definition-path concern (architecture §7.4). Phase 2 may relocate provider implementation closer to portal-scaffolder, but **`POST /ansible/ee` stays registered from a catalog-owned backend module** — not from `portal-scaffolder-backend-module`. The path (`/ansible/ee`) and auth contract (`allow: ['service']`, service-to-catalog calls from scaffolder) must not change.
 
+**This is a deliberate deviation from CEA §7.4, not an oversight.** CEA's table assigns `EEEntityProvider` (and the route it serves) to `scaffolder-backend-module-self-service` directly — i.e., out of the catalog module entirely, owned by the self-service/portal-scaffolder side. This guide keeps it catalog-owned for Phase 1/2 instead, because:
+
+- Today's route already lives in a catalog-owned module with an established `allow: ['service']` contract; moving it is a behavior-affecting change, not a pure repackaging, and this guide's Phase 1 scope is explicitly no-behavior-change.
+- Backstage's `httpRouter` mounts a module's routes under its owning plugin's base path. Moving the route to a `scaffolder`-pluginId module changes its effective path and auth wiring, not just which package contains the handler.
+
+If the team wants to follow CEA §7.4 literally, treat that as a distinct, later phase with its own URL-migration and auth-contract plan — not something to fold into this split silently. Tracked as an open question in §7.
+
 ### 4.4 `collections` autocomplete resource stays coupled to the AAP module
 
 `handleAutocompleteRequest` branches on `resource === 'collections'` _before_ any Controller call — it queries the Backstage catalog via `getCollections()`, not AAP's Controller API. Portal's `CollectionsPicker` field reaches this branch through the same `aap-api-cloud` provider used by every other AAP resource.
@@ -155,7 +164,7 @@ This is an open gap, not resolved by this guide:
 
 - **Transitional state (Phase 1):** `collections` stays on `aap-api-cloud`/AAP module, identical to today. Portal-scaffolder deployments that need collection selection must install the AAP module too — this is a real constraint, not an oversight to paper over.
 - **Acceptance check to add to Phase 1 verification:** confirm whether a portal-scaffolder-only install (AAP module absent) is an actual deployment target. If it is, collection selection will not work until this is resolved; the "no frontend modifications" scope statement in §1 should be read as "no frontend changes in Phase 1," not as a guarantee that the frontend never needs to change here.
-- **Target state (future work, not Phase 1–3):** extracting `collections` into a provider-agnostic lookup that portal-scaffolder can call without an AAP dependency, with its own credential story and without breaking the existing `aap-api-cloud` provider id for templates that still expect it there.
+- **Target state (future work, not Phase 1–3):** CEA §7.5 already proposes the shape of this fix — a registered content operation with a declared schema and permission (e.g. `content.collections.list`), called through a typed client rather than a direct provider lookup, served by a dedicated `scaffolder-backend-module-content-operations` module (CEA §2.2). This guide does not implement that module; it only documents that the gap exists and that CEA already has a named answer for it.
 
 ---
 
@@ -224,6 +233,7 @@ Two modules replacing one; identical behaviour; all existing tests green.
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Should `backstage-rhaap-common` be split so portal-scaffolder drops the AAP edge? (§4.1)                                                                                                                   | Phase 3                                 |
 | Should `POST /ansible/ee` be retired via PR #189 rather than moved?                                                                                                                                        | Phase 2                                 |
+| Should `EEEntityProvider`/`POST /ansible/ee` eventually move to `portal-scaffolder-backend-module` to match CEA §7.4, despite the URL/auth-contract cost? (§4.3)                                           | Later phase, not 0–3                    |
 | Is a portal-scaffolder-only deployment (no AAP module) an actual target? If so, how does `collections` autocomplete work without AAP? (§4.4)                                                               | Blocks any portal-only deployment claim |
 | Does `createEEDefinition.ts`'s read of `ansible.rhaap` / `catalog.providers.rhaap` get replaced by a content-side contract, or does portal-scaffolder keep reading AAP/catalog config indefinitely? (§4.2) | Phase 1 config ownership                |
 
