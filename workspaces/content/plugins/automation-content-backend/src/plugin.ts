@@ -49,15 +49,15 @@ export const automationContentPlugin = createBackendPlugin({
           '/health',
           '/registries',
           '/content',
-          '/content/*',
+          '/content/{*rest}',
           '/execution-environments',
-          '/execution-environments/*',
+          '/execution-environments/{*rest}',
           '/collections',
-          '/collections/*',
+          '/collections/{*rest}',
           '/content-items',
-          '/content-items/*',
+          '/content-items/{*rest}',
           '/plugins',
-          '/plugins/*',
+          '/plugins/{*rest}',
         ]) {
           httpRouter.addAuthPolicy({ path, allow: 'unauthenticated' });
         }
