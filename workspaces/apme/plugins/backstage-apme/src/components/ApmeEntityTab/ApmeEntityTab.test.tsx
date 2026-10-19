@@ -34,10 +34,9 @@ jest.mock('../../hooks/useResolveApmeProject', () => ({
   }),
 }));
 
-const mockResolveVersion = jest.fn(async () => '2.16');
+const mockResolveVersion = jest.fn<Promise<string>, []>(async () => '2.16');
 jest.mock('../../utils/resolveDefaultAnsibleVersionForScan', () => ({
-  resolveDefaultAnsibleVersionForScan: (...args: [unknown, unknown]) =>
-    mockResolveVersion(...args),
+  resolveDefaultAnsibleVersionForScan: () => mockResolveVersion(),
 }));
 
 jest.mock('../../utils/resolvePostPushDevSpacesUrl', () => ({
