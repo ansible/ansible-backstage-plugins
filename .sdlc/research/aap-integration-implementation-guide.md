@@ -351,21 +351,6 @@ Source: extracted from `backstage-rhaap-common`.
 | `Collections` (type alias)      | `types.ts`      | PAH collections list — belongs to content workspace                                                   |
 | `SourceVersionDetail`           | `types.ts`      | Collection version detail — used only by self-service CollectionsPicker, belongs to content workspace |
 
-**Deprecated temporary exports (PAH transition):**
-
-During the transition period, `aap-common` also exports the following PAH types because
-`IAAPService` in `aap-node` references them in method signatures (e.g.,
-`syncCollectionsByRepositories` returns `Promise<Collection[]>`). Without these, `aap-node`
-would need to import from the shim, creating a cycle.
-
-| Export                          | Reason for temporary inclusion                                  |
-| ------------------------------- | --------------------------------------------------------------- |
-| `Collection`, `CollectionLinks` | Return type of `syncCollectionsByRepositories` on `IAAPService` |
-| `Collections` (type alias)      | Used by scaffolder actions that call `IAAPService` PAH methods  |
-
-These exports are marked `@deprecated` in source and are removed from `aap-common` when
-the PAH methods are stripped from `IAAPService` (see §4.2 exit conditions).
-
 **Permissions (from `src/permissions.ts` — all 5 during Phase 1):**
 
 | Export                                | Permission name                       |
@@ -465,9 +450,7 @@ The only package that makes HTTP calls to AAP Controller.
 
 **PAH methods during transition:** `isValidPAHRepository()`, `syncCollectionsByRepositories()`,
 and all `pahHelpers` imports remain on `AAPClient` in `aap-backend` and on `IAAPService` in
-`aap-node` during the transition period (see §4.2). The `pahHelpers.ts` source file lives in
-`aap-backend` (next to `AAPClient` which calls it), and is also re-exported by the
-`backstage-rhaap-common` shim (§3.6) for any unconverted consumers. They are only removed when the content
+`aap-node` during the transition period (see §4.2). They are only removed when the content
 workspace provides a replacement service contract and `PAHCollectionProvider` has been migrated.
 
 **Dependencies:** `@ansible/aap-common`, `@ansible/aap-node`, `@backstage/backend-plugin-api`,
@@ -737,26 +720,6 @@ export default createBackendFeatureLoader({
 
 **Post-split `alpha.ts`:** Yielded services reference `aap-node` refs and `aap-backend`
 implementations. The loader remains in the catalog module.
-
-**JIT sign-in callback connection sequence:**
-
-The `UserProvisioner` requires a specific boot-time ordering to work. Here is the
-sequence of events during application startup:
-
-1. **`alpha.ts` feature loader** yields a `UserProvisioner` factory → Backstage creates
-   a `UserProvisioner` instance and registers it under `userProvisionerRef` (root scope).
-   At this point, `createUser()` would **throw** if called.
-2. **Auth module** (`auth-backend-module-rhaap-provider`) starts up, resolves
-   `userProvisionerRef` from DI, and calls `registerCreateUserFn(actualCreateUserCallback)`
-   on the provisioner instance. The provisioner is now **armed** — `createUser()` will
-   delegate to the registered callback instead of throwing.
-3. **Catalog sync** runs (triggered by scheduler or sign-in resolver). When a new AAP
-   user is encountered, the provider calls `userProvisionerRef.createUser(...)` which
-   succeeds because step 2 has already armed the provisioner.
-
-This ordering is guaranteed because Backstage resolves service dependencies before
-calling `init()` on modules that depend on them. The auth module depends on
-`userProvisionerRef`, so it receives the same instance that the catalog module uses.
 
 ### 4.3.2 `rhaapOrganizationResolver` — direct `AAPClient` instantiation
 
