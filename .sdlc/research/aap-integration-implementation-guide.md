@@ -2,10 +2,10 @@
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §2.5 dependency rules, §7.3–7.4 AAP provider/keep-leave boundaries)
 > **Related Jira:** [AAP-95802](https://redhat.atlassian.net/browse/AAP-95802) (this spike — AAP integration research), [AAP-95782](https://redhat.atlassian.net/browse/AAP-95782) (scaffolder split), [AAP-95785](https://redhat.atlassian.net/browse/AAP-95785) (catalog split), [AAP-95616](https://redhat.atlassian.net/browse/AAP-95616) (Research Spikes Epic)
-> **Companion docs (under `docs/next/`):** [Portal implementation guide](docs/next/portal-plugin-factory-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
+> **Companion docs (under `docs/next/`):** [Portal implementation guide](../../docs/next/portal-plugin-factory-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
 > **Related PRs:** [PR #744](https://github.com/ansible/ansible-backstage-plugins/pull/744) (RHDH 2.1 NFS migration + `rhaap-app-auth`), [PR #801](https://github.com/ansible/ansible-backstage-plugins/pull/801) (scaffolder implementation guide)
 > **Status:** Research complete — 4-package layer split recommended
-> **Branch baseline:** `main` in `ansible-backstage-plugins`
+> **Branch baseline:** `main` at `48cb832e` (2026-10-19)
 >
 > This document is the implementation guide for splitting the current AAP
 > (Ansible Automation Platform) integration packages into the target
@@ -144,13 +144,13 @@ One `createBackendModule({ pluginId: 'catalog', moduleId: 'rhaap' })` that regis
 
 **Entity providers registered in `module.ts`:**
 
-| Provider                     | Data source                              | Target after split                                               |
-| ---------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
-| `AAPEntityProvider`          | AAP Controller orgs, teams, users        | **AAP** (`catalog-backend-module-aap`)                           |
-| `AAPJobTemplateProvider`     | AAP Controller job templates + surveys   | **AAP** (`catalog-backend-module-aap`)                           |
-| `EEEntityProvider`           | Push-based from scaffolder (no AAP REST) | **Self-service** (catalog-attached module owned by self-service) |
-| `PAHCollectionProvider`      | Private Automation Hub collections       | **Content** workspace (content extraction effort)                |
-| `AnsibleGitContentsProvider` | SCM repositories (GitHub/GitLab)         | **Content** workspace (content extraction effort)                |
+| Provider                     | Data source                              | Target after split                                                                                                                                                                                                                                                                |
+| ---------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AAPEntityProvider`          | AAP Controller orgs, teams, users        | **AAP** (`catalog-backend-module-aap`)                                                                                                                                                                                                                                            |
+| `AAPJobTemplateProvider`     | AAP Controller job templates + surveys   | **AAP** (`catalog-backend-module-aap`)                                                                                                                                                                                                                                            |
+| `EEEntityProvider`           | Push-based from scaffolder (no AAP REST) | **Self-service** (catalog-attached module: `createBackendModule({ pluginId: 'catalog', moduleId: 'self-service-ee' })`; owned by self-service, registered via `catalogProcessingExtensionPoint`; existing EE registration endpoint stays stable — callers do not need to migrate) |
+| `PAHCollectionProvider`      | Private Automation Hub collections       | **Content** (stays in `catalog-backend-module-aap` via shim until content workspace claims it; see §4.2 transition contract)                                                                                                                                                      |
+| `AnsibleGitContentsProvider` | SCM repositories (GitHub/GitLab)         | **Content** workspace (content extraction effort)                                                                                                                                                                                                                                 |
 
 **Permissions:** Registers all 5 `ansiblePermissions` via `permissionsRegistry.addPermissions()`.
 
@@ -345,11 +345,25 @@ Source: extracted from `backstage-rhaap-common`.
 
 **Not included (content boundary):**
 
-| Interface                       | File            | Reason                                                                                                |
-| ------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
-| `Collection`, `CollectionLinks` | `Collection.ts` | PAH collection — belongs to content workspace                                                         |
-| `Collections` (type alias)      | `types.ts`      | PAH collections list — belongs to content workspace                                                   |
-| `SourceVersionDetail`           | `types.ts`      | Collection version detail — used only by self-service CollectionsPicker, belongs to content workspace |
+| Interface             | File       | Reason                                                                                                |
+| --------------------- | ---------- | ----------------------------------------------------------------------------------------------------- |
+| `SourceVersionDetail` | `types.ts` | Collection version detail — used only by self-service CollectionsPicker, belongs to content workspace |
+
+**Deprecated temporary exports (PAH transition):**
+
+During the transition period, `aap-common` also exports the following PAH types as
+`@deprecated` because `IAAPService` in `aap-node` references them in method signatures
+(e.g., `syncCollectionsByRepositories` returns `Promise<Collection[]>`). Without these,
+`aap-node` would need to import from the shim, creating a circular dependency.
+
+| Export                          | Reason for temporary inclusion                                  |
+| ------------------------------- | --------------------------------------------------------------- |
+| `Collection`, `CollectionLinks` | Return type of `syncCollectionsByRepositories` on `IAAPService` |
+| `Collections` (type alias)      | Used by scaffolder actions that call `IAAPService` PAH methods  |
+
+These exports are marked `@deprecated` in source and are removed from `aap-common` when
+the PAH methods are stripped from `IAAPService` (see §4.2 exit conditions). At that point
+they move to the content workspace package.
 
 **Permissions (from `src/permissions.ts` — all 5 during Phase 1):**
 
@@ -450,8 +464,11 @@ The only package that makes HTTP calls to AAP Controller.
 
 **PAH methods during transition:** `isValidPAHRepository()`, `syncCollectionsByRepositories()`,
 and all `pahHelpers` imports remain on `AAPClient` in `aap-backend` and on `IAAPService` in
-`aap-node` during the transition period (see §4.2). They are only removed when the content
-workspace provides a replacement service contract and `PAHCollectionProvider` has been migrated.
+`aap-node` during the transition period (see §4.2). The `pahHelpers.ts` source file lives in
+`aap-backend` (next to `AAPClient` which calls it), and is also re-exported by the
+`backstage-rhaap-common` shim (§3.6) for any unconverted consumers. They are only removed
+when the content workspace provides a replacement service contract and
+`PAHCollectionProvider` has been migrated.
 
 **Dependencies:** `@ansible/aap-common`, `@ansible/aap-node`, `@backstage/backend-plugin-api`,
 `@backstage/config`, `@backstage/plugin-auth-node`, `@backstage/errors`, `@backstage/integration`,
@@ -501,25 +518,26 @@ Rename of current `plugins/backstage-rhaap/`. No changes to contents — just di
 These existing backend modules move to `workspaces/aap/plugins/` and update their
 imports from `backstage-rhaap-common` to `aap-common` + `aap-node`:
 
-| Package                                       | Current directory                                | Changes needed                                                                                                                                                                                                               |
-| --------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth-backend-module-aap-provider`            | `auth-backend-module-rhaap-provider/`            | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IAAPService` from `aap-node`, `toUserEntityName` from `aap-common`                                                                            |
-| `catalog-backend-module-aap`                  | `catalog-backend-module-rhaap/`                  | Update imports: `ansibleServiceRef` from `aap-node`, types/permissions/utilities from `aap-common`. Remove `ScmClientFactory` imports (leaves with content providers).                                                       |
-| `catalog-backend-module-aap-user-provisioner` | `catalog-backend-module-rhaap-user-provisioner/` | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IUserProvisionerConnectable` from `aap-node`                                                                                                  |
-| `scaffolder-backend-module-aap`               | `scaffolder-backend-module-backstage-rhaap/`     | Update imports: `ansibleServiceRef` and `IAAPService` from `aap-node`, types and `getVerbosityLevels` from `aap-common`, `getAnsibleConfig` from `aap-backend`. Remove `ScmClientFactory` import (leaves with self-service). |
+| Package                                       | Current directory                                | Changes needed                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth-backend-module-aap-provider`            | `auth-backend-module-rhaap-provider/`            | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IAAPService` from `aap-node`, `toUserEntityName` from `aap-common`                                                                                                                                                                               |
+| `catalog-backend-module-aap`                  | `catalog-backend-module-rhaap/`                  | Update imports: `ansibleServiceRef` from `aap-node`, types/permissions/utilities from `aap-common`. Remove `ScmClientFactory` imports (leaves with content providers).                                                                                                                                                          |
+| `catalog-backend-module-aap-user-provisioner` | `catalog-backend-module-rhaap-user-provisioner/` | Update imports: `ansibleServiceRef` and `userProvisionerRef` from `aap-node`, `IUserProvisionerConnectable` from `aap-node`                                                                                                                                                                                                     |
+| `scaffolder-backend-module-aap`               | `scaffolder-backend-module-backstage-rhaap/`     | Update imports: `ansibleServiceRef` and `IAAPService` from `aap-node`, types and `getVerbosityLevels` from `aap-common`, `getAnsibleConfig` from `aap-backend` (config reader — depends on `@backstage/config`, not on `AAPClient`; acceptable direct dependency). Remove `ScmClientFactory` import (leaves with self-service). |
 
 ### 3.6 What stays in `backstage-rhaap-common` (backward-compat shim)
 
 Until all consumers migrate, the old package re-exports from the new ones:
 
-| What stays                                              | Reason                                                  |
-| ------------------------------------------------------- | ------------------------------------------------------- |
-| `ScmClient/` (all files)                                | Not AAP — belongs to content workspace; no new home yet |
-| `Collection`, `CollectionLinks` interfaces              | Not AAP — belongs to content workspace                  |
-| `Collections`, `SourceVersionDetail` types              | Not AAP — belongs to content workspace                  |
-| `SCM_INTEGRATION_AUTH_FAILED_CODE` constant             | Not AAP — belongs with `ScmClient`                      |
-| `pahHelpers.ts` + PAH methods                           | Not AAP — belongs to content workspace                  |
-| Re-exports from `aap-common`, `aap-node`, `aap-backend` | Backward compatibility for unconverted consumers        |
+| What stays                                                    | Reason                                                                              |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `ScmClient/` (all files)                                      | Not AAP — belongs to content workspace; no new home yet                             |
+| `Collection`, `CollectionLinks` interfaces                    | Re-exported from `aap-common` (deprecated); stays on shim for unconverted consumers |
+| `Collections`, `SourceVersionDetail` types                    | `SourceVersionDetail` is content-only; `Collections` re-exported from `aap-common`  |
+| `SCM_INTEGRATION_AUTH_FAILED_CODE` constant                   | Not AAP — belongs with `ScmClient`                                                  |
+| `pahHelpers.ts` + PAH methods                                 | Source in `aap-backend`; re-exported here for unconverted consumers                 |
+| `PAHCollectionProvider` calls `syncCollectionsByRepositories` | Provider imports from shim until content workspace claims it (see §4.2)             |
+| Re-exports from `aap-common`, `aap-node`, `aap-backend`       | Backward compatibility for unconverted consumers                                    |
 
 **Naming migration:**
 
@@ -721,6 +739,48 @@ export default createBackendFeatureLoader({
 **Post-split `alpha.ts`:** Yielded services reference `aap-node` refs and `aap-backend`
 implementations. The loader remains in the catalog module.
 
+```typescript
+// Post-split alpha.ts (catalog-backend-module-aap/src/alpha.ts)
+import {
+  createBackendFeatureLoader,
+  createServiceFactory,
+} from '@backstage/backend-plugin-api';
+import { userProvisionerRef, UserProvisioner } from '@ansible/aap-node';
+import { rhaapOrganizationServiceFactory } from './rhaapOrganizationServiceFactory';
+import { catalogModuleRhaap } from './module';
+
+export default createBackendFeatureLoader({
+  loader: function* () {
+    yield rhaapOrganizationServiceFactory; // imports AAPClient from @ansible/aap-backend
+    yield createServiceFactory({
+      service: userProvisionerRef,
+      deps: {},
+      factory: () => new UserProvisioner(),
+    });
+    yield catalogModuleRhaap;
+  },
+});
+```
+
+**JIT sign-in callback connection sequence:**
+
+The `UserProvisioner` requires a specific boot-time ordering to work:
+
+1. **`alpha.ts` feature loader** yields a `UserProvisioner` factory → Backstage creates
+   a `UserProvisioner` instance and registers it under `userProvisionerRef` (root scope).
+   At this point, `createUser()` would **throw** if called.
+2. **Auth module** (`auth-backend-module-rhaap-provider`) starts up, resolves
+   `userProvisionerRef` from DI, and calls `registerCreateUserFn(actualCreateUserCallback)`
+   on the provisioner instance. The provisioner is now **armed**.
+3. **Catalog sync** runs (triggered by scheduler or sign-in resolver). When a new AAP
+   user is encountered, the provider calls `userProvisionerRef.createUser(...)` which
+   succeeds because step 2 has already armed the provisioner.
+
+This ordering is guaranteed because Backstage resolves service dependencies before
+calling `init()` on modules that depend on them. The auth module depends on
+`userProvisionerRef`, so it receives the same root-scoped instance that the catalog
+module uses.
+
 ### 4.3.2 `rhaapOrganizationResolver` — direct `AAPClient` instantiation
 
 `rhaapOrganizationResolver` exists in two places:
@@ -733,9 +793,9 @@ through `ansibleServiceRef`. This is because the resolver runs in a sign-in cont
 where the plugin-scoped service ref is not yet available.
 
 **Migration impact:** After the split, both files must import `AAPClient` from
-`@ansible/aap-backend` and `resolveActiveOrganizations`, `toUserEntityName` from
-`@ansible/aap-common`. The direct-instantiation pattern is acceptable because these
-are one-off sign-in resolvers, not long-lived service consumers.
+`@ansible/aap-backend` and `resolveActiveOrganizations` from `@ansible/aap-backend`,
+`toUserEntityName` from `@ansible/aap-common`. The direct-instantiation pattern is
+acceptable because these are one-off sign-in resolvers, not long-lived service consumers.
 
 ### 4.4 Permissions — phased migration
 
@@ -798,6 +858,17 @@ AAP workspace. Each module's `export-dynamic` script updates to:
 --embed-package @ansible/aap-common --embed-package @ansible/aap-node
 ```
 
+**Exception — catalog module:** The catalog module's `alpha.ts` and
+`rhaapOrganizationResolver` directly instantiate `new AAPClient()` (sign-in context,
+see §4.3.2). Because of this direct import, the catalog module additionally needs:
+
+```
+--embed-package @ansible/aap-backend
+```
+
+Other modules (auth, scaffolder) access `AAPClient` only via `ansibleServiceRef` DI
+and do not need to embed `aap-backend`.
+
 **RHDH production deployment — `aap-backend` as a mandatory dynamic plugin:**
 
 In the dev monolith (`packages/backend/src/index.ts`), `ansibleServiceFactory` is
@@ -821,6 +892,10 @@ plugins:
     disabled: false
     # NOTE: aap-common and aap-node are embedded at build time via
     # --embed-package in the export-dynamic script, not at runtime.
+  - package: '@ansible/backstage-plugin-catalog-backend-module-aap-user-provisioner'
+    disabled: false
+  - package: '@ansible/backstage-plugin-auth-backend-module-aap-provider'
+    disabled: false
   - package: '@ansible/plugin-scaffolder-backend-module-aap'
     disabled: false
 ```
@@ -859,9 +934,28 @@ export {
 export * from './ScmClient'; // stays here until content workspace claims it
 ```
 
-This ensures that any unconverted consumer (external forks, RHDH operator entries) does
-not break immediately. The shim is deprecated from day one and removed once all consumers
-have migrated.
+The `package.json` `"exports"` map must also preserve the `./UserProvisioner` subpath,
+pointing to `@ansible/aap-node`'s UserProvisioner re-export, so that existing consumers
+using `import { ... } from '@ansible/backstage-rhaap-common/UserProvisioner'` continue
+to work. Similarly, the following existing subpath exports must be preserved:
+
+| Old subpath                   | Shim target                                                              |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `./`                          | Re-exports from `aap-common` + `aap-node` + `aap-backend` (barrel above) |
+| `./constants`                 | `@ansible/aap-common/constants`                                          |
+| `./permissions`               | `@ansible/aap-common/permissions`                                        |
+| `./UserProvisioner`           | `@ansible/aap-node` (UserProvisioner exports)                            |
+| `./permissionRules`           | Stays in shim (portal-core boundary)                                     |
+| `./gitRepositoriesCatalog`    | Stays in shim (content boundary)                                         |
+| `./gitRepositoriesExtensions` | Stays in shim (content boundary)                                         |
+| `./devSpaces`                 | Stays in shim (self-service boundary)                                    |
+| `./catalogEntity`             | Stays in shim (shared)                                                   |
+
+This ensures that existing **import paths** continue to resolve. However, re-exporting
+from the shim does **not** automatically register services — consumers that relied on
+`defaultFactory` in the old `ansibleServiceRef` must now ensure `@ansible/aap-backend`
+is loaded (via `backend.add()` or `dynamic-plugins.yaml`). The shim preserves import
+compatibility, not service provisioning.
 
 **Default export:** Backend modules that use `backend.add(import(...))` require a default
 export that is a `BackendFeature`. Each module already does:
@@ -878,6 +972,12 @@ export { ansibleServiceFactory as default } from './service';
 ```
 
 This ensures `backend.add(import('@ansible/aap-backend'))` works.
+
+**Important:** Adding `@ansible/aap-backend` as a dependency in `package.json` alone
+does **not** register `ansibleServiceRef`. The package must be explicitly loaded via
+`backend.add(import('@ansible/aap-backend'))` in the monolith backend, or listed in
+`dynamic-plugins.yaml` for RHDH. Without this, other modules that depend on
+`ansibleServiceRef` will fail at runtime with a missing service error.
 
 ---
 
@@ -1172,7 +1272,7 @@ PR 744 has been merged as PR #880. `@ansible/aap-app-auth` is on main with:
 | UserProvisioner service ref + interfaces | `workspaces/aap/plugins/backstage-rhaap-common/src/UserProvisioner/index.ts`              | `aap-node`                                                         |
 | Frontend plugin                          | `workspaces/aap/plugins/backstage-rhaap/src/`                                             | `aap` (rename, all files stay)                                     |
 | Catalog module registration              | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/module.ts`                       | `catalog-backend-module-aap`                                       |
-| Catalog feature loader (alpha.ts)        | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/alpha.ts`                        | `catalog-backend-module-aap` (see §4.10)                           |
+| Catalog feature loader (alpha.ts)        | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/alpha.ts`                        | `catalog-backend-module-aap` (see §4.3.1)                          |
 | Catalog router (~1200 lines)             | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/router.ts`                       | Split: AAP routes stay, content routes leave                       |
 | Entity providers                         | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/providers/`                      | AAP providers stay, content providers leave                        |
 | Organization resolver                    | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/rhaapOrganizationResolver.ts`    | Stays with catalog module (uses `AAPClient` directly)              |
@@ -1188,29 +1288,47 @@ PR 744 has been merged as PR #880. `@ansible/aap-app-auth` is on main with:
 
 ---
 
-## Appendix C — Architecture validation checklist (derived from CEA principles)
+## Appendix C — Architecture validation
 
-> **Note:** This checklist is derived from the principles in the Content Experience
-> Architecture (CEA) document §6 dependency rules and §2.5 workspace conventions.
-> The rules below are an AAP-specific application of those principles — they are not
-> a direct copy of the CEA text. Where this implementation deviates from the CEA
-> target (e.g., shared-root workspace), it is noted explicitly.
+### C.1 CEA §6 dependency rules — AAP compliance
 
-| Rule | Description                                  | AAP compliance          | Evidence                                                                                                                                               |
-| ---- | -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | No circular deps between workspaces          | Compliant               | `aap` workspace is a leaf; depends only on Backstage core                                                                                              |
-| 2    | `common-library` = isomorphic only           | Compliant after split   | `aap-common` has no Node/React; today's monolith violates this                                                                                         |
-| 3    | Frontend must not import backend             | Compliant               | `aap` frontend has no common import; proxy-only communication                                                                                          |
-| 4    | Backend must not import frontend             | Compliant               | No backend module imports frontend plugin                                                                                                              |
-| 5    | `node-library` for service refs + interfaces | Compliant after split   | `aap-node` holds `ansibleServiceRef` + `IAAPService`                                                                                                   |
-| 6    | Backend modules use DI, not direct imports   | Mostly compliant        | All modules use `ansibleServiceRef` via `deps`; exception: `rhaapOrganizationResolver` instantiates `AAPClient` directly (sign-in context, see §4.3.2) |
-| 7    | Workspace-scoped lockfiles                   | **Deviation**           | Shared root `yarn.lock` today; independent lockfile deferred to Phase 7                                                                                |
-| 8    | No handler URLs in manifests                 | N/A                     | AAP has no plugin manifest (not extension host)                                                                                                        |
-| 9    | Additive semver for extension points         | N/A                     | AAP publishes no extension points                                                                                                                      |
-| 10   | Permissions registered by owning module      | Transitional            | AAP module registers all 5 + settings; should register only 2 long-term                                                                                |
-| 11   | Config schema co-located with reader         | Compliant after split   | `aap-backend/config.d.ts` covers AAP paths only                                                                                                        |
-| 12   | Dynamic plugin: embed or shared              | Compliant after Phase 5 | `--embed-package aap-common aap-node`                                                                                                                  |
-| 13   | Published packages have changelog            | Not started             | Follow-on for implementation stories                                                                                                                   |
-| 14   | Test isolation per workspace                 | Compliant after Phase 7 | Workspace-scoped `yarn test`                                                                                                                           |
-| 15   | CI must validate workspace boundaries        | Not started             | ESLint import-boundary rules needed                                                                                                                    |
-| 16   | Plugin ID stability across renames           | Planned                 | `ansible` (frontend), `rhaap` (auth provider), service ID unchanged                                                                                    |
+> **CEA revision:** Local copy at `docs/architecture/content-experience-refactor-and-sdk.md`
+> (§6 "Dependency Rules (Enforced by Architecture Tests)"). The canonical version is on
+> the [`portal-plugin-research`](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md)
+> branch. If the canonical version has diverged (e.g., §2.5 with numbered rules), this
+> appendix should be updated to match.
+
+The CEA §6 dependency rules define allowed import directions per package role. The
+following table maps each rule to AAP's compliance status:
+
+| CEA §6 rule (package → constraint)                                       | AAP equivalent      | Compliance            | Evidence / gap                                                                                  |
+| ------------------------------------------------------------------------ | ------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
+| `content-primitives-common` ← no runtime deps; portable                  | `aap-common`        | Compliant after split | `aap-common` has no Node/React imports; today's monolith violates this                          |
+| `content-primitives-node` ← depends on common only                       | `aap-node`          | Compliant after split | `aap-node` depends on `aap-common` + `@backstage/backend-plugin-api` only                       |
+| `content-primitives-backend` ← depends on node + common; no React        | `aap-backend`       | Compliant after split | `aap-backend` depends on `aap-node` + `aap-common`; no React                                    |
+| `domain frontends` ← depend on extension-api + common; no host internals | `aap` frontend      | Compliant             | `aap` frontend has zero dependency on `aap-common`/`aap-node`/`aap-backend`; proxy-only         |
+| `backend adapters` ← depend on node; no content-type branching           | AAP backend modules | Mostly compliant      | All modules use `ansibleServiceRef` via DI; exception: `rhaapOrganizationResolver` (see §4.3.2) |
+| `content-primitives-client` ← depends on common only; no backend/React   | N/A                 | N/A                   | AAP does not produce a client package                                                           |
+| `portal-extension-common` ← dependency-light descriptors                 | N/A                 | N/A                   | AAP does not produce extension descriptors                                                      |
+| `portal-extension-api` ← depends on extension-common; no backend         | N/A                 | N/A                   | AAP does not produce extension API                                                              |
+| `content-primitives-mcp` ← depends on client only; no backend            | N/A                 | N/A                   | AAP does not produce MCP package                                                                |
+| `domain backends` ← depend on node + common; no portal core imports      | AAP backend modules | Compliant             | No AAP module imports portal-core internals                                                     |
+
+### C.2 AAP-specific architecture checks
+
+These are additional checks specific to the AAP workspace, derived from CEA principles
+but not directly enumerated in CEA §6.
+
+| #   | Check                                   | Status                  | Evidence                                                                                                                                             |
+| --- | --------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | No circular deps between workspaces     | Compliant               | `aap` workspace is a leaf; depends only on Backstage core                                                                                            |
+| 2   | Frontend must not import backend        | Compliant               | `aap` frontend has no common import; proxy-only communication                                                                                        |
+| 3   | Backend must not import frontend        | Compliant               | No backend module imports frontend plugin                                                                                                            |
+| 4   | Workspace-scoped lockfiles              | **Deviation**           | Shared root `yarn.lock` today; independent lockfile deferred to Phase 7. This deviates from the CEA's eventual published-version workspace boundary. |
+| 5   | Permissions registered by owning module | Transitional            | AAP module registers all 5 + settings; should register only 2 long-term                                                                              |
+| 6   | Config schema co-located with reader    | Compliant after split   | `aap-backend/config.d.ts` covers AAP paths only                                                                                                      |
+| 7   | Dynamic plugin: embed or shared         | Compliant after Phase 5 | `--embed-package aap-common aap-node`; catalog also embeds `aap-backend` (§4.7)                                                                      |
+| 8   | Published packages have changelog       | Not started             | Follow-on for implementation stories                                                                                                                 |
+| 9   | Test isolation per workspace            | Compliant after Phase 7 | Workspace-scoped `yarn test`                                                                                                                         |
+| 10  | CI must validate workspace boundaries   | Not started             | ESLint import-boundary rules needed                                                                                                                  |
+| 11  | Plugin ID stability across renames      | Planned                 | `ansible` (frontend), `rhaap` (auth provider), service ID unchanged                                                                                  |
