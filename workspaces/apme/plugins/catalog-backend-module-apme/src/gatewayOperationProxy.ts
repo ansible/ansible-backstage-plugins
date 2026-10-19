@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { IncomingHttpHeaders } from 'http';
+import type { IncomingHttpHeaders } from 'node:http';
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import { getApmeConfig } from '@ansible/backstage-apme-common';
 import type { Config } from '@backstage/config';

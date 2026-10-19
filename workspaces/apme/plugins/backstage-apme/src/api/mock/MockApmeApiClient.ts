@@ -690,7 +690,7 @@ export class MockApmeApiClient implements ApmeApi {
     await delay(200);
     const approvedViolationIds = proposalIds.map(pid => {
       const parts = pid.split('-');
-      return parseInt(parts[parts.length - 1], 10);
+      return Number.parseInt(parts.at(-1) ?? '', 10);
     });
     this.violations[projectId] = (this.violations[projectId] ?? []).filter(
       v => !approvedViolationIds.includes(v.id),

@@ -540,10 +540,14 @@ export const ApmeAiProvidersSection = ({
         : raw;
     const config: Record<string, unknown> =
       root && typeof root === 'object' ? { ...(root as object) } : {};
-    const providersById: Record<string, Record<string, unknown>> = {
-      ...((config.providers as object) || {}),
-    };
-    const prev: Record<string, unknown> = { ...(providersById[id] || {}) };
+    const existingProviders = config.providers as
+      | Record<string, Record<string, unknown>>
+      | undefined;
+    const providersById: Record<string, Record<string, unknown>> =
+      existingProviders ? { ...existingProviders } : {};
+    const prev: Record<string, unknown> = providersById[id]
+      ? { ...providersById[id] }
+      : {};
     providersById[id] = {
       ...prev,
       engine: configure.engine || prev.engine,

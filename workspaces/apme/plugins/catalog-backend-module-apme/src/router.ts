@@ -18,7 +18,7 @@ import { assertSafeAbbenayProviderId, assertSafeHttpUrl } from './urlSafety';
 import { listApmeInferenceModels, resolveApmeAiStatus } from './aiResolution';
 import PromiseRouter from 'express-promise-router';
 import type { Router } from 'express';
-import type { IncomingHttpHeaders } from 'http';
+import type { IncomingHttpHeaders } from 'node:http';
 import {
   HttpAuthService,
   LoggerService,
@@ -575,9 +575,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const limitRaw = req.query.limit;
     const offsetRaw = req.query.offset;
     const limit =
-      typeof limitRaw === 'string' ? parseInt(limitRaw, 10) : undefined;
+      typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : undefined;
     const offset =
-      typeof offsetRaw === 'string' ? parseInt(offsetRaw, 10) : undefined;
+      typeof offsetRaw === 'string' ? Number.parseInt(offsetRaw, 10) : undefined;
     const violationOptions =
       (limit !== undefined && !Number.isNaN(limit)) ||
       (offset !== undefined && !Number.isNaN(offset))
@@ -725,7 +725,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
 
   router.delete('/apme/suppressions/:suppressionId', async (req, res) => {
     await ensureUser(req);
-    const suppressionId = parseInt(req.params.suppressionId, 10);
+    const suppressionId = Number.parseInt(req.params.suppressionId, 10);
     if (Number.isNaN(suppressionId)) {
       res.status(400).json({ error: 'Invalid suppression id' });
       return;

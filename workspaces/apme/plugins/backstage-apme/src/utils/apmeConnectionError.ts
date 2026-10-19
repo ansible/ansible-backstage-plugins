@@ -84,7 +84,7 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   // Prefer nested InputError.message from Backstage error JSON bodies.
-  const nestedMessage = raw.match(/"message"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const nestedMessage = /"message"\s*:\s*"((?:\\.|[^"\\])*)"/.exec(raw);
   if (nestedMessage?.[1]) {
     const decoded = nestedMessage[1]
       .replace(/\\n/g, ' ')
@@ -172,18 +172,18 @@ export function parseExistingPrFromError(
   if (!raw?.trim() || !isPrAlreadyCreatedError(raw)) {
     return null;
   }
-  const urlMatch = raw.match(
-    /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i,
+  const urlMatch = /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i.exec(
+    raw,
   );
   if (!urlMatch?.[0]) {
     return null;
   }
   // NOSONAR - Simple trailing punctuation pattern; no backtracking risk
   const url = urlMatch[0].replace(/[.,;]+$/, ''); // NOSONAR
-  const numberMatch = url.match(/\/(?:pull|merge_requests)\/(\d+)/i);
+  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)/i.exec(url);
   return {
     url,
-    prNumber: numberMatch ? parseInt(numberMatch[1], 10) : undefined,
+    prNumber: numberMatch ? Number.parseInt(numberMatch[1], 10) : undefined,
   };
 }
 
