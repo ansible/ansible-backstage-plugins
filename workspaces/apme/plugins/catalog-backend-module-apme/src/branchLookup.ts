@@ -47,6 +47,11 @@ function authHeaders(token?: string): Record<string, string> {
   return { Authorization: `Bearer ${token.trim()}` };
 }
 
+/** Last path segment, or empty string when the list is empty. */
+export function lastPathSegment(segments: string[]): string {
+  return segments.at(-1) ?? '';
+}
+
 /** Parses a normalized GitHub/GitLab HTTPS clone URL into SCM coordinates. */
 export function parseGitRepoUrl(repoUrl: string): ParsedGitRepo {
   const normalized = normalizeRepoUrl(repoUrl);
@@ -77,7 +82,7 @@ export function parseGitRepoUrl(repoUrl: string): ParsedGitRepo {
     provider,
     host,
     owner: segments.slice(0, -1).join('/'),
-    repo: segments.at(-1) ?? '',
+    repo: lastPathSegment(segments),
   };
 }
 
@@ -154,7 +159,9 @@ async function fetchGithubDefaultBranch(
   token?: string,
 ): Promise<{ defaultBranch?: string; status: number }> {
   const response = await fetch(
-    `${apiBaseUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+    `${apiBaseUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}`,
     {
       headers: {
         Accept: 'application/vnd.github+json',
@@ -180,7 +187,9 @@ async function githubBranchExists(
   token?: string,
 ): Promise<boolean> {
   const response = await fetch(
-    `${apiBaseUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(branch)}`,
+    `${apiBaseUrl}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(
+      repo,
+    )}/branches/${encodeURIComponent(branch)}`,
     {
       method: 'HEAD',
       headers: authHeaders(token),
@@ -216,7 +225,9 @@ async function gitlabBranchExists(
   token?: string,
 ): Promise<boolean> {
   const response = await fetch(
-    `${apiBaseUrl}/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/branches/${encodeURIComponent(branch)}`,
+    `${apiBaseUrl}/projects/${encodeURIComponent(
+      `${owner}/${repo}`,
+    )}/repository/branches/${encodeURIComponent(branch)}`,
     {
       method: 'HEAD',
       headers: authHeaders(token),

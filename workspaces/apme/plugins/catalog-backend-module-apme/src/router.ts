@@ -182,7 +182,7 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
   // Body parsing: use route-level `jsonBody` only (see ./jsonBody.ts). Never
   // `router.use(jsonBody)` — this router shares the catalog HTTP stack.
 
-  const ensureUser = async (req: unknown) => {
+  const ensureUser = (req: unknown) => {
     return httpAuth.credentials(
       req as Parameters<HttpAuthService['credentials']>[0],
       {

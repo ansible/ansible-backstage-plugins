@@ -48,6 +48,11 @@ import {
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+/** Last id segment, or empty string when the list is empty. */
+export function lastPathSegment(parts: string[]): string {
+  return parts.at(-1) ?? '';
+}
+
 function severityFromOverride(value: number): Rule['severity'] {
   return severityLevelToCatalogSeverity(severityProtoToLabel(value));
 }
@@ -618,7 +623,7 @@ export class MockApmeApiClient implements ApmeApi {
           const original = violation?.original_yaml ?? '';
           const fixed =
             violation?.fixed_yaml ??
-            (isAi ? (violation?.ai_suggestion ?? '') : '');
+            (isAi ? violation?.ai_suggestion ?? '' : '');
           const diffHunk =
             isAi && original && fixed
               ? [
@@ -689,8 +694,7 @@ export class MockApmeApiClient implements ApmeApi {
   ): Promise<void> {
     await delay(200);
     const approvedViolationIds = proposalIds.map(pid => {
-      const parts = pid.split('-');
-      return Number.parseInt(parts.at(-1) ?? '', 10);
+      return Number.parseInt(lastPathSegment(pid.split('-')), 10);
     });
     this.violations[projectId] = (this.violations[projectId] ?? []).filter(
       v => !approvedViolationIds.includes(v.id),

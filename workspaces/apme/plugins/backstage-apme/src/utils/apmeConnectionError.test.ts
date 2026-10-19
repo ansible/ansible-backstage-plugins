@@ -10,6 +10,7 @@ import {
   formatApmeUserFacingError,
   isApmeConnectionError,
   parseExistingPrFromError,
+  prNumberFromUrl,
 } from './apmeConnectionError';
 
 describe('isApmeConnectionError', () => {
@@ -119,6 +120,16 @@ describe('formatApmeUserFacingError', () => {
         '{"detail":"PR already created for this activity: https://github.com/acme-scm/apme/pull/1"}',
       ),
     ).toMatch(/already exists[\s\S]*pull\/1/i);
+  });
+});
+
+describe('prNumberFromUrl', () => {
+  it('extracts GitHub and GitLab ids and ignores unrelated URLs', () => {
+    expect(prNumberFromUrl('https://github.com/acme/apme/pull/12')).toBe(12);
+    expect(
+      prNumberFromUrl('https://gitlab.com/acme/apme/-/merge_requests/9'),
+    ).toBe(9);
+    expect(prNumberFromUrl('https://github.com/acme/apme')).toBeUndefined();
   });
 });
 

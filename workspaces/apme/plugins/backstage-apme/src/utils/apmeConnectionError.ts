@@ -165,6 +165,12 @@ export function extractExistingPrUrlFromError(raw: string): string | null {
   return parsed?.url ?? null;
 }
 
+/** Numeric PR/MR id from an SCM URL, if present. */
+export function prNumberFromUrl(url: string): number | undefined {
+  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)/i.exec(url);
+  return numberMatch?.[1] ? Number.parseInt(numberMatch[1], 10) : undefined;
+}
+
 /** Parsed PR link from a gateway "PR already created…" error, if any. */
 export function parseExistingPrFromError(
   raw: string,
@@ -179,10 +185,9 @@ export function parseExistingPrFromError(
   }
   // NOSONAR - Simple trailing punctuation pattern; no backtracking risk
   const url = urlMatch[0].replace(/[.,;]+$/, ''); // NOSONAR
-  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)/i.exec(url);
   return {
     url,
-    prNumber: numberMatch ? Number.parseInt(numberMatch[1], 10) : undefined,
+    prNumber: prNumberFromUrl(url),
   };
 }
 

@@ -89,4 +89,39 @@ describe('ApmePortalSettingsStore', () => {
       global: {},
     });
   });
+
+  it('creates project and activity maps when none are persisted yet', async () => {
+    const store = new ApmePortalSettingsStore(settingsPath);
+    await store.updateProjectTarget('proj-1', '2.18');
+    await store.updateActivityOutcome('scan-1', {
+      branch_name: 'review/fix',
+      pr_url: 'https://github.com/acme/apme/pull/7',
+      commit_sha: 'abc1234',
+    });
+    await expect(store.read()).resolves.toEqual({
+      projects: { 'proj-1': { targetAnsibleCoreVersion: '2.18' } },
+      activities: {
+        'scan-1': {
+          branch_name: 'review/fix',
+          pr_url: 'https://github.com/acme/apme/pull/7',
+          commit_sha: 'abc1234',
+        },
+      },
+    });
+
+    await store.updateProjectTarget('proj-1', null);
+    await store.updateActivityOutcome('scan-1', {
+      branch_name: 'review/fix-2',
+    });
+    await expect(store.read()).resolves.toEqual({
+      projects: {},
+      activities: {
+        'scan-1': {
+          branch_name: 'review/fix-2',
+          pr_url: 'https://github.com/acme/apme/pull/7',
+          commit_sha: 'abc1234',
+        },
+      },
+    });
+  });
 });

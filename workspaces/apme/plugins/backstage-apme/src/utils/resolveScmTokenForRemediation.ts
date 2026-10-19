@@ -13,6 +13,8 @@
  *     integration PAT, or APME_SCM_TOKEN
  */
 
+import { errorMessageFromUnknown } from './toError';
+
 export interface ScmAuthCredentialsApi {
   getCredentials(options: {
     url: string;
@@ -108,7 +110,7 @@ export function isScmTokenRequiredError(err: unknown): boolean {
 
 /** User-facing message when GitHub OAuth or token resolution fails. */
 export function formatScmAuthFailureMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err);
+  const raw = errorMessageFromUnknown(err);
   if (
     /authentication failed|failed to obtain access token|login failed|bad credentials|github write access failed/i.test(
       raw,
