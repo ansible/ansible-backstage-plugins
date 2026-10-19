@@ -623,7 +623,7 @@ export class MockApmeApiClient implements ApmeApi {
           const original = violation?.original_yaml ?? '';
           const fixed =
             violation?.fixed_yaml ??
-            (isAi ? violation?.ai_suggestion ?? '' : '');
+            (isAi ? (violation?.ai_suggestion ?? '') : '');
           const diffHunk =
             isAi && original && fixed
               ? [

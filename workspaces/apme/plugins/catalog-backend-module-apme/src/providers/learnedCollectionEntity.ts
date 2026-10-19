@@ -148,9 +148,8 @@ export function buildLearnedCollectionEntity(
   };
 
   if (canonicalEntityName) {
-    annotations[
-      CANONICAL_COLLECTION_ANNOTATION
-    ] = `component:default/${canonicalEntityName}`;
+    annotations[CANONICAL_COLLECTION_ANNOTATION] =
+      `component:default/${canonicalEntityName}`;
   }
 
   // Do not copy the consuming repo's scm-* annotations — that makes Collections
