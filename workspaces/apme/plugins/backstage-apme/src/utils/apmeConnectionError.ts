@@ -172,9 +172,8 @@ export function parseExistingPrFromError(
   if (!raw?.trim() || !isPrAlreadyCreatedError(raw)) {
     return null;
   }
-  const urlMatch = /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i.exec(
-    raw,
-  );
+  const urlMatch =
+    /https?:\/\/[^\s"'\\}\]]+\/(?:pull|merge_requests)\/\d+/i.exec(raw);
   if (!urlMatch?.[0]) {
     return null;
   }

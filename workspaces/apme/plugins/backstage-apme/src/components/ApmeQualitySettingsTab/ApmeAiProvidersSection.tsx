@@ -543,8 +543,10 @@ export const ApmeAiProvidersSection = ({
     const existingProviders = config.providers as
       | Record<string, Record<string, unknown>>
       | undefined;
-    const providersById: Record<string, Record<string, unknown>> =
-      existingProviders ? { ...existingProviders } : {};
+    const providersById: Record<
+      string,
+      Record<string, unknown>
+    > = existingProviders ? { ...existingProviders } : {};
     const prev: Record<string, unknown> = providersById[id]
       ? { ...providersById[id] }
       : {};

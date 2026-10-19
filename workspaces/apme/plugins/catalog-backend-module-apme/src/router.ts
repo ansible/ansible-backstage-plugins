@@ -577,7 +577,9 @@ export async function createRouter(options: RouterOptions): Promise<Router> {
     const limit =
       typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : undefined;
     const offset =
-      typeof offsetRaw === 'string' ? Number.parseInt(offsetRaw, 10) : undefined;
+      typeof offsetRaw === 'string'
+        ? Number.parseInt(offsetRaw, 10)
+        : undefined;
     const violationOptions =
       (limit !== undefined && !Number.isNaN(limit)) ||
       (offset !== undefined && !Number.isNaN(offset))
