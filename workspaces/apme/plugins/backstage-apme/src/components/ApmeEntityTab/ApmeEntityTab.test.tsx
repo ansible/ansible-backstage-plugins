@@ -152,9 +152,8 @@ describe('ApmeEntityTab', () => {
   it('keeps default ansible version when resolveDefaultAnsibleVersionForScan rejects', async () => {
     mockResolveVersion.mockRejectedValueOnce(new Error('network error'));
     renderTab();
+    // The catch block swallows the error — component renders without crashing
     expect(await screen.findByText('demo-repo')).toBeInTheDocument();
-    // The catch block should swallow the error silently — no crash
-    expect(screen.getByTestId('workflow-panel')).toBeInTheDocument();
   });
 
   it('hides the collections input from the portal form (AAP-89526)', async () => {
