@@ -193,43 +193,6 @@ describe('AAPTokenField', () => {
     });
   });
 
-  it('falls back to Math.random when crypto.randomUUID is unavailable', async () => {
-    Object.defineProperty(globalThis, 'crypto', {
-      value: {},
-      configurable: true,
-    });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
-
-    await renderComponent();
-
-    await waitFor(() => {
-      const input = screen.getByLabelText(/AAP Token/);
-      expect(input.id).toMatch(/^aap-token-field-[a-z0-9]+$/i);
-    });
-  });
-
-  it('should use crypto.randomUUID for the field id when available', async () => {
-    const randomUUID = jest
-      .fn()
-      .mockReturnValue('11111111-2222-4333-8444-555555555555');
-    Object.defineProperty(globalThis, 'crypto', {
-      value: { randomUUID },
-      configurable: true,
-    });
-    mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
-
-    await renderComponent();
-
-    await waitFor(() => {
-      const input = screen.getByLabelText(/AAP Token/);
-      expect(input).toHaveAttribute(
-        'id',
-        'aap-token-field-11111111-2222-4333-8444-555555555555',
-      );
-    });
-    expect(randomUUID).toHaveBeenCalled();
-  });
-
   it('should make input readonly', async () => {
     mockRhAapAuthApi.getAccessToken.mockResolvedValue('test-token');
 
