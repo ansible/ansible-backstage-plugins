@@ -183,8 +183,9 @@ describe('ApmeViolationsCell', () => {
       total_violations: 0,
       active_operation: { operation_id: 'op-1', status: 'scanning' },
     });
-    // Both poll responses still show an active scan
+    // Poll responses still show an active scan so the interval stays armed
     mockGetProjects
+      .mockResolvedValueOnce([scanning])
       .mockResolvedValueOnce([scanning])
       .mockResolvedValueOnce([scanning]);
 
@@ -200,6 +201,17 @@ describe('ApmeViolationsCell', () => {
 
     await waitFor(() => {
       expect(mockGetProjects).toHaveBeenCalledTimes(2);
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockGetProjects).toHaveBeenCalledTimes(3);
     });
 
     jest.useRealTimers();

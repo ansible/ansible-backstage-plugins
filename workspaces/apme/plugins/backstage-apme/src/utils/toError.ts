@@ -18,7 +18,8 @@ export function errorMessageFromUnknown(err: unknown): string {
     return (err as { message: string }).message;
   }
   try {
-    return JSON.stringify(err);
+    const serialized = JSON.stringify(err);
+    return typeof serialized === 'string' ? serialized : 'Unknown error';
   } catch {
     return 'Unknown error';
   }

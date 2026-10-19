@@ -24,6 +24,22 @@ describe('errorMessageFromUnknown', () => {
       '{"code":"E_FAIL"}',
     );
   });
+
+  it('keeps serialized null as a string', () => {
+    expect(errorMessageFromUnknown(null)).toBe('null');
+  });
+
+  it('returns Unknown error when JSON.stringify does not return a string', () => {
+    expect(errorMessageFromUnknown(undefined)).toBe('Unknown error');
+    expect(errorMessageFromUnknown(() => undefined)).toBe('Unknown error');
+  });
+
+  it('returns Unknown error for circular objects', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(errorMessageFromUnknown(circular)).toBe('Unknown error');
+  });
 });
 
 describe('toError', () => {
@@ -34,5 +50,9 @@ describe('toError', () => {
 
   it('wraps unknown values with a message', () => {
     expect(toError({ message: 'wrapped' }).message).toBe('wrapped');
+  });
+
+  it('uses Unknown error when wrapping undefined', () => {
+    expect(toError(undefined).message).toBe('Unknown error');
   });
 });

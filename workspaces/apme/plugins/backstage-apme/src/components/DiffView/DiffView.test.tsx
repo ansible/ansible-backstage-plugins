@@ -76,8 +76,15 @@ describe('DiffView', () => {
   });
 
   it('skips trailing blank lines inside a hunk', () => {
-    render(<DiffView diff={'-only\n+\n'} />);
-    expect(screen.getByText('only')).toBeInTheDocument();
+    const { container } = render(<DiffView diff={'-only\n+\n'} />);
+    const { container: withoutTrailingNewline } = render(
+      <DiffView diff={'-only\n+'} />,
+    );
+    expect(screen.getAllByText('only')).toHaveLength(2);
+    expect(container.textContent).toBe(withoutTrailingNewline.textContent);
+    expect(container.querySelectorAll('div').length).toBe(
+      withoutTrailingNewline.querySelectorAll('div').length,
+    );
   });
 
   it('assigns line numbers when hunk numbers are positive', () => {
