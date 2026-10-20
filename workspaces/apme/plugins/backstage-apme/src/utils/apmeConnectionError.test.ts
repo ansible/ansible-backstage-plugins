@@ -147,6 +147,20 @@ describe('prNumberFromUrl', () => {
   it('matches /pull/12/ with trailing slash', () => {
     expect(prNumberFromUrl('https://github.com/acme/apme/pull/12/')).toBe(12);
   });
+
+  it('does not treat an unrelated path with an embedded pull segment as a PR', () => {
+    expect(
+      prNumberFromUrl('https://github.com/acme/apme/issues/1/pull/12'),
+    ).toBeUndefined();
+  });
+
+  it('extracts GitLab nested-group merge request ids', () => {
+    expect(
+      prNumberFromUrl(
+        'https://gitlab.com/my-group/subgroup/my-repo/-/merge_requests/9',
+      ),
+    ).toBe(9);
+  });
 });
 
 describe('parseExistingPrFromError', () => {

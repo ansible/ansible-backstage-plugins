@@ -165,6 +165,10 @@ export function extractExistingPrUrlFromError(raw: string): string | null {
   return parsed?.url ?? null;
 }
 
+/** GitHub `/owner/repo/pull/N` or GitLab `/.../-/merge_requests/N` pathname. */
+const GITHUB_PR_PATH = /^\/[^/]+\/[^/]+\/pull\/(\d+)(?:\/|$)/i;
+const GITLAB_MR_PATH = /^(?:\/[^/]+)+\/-\/merge_requests\/(\d+)(?:\/|$)/i;
+
 /** Numeric PR/MR id from an SCM URL, if present. */
 export function prNumberFromUrl(url: string): number | undefined {
   let pathname: string;
@@ -173,9 +177,8 @@ export function prNumberFromUrl(url: string): number | undefined {
   } catch {
     pathname = url;
   }
-  const numberMatch = /\/(?:pull|merge_requests)\/(\d+)(?:\/|$)/i.exec(
-    pathname,
-  );
+  const numberMatch =
+    GITHUB_PR_PATH.exec(pathname) ?? GITLAB_MR_PATH.exec(pathname);
   return numberMatch?.[1] ? Number.parseInt(numberMatch[1], 10) : undefined;
 }
 
