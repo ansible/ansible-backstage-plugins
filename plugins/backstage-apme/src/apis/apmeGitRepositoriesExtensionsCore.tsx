@@ -61,7 +61,7 @@ export type ApmeGitRepositoriesComponents = {
   }>;
   DependenciesTab: ComponentType<{ context: GitRepositoryDetailTabContext }>;
   ApmeRepositoryOverviewCard: ComponentType<{
-    context: { entity: Entity };
+    context: GitRepositoryDetailTabContext;
   }>;
   ApmeRepositoryHeaderActions: ComponentType<{
     context: GitRepositoryDetailHeaderMenuContext;
