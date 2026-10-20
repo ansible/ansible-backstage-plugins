@@ -33,7 +33,11 @@ import {
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
-import { useApmeEnabled, useApmeAiEnabled } from '../../hooks/useApmeEnabled';
+import {
+  useApmeAddRepositoryButtonEnabled,
+  useApmeEnabled,
+  useApmeAiEnabled,
+} from '../../hooks/useApmeEnabled';
 import { PreviewLabelRow } from '../PreviewChip';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import { APME_GATEWAY_UNAVAILABLE_MESSAGE } from '../../utils/apmeConnectionError';
@@ -147,6 +151,7 @@ export const FleetQualityTab = ({
   const isDark = theme.palette.type === 'dark';
   const enabled = useApmeEnabled();
   const enableAi = useApmeAiEnabled();
+  const showAddRepositoryButton = useApmeAddRepositoryButtonEnabled();
   const { value, loading } = useFleetQualityData(enabled);
 
   const [severityFilters, setSeverityFilters] = useState<Set<SeverityLevel>>(
@@ -326,14 +331,16 @@ export const FleetQualityTab = ({
             No git repositories were retrieved from the configured sources. Sync
             or add manually to discover latest contents.
           </Typography>
-          <LinkButton
-            variant="contained"
-            color="primary"
-            to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
-            startIcon={<AddIcon />}
-          >
-            Add repository
-          </LinkButton>
+          {showAddRepositoryButton ? (
+            <LinkButton
+              variant="contained"
+              color="primary"
+              to={APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH}
+              startIcon={<AddIcon />}
+            >
+              Add repository
+            </LinkButton>
+          ) : null}
         </>
       );
     }

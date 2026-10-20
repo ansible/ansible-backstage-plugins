@@ -30,9 +30,10 @@ ansible:
     publishViaGateway: true
 ```
 
-### Opt-in Git Repositories “Add repository” header button
+### Opt-in Git Repositories “Add repository” actions
 
-The Self-service **Git repositories** page header action is off unless explicitly enabled:
+The Self-service **Git repositories** page header action and the **Quality** tab
+empty-state **Add repository** control are off unless explicitly enabled:
 
 ```yaml
 ansible:
@@ -41,7 +42,7 @@ ansible:
       enabled: true
 ```
 
-When `addRepositoryButton.enabled` is omitted or `false`, the button is hidden.
+When `addRepositoryButton.enabled` is omitted or `false`, those controls are hidden.
 Requires `ansible.apme.enabled: true`. This does not remove the Register Git
 Repository scaffolder template from the catalog; control that via `catalog.locations`.
 
