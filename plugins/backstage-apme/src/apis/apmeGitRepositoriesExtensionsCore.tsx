@@ -13,8 +13,12 @@ import {
   configApiRef,
   createApiFactory,
 } from '@backstage/core-plugin-api';
+import { Config } from '@backstage/config';
 import { Entity } from '@backstage/catalog-model';
-import { isApmeEnabled } from '@ansible/backstage-apme-common/config';
+import {
+  isApmeAddRepositoryButtonEnabled,
+  isApmeEnabled,
+} from '@ansible/backstage-apme-common/config';
 import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
@@ -57,7 +61,7 @@ export type ApmeGitRepositoriesComponents = {
   }>;
   DependenciesTab: ComponentType<{ context: GitRepositoryDetailTabContext }>;
   ApmeRepositoryOverviewCard: ComponentType<{
-    context: GitRepositoryDetailTabContext;
+    context: { entity: Entity };
   }>;
   ApmeRepositoryHeaderActions: ComponentType<{
     context: GitRepositoryDetailHeaderMenuContext;
@@ -72,7 +76,7 @@ export type ApmeGitRepositoriesComponents = {
 
 export function createApmeGitRepositoriesExtensionsApi(
   components: ApmeGitRepositoriesComponents,
-): new () => GitRepositoriesExtensionsApi {
+): new (config: Config) => GitRepositoriesExtensionsApi {
   const {
     FleetQualityTab,
     EntityQualityTab,
@@ -88,7 +92,14 @@ export function createApmeGitRepositoriesExtensionsApi(
     extends DefaultGitRepositoriesExtensionsApi
     implements GitRepositoriesExtensionsApi
   {
+    constructor(private readonly config: Config) {
+      super();
+    }
+
     getPageHeaderActions() {
+      if (!isApmeAddRepositoryButtonEnabled(this.config)) {
+        return [];
+      }
       return [
         {
           id: 'add-repository',
@@ -264,14 +275,14 @@ export function createApmeGitRepositoriesExtensionsApi(
 }
 
 export function createGitRepositoriesExtensionsApiFactory(
-  ApiClass: new () => GitRepositoriesExtensionsApi,
+  ApiClass: new (config: Config) => GitRepositoriesExtensionsApi,
 ): AnyApiFactory {
   return createApiFactory({
     api: gitRepositoriesExtensionsApiRef,
     deps: { configApi: configApiRef },
     factory: ({ configApi }) =>
       isApmeEnabled(configApi)
-        ? new ApiClass()
+        ? new ApiClass(configApi)
         : new DefaultGitRepositoriesExtensionsApi(),
   });
 }
