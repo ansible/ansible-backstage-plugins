@@ -226,6 +226,8 @@ export interface GalaxyServer {
   url: string;
   auth_url: string;
   has_token: boolean;
+  /** Null or absent inherits the Galaxy Proxy deployment TLS default. */
+  validate_certs?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -235,6 +237,7 @@ export interface CreateGalaxyServerRequest {
   url: string;
   token?: string;
   auth_url?: string;
+  validate_certs?: boolean | null;
 }
 
 export interface UpdateGalaxyServerRequest {
@@ -242,6 +245,7 @@ export interface UpdateGalaxyServerRequest {
   url?: string;
   token?: string;
   auth_url?: string;
+  validate_certs?: boolean | null;
 }
 
 export interface UpdateProjectScanTargetRequest {
