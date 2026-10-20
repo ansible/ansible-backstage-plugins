@@ -25,6 +25,10 @@ repos:
       - id: check-json
       - id: check-symlinks
       - id: detect-private-key
+        # TLS test fixtures for OCITransportPolicy.test.ts: a throwaway
+        # loopback-only test CA and server keys, regenerated via testdata/generate.py.
+        # See workspaces/content/docs/adrs/006-tls-verification-by-default.md.
+        exclude: ^workspaces/content/plugins/automation-content-common/src/oci/testdata/.*\.pem$
 
   - repo: https://github.com/adrienverge/yamllint.git
     rev: v1.37.1

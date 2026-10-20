@@ -1,0 +1,9 @@
+# Extend the default gitleaks rules; only add the allowlist below.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "TLS test fixtures for OCITransportPolicy.test.ts: a throwaway loopback-only test CA and server keys, regenerated via testdata/generate.py. See workspaces/content/docs/adrs/006-tls-verification-by-default.md."
+paths = [
+  '''workspaces/content/plugins/automation-content-common/src/oci/testdata/.*\.pem''',
+]

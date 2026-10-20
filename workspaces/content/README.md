@@ -43,4 +43,16 @@ and pushing images and manifests — see its README and `docs/guides/` on the
 [poc branch][poc-repo]. The portal development environment for this monorepo
 lives in `workspaces/portal-core`.
 
+## Transport trust
+
+Registry connections verify TLS by default and refuse plain HTTP. A local
+plain-HTTP registry (Quay, zot, `registry:2`) needs `insecure: true` on its
+entry — the single, explicit opt-out, which also disables certificate
+verification for that registry and is warned about at startup. A registry
+behind a private CA keeps verification on via `caFile` instead. See
+[ADR-006](docs/adrs/006-tls-verification-by-default.md) for the full policy,
+and [`dev/tls/`](dev/tls/) for a portal-level demo of all three cases —
+verified HTTPS, the plain-HTTP opt-out, and an untrusted certificate refused
+by name.
+
 [poc-repo]: https://github.com/ansible/automation-content-plugins/tree/ANSTRAT-1758-poc

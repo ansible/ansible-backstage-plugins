@@ -198,6 +198,7 @@ __metadata:
     "@ansible/content-model": "workspace:^"
     "@backstage/cli": "npm:^0.36.0"
     msw: "npm:^2.11.4"
+    undici: "npm:^6.29.0"
   languageName: unknown
   linkType: soft
 

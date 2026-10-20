@@ -25,6 +25,7 @@ that evidence is the reason the decision holds.
 | [003](003-probe-registry-capabilities.md)         | Probe Registry Capabilities, Never Assume Them | Accepted | 2026-09-14 |
 | [004](004-digest-keyed-state.md)                  | Digest-Keyed State                             | Accepted | 2026-09-14 |
 | [005](005-dedicated-repository-and-mount-path.md) | Dedicated Repository and Config-Mounted Route  | Accepted | 2026-09-14 |
+| [006](006-tls-verification-by-default.md)         | TLS Verification by Default                    | Accepted | 2026-10-16 |
 
 ## Numbering Convention
 

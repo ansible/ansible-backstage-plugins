@@ -238,6 +238,14 @@ catalog:
     #       # supports and the provider degrades to this list rather than failing.
     #       repositories:
     #         - demo/network-ee
+    #       # Plain HTTP to a local registry (Quay, zot, registry:2) is the
+    #       # explicit opt-out from transport trust: it also disables TLS
+    #       # certificate verification for this registry, and is warned about at
+    #       # startup. Verified HTTPS is the default; omit this for any real
+    #       # registry. A registry behind a private CA keeps verification on via
+    #       # caFile instead:
+    #       #   caFile: /path/to/ca-bundle.pem
+    #       insecure: true
     #       # Credentials come from the environment, never from this file. For a
     #       # registry that needs none — a local zot or registry:2 — use
     #       # `type: anonymous` and drop the three lines below.

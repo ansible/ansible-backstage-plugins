@@ -28,6 +28,9 @@ describeLive('live registry end-to-end', () => {
   const connection: RegistryConnection = {
     name: registry!,
     url: `http://${registry}`,
+    // The harness speaks plain HTTP to a local registry by construction, and
+    // plain HTTP is refused without this explicit opt-out.
+    insecure: true,
     auth: process.env.E2E_USERNAME
       ? {
           type: 'basic',

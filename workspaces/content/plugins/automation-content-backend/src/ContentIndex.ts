@@ -93,6 +93,24 @@ export interface ReconcileState {
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
+/**
+ * The deepest message an error chain carries.
+ *
+ * Transport failures arrive wrapped — undici reports a TLS rejection as
+ * `fetch failed` with the real reason on `cause` — and a sync that fails with
+ * "fetch failed" tells an operator nothing. The chain is walked so the error
+ * that reaches the API names the actual problem.
+ */
+function errorText(error: unknown): string {
+  const parts: string[] = [];
+  let current = error as { message?: unknown; cause?: unknown };
+  while (current && typeof current.message === 'string') {
+    parts.push(current.message);
+    current = current.cause as typeof current;
+  }
+  return parts.join(': ') || String(error);
+}
+
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
   return `${artifactRef}::${fqcn}`;
@@ -423,7 +441,7 @@ export class ContentIndex {
       } catch (error) {
         return {
           ok: false,
-          error: `capability probe failed: ${error}`,
+          error: `capability probe failed: ${errorText(error)}`,
           artifacts: [],
         };
       }
@@ -438,7 +456,7 @@ export class ContentIndex {
     } catch (error) {
       return {
         ok: false,
-        error: `repository listing failed: ${error}`,
+        error: `repository listing failed: ${errorText(error)}`,
         artifacts: [],
       };
     }
@@ -454,7 +472,7 @@ export class ContentIndex {
           `[${name}] scanned ${repository}: ${found.length} artifact(s)`,
         );
       } catch (error) {
-        failures.push(`${repository}: ${(error as Error).message}`);
+        failures.push(`${repository}: ${errorText(error)}`);
         // A failed read keeps the previous view for that repository: a
         // transient 5xx, timeout or 429 must not read as "its artifacts are
         // gone". Total failure is handled below and keeps the whole registry.
@@ -463,7 +481,7 @@ export class ContentIndex {
         );
         found.push(...retained);
         this.logger.warn(
-          `[${name}] ${repository}: ${(error as Error).message}${
+          `[${name}] ${repository}: ${errorText(error)}${
             retained.length
               ? `; keeping ${retained.length} previously known artifact(s)`
               : ''

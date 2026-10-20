@@ -23,7 +23,8 @@
     "dist"
   ],
   "dependencies": {
-    "@ansible/content-model": "workspace:^"
+    "@ansible/content-model": "workspace:^",
+    "undici": "^6.29.0"
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.0",

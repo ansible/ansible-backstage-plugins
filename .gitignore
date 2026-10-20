@@ -112,3 +112,8 @@ test-console.log
 
 # graphify knowledge-graph output (local analysis artifact)
 graphify-out/
+
+# Content workspace TLS demo (workspaces/content/dev/tls)
+workspaces/content/dev/tls/certs/
+workspaces/content/dev/tls/proxy.pid
+workspaces/content/dev/tls/proxy.log

@@ -748,7 +748,9 @@ export async function createRouter(
           if (registry.insecure === true) {
             warnings.push({
               path: `${at}.insecure`,
-              message: 'Plain HTTP; local development only',
+              message:
+                'Plain HTTP allowed and TLS certificate verification disabled — ' +
+                'local development only',
             });
           }
           if (registry.rewriteAuthRealmHost === true) {
