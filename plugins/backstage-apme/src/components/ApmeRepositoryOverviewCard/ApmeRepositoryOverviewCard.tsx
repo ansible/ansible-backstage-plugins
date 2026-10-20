@@ -184,7 +184,7 @@ export const ApmeRepositoryOverviewCard = ({
       <Card variant="outlined" className={classes.card}>
         <CardContent>
           <Typography variant="subtitle2" gutterBottom>
-            Quality
+            Modernization status
           </Typography>
           <Typography variant="body2" color="textSecondary" paragraph>
             No quality scans yet. Quality scans run on push when the APME
@@ -219,11 +219,11 @@ export const ApmeRepositoryOverviewCard = ({
         }}
         role="button"
         tabIndex={0}
-        aria-label="Quality summary — view latest scan details"
+        aria-label="Modernization status summary — view latest scan details"
       >
         <CardContent>
           <Typography variant="subtitle2" gutterBottom>
-            Quality
+            Modernization status
           </Typography>
           <Typography
             variant="body2"
@@ -252,7 +252,7 @@ export const ApmeRepositoryOverviewCard = ({
       }}
       role="button"
       tabIndex={0}
-      aria-label="Quality summary — view latest scan details"
+      aria-label="Modernization status summary — view latest scan details"
     >
       <CardContent style={{ padding: '14px 16px 12px' }}>
         <Box
@@ -265,12 +265,11 @@ export const ApmeRepositoryOverviewCard = ({
             style={{
               fontSize: 12,
               fontWeight: 600,
-              textTransform: 'uppercase',
               letterSpacing: 0.5,
               color: theme.palette.text.secondary,
             }}
           >
-            Quality
+            Modernization status
           </Typography>
           <Typography
             component="span"

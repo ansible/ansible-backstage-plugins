@@ -30,6 +30,11 @@ function resolveSubmitTimeoutMs(raw: number | undefined): number {
   return DEFAULT_APME_SUBMIT_TIMEOUT_MS;
 }
 
+function readAddRepositoryButtonEnabled(apmeConfig: Config): boolean {
+  const buttonConfig = apmeConfig.getOptionalConfig('addRepositoryButton');
+  return buttonConfig?.getOptionalBoolean('enabled') ?? false;
+}
+
 /** Reads APME config from `ansible.apme` (ADR-011). */
 export function getApmeConfig(config: Config): ApmeConfig {
   const apmeConfig = config.getOptionalConfig('ansible.apme');
@@ -43,12 +48,14 @@ export function getApmeConfig(config: Config): ApmeConfig {
       submitTimeoutMs: DEFAULT_APME_SUBMIT_TIMEOUT_MS,
       targetAnsibleCoreVersion: DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
       portalSettingsPath: undefined,
+      addRepositoryButtonEnabled: false,
     };
   }
 
+  // NOSONAR - Simple trailing slash pattern; no backtracking risk
   return {
     enabled: apmeConfig.getOptionalBoolean('enabled') ?? false,
-    baseUrl: apmeConfig.getString('baseUrl').replace(/\/+$/, ''),
+    baseUrl: apmeConfig.getString('baseUrl').replace(/\/+$/, ''), // NOSONAR
     checkSSL: apmeConfig.getOptionalBoolean('checkSSL') ?? true,
     publishViaGateway:
       apmeConfig.getOptionalBoolean('publishViaGateway') ?? true,
@@ -59,6 +66,7 @@ export function getApmeConfig(config: Config): ApmeConfig {
       apmeConfig.getOptionalString('targetAnsibleCoreVersion') ??
       DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION,
     portalSettingsPath: apmeConfig.getOptionalString('portalSettingsPath'),
+    addRepositoryButtonEnabled: readAddRepositoryButtonEnabled(apmeConfig),
   };
 }
 
@@ -70,6 +78,14 @@ export function isApmePublishViaGateway(config: Config): boolean {
 /** Returns true when the APME plugin is enabled via configuration. */
 export function isApmeEnabled(config: Config): boolean {
   return getApmeConfig(config).enabled;
+}
+
+/** Returns true when the Git Repositories "Add repository" header action is enabled. */
+export function isApmeAddRepositoryButtonEnabled(config: Config): boolean {
+  if (!isApmeEnabled(config)) {
+    return false;
+  }
+  return getApmeConfig(config).addRepositoryButtonEnabled;
 }
 
 /** Returns true when the frontend should use mock fixture data instead of the gateway. */

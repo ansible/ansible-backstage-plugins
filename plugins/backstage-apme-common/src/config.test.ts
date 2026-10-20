@@ -16,6 +16,7 @@
 
 import {
   getApmeConfig,
+  isApmeAddRepositoryButtonEnabled,
   isApmeEnabled,
   isApmePublishViaGateway,
 } from './config';
@@ -26,6 +27,7 @@ function mockApmeSection(
     getString?: jest.Mock;
     getOptionalString?: jest.Mock;
     getOptionalNumber?: jest.Mock;
+    getOptionalConfig?: jest.Mock;
   } = {},
 ) {
   return {
@@ -33,6 +35,7 @@ function mockApmeSection(
     getString: jest.fn().mockReturnValue('http://localhost:8080'),
     getOptionalString: jest.fn().mockReturnValue(undefined),
     getOptionalNumber: jest.fn().mockReturnValue(undefined),
+    getOptionalConfig: jest.fn().mockReturnValue(undefined),
     ...overrides,
   };
 }
@@ -51,6 +54,7 @@ describe('getApmeConfig', () => {
       submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
       portalSettingsPath: undefined,
+      addRepositoryButtonEnabled: false,
     });
   });
 
@@ -80,6 +84,7 @@ describe('getApmeConfig', () => {
       submitTimeoutMs: 300_000,
       targetAnsibleCoreVersion: '2.16',
       portalSettingsPath: undefined,
+      addRepositoryButtonEnabled: false,
     });
   });
 
@@ -205,5 +210,79 @@ describe('isApmeEnabled', () => {
     };
 
     expect(isApmeEnabled(mockConfig as any)).toBe(true);
+  });
+});
+
+describe('isApmeAddRepositoryButtonEnabled', () => {
+  it('returns false when APME is disabled', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalBoolean: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'enabled' ? false : undefined,
+        ),
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'addRepositoryButton'
+            ? { getOptionalBoolean: () => true }
+            : undefined,
+        ),
+    });
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(isApmeAddRepositoryButtonEnabled(mockConfig as any)).toBe(false);
+  });
+
+  it('returns false when addRepositoryButton.enabled is omitted', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalBoolean: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'enabled' ? true : undefined,
+        ),
+    });
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(isApmeAddRepositoryButtonEnabled(mockConfig as any)).toBe(false);
+  });
+
+  it('returns true when APME and addRepositoryButton.enabled are true', () => {
+    const mockApmeConfig = mockApmeSection({
+      getOptionalBoolean: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'enabled' ? true : undefined,
+        ),
+      getOptionalConfig: jest.fn().mockImplementation((key: string) =>
+        key === 'addRepositoryButton'
+          ? {
+              getOptionalBoolean: (k: string) =>
+                k === 'enabled' ? true : undefined,
+            }
+          : undefined,
+      ),
+    });
+    const mockConfig = {
+      getOptionalConfig: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'ansible.apme' ? mockApmeConfig : undefined,
+        ),
+    };
+
+    expect(isApmeAddRepositoryButtonEnabled(mockConfig as any)).toBe(true);
   });
 });

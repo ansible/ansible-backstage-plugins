@@ -74,6 +74,14 @@ export interface Config {
        */
       targetAnsibleCoreVersion?: string;
       /**
+       * When true, show the Git Repositories page header "Add repository" action.
+       * @default false
+       * @visibility frontend
+       */
+      addRepositoryButton?: {
+        enabled?: boolean;
+      };
+      /**
        * Early-access feedback form URL. Omit for default EAP form; set "" to hide link.
        * @default https://forms.gle/VUvfyTjnVax83GPt6
        * @visibility frontend

@@ -240,7 +240,7 @@ describe('FleetQualityTab', () => {
     expect(screen.queryByText('No scans yet')).not.toBeInTheDocument();
   });
 
-  it('shows empty state with "Add repository" button when no repos exist', async () => {
+  it('shows empty state with "Add repository" button when no repos exist and button is enabled', async () => {
     const emptyApmeApi = {
       ...mockApmeApi,
       getProjects: async () => [],
@@ -252,7 +252,15 @@ describe('FleetQualityTab', () => {
           apis={[
             [
               configApiRef,
-              new ConfigReader({ ansible: { apme: { enabled: true } } }),
+              new ConfigReader({
+                ansible: {
+                  apme: {
+                    enabled: true,
+                    baseUrl: 'http://localhost:8080',
+                    addRepositoryButton: { enabled: true },
+                  },
+                },
+              }),
             ],
             [apmeApiRef, emptyApmeApi],
             [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
@@ -281,6 +289,51 @@ describe('FleetQualityTab', () => {
       screen.queryByText('All repositories are clean'),
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Fleet quality')).not.toBeInTheDocument();
+  });
+
+  it('omits "Add repository" in empty state when addRepositoryButton is disabled', async () => {
+    const emptyApmeApi = {
+      ...mockApmeApi,
+      getProjects: async () => [],
+    };
+
+    render(
+      <MemoryRouter>
+        <TestApiProvider
+          apis={[
+            [
+              configApiRef,
+              new ConfigReader({
+                ansible: {
+                  apme: {
+                    enabled: true,
+                    baseUrl: 'http://localhost:8080',
+                    addRepositoryButton: { enabled: false },
+                  },
+                },
+              }),
+            ],
+            [apmeApiRef, emptyApmeApi],
+            [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          ]}
+        >
+          <ThemeProvider theme={theme}>
+            <FleetQualityTab repositoryDetailPath={repositoryDetailPath} />
+          </ThemeProvider>
+        </TestApiProvider>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        'No Git Repositories Found',
+        {},
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Add repository/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows empty state when catalog has no repos but APME still has projects', async () => {

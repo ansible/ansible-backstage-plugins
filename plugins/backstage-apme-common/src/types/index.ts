@@ -182,6 +182,8 @@ export interface ApmeConfig {
   targetAnsibleCoreVersion?: string;
   /** Optional path for persisted portal scan-target settings JSON. */
   portalSettingsPath?: string;
+  /** Git Repositories page "Add repository" header action (opt-in). */
+  addRepositoryButtonEnabled: boolean;
 }
 
 /** Portal-side APME settings (Quality settings store). */

@@ -28,6 +28,7 @@ function mockApmeEnabledConfig(enabled: boolean) {
             ),
           getString: jest.fn().mockReturnValue('http://localhost:8080'),
           getOptionalString: jest.fn().mockReturnValue(undefined),
+          getOptionalConfig: jest.fn().mockReturnValue(undefined),
         };
       }
       if (key === 'catalog.providers.rhaap') {
@@ -163,6 +164,7 @@ function mockConfigWithRhaap(
             ),
           getString: jest.fn().mockReturnValue('http://localhost:8080'),
           getOptionalString: jest.fn().mockReturnValue(undefined),
+          getOptionalConfig: jest.fn().mockReturnValue(undefined),
         };
       }
       if (key === 'catalog.providers.rhaap') {

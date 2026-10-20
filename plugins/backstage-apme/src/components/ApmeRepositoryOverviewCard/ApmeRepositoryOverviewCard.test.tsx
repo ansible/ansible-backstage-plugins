@@ -155,12 +155,17 @@ describe('ApmeRepositoryOverviewCard', () => {
     mockUseApmeAiEnabled.mockReturnValue(true);
   });
 
+  it('renders Modernization status as the card title', () => {
+    renderCard();
+    expect(screen.getByText('Modernization status')).toBeInTheDocument();
+  });
+
   it('navigates to the latest scan detail when the card is clicked', () => {
     renderCard();
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /quality summary — view latest scan details/i,
+        name: /modernization status summary — view latest scan details/i,
       }),
     );
 
@@ -180,7 +185,7 @@ describe('ApmeRepositoryOverviewCard', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /quality summary — view latest scan details/i,
+        name: /modernization status summary — view latest scan details/i,
       }),
     );
 
@@ -233,7 +238,7 @@ describe('ApmeRepositoryOverviewCard', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /quality summary — view latest scan details/i,
+        name: /modernization status summary — view latest scan details/i,
       }),
     );
 
