@@ -112,4 +112,19 @@ describe('apmeCatalogSync helpers', () => {
       branch: 'main',
     });
   });
+
+  it('createProjectRequestFromEntity derives name from repo URL when metadata name is absent', () => {
+    const entity = {
+      ...baseEntity('acme-scm', 'amazon-aws'),
+      metadata: {
+        ...baseEntity('acme-scm', 'amazon-aws').metadata,
+        name: undefined,
+      },
+    } as Entity;
+    expect(createProjectRequestFromEntity(entity)).toEqual({
+      name: 'amazon-aws',
+      repo_url: 'https://github.com/acme-scm/amazon-aws',
+      branch: 'main',
+    });
+  });
 });

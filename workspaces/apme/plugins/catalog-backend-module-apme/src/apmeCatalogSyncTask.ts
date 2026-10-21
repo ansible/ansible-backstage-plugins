@@ -130,7 +130,7 @@ export async function runApmeCatalogSyncBatch(
         continue;
       }
       const project =
-        existing ?? (await registerOrResolveApmeProject(apmeService, request));
+        existing ?? (await registerOrResolveApmeProject(apmeService, request)); // NOSONAR - sequential catalog sync batch
       if (!existing) {
         summary.registered += 1;
       }

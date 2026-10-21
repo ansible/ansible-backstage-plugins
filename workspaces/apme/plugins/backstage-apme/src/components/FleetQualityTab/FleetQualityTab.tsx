@@ -40,6 +40,7 @@ import { APME_GATEWAY_UNAVAILABLE_MESSAGE } from '../../utils/apmeConnectionErro
 import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { FleetQualityNoScansEmptyState } from './FleetQualityNoScansEmptyState';
 import { useFleetQualityData } from './useFleetQualityData';
+import { formatFleetViolationSummary } from './fleetViolationSummary';
 
 const SEVERITY_WEIGHT: Record<SeverityLevel, number> = {
   critical: 50,
@@ -282,6 +283,13 @@ export const FleetQualityTab = ({
     (s, r) => s + r.totalCount,
     0,
   );
+  const fleetViolationSummary = formatFleetViolationSummary({
+    hasFilter,
+    violationTotal,
+    filteredRuleCount: sortedGroups.length,
+    allRulesCount: allRules.length,
+    reposWithIssues,
+  });
   const sevOrder = SEVERITY_ORDER;
   const worstFleetSeverity =
     sevOrder.find(sev => severityCounts[sev] > 0) ??
@@ -375,11 +383,7 @@ export const FleetQualityTab = ({
           <Typography
             style={{ fontSize: 13, color: theme.palette.text.secondary }}
           >
-            {hasFilter
-              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${
-                  sortedGroups.length !== 1 ? 's' : ''
-                } · ${reposWithIssues} repositories`
-              : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
+            {fleetViolationSummary}
             {reposClean > 0 && !hasFilter && (
               <span style={{ marginLeft: 6 }}>
                 ·{' '}
