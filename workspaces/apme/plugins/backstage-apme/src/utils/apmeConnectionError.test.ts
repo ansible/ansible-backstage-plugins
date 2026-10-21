@@ -81,6 +81,14 @@ describe('formatApmeUserFacingError', () => {
     ).toBe('Request failed (400): Branch missing');
   });
 
+  it('maps remediate-activity text in API error suffix', () => {
+    expect(
+      formatApmeUserFacingError(
+        'APME API error: 400 - Submit requires a remediate activity',
+      ),
+    ).toMatch(/remediation run/i);
+  });
+
   it('maps stack-heavy raw errors to a safe generic message', () => {
     expect(
       formatApmeUserFacingError(

@@ -24,13 +24,15 @@ export const DEFAULT_AI_ENGINES: ApmeAiEngineInfo[] = [
   {
     id: 'ollama',
     requiresKey: false,
-    defaultBaseUrl: 'http://host.containers.internal:11434',
+    // NOSONAR - HTTP is intentional for container-internal communication; local Ollama doesn't support HTTPS by default
+    defaultBaseUrl: 'http://host.containers.internal:11434', // NOSONAR
     defaultEnvVar: '',
   },
   {
     id: 'vllm',
     requiresKey: false,
-    defaultBaseUrl: 'http://host.containers.internal:8000/v1',
+    // NOSONAR - HTTP is intentional for container-internal communication; local vLLM doesn't support HTTPS by default
+    defaultBaseUrl: 'http://host.containers.internal:8000/v1', // NOSONAR
     defaultEnvVar: '',
   },
 ];

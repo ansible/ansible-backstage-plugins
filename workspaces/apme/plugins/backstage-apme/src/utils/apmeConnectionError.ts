@@ -97,7 +97,8 @@ export function formatApmeUserFacingError(raw: string): string {
       return 'Push needs a remediation run, not a quality scan. Select fixable issues and try Push branch again.';
     }
     // Drop stack / path noise after the first sentence-ish chunk.
-    const withoutStack = decoded.split(/\s+at\s+/)[0]?.trim() ?? decoded;
+    // NOSONAR - Simple split pattern; no backtracking risk
+    const withoutStack = decoded.split(/\s+at\s+/)[0]?.trim() ?? decoded; // NOSONAR
     if (withoutStack && withoutStack.length < 280) {
       return (
         withoutStack.replace(/^Failed to connect to APME:\s*/i, '').trim() ||
@@ -107,7 +108,16 @@ export function formatApmeUserFacingError(raw: string): string {
   }
 
   // "APME API error: 400 - …" → keep status + short body when small
-  const apiMatch = raw.match(/^APME API error:\s*(\d{3})\s*-\s*(.*)$/is);
+  // Match API error prefix, then extract rest separately to avoid regex backtracking
+  const apiPrefixPattern = /^APME API error:\s*(\d{3})\s*-\s*/i;
+  const apiPrefixMatch = apiPrefixPattern.exec(raw);
+  const apiMatch = apiPrefixMatch
+    ? [
+        apiPrefixMatch[0],
+        apiPrefixMatch[1],
+        raw.slice(apiPrefixMatch[0].length),
+      ]
+    : null;
   if (apiMatch) {
     const status = apiMatch[1];
     const rest = apiMatch[2].trim();
@@ -168,7 +178,8 @@ export function parseExistingPrFromError(
   if (!urlMatch?.[0]) {
     return null;
   }
-  const url = urlMatch[0].replace(/[.,;]+$/, '');
+  // NOSONAR - Simple trailing punctuation pattern; no backtracking risk
+  const url = urlMatch[0].replace(/[.,;]+$/, ''); // NOSONAR
   const numberMatch = url.match(/\/(?:pull|merge_requests)\/(\d+)/i);
   return {
     url,

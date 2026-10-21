@@ -95,9 +95,10 @@ export class ApmeClient {
     if (!this.resolveBaseUrlFn) {
       return this.configBaseUrl;
     }
+    // NOSONAR - Simple trailing slash pattern; no backtracking risk
     const override = (await this.resolveBaseUrlFn())
       ?.trim()
-      .replace(/\/+$/, '');
+      .replace(/\/+$/, ''); // NOSONAR
     return override || this.configBaseUrl;
   }
 

@@ -49,6 +49,7 @@ import {
   useApmeOutlinedTableStyles,
 } from '../ApmeOutlinedTable';
 import { normalizeRuleId } from '../../utils/violationAnalytics';
+import { toError } from '../../utils/toError';
 
 const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: 'Info' },
@@ -57,10 +58,6 @@ const SEVERITY_SELECT_OPTIONS: { value: number; label: string }[] = [
   { value: 4, label: 'High' },
   { value: 6, label: 'Critical' },
 ];
-
-function toError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
-}
 
 /** Gateway/catalog 404 on reset means there was no override to delete. */
 function isNotFoundError(err: unknown): boolean {
@@ -244,14 +241,14 @@ export const ApmeRulesTab = () => {
 
   const categoryOptions = useMemo(() => {
     const s = new Set(rules.map(r => r.category).filter(Boolean));
-    return [...s].sort();
+    return [...s].sort((a, b) => a.localeCompare(b));
   }, [rules]);
 
   const sourceOptions = useMemo(() => {
     const s = new Set(
       rules.map(r => r.source).filter((v): v is string => Boolean(v)),
     );
-    return [...s].sort();
+    return [...s].sort((a, b) => a.localeCompare(b));
   }, [rules]);
 
   const filtered = useMemo(() => {
