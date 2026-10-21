@@ -175,7 +175,7 @@ function parseHunkHeader(
   raw: string,
   state: DiffParseState,
 ): { line: DiffLine; state: DiffParseState } {
-  const match = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+  const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
   const newState = match
     ? {
         oldNum: Number.parseInt(match[1], 10),

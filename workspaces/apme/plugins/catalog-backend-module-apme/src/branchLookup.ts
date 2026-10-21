@@ -204,8 +204,9 @@ async function fetchGitlabDefaultBranch(
   repo: string,
   token?: string,
 ): Promise<string | undefined> {
+  const projectPath = `${owner}/${repo}`;
   const response = await fetch(
-    `${apiBaseUrl}/projects/${encodeURIComponent(`${owner}/${repo}`)}`,
+    `${apiBaseUrl}/projects/${encodeURIComponent(projectPath)}`,
     {
       headers: authHeaders(token),
     },

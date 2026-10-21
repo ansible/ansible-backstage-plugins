@@ -206,7 +206,8 @@ export const FleetQualityTab = ({
           cmp = (a.category ?? '').localeCompare(b.category ?? '');
           break;
         default:
-          cmp = 0;
+          // cmp already initialized to 0
+          break;
       }
       return sortAsc ? -cmp : cmp;
     });

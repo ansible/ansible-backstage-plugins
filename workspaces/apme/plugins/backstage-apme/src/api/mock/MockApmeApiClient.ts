@@ -693,11 +693,13 @@ export class MockApmeApiClient implements ApmeApi {
     proposalIds: string[],
   ): Promise<void> {
     await delay(200);
-    const approvedViolationIds = proposalIds.map(pid => {
-      return Number.parseInt(lastPathSegment(pid.split('-')), 10);
-    });
+    const approvedViolationIds = new Set(
+      proposalIds.map(pid => {
+        return Number.parseInt(lastPathSegment(pid.split('-')), 10);
+      }),
+    );
     this.violations[projectId] = (this.violations[projectId] ?? []).filter(
-      v => !approvedViolationIds.includes(v.id),
+      v => !approvedViolationIds.has(v.id),
     );
     const proj = this.projects.find(p => p.id === projectId);
     if (proj) {

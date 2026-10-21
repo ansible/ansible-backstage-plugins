@@ -126,7 +126,7 @@ export function PortalProjectWorkflowPanel({
         slot = document.createElement('span');
         slot.dataset.apmeHostShipActions = 'true';
         slot.style.display = 'inline-flex';
-        prControl.insertAdjacentElement('beforebegin', slot);
+        prControl.before(slot);
       }
       injectedSlotRef.current = slot;
       setActionHost(slot);
