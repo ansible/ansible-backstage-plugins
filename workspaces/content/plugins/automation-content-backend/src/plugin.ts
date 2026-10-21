@@ -22,9 +22,10 @@ export const automationContentPlugin = createBackendPlugin({
         config: coreServices.rootConfig,
         logger: coreServices.logger,
         httpRouter: coreServices.httpRouter,
+        httpAuth: coreServices.httpAuth,
         scheduler: coreServices.scheduler,
       },
-      async init({ config, logger, httpRouter, scheduler }) {
+      async init({ config, logger, httpRouter, httpAuth, scheduler }) {
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
         const index = new ContentIndex(
@@ -39,12 +40,15 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ index, logger }));
+        httpRouter.use(await createRouter({ index, logger, httpAuth }));
 
         // Read-only discovery endpoints stay unauthenticated so the PoC remains
-        // inspectable and agents can ground on them. State-changing and
-        // configuration routes (POST /sync, /registries/:name/*, /config/*)
-        // keep the portal's default authentication.
+        // inspectable and agents can ground on them. Backstage matches these
+        // policies as path prefixes with no method awareness, so the mutating
+        // routes beneath the /registries prefix (POST /registries/:name/poll
+        // and /sync) enforce credentials in the router itself; POST /sync and
+        // /config/* sit outside every anonymous prefix and keep the portal's
+        // default authentication.
         for (const path of [
           '/health',
           '/registries',

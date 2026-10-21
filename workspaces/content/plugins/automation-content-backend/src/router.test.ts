@@ -11,9 +11,31 @@ const logger = {
   child: () => logger,
 } as never;
 
-async function appWith(index: ContentIndex) {
+async function appWith(index: ContentIndex, httpAuth?: unknown) {
   const app = express();
-  app.use(await createRouter({ index, logger }));
+  app.use(
+    await createRouter({
+      index,
+      logger,
+      httpAuth: (httpAuth ?? {
+        // Permissive by default: the credentials barrier, not the router, is
+        // what these tests exercise elsewhere.
+        credentials: () => Promise.resolve({}),
+      }) as never,
+    }),
+  );
+  // Mirrors the backend's root error handler, which maps a rejected
+  // `httpAuth.credentials` call to a 401 rather than a 500.
+  app.use(
+    (
+      _err: unknown,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
+      res.status(401).json({ error: 'unauthenticated' });
+    },
+  );
   return app;
 }
 
@@ -155,5 +177,54 @@ describe('reconcile state', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.refreshedAt).toBeUndefined();
+  });
+});
+
+describe('registry mutation authentication', () => {
+  /**
+   * The `/registries` prefix carries an unauthenticated policy so `GET /registries`
+   * stays inspectable. Backstage matches policies as path prefixes with no method
+   * awareness, so the mutating sub-routes must enforce credentials themselves.
+   */
+  it('rejects an unauthenticated poll of a registry', async () => {
+    const index = seed([]);
+    const httpAuth = {
+      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
+    };
+    const res = await request(await appWith(index, httpAuth as never)).post(
+      '/registries/reg/poll',
+    );
+
+    expect(res.status).toBe(401);
+    expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+      allow: ['user', 'service'],
+    });
+  });
+
+  it('rejects an unauthenticated sync of a registry', async () => {
+    // Both mutating sub-routes must enforce credentials, not just poll — an
+    // anonymous caller must not be able to trigger a full registry re-read.
+    const index = seed([]);
+    const httpAuth = {
+      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
+    };
+    const res = await request(await appWith(index, httpAuth as never)).post(
+      '/registries/reg/sync',
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it('proceeds to the registry lookup once credentials are accepted', async () => {
+    // Enforcement must not overreach: an authenticated caller still gets the
+    // normal 404 for an unknown registry, not an auth error.
+    const index = seed([]);
+    const res = await request(await appWith(index)).post(
+      '/registries/reg/poll',
+    );
+
+    // Authentication passed; the 404 is the "no such registry" answer.
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
   });
 });
