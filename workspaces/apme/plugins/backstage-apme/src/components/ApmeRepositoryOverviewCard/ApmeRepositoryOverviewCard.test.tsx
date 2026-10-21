@@ -13,6 +13,23 @@ import type { Entity } from '@backstage/catalog-model';
 import type { ApmeProjectContext } from '../../hooks/useApmeProjectContext';
 import type { Project, Violation } from '@ansible/backstage-apme-common/types';
 import { ApmeRepositoryOverviewCard } from './ApmeRepositoryOverviewCard';
+import {
+  ApmeRepositoryOverviewClean,
+  ApmeRepositoryOverviewFindingsUnavailable,
+  ApmeRepositoryOverviewLoading,
+  ApmeRepositoryOverviewNoScan,
+  ApmeRepositoryOverviewViolations,
+} from './ApmeRepositoryOverviewCardStates';
+import {
+  getCodePreviewTokens,
+  getDependencySourceTokens,
+  getDependencyViolationTokens,
+  getFixTypeColorTokens,
+  getPreviewSurfaceTokens,
+  getSeverityColorTokens,
+  SEVERITY_ORDER,
+  type SeverityLevel,
+} from '@ansible/backstage-apme-common/severity';
 
 const mockUseApmeProjectContext = jest.fn<ApmeProjectContext, [Entity]>();
 const mockUseApmeAiEnabled = jest.fn(() => true);
@@ -333,5 +350,213 @@ describe('ApmeRepositoryOverviewCard', () => {
     expect(screen.getByTestId('search-params')).toHaveTextContent(
       'tab=quality-activity&activity=scan-416',
     );
+  });
+
+  it('shows loading while project context is loading', () => {
+    renderCard('?tab=overview', { loading: true });
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('shows gateway unavailable for connection errors', () => {
+    renderCard('?tab=overview', {
+      error: new Error('Failed to connect to APME'),
+      project: null,
+      violations: [],
+    });
+    expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
+  });
+
+  it('opens Quality from View details when findings are unavailable', () => {
+    renderCard('?tab=overview', { violations: [] });
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(screen.getByTestId('search-params')).toHaveTextContent(
+      'tab=quality',
+    );
+  });
+
+  it('uses host callback for View details when findings are unavailable', () => {
+    const open = jest.fn();
+    renderCard('?tab=overview', { violations: [] }, { onOpenQuality: open });
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it('navigates from violations card via keyboard', () => {
+    renderCard();
+    const card = screen.getByRole('button', {
+      name: /quality summary — view latest scan details/i,
+    });
+    fireEvent.keyDown(card, { key: ' ' });
+    expect(screen.getByTestId('search-params')).toHaveTextContent(
+      'tab=quality-activity&activity=scan-416',
+    );
+  });
+
+  it('renders policy category breakdown when policy violations exist', () => {
+    renderCard('?tab=overview', {
+      violations: [
+        ...violations,
+        {
+          id: 3,
+          rule_id: 'POL001',
+          level: 'medium',
+          message: 'OPA policy',
+          file: 'policy.yml',
+          line: 1,
+          remediation_class: 3,
+          validator_source: 'native',
+        },
+      ],
+      project: project({ id: 'proj-1', total_violations: 3 }),
+    });
+    expect(screen.getByText('Policy')).toBeInTheDocument();
+  });
+});
+
+describe('ApmeRepositoryOverviewCardStates', () => {
+  const stateClasses = {
+    card: 'card',
+    cardClickable: 'cardClickable',
+    categoryRow: 'categoryRow',
+    categoryHelp: 'categoryHelp',
+  };
+  const colorTokens = {
+    mode: 'light' as const,
+    severity: getSeverityColorTokens('light'),
+    fixType: getFixTypeColorTokens('light'),
+    dependencySource: getDependencySourceTokens('light'),
+    dependencyViolation: getDependencyViolationTokens('light'),
+    codePreview: getCodePreviewTokens('light'),
+    preview: getPreviewSurfaceTokens('light'),
+  };
+
+  it('renders exported loading state', () => {
+    render(<ApmeRepositoryOverviewLoading />);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('calls onViewDetails from findings unavailable state', () => {
+    const onViewDetails = jest.fn();
+    render(
+      <ApmeRepositoryOverviewFindingsUnavailable
+        classes={stateClasses}
+        navigationDisabled={false}
+        onViewDetails={onViewDetails}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(onViewDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables scan in no-scan state without repo URL', () => {
+    render(
+      <ApmeRepositoryOverviewNoScan
+        classes={stateClasses}
+        navigationDisabled={false}
+        repoUrl={null}
+        onScan={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /^scan$/i })).toBeDisabled();
+  });
+
+  it('activates clean state from keyboard', () => {
+    const onOpenLatestScan = jest.fn();
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <ApmeRepositoryOverviewClean
+          classes={stateClasses}
+          navigationDisabled={false}
+          colorTokens={colorTokens}
+          onOpenLatestScan={onOpenLatestScan}
+        />
+      </ThemeProvider>,
+    );
+    const card = screen.getByRole('button', {
+      name: /quality summary — view latest scan details/i,
+    });
+    fireEvent.keyDown(card, { key: 'Enter' });
+    expect(onOpenLatestScan).toHaveBeenCalledTimes(1);
+  });
+
+  it('covers ApmeRepositoryOverviewViolations disabled navigation, partial findings, and category severity bars', () => {
+    const onOpenLatestScan = jest.fn();
+    const theme = createTheme();
+    const sevCounts = SEVERITY_ORDER.reduce(
+      (acc, sev) => {
+        acc[sev] = 0;
+        return acc;
+      },
+      {} as Record<SeverityLevel, number>,
+    );
+    sevCounts.critical = 1;
+    sevCounts.medium = 1;
+
+    const lintViolation: Violation = {
+      id: 10,
+      rule_id: 'L003',
+      level: 'blocker',
+      message: 'lint issue',
+      file: 'play.yml',
+      line: 1,
+      remediation_class: 1,
+      validator_source: 'native',
+    };
+    const riskViolation: Violation = {
+      id: 11,
+      rule_id: 'R108',
+      level: 'medium',
+      message: 'risk issue',
+      file: 'tasks.yml',
+      line: 2,
+      remediation_class: 3,
+      validator_source: 'native',
+    };
+
+    render(
+      <ThemeProvider theme={theme}>
+        <ApmeRepositoryOverviewViolations
+          classes={stateClasses}
+          theme={theme}
+          colorTokens={colorTokens}
+          navigationDisabled
+          categoryMeta={[
+            { key: 'lint', label: 'Lint', tip: 'Lint help' },
+            { key: 'risk', label: 'Risk', tip: 'Risk help' },
+          ]}
+          totalViolations={1}
+          reportedViolations={3}
+          fixable={0}
+          sevCounts={sevCounts}
+          catCounts={{
+            lint: 1,
+            risk: 0,
+            modernize: 0,
+            secrets: 0,
+            policy: 0,
+            dependencies: 0,
+          }}
+          violations={[lintViolation, riskViolation]}
+          rulesById={new Map()}
+          onOpenLatestScan={onOpenLatestScan}
+        />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByText('Details unavailable')).toBeInTheDocument();
+    expect(
+      screen.getByText('Partial findings: showing 1 of 3.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Lint')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /quality summary — view latest scan details/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    const lintHelp = screen.getByRole('button', { name: 'Lint help' });
+    fireEvent.click(lintHelp);
+    fireEvent.keyDown(lintHelp, { key: 'Enter' });
+    expect(onOpenLatestScan).not.toHaveBeenCalled();
   });
 });
