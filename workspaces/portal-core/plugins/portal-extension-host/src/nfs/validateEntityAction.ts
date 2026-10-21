@@ -27,7 +27,7 @@ export function collectOperationActions<
       try {
         const { capability, entry } = resolveEntityContribution(action);
         const known = (type: string) =>
-          Object.values(CONTENT_TYPES).some(value => value === type);
+          Object.values(CONTENT_TYPES).includes(type);
         if (
           !validateManifest(action.manifest, hostApiVersion).valid ||
           !capability ||

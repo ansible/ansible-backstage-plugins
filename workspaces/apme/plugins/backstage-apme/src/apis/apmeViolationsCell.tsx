@@ -138,11 +138,9 @@ export function ApmeViolationsCell({ entity }: Readonly<{ entity: Entity }>) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!projectsFetchPromise) {
-      projectsFetchPromise = fetchProjectMap().catch(
-        () => new Map<string, Project>(),
-      );
-    }
+    projectsFetchPromise ??= fetchProjectMap().catch(
+      () => new Map<string, Project>(),
+    );
     void projectsFetchPromise.then(map => {
       if (!cancelled) {
         setProjectMap(map);

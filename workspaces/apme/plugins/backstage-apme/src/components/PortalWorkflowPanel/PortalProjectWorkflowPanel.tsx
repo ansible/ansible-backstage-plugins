@@ -117,7 +117,7 @@ export function PortalProjectWorkflowPanel({
       }
 
       let slot = injectedSlotRef.current;
-      if (!slot || !slot.isConnected) {
+      if (!slot?.isConnected) {
         slot = prControl.parentElement.querySelector<HTMLElement>(
           '[data-apme-host-ship-actions]',
         );

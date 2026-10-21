@@ -129,9 +129,7 @@ export async function runApmeCatalogSyncBatch(
         summary.skipped += 1;
         continue;
       }
-      const project = existing
-        ? existing
-        : await registerOrResolveApmeProject(apmeService, request);
+      const project = existing ?? await registerOrResolveApmeProject(apmeService, request);
       if (!existing) {
         summary.registered += 1;
       }

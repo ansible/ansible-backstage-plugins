@@ -255,7 +255,7 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
     );
 
     const abort = outcomes.find(outcome => outcome.kind === 'abort');
-    if (abort && abort.kind === 'abort') {
+    if (abort?.kind === 'abort') {
       // Do not full-replace with a partial set — that would drop previously
       // published learned deps for repos we failed to fetch.
       this.logger.warn(`Learned deps sync aborted: ${abort.message}`);

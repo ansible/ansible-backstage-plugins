@@ -87,8 +87,8 @@ export function formatApmeUserFacingError(raw: string): string {
   const nestedMessage = /"message"\s*:\s*"((?:\\.|[^"\\])*)"/.exec(raw);
   if (nestedMessage?.[1]) {
     const decoded = nestedMessage[1]
-      .replace(/\\n/g, ' ')
-      .replace(/\\"/g, '"')
+      .replaceAll('\\n', ' ')
+      .replaceAll('\\"', '"')
       .trim();
     if (isApmeConnectionError(decoded)) {
       return APME_GATEWAY_UNAVAILABLE_MESSAGE;

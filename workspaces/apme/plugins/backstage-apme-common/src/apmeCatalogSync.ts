@@ -111,7 +111,7 @@ export function createProjectRequestFromEntity(
   const name =
     entity.metadata.name ??
     spec?.repository_name ??
-    repoUrl.split('/').filter(Boolean).pop() ??
+    repoUrl.split('/').findLast(Boolean) ??
     'repository';
 
   return {
