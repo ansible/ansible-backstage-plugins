@@ -415,7 +415,7 @@ export function mergeApmeAiProviderLists(
     const cfg = configById.get(p.id);
     return {
       ...p,
-      models: p.models.length > 0 ? p.models : (cfg?.models ?? p.models ?? []),
+      models: p.models.length > 0 ? p.models : cfg?.models ?? p.models ?? [],
       source: 'managed' as const,
     };
   });

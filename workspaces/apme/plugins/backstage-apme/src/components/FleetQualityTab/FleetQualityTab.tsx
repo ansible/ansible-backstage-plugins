@@ -175,13 +175,10 @@ export const FleetQualityTab = ({
   }, [value?.groups, severityFilters, categoryFilters]);
 
   const sortedGroups = useMemo(() => {
-    const sevOrder = SEVERITY_ORDER.reduce(
-      (acc, sev, index) => {
-        acc[sev] = index;
-        return acc;
-      },
-      {} as Record<SeverityLevel, number>,
-    );
+    const sevOrder = SEVERITY_ORDER.reduce((acc, sev, index) => {
+      acc[sev] = index;
+      return acc;
+    }, {} as Record<SeverityLevel, number>);
 
     return [...filteredGroups].sort((a, b) => {
       let cmp = 0;
@@ -376,7 +373,9 @@ export const FleetQualityTab = ({
             style={{ fontSize: 13, color: theme.palette.text.secondary }}
           >
             {hasFilter
-              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
+              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${
+                  sortedGroups.length !== 1 ? 's' : ''
+                } · ${reposWithIssues} repositories`
               : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
             {reposClean > 0 && !hasFilter && (
               <span style={{ marginLeft: 6 }}>
@@ -412,7 +411,9 @@ export const FleetQualityTab = ({
               return (
                 <Box
                   key={sev}
-                  className={`${classes.sevItem} ${isActive ? classes.sevItemActive : ''}`}
+                  className={`${classes.sevItem} ${
+                    isActive ? classes.sevItemActive : ''
+                  }`}
                   style={{
                     backgroundColor: isActive ? `${color}12` : undefined,
                     borderColor: isActive ? `${color}60` : undefined,

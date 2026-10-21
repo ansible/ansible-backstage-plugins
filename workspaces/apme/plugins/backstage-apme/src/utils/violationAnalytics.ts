@@ -40,7 +40,8 @@ export function inferCategoryFromRuleId(ruleId: string): string | undefined {
   if (/^L\d/.test(id)) return 'lint';
   if (/^R\d/.test(id)) return 'risk';
   if (/^SEC|^SECRET/.test(id)) return 'secrets';
-  if (id.startsWith('CVE') || id.startsWith('DEP') || id.startsWith('CVE-')) return 'dependencies';
+  if (id.startsWith('CVE') || id.startsWith('DEP') || id.startsWith('CVE-'))
+    return 'dependencies';
   if (/^POL/.test(id)) return 'policy';
   const lower = normalizeRuleId(ruleId).toLowerCase();
   if (lower.includes('secret') || lower.includes('gitleaks')) return 'secrets';
@@ -78,13 +79,10 @@ export function getViolationCategory(
 export function severityBreakdown(
   violations: Violation[],
 ): Record<SeverityLevel, number> {
-  const counts = SEVERITY_ORDER.reduce(
-    (acc, sev) => {
-      acc[sev] = 0;
-      return acc;
-    },
-    {} as Record<SeverityLevel, number>,
-  );
+  const counts = SEVERITY_ORDER.reduce((acc, sev) => {
+    acc[sev] = 0;
+    return acc;
+  }, {} as Record<SeverityLevel, number>);
   for (const v of violations) {
     const sev = normalizeSeverity(v.level);
     counts[sev] += 1;
