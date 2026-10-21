@@ -1,1 +1,1 @@
---8<-- "workspaces/self-service/plugins/portal-scaffolder/README.md"
+--8<-- "workspaces/portal-scaffolder/plugins/portal-scaffolder/README.md"

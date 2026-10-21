@@ -10,7 +10,7 @@
 // reach these components without owning a fork.
 //
 // ⚠️  Path depth: this file lives at
-//   workspaces/self-service/plugins/self-service/src/components/CreateTask/
+//   workspaces/portal-scaffolder/plugins/portal-scaffolder/src/components/CreateTask/
 // The repo root (where node_modules lives) is 7 directory levels up, so all
 // relative paths below use seven `../` segments.
 //
