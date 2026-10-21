@@ -210,7 +210,8 @@ export async function syncPortalGalaxyServers(
     // URL matches and token present — still push token, count as unchanged
     // when only the opaque token refresh runs with identical URL.
     if (!needsUrlUpdate && hasToken && current.has_token) {
-      await apmeService.updateGalaxyServer(current.id, { // NOSONAR - sequential galaxy server reconciliation
+      await apmeService.updateGalaxyServer(current.id, {
+        // NOSONAR - sequential galaxy server reconciliation
         token: spec.token,
       });
       result.unchanged += 1;

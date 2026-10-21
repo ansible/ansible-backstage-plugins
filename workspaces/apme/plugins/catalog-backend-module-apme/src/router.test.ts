@@ -1349,12 +1349,12 @@ describe('catalog-backend-module-apme router', () => {
     '/apme/ai/engines',
   ])(
     'returns 403 on GET %s when view permission is DENY',
-    async (path: string) => {
+    async (route: string) => {
       mockPermissions.authorize.mockResolvedValueOnce([
         { result: AuthorizeResult.DENY },
       ]);
 
-      const response = await request(app).get(path);
+      const response = await request(app).get(route);
 
       expect(response.status).toBe(403);
       expect(response.body.error).toContain(

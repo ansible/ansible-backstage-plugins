@@ -166,7 +166,9 @@ interface DiffLine {
 }
 
 function diffLineReactKey(line: DiffLine): string {
-  return `${line.type}:${line.oldNum ?? 'x'}:${line.newNum ?? 'x'}:${line.content}`;
+  return `${line.type}:${line.oldNum ?? 'x'}:${line.newNum ?? 'x'}:${
+    line.content
+  }`;
 }
 
 interface DiffParseState {

@@ -35,9 +35,7 @@ function guardField(
 ): FieldExtensionOptions<any, any> {
   const Widget = field.component;
   /** Render the widget inside a boundary without altering its field props or validation contract. */
-  function GuardedField(
-    props: Readonly<Parameters<typeof Widget>[0]>,
-  ) {
+  function GuardedField(props: Readonly<Parameters<typeof Widget>[0]>) {
     return (
       <FieldBoundary onError={onError}>
         <Widget {...props} />

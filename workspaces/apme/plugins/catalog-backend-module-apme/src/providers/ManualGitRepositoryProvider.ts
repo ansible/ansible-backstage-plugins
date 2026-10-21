@@ -17,7 +17,8 @@ export class ManualGitRepositoryProvider implements EntityProvider {
   getProviderName(): string {
     return 'ManualGitRepositoryProvider';
   }
-  async connect(connection: EntityProviderConnection): Promise<void> { // NOSONAR - async required by EntityProvider interface contract
+  async connect(connection: EntityProviderConnection): Promise<void> {
+    // NOSONAR - async required by EntityProvider interface contract
     this.connection = connection;
   }
 

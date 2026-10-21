@@ -122,9 +122,7 @@ function findingsUnavailable(
   return (
     Boolean(ctx.error) ||
     Boolean(ctx.violationsError) ||
-    Boolean(
-      ctx.project && totalViolations === 0 && reportedViolations > 0,
-    )
+    Boolean(ctx.project && totalViolations === 0 && reportedViolations > 0)
   );
 }
 
