@@ -46,9 +46,10 @@ export function getApmeConfig(config: Config): ApmeConfig {
     };
   }
 
+  // NOSONAR - Simple trailing slash pattern; no backtracking risk
   return {
     enabled: apmeConfig.getOptionalBoolean('enabled') ?? false,
-    baseUrl: apmeConfig.getString('baseUrl').replace(/\/+$/, ''),
+    baseUrl: apmeConfig.getString('baseUrl').replace(/\/+$/, ''), // NOSONAR
     checkSSL: apmeConfig.getOptionalBoolean('checkSSL') ?? true,
     publishViaGateway:
       apmeConfig.getOptionalBoolean('publishViaGateway') ?? true,

@@ -117,6 +117,18 @@ describe('ApmeRulesTab', () => {
     });
   });
 
+  it('surfaces object-shaped mutation failures', async () => {
+    updateRuleConfig.mockRejectedValueOnce({ message: 'Gateway timeout' });
+    renderTab();
+    await screen.findByText('M001');
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /enable M001/i,
+      }),
+    );
+    expect(await screen.findByText('Gateway timeout')).toBeInTheDocument();
+  });
+
   it('surfaces an error when rule mutation fails', async () => {
     updateRuleConfig.mockRejectedValueOnce(
       new Error('APME API error: 403 - Forbidden'),

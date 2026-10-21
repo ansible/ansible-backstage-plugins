@@ -48,7 +48,9 @@ function ensureSharedProjectMapPoller(
   fetchProjectMap: () => Promise<Map<string, Project>>,
 ): void {
   activeFetchFn = fetchProjectMap;
-  const hasActiveScan = [...map.values()].some(projectHasActiveOperation);
+  const hasActiveScan = [...map.values()].some(project =>
+    projectHasActiveOperation(project),
+  );
   if (!hasActiveScan) {
     stopSharedProjectMapPoller();
     return;
@@ -65,7 +67,11 @@ function ensureSharedProjectMapPoller(
     );
     void projectsFetchPromise.then(updatedMap => {
       notifyProjectMapListeners(updatedMap);
-      if (![...updatedMap.values()].some(projectHasActiveOperation)) {
+      if (
+        ![...updatedMap.values()].some(project =>
+          projectHasActiveOperation(project),
+        )
+      ) {
         stopSharedProjectMapPoller();
       }
     });
@@ -137,7 +143,7 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
         () => new Map<string, Project>(),
       );
     }
-    projectsFetchPromise.then(map => {
+    void projectsFetchPromise.then(map => {
       if (!cancelled) {
         setProjectMap(map);
       }

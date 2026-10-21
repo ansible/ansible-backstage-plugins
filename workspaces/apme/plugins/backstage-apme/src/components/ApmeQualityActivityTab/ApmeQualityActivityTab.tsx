@@ -394,7 +394,7 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const rows = await apmeApi.getActivity(projectId);
         if (!cancelled) {
@@ -433,7 +433,7 @@ function QualityActivityBody({ projectId }: { projectId: string }) {
     }
     let cancelled = false;
     setDetailLoading(true);
-    (async () => {
+    void (async () => {
       try {
         const next = await apmeApi.getActivityDetail(activityId);
         if (!cancelled) {
