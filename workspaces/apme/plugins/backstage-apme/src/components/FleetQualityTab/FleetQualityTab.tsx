@@ -175,10 +175,13 @@ export const FleetQualityTab = ({
   }, [value?.groups, severityFilters, categoryFilters]);
 
   const sortedGroups = useMemo(() => {
-    const sevOrder = SEVERITY_ORDER.reduce((acc, sev, index) => {
-      acc[sev] = index;
-      return acc;
-    }, {} as Record<SeverityLevel, number>);
+    const sevOrder = SEVERITY_ORDER.reduce(
+      (acc, sev, index) => {
+        acc[sev] = index;
+        return acc;
+      },
+      {} as Record<SeverityLevel, number>,
+    );
 
     return [...filteredGroups].sort((a, b) => {
       let cmp = 0;

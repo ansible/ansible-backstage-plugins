@@ -79,10 +79,13 @@ export function getViolationCategory(
 export function severityBreakdown(
   violations: Violation[],
 ): Record<SeverityLevel, number> {
-  const counts = SEVERITY_ORDER.reduce((acc, sev) => {
-    acc[sev] = 0;
-    return acc;
-  }, {} as Record<SeverityLevel, number>);
+  const counts = SEVERITY_ORDER.reduce(
+    (acc, sev) => {
+      acc[sev] = 0;
+      return acc;
+    },
+    {} as Record<SeverityLevel, number>,
+  );
   for (const v of violations) {
     const sev = normalizeSeverity(v.level);
     counts[sev] += 1;
