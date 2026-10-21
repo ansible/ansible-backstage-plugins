@@ -18,6 +18,8 @@ where versioned packages apply.
 
 ### Changed
 
+- **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
+
 - **Portal SDK documentation** defines the proposed internal developer-preview contract, supported native launch combinations, backend responsibilities and exclusions, coordinated compatibility/migration policy, and fresh-clone workspace onboarding acceptance. Teams use this monorepo with `workspace:^` SDK dependencies; npm publication and external repositories are not preview requirements. This clarification does not announce published artifacts, joint contract sign-off, or new runtime guarantees.
 
 - **Portal NFS** removes the experimental duplicate `/portal/catalog`, `/portal/entity/...`, and `/portal/start` UI; existing `/self-service/*` pages remain the user-facing destinations.
@@ -46,6 +48,8 @@ where versioned packages apply.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
 ### Upgrade notes
+
+1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.
 
 1. **Backend SDK consumers:** inject `portalActiveOrganizationServiceRef` into identity middleware and use operation `requiredEntitlements` for server-side gates. `organizationId` is optional; multi-membership contexts carry `organizationIds`. Default organization-specific operations require one validated organization. Use `organizationScope: 'shared'` only for shared-resource operations. APME scanning requires a registered `apme.scanning` grant for any trusted membership as well as RBAC; registration/removal do not require scanning entitlement. Remove obsolete `portal.organization.catalogMappings`; `ansible.io/portal-organization` is no longer an AAP ownership boundary. Existing records are not rewritten.
 

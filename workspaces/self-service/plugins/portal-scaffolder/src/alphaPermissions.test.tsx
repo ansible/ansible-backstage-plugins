@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom';
 import { screen } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
+import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
 import plugin from './alpha';
 
 jest.mock('./hooks', () => ({
@@ -19,7 +21,13 @@ jest.mock('./components/CreateTask/formExtraFields', () => ({
 // cache from the route-parity suite when testing the opposite decision.
 it('does not expose native catalog import when create permission is denied', async () => {
   await renderTestApp({
-    features: [plugin],
+    features: [
+      createFrontendPlugin({
+        pluginId: 'portal',
+        extensions: [createPortalContributionProvider()],
+      }),
+      plugin,
+    ],
     initialRouteEntries: ['/self-service/catalog-import'],
     apis: [mockApis.permission({ authorize: AuthorizeResult.DENY })],
   });

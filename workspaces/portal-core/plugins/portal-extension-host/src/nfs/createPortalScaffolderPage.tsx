@@ -1,45 +1,38 @@
-import {
-  PageBlueprint,
-  createExtensionInput,
-  type RouteRef,
-} from '@backstage/frontend-plugin-api';
-import {
-  scaffolderFieldDataRef,
-  type ScaffolderFieldDescriptor,
-} from '@ansible/portal-extension-api/alpha';
+import { PageBlueprint, type RouteRef } from '@backstage/frontend-plugin-api';
+import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
+import { ContributionPage } from './ContributionPage';
 import { collectScaffolderFields } from './validateScaffolderField';
 
+/** Optional templates adapter; field declarations belong to the Portal collector. */
 export function createPortalScaffolderPage(options: {
   path: string;
   routeRef: RouteRef;
+  /** Optional additional restriction; the Portal provider validates the host contract. */
   hostApiVersion?: string;
   loader: (
     fields: readonly ScaffolderFieldDescriptor[],
   ) => Promise<JSX.Element>;
 }) {
-  return PageBlueprint.makeWithOverrides({
+  return PageBlueprint.make({
     name: 'templates',
-    inputs: {
-      scaffolderFields: createExtensionInput([scaffolderFieldDataRef]),
-    },
-    factory(originalFactory, { inputs }) {
-      const fields = collectScaffolderFields(
-        inputs.scaffolderFields.map(input => {
-          const field = input.get(scaffolderFieldDataRef);
-          return {
-            ...field,
-            manifest: { ...field.manifest, id: input.node.spec.plugin.id },
-          };
-        }),
-        options.hostApiVersion,
-      );
-      return originalFactory({
-        path: options.path,
-        routeRef: options.routeRef,
-        title: 'Templates',
-        noHeader: true,
-        loader: () => options.loader(fields),
-      });
+    params: {
+      path: options.path,
+      routeRef: options.routeRef,
+      title: 'Templates',
+      noHeader: true,
+      loader: () =>
+        Promise.resolve(
+          <ContributionPage
+            loader={api => {
+              const fields = api.scaffolderFields ?? [];
+              return options.loader(
+                options.hostApiVersion === undefined
+                  ? fields
+                  : collectScaffolderFields(fields, options.hostApiVersion),
+              );
+            }}
+          />,
+        ),
     },
   });
 }
