@@ -52,19 +52,17 @@ async function loadPortalSettings(
     portalSettingsPromise = undefined;
     portalSettingsIsError = false;
   }
-  if (!portalSettingsPromise) {
-    portalSettingsPromise = apmeApi
-      .getPortalSettings()
-      .then(settings => {
-        portalSettingsCache = settings;
-        portalSettingsCacheTime = Date.now();
-        return settings;
-      })
-      .catch(() => {
-        portalSettingsIsError = true;
-        return configFallback;
-      });
-  }
+  portalSettingsPromise ??= apmeApi
+    .getPortalSettings()
+    .then(settings => {
+      portalSettingsCache = settings;
+      portalSettingsCacheTime = Date.now();
+      return settings;
+    })
+    .catch(() => {
+      portalSettingsIsError = true;
+      return configFallback;
+    });
   return portalSettingsPromise;
 }
 

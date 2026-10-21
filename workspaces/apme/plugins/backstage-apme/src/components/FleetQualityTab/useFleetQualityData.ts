@@ -51,7 +51,7 @@ function entityProjectLookupKey(entity: Entity): string | undefined {
     entity.metadata?.annotations?.['backstage.io/source-location'] ??
     entity.metadata?.annotations?.['ansible.com/repository-url'];
   if (!loc) return undefined;
-  const match = loc.match(/url:(https?:\/\/[^\s]+)/);
+  const match = /url:(https?:\/\/[^\s]+)/.exec(loc);
   const repoUrl = match ? match[1] : loc.replace(/^url:/, '');
   const spec = entity.spec as
     | { repository_default_branch?: string }

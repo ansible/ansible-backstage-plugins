@@ -137,7 +137,9 @@ export const catalogModuleApme = createBackendModule({
             ansibleSettingsViewPermission,
           ],
           rules: settingsPermissionRules,
-          getResources: async resourceRefs =>
+          getResources: async (
+            resourceRefs, // NOSONAR - async required by Backstage policy API signature
+          ) =>
             resourceRefs.map(ref =>
               isAnsibleSettingsCapability(ref)
                 ? { capability: ref }

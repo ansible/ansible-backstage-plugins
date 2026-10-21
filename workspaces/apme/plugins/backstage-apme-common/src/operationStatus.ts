@@ -113,11 +113,11 @@ export function formatOperationError(error?: string | null): string {
   if (!error) {
     return 'Scan failed';
   }
-  const detailsMatch = error.match(/details = "([^"]+)"/);
+  const detailsMatch = /details = "([^"]+)"/.exec(error);
   if (detailsMatch?.[1]) {
     return detailsMatch[1];
   }
-  const grpcMessage = error.match(/grpc_message:"([^"]+)"/);
+  const grpcMessage = /grpc_message:"([^"]+)"/.exec(error);
   if (grpcMessage?.[1]) {
     return grpcMessage[1];
   }
@@ -131,7 +131,7 @@ export function latestOperationProgressMessage(
   if (!entries?.length) {
     return state?.latest_message ?? null;
   }
-  return entries[entries.length - 1]?.message ?? null;
+  return entries.at(-1)?.message ?? null;
 }
 
 export function latestOperationProgressPercent(

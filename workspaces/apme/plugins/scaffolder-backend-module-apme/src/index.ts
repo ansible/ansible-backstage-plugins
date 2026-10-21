@@ -23,6 +23,7 @@ export default createBackendModule({
         organizations: portalActiveOrganizationServiceRef,
       },
       async init({
+        // NOSONAR - async required by Backstage module init signature
         actions,
         auth,
         userInfo,

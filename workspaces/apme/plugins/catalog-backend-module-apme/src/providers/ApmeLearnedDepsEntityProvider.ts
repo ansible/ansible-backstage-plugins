@@ -113,11 +113,13 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
+    // NOSONAR - async required by EntityProvider interface contract
     this.connection = connection;
     this.logger.info(`${PROVIDER_NAME} connected`);
   }
 
   async schedule(scheduler: SchedulerService): Promise<void> {
+    // NOSONAR - async required by EntityProvider interface contract
     if (isApmeMockMode(this.rootConfig)) {
       this.logger.info(
         'APME mockMode is enabled; skipping learned deps sync schedule',
@@ -125,7 +127,7 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
       return;
     }
 
-    scheduler.scheduleTask({
+    void scheduler.scheduleTask({
       id: SYNC_TASK_ID,
       frequency: { minutes: 30 },
       timeout: { minutes: 15 },
@@ -253,7 +255,7 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
     );
 
     const abort = outcomes.find(outcome => outcome.kind === 'abort');
-    if (abort && abort.kind === 'abort') {
+    if (abort?.kind === 'abort') {
       // Do not full-replace with a partial set — that would drop previously
       // published learned deps for repos we failed to fetch.
       this.logger.warn(`Learned deps sync aborted: ${abort.message}`);

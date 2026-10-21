@@ -24,10 +24,10 @@ export function useProjectSummary(
         if (projectHasActiveOperation(next)) {
           timer = setTimeout(() => void load(), 3000);
         }
-      } catch (failure) {
+      } catch (error_) {
         if (!cancelled) {
           setError(
-            failure instanceof Error ? failure : new Error(String(failure)),
+            error_ instanceof Error ? error_ : new Error(String(error_)),
           );
         }
       }

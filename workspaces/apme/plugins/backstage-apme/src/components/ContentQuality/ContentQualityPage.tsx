@@ -4,7 +4,9 @@ import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/p
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 
 /** Compatibility entry into the host's existing contributed catalog tab. */
-export function ContentQualityPage({ catalogTabId }: { catalogTabId: string }) {
+export function ContentQualityPage({
+  catalogTabId,
+}: Readonly<{ catalogTabId: string }>) {
   const enabled = useApmeEnabled();
   return (
     <RequirePermission
@@ -23,9 +25,9 @@ export function ContentQualityPage({ catalogTabId }: { catalogTabId: string }) {
           }}
         />
       ) : (
-        <p role="status">
+        <output>
           Content Quality is unavailable because APME is disabled.
-        </p>
+        </output>
       )}
     </RequirePermission>
   );
