@@ -1343,44 +1343,25 @@ describe('catalog-backend-module-apme router', () => {
     expect(response.body).toEqual({ items: [{ id: 'M001' }] });
   });
 
-  it('returns 403 on GET /apme/settings/galaxy-servers when view permission is DENY', async () => {
-    mockPermissions.authorize.mockResolvedValueOnce([
-      { result: AuthorizeResult.DENY },
-    ]);
+  it.each([
+    '/apme/settings/galaxy-servers',
+    '/apme/ai/config',
+    '/apme/ai/engines',
+  ])(
+    'returns 403 on GET %s when view permission is DENY',
+    async (path: string) => {
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ]);
 
-    const response = await request(app).get('/apme/settings/galaxy-servers');
+      const response = await request(app).get(path);
 
-    expect(response.status).toBe(403);
-    expect(response.body.error).toContain(
-      'ansible.settings.view permission required for capability apme',
-    );
-  });
-
-  it('returns 403 on GET /apme/ai/config when view permission is DENY', async () => {
-    mockPermissions.authorize.mockResolvedValueOnce([
-      { result: AuthorizeResult.DENY },
-    ]);
-
-    const response = await request(app).get('/apme/ai/config');
-
-    expect(response.status).toBe(403);
-    expect(response.body.error).toContain(
-      'ansible.settings.view permission required for capability apme',
-    );
-  });
-
-  it('returns 403 on GET /apme/ai/engines when view permission is DENY', async () => {
-    mockPermissions.authorize.mockResolvedValueOnce([
-      { result: AuthorizeResult.DENY },
-    ]);
-
-    const response = await request(app).get('/apme/ai/engines');
-
-    expect(response.status).toBe(403);
-    expect(response.body.error).toContain(
-      'ansible.settings.view permission required for capability apme',
-    );
-  });
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain(
+        'ansible.settings.view permission required for capability apme',
+      );
+    },
+  );
 
   it('still allows shared GET routes regardless of settings view permission', async () => {
     mockPermissions.authorize.mockResolvedValue([

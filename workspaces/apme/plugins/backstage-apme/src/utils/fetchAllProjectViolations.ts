@@ -43,7 +43,7 @@ export async function fetchAllProjectViolations(
   let hasMore = true;
 
   while (hasMore) {
-    const page = await apmeApi.getViolations(projectId, {
+    const page = await apmeApi.getViolations(projectId, { // NOSONAR - paginated gateway fetch must be sequential
       limit: VIOLATIONS_PAGE_SIZE,
       offset,
     });

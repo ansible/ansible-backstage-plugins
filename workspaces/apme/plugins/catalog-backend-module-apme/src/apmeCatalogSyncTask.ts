@@ -121,7 +121,7 @@ export async function runApmeCatalogSyncBatch(
     }
 
     try {
-      const existing = await apmeService.getProjectByRepoUrl(
+      const existing = await apmeService.getProjectByRepoUrl( // NOSONAR - sequential catalog sync batch
         request.repo_url,
         request.branch,
       );
@@ -137,14 +137,16 @@ export async function runApmeCatalogSyncBatch(
 
       if (scanOnRegisterForEntity(entity, syncConfig)) {
         const ansibleVersion = resolveScanVersion
-          ? await resolveScanVersion(project.id)
+          ? await resolveScanVersion(project.id) // NOSONAR - sequential catalog sync batch
           : undefined;
-        const enableAi = resolveEnableAi ? await resolveEnableAi() : undefined;
+        const enableAi = resolveEnableAi
+          ? await resolveEnableAi() // NOSONAR - sequential catalog sync batch
+          : undefined;
         if (options.shouldTrackEntity?.(entity) === false) {
           summary.skipped += 1;
           continue;
         }
-        await apmeService.triggerScan(project.id, {
+        await apmeService.triggerScan(project.id, { // NOSONAR - sequential catalog sync batch
           ansibleVersion,
           ...(enableAi !== undefined ? { enableAi } : {}),
         });

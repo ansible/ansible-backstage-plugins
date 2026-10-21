@@ -7,24 +7,7 @@
 import { useMemo } from 'react';
 import type { Entity } from '@backstage/catalog-model';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-  Typography,
-  makeStyles,
-  useTheme,
-} from '@material-ui/core';
-import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
-import RefreshIcon from '@material-ui/icons/Refresh';
-import {
-  SEVERITY_ORDER,
-  type SeverityLevel,
-} from '@ansible/backstage-apme-common/severity';
+import { makeStyles, useTheme } from '@material-ui/core';
 import { useApmeAiEnabled } from '../../hooks/useApmeEnabled';
 import { useApmeProjectContext } from '../../hooks/useApmeProjectContext';
 import { ApmeUnavailable } from '../ApmeUnavailable';
@@ -35,18 +18,20 @@ import {
 
 import {
   categoryBreakdown,
-  categorySeverityBreakdown,
   fixableViolationCount,
   severityBreakdown,
-  type ViolationCategory,
 } from '../../utils/violationAnalytics';
 import { useApmeColorTokens } from '../../hooks/useApmeColorTokens';
+import {
+  ApmeRepositoryOverviewClean,
+  ApmeRepositoryOverviewFindingsUnavailable,
+  ApmeRepositoryOverviewLoading,
+  ApmeRepositoryOverviewNoScan,
+  ApmeRepositoryOverviewViolations,
+  type CategoryMeta,
+} from './ApmeRepositoryOverviewCardStates';
 
-const CATEGORY_META: {
-  key: ViolationCategory;
-  label: string;
-  tip: string;
-}[] = [
+const CATEGORY_META: CategoryMeta[] = [
   {
     key: 'modernize',
     label: 'Compatibility',
@@ -78,8 +63,6 @@ const CATEGORY_META: {
     tip: 'Outdated or vulnerable collection and Python dependencies',
   },
 ];
-
-const SEV_ORDER = SEVERITY_ORDER;
 
 const useStyles = makeStyles(theme => ({
   card: {
@@ -118,6 +101,31 @@ export interface ApmeRepositoryOverviewCardProps {
   onOpenQuality?: () => void;
   onOpenLatestScan?: () => void;
   navigationDisabled?: boolean;
+}
+
+function hasNoQualityScans(
+  project: ReturnType<typeof useApmeProjectContext>['project'],
+): boolean {
+  return (
+    !project ||
+    (project.scan_count === 0 &&
+      !project.latest_scan &&
+      !project.last_scanned_at)
+  );
+}
+
+function findingsUnavailable(
+  ctx: ReturnType<typeof useApmeProjectContext>,
+  totalViolations: number,
+  reportedViolations: number,
+): boolean {
+  return (
+    Boolean(ctx.error) ||
+    Boolean(ctx.violationsError) ||
+    Boolean(
+      ctx.project && totalViolations === 0 && reportedViolations > 0,
+    )
+  );
 }
 
 export const ApmeRepositoryOverviewCard = ({
@@ -166,10 +174,6 @@ export const ApmeRepositoryOverviewCard = ({
     setSearchParams(params, { replace: true });
   };
 
-  const stopCardNavigation = (event: { stopPropagation: () => void }) => {
-    event.stopPropagation();
-  };
-
   const totalViolations = ctx.violations.length;
   const sevCounts = useMemo(
     () => severityBreakdown(ctx.violations),
@@ -185,11 +189,7 @@ export const ApmeRepositoryOverviewCard = ({
   );
 
   if (ctx.loading || ctx.violationsLoading) {
-    return (
-      <Box display="flex" justifyContent="center" py={2}>
-        <CircularProgress size={24} />
-      </Box>
-    );
+    return <ApmeRepositoryOverviewLoading />;
   }
 
   if (ctx.error && isApmeConnectionError(ctx.error.message)) {
@@ -200,312 +200,55 @@ export const ApmeRepositoryOverviewCard = ({
     ctx.project?.latest_scan?.total_violations ??
     ctx.project?.total_violations ??
     totalViolations;
-  if (
-    ctx.error ||
-    ctx.violationsError ||
-    (ctx.project && totalViolations === 0 && reportedViolations > 0)
-  ) {
+
+  if (findingsUnavailable(ctx, totalViolations, reportedViolations)) {
     return (
-      <Card variant="outlined" className={classes.card}>
-        <CardContent>
-          <Typography variant="subtitle2" gutterBottom>
-            Quality
-          </Typography>
-          <Typography variant="body2" color="textSecondary" paragraph>
-            Quality findings unavailable. This is not a clean assessment.
-          </Typography>
-          <Button
-            size="small"
-            disabled={navigationDisabled}
-            onClick={navigateToQualityTab}
-          >
-            View details
-          </Button>
-        </CardContent>
-      </Card>
+      <ApmeRepositoryOverviewFindingsUnavailable
+        classes={classes}
+        navigationDisabled={navigationDisabled}
+        onViewDetails={navigateToQualityTab}
+      />
     );
   }
 
-  if (
-    !ctx.project ||
-    (ctx.project.scan_count === 0 &&
-      !ctx.project.latest_scan &&
-      !ctx.project.last_scanned_at)
-  ) {
+  if (hasNoQualityScans(ctx.project)) {
     return (
-      <Card variant="outlined" className={classes.card}>
-        <CardContent>
-          <Typography variant="subtitle2" gutterBottom>
-            Quality
-          </Typography>
-          <Typography variant="body2" color="textSecondary" paragraph>
-            No quality scans yet. Quality scans run on push when the APME
-            workflow is configured, or use Scan to check this repository now.
-          </Typography>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            disabled={!ctx.repoUrl || navigationDisabled}
-            startIcon={<RefreshIcon />}
-            onClick={() => navigateToQualityTab()}
-          >
-            {onOpenQuality ? 'Open Quality' : 'Scan'}
-          </Button>
-        </CardContent>
-      </Card>
+      <ApmeRepositoryOverviewNoScan
+        classes={classes}
+        navigationDisabled={navigationDisabled}
+        repoUrl={ctx.repoUrl}
+        onOpenQuality={onOpenQuality}
+        onScan={navigateToQualityTab}
+      />
     );
   }
 
   if (totalViolations === 0) {
     return (
-      <Card
-        variant="outlined"
-        className={`${classes.card} ${
-          navigationDisabled ? '' : classes.cardClickable
-        }`}
-        onClick={navigateToLastScan}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            navigateToLastScan();
-          }
-        }}
-        role={navigationDisabled ? undefined : 'button'}
-        tabIndex={navigationDisabled ? undefined : 0}
-        aria-disabled={navigationDisabled || undefined}
-        aria-label="Quality summary — view latest scan details"
-      >
-        <CardContent>
-          <Typography variant="subtitle2" gutterBottom>
-            Quality
-          </Typography>
-          <Typography
-            variant="body2"
-            style={{ color: colorTokens.dependencyViolation.okCheckColor }}
-          >
-            No violations detected on the latest scan.
-          </Typography>
-        </CardContent>
-      </Card>
+      <ApmeRepositoryOverviewClean
+        classes={classes}
+        navigationDisabled={navigationDisabled}
+        colorTokens={colorTokens}
+        onOpenLatestScan={navigateToLastScan}
+      />
     );
   }
 
-  const worstSev =
-    SEV_ORDER.find(s => sevCounts[s] > 0) ?? ('info' as SeverityLevel);
-
   return (
-    <Card
-      variant="outlined"
-      className={`${classes.card} ${
-        navigationDisabled ? '' : classes.cardClickable
-      }`}
-      onClick={navigateToLastScan}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          navigateToLastScan();
-        }
-      }}
-      role={navigationDisabled ? undefined : 'button'}
-      tabIndex={navigationDisabled ? undefined : 0}
-      aria-disabled={navigationDisabled || undefined}
-      aria-label="Quality summary — view latest scan details"
-    >
-      <CardContent style={{ padding: '14px 16px 12px' }}>
-        <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="space-between"
-          mb={1}
-        >
-          <Typography
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              color: theme.palette.text.secondary,
-            }}
-          >
-            Quality
-          </Typography>
-          <Typography
-            component="span"
-            style={{
-              fontSize: 12,
-              color: theme.palette.primary.main,
-            }}
-          >
-            {navigationDisabled ? 'Details unavailable' : 'View details →'}
-          </Typography>
-        </Box>
-
-        {totalViolations < reportedViolations && (
-          <Typography variant="caption" color="textSecondary">
-            Partial findings: showing {totalViolations} of {reportedViolations}.
-          </Typography>
-        )}
-        <Box
-          display="flex"
-          alignItems="baseline"
-          style={{ gap: 6, marginBottom: 4 }}
-        >
-          <Typography
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              color: colorTokens.severity[worstSev].inlineText,
-              lineHeight: 1,
-            }}
-          >
-            {totalViolations}
-          </Typography>
-          <Typography
-            style={{ fontSize: 12, color: theme.palette.text.secondary }}
-          >
-            violation{totalViolations !== 1 ? 's' : ''} · {fixable} fixable
-          </Typography>
-        </Box>
-
-        <Box
-          display="flex"
-          style={{
-            height: 6,
-            borderRadius: 3,
-            overflow: 'hidden',
-            marginBottom: 8,
-          }}
-        >
-          {SEV_ORDER.map(sev => {
-            const count = sevCounts[sev];
-            if (!count) return null;
-            return (
-              <Box
-                key={sev}
-                style={{
-                  flex: count,
-                  backgroundColor: colorTokens.severity[sev].barFill,
-                }}
-              />
-            );
-          })}
-        </Box>
-
-        <Box
-          display="flex"
-          flexWrap="wrap"
-          style={{ gap: '2px 10px', marginBottom: 10 }}
-        >
-          {SEV_ORDER.map(sev => {
-            const count = sevCounts[sev];
-            if (!count) return null;
-            return (
-              <Typography
-                key={sev}
-                style={{ fontSize: 11, color: theme.palette.text.secondary }}
-              >
-                <strong style={{ color: colorTokens.severity[sev].inlineText }}>
-                  {count}
-                </strong>{' '}
-                <span style={{ textTransform: 'capitalize' }}>{sev}</span>
-              </Typography>
-            );
-          })}
-        </Box>
-
-        {CATEGORY_META.map(({ key, label, tip }) => {
-          const count = catCounts[key] ?? 0;
-          if (!count) return null;
-          const catBySev = categorySeverityBreakdown(
-            ctx.violations,
-            key,
-            ctx.rulesById,
-          );
-          const pct = (count / totalViolations) * 100;
-          const isDark = theme.palette.type === 'dark';
-          const trackColor = isDark ? 'rgba(255,255,255,0.08)' : '#e8e8e8';
-          return (
-            <Box key={key} className={classes.categoryRow}>
-              <Typography
-                component="span"
-                style={{
-                  fontSize: 12,
-                  color: theme.palette.text.primary,
-                  flexShrink: 0,
-                  whiteSpace: 'nowrap',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  width: 130,
-                }}
-              >
-                {label}
-                <Tooltip title={tip} arrow enterDelay={200}>
-                  <IconButton
-                    size="small"
-                    className={classes.categoryHelp}
-                    onClick={stopCardNavigation}
-                    onKeyDown={stopCardNavigation}
-                    aria-label={tip}
-                  >
-                    <HelpOutlineIcon
-                      style={{
-                        fontSize: 13,
-                        color: theme.palette.text.disabled,
-                      }}
-                    />
-                  </IconButton>
-                </Tooltip>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: '1px 7px',
-                    borderRadius: 10,
-                    backgroundColor: isDark
-                      ? 'rgba(255,255,255,0.08)'
-                      : 'rgba(0,0,0,0.06)',
-                    color: theme.palette.text.secondary,
-                    marginLeft: 2,
-                  }}
-                >
-                  {count}
-                </span>
-              </Typography>
-              <Box
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: trackColor,
-                  overflow: 'hidden',
-                }}
-              >
-                <Box
-                  display="flex"
-                  style={{ height: '100%', width: `${pct}%`, borderRadius: 3 }}
-                >
-                  {SEV_ORDER.map(sev => {
-                    const n = catBySev[sev];
-                    if (!n) return null;
-                    return (
-                      <Box
-                        key={sev}
-                        style={{
-                          flex: n,
-                          backgroundColor: colorTokens.severity[sev].barFill,
-                        }}
-                      />
-                    );
-                  })}
-                </Box>
-              </Box>
-            </Box>
-          );
-        })}
-      </CardContent>
-    </Card>
+    <ApmeRepositoryOverviewViolations
+      classes={classes}
+      theme={theme}
+      colorTokens={colorTokens}
+      navigationDisabled={navigationDisabled}
+      categoryMeta={CATEGORY_META}
+      totalViolations={totalViolations}
+      reportedViolations={reportedViolations}
+      fixable={fixable}
+      sevCounts={sevCounts}
+      catCounts={catCounts}
+      violations={ctx.violations}
+      rulesById={ctx.rulesById}
+      onOpenLatestScan={navigateToLastScan}
+    />
   );
 };
