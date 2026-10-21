@@ -62,7 +62,7 @@ from presentation and receive the current subject, not contributor-supplied URLs
 From the repository root, run:
 
 ```bash
-yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/self-service/plugins/portal-scaffolder/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
+yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
 ```
 
 The host tests exercise real NFS discovery, filtering, selection, permission
