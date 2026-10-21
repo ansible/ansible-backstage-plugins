@@ -125,7 +125,7 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
       return;
     }
 
-    scheduler.scheduleTask({
+    void scheduler.scheduleTask({
       id: SYNC_TASK_ID,
       frequency: { minutes: 30 },
       timeout: { minutes: 15 },
