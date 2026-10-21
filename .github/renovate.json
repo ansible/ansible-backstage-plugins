@@ -5,6 +5,7 @@
     ":gitSignOff",
     ":preserveSemverRanges"
   ],
+  "automerge": false,
   "baseBranchPatterns": ["main"],
   "labels": ["dependency", "skip-changelog"],
   "ignorePaths": ["**/dist-dynamic/**"],
@@ -23,17 +24,16 @@
       }
     },
     {
-      "description": "Portal dependency PR labels",
+      "description": "Portal PR labels on dependency updates",
       "matchPackageNames": ["*"],
       "addLabels": ["dependency", "skip-changelog"]
     },
     {
-      "description": "Security alerts",
+      "description": "Group non-major security updates with the weekly dependency PR when possible",
       "matchUpdateTypes": ["patch", "minor"],
-      "vulnerabilityAlerts": {
-        "enabled": true,
-        "addLabels": ["security"]
-      }
+      "matchCategories": ["security"],
+      "groupName": "all dependencies",
+      "groupSlug": "all"
     }
   ],
   "vulnerabilityAlerts": {
