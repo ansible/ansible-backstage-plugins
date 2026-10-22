@@ -209,8 +209,11 @@ describe('verification is pinned against process-wide overrides', () => {
   it('rejects an untrusted certificate even with NODE_TLS_REJECT_UNAUTHORIZED=0', async () => {
     // Set elsewhere in a process for unrelated reasons — a dev portal talking
     // to a mock AAP with a self-signed certificate, for instance. It must not
-    // disable verification for registry connections.
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // codeql[js/disabling-certificate-validation]
+    // disable verification for registry connections. The assignment below is
+    // the hazard this test exists to prove the client is immune to, which is
+    // the one justified use of the override the rule guards against.
+    // codeql[js/disabling-certificate-validation]
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     try {
       const server = await startServer(
         'https',
