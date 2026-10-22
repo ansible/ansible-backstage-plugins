@@ -210,7 +210,7 @@ describe('verification is pinned against process-wide overrides', () => {
     // Set elsewhere in a process for unrelated reasons — a dev portal talking
     // to a mock AAP with a self-signed certificate, for instance. It must not
     // disable verification for registry connections.
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // codeql[js/disabling-certificate-validation]
     try {
       const server = await startServer(
         'https',
@@ -499,7 +499,7 @@ describe('the policy covers every request the client issues', () => {
 
   it('reaches a plain-HTTP token realm when the connection opted out', async () => {
     const fetchImpl: FetchLike = async (url, init) => {
-      if (url.startsWith('http://auth.example')) {
+      if (new URL(url).host === 'auth.example') {
         return new Response(JSON.stringify({ token: 'issued' }));
       }
       if (init?.headers?.Authorization) {
