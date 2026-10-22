@@ -10,6 +10,8 @@ where versioned packages apply.
 
 ### Added
 
+- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when its Templates adapter is absent.
+
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
 
 - **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
