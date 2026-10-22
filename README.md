@@ -222,7 +222,7 @@ Normal startup logs include:
 
 The source app defaults to the new frontend system (NFS). Its user-facing routes include:
 
-- **Templates**: `http://localhost:3000/self-service` (also the destination of `/`)
+- **Templates**: `http://localhost:3000/self-service` (the default destination of `/` when installed and no landing override is configured)
 - **History**: `http://localhost:3000/self-service/create/tasks`
 - **Execution Environments**: `http://localhost:3000/self-service/ee`
 - **Collections**: `http://localhost:3000/self-service/collections`
@@ -313,6 +313,66 @@ the [implementation guide](./docs/next/portal-plugin-factory-implementation-guid
 for remaining architecture work.
 
 ## Development
+
+### Selecting development contributors
+
+The native source app defaults to the full contributor set. To test optional
+composition, set a preset in your uncommitted `app-config.local.yaml`:
+
+```yaml
+portal:
+  development:
+    profile: core
+```
+
+`full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
+omits both. AAP authentication, host services, Administration, and Settings
+remain available. Without a configured installed landing page, `/` shows the
+neutral Portal fallback. The header omits Create when the Templates adapter is
+absent. Existing content browsing pages still belong to portal-scaffolder;
+removing that contributor also removes those pages.
+
+These presets are development/test conveniences, not production configuration,
+authorization policy, or a list of supported plugins. The explicit legacy
+frontend selector retains its existing composition.
+
+To test another frontend plugin without changing the presets:
+
+1. Register its package in the repository's Yarn workspaces. Give it the
+   `frontend-plugin` or `frontend-plugin-module` Backstage role and a native
+   `./alpha` export. Its package root must be side-effect-free: declare
+   `"sideEffects": false` and do not register legacy contributions there.
+   Backstage discovery imports both the root and native entry; the declaration
+   is an author contract, not a sandbox that prevents arbitrary module code.
+2. Add the workspace dependency to the source app:
+
+   ```bash
+   yarn workspace app add '@ansible/plugin-example@workspace:^'
+   ```
+
+3. Include that package explicitly in your local configuration:
+
+   ```yaml
+   portal:
+     development:
+       profile: core
+   app:
+     packages:
+       include:
+         - '@ansible/plugin-example'
+   ```
+
+4. Restart `yarn start`. The preflight rejects unknown packages, non-native
+   frontend entries, dependencies resolving outside the selected workspace,
+   and rediscovery of the preset-managed packages. Use explicit `include`, not
+   all-package discovery. A new backend plugin still requires registration in
+   the source backend; frontend discovery does not install backend services.
+
+Verify the harness with `yarn test:composition`, `yarn tsc`, and the affected
+package's tests/lint. For dynamic frontend/backend exports on local RHDH, use
+the `PORTAL_EXTRA_PLUGINS` procedure in automation-portal-local's development
+guide. Production RHDH selects installed artifacts through its normal dynamic
+plugin configuration, not these source-app presets.
 
 ### Testing
 

@@ -117,7 +117,9 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-export const GlobalHeader = () => {
+export const GlobalHeader = ({
+  createPath,
+}: Readonly<{ createPath?: string }>) => {
   const classes = useStyles();
   const navigate = useNavigate();
   const identityApi = useApi(identityApiRef);
@@ -167,10 +169,6 @@ export const GlobalHeader = () => {
     }
   };
 
-  const handleCreateClick = () => {
-    navigate('/self-service/catalog');
-  };
-
   return (
     <AppBar position="sticky" className={classes.appBar}>
       <Toolbar className={classes.toolbar}>
@@ -202,13 +200,15 @@ export const GlobalHeader = () => {
 
         <div className={classes.spacer} />
 
-        <IconButton
-          className={classes.iconButton}
-          onClick={handleCreateClick}
-          title="Create..."
-        >
-          <AddIcon />
-        </IconButton>
+        {createPath && (
+          <IconButton
+            className={classes.iconButton}
+            onClick={() => navigate(createPath)}
+            title="Create..."
+          >
+            <AddIcon />
+          </IconButton>
+        )}
 
         <IconButton
           edge="end"
