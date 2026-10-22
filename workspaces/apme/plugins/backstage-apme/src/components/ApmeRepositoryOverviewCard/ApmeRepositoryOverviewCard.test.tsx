@@ -554,9 +554,61 @@ describe('ApmeRepositoryOverviewCardStates', () => {
       screen.getByLabelText('Quality summary — view latest scan details'),
     );
     expect(onOpenLatestScan).not.toHaveBeenCalled();
+  });
+
+  it('does not open latest scan when category help is activated', () => {
+    const onOpenLatestScan = jest.fn();
+    const theme = createTheme();
+    const sevCounts = SEVERITY_ORDER.reduce(
+      (acc, sev) => {
+        acc[sev] = 0;
+        return acc;
+      },
+      {} as Record<SeverityLevel, number>,
+    );
+    sevCounts.critical = 1;
+
+    const lintViolation: Violation = {
+      id: 10,
+      rule_id: 'L003',
+      level: 'critical',
+      message: 'lint issue',
+      file: 'play.yml',
+      line: 1,
+      remediation_class: 1,
+      validator_source: 'native',
+    };
+
+    render(
+      <ThemeProvider theme={theme}>
+        <ApmeRepositoryOverviewViolations
+          classes={stateClasses}
+          theme={theme}
+          colorTokens={colorTokens}
+          navigationDisabled={false}
+          categoryMeta={[{ key: 'lint', label: 'Lint', tip: 'Lint help' }]}
+          totalViolations={1}
+          reportedViolations={1}
+          fixable={1}
+          sevCounts={sevCounts}
+          catCounts={{
+            lint: 1,
+            risk: 0,
+            modernize: 0,
+            secrets: 0,
+            policy: 0,
+            dependencies: 0,
+          }}
+          violations={[lintViolation]}
+          rulesById={new Map()}
+          onOpenLatestScan={onOpenLatestScan}
+        />
+      </ThemeProvider>,
+    );
 
     const lintHelp = screen.getByRole('button', { name: 'Lint help' });
     fireEvent.click(lintHelp);
+    expect(onOpenLatestScan).not.toHaveBeenCalled();
     fireEvent.keyDown(lintHelp, { key: 'Enter' });
     expect(onOpenLatestScan).not.toHaveBeenCalled();
   });
