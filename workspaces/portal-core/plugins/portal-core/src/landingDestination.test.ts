@@ -29,7 +29,7 @@ function treeWithPage(
         : {
             getData: (ref: unknown) =>
               ref === coreExtensionData.routePath
-                ? options.path ?? '/self-service'
+                ? (options.path ?? '/self-service')
                 : undefined,
           },
   } as unknown as AppNode;
