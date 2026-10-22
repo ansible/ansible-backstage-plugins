@@ -25,9 +25,9 @@ export function ContentQualityPage({
           }}
         />
       ) : (
-        <p role="status">
+        <output>
           Content Quality is unavailable because APME is disabled.
-        </p>
+        </output>
       )}
     </RequirePermission>
   );

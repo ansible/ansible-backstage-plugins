@@ -121,34 +121,31 @@ export async function runApmeCatalogSyncBatch(
     }
 
     try {
-      const existing = await apmeService.getProjectByRepoUrl(
-        request.repo_url,
-        request.branch,
-      );
+      // prettier-ignore
+      const existing = await apmeService.getProjectByRepoUrl(request.repo_url, request.branch); // NOSONAR - sequential catalog sync batch
       if (options.shouldTrackEntity?.(entity) === false) {
         summary.skipped += 1;
         continue;
       }
-      const project = existing
-        ? existing
-        : await registerOrResolveApmeProject(apmeService, request);
+      const project =
+        existing ?? (await registerOrResolveApmeProject(apmeService, request)); // NOSONAR - sequential catalog sync batch
       if (!existing) {
         summary.registered += 1;
       }
 
       if (scanOnRegisterForEntity(entity, syncConfig)) {
         const ansibleVersion = resolveScanVersion
-          ? await resolveScanVersion(project.id)
+          ? await resolveScanVersion(project.id) // NOSONAR - sequential catalog sync batch
           : undefined;
-        const enableAi = resolveEnableAi ? await resolveEnableAi() : undefined;
+        const enableAi = resolveEnableAi
+          ? await resolveEnableAi() // NOSONAR - sequential catalog sync batch
+          : undefined;
         if (options.shouldTrackEntity?.(entity) === false) {
           summary.skipped += 1;
           continue;
         }
-        await apmeService.triggerScan(project.id, {
-          ansibleVersion,
-          ...(enableAi !== undefined ? { enableAi } : {}),
-        });
+        // prettier-ignore
+        await apmeService.triggerScan(project.id, { ansibleVersion, ...(enableAi !== undefined ? { enableAi } : {}) }); // NOSONAR - sequential catalog sync batch
         summary.scanned += 1;
       }
     } catch (error) {

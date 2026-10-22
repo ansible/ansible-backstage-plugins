@@ -71,7 +71,7 @@ export function PortalProjectWorkflowPanel({
   feedbackEnabled,
   onViewDetails,
   hostShipActions,
-}: PortalProjectWorkflowPanelProps) {
+}: Readonly<PortalProjectWorkflowPanelProps>) {
   const {
     operationActive,
     opState,
@@ -117,7 +117,7 @@ export function PortalProjectWorkflowPanel({
       }
 
       let slot = injectedSlotRef.current;
-      if (!slot || !slot.isConnected) {
+      if (!slot?.isConnected) {
         slot = prControl.parentElement.querySelector<HTMLElement>(
           '[data-apme-host-ship-actions]',
         );
@@ -126,7 +126,7 @@ export function PortalProjectWorkflowPanel({
         slot = document.createElement('span');
         slot.dataset.apmeHostShipActions = 'true';
         slot.style.display = 'inline-flex';
-        prControl.insertAdjacentElement('beforebegin', slot);
+        prControl.before(slot);
       }
       injectedSlotRef.current = slot;
       setActionHost(slot);

@@ -195,6 +195,6 @@ export class ApmePortalSettingsStore {
   }
 
   private clone(data: ApmePortalSettingsData): ApmePortalSettingsData {
-    return JSON.parse(JSON.stringify(data)) as ApmePortalSettingsData;
+    return structuredClone(data);
   }
 }

@@ -157,7 +157,7 @@ export class ApmeClient {
         const errorBody = await response.text();
         const method = (options?.method ?? 'GET').toUpperCase();
         const isStartOperation =
-          method === 'POST' && /\/operation$/.test(endpoint);
+          method === 'POST' && endpoint.endsWith('/operation');
         if (isStartOperation) {
           throw new ConflictError(
             'A scan is already in progress for this project',

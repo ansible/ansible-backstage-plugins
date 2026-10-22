@@ -24,7 +24,9 @@ import { ApmeClient, IApmeService } from './ApmeClient';
 export const apmeServiceRef = createServiceRef<IApmeService>({
   id: 'apme.client.service',
   scope: 'plugin',
-  defaultFactory: async service =>
+  defaultFactory: async (
+    service, // NOSONAR - async required by Backstage ServiceRef defaultFactory signature
+  ) =>
     createServiceFactory({
       service,
       deps: {
@@ -32,6 +34,7 @@ export const apmeServiceRef = createServiceRef<IApmeService>({
         logger: coreServices.logger,
       },
       async factory({ rootConfig, logger }) {
+        // NOSONAR - async required by Backstage ServiceFactory signature
         logger.info('Creating APME client service');
         return new ApmeClient({ rootConfig, logger });
       },

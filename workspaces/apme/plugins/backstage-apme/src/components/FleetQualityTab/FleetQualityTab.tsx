@@ -40,6 +40,7 @@ import { APME_GATEWAY_UNAVAILABLE_MESSAGE } from '../../utils/apmeConnectionErro
 import { APME_REGISTER_GIT_REPOSITORY_TEMPLATE_PATH } from '../ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { FleetQualityNoScansEmptyState } from './FleetQualityNoScansEmptyState';
 import { useFleetQualityData } from './useFleetQualityData';
+import { formatFleetViolationSummary } from './fleetViolationSummary';
 
 const SEVERITY_WEIGHT: Record<SeverityLevel, number> = {
   critical: 50,
@@ -206,7 +207,8 @@ export const FleetQualityTab = ({
           cmp = (a.category ?? '').localeCompare(b.category ?? '');
           break;
         default:
-          cmp = 0;
+          // cmp already initialized to 0
+          break;
       }
       return sortAsc ? -cmp : cmp;
     });
@@ -281,6 +283,13 @@ export const FleetQualityTab = ({
     (s, r) => s + r.totalCount,
     0,
   );
+  const fleetViolationSummary = formatFleetViolationSummary({
+    hasFilter,
+    violationTotal,
+    filteredRuleCount: sortedGroups.length,
+    allRulesCount: allRules.length,
+    reposWithIssues,
+  });
   const sevOrder = SEVERITY_ORDER;
   const worstFleetSeverity =
     sevOrder.find(sev => severityCounts[sev] > 0) ??
@@ -374,9 +383,7 @@ export const FleetQualityTab = ({
           <Typography
             style={{ fontSize: 13, color: theme.palette.text.secondary }}
           >
-            {hasFilter
-              ? `of ${violationTotal} violations · ${sortedGroups.length} rule${sortedGroups.length !== 1 ? 's' : ''} · ${reposWithIssues} repositories`
-              : `violations · ${allRules.length} rules · ${reposWithIssues} repositories`}
+            {fleetViolationSummary}
             {reposClean > 0 && !hasFilter && (
               <span style={{ marginLeft: 6 }}>
                 ·{' '}
@@ -411,7 +418,9 @@ export const FleetQualityTab = ({
               return (
                 <Box
                   key={sev}
-                  className={`${classes.sevItem} ${isActive ? classes.sevItemActive : ''}`}
+                  className={`${classes.sevItem} ${
+                    isActive ? classes.sevItemActive : ''
+                  }`}
                   style={{
                     backgroundColor: isActive ? `${color}12` : undefined,
                     borderColor: isActive ? `${color}60` : undefined,
@@ -474,9 +483,8 @@ export const FleetQualityTab = ({
                   style={{ height: 20, fontSize: 11, fontWeight: 600 }}
                 />
               ))}
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 onClick={() => {
                   setSeverityFilters(new Set());
                   setCategoryFilters(new Set());
@@ -488,13 +496,16 @@ export const FleetQualityTab = ({
                   }
                 }}
                 style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
                   fontSize: 12,
                   color: theme.palette.primary.main,
                   cursor: 'pointer',
                 }}
               >
                 Clear filters
-              </span>
+              </button>
             </Box>
           )}
 

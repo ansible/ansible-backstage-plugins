@@ -76,6 +76,14 @@ describe('formatApmeUserFacingError', () => {
     ).toBe('boom');
   });
 
+  it('decodes escaped newlines and quotes in nested JSON messages', () => {
+    expect(
+      formatApmeUserFacingError(
+        'APME API error: 500 - {"error":{"message":"line1\\nline2\\"quoted\\""}}',
+      ),
+    ).toBe('line1 line2"quoted"');
+  });
+
   it('keeps short APME API error bodies with status', () => {
     expect(
       formatApmeUserFacingError('APME API error: 400 - Branch missing'),

@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { EntityQualityTab } from '.';
 
 /** Interpret APME's filters inside APME, never in the generic host. */
-export function NativeEntityQualityTab({ entity }: { entity: Entity }) {
+export function NativeEntityQualityTab({
+  entity,
+}: Readonly<{ entity: Entity }>) {
   const [params] = useSearchParams();
   return (
     <EntityQualityTab

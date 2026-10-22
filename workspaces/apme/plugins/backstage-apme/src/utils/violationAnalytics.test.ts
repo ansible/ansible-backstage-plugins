@@ -101,6 +101,9 @@ describe('violationAnalytics', () => {
     expect(getViolationCategory(v)).toBe('modernize');
     expect(inferCategoryFromRuleId('M001')).toBe('modernize');
     expect(inferCategoryFromRuleId('L020')).toBe('lint');
+    expect(inferCategoryFromRuleId('DEP-100')).toBe('dependencies');
+    expect(inferCategoryFromRuleId('CVE-2024-1234')).toBe('dependencies');
+    expect(inferCategoryFromRuleId('POL001')).toBe('policy');
   });
 
   it('uses rule catalog category when available', () => {

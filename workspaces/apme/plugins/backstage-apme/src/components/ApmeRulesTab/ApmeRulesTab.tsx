@@ -155,7 +155,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-function SeverityBadge({ severity }: { severity: Severity | string }) {
+function SeverityBadge({ severity }: Readonly<{ severity: Severity }>) {
   const classes = useStyles();
   const level = normalizeSeverity(severity);
   return (
