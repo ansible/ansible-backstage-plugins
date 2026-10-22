@@ -122,7 +122,7 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
         color={exact ? 'primary' : 'default'}
         variant={exact ? 'default' : 'outlined'}
         label={
-          exact ? 'build-time manifest' : env.enumeration?.source ?? 'unknown'
+          exact ? 'build-time manifest' : (env.enumeration?.source ?? 'unknown')
         }
       />
     </Tooltip>
