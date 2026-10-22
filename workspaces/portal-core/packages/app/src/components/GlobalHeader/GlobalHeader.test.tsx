@@ -49,7 +49,7 @@ describe('GlobalHeader', () => {
   });
 
   it('renders title, search input and action buttons', () => {
-    render(<GlobalHeader />);
+    render(<GlobalHeader createPath="/self-service/catalog" />);
 
     // Title/link present
     expect(screen.getByText('Automation Portal')).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('GlobalHeader', () => {
   });
 
   it('navigates to catalog when Create button is clicked', async () => {
-    render(<GlobalHeader />);
+    render(<GlobalHeader createPath="/self-service/catalog" />);
 
     const createBtn = screen.getByTitle('Create...');
     await userEvent.click(createBtn);
@@ -96,6 +96,20 @@ describe('GlobalHeader', () => {
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/search?query=hello%20world');
     });
+  });
+
+  it('omits Create when there is no installed Templates destination', () => {
+    render(<GlobalHeader />);
+    expect(screen.queryByTitle('Create...')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Account menu' }),
+    ).toBeInTheDocument();
+  });
+
+  it('uses the supplied installed destination rather than a hardcoded route', async () => {
+    render(<GlobalHeader createPath="/templates" />);
+    await userEvent.click(screen.getByTitle('Create...'));
+    expect(mockNavigate).toHaveBeenCalledWith('/templates');
   });
 
   it('opens profile menu and logs out (calls identityApi.signOut) then closes menu', async () => {

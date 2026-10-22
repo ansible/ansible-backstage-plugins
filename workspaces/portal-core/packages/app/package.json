@@ -3,12 +3,13 @@
   "version": "0.0.0",
   "private": true,
   "bundled": true,
+  "configSchema": "config.d.ts",
   "backstage": {
     "role": "frontend"
   },
   "scripts": {
-    "start": "backstage-cli package start",
-    "build": "backstage-cli package build",
+    "start": "node ../../../../scripts/portal-development.cjs start",
+    "build": "node ../../../../scripts/portal-development.cjs build",
     "clean": "backstage-cli package clean",
     "test": "backstage-cli package test",
     "lint": "backstage-cli package lint"

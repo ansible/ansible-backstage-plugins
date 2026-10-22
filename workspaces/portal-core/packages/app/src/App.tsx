@@ -152,7 +152,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
-      <GlobalHeader />
+      <GlobalHeader createPath="/self-service/catalog" />
       <Root>{routes}</Root>
     </AppRouter>
   </>,

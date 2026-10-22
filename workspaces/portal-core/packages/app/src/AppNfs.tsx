@@ -2,28 +2,27 @@ import { createApp } from '@backstage/frontend-defaults';
 import {
   createFrontendModule,
   type FrontendFeature,
+  type FrontendFeatureLoader,
 } from '@backstage/frontend-plugin-api';
 import { convertLegacyAppOptions } from '@backstage/core-compat-api';
 import { AppRootWrapperBlueprint } from '@backstage/plugin-app-react';
-import { compatWrapper } from '@backstage/core-compat-api';
 import { SignInPage } from '@backstage/core-components';
 import { getThemes } from '@red-hat-developer-hub/backstage-plugin-theme';
 import portalPlugin from '@ansible/portal-core/alpha';
 import portalNavigation from '@ansible/portal-core/app-nav';
-import apmePlugin from '@ansible/plugin-backstage-apme/alpha';
-import portalScaffolderPlugin from '@ansible/portal-scaffolder/alpha';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
 import rbacPlugin from '@backstage-community/plugin-rbac/alpha';
 import userSettingsPlugin from '@backstage/plugin-user-settings/alpha';
 import searchPlugin from '@backstage/plugin-search/alpha';
-import { GlobalHeader } from './components/GlobalHeader/GlobalHeader';
 import { baseApis } from './baseApis';
 import { providers } from './identityProviders';
+import { optionalContributorLoader } from './composition';
+import { NativeGlobalHeader } from './components/GlobalHeader/NativeGlobalHeader';
 
 /** Additive NFS app: no legacy APME entry point or registration side effects. */
-export const portalNfsFeatures: FrontendFeature[] = [
+export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   convertLegacyAppOptions({
     apis: baseApis.filter(factory => factory.api.id !== 'portal.operations'),
     themes: getThemes(),
@@ -55,7 +54,7 @@ export const portalNfsFeatures: FrontendFeature[] = [
         params: {
           component: ({ children }) => (
             <>
-              {compatWrapper(<GlobalHeader />)}
+              <NativeGlobalHeader />
               {children}
             </>
           ),
@@ -63,8 +62,7 @@ export const portalNfsFeatures: FrontendFeature[] = [
       }),
     ],
   }),
-  portalScaffolderPlugin,
-  apmePlugin,
+  optionalContributorLoader,
 ];
 
 export default createApp({ features: portalNfsFeatures }).createRoot();

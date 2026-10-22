@@ -1,6 +1,7 @@
 import { contributionRegistry } from '@ansible/portal-extension-api';
 import { createApp } from '@backstage/frontend-defaults';
 import { portalNfsFeatures } from './AppNfs';
+import { optionalContributorLoader } from './composition';
 
 jest.mock('@backstage/frontend-defaults', () => ({
   createApp: jest.fn(() => ({ createRoot: () => <div>NFS root</div> })),
@@ -30,25 +31,21 @@ describe('NFS app', () => {
       ),
     ).toBe(true);
   });
-  it('composes the actual host and APME alpha features without legacy registration', () => {
+  it('composes the host and an optional contributor loader without eager registration', () => {
     expect(createApp).toHaveBeenCalledWith({ features: portalNfsFeatures });
     expect(
       portalNfsFeatures.some(
         feature => 'pluginId' in feature && feature.pluginId === 'portal',
       ),
     ).toBe(true);
-    expect(
-      portalNfsFeatures.some(
-        feature => 'pluginId' in feature && feature.pluginId === 'apme',
-      ),
-    ).toBe(true);
+    expect(portalNfsFeatures).toContain(optionalContributorLoader);
     expect(contributionRegistry.getScaffolderFields()).toEqual([]);
     expect(
       portalNfsFeatures.some(
         feature =>
           'pluginId' in feature && feature.pluginId === 'portal-scaffolder',
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(contributionRegistry.getManifests()).toEqual([]);
     expect(
       portalNfsFeatures.some(
