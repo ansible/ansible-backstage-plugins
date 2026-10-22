@@ -35,6 +35,18 @@ The original `catalog-backend-module-rhaap` package is retained as a **deprecate
 | `catalog-backend-module-portal-scaffolder`                         | EE peel under `workspaces/self-service/` (see §4.6) | `scaffolder-backend-module-self-service`                            |
 | `workspaces/portal-scaffolder/`                                    | `workspaces/self-service/`                          | `workspaces/self-service/` per Content Experience Architecture §2.2 |
 | `workspaces/content/plugins/catalog-backend-module-portal-content` | Interim bridge only; not the terminal content stack | `workspaces/content/plugins/automation-content-backend*`            |
+| `scaffolder-backend-module-portal` (in-repo architecture docs)   | Same self-service workspace; see §1.2               | `scaffolder-backend-module-self-service` (architecture §7.4)        |
+| `portal-scaffolder` (frontend plugin id in repo today)             | `workspaces/self-service/` experience               | Self-service experience per architecture §2.2                       |
+
+### 1.2 Authoritative sources (implementation)
+
+| Source | Role |
+| ------ | ---- |
+| **Content Experience Architecture** (§7.3–§7.4, §2.2) | **Authoritative** for terminal package names, owning experiences, and provider boundaries for this split. |
+| `docs/architecture/content-experience-refactor-and-sdk.md` (this repository) | Describes **current** repo layout and transitional names (e.g. `scaffolder-backend-module-portal`, `portal-scaffolder`). Treat as interim until content workspace packages land. |
+| Scaffolder Implementation Guide (§11) | Scaffolder **action** module boundaries; EE **definition** catalog surface remains self-service + `pluginId: catalog` (§4.6). |
+
+When this research disagrees with in-repo architecture markdown, **Content Experience Architecture §7.4** governs terminal ownership; Phase 1 package names in §1.1 are the **interim peel** from `catalog-backend-module-rhaap`.
 
 ---
 
@@ -158,11 +170,15 @@ Registered in `module.ts` via `ansiblePermissions`:
 
 ### 4.1 Minimal split preserves operator experience
 
-Phase 1 creates independently loadable modules instead of one monolith. Operators who need only AAP identity sync load `catalog-backend-module-aap` alone. Content and git sync require the interim content module until the architecture’s L2/L3 packages exist (§2.3).
+Phase 1 creates independently loadable modules instead of one monolith. **AAP identity sign-in** requires the plugin set in §7.1 (catalog AAP module + auth provider), not the catalog module alone. Content and git sync require the interim content module until the architecture’s L2/L3 packages exist (§2.3).
 
 ### 4.2 URL paths stay stable
 
-All HTTP routes keep their current paths (Content Experience Architecture §7.7). The module serving the route changes; redirects are acceptable only where explicitly documented. RHDH `dynamic-plugins.yaml` changes from one entry to multiple.
+All **functional** HTTP routes (sync triggers, EE register/delete/build, git helpers, content sync) keep their current paths (Content Experience Architecture §7.7). The module serving the route changes; redirects are acceptable only where explicitly documented.
+
+**Exception — sync status on split deployments:** Monolithic `GET /ansible/sync/status` is retained only on the **deprecated shim** (§4.4). Split bundles (§4.5) do not load the shim (§4.8), so status callers must use per-module status paths or the UI aggregation described in §4.4. This is an intentional caller migration, not a silent break of other routes.
+
+RHDH `dynamic-plugins.yaml` changes from one entry to multiple.
 
 ### 4.3 Entity refs stay stable
 
@@ -182,7 +198,7 @@ Entity references (`user:default/alice`, `template:default/my-job`, etc.) are un
 | `catalog-backend-module-interim-content` | `GET /ansible/sync/status/content`                                                                                        |
 | Self-service EE / definition path        | `GET /ansible/sync/status/self-service` _(EE provider has no scheduled sync; endpoint reports push/register health only)_ |
 
-The deprecated shim retains `GET /ansible/sync/status` (monolithic shape) for backward compatibility. Split deployments: UI calls each enabled module endpoint and merges results.
+The deprecated shim retains `GET /ansible/sync/status` (monolithic shape) for **shim-only** deployments. **Split deployments** (§4.5): the self-service UI (or other callers) requests each enabled endpoint in the table above and merges client-side. Legacy integrations that cannot call multiple endpoints should stay on **shim-only** until they migrate.
 
 Terminal: `SyncStateTracker` state moves to `automation-content-backend`; catalog status endpoints become thin projections.
 
@@ -203,12 +219,14 @@ syncCollectionsByRepositories(
 
 Content Experience Architecture §7.4: PAH is **Galaxy v3 / Pulp**, not OCI — terminal home is `automation-content-backend-module-source-automation-hub` plus `content-type-collection`, not a permanent catalog-only provider.
 
-**Phase 1 options (pick one per deployment, never both):**
+**Phase 1 deployment bundles (mutually exclusive with overlapping providers — §4.8):**
 
-1. **Shim only:** Load deprecated `catalog-backend-module-rhaap`; PAH stays in shim.
-2. **Split only:** Load `catalog-backend-module-aap` + `catalog-backend-module-interim-content`; PAH runs in interim content module.
+1. **Shim only:** Load deprecated `catalog-backend-module-rhaap` (all providers + monolithic `GET /ansible/sync/status`).
+2. **Split — AAP catalog sync only:** `catalog-backend-module-aap` (+ `auth-backend-module-rhaap-provider` when username-matched sign-in is required — §7.1).
+3. **Split — content (PAH/Git):** Bundle 2 + `catalog-backend-module-interim-content`.
+4. **Split — full (includes EE definitions):** Bundle 3 + self-service EE catalog module (`pluginId: catalog`, colocated with `scaffolder-backend-module-self-service` per §4.6). Required for `/ansible/ee*`, `EEEntityProvider`, and `createEEDefinition` cleanup.
 
-**Forbidden:** Shim and interim content module together (duplicate providers). See §4.8.
+**Forbidden:** Shim and any split module that registers the same entity providers (e.g. shim + `catalog-backend-module-interim-content`). See §4.8.
 
 **Phase 3:** Retire interim content catalog module; ingest via content service; `catalog-backend-module-automation-content` projects entities.
 
@@ -283,7 +301,7 @@ Loading the deprecated shim together with split modules that register the same e
 
 - All catalog module tests pass; entity sync end-to-end in dev app.
 - EE: scaffolder action → `POST /ansible/ee` → `DELETE /ansible/ee/:name` → re-register same name (`204` on missing entity).
-- **URLs:** Every route in §2.3 reachable at the same path after split (or documented redirect).
+- **URLs:** Every **functional** route in §2.3 reachable at the same path after split (§4.2); sync status on split bundles uses per-module paths (§4.4).
 - **Self-service:** Smoke test templates/tasks/EE definition UI with split modules (no regression per §7.7).
 - **Dependencies:** No new cross-workspace source imports (Content Experience Architecture §2.5 rules 9–10); content-type packages not imported from self-service except via published versions when content workspace exists.
 - **Migration:** CI case proving shim + interim content cannot start together.
@@ -322,12 +340,27 @@ Loading the deprecated shim together with split modules that register the same e
 
 ## 7. Operator Impact
 
-| Area                        | Before (Today)                      | After Phase 1                                                                                             |
-| --------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `dynamic-plugins.yaml`      | One `catalog-backend-module-rhaap`  | Mutually exclusive: shim **or** `catalog-backend-module-aap` + optional interim-content + self-service EE |
-| Config keys                 | All under `catalog.providers.rhaap` | Split per module (§7 below)                                                                               |
-| Sync URLs                   | All on catalog backend              | Same paths; optional per-module status paths (§4.4)                                                       |
-| Minimal AAP-only deployment | Load full module, ignore content    | Load only `catalog-backend-module-aap`                                                                    |
+### 7.1 AAP identity deployment (catalog vs auth)
+
+| Goal | Required dynamic plugins (Phase 1) |
+| ---- | ---------------------------------- |
+| AAP org/user/job-template **catalog sync** | `catalog-backend-module-aap` |
+| AAP **username-matched sign-in** (`usernameMatchingUser`, §2.5) | `catalog-backend-module-aap` **and** `auth-backend-module-rhaap-provider` |
+| EE definitions (scaffolder / self-service) | Add self-service EE catalog module (§4.6 bundle 4) |
+| PAH/Git catalog sync | Add `catalog-backend-module-interim-content` (bundle 3) |
+
+Loading only `catalog-backend-module-aap` without the auth provider breaks sign-in for deployments that rely on catalog-backed user matching.
+
+### 7.2 Operator summary
+
+| Area                   | Before (Today)                     | After Phase 1                                                                      |
+| ---------------------- | ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `dynamic-plugins.yaml` | One `catalog-backend-module-rhaap` | Mutually exclusive bundles per §4.5 (shim **or** split 2/3/4)                      |
+| Config keys            | All under `catalog.providers.rhaap` | Split per module (§7.3)                                                            |
+| Sync URLs              | Monolithic `/ansible/sync/status`  | Shim-only: unchanged; split: per-module status paths + UI aggregation (§4.2–§4.4) |
+| Minimal AAP identity   | Full `catalog-backend-module-rhaap`  | `catalog-backend-module-aap` + `auth-backend-module-rhaap-provider` (§7.1)          |
+
+### 7.3 Configuration migration
 
 **Configuration migration (no automatic mapping):**
 
@@ -342,7 +375,7 @@ EE-related config moves under self-service catalog module keys (e.g. `catalog.pr
 
 **Operator action required:**
 
-1. Choose **shim-only** or **split** bundle (never both with overlapping providers — §4.8).
+1. Choose a deployment bundle per §4.5 (never shim plus overlapping split modules — §4.8).
 2. Copy configuration sections to the new keys before enabling split modules.
 3. Update `dynamic-plugins.yaml`.
 4. Remove the shim only after verification.
@@ -356,7 +389,7 @@ EE-related config moves under self-service catalog module keys (e.g. `catalog.pr
 | Should sync status be aggregated server-side or client-side?       | ✅ Resolved — client-side (§4.4)                                         |
 | Should `PAHCollectionProvider` stay in catalog or move to content? | ✅ Resolved — interim catalog peel; terminal source-hub (§4.5)           |
 | Should Git helpers move to content or stay with catalog?           | ✅ Resolved — interim content module; terminal source-git (§4.7)         |
-| What is the minimal dynamic plugin set for AAP-only identity sync? | Open — `catalog-backend-module-aap` + auth provider; document in Phase 1 |
+| What is the minimal dynamic plugin set for AAP-only identity sync? | ✅ Resolved — `catalog-backend-module-aap` + `auth-backend-module-rhaap-provider` (§7.1) |
 
 ---
 
@@ -390,7 +423,8 @@ EE-related config moves under self-service catalog module keys (e.g. `catalog.pr
 
 | Document                             | Description                                                       |
 | ------------------------------------ | ----------------------------------------------------------------- |
-| Content Experience Architecture      | Target architecture — §1.3, §2.2, §2.3, §2.5, §7.3–§7.4, §7.7, §8 |
+| Content Experience Architecture      | Target architecture — §1.3, §2.2, §2.3, §2.5, §7.3–§7.4, §7.7, §8 (authoritative per §1.2) |
+| `docs/architecture/content-experience-refactor-and-sdk.md` | In-repo current layout; interim `portal` / `portal-scaffolder` names |
 | AAP Integration Implementation Guide | AAP workspace split — keep/leave tables                           |
 | Scaffolder Implementation Guide      | Scaffolder action split                                           |
 | `docs/plugins/catalog.md`            | Official operator catalog documentation                           |
@@ -401,7 +435,7 @@ EE-related config moves under self-service catalog module keys (e.g. `catalog.pr
 
 | Architecture §7.4 row                         | Terminal package / owner                                     | Phase 1 (this peel)                                        | Status                                       |
 | --------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------- |
-| `EEEntityProvider`, `POST /ansible/ee`        | `scaffolder-backend-module-self-service` / self-service      | EE code in `workspaces/self-service/`, `pluginId: catalog` | **Match** (ownership); interim packaging TBD |
+| `EEEntityProvider`, `POST /ansible/ee`        | `scaffolder-backend-module-self-service` / self-service      | `pluginId: catalog`, `moduleId: self-service-ee` (§4.6)    | **Match** (team ownership + catalog attachment) |
 | `PAHCollectionProvider`                       | `…-module-source-automation-hub` + `content-type-collection` | `catalog-backend-module-interim-content`                   | **Interim** — retire in Phase 3              |
 | `AnsibleGitContentsProvider`                  | `…-module-source-git`                                        | `catalog-backend-module-interim-content`                   | **Interim**                                  |
 | `SyncStateTracker`                            | `automation-content-backend`                                 | Shared/interim content module                              | **Interim**                                  |
