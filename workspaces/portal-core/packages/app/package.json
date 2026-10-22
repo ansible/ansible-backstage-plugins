@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@ansible/aap-app-auth": "workspace:^",
-    "@ansible/plugin-automation-content": "workspace:^",
     "@ansible/plugin-backstage-apme": "workspace:^",
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/portal-core": "workspace:^",
