@@ -31,9 +31,8 @@ export const AAPTokenField = ({
   const fieldName =
     (typeof customTitle === 'string' ? customTitle : schema?.title) ||
     'AAP Token';
-  const fieldId = `aap-token-field-${Math.random()
-    .toString(36)
-    .substring(2, 11)}`;
+  // NOSONAR - Math.random() is safe here: used only for unique DOM element ID, not for security
+  const fieldId = `aap-token-field-${Math.random().toString(36).substring(2, 11)}`;
 
   useEffect(() => {
     const fetchToken = async () => {

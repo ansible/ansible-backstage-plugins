@@ -108,8 +108,7 @@ async function ensureRepoBranchValid(
   });
 }
 
-export async function createRouter(options: RouterOptions): Promise<Router> {
-  // NOSONAR - async convention for Backstage router factories; await occurs in route handlers
+export async function createRouter(options: RouterOptions): Promise<Router> { // NOSONAR - async convention for Backstage router factories; await occurs in route handlers
   const {
     apmeService,
     logger,
