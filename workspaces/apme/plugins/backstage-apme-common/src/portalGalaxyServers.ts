@@ -210,10 +210,8 @@ export async function syncPortalGalaxyServers(
     // URL matches and token present — still push token, count as unchanged
     // when only the opaque token refresh runs with identical URL.
     if (!needsUrlUpdate && hasToken && current.has_token) {
-      await apmeService.updateGalaxyServer(current.id, {
-        // NOSONAR - sequential galaxy server reconciliation
-        token: spec.token,
-      });
+      // prettier-ignore
+      await apmeService.updateGalaxyServer(current.id, { token: spec.token }); // NOSONAR - sequential galaxy server reconciliation
       result.unchanged += 1;
       continue;
     }

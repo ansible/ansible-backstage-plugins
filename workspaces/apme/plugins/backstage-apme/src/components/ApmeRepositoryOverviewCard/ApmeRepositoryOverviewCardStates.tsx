@@ -44,6 +44,42 @@ type CardClasses = {
   categoryHelp: string;
 };
 
+/** Shared clickable card wrapper — guards click/keyboard with `navigationDisabled`. */
+function QualitySummaryCard({
+  classes,
+  navigationDisabled,
+  onOpen,
+  children,
+}: Readonly<{
+  classes: Pick<CardClasses, 'card' | 'cardClickable'>;
+  navigationDisabled: boolean;
+  onOpen: () => void;
+  children: React.ReactNode;
+}>) {
+  const open = () => {
+    if (!navigationDisabled) onOpen();
+  };
+  return (
+    <Card
+      variant="outlined"
+      className={`${classes.card} ${navigationDisabled ? '' : classes.cardClickable}`}
+      onClick={open}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          open();
+        }
+      }}
+      role={navigationDisabled ? undefined : 'button'}
+      tabIndex={navigationDisabled ? undefined : 0}
+      aria-disabled={navigationDisabled || undefined}
+      aria-label="Quality summary — view latest scan details"
+    >
+      {children}
+    </Card>
+  );
+}
+
 export function ApmeRepositoryOverviewLoading() {
   return (
     <Box display="flex" justifyContent="center" py={2}>
@@ -132,22 +168,10 @@ export function ApmeRepositoryOverviewClean({
   onOpenLatestScan: () => void;
 }>) {
   return (
-    <Card
-      variant="outlined"
-      className={`${classes.card} ${
-        navigationDisabled ? '' : classes.cardClickable
-      }`}
-      onClick={onOpenLatestScan}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpenLatestScan();
-        }
-      }}
-      role={navigationDisabled ? undefined : 'button'}
-      tabIndex={navigationDisabled ? undefined : 0}
-      aria-disabled={navigationDisabled || undefined}
-      aria-label="Quality summary — view latest scan details"
+    <QualitySummaryCard
+      classes={classes}
+      navigationDisabled={navigationDisabled}
+      onOpen={onOpenLatestScan}
     >
       <CardContent>
         <Typography variant="subtitle2" gutterBottom>
@@ -160,7 +184,7 @@ export function ApmeRepositoryOverviewClean({
           No violations detected on the latest scan.
         </Typography>
       </CardContent>
-    </Card>
+    </QualitySummaryCard>
   );
 }
 
@@ -201,22 +225,10 @@ export function ApmeRepositoryOverviewViolations({
   };
 
   return (
-    <Card
-      variant="outlined"
-      className={`${classes.card} ${
-        navigationDisabled ? '' : classes.cardClickable
-      }`}
-      onClick={onOpenLatestScan}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpenLatestScan();
-        }
-      }}
-      role={navigationDisabled ? undefined : 'button'}
-      tabIndex={navigationDisabled ? undefined : 0}
-      aria-disabled={navigationDisabled || undefined}
-      aria-label="Quality summary — view latest scan details"
+    <QualitySummaryCard
+      classes={classes}
+      navigationDisabled={navigationDisabled}
+      onOpen={onOpenLatestScan}
     >
       <CardContent style={{ padding: '14px 16px 12px' }}>
         <Box
@@ -412,6 +424,6 @@ export function ApmeRepositoryOverviewViolations({
           );
         })}
       </CardContent>
-    </Card>
+    </QualitySummaryCard>
   );
 }

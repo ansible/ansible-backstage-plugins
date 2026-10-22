@@ -121,11 +121,8 @@ export async function runApmeCatalogSyncBatch(
     }
 
     try {
-      const existing = await apmeService.getProjectByRepoUrl(
-        // NOSONAR - sequential catalog sync batch
-        request.repo_url,
-        request.branch,
-      );
+      // prettier-ignore
+      const existing = await apmeService.getProjectByRepoUrl(request.repo_url, request.branch); // NOSONAR - sequential catalog sync batch
       if (options.shouldTrackEntity?.(entity) === false) {
         summary.skipped += 1;
         continue;
@@ -147,11 +144,8 @@ export async function runApmeCatalogSyncBatch(
           summary.skipped += 1;
           continue;
         }
-        await apmeService.triggerScan(project.id, {
-          // NOSONAR - sequential catalog sync batch
-          ansibleVersion,
-          ...(enableAi !== undefined ? { enableAi } : {}),
-        });
+        // prettier-ignore
+        await apmeService.triggerScan(project.id, { ansibleVersion, ...(enableAi !== undefined ? { enableAi } : {}) }); // NOSONAR - sequential catalog sync batch
         summary.scanned += 1;
       }
     } catch (error) {

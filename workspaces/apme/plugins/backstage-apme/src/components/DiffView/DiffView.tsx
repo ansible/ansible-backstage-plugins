@@ -305,12 +305,12 @@ function computeUnifiedDiff(before: string, after: string): DiffLine[] {
       ...oldLines.map((l, idx) => ({
         type: 'removed' as const,
         content: l,
-        lineNumber: idx + 1,
+        oldNum: idx + 1,
       })),
       ...newLines.map((l, idx) => ({
         type: 'added' as const,
         content: l,
-        lineNumber: idx + 1,
+        newNum: idx + 1,
       })),
     ];
   }

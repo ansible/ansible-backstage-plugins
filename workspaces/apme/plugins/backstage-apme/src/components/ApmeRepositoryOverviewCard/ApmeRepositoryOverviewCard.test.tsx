@@ -479,7 +479,7 @@ describe('ApmeRepositoryOverviewCardStates', () => {
     expect(onOpenLatestScan).toHaveBeenCalledTimes(1);
   });
 
-  it('covers ApmeRepositoryOverviewViolations disabled navigation, partial findings, and category severity bars', () => {
+  it('renders violations state with disabled navigation, partial findings, and category rows', () => {
     const onOpenLatestScan = jest.fn();
     const theme = createTheme();
     const sevCounts = SEVERITY_ORDER.reduce(
@@ -490,12 +490,12 @@ describe('ApmeRepositoryOverviewCardStates', () => {
       {} as Record<SeverityLevel, number>,
     );
     sevCounts.critical = 1;
-    sevCounts.medium = 1;
+    sevCounts.low = 1;
 
     const lintViolation: Violation = {
       id: 10,
       rule_id: 'L003',
-      level: 'blocker',
+      level: 'critical',
       message: 'lint issue',
       file: 'play.yml',
       line: 1,
@@ -505,7 +505,7 @@ describe('ApmeRepositoryOverviewCardStates', () => {
     const riskViolation: Violation = {
       id: 11,
       rule_id: 'R108',
-      level: 'medium',
+      level: 'low',
       message: 'risk issue',
       file: 'tasks.yml',
       line: 2,
@@ -524,13 +524,13 @@ describe('ApmeRepositoryOverviewCardStates', () => {
             { key: 'lint', label: 'Lint', tip: 'Lint help' },
             { key: 'risk', label: 'Risk', tip: 'Risk help' },
           ]}
-          totalViolations={1}
-          reportedViolations={3}
-          fixable={0}
+          totalViolations={2}
+          reportedViolations={5}
+          fixable={1}
           sevCounts={sevCounts}
           catCounts={{
             lint: 1,
-            risk: 0,
+            risk: 1,
             modernize: 0,
             secrets: 0,
             policy: 0,
@@ -545,14 +545,15 @@ describe('ApmeRepositoryOverviewCardStates', () => {
 
     expect(screen.getByText('Details unavailable')).toBeInTheDocument();
     expect(
-      screen.getByText('Partial findings: showing 1 of 3.'),
+      screen.getByText('Partial findings: showing 2 of 5.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Lint')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
-        name: /quality summary — view latest scan details/i,
-      }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText('Risk')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByLabelText('Quality summary — view latest scan details'),
+    );
+    expect(onOpenLatestScan).not.toHaveBeenCalled();
 
     const lintHelp = screen.getByRole('button', { name: 'Lint help' });
     fireEvent.click(lintHelp);

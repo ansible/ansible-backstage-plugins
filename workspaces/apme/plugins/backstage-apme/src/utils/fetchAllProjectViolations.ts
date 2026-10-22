@@ -43,11 +43,8 @@ export async function fetchAllProjectViolations(
   let hasMore = true;
 
   while (hasMore) {
-    const page = await apmeApi.getViolations(projectId, {
-      // NOSONAR - paginated gateway fetch must be sequential
-      limit: VIOLATIONS_PAGE_SIZE,
-      offset,
-    });
+    // prettier-ignore
+    const page = await apmeApi.getViolations(projectId, { limit: VIOLATIONS_PAGE_SIZE, offset }); // NOSONAR - paginated gateway fetch must be sequential
     all.push(...page);
 
     if (page.length < VIOLATIONS_PAGE_SIZE) {
