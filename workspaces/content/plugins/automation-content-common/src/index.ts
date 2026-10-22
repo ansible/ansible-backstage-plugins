@@ -11,7 +11,11 @@
 
 export * from './oci/types';
 export { OCIClient, nextLink } from './oci/OCIClient';
-export type { FetchLike, OCIClientOptions } from './oci/OCIClient';
+export type {
+  FetchLike,
+  OCIClientOptions,
+  TransportInit,
+} from './oci/OCIClient';
 export { CapabilityProbe, probeRegistry } from './oci/CapabilityProbe';
 export type { ProbeOptions } from './oci/CapabilityProbe';
 

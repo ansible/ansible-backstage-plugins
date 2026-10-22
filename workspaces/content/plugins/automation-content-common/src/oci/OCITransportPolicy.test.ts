@@ -47,6 +47,7 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => server.close()));
 });
 
+/** The certificate fixture for a named server role, generated at runtime. */
 function certificatePair(
   name:
     | 'trusted-server'
@@ -79,6 +80,12 @@ interface LoopbackServer {
   close(): Promise<void>;
 }
 
+/**
+ * Start a loopback server that records every request it serves.
+ *
+ * The policy under test is client-side, so refusals never appear in the
+ * record — a test asserts both the refusal and `hits === 0`.
+ */
 async function startServer(
   scheme: 'http' | 'https',
   tls?: { cert: string; key: string },
@@ -128,6 +135,7 @@ async function startServer(
   return loopback;
 }
 
+/** A connection to `url` trusting exactly the test CA, plus any overrides. */
 function connection(
   url: string,
   overrides: Partial<RegistryConnection> = {},
@@ -324,7 +332,7 @@ describe('insecure: true is explicit and auditable', () => {
     expect(warnings[0]).toMatch(/insecure/i);
   });
 
-  it('warns with the origin only, never URL credentials', () => {
+  it('warns without URL data at all', () => {
     const warnings: string[] = [];
     const client = new OCIClient(
       connection('https://alice:hunter2@127.0.0.1:1', { insecure: true }),
@@ -334,10 +342,13 @@ describe('insecure: true is explicit and auditable', () => {
     );
     expect(client.registryName).toBe('tls-test');
 
+    // The warning names the registry and nothing else: the URL may name a
+    // private host or carry credentials, and warnings are logged.
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain('https://127.0.0.1:1');
+    expect(warnings[0]).toContain('tls-test');
+    expect(warnings[0]).not.toContain('127.0.0.1');
+    expect(warnings[0]).not.toContain('alice');
     expect(warnings[0]).not.toContain('hunter2');
-    expect(warnings[0]).not.toContain('alice:');
   });
 
   it('refuses a plain-HTTP URL without echoing its credentials', async () => {
@@ -351,6 +362,21 @@ describe('insecure: true is explicit and auditable', () => {
     expect(failure).toMatch(/insecure: true/);
     expect(failure).not.toContain('hunter2');
     expect(failure).toContain('***@');
+    expect(server.hits).toBe(0);
+  });
+
+  it('refuses a plain-HTTP URL without echoing its query or fragment', async () => {
+    const server = await startServer('http');
+    const port = server.url.split(':').pop();
+    const client = new OCIClient(
+      connection(`http://127.0.0.1:${port}/?token=hunter2#section`),
+    );
+
+    // Query strings and fragments can carry tokens, and errors are logged.
+    const failure = await failureOf(() => client.ping());
+    expect(failure).toMatch(/insecure: true/);
+    expect(failure).not.toContain('hunter2');
+    expect(failure).not.toContain('token=');
     expect(server.hits).toBe(0);
   });
 
@@ -452,10 +478,13 @@ describe('redirects cannot downgrade the transport', () => {
 
     const res = await client.request('/v2/demo/ee/tags/list');
     expect(res.status).toBe(200);
-    expect(target.hits).toBeGreaterThan(0);
-    // The redirect crossed origin (different port), so credentials must not
-    // have followed it — same rule the fetch specification applies.
-    expect(seen).not.toContain(expect.stringMatching(/^Basic /));
+    // Requests reached the target, and none carried credentials: the redirect
+    // crossed origin (different port), so credentials must not have followed
+    // it — same rule the fetch specification applies.
+    expect(seen.length).toBeGreaterThan(0);
+    for (const authorization of seen) {
+      expect(authorization).toBeUndefined();
+    }
 
     await client.dispose();
   });
@@ -476,6 +505,108 @@ describe('redirects cannot downgrade the transport', () => {
     expect(target.hits).toBeGreaterThan(0);
 
     await client.dispose();
+  });
+});
+
+describe('the redirect policy covers injected transports too', () => {
+  it('refuses an HTTPS to HTTP redirect issued through an injected fetch', async () => {
+    const fetched: string[] = [];
+    const redirects: Array<string | undefined> = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      fetched.push(url);
+      redirects.push(init?.redirect);
+      return new Response(null, {
+        status: 302,
+        headers: { location: 'http://attacker.example/v2/' },
+      });
+    };
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+
+    expect(await failureOf(() => client.ping())).toMatch(/insecure: true/);
+    // The injected transport is asked to follow redirects manually — the
+    // policy cannot see hops a transport follows on its own — and no request
+    // left the process over HTTP.
+    expect(redirects).toEqual(['manual']);
+    expect(fetched.every(url => url.startsWith('https://'))).toBe(true);
+  });
+
+  it('follows an HTTPS to HTTPS redirect issued through an injected fetch', async () => {
+    const fetched: string[] = [];
+    const fetchImpl: FetchLike = async url => {
+      fetched.push(url);
+      if (fetched.length === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: 'https://mock.registry/v2-real/' },
+        });
+      }
+      return new Response('{}', { status: 200 });
+    };
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+
+    expect((await client.ping()).ok).toBe(true);
+    expect(fetched).toEqual([
+      'https://mock.registry/v2/',
+      'https://mock.registry/v2-real/',
+    ]);
+  });
+
+  it('caps a redirect chain issued through an injected fetch', async () => {
+    const fetchImpl: FetchLike = async () =>
+      new Response(null, {
+        status: 302,
+        headers: { location: 'https://mock.registry/loop' },
+      });
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+
+    expect(await failureOf(() => client.ping())).toMatch(/too many redirects/i);
+  });
+
+  it('drops credentials when an injected-fetch redirect crosses origin', async () => {
+    const seen: Array<{ url: string; authorization?: string }> = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      seen.push({ url, authorization: init?.headers?.Authorization });
+      if (url.startsWith('https://mock.registry')) {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: 'https://other.example/v2/demo/ee/tags/list',
+          },
+        });
+      }
+      return new Response(JSON.stringify({ tags: ['dev'] }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    const client = new OCIClient(
+      connection('https://mock.registry', {
+        auth: { type: 'basic', username: 'alice', password: 'hunter2' },
+      }),
+      { fetch: fetchImpl },
+    );
+
+    const res = await client.request('/v2/demo/ee/tags/list');
+    expect(res.status).toBe(200);
+    // The credential was presented to the configured registry only, and no
+    // request to the other origin carried one.
+    const withCredentials = seen.filter(entry => entry.authorization);
+    expect(withCredentials).toHaveLength(1);
+    expect(withCredentials[0].url).toBe(
+      'https://mock.registry/v2/demo/ee/tags/list',
+    );
+    const afterRedirect = seen.filter(entry =>
+      entry.url.startsWith('https://other.example'),
+    );
+    expect(afterRedirect.length).toBeGreaterThan(0);
+    for (const entry of afterRedirect) {
+      expect(entry.authorization).toBeUndefined();
+    }
   });
 });
 

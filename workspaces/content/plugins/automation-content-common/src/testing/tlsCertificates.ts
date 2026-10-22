@@ -130,6 +130,13 @@ function rsaKeyPair(): { privatePem: string; publicPem: string } {
   };
 }
 
+/**
+ * Build one certificate from a signing request shape.
+ *
+ * The options are split into subject/issuer pairs so the same helper covers
+ * both CA-signed and self-signed fixtures, plus X.509 extensions the policy
+ * must honour (CA constraints, subject alternative names, validity window).
+ */
 function issueCertificate(options: {
   subjectCn: string;
   /** The CA's subject CN; equals `subjectCn` for self-signed certificates. */
@@ -158,6 +165,7 @@ function issueCertificate(options: {
   return forge.pki.certificateToPem(cert);
 }
 
+/** A date `days` from now — negative for already-expired fixtures. */
 function daysFromNow(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 }

@@ -44,14 +44,18 @@ connection is the single, explicit, auditable opt-out.**
    registry only**, through a per-client undici dispatcher. Neighbouring connections
    are unaffected.
 4. The opt-out is auditable: a client created with it logs a warning naming the
-   registry (its origin only — never URL credentials), and `/config/validate` flags
-   it. Only an explicit boolean or a Backstage-recognized truthy string enables it;
-   unparseable values fail config reading.
+   registry only — no URL data, which can carry credentials or name private
+   hosts — and `/config/validate` flags it. Only an explicit boolean or a
+   Backstage-recognized truthy string enables it; unparseable values fail
+   config reading.
 5. The scheme check reads the URL through the URL parser, not a string pattern —
    `http:\\host` and other spellings parse to plain HTTP and are refused as such.
-6. Redirects are followed by hand, hop by hop: an HTTPS endpoint cannot downgrade a
+6. Redirects are followed by hand, hop by hop, in every transport — injected
+   fetch functions included, which receive `redirect: 'manual'` so they cannot
+   follow a hop the policy has not seen: an HTTPS endpoint cannot downgrade a
    request to plain HTTP inside the transport, credentials are dropped when a
-   redirect crosses origin (the fetch-specification rule), and the chain is capped.
+   redirect crosses origin (the fetch-specification rule), and the chain is
+   capped.
 7. Verification is **pinned** per connection: the dispatcher sets
    `rejectUnauthorized` explicitly, so a process-wide
    `NODE_TLS_REJECT_UNAUTHORIZED=0` set for unrelated reasons cannot silently

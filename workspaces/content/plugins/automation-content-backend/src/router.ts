@@ -752,6 +752,17 @@ export async function createRouter(
                 'Plain HTTP allowed and TLS certificate verification disabled — ' +
                 'local development only',
             });
+            // The same refusal readRegistryConfigs makes at startup: a bundle
+            // to verify against and an opt-out of verification contradict
+            // each other, and CI should see it before the process does.
+            if (registry.caFile) {
+              errors.push({
+                path: `${at}.caFile`,
+                message:
+                  'caFile cannot be combined with insecure: verify against ' +
+                  'the bundle or opt out of verification, not both',
+              });
+            }
           }
           if (registry.rewriteAuthRealmHost === true) {
             warnings.push({

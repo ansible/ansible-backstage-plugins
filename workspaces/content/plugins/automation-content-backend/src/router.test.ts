@@ -228,3 +228,58 @@ describe('registry mutation authentication', () => {
     expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
   });
 });
+
+describe('config validation', () => {
+  /** A minimal, valid registry entry to hang conflicts off. */
+  function registry(overrides: Record<string, unknown> = {}) {
+    return {
+      name: 'mock',
+      url: 'https://mock.registry',
+      repositories: ['demo/ee'],
+      ...overrides,
+    };
+  }
+
+  function document(registries: Array<Record<string, unknown>>) {
+    return {
+      apiVersion: 'content.ansible.com/v1',
+      kind: 'ContentConfiguration',
+      registries,
+    };
+  }
+
+  it('accepts a registry that configures a CA bundle alone', async () => {
+    const index = seed([]);
+    const res = await request(await appWith(index))
+      .post('/config/validate')
+      .send(document([registry({ caFile: '/etc/pki/mock-ca.pem' })]));
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(true);
+    expect(
+      res.body.errors.filter(
+        (error: { path: string }) => error.path === 'registries[0].caFile',
+      ),
+    ).toEqual([]);
+  });
+
+  it('rejects caFile combined with the insecure opt-out, at the caFile path', async () => {
+    // The same refusal readRegistryConfigs makes at startup — CI must see it
+    // before the process does, not as a boot failure after merge.
+    const index = seed([]);
+    const res = await request(await appWith(index))
+      .post('/config/validate')
+      .send(
+        document([
+          registry({ caFile: '/etc/pki/mock-ca.pem', insecure: true }),
+        ]),
+      );
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual({
+      path: 'registries[0].caFile',
+      message: expect.stringMatching(/caFile.*insecure|insecure.*caFile/),
+    });
+  });
+});

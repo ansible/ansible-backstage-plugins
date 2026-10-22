@@ -3,6 +3,13 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readRegistryConfigs } from './config';
+// Test infrastructure, deliberately outside the barrel: the generator must
+// never reach a published bundle. The deep import resolves to the same
+// transformed source every other import of this package uses.
+// eslint-disable-next-line @backstage/no-forbidden-package-imports
+import { generateTlsTestFixtures } from '@ansible/automation-content-common/src/testing/tlsCertificates';
+
+const FIXTURES = generateTlsTestFixtures();
 
 function read(registries: Array<Record<string, unknown>>) {
   return readRegistryConfigs(
@@ -12,14 +19,14 @@ function read(registries: Array<Record<string, unknown>>) {
   );
 }
 
-/** A CA bundle on disk, as an operator would mount one. */
-function caBundleOnDisk(): string {
+/**
+ * A CA bundle on disk, as an operator would mount one: a real certificate,
+ * generated at runtime — nothing secret is committed.
+ */
+function caBundleOnDisk(pem: string = FIXTURES.ca): string {
   const dir = mkdtempSync(join(tmpdir(), 'registry-ca-'));
   const path = join(dir, 'ca.pem');
-  writeFileSync(
-    path,
-    '-----BEGIN CERTIFICATE-----\nnot really, but readable\n-----END CERTIFICATE-----\n',
-  );
+  writeFileSync(path, pem);
   return path;
 }
 
@@ -64,8 +71,17 @@ describe('readRegistryConfigs: CA bundles', () => {
     const caFile = caBundleOnDisk();
     const [entry] = read([{ ...registry, caFile }]);
 
-    expect(entry.connection.ca).toContain('BEGIN CERTIFICATE');
+    expect(entry.connection.ca).toBe(FIXTURES.ca);
     expect(entry.connection.insecure).toBeUndefined();
+  });
+
+  it('accepts a multi-certificate bundle, validating every block', () => {
+    const caFile = caBundleOnDisk(
+      `${FIXTURES.ca}${FIXTURES.trustedServer.cert}`,
+    );
+    const [entry] = read([{ ...registry, caFile }]);
+
+    expect(entry.connection.ca).toContain('BEGIN CERTIFICATE');
   });
 
   it('leaves ca unset when no bundle is configured', () => {
@@ -76,6 +92,24 @@ describe('readRegistryConfigs: CA bundles', () => {
     expect(() =>
       read([{ ...registry, caFile: '/nonexistent/ca.pem' }]),
     ).toThrow(/mock.*ca\.pem.*ENOENT/);
+  });
+
+  it('fails at startup when the bundle contains no certificate', () => {
+    const caFile = caBundleOnDisk('plainly not a certificate\n');
+    expect(() => read([{ ...registry, caFile }])).toThrow(
+      /no PEM certificate found/,
+    );
+  });
+
+  it('fails at startup when a certificate in the bundle does not parse', () => {
+    // PEM markers around garbage: readable, structured, and still not a
+    // certificate any TLS stack would trust.
+    const caFile = caBundleOnDisk(
+      '-----BEGIN CERTIFICATE-----\nnot really, but readable\n-----END CERTIFICATE-----\n',
+    );
+    expect(() => read([{ ...registry, caFile }])).toThrow(
+      /invalid certificate in bundle/,
+    );
   });
 
   it('refuses caFile combined with the insecure opt-out', () => {

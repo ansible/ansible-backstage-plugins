@@ -41,8 +41,8 @@ catalog:
 **that registry only**; neighbouring connections are unaffected. It is the
 single, explicit, auditable opt-out:
 
-- the client logs a warning naming the registry when it is created (the
-  registry's origin only — never URL credentials)
+- the client logs a warning naming the registry when it is created — naming
+  the registry only, since a URL can carry credentials or name private hosts
 - `/config/validate` flags it with "local development only"
 - only an explicit boolean or a Backstage-recognized truthy string enables it;
   unparseable values fail config reading
@@ -66,11 +66,13 @@ catalog:
           caFile: /etc/pki/ca-trust/registry-ca.pem
 ```
 
-The bundle is read at startup, not lazily: an unreadable file fails the
-process at boot with the registry named, rather than failing a sync later.
-When set, the bundle is the complete trust store for that connection — the
-default roots are not merged in. Setting `caFile` and `insecure` together is a
-configuration error and is rejected at startup.
+The bundle is read at startup, not lazily: an unreadable file, a file with no
+PEM certificate, or a certificate Node's parser rejects fails the process at
+boot with the registry named, rather than failing a sync later. Every block in
+a multi-certificate bundle is validated. When set, the bundle is the complete
+trust store for that connection — the default roots are not merged in. Setting
+`caFile` and `insecure` together is a configuration error and is rejected at
+startup — and by `/config/validate` before it reaches startup.
 
 The process-wide alternative — `NODE_EXTRA_CA_CERTS` at startup — remains
 available and composes with everything here.
@@ -79,8 +81,9 @@ available and composes with everything here.
 
 - Failed syncs walk the fetch cause chain, so a TLS rejection surfaces as the
   certificate error it is, not as a bare `fetch failed`
-- Refusals and warnings name the registry and its origin, never URL
-  credentials
+- Refusals and warnings name the registry, never URL data: a URL that reaches
+  an error is reduced to its scheme, host, and path — userinfo is masked and
+  query and fragment dropped, since each can carry a secret
 - A failed sync retains what was already indexed rather than emptying the
   catalog
 

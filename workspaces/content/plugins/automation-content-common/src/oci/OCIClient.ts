@@ -24,6 +24,13 @@ const MAX_REDIRECT_HOPS = 5;
  */
 let undiciModule: Promise<typeof import('undici')> | undefined;
 
+/**
+ * Load undici once, lazily — only the default transport calls this.
+ *
+ * The CommonJS fallback exists for jest, whose VM has no dynamic-import
+ * callback; the `require` there resolves the same module the dynamic import
+ * would.
+ */
 function loadUndici(): Promise<typeof import('undici')> {
   undiciModule ??= import('undici').catch(() => {
     // Jest executes modules in a VM that has no dynamic-import callback; its
@@ -36,14 +43,30 @@ function loadUndici(): Promise<typeof import('undici')> {
 }
 
 /**
+ * The request shape every transport receives from this client.
+ *
+ * `redirect` is always `'manual'`: the client follows redirects itself, hop by
+ * hop, so the trust policy can see each one.
+ */
+export interface TransportInit {
+  method?: string;
+  headers?: Record<string, string>;
+  redirect?: 'manual';
+  signal?: AbortSignal;
+}
+
+/**
  * Injected so tests can drive the client without a network.
  *
  * The transport-trust policy applies before any transport, injected or real: a
  * plain-HTTP URL is refused unless the connection opted out with `insecure: true`.
+ * The client follows redirects itself — an injected transport receives
+ * `redirect: 'manual'` and must honor it by returning the redirect response
+ * rather than following it, or the policy cannot see each hop.
  */
 export type FetchLike = (
   url: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: TransportInit,
 ) => Promise<Response>;
 
 export interface OCIClientOptions {
@@ -153,12 +176,25 @@ export class OCIClient {
     this.logger = options.logger;
     this.cache = options.cache;
 
-    const transport: FetchLike =
-      options.fetch ??
-      (async (url, init) => {
-        const { Agent, fetch: undiciFetch } = await loadUndici();
-        return this.dispatch(undiciFetch, Agent, url, init);
-      });
+    const injected = options.fetch;
+    const transport: FetchLike = async (url, init) => {
+      if (injected) return this.followRedirects(injected, url, init);
+      const { Agent, fetch: undiciFetch } = await loadUndici();
+      return this.followRedirects(
+        (next, request) => {
+          const undiciRequest: UndiciRequestInit = { ...request };
+          undiciRequest.dispatcher = this.pinnedDispatcher(Agent);
+          // undici's Response and the global Response are the same runtime shape;
+          // their type declarations disagree only on ReadableStream variance.
+          return undiciFetch(
+            next,
+            undiciRequest,
+          ) as unknown as Promise<Response>;
+        },
+        url,
+        init,
+      );
+    };
 
     this.fetchImpl = async (url, init) => {
       if (!this.allowInsecure) this.assertTransportAllowed(url);
@@ -168,8 +204,8 @@ export class OCIClient {
     if (this.allowInsecure) {
       this.logger?.warn(
         `[${connection.name}] insecure registry connection: TLS certificate ` +
-          `verification is disabled and plain HTTP is allowed ` +
-          `(${originOf(connection.url)}) — local development only`,
+          `verification is disabled and plain HTTP is allowed — local ` +
+          `development only`,
       );
     }
   }
@@ -210,55 +246,52 @@ export class OCIClient {
   }
 
   /**
-   * The default transport: undici fetch with redirects followed by hand.
+   * The dispatcher this connection's trust policy pins.
    *
-   * Automatic redirect following would let an HTTPS endpoint downgrade a request
-   * to plain HTTP inside the transport, where the connection's trust policy
-   * never sees it. Following manually applies the policy to every hop, and
-   * drops credentials when a redirect crosses origin — the same rule the fetch
-   * specification applies, so a token issued for one registry is never silently
-   * presented to another server.
-   *
-   * Both dispatchers pin `rejectUnauthorized` explicitly; see the class docblock.
-   * The verified one trusts the connection's `ca` bundle when given, and the
-   * process's default root store otherwise.
+   * Both dispatchers pin `rejectUnauthorized` explicitly; see the class
+   * docblock. The verified one trusts the connection's `ca` bundle when given,
+   * and the process's default root store otherwise.
    */
-  private async dispatch(
-    undiciFetch: typeof import('undici').fetch,
-    Agent: typeof import('undici').Agent,
+  private pinnedDispatcher(Agent: typeof import('undici').Agent): Agent {
+    if (this.allowInsecure) {
+      this.insecureDispatcher ??= new Agent({
+        connect: { rejectUnauthorized: false },
+      });
+      return this.insecureDispatcher;
+    }
+    this.secureDispatcher ??= new Agent({
+      connect: {
+        rejectUnauthorized: true,
+        ...(this.connection.ca ? { ca: this.connection.ca } : {}),
+      },
+    });
+    return this.secureDispatcher;
+  }
+
+  /**
+   * Follow redirects by hand, for every transport.
+   *
+   * Automatic redirect following would let an HTTPS endpoint downgrade a
+   * request to plain HTTP inside the transport, where the connection's trust
+   * policy never sees it. Following manually applies the policy to every hop —
+   * for injected transports as much as the default one — and drops credentials
+   * when a redirect crosses origin, the same rule the fetch specification
+   * applies, so a token issued for one registry is never silently presented to
+   * another server.
+   */
+  private async followRedirects(
+    send: (url: string, init: TransportInit) => Promise<Response>,
     url: string,
-    init?: {
-      method?: string;
-      headers?: Record<string, string>;
-      signal?: AbortSignal;
-    },
+    init?: TransportInit,
   ): Promise<Response> {
     let current = url;
     let headers = init?.headers;
     for (let hop = 0; ; hop++) {
-      const request: UndiciRequestInit = {
+      const res = await send(current, {
         ...init,
         headers,
         redirect: 'manual',
-      };
-      if (this.allowInsecure) {
-        this.insecureDispatcher ??= new Agent({
-          connect: { rejectUnauthorized: false },
-        });
-        request.dispatcher = this.insecureDispatcher;
-      } else {
-        this.secureDispatcher ??= new Agent({
-          connect: {
-            rejectUnauthorized: true,
-            ...(this.connection.ca ? { ca: this.connection.ca } : {}),
-          },
-        });
-        request.dispatcher = this.secureDispatcher;
-      }
-
-      // undici's Response and the global Response are the same runtime shape;
-      // their type declarations disagree only on ReadableStream variance.
-      const res = (await undiciFetch(current, request)) as unknown as Response;
+      });
 
       if (res.status < 300 || res.status > 399) return res;
       const location = res.headers.get('location');
@@ -355,8 +388,8 @@ export class OCIClient {
     }
     if (url.protocol === 'http:' && new URL(this.base).protocol === 'https:') {
       this.logger?.warn(
-        `[${this.connection.name}] refusing non-TLS auth realm ` +
-          `${url.toString()}`,
+        `[${this.connection.name}] refusing non-TLS auth realm for an ` +
+          `HTTPS registry`,
       );
       return undefined;
     }
@@ -386,14 +419,13 @@ export class OCIClient {
     // endpoint would otherwise hang the shared priming promise and every
     // request waiting on it.
     const res = await this.withTimeout(signal =>
-      this.fetchImpl(url.toString(), { headers, signal } as never),
+      this.fetchImpl(url.toString(), { headers, signal }),
     );
+    // Status only: the token endpoint is untrusted, and its body can echo
+    // submitted credentials. The status is enough to act on.
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
       this.logger?.warn(
-        `[${this.connection.name}] token exchange failed: ${
-          res.status
-        } ${url.toString()} — ${detail}`,
+        `[${this.connection.name}] token exchange failed: ${res.status}`,
       );
       return undefined;
     }
@@ -445,7 +477,7 @@ export class OCIClient {
             this.fetchImpl(`${this.base}/v2/`, {
               headers: {},
               signal,
-            } as never),
+            }),
           );
           if (res.status !== 401) return; // anonymous access, or an unexpected answer
           const header = res.headers.get('www-authenticate');
@@ -529,7 +561,7 @@ export class OCIClient {
     if (staticAuth) headers.Authorization = staticAuth;
 
     let res = await this.withTimeout(signal =>
-      this.fetchImpl(url, { ...init, headers, signal } as never),
+      this.fetchImpl(url, { ...init, headers, signal }),
     );
 
     if (res.status === 401) {
@@ -545,7 +577,7 @@ export class OCIClient {
               ...init,
               headers: { ...headers, Authorization: `Bearer ${token}` },
               signal,
-            } as never),
+            }),
           );
         }
       }
@@ -607,7 +639,7 @@ export class OCIClient {
       init.auth === false ? undefined : this.staticAuthHeader();
     if (staticAuth) headers.Authorization = staticAuth;
     return this.withTimeout(signal =>
-      this.fetchImpl(url, { ...init, headers, signal } as never),
+      this.fetchImpl(url, { ...init, headers, signal }),
     );
   }
 
@@ -970,7 +1002,20 @@ function originOf(url: string): string {
   }
 }
 
-/** Hide URL userinfo — it may carry a secret, and errors get logged. */
+/**
+ * A URL safe for error text: userinfo masked, query and fragment dropped.
+ *
+ * Userinfo, query, and fragment can each carry a secret, and errors are
+ * logged. The URL parser is the authority on which part is which — string
+ * surgery is bypassable by spelling. Unparseable URLs are reduced to a
+ * placeholder rather than echoed.
+ */
 function redactUrl(url: string): string {
-  return url.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^/?#]+)@/i, '$1***@');
+  try {
+    const parsed = new URL(url);
+    const userinfo = parsed.username || parsed.password ? '***@' : '';
+    return `${parsed.protocol}//${userinfo}${parsed.host}${parsed.pathname}`;
+  } catch {
+    return '(unparseable URL)';
+  }
 }

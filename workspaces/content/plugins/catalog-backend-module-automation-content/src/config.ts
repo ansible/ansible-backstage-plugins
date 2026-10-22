@@ -1,6 +1,7 @@
 import { Config } from '@backstage/config';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
 import { readFileSync } from 'node:fs';
+import { X509Certificate } from 'node:crypto';
 import { RegistryConnection } from '@ansible/automation-content-common';
 
 export interface RegistryProviderEntry {
@@ -75,16 +76,65 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
 }
 
 /**
- * Read a registry's CA bundle at startup, not lazily: an unreadable bundle is a
- * configuration error, and failing the process at boot beats failing a sync later.
+ * Read a registry's CA bundle at startup, not lazily: an unreadable or invalid
+ * bundle is a configuration error, and failing the process at boot beats
+ * failing a sync later.
+ *
+ * Every PEM block is parsed with Node's certificate parser. A bundle the
+ * parser rejects is a bundle the TLS handshake would reject too — better to
+ * learn that at boot than from a sync failure per registry, per run.
  */
 function readCaBundle(registry: string, path: string): string {
+  let pem: string;
   try {
-    return readFileSync(path, 'utf8');
+    pem = readFileSync(path, 'utf8');
   } catch (error) {
     const reason = (error as { code?: string }).code ?? String(error);
     throw new Error(
       `cannot read CA bundle for registry "${registry}": ${path} (${reason})`,
     );
   }
+
+  const blocks = pemBlocks(pem);
+  if (blocks.length === 0) {
+    throw new Error(
+      `cannot read CA bundle for registry "${registry}": ${path} ` +
+        `(no PEM certificate found)`,
+    );
+  }
+  for (const block of blocks) {
+    try {
+      // Parse-and-discard: the point is that Node's certificate parser
+      // accepts the block, not the parsed value.
+      void new X509Certificate(block);
+    } catch {
+      throw new Error(
+        `cannot read CA bundle for registry "${registry}": ${path} ` +
+          `(invalid certificate in bundle)`,
+      );
+    }
+  }
+  return pem;
+}
+
+/**
+ * Extract the PEM certificate blocks from a bundle.
+ *
+ * Scanned with `indexOf` rather than a regex: the codebase's rule against
+ * backtracking patterns costs nothing to keep here. An unterminated block is
+ * dropped — the parser in `readCaBundle` is the authority on validity, and a
+ * trailing fragment without its END marker is not a certificate.
+ */
+function pemBlocks(pem: string): string[] {
+  const begin = '-----BEGIN CERTIFICATE-----';
+  const end = '-----END CERTIFICATE-----';
+  const blocks: string[] = [];
+  let start = pem.indexOf(begin);
+  while (start >= 0) {
+    const stop = pem.indexOf(end, start + begin.length);
+    if (stop < 0) break;
+    blocks.push(pem.slice(start, stop + end.length));
+    start = pem.indexOf(begin, stop + end.length);
+  }
+  return blocks;
 }
