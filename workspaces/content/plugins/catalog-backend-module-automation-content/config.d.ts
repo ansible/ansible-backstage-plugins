@@ -28,8 +28,18 @@ export interface Config {
             /** @visibility secret */
             token?: string;
           };
-          /** Allow plain HTTP. Local development only. */
+          /**
+           * Opt out of transport trust for this registry: admits plain HTTP and
+           * skips TLS certificate verification. Off by default — verified HTTPS is
+           * the default — and warned about at startup. Local development only.
+           */
           insecure?: boolean;
+          /**
+           * PEM bundle this registry's certificate is verified against, instead of
+           * the process's default root store. Verification stays on — this is how
+           * a registry behind a private CA is trusted without `insecure: true`.
+           */
+          caFile?: string;
           /**
            * Rewrite the bearer-auth realm host to match `url`. Needed when a registry
            * advertises a token endpoint on a hostname the portal cannot reach, such as

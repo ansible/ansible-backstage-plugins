@@ -1,5 +1,6 @@
 import { Config } from '@backstage/config';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
+import { readFileSync } from 'node:fs';
 import { RegistryConnection } from '@ansible/automation-content-common';
 
 export interface RegistryProviderEntry {
@@ -37,9 +38,18 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
       | 'basic'
       | 'bearer';
 
+    const name = registry.getString('name');
+    const caFile = registry.getOptionalString('caFile');
+    if (caFile && registry.getOptionalBoolean('insecure')) {
+      throw new Error(
+        `registry "${name}" sets both caFile and insecure: verify against the ` +
+          `bundle or opt out of verification, not both`,
+      );
+    }
+
     return {
       connection: {
-        name: registry.getString('name'),
+        name,
         url: registry.getString('url'),
         auth: {
           type: authType,
@@ -50,6 +60,7 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
         namespaces: registry.getOptionalStringArray('namespaces'),
         repositories: registry.getOptionalStringArray('repositories'),
         insecure: registry.getOptionalBoolean('insecure'),
+        ca: caFile ? readCaBundle(name, caFile) : undefined,
         rewriteAuthRealmHost: registry.getOptionalBoolean(
           'rewriteAuthRealmHost',
         ),
@@ -61,4 +72,19 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
       system: registry.getOptionalString('system'),
     };
   });
+}
+
+/**
+ * Read a registry's CA bundle at startup, not lazily: an unreadable bundle is a
+ * configuration error, and failing the process at boot beats failing a sync later.
+ */
+function readCaBundle(registry: string, path: string): string {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    const reason = (error as { code?: string }).code ?? String(error);
+    throw new Error(
+      `cannot read CA bundle for registry "${registry}": ${path} (${reason})`,
+    );
+  }
 }
