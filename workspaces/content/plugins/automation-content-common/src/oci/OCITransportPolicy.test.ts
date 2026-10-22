@@ -161,6 +161,15 @@ async function failureOf(run: () => Promise<unknown>): Promise<string> {
   throw new Error('expected the request to fail');
 }
 
+/**
+ * The origin of a URL, per the URL parser — the same authority the trust
+ * policy defers to. Prefix matching would let
+ * `https://mock.registry.attacker.test` pose as `https://mock.registry`.
+ */
+function originOf(url: string): string {
+  return new URL(url).origin;
+}
+
 describe('certificate verification is the default', () => {
   it('connects to a registry whose certificate chains to a trusted CA', async () => {
     const server = await startServer(
@@ -223,9 +232,15 @@ describe('certificate verification is the default', () => {
 
 describe('verification is pinned against process-wide overrides', () => {
   it('rejects an untrusted certificate even with NODE_TLS_REJECT_UNAUTHORIZED=0', async () => {
-    // Set elsewhere in a process for unrelated reasons — a dev portal talking
-    // to a mock AAP with a self-signed certificate, for instance. It must not
-    // disable verification for registry connections.
+    // The assignment below deliberately disables certificate validation
+    // process-wide — flagged by CodeQL (js/disabling-certificate-validation)
+    // and dismissed as "used in tests". It is the entire point of this
+    // regression test: the variable is set elsewhere in a process for
+    // unrelated reasons — a dev portal talking to a mock AAP with a
+    // self-signed certificate, for instance — and the pinned dispatcher each
+    // connection builds must keep rejecting untrusted certificates anyway.
+    // The previous value is saved and restored below, absence included.
+    const previous = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
     try {
       const server = await startServer(
@@ -249,7 +264,13 @@ describe('verification is pinned against process-wide overrides', () => {
       expect((await goodClient.ping()).ok).toBe(true);
       await goodClient.dispose();
     } finally {
-      delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      // Restore exactly what was there — including absence: other suites in
+      // this process may depend on either state.
+      if (previous === undefined) {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      } else {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = previous;
+      }
     }
   });
 });
@@ -529,7 +550,7 @@ describe('the redirect policy covers injected transports too', () => {
     // policy cannot see hops a transport follows on its own — and no request
     // left the process over HTTP.
     expect(redirects).toEqual(['manual']);
-    expect(fetched.every(url => url.startsWith('https://'))).toBe(true);
+    expect(fetched.every(url => new URL(url).protocol === 'https:')).toBe(true);
   });
 
   it('follows an HTTPS to HTTPS redirect issued through an injected fetch', async () => {
@@ -572,7 +593,8 @@ describe('the redirect policy covers injected transports too', () => {
     const seen: Array<{ url: string; authorization?: string }> = [];
     const fetchImpl: FetchLike = async (url, init) => {
       seen.push({ url, authorization: init?.headers?.Authorization });
-      if (url.startsWith('https://mock.registry')) {
+      const origin = originOf(url);
+      if (origin === 'https://mock.registry') {
         return new Response(null, {
           status: 302,
           headers: {
@@ -580,9 +602,14 @@ describe('the redirect policy covers injected transports too', () => {
           },
         });
       }
-      return new Response(JSON.stringify({ tags: ['dev'] }), {
-        headers: { 'content-type': 'application/json' },
-      });
+      if (origin === 'https://other.example') {
+        return new Response(JSON.stringify({ tags: ['dev'] }), {
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      // Answering an unexpected origin would let a misrouted request — or a
+      // prefix-match bug — pass unnoticed.
+      throw new Error(`unexpected origin in test transport: ${origin}`);
     };
     const client = new OCIClient(
       connection('https://mock.registry', {
@@ -600,8 +627,8 @@ describe('the redirect policy covers injected transports too', () => {
     expect(withCredentials[0].url).toBe(
       'https://mock.registry/v2/demo/ee/tags/list',
     );
-    const afterRedirect = seen.filter(entry =>
-      entry.url.startsWith('https://other.example'),
+    const afterRedirect = seen.filter(
+      entry => originOf(entry.url) === 'https://other.example',
     );
     expect(afterRedirect.length).toBeGreaterThan(0);
     for (const entry of afterRedirect) {
@@ -632,14 +659,14 @@ describe('the policy covers every request the client issues', () => {
     // the token exchange, leaving the process over HTTP.
     const res = await client.request('/v2/demo/ee/tags/list');
     expect(res.status).toBe(401);
-    expect(fetched.some(url => url.startsWith('http://'))).toBe(false);
+    expect(fetched.some(url => new URL(url).protocol === 'http:')).toBe(false);
   });
 
   it('reaches a plain-HTTP token realm when the connection opted out', async () => {
     const fetched: string[] = [];
     const fetchImpl: FetchLike = async (url, init) => {
       fetched.push(url);
-      if (url.startsWith('http://auth.example')) {
+      if (originOf(url) === 'http://auth.example') {
         return new Response(JSON.stringify({ token: 'issued' }));
       }
       if (init?.headers?.Authorization) {
@@ -666,7 +693,7 @@ describe('the policy covers every request the client issues', () => {
     const res = await client.request('/v2/demo/ee/tags/list');
     expect(res.status).toBe(200);
     expect((await res.json()).tags).toEqual(['dev']);
-    expect(fetched.some(url => url.startsWith('http://auth.example'))).toBe(
+    expect(fetched.some(url => originOf(url) === 'http://auth.example')).toBe(
       true,
     );
   });
@@ -696,6 +723,8 @@ describe('the policy covers every request the client issues', () => {
     expect(await failureOf(() => tags.next())).toMatch(
       /not the configured registry/,
     );
-    expect(fetched.some(url => url.startsWith('http://attacker'))).toBe(false);
+    expect(
+      fetched.some(url => originOf(url) === 'http://attacker.example'),
+    ).toBe(false);
   });
 });
