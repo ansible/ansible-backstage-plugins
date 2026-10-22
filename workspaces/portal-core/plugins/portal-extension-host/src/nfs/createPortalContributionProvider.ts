@@ -13,6 +13,7 @@ import {
   scaffolderWorkflowDataRef,
   catalogTabDataRef,
   catalogTableColumnDataRef,
+  scaffolderFieldDataRef,
 } from '@ansible/portal-extension-api/alpha';
 import { collectEntityTabs } from './validateEntityTab';
 import { collectCatalogTabs } from './catalogTabs';
@@ -20,6 +21,7 @@ import { collectCatalogColumns } from './catalogColumns';
 import { collectEntityActions } from './validateEntityAction';
 import { collectEntityOverviewCards } from './validateEntityOverviewCard';
 import { collectCatalogItemActions } from './validateCatalogItemAction';
+import { collectScaffolderFields } from './validateScaffolderField';
 import {
   collectCatalogHeaderActions,
   collectScaffolderWorkflows,
@@ -38,6 +40,7 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
       scaffolderWorkflows: createExtensionInput([scaffolderWorkflowDataRef]),
       catalogTabs: createExtensionInput([catalogTabDataRef]),
       catalogColumns: createExtensionInput([catalogTableColumnDataRef]),
+      scaffolderFields: createExtensionInput([scaffolderFieldDataRef]),
     },
     factory(originalFactory, { inputs }) {
       const workflows = Object.freeze(
@@ -49,6 +52,18 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
         ),
       );
       const contributions = Object.freeze({
+        scaffolderFields: Object.freeze(
+          collectScaffolderFields(
+            inputs.scaffolderFields.map(input => {
+              const field = input.get(scaffolderFieldDataRef);
+              return {
+                ...field,
+                manifest: { ...field?.manifest, id: input.node.spec.plugin.id },
+              };
+            }),
+            hostApiVersion,
+          ),
+        ),
         catalogColumns: Object.freeze(
           collectCatalogColumns(
             inputs.catalogColumns.map(input =>

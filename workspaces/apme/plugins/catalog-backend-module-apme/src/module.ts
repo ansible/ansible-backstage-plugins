@@ -137,14 +137,14 @@ export const catalogModuleApme = createBackendModule({
             ansibleSettingsViewPermission,
           ],
           rules: settingsPermissionRules,
-          getResources: async (
-            resourceRefs, // NOSONAR - async required by Backstage policy API signature
-          ) =>
-            resourceRefs.map(ref =>
+          getResources: async resourceRefs => {
+            await Promise.resolve();
+            return resourceRefs.map(ref =>
               isAnsibleSettingsCapability(ref)
                 ? { capability: ref }
                 : undefined,
-            ),
+            );
+          },
         });
 
         logger.info('Initializing APME catalog module');

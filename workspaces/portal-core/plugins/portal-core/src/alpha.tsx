@@ -5,7 +5,6 @@ import {
   AppRootElementBlueprint,
 } from '@backstage/frontend-plugin-api';
 import CssBaseline from '@material-ui/core/CssBaseline';
-import { Navigate } from 'react-router-dom';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
 import {
@@ -27,10 +26,10 @@ export default createFrontendPlugin({
       params: {
         path: '/',
         noHeader: true,
-        loader: () =>
-          Promise.resolve(
-            compatWrapper(<Navigate to="/self-service" replace />),
-          ),
+        loader: async () => {
+          const { PortalLandingPage } = await import('./PortalLandingPage');
+          return compatWrapper(<PortalLandingPage />);
+        },
       },
     }),
     createPortalContributionProvider(),

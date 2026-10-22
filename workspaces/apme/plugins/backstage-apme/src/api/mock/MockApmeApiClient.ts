@@ -78,8 +78,8 @@ interface RemediateState {
 export class MockApmeApiClient implements ApmeApi {
   private projects: Project[] = MOCK_PROJECTS.map(p => ({ ...p }));
   private violations: Record<string, Violation[]> = { ...MOCK_VIOLATIONS };
-  private activeScans: Map<string, ScanState> = new Map();
-  private activeRemediations: Map<string, RemediateState> = new Map();
+  private readonly activeScans: Map<string, ScanState> = new Map();
+  private readonly activeRemediations: Map<string, RemediateState> = new Map();
   private nextProjectId = 100;
   private nextPrNumber = 142;
   private nextGalaxyServerId = 2;

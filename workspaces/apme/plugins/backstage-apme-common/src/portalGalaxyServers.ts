@@ -191,7 +191,7 @@ export async function syncPortalGalaxyServers(
       if (spec.token) {
         body.token = spec.token;
       }
-      await apmeService.createGalaxyServer(body);
+      await apmeService.createGalaxyServer(body); // NOSONAR - sequential galaxy server reconciliation
       result.created += 1;
       logger?.info(`Created portal galaxy server ${spec.name}`);
       continue;
@@ -210,9 +210,8 @@ export async function syncPortalGalaxyServers(
     // URL matches and token present — still push token, count as unchanged
     // when only the opaque token refresh runs with identical URL.
     if (!needsUrlUpdate && hasToken && current.has_token) {
-      await apmeService.updateGalaxyServer(current.id, {
-        token: spec.token,
-      });
+      // prettier-ignore
+      await apmeService.updateGalaxyServer(current.id, { token: spec.token }); // NOSONAR - sequential galaxy server reconciliation
       result.unchanged += 1;
       continue;
     }
@@ -225,7 +224,7 @@ export async function syncPortalGalaxyServers(
       patch.token = spec.token;
     }
 
-    await apmeService.updateGalaxyServer(current.id, patch);
+    await apmeService.updateGalaxyServer(current.id, patch); // NOSONAR - sequential galaxy server reconciliation
     result.updated += 1;
     logger?.info(`Updated portal galaxy server ${spec.name}`);
   }
@@ -237,7 +236,7 @@ export async function syncPortalGalaxyServers(
     if (desiredNames.has(server.name)) {
       continue;
     }
-    await apmeService.deleteGalaxyServer(server.id);
+    await apmeService.deleteGalaxyServer(server.id); // NOSONAR - sequential galaxy server reconciliation
     result.deleted += 1;
     logger?.info(`Deleted obsolete portal galaxy server ${server.name}`);
   }

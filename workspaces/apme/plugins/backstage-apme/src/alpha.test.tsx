@@ -302,6 +302,10 @@ describe('APME NFS entry point', () => {
     await renderTestApp({
       features: [
         createFrontendPlugin({
+          pluginId: 'portal',
+          extensions: [createPortalContributionProvider()],
+        }),
+        createFrontendPlugin({
           pluginId: 'portal-scaffolder',
           extensions: [page],
         }),
