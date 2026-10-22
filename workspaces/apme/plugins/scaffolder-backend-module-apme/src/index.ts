@@ -23,7 +23,6 @@ export default createBackendModule({
         organizations: portalActiveOrganizationServiceRef,
       },
       async init({
-        // NOSONAR - async required by Backstage module init signature
         actions,
         auth,
         userInfo,
@@ -31,6 +30,7 @@ export default createBackendModule({
         operations,
         organizations,
       }) {
+        await Promise.resolve();
         actions.addActions(
           registerGitRepositoryAction({
             auth,

@@ -10,6 +10,8 @@ where versioned packages apply.
 
 ### Added
 
+- **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
+
 - **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
 
 - Scaffolder **payload normalization** (`rhaapActionPayloadUtils`, `parseAapActionValues`) so `rhaap:*` actions receive consistent shapes for launch and resource-creation flows, with expanded unit tests.
@@ -17,6 +19,8 @@ where versioned packages apply.
 - Self-service **Create Task** flow: clearer **review** display for nested objects; **sessionStorage** may retain bounded **`data:`** URLs across OAuth redirect so typical file uploads are not cleared (very large payloads may still be dropped to respect storage limits; **`blob:`** URLs remain cleared on reload).
 
 ### Changed
+
+- **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
 
 - **Portal SDK documentation** defines the proposed internal developer-preview contract, supported native launch combinations, backend responsibilities and exclusions, coordinated compatibility/migration policy, and fresh-clone workspace onboarding acceptance. Teams use this monorepo with `workspace:^` SDK dependencies; npm publication and external repositories are not preview requirements. This clarification does not announce published artifacts, joint contract sign-off, or new runtime guarantees.
 
@@ -47,13 +51,15 @@ where versioned packages apply.
 
 ### Upgrade notes
 
+1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.
+
 1. **Backend SDK consumers:** inject `portalActiveOrganizationServiceRef` into identity middleware and use operation `requiredEntitlements` for server-side gates. `organizationId` is optional; multi-membership contexts carry `organizationIds`. Default organization-specific operations require one validated organization. Use `organizationScope: 'shared'` only for shared-resource operations. APME scanning requires a registered `apme.scanning` grant for any trusted membership as well as RBAC; registration/removal do not require scanning entitlement. Remove obsolete `portal.organization.catalogMappings`; `ansible.io/portal-organization` is no longer an AAP ownership boundary. Existing records are not rewritten.
 
 1. **AAP deployments:** `multiOrgEnabled: true` uses stable AAP ID-based entity names, including `user:default/aap-user-<id>`, consistently across sign-in and provisioning. With the flag off, legacy usernames remain supported. Synchronize the catalog and sign in again when changing identity mode. Entitlement grants use canonical lowercase configured AAP organization names, not catalog namespaces or SCM owners.
 
 1. **Frontend SDK consumers:** `usePortalContext` requires authenticated access to the host context endpoint. Handle `loading`, `error`, an optional `organizationId`, and multiple `organizationIds`; do not pass browser context as backend authorization authority.
 
-1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete content extraction.
+1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect. With no `portal.landingPage` override, `/` opens Templates only when `/self-service` is installed; otherwise it displays the host fallback. Set an exact installed page path to override this behavior, including when NFS configuration moves the Templates page. This does not complete content extraction or optional deployment composition.
 
 1. **Custom callers** of catalog sync GET endpoints: update URLs as listed above.
 1. **Template authors:** ensure `rhaap:launch-job-template` (and other `rhaap:*` actions that require `token`) use **`secrets.aapToken`** (or your chosen secret key) in the template YAML, not `parameters.token`, if you relied on values carrying the token.

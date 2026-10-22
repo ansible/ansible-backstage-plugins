@@ -13,7 +13,13 @@ for generic pages. `useNativeEntityPage`, `NativeEntityActionMenu`, and
 
 The alpha renderers filter and authorize before loading contributed components.
 Entitled contributions fail closed without a host entitlement resolver.
-Scaffolder fields retain their separate native templates-page collector. See
+Scaffolder fields use the same collector. `createPortalScaffolderPage` is an
+optional templates-page adapter that reads its validated `scaffolderFields`
+snapshot. `NativeScaffolderFields` applies configuration, experience, permission,
+and reserved-name checks before loading widgets, preserving their value/UI
+schemas and asynchronous validators. Without a templates consumer, declarations
+remain inspectable and widget loaders do not run. The collector does not import
+the optional portal-scaffolder implementation. See
 the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md).
 The registry/discovery examples below are legacy migration APIs.
 

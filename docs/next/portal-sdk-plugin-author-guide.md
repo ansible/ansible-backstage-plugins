@@ -207,17 +207,17 @@ contributor responsible for installing the provider.
 
 ## Supported native interaction contracts
 
-| Blueprint                      | Current purpose                 | Attachment or integration                             |
-| ------------------------------ | ------------------------------- | ----------------------------------------------------- |
-| `EntityDetailTabBlueprint`     | Durable entity facet            | `entity.detail.tabs`                                  |
-| `EntityOverviewCardBlueprint`  | Compact entity summary          | `entity.overview.main` or `entity.overview.secondary` |
-| `EntityActionBlueprint`        | Operation on the current entity | `entity.actions`                                      |
-| `CatalogItemActionBlueprint`   | Operation from a catalog item   | `catalog.item.actions`                                |
-| `CatalogTabBlueprint`          | Additional catalog view         | `catalog.tabs`                                        |
-| `CatalogTableColumnBlueprint`  | Comparable catalog value        | `catalog.table.columns`                               |
-| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry    | `catalog.header.actions` with registered workflow     |
-| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping       | Namespaced workflow ID and template reference         |
-| `ScaffolderFieldBlueprint`     | Typed custom template input     | Native templates-page field input                     |
+| Blueprint                      | Current purpose                 | Attachment or integration                                              |
+| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------- |
+| `EntityDetailTabBlueprint`     | Durable entity facet            | `entity.detail.tabs`                                                   |
+| `EntityOverviewCardBlueprint`  | Compact entity summary          | `entity.overview.main` or `entity.overview.secondary`                  |
+| `EntityActionBlueprint`        | Operation on the current entity | `entity.actions`                                                       |
+| `CatalogItemActionBlueprint`   | Operation from a catalog item   | `catalog.item.actions`                                                 |
+| `CatalogTabBlueprint`          | Additional catalog view         | `catalog.tabs`                                                         |
+| `CatalogTableColumnBlueprint`  | Comparable catalog value        | `catalog.table.columns`                                                |
+| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry    | `catalog.header.actions` with registered workflow                      |
+| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping       | Namespaced workflow ID and template reference                          |
+| `ScaffolderFieldBlueprint`     | Typed custom template input     | `scaffolder.fields` via shared provider and optional templates adapter |
 
 For exact descriptor fields, use the exported types and the
 [NFS composition guide](portal-sdk-nfs-composition.md). A union member in common
@@ -225,6 +225,29 @@ types is not proof that every launch/surface combination has a renderer. Native
 entity actions currently dispatch operations; supported follow-ons select an
 eligible entity detail tab. Catalog-header workflows map to registered
 scaffolder templates, not arbitrary routes.
+
+### Field declarations and optional templates adapters
+
+Declare native fields through `ScaffolderFieldBlueprint` using the existing
+`ScaffolderFieldDescriptor` and `defineScaffolderField` contracts. The Blueprint
+attaches metadata to Portal's shared contribution provider, not to a
+portal-scaffolder page. The provider validates ownership, manifests, version
+compatibility, and duplicate IDs/names without loading the widget.
+
+An installed templates host uses `createPortalScaffolderPage` and
+`NativeScaffolderFields` from `@ansible/portal-extension-host/alpha` to consume
+accepted declarations and apply runtime gates before loading widgets. Field
+names, value/UI schemas, component props, and validation functions are unchanged.
+Without a templates consumer, declarations remain inspectable but unused and
+widget loaders do not run. Declaring a field does not install a templates page
+or make its workflow available.
+
+Contributor code does not import the optional portal-scaffolder implementation
+or choose its page ID. Rebuild/re-export the host and contributors together,
+remove old templates-page attachment overrides, and follow the
+[field attachment migration](portal-sdk-nfs-composition.md#migrating-field-attachments).
+No imperative module resolution, global registration fallback, or npm publication
+is required.
 
 ## Declaring a native tab
 

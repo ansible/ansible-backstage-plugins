@@ -14,9 +14,15 @@ import {
   type ScaffolderFieldDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import plugin from './alpha';
+import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
 import { notificationStore } from './components/notifications';
 
 afterEach(() => notificationStore.clearAll());
+
+const portalHost = createFrontendPlugin({
+  pluginId: 'portal',
+  extensions: [createPortalContributionProvider()],
+});
 
 const mockSuperuser = jest.fn(() => ({ isSuperuser: true, loading: false }));
 jest.mock('./hooks', () => ({
@@ -139,7 +145,7 @@ const declaration: ScaffolderFieldDescriptor = {
 
 it('provides distinct native sidebar icons for the existing self-service sections', async () => {
   await renderTestApp({
-    features: [plugin],
+    features: [portalHost, plugin],
     initialRouteEntries: ['/self-service'],
     apis: [mockApis.permission()],
   });
@@ -177,6 +183,7 @@ it('discovers native fields on the real Portal wizard route and keeps the existi
   });
   await renderTestApp({
     features: [
+      portalHost,
       plugin,
       createFrontendPlugin({
         pluginId: 'contributor',
@@ -234,7 +241,7 @@ it.each([
   'discovers the section route %s without falling back to templates',
   async (path, title) => {
     await renderTestApp({
-      features: [plugin, catalogImportPlugin],
+      features: [portalHost, plugin, catalogImportPlugin],
       initialRouteEntries: [path],
       apis: [mockApis.permission()],
     });
@@ -249,7 +256,7 @@ it.each([
 
 it('provides the real notification context and visible stack when opening EE details directly', async () => {
   await renderTestApp({
-    features: [plugin],
+    features: [portalHost, plugin],
     initialRouteEntries: ['/self-service/catalog/newly-created-ee'],
     apis: [mockApis.permission()],
   });
@@ -263,7 +270,7 @@ it('provides the real notification context and visible stack when opening EE det
 it('does not expose catalog import to a non-superuser', async () => {
   mockSuperuser.mockReturnValueOnce({ isSuperuser: false, loading: false });
   await renderTestApp({
-    features: [plugin, catalogImportPlugin],
+    features: [portalHost, plugin, catalogImportPlugin],
     initialRouteEntries: ['/self-service/catalog-import'],
     apis: [mockApis.permission()],
   });
