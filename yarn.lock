@@ -402,7 +402,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-automation-content@workspace:workspaces/content/plugins/automation-content":
+"@ansible/plugin-automation-content@workspace:^, @ansible/plugin-automation-content@workspace:workspaces/content/plugins/automation-content":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-automation-content@workspace:workspaces/content/plugins/automation-content"
   dependencies:
@@ -25829,6 +25829,7 @@ __metadata:
   resolution: "app@workspace:workspaces/portal-core/packages/app"
   dependencies:
     "@ansible/aap-app-auth": "workspace:^"
+    "@ansible/plugin-automation-content": "workspace:^"
     "@ansible/plugin-backstage-apme": "workspace:^"
     "@ansible/plugin-backstage-rhaap": "workspace:^"
     "@ansible/portal-core": "workspace:^"
