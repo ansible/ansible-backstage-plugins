@@ -46,7 +46,7 @@
   "devDependencies": {
     "@backstage/cli": "^0.36.0",
     "@backstage/cli-defaults": "^0.1.2",
-    "@backstage/config-loader": "^1.10.9",
+    "@backstage/config-loader": "1.10.9",
     "@backstage/e2e-test-utils": "^0.1.2",
     "@backstage/frontend-test-utils": "^0.5.2",
     "@playwright/test": "^1.32.3",
