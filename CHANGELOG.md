@@ -42,6 +42,8 @@ where versioned packages apply.
 
 ### Fixed
 
+- **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema; client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`; this does not bypass redirect validation or fix token-revocation transport errors.
+
 - **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
 
 - **AAP identity and membership** aligns flag-controlled ID-based identities across authentication, scheduled catalog sync, and the extracted user provisioner; keeps direct organization membership separate from team membership and deduplicates catalog keys before mutation.
