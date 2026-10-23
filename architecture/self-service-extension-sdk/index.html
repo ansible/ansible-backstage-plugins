@@ -1,0 +1,2739 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://ansible.github.io/projects/ansible-backstage-plugins/architecture/self-service-extension-sdk/">
+      
+      
+        <link rel="prev" href="../content-experience-refactor-and-sdk/">
+      
+      
+        <link rel="next" href="../../diagrams/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Historical self-service extensions - Ansible Backstage Plugins Documentation</title>
+      
+    
+     
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+<link rel="stylesheet" href="../../assets/stylesheets/ansible.css" />
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Red+Hat+Display:300,300i,400,400i,700,700i%7CRed+Hat+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Red Hat Display";--md-code-font:"Red Hat Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Historical self-service extensions - Ansible Backstage Plugins Documentation" />
+<meta property="og:image" content="https://ansible.github.io/projects/ansible-backstage-plugins/assets/images/social/architecture/self-service-extension-sdk.png" />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://ansible.github.io/projects/ansible-backstage-plugins/architecture/self-service-extension-sdk/" />
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:title" content="Historical self-service extensions - Ansible Backstage Plugins Documentation" />
+<meta property="twitter:image" content="https://ansible.github.io/projects/ansible-backstage-plugins/assets/images/social/architecture/self-service-extension-sdk.png" />
+</head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#self-service-extension-sdk-architecture-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Ansible Backstage Plugins Documentation" class="md-header__button md-logo" aria-label="Ansible Backstage Plugins Documentation" data-md-component="logo">
+      
+  
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="ansible-aap">
+        <path d="M128,0C198.645,0 256,57.355 256,128C256,198.645 198.645,256 128,256C57.355,256 0,198.645 0,128C0,57.355 57.355,0 128,0ZM189.094,178.686L138.002,55.958C136.786,52.714 133.677,50.416 130.163,50.551C126.513,50.416 123.269,52.714 122.053,55.958L66.23,190.446L85.423,190.446L107.455,135.029L173.55,188.418C175.442,190.31 178.011,191.392 180.579,191.527C185.58,191.662 189.77,187.742 189.905,182.606L189.905,182.336C189.77,181.119 189.499,179.903 189.094,178.686ZM130.298,78.125L163.413,159.899L113.402,120.431L130.298,78.125Z" style="fill:white;"/>
+    </g>
+</svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Ansible Backstage Plugins Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Historical self-service extensions
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ansible/ansible-backstage-plugins" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+    
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Setup
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../plugins/portal-core/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Plugins
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../next/portal-sdk-architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Portal SDK
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../content-experience-refactor-and-sdk/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/external-authentication/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Ansible Backstage Plugins Documentation" class="md-nav__button md-logo" aria-label="Ansible Backstage Plugins Documentation" data-md-component="logo">
+      
+  
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="ansible-aap">
+        <path d="M128,0C198.645,0 256,57.355 256,128C256,198.645 198.645,256 128,256C57.355,256 0,198.645 0,128C0,57.355 57.355,0 128,0ZM189.094,178.686L138.002,55.958C136.786,52.714 133.677,50.416 130.163,50.551C126.513,50.416 123.269,52.714 122.053,55.958L66.23,190.446L85.423,190.446L107.455,135.029L173.55,188.418C175.442,190.31 178.011,191.392 180.579,191.527C185.58,191.662 189.77,187.742 189.905,182.606L189.905,182.336C189.77,181.119 189.499,179.903 189.094,178.686ZM130.298,78.125L163.413,159.899L113.402,120.431L130.298,78.125Z" style="fill:white;"/>
+    </g>
+</svg>
+
+    </a>
+    Ansible Backstage Plugins Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ansible/ansible-backstage-plugins" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../.." class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../installation/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    
+  
+  
+  
+    <a href="../../plugins/portal-core/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugins
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../next/portal-sdk-architecture/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Portal SDK
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical architecture and planning
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Historical architecture and planning
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../content-experience-refactor-and-sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Content experience refactoring plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical self-service extensions
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Historical self-service extensions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-problem-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Problem Statement
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Goals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-new-packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. New Packages
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-registration-mechanisms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Registration Mechanisms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-theme-visual-consistency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Theme &amp; Visual Consistency
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-self-service-plugin-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Self-Service Plugin Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-dependency-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Dependency Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-implementation-workstreams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Implementation Workstreams
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-documentation-deliverables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Documentation Deliverables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-testing-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Testing Strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-risks-mitigations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Risks &amp; Mitigations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-alignment-with-full-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Alignment with Full Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-compatibility-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Compatibility Policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+      
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../diagrams/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagrams
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_2" id="__nav_5_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Diagrams
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagrams/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagrams/sequence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtime sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+      
+        
+        
+      
+    
+    <li class="md-nav__item md-nav__item--pruned md-nav__item--nested">
+      
+        
+  
+  
+  
+    <a href="../../features/external-authentication/" class="md-nav__link">
+      
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      
+        <span class="md-nav__icon md-icon"></span>
+      
+    </a>
+  
+
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../content-experience-refactor-and-sdk/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../content-experience-refactor-and-sdk/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Historical architecture and planning
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/ansible/ansible-backstage-plugins/blob/main/docs/architecture/self-service-extension-sdk.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+    
+      
+    
+    <a href="https://github.com/ansible/ansible-backstage-plugins/raw/main/docs/architecture/self-service-extension-sdk.md" title="View source of this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 18c.56 0 1 .44 1 1s-.44 1-1 1-1-.44-1-1 .44-1 1-1m0-3c-2.73 0-5.06 1.66-6 4 .94 2.34 3.27 4 6 4s5.06-1.66 6-4c-.94-2.34-3.27-4-6-4m0 6.5a2.5 2.5 0 0 1-2.5-2.5 2.5 2.5 0 0 1 2.5-2.5 2.5 2.5 0 0 1 2.5 2.5 2.5 2.5 0 0 1-2.5 2.5M9.27 20H6V4h7v5h5v4.07c.7.08 1.36.25 2 .49V8l-6-6H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h4.5a8.2 8.2 0 0 1-1.23-2"/></svg>
+    </a>
+  
+
+
+<h1 id="self-service-extension-sdk-architecture-implementation-plan">Self-Service Extension SDK — Architecture &amp; Implementation Plan<a class="headerlink" href="#self-service-extension-sdk-architecture-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Historical planning reference:</strong> The registry, Scalprum wiring and package
+proposals below preserve an earlier design; they are not native integration
+instructions. Use <a href="../../next/portal-sdk-architecture/">SDK architecture</a> and the
+<a href="../../next/portal-sdk-plugin-author-guide/">plugin author guide</a> for the current implementation.</p>
+<p><strong>Status:</strong> Draft
+<strong>Author:</strong> AI-assisted design session
+<strong>Scope:</strong> Extract reusable components and create an extension SDK for the self-service plugin
+<strong>Jira:</strong> <a href="https://redhat.atlassian.net/browse/ANSTRAT-2497">Portal Plugin Factory feature</a> — Portal Plugin Factory: Plugin Development Guide and SDK</p>
+<p><strong>Positioning:</strong> This document proposes an initial extension layer for the broader Automation Portal Plugin Factory
+SDK. It delivers the self-service plugin's extension surface:
+the <code>backstage-rhaap-react</code> component library and <code>backstage-rhaap-extension-api</code> contracts
+package. The full factory scope (portal-wide RBAC delegation, settings
+registration, capability metadata, scaffold CLI, contributor kit) is beyond this document's
+implementation boundary. The packages produced here establish the package naming, versioning,
+and contract patterns that the broader factory SDK will extend.</p>
+<p><strong>Canonical references for the broader architecture:</strong></p>
+<ul>
+<li><a href="https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md">Ganesh's Content Experience Architecture</a> — target state, workspace structure, plugin manifest model</li>
+<li><a href="https://github.com/ansible/ansible-backstage-plugins/pull/712">Brad's migration plan (PR #712)</a> — 45 work packages under <code>docs/next/</code></li>
+</ul>
+<p><strong>Alignment review:</strong> Brad Thornton reviewed this plan against the full architecture and identified six conflicts. Each is documented in §12 with an agreed resolution. The implementation plan below remains valid — §12 records which specific design decisions need updating as the design moves toward a supported implementation.</p>
+</blockquote>
+<hr />
+<h2 id="1-problem-statement">1. Problem Statement<a class="headerlink" href="#1-problem-statement" title="Permanent link">&para;</a></h2>
+<p>The self-service plugin (<code>@ansible/plugin-backstage-self-service</code>) is a monolithic frontend plugin that tightly couples:</p>
+<ul>
+<li><strong>Shared UI components</strong> (PageHeaderSection, SyncDialog, EmptyState, notification system, cache utilities) that could be reused by other plugins</li>
+<li><strong>Hardcoded page compositions</strong> (RepositoryDetailsPage, EEDetailsPage, CollectionDetailsPage) with static tab lists that external plugins cannot extend</li>
+<li><strong>API clients and types</strong> (AnsibleApiClient, EEBuildApiClient, ApiRefs) that are only accessible by depending on the entire self-service plugin</li>
+</ul>
+<p>Community developers and Red Hat internal teams (e.g., content discovery, APME) cannot:</p>
+<ol>
+<li>Reuse shared components without depending on the full self-service plugin</li>
+<li>Add tabs, cards, or actions to existing detail pages</li>
+<li>Register new sections in the self-service navigation</li>
+<li>Build visually consistent plugins using our design tokens</li>
+</ol>
+<p><strong>Permissions context:</strong> The self-service plugin's pages are gated by permissions defined in <code>backstage-rhaap-common/src/permissions.ts</code>:</p>
+<ul>
+<li><code>ansible.execution-environments.view</code></li>
+<li><code>ansible.git-repositories.view</code></li>
+<li><code>ansible.collections.view</code></li>
+<li><code>ansible.templates.view</code></li>
+<li><code>ansible.history.view</code></li>
+</ul>
+<p>Extension contributors targeting pages behind these gates (e.g., <code>TEMPLATE_DETAIL_CARDS</code>) should be aware that the host page itself may be hidden from users lacking the corresponding permission. The SDK does not re-check permissions per contribution — that is the host page's responsibility.</p>
+<hr />
+<h2 id="2-goals">2. Goals<a class="headerlink" href="#2-goals" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Exportable component library</strong> — shared UI components available as an independent package</li>
+<li><strong>Extension points</strong> — well-defined slots where external plugins can contribute tabs, cards, and actions</li>
+<li><strong>Zero-config registration for RHDH dynamic plugins</strong> — side-effect imports auto-register contributions</li>
+<li><strong>Declarative registration via <code>dynamic-plugins.yaml</code></strong> — config-driven overrides for labels, priority, enable/disable</li>
+<li><strong>Framework-agnostic theming</strong> — CSS custom properties dynamically derived from the active Backstage theme</li>
+<li><strong>MUI v4 theme support</strong> — automatic MUI v4 theme wrapping for contributed components (v5 support deferred to a future release when the upstream Backstage MUI v5 migration completes)</li>
+<li><strong>Forward-compatible</strong> — registry pattern can be backed by Backstage's new frontend system later</li>
+</ol>
+<hr />
+<h2 id="3-new-packages">3. New Packages<a class="headerlink" href="#3-new-packages" title="Permanent link">&para;</a></h2>
+<h3 id="31-ansiblebackstage-rhaap-react-ui-component-library">3.1 <code>@ansible/backstage-rhaap-react</code> — UI Component Library<a class="headerlink" href="#31-ansiblebackstage-rhaap-react-ui-component-library" title="Permanent link">&para;</a></h3>
+<p><strong>Role:</strong> <code>frontend-plugin-module</code> (no plugin ID — pure library)</p>
+<p>Reusable, self-contained React components, hooks, and utilities extracted from the self-service plugin. No plugin coupling, no API dependencies beyond Backstage core.</p>
+<p><strong>What moves here:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Source in self-service</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PageHeaderSection</code></td>
+<td><code>components/common/PageHeaderSection.tsx</code></td>
+<td>Page header with sync button, tooltips, progress</td>
+</tr>
+<tr>
+<td><code>SyncDialog</code></td>
+<td><code>components/common/SyncDialog.tsx</code></td>
+<td>Sync confirmation/progress dialog</td>
+</tr>
+<tr>
+<td><code>SyncProgressPopover</code></td>
+<td><code>components/common/SyncProgressPopover.tsx</code></td>
+<td>Progress tooltip</td>
+</tr>
+<tr>
+<td><code>EmptyState</code></td>
+<td><code>components/common/EmptyState.tsx</code></td>
+<td>Empty state component</td>
+</tr>
+<tr>
+<td><code>EntityLinkButton</code></td>
+<td><code>components/common/EntityLinkButton.tsx</code></td>
+<td>Link to a catalog entity</td>
+</tr>
+<tr>
+<td><code>ScmIntegrationAuthError</code></td>
+<td><code>components/common/ScmIntegrationAuthError.tsx</code></td>
+<td>SCM auth error display</td>
+</tr>
+<tr>
+<td><code>SkeletonLoader</code></td>
+<td><code>components/Home/SkeletonLoader.tsx</code></td>
+<td>Card skeleton loading state</td>
+</tr>
+<tr>
+<td><code>NotificationProvider</code></td>
+<td><code>components/notifications/NotificationContext.tsx</code></td>
+<td>Toast notification context</td>
+</tr>
+<tr>
+<td><code>NotificationStack</code></td>
+<td><code>components/notifications/NotificationStack.tsx</code></td>
+<td>Notification display stack</td>
+</tr>
+<tr>
+<td><code>NotificationCard</code></td>
+<td><code>components/notifications/NotificationCard.tsx</code></td>
+<td>Individual notification card</td>
+</tr>
+<tr>
+<td><code>notificationStore</code></td>
+<td><code>components/notifications/notificationStore.ts</code></td>
+<td>Notification state store</td>
+</tr>
+<tr>
+<td><code>syncPollingService</code></td>
+<td><code>components/notifications/syncPollingService.ts</code></td>
+<td>Sync polling service</td>
+</tr>
+<tr>
+<td><code>PaginatedEntityCache</code></td>
+<td><code>components/common/cache/PaginatedEntityCache.ts</code></td>
+<td>Entity caching + pagination</td>
+</tr>
+<tr>
+<td><code>usePagination</code></td>
+<td><code>components/common/cache/usePagination.ts</code></td>
+<td>Pagination hook</td>
+</tr>
+<tr>
+<td><code>useCacheSubscription</code></td>
+<td><code>components/common/cache/useCacheSubscription.ts</code></td>
+<td>Cache subscription hook</td>
+</tr>
+<tr>
+<td><code>useIsSuperuser</code></td>
+<td><code>hooks/useIsSuperuser.ts</code></td>
+<td>Superuser check hook</td>
+</tr>
+<tr>
+<td><code>useSyncStatusPolling</code></td>
+<td><code>hooks/useSyncStatusPolling.ts</code></td>
+<td>Polling hook</td>
+</tr>
+<tr>
+<td><code>GitLabIcon</code>, <code>RedHatIcon</code></td>
+<td><code>components/common/icons.tsx</code></td>
+<td>Icon components</td>
+</tr>
+<tr>
+<td><code>usePageHeaderStyles</code></td>
+<td><code>components/common/styles.ts</code></td>
+<td>Page header style hook</td>
+</tr>
+<tr>
+<td><code>useSharedStyles</code></td>
+<td><code>components/common/styles.ts</code></td>
+<td>Shared style hook</td>
+</tr>
+<tr>
+<td><code>useShellPageStyles</code></td>
+<td><code>components/common/styles.ts</code></td>
+<td>Shell page style hook</td>
+</tr>
+<tr>
+<td><code>formatRelativeTime</code></td>
+<td><code>utils/timeUtils.ts</code></td>
+<td>Relative time formatter</td>
+</tr>
+<tr>
+<td>All types from <code>common/types.ts</code></td>
+<td><code>components/common/types.ts</code></td>
+<td>SyncStatus, SyncStatusMap, etc.</td>
+</tr>
+<tr>
+<td>All constants from <code>common/constants.ts</code></td>
+<td><code>components/common/constants.ts</code></td>
+<td>Sync category constants, intervals</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note — domain utilities stay in self-service:</strong> &gt; <code>parseMarkdownLinks</code> (returns JSX — requires React + MUI <code>Link</code>),
+<code>parseEEDefinition</code> (EE domain, depends on <code>js-yaml</code>),
+<code>fetchReadmeFromBackend</code>, and <code>fetchGitFileContentFromBackend</code>
+(use <code>fetchApiRef</code> / <code>DiscoveryApi</code> from <code>@backstage/core-plugin-api</code> — frontend
+data-fetching utilities, not backend code) remain in self-service. They are
+domain-specific to self-service pages and cannot move to <code>backstage-rhaap-common</code>
+(which is a backend-oriented package with no React dependency) or to this UI library
+(which should not carry domain parsers or backend fetch logic). If a second consumer
+emerges, they can be extracted to a <code>@ansible/backstage-rhaap-common-react</code> package
+following the Backstage <code>*-common</code> (isomorphic) / <code>*-react</code> (frontend) convention.</p>
+</blockquote>
+<p><strong>Also includes (new):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Export</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RhaapThemeProvider</code></td>
+<td>MUI v4 theme wrapper (reads from active Backstage theme)</td>
+</tr>
+<tr>
+<td><code>rhaapTokens</code></td>
+<td>Static design token constants (spacing, typography, border-radius)</td>
+</tr>
+<tr>
+<td>CSS custom properties injection</td>
+<td><code>--rhaap-*</code> tokens dynamically derived from the Backstage theme at render time (see §5.2)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Package structure:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>plugins/backstage-rhaap-react/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── package.json
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── tsconfig.json
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── src/
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── index.ts
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── components/
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   │   ├── PageHeaderSection/
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   │   │   ├── PageHeaderSection.tsx
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   │   │   ├── PageHeaderSection.test.tsx
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   │   │   └── index.ts
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   │   ├── SyncDialog/
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   │   ├── SyncProgressPopover/
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   │   ├── EmptyState/
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   │   ├── EntityLinkButton/
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   │   ├── ScmIntegrationAuthError/
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   │   └── SkeletonLoader/
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── notifications/
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   │   ├── NotificationContext.tsx
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   │   ├── NotificationStack.tsx
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   │   ├── NotificationCard.tsx
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   │   ├── notificationStore.ts
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   │   ├── syncPollingService.ts
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   │   └── index.ts
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── cache/
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   │   ├── PaginatedEntityCache.ts
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   │   ├── usePagination.ts
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   │   ├── useCacheSubscription.ts
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   │   ├── types.ts
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│   │   └── index.ts
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── hooks/
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   │   ├── useIsSuperuser.ts
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│   │   ├── useSyncStatusPolling.ts
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│   │   └── index.ts
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│   ├── theme/
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│   │   ├── RhaapThemeProvider.tsx
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>│   │   ├── tokens.ts
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>│   │   └── index.ts
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── icons/
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   │   └── index.tsx
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│   ├── styles/
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>│   │   └── index.ts
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>│   ├── utils/
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>│   │   ├── timeUtils.ts
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>│   │   └── index.ts
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   └── types.ts
+</code></pre></div>
+<p><strong>Dependencies:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"peerDependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">"react"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^18.3.1"</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">"react-dom"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^18.3.1"</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">"@material-ui/core"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^4.9.13"</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">"@material-ui/icons"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^4.9.1"</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="nt">"@backstage/core-components"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^0.18.8"</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">"@backstage/core-plugin-api"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^1.12.4"</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">"@backstage/catalog-model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^1.7.7"</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">"@backstage/theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^0.7.2"</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="32-ansiblebackstage-rhaap-extension-api-extension-contracts-sdk">3.2 <code>@ansible/backstage-rhaap-extension-api</code> — Extension Contracts (SDK)<a class="headerlink" href="#32-ansiblebackstage-rhaap-extension-api-extension-contracts-sdk" title="Permanent link">&para;</a></h3>
+<p><strong>Role:</strong> <code>frontend-plugin-module</code> (no plugin ID — pure contracts)</p>
+<p>Defines extension points, the contribution registry, React hooks, and convenience helpers. This is what community developers depend on to extend the self-service pages.</p>
+<p><strong>Core concepts:</strong></p>
+<h4 id="contribution-types">Contribution types<a class="headerlink" href="#contribution-types" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// Types for what can be contributed</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">TabContribution</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nx">icon?</span><span class="o">:</span><span class="w"> </span><span class="kt">React.ComponentType</span><span class="o">&lt;</span><span class="p">{</span><span class="w"> </span><span class="nx">fontSize</span><span class="o">?:</span><span class="w"> </span><span class="s1">'small'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'default'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'large'</span><span class="w"> </span><span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="cm">/** Accepts lazy-loaded or synchronous components. The renderer wraps</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="cm">   *  non-lazy components in Suspense only when needed. */</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nx">component</span><span class="o">:</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">LazyExoticComponent</span><span class="o">&lt;</span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;&gt;</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nx">filter</span><span class="o">?:</span><span class="w"> </span><span class="p">(</span><span class="nx">entity</span><span class="o">:</span><span class="w"> </span><span class="kt">Entity</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="cm">/** If set, the tab is hidden from users who lack this permission.</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="cm">   *  Evaluated by ExtensionRenderer using @backstage/plugin-permission-react.</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="cm">   *  Only Backstage BasicPermission is supported (no ResourcePermission). */</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span><span class="nx">permission?</span><span class="o">:</span><span class="w"> </span><span class="kt">BasicPermission</span><span class="p">;</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="cm">/** Lower value = further left. Built-in tabs use 0–20.</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="cm">   *  Community tabs should use 21+ to appear after built-ins.</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="cm">   *  Negative priorities are allowed but will render before built-in tabs.</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="cm">   *  Equal priorities are ordered by insertion order (stable sort). */</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">  </span><span class="nx">priority?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="p">}</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">CardContribution</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">  </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">  </span><span class="nx">slot</span><span class="o">:</span><span class="w"> </span><span class="s1">'overview-left'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'overview-right'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'sidebar'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">  </span><span class="nx">component</span><span class="o">:</span>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">LazyExoticComponent</span><span class="o">&lt;</span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;&gt;</span>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">  </span><span class="nx">filter</span><span class="o">?:</span><span class="w"> </span><span class="p">(</span><span class="nx">entity</span><span class="o">:</span><span class="w"> </span><span class="kt">Entity</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">  </span><span class="cm">/** If set, the card slot is hidden from users who lack this permission. */</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">  </span><span class="nx">permission?</span><span class="o">:</span><span class="w"> </span><span class="kt">BasicPermission</span><span class="p">;</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">  </span><span class="nx">priority?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="p">}</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">ActionContribution</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">  </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">  </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">  </span><span class="nx">icon?</span><span class="o">:</span><span class="w"> </span><span class="kt">React.ComponentType</span><span class="p">;</span>
+<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">  </span><span class="cm">/** Action handler receives the entity and a getApi() helper for accessing any</span>
+<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="cm">   *  Backstage API ref. Contributors import the API refs they need from their own</span>
+<a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a><span class="cm">   *  dependencies (e.g., catalogApiRef from @backstage/plugin-catalog-react). */</span>
+<a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a><span class="w">  </span><span class="nx">handler</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">context</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a><span class="w">    </span><span class="nx">entity</span><span class="o">:</span><span class="w"> </span><span class="kt">Entity</span><span class="p">;</span>
+<a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a><span class="w">    </span><span class="cm">/** Resolves a Backstage API by ref. Equivalent to useApi() but callable</span>
+<a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a><span class="cm">     *  outside a React component. Resolved at render time by ExtensionRenderer. */</span>
+<a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a><span class="w">    </span><span class="nx">getApi</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="p">(</span><span class="nx">apiRef</span><span class="o">:</span><span class="w"> </span><span class="kt">ApiRef</span><span class="o">&lt;</span><span class="nx">T</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">T</span><span class="p">;</span>
+<a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a><span class="w">  </span><span class="p">})</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a><span class="w">  </span><span class="nx">filter</span><span class="o">?:</span><span class="w"> </span><span class="p">(</span><span class="nx">entity</span><span class="o">:</span><span class="w"> </span><span class="kt">Entity</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a><span class="w">  </span><span class="cm">/** If set, the action button/menu item is hidden from users who lack this permission. */</span>
+<a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a><span class="w">  </span><span class="nx">permission?</span><span class="o">:</span><span class="w"> </span><span class="kt">BasicPermission</span><span class="p">;</span>
+<a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a><span class="w">  </span><span class="nx">variant</span><span class="o">?:</span><span class="w"> </span><span class="s1">'button'</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s1">'menu-item'</span><span class="p">;</span>
+<a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a><span class="w">  </span><span class="nx">priority?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a><span class="p">}</span>
+</code></pre></div>
+<h4 id="extension-point-ids">Extension point IDs<a class="headerlink" href="#extension-point-ids" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">EXTENSION_POINTS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="c1">// Git Repository detail page</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nx">GIT_REPO_DETAIL_TABS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.git-repository.detail.tabs'</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nx">GIT_REPO_DETAIL_CARDS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.git-repository.detail.cards'</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nx">GIT_REPO_DETAIL_ACTIONS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.git-repository.detail.actions'</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nx">GIT_REPO_LIST_TABS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.git-repository.list.tabs'</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="c1">// Execution Environments detail page</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="nx">EE_DETAIL_TABS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.execution-environment.detail.tabs'</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="nx">EE_DETAIL_CARDS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.execution-environment.detail.cards'</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nx">EE_DETAIL_ACTIONS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.execution-environment.detail.actions'</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nx">EE_LIST_TABS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.execution-environment.list.tabs'</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="c1">// Collections detail page</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nx">COLLECTION_DETAIL_TABS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.collection.detail.tabs'</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nx">COLLECTION_DETAIL_CARDS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.collection.detail.cards'</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">  </span><span class="nx">COLLECTION_DETAIL_ACTIONS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.collection.detail.actions'</span><span class="p">,</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">  </span><span class="c1">// Templates</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">  </span><span class="nx">TEMPLATE_DETAIL_CARDS</span><span class="o">:</span><span class="w"> </span><span class="s1">'rhaap.template.detail.cards'</span><span class="p">,</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="p">}</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kd">const</span><span class="p">;</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> <code>SELF_SERVICE_SECTIONS</code> (top-level navigation contributions) is deferred to
+navigation contributions. A navigation section has a fundamentally different shape (route, icon, label,
+permission check) than tabs/cards/actions and needs a dedicated
+<code>SectionContribution</code> type. See §8 navigation contributions for a design sketch and open questions.</p>
+</blockquote>
+<h4 id="contribution-registry">Contribution registry<a class="headerlink" href="#contribution-registry" title="Permanent link">&para;</a></h4>
+<p>Module-level singleton that collects registrations. Supports:</p>
+<ul>
+<li><code>registerTab(extensionPoint, contribution)</code> → returns unregister function</li>
+<li><code>registerCard(extensionPoint, contribution)</code> → returns unregister function</li>
+<li><code>registerAction(extensionPoint, contribution)</code> → returns unregister function</li>
+<li><code>getTabs(extensionPoint, entity?)</code> → sorted, filtered contributions</li>
+<li><code>getCards(extensionPoint, entity?)</code> → sorted, filtered contributions</li>
+<li><code>getActions(extensionPoint, entity?)</code> → sorted, filtered contributions</li>
+</ul>
+<p><strong>Filter safety:</strong> <code>getTabs()</code>, <code>getCards()</code>, and <code>getActions()</code> wrap each contribution's <code>filter()</code> call in a <code>try/catch</code>. A filter that throws is treated as "don't show this contribution" and a <code>console.warn</code> is emitted with the contribution ID and error. This prevents a community plugin's buggy filter from crashing the host page inside <code>useMemo</code> (which would bypass the per-slot <code>ErrorBoundary</code>).</p>
+<p><strong>Handler safety:</strong> <code>ExtensionRenderer</code> wraps every <code>ActionContribution.handler()</code> invocation in a <code>try/catch</code> (including <code>await</code> for async handlers that return a rejected promise). On failure, the error is surfaced via <code>alertApi.post({ message: '...', severity: 'error' })</code> and logged with the contribution ID + error. The host page is unaffected. This completes the error-handling trifecta for all community-code execution paths:</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Mechanism</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Render errors</td>
+<td><code>ErrorBoundary</code> per slot</td>
+<td><code>ExtensionRenderer</code> (§5.1)</td>
+</tr>
+<tr>
+<td>Filter errors</td>
+<td><code>try/catch</code> in registry getters</td>
+<td><code>ContributionRegistry</code> (§3.2)</td>
+</tr>
+<tr>
+<td>Handler errors</td>
+<td><code>try/catch</code> + <code>alertApi</code> notification</td>
+<td><code>ExtensionRenderer</code> action invocation</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>subscribe(listener)</code> → returns unsubscribe function (for React re-renders)</li>
+<li><code>disable(contributionId)</code> / <code>enable(contributionId)</code> → runtime enable/disable</li>
+<li><code>reset()</code> → clears all registrations (for test isolation; see §10)</li>
+</ul>
+<p><strong>Duplicate registration:</strong> If <code>registerTab</code> (or <code>registerCard</code>, <code>registerAction</code>) is called with an <code>id</code> that is already registered at the same extension point, the new registration <strong>replaces</strong> the previous one and a console warning is emitted. This matches React Fast Refresh / HMR behavior where module scope re-executes on edit.</p>
+<p><strong>Priority tiebreaker:</strong> Contributions at the same <code>priority</code> value are ordered by insertion order (stable sort). This is deterministic because <code>Array.prototype.sort</code> is stable in all modern JS engines.</p>
+<h4 id="react-hooks">React hooks<a class="headerlink" href="#react-hooks" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>useExtensionTabs(extensionPoint, entity?)</code> — returns sorted tabs, re-renders on registry changes</li>
+<li><code>useExtensionCards(extensionPoint, entity?)</code> — returns sorted cards</li>
+<li><code>useExtensionActions(extensionPoint, entity?)</code> — returns sorted actions</li>
+</ul>
+<h4 id="convenience-registration-helpers">Convenience registration helpers<a class="headerlink" href="#convenience-registration-helpers" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nx">registerGitRepoDetailTab</span><span class="p">(</span><span class="nx">tab</span><span class="p">);</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nx">registerGitRepoDetailCard</span><span class="p">(</span><span class="nx">card</span><span class="p">);</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nx">registerGitRepoDetailAction</span><span class="p">(</span><span class="nx">action</span><span class="p">);</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nx">registerEEDetailTab</span><span class="p">(</span><span class="nx">tab</span><span class="p">);</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nx">registerCollectionDetailTab</span><span class="p">(</span><span class="nx">tab</span><span class="p">);</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1">// ... one per extension point</span>
+</code></pre></div>
+<p><strong>Package structure:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>plugins/backstage-rhaap-extension-api/
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>├── package.json
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>├── tsconfig.json
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>├── src/
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>│   ├── index.ts
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>│   ├── types.ts                # TabContribution, CardContribution, etc.
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>│   ├── extensionPoints.ts      # EXTENSION_POINTS constants
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>│   ├── registry.ts             # ContributionRegistry class
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>│   ├── hooks/
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>│   │   ├── useExtensionTabs.ts
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>│   │   ├── useExtensionCards.ts
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>│   │   ├── useExtensionActions.ts
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>│   │   └── index.ts
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>│   └── helpers/
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>│       ├── git-repository.ts   # registerGitRepoDetailTab, etc.
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>│       ├── execution-environment.ts
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>│       ├── collection.ts
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>│       ├── template.ts         # registerTemplateDetailCard
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>│       └── index.ts
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> <code>ExtensionRenderer</code> and <code>DynamicExtensionDiscovery</code> are <strong>not</strong> in this
+package. They are host-side implementation concerns that depend on
+<code>@ansible/backstage-rhaap-react</code> (for <code>RhaapThemeProvider</code>, <code>SkeletonLoader</code>),
+<code>@backstage/theme</code>, and <code>@material-ui/core</code> — none of which are deps of this
+contracts package. They live in self-service (see §6.3).</p>
+</blockquote>
+<p><strong>Dependencies:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"peerDependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">"react"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^18.3.1"</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">"@backstage/catalog-model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^1.7.7"</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">"@backstage/core-plugin-api"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^1.12.4"</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">"@backstage/plugin-permission-common"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^0.8.4"</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">}</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Why these peers are needed:</strong></p>
+<ul>
+<li><code>@backstage/core-plugin-api</code> — <code>ApiRef&lt;T&gt;</code> type for the <code>getApi()</code> helper</li>
+<li><code>@backstage/plugin-permission-common</code> — <code>BasicPermission</code> type for the <code>permission</code> field on contribution types</li>
+</ul>
+<p>Permission <em>evaluation</em> (<code>usePermission()</code>) happens in <code>ExtensionRenderer</code> inside
+self-service, which depends on <code>@backstage/plugin-permission-react</code>. The contracts
+package only needs the type (<code>BasicPermission</code>), not the evaluation hook.</p>
+</blockquote>
+<hr />
+<h2 id="4-registration-mechanisms">4. Registration Mechanisms<a class="headerlink" href="#4-registration-mechanisms" title="Permanent link">&para;</a></h2>
+<h3 id="41-auto-registration-primary-works-for-all-deployments">4.1 Auto-registration (primary — works for all deployments)<a class="headerlink" href="#41-auto-registration-primary-works-for-all-deployments" title="Permanent link">&para;</a></h3>
+<p>Community plugins call registration functions from their package entry point. The call runs at module load time — before React renders.</p>
+<blockquote>
+<p><strong>Entry point note:</strong> In this repo, only backend modules have <code>src/dynamic/index.ts</code> files.
+Frontend plugins use the standard <code>src/index.ts</code> entry. RHDH loads frontend dynamic
+plugin bundles via module federation from the package's main entry point, not a <code>/dynamic</code>
+sub-path. Community frontend plugins should register contributions from <code>src/index.ts</code>
+(or any module imported by it). The example below shows a side-effect registration
+that runs when the module loads.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// @acme/plugin-security-scan/src/index.ts (or any file imported at load time)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">lazy</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'react'</span><span class="p">;</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">registerGitRepoDetailTab</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@ansible/backstage-rhaap-extension-api'</span><span class="p">;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nx">registerGitRepoDetailTab</span><span class="p">({</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="s1">'acme.security-scan'</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="s1">'Security Scan'</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nx">component</span><span class="o">:</span><span class="w"> </span><span class="kt">lazy</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="k">import</span><span class="p">(</span><span class="s1">'../SecurityScanTab'</span><span class="p">)),</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nx">priority</span><span class="o">:</span><span class="w"> </span><span class="kt">30</span><span class="p">,</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="p">});</span>
+</code></pre></div>
+<p>RHDH loads the dynamic plugin's bundle → module executes → registration completes.</p>
+<p>No <code>packages/</code> changes required. The deployer only needs to enable the plugin in <code>dynamic-plugins.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">plugins</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">package</span><span class="p">:</span><span class="w"> </span><span class="s">'@acme/plugin-security-scan@1.2.0'</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">disabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
+<h3 id="42-declarative-via-dynamic-pluginsyaml-secondary-config-driven-control-rhdh-only">4.2 Declarative via <code>dynamic-plugins.yaml</code> (secondary — config-driven control, RHDH only)<a class="headerlink" href="#42-declarative-via-dynamic-pluginsyaml-secondary-config-driven-control-rhdh-only" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Note:</strong> This mechanism uses Scalprum module federation and is only available in
+Red Hat Developer Hub (RHDH) deployments. In standard Backstage without Scalprum,
+<code>DynamicExtensionDiscovery</code> is a clean no-op (see §4.4).</p>
+<p><strong>Implementation note:</strong> There are currently zero Scalprum API imports in this
+codebase. The entire <code>DynamicExtensionDiscovery</code> ↔ Scalprum integration is <strong>net-new code</strong>
+with no local examples to follow. The implementation should target
+<a href="https://github.com/scalprum/scaffolding/tree/main/packages/react-core"><code>@scalprum/react-core</code></a>
+and reference RHDH's
+<a href="https://docs.redhat.com/en/documentation/red_hat_developer_hub/">dynamic plugin documentation</a>
+for the module federation scope naming convention.</p>
+</blockquote>
+<p>For deployers who want to override labels, priority, or disable specific contributions without modifying plugin code:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">plugins</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">package</span><span class="p">:</span><span class="w"> </span><span class="s">'@acme/plugin-security-scan@1.2.0'</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">disabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">pluginConfig</span><span class="p">:</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">rhaapExtensions</span><span class="p">:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">        </span><span class="nt">tabs</span><span class="p">:</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">extensionPoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rhaap.git-repository.detail.tabs</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">            </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme.security-scan</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">            </span><span class="nt">importName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SecurityScanTab</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">            </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="s">'Security</span><span class="nv"> </span><span class="s">&amp;</span><span class="nv"> </span><span class="s">Compliance'</span><span class="w"> </span><span class="c1"># override the default label</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">            </span><span class="nt">priority</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w"> </span><span class="c1"># move it before CI Activity</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">        </span><span class="nt">disabled</span><span class="p">:</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme.some-other-tab</span><span class="w"> </span><span class="c1"># disable a specific contribution</span>
+</code></pre></div>
+<p><strong>Resolution mechanism:</strong> <code>DynamicExtensionDiscovery</code> resolves <code>importName</code> to a React component via Scalprum's <code>useModule</code> hook (or equivalent <code>@scalprum/react-core</code> API). Each dynamic plugin is a federated module with a known scope (the plugin package name). The resolution is:</p>
+<ol>
+<li><code>@scalprum/react-core</code> retrieves the federated module for the plugin's scope</li>
+<li>The named export matching <code>importName</code> is extracted (e.g., <code>SecurityScanTab</code>)</li>
+<li>The component is wrapped in <code>lazy()</code> and registered with the <code>ContributionRegistry</code></li>
+<li>If resolution fails (module not found, export missing), a warning is logged via the Backstage <code>LoggerService</code> (if available in the extension host context) <strong>and</strong> via <code>console.error</code> as a fallback. The contribution is silently omitted — the host page continues to render without it</li>
+</ol>
+<blockquote>
+<p><strong>Observability note:</strong> In production RHDH, browser <code>console.error</code> is invisible
+to platform operators. A misconfigured <code>importName</code> will result in a missing tab
+with no operator-visible signal. The RHDH dynamic plugin guide (§9) should document
+this as a debugging step: check the browser console when a declarative contribution
+does not appear. A future improvement could emit a Backstage notification via
+<code>alertApi</code> for failed resolutions (gated behind a <code>debug</code> config flag to avoid
+user-facing noise).</p>
+</blockquote>
+<h3 id="43-registry-singleton-shared-module-requirement">4.3 Registry singleton — shared module requirement<a class="headerlink" href="#43-registry-singleton-shared-module-requirement" title="Permanent link">&para;</a></h3>
+<p>The <code>ContributionRegistry</code> is a <strong>module-level singleton</strong> — the shared bus between community plugins and the self-service host. This only works if all parties are talking to <strong>the same instance</strong> of <code>backstage-rhaap-extension-api</code>.</p>
+<p>In RHDH, if self-service and a community plugin each bundle their own copy via <code>--embed-package</code>, you get two separate registries. Community plugin registrations never reach the self-service host.</p>
+<p><strong>The fix</strong> follows the standard Scalprum shared module pattern (same as how <code>react</code> is shared):</p>
+<ul>
+<li><strong>Self-service</strong> lists <code>@ansible/backstage-rhaap-extension-api</code> in the RHDH shared scope — it provides the one shared instance</li>
+<li><strong>Community plugins</strong> declare it as a <code>peerDependency</code> only — they do <strong>not</strong> embed it via <code>--embed-package</code></li>
+<li>The RHDH deployer registers it once in <code>dynamic-plugins.yaml</code>:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">sharedPackages</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">package</span><span class="p">:</span><span class="w"> </span><span class="s">'@ansible/backstage-rhaap-extension-api'</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">'^1.0.0'</span>
+</code></pre></div>
+<p><strong>In standard Backstage</strong> (no RHDH / no Scalprum): all plugins load in the same JS bundle so the module singleton is naturally shared — no <code>sharedPackages</code> configuration needed.</p>
+<p><code>@ansible/backstage-rhaap-react</code> (the component library) does <strong>not</strong> need to be shared — it has no singleton state. Each consumer can safely embed its own copy.</p>
+<h3 id="44-async-loading-handled-by-the-registry">4.4 Async loading (handled by the registry)<a class="headerlink" href="#44-async-loading-handled-by-the-registry" title="Permanent link">&para;</a></h3>
+<p>RHDH dynamic plugins load asynchronously. A community plugin may finish loading after the self-service page has already rendered. The <code>useExtensionTabs</code> hook uses a subscription pattern that triggers React re-renders when late registrations arrive:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kd">function</span><span class="w"> </span><span class="nx">useExtensionTabs</span><span class="p">(</span><span class="nx">extensionPoint</span><span class="p">,</span><span class="w"> </span><span class="nx">entity</span><span class="o">?</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">[</span><span class="nx">revision</span><span class="p">,</span><span class="w"> </span><span class="nx">forceUpdate</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useReducer</span><span class="p">(</span><span class="nx">x</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mf">1</span><span class="p">,</span><span class="w"> </span><span class="mf">0</span><span class="p">);</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nx">useEffect</span><span class="p">(()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">contributionRegistry</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="nx">forceUpdate</span><span class="p">),</span><span class="w"> </span><span class="p">[]);</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">useMemo</span><span class="p">(</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">contributionRegistry</span><span class="p">.</span><span class="nx">getTabs</span><span class="p">(</span><span class="nx">extensionPoint</span><span class="p">,</span><span class="w"> </span><span class="nx">entity</span><span class="p">),</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="p">[</span><span class="nx">extensionPoint</span><span class="p">,</span><span class="w"> </span><span class="nx">entity</span><span class="p">,</span><span class="w"> </span><span class="nx">revision</span><span class="p">],</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="p">);</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="44-non-rhdh-fallback">4.4 Non-RHDH fallback<a class="headerlink" href="#44-non-rhdh-fallback" title="Permanent link">&para;</a></h3>
+<p><code>DynamicExtensionDiscovery.tsx</code> detects the runtime environment by checking for the Scalprum API (<code>window.__scalprum__</code> or <code>@scalprum/react-core</code> availability). If Scalprum is absent (standard Backstage, no RHDH), the component is a clean no-op — it returns <code>null</code> and renders nothing. In this mode, only auto-registration (§4.1) is available.</p>
+<hr />
+<h2 id="5-theme-visual-consistency">5. Theme &amp; Visual Consistency<a class="headerlink" href="#5-theme-visual-consistency" title="Permanent link">&para;</a></h2>
+<h3 id="51-mui-v4-theme-wrapping-with-error-isolation">5.1 MUI v4 theme wrapping with error isolation<a class="headerlink" href="#51-mui-v4-theme-wrapping-with-error-isolation" title="Permanent link">&para;</a></h3>
+<p>Contributed components are rendered inside <code>RhaapThemeProvider</code> (MUI v4 only — see Goal 6 scope), <code>ErrorBoundary</code>, and <code>Suspense</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="o">&lt;</span><span class="nx">PermissionGate</span><span class="w"> </span><span class="nx">permission</span><span class="o">=</span><span class="p">{</span><span class="nx">contribution</span><span class="p">.</span><span class="nx">permission</span><span class="p">}</span><span class="o">&gt;</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="o">&lt;</span><span class="nx">RhaapThemeProvider</span><span class="o">&gt;</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="o">&lt;</span><span class="nx">ErrorBoundary</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">      </span><span class="nx">fallback</span><span class="o">=</span><span class="p">{</span><span class="o">&lt;</span><span class="nx">ContributionErrorFallback</span><span class="w"> </span><span class="nx">id</span><span class="o">=</span><span class="p">{</span><span class="nx">contribution</span><span class="p">.</span><span class="nx">id</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span><span class="p">}</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="o">&gt;</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="o">&lt;</span><span class="nx">Suspense</span><span class="w"> </span><span class="nx">fallback</span><span class="o">=</span><span class="p">{</span><span class="o">&lt;</span><span class="nx">SkeletonLoader</span><span class="w"> </span><span class="o">/&gt;</span><span class="p">}</span><span class="o">&gt;</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">        </span><span class="o">&lt;</span><span class="nx">ContributedComponent</span><span class="w"> </span><span class="nx">entity</span><span class="o">=</span><span class="p">{</span><span class="nx">entity</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="o">&lt;</span><span class="err">/Suspense&gt;</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span><span class="o">&lt;</span><span class="err">/ErrorBoundary&gt;</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">  </span><span class="o">&lt;</span><span class="err">/RhaapThemeProvider&gt;</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="o">&lt;</span><span class="err">/PermissionGate&gt;</span>
+</code></pre></div>
+<p><code>PermissionGate</code> is a thin wrapper around <code>@backstage/plugin-permission-react</code>'s <code>usePermission()</code> hook. If <code>contribution.permission</code> is undefined, the gate is a no-op (renders children directly). If the user lacks the permission, the slot renders nothing — same behavior as the built-in sidebar items.</p>
+<p>Each contributed component slot is individually wrapped in an <code>ErrorBoundary</code>. If a community plugin's component throws during render, only that slot shows a fallback (e.g., "This tab failed to load") — the rest of the host page remains intact. This is implemented in <code>ExtensionRenderer</code>.</p>
+<p>MUI-based contributions inherit colors, typography, and spacing from the host theme automatically.</p>
+<blockquote>
+<p><strong>API resolution ownership:</strong> <code>ExtensionRenderer</code> (not <code>DynamicExtensionDiscovery</code>)
+resolves Backstage APIs. It calls <code>useApiHolder()</code> at render time to obtain an
+<code>ApiHolder</code>, then creates a <code>getApi</code> helper (<code>(apiRef) =&gt; apiHolder.get(apiRef)</code>)
+that is passed into <code>ActionContribution.handler</code> when an action is invoked.
+<code>useApiHolder()</code> (from <code>@backstage/core-plugin-api</code>) returns an object whose
+<code>.get(apiRef)</code> method can resolve any API ref — unlike <code>useApi()</code> which resolves
+a single specific ref at hook call time.
+This means <code>ExtensionRenderer</code> must be rendered inside a Backstage <code>ApiProvider</code> —
+which it is when rendered within the self-service plugin tree.
+Community developers writing test harnesses for their contributed actions must wrap
+the component under test in a <code>TestApiProvider</code> that supplies the API refs their
+handler calls <code>getApi()</code> with.</p>
+<p><strong>MUI v5 readiness:</strong> When Backstage completes its upstream MUI v5 migration,
+<code>RhaapThemeProvider</code> will be extended to provide a v5 <code>ThemeProvider</code> alongside
+the v4 one. The <code>@mui/material</code> dependency will be added at that time.</p>
+</blockquote>
+<h3 id="52-css-custom-properties-framework-agnostic-theme-derived">5.2 CSS custom properties (framework-agnostic, theme-derived)<a class="headerlink" href="#52-css-custom-properties-framework-agnostic-theme-derived" title="Permanent link">&para;</a></h3>
+<p>For non-MUI contributions (PatternFly, Chakra, plain CSS, etc.), the <code>ExtensionRenderer</code> container element injects CSS custom properties <strong>dynamically derived from the active Backstage theme at render time</strong> via <code>useTheme()</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1">// Inside ExtensionRenderer</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kd">const</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useTheme</span><span class="o">&lt;</span><span class="nx">BackstageTheme</span><span class="o">&gt;</span><span class="p">();</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="kd">const</span><span class="w"> </span><span class="nx">cssVars</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="s1">'--rhaap-color-primary'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">primary</span><span class="p">.</span><span class="nx">main</span><span class="p">,</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="s1">'--rhaap-color-error'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">error</span><span class="p">.</span><span class="nx">main</span><span class="p">,</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="s1">'--rhaap-color-text'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">text</span><span class="p">.</span><span class="nx">primary</span><span class="p">,</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="s1">'--rhaap-color-text-secondary'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">text</span><span class="p">.</span><span class="nx">secondary</span><span class="p">,</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="s1">'--rhaap-color-background'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">background</span><span class="p">.</span><span class="k">default</span><span class="p">,</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">  </span><span class="s1">'--rhaap-color-border'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">palette</span><span class="p">.</span><span class="nx">divider</span><span class="p">,</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">  </span><span class="s1">'--rhaap-spacing-xs'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">spacing</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">  </span><span class="s1">'--rhaap-spacing-sm'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">spacing</span><span class="p">(</span><span class="mf">1</span><span class="p">)</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">  </span><span class="s1">'--rhaap-spacing-md'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">spacing</span><span class="p">(</span><span class="mf">2</span><span class="p">)</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">  </span><span class="s1">'--rhaap-spacing-lg'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">spacing</span><span class="p">(</span><span class="mf">3</span><span class="p">)</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">  </span><span class="s1">'--rhaap-spacing-xl'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">spacing</span><span class="p">(</span><span class="mf">4</span><span class="p">)</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span><span class="s1">'--rhaap-font-family'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">typography</span><span class="p">.</span><span class="nx">fontFamily</span><span class="p">,</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">  </span><span class="s1">'--rhaap-font-size-body'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">typography</span><span class="p">.</span><span class="nx">body2</span><span class="p">.</span><span class="nx">fontSize</span><span class="p">,</span>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="w">  </span><span class="s1">'--rhaap-font-size-heading'</span><span class="o">:</span><span class="w"> </span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">typography</span><span class="p">.</span><span class="nx">h6</span><span class="p">.</span><span class="nx">fontSize</span><span class="p">,</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="w">  </span><span class="s1">'--rhaap-border-radius'</span><span class="o">:</span><span class="w"> </span><span class="sb">`</span><span class="si">${</span><span class="nx">backstageTheme</span><span class="p">.</span><span class="nx">shape</span><span class="p">.</span><span class="nx">borderRadius</span><span class="si">}</span><span class="sb">px`</span><span class="p">,</span>
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="p">}</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">CSSProperties</span><span class="p">;</span>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="o">&lt;</span><span class="nx">div</span><span class="w"> </span><span class="nx">className</span><span class="o">=</span><span class="s2">"rhaap-extension-container"</span><span class="w"> </span><span class="nx">style</span><span class="o">=</span><span class="p">{</span><span class="nx">cssVars</span><span class="p">}</span><span class="o">&gt;</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="w">  </span><span class="p">{</span><span class="nx">children</span><span class="p">}</span>
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="o">&lt;</span><span class="err">/div&gt;;</span>
+</code></pre></div>
+<p>These properties automatically adapt to dark mode, custom Backstage themes, and any theme overrides the deployer has configured.</p>
+<p>Community developers can use these from any framework:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">.</span><span class="nc">my-tab</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="k">color</span><span class="p">:</span><span class="w"> </span><span class="nf">var</span><span class="p">(</span><span class="nv">--rhaap-color-text</span><span class="p">);</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="k">padding</span><span class="p">:</span><span class="w"> </span><span class="nf">var</span><span class="p">(</span><span class="nv">--rhaap-spacing-md</span><span class="p">);</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="53-static-design-token-constants">5.3 Static design token constants<a class="headerlink" href="#53-static-design-token-constants" title="Permanent link">&para;</a></h3>
+<p>For JS-based styling where dynamic theme access is not needed (e.g., fixed spacing values, icon sizes), the <code>rhaapTokens</code> object provides static fallback values:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">rhaapTokens</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'@ansible/backstage-rhaap-react'</span><span class="p">;</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1">// rhaapTokens.spacing.md === 16</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1">// rhaapTokens.borderRadius === 8</span>
+</code></pre></div>
+<blockquote>
+<p><strong>Note:</strong> These are static defaults and will <strong>not</strong> adapt to the active theme.
+Prefer CSS custom properties (§5.2) for theme-aware styling.</p>
+</blockquote>
+<hr />
+<h2 id="6-self-service-plugin-changes">6. Self-Service Plugin Changes<a class="headerlink" href="#6-self-service-plugin-changes" title="Permanent link">&para;</a></h2>
+<h3 id="61-import-migration">6.1 Import migration<a class="headerlink" href="#61-import-migration" title="Permanent link">&para;</a></h3>
+<p>All self-service pages update their imports from local <code>../common/</code> paths to <code>@ansible/backstage-rhaap-react</code>. The old barrel (<code>components/common/index.ts</code>) becomes a re-export shim during migration.</p>
+<h3 id="62-detail-page-refactoring">6.2 Detail page refactoring<a class="headerlink" href="#62-detail-page-refactoring" title="Permanent link">&para;</a></h3>
+<p><code>RepositoryDetailsPage</code>, <code>CollectionDetailsPage</code>, and <code>EEDetailsPage</code> are refactored to:</p>
+<ol>
+<li>Define built-in tabs as a local array</li>
+<li>Merge with <code>useExtensionTabs()</code> results</li>
+<li>Sort by priority</li>
+<li>Render contributed components inside <code>ExtensionRenderer</code> (which provides <code>RhaapThemeProvider</code> + <code>ErrorBoundary</code> + <code>Suspense</code> + CSS custom properties)</li>
+</ol>
+<h3 id="63-extension-host-initialization">6.3 Extension host initialization<a class="headerlink" href="#63-extension-host-initialization" title="Permanent link">&para;</a></h3>
+<p><code>ExtensionRenderer</code> and <code>DynamicExtensionDiscovery</code> live in self-service under <code>src/extensions/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>plugins/self-service/src/extensions/
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>├── ExtensionRenderer.tsx        # Renders contributed tabs/cards with theme + error isolation
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>└── DynamicExtensionDiscovery.tsx # RHDH Scalprum discovery (no-op in standard Backstage)
+</code></pre></div>
+<p><strong><code>ExtensionRenderer</code></strong> wraps each contributed component in <code>RhaapThemeProvider</code> → <code>ErrorBoundary</code> → <code>Suspense</code> → CSS custom properties (§5.1). It uses <code>useApiHolder()</code> from <code>@backstage/core-plugin-api</code> to create the <code>getApi</code> helper passed into <code>ActionContribution.handler</code> context. <code>useApiHolder()</code> returns an <code>ApiHolder</code> whose <code>.get(apiRef)</code> method resolves any API ref at call time — unlike <code>useApi()</code> which resolves a single specific ref.</p>
+<p><strong><code>DynamicExtensionDiscovery</code></strong> (rendered near the top of the self-service plugin tree) handles:</p>
+<ul>
+<li>Processing declarative configs from <code>dynamic-plugins.yaml</code></li>
+<li>Resolving contributed components from Scalprum-loaded plugins (RHDH only; no-op in standard Backstage)</li>
+<li>Registering them with the <code>ContributionRegistry</code></li>
+</ul>
+<blockquote>
+<p><strong>Why these live in self-service, not extension-api:</strong> <code>ExtensionRenderer</code> depends on
+<code>@ansible/backstage-rhaap-react</code> (<code>RhaapThemeProvider</code>, <code>SkeletonLoader</code>),
+<code>@backstage/theme</code> (<code>BackstageTheme</code>), and <code>@material-ui/core</code> (<code>useTheme</code>).
+Adding these to extension-api's deps would defeat its purpose as a minimal contracts
+package. Community plugins never import <code>ExtensionRenderer</code> — they register
+contributions and the host renders them. If a second host page needs to render
+extensions in the future, <code>ExtensionRenderer</code> can be extracted to a shared package
+at that point.</p>
+</blockquote>
+<hr />
+<h2 id="7-dependency-graph">7. Dependency Graph<a class="headerlink" href="#7-dependency-graph" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>@ansible/backstage-rhaap-react
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>  ├── peerDeps: react, react-dom, @material-ui/core, @material-ui/icons,
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  │             @backstage/core-components, @backstage/core-plugin-api,
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  │             @backstage/catalog-model, @backstage/theme
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  └── deps: (none — all framework deps are peers)
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>@ansible/backstage-rhaap-extension-api
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>  ├── peerDeps: react, @backstage/catalog-model, @backstage/core-plugin-api,
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>  │             @backstage/plugin-permission-common
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>  └── deps: (none — all deps are peers for type-only usage)
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>@ansible/backstage-rhaap-common
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>  └── (unchanged — backend-oriented: AAPClient, service refs, permissions, types)
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>@ansible/plugin-backstage-self-service
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>  ├── @ansible/backstage-rhaap-react
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>  ├── @ansible/backstage-rhaap-extension-api
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a>  ├── @ansible/backstage-rhaap-common
+<a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a>  └── (retains: parseMarkdownLinks, parseEEDefinition, fetchReadmeFromBackend,
+<a id="__codelineno-17-20" name="__codelineno-17-20" href="#__codelineno-17-20"></a>       fetchGitFileContentFromBackend — domain-specific, frontend-only utilities)
+<a id="__codelineno-17-21" name="__codelineno-17-21" href="#__codelineno-17-21"></a>
+<a id="__codelineno-17-22" name="__codelineno-17-22" href="#__codelineno-17-22"></a>Community plugin (e.g. @acme/plugin-security-scan)
+<a id="__codelineno-17-23" name="__codelineno-17-23" href="#__codelineno-17-23"></a>  ├── @ansible/backstage-rhaap-extension-api   (required — to register)
+<a id="__codelineno-17-24" name="__codelineno-17-24" href="#__codelineno-17-24"></a>  └── @ansible/backstage-rhaap-react           (optional — to use shared UI)
+</code></pre></div>
+<hr />
+<h2 id="8-implementation-workstreams">8. Implementation Workstreams<a class="headerlink" href="#8-implementation-workstreams" title="Permanent link">&para;</a></h2>
+<h3 id="create-backstage-rhaap-react-component-library">Create <code>backstage-rhaap-react</code> (component library)<a class="headerlink" href="#create-backstage-rhaap-react-component-library" title="Permanent link">&para;</a></h3>
+<p><strong>Pre-requisite:</strong> Map internal dependency chains of extracted components. Verified import chains (from codebase):</p>
+<ul>
+<li><code>PageHeaderSection</code> → <code>useIsSuperuser</code>, <code>usePageHeaderStyles</code>/<code>useSharedStyles</code>/<code>useProgressTooltipStyles</code>, <code>SyncProgressPopover</code>, <code>formatRelativeTime</code>, types</li>
+<li><code>SyncProgressPopover</code> → <code>formatRelativeTime</code>, <code>useSharedStyles</code>, types</li>
+<li><code>SyncDialog</code> → <code>useSharedStyles</code>, <code>useNotifications</code> (from NotificationContext), icons, constants, Backstage API types</li>
+<li><code>NotificationContext</code> → <code>notificationStore</code></li>
+<li><code>NotificationStack</code> → <code>NotificationCard</code></li>
+<li><code>NotificationCard</code> → MUI + local types only (no notificationStore dependency)</li>
+<li><code>useSyncStatusPolling</code> → <code>syncPollingService</code></li>
+</ul>
+<blockquote>
+<p><strong>⚠ Extraction blocker for <code>syncPollingService</code>:</strong> It imports
+<code>invalidateCollections</code> (from <code>CollectionsCatalog/collectionsInvalidation</code>) and
+<code>gitReposCache</code> (from <code>GitRepositories/gitReposCache</code>) — these are page-specific
+cache/state modules. <code>syncPollingService</code> cannot be extracted as-is. It must be
+refactored to accept cache-invalidation callbacks via dependency injection
+(e.g., a <code>registerInvalidator(category, fn)</code> pattern) before extraction.
+This refactor is a prerequisite for extracting the notification system.</p>
+</blockquote>
+<p><strong>Extraction order:</strong></p>
+<ol>
+<li><code>types.ts</code>, <code>constants.ts</code> (no internal deps)</li>
+<li><code>formatRelativeTime</code> (no internal deps)</li>
+<li>Icons, styles (<code>usePageHeaderStyles</code>, <code>useSharedStyles</code>, <code>useShellPageStyles</code>, <code>useProgressTooltipStyles</code>)</li>
+<li>Hooks (<code>useIsSuperuser</code> — standalone; <code>useSyncStatusPolling</code> — blocked on <code>syncPollingService</code> refactor)</li>
+<li>Simple UI components (<code>EmptyState</code>, <code>SkeletonLoader</code>, <code>EntityLinkButton</code>, <code>ScmIntegrationAuthError</code>)</li>
+<li><code>SyncProgressPopover</code> (depends on <code>formatRelativeTime</code>, styles, types)</li>
+<li><code>notificationStore</code> (depends on local types only)</li>
+<li><code>NotificationCard</code> → <code>NotificationStack</code> → <code>NotificationContext</code> (depends on <code>notificationStore</code>)</li>
+<li><code>syncPollingService</code> (after refactoring out page-specific imports)</li>
+<li><code>SyncDialog</code> (depends on styles, icons, <code>useNotifications</code>, constants)</li>
+<li><code>PageHeaderSection</code> (depends on <code>useIsSuperuser</code>, styles, <code>SyncProgressPopover</code>, <code>formatRelativeTime</code>)</li>
+<li>Cache utilities (<code>PaginatedEntityCache</code>, <code>usePagination</code>, <code>useCacheSubscription</code>)</li>
+<li>Theme (<code>RhaapThemeProvider</code>, <code>tokens.ts</code>)</li>
+</ol>
+<p><strong>Tasks:</strong></p>
+<ul>
+<li>Create package scaffolding (package.json with peerDependencies, tsconfig.json, .eslintrc.js)</li>
+<li>Move components from <code>self-service/src/components/common/</code> with tests (in extraction order above)</li>
+<li>Move hooks from <code>self-service/src/hooks/</code></li>
+<li>Move notifications from <code>self-service/src/components/notifications/</code></li>
+<li>Move cache utilities from <code>self-service/src/components/common/cache/</code></li>
+<li>Move <code>formatRelativeTime</code> from <code>self-service/src/utils/timeUtils.ts</code></li>
+<li>Refactor <code>syncPollingService</code> to accept cache-invalidation callbacks (remove <code>invalidateCollections</code> and <code>gitReposCache</code> hard imports)</li>
+<li>Create <code>RhaapThemeProvider</code> (v4 only) and static design tokens</li>
+<li>Add re-export shims in self-service for backward compatibility</li>
+<li>Verify all self-service tests still pass</li>
+</ul>
+<h3 id="create-backstage-rhaap-extension-api-extension-contracts">Create <code>backstage-rhaap-extension-api</code> (extension contracts)<a class="headerlink" href="#create-backstage-rhaap-extension-api-extension-contracts" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Create package scaffolding</li>
+<li>Implement <code>ContributionRegistry</code> with full test coverage, including:</li>
+<li><code>reset()</code> method for test isolation</li>
+<li>Duplicate-ID replacement with console warning</li>
+<li>Stable sort at equal priority (insertion-order tiebreaker)</li>
+<li>Define all <code>TabContribution</code>, <code>CardContribution</code>, <code>ActionContribution</code> types</li>
+<li>Define all <code>EXTENSION_POINTS</code> constants</li>
+<li>Implement <code>useExtensionTabs</code>, <code>useExtensionCards</code>, <code>useExtensionActions</code> hooks</li>
+<li>Implement convenience registration helpers</li>
+</ul>
+<h3 id="wire-self-service-detail-pages">Wire self-service detail pages<a class="headerlink" href="#wire-self-service-detail-pages" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Refactor <code>RepositoryDetailsPage</code> to use <code>useExtensionTabs</code></li>
+<li>Refactor <code>EEDetailsPage</code> to use <code>useExtensionTabs</code></li>
+<li>Refactor <code>CollectionDetailsPage</code> to use <code>useExtensionTabs</code></li>
+<li>Refactor <code>GitRepositoriesPage</code> list tabs to use <code>useExtensionTabs</code></li>
+<li>Implement <code>ExtensionRenderer</code> component (in <code>self-service/src/extensions/</code>):</li>
+<li><code>ErrorBoundary</code> per contribution slot</li>
+<li>Always wrap in <code>Suspense</code> (a <code>Suspense</code> boundary around a non-lazy component is a no-op — it renders immediately and the fallback never activates, so there is no need to detect lazy vs synchronous components)</li>
+<li><code>RhaapThemeProvider</code> (MUI v4)</li>
+<li>CSS custom properties injection via <code>useTheme()</code></li>
+<li><code>getApi</code> helper creation via <code>useApiHolder()</code> — passed into action handler context at call time</li>
+<li>Implement <code>DynamicExtensionDiscovery</code> for RHDH Scalprum discovery (with no-op fallback)</li>
+<li>Add CSS custom properties container wrapping</li>
+<li>Update all affected tests</li>
+</ul>
+<h3 id="content-discovery-extraction-future-separate-plan">Content discovery extraction (future — separate plan)<a class="headerlink" href="#content-discovery-extraction-future-separate-plan" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>First named external consumer:</strong> APME (Automation Portal Management Experience)
+is the first external product team targeting the SDK for the Portal Plugin Factory. The content
+discovery extraction below serves as the first-party proof-of-SDK, validating the
+extension points before APME begins integration.</p>
+</blockquote>
+<ul>
+<li>Extract Git Repositories, Collections, EE catalog into <code>@ansible/plugin-backstage-content-discovery</code></li>
+<li>Extract backend into <code>@ansible/backstage-plugin-catalog-backend-module-content-discovery</code></li>
+<li>Register as first-party extension consumer (proof of SDK)</li>
+<li>Remove extracted components from self-service</li>
+</ul>
+<h3 id="navigation-section-contributions">Navigation section contributions<a class="headerlink" href="#navigation-section-contributions" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Status:</strong> Deferred. This is the hardest extension point because Backstage's
+routing system is designed for static, compile-time route registration. The design
+below is a sketch — not committed to implementation until a concrete consumer
+(e.g., content discovery extraction in content discovery extraction) validates the need.</p>
+</blockquote>
+<p><strong>Problem:</strong> A community plugin wants to add a top-level page (e.g., <code>/self-service/compliance</code>)
+with its own sidebar link, permission gate, and routed component. The current SDK only supports
+contributions <em>within</em> existing pages (tabs, cards, actions).</p>
+<p><strong>Why this is hard:</strong> Backstage's <code>createRoutableExtension</code> requires a <code>RouteRef</code> at plugin
+creation time. Community plugins can't inject <code>RouteRef</code>s into the self-service plugin
+after it's been created. This means contributed routes cannot participate in Backstage's
+cross-plugin route resolution (<code>useRouteRef()</code>).</p>
+<p><strong>Contribution type (draft):</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="kd">interface</span><span class="w"> </span><span class="nx">SectionContribution</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nx">label</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nx">icon</span><span class="o">:</span><span class="w"> </span><span class="kt">React.ComponentType</span><span class="p">;</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="cm">/** Relative path under /self-service/. E.g., 'compliance' → /self-service/compliance */</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="nx">path</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="nx">component</span><span class="o">:</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">LazyExoticComponent</span><span class="o">&lt;</span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;&gt;</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">    </span><span class="o">|</span><span class="w"> </span><span class="nx">React</span><span class="p">.</span><span class="nx">ComponentType</span><span class="o">&lt;</span><span class="nx">any</span><span class="o">&gt;</span><span class="p">;</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">  </span><span class="cm">/** If set, the sidebar item and route are hidden from users lacking this permission. */</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">  </span><span class="nx">permission?</span><span class="o">:</span><span class="w"> </span><span class="kt">BasicPermission</span><span class="p">;</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">  </span><span class="nx">priority?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Route injection:</strong> <code>RouteView.tsx</code> would read contributed sections from the registry
+and render additional <code>&lt;Route&gt;</code> elements dynamically, each wrapped in <code>&lt;RequirePermission&gt;</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">contributedSections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useExtensionSections</span><span class="p">();</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="c1">// Inside &lt;Routes&gt;:</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="p">{</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nx">contributedSections</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">section</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">    </span><span class="o">&lt;</span><span class="nx">Route</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">      </span><span class="nx">key</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">id</span><span class="p">}</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">      </span><span class="nx">path</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">path</span><span class="p">}</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">      </span><span class="nx">element</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">        </span><span class="nx">section</span><span class="p">.</span><span class="nx">permission</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">          </span><span class="o">&lt;</span><span class="nx">RequirePermission</span><span class="w"> </span><span class="nx">permission</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">permission</span><span class="p">}</span><span class="o">&gt;</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">            </span><span class="o">&lt;</span><span class="nx">ExtensionRenderer</span><span class="w"> </span><span class="nx">contribution</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">          </span><span class="o">&lt;</span><span class="err">/RequirePermission&gt;</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">        </span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-19-14" name="__codelineno-19-14" href="#__codelineno-19-14"></a><span class="w">          </span><span class="o">&lt;</span><span class="nx">ExtensionRenderer</span><span class="w"> </span><span class="nx">contribution</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">}</span><span class="w"> </span><span class="o">/&gt;</span>
+<a id="__codelineno-19-15" name="__codelineno-19-15" href="#__codelineno-19-15"></a><span class="w">        </span><span class="p">)</span>
+<a id="__codelineno-19-16" name="__codelineno-19-16" href="#__codelineno-19-16"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-19-17" name="__codelineno-19-17" href="#__codelineno-19-17"></a><span class="w">    </span><span class="o">/&gt;</span>
+<a id="__codelineno-19-18" name="__codelineno-19-18" href="#__codelineno-19-18"></a><span class="w">  </span><span class="p">));</span>
+<a id="__codelineno-19-19" name="__codelineno-19-19" href="#__codelineno-19-19"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Sidebar injection:</strong> A <code>ContributedSidebarItems</code> component renders sidebar links
+for each registered section, with permission gating:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ContributedSidebarItems</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">sections</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">useExtensionSections</span><span class="p">();</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">sections</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">section</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="o">&lt;</span><span class="nx">ConditionallyRenderedSidebarItem</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">      </span><span class="nx">key</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">id</span><span class="p">}</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">      </span><span class="nx">to</span><span class="o">=</span><span class="p">{</span><span class="sb">`/self-service/</span><span class="si">${</span><span class="nx">section</span><span class="p">.</span><span class="nx">path</span><span class="si">}</span><span class="sb">`</span><span class="p">}</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">      </span><span class="nx">text</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">label</span><span class="p">}</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">      </span><span class="nx">icon</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">icon</span><span class="p">}</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">      </span><span class="nx">permission</span><span class="o">=</span><span class="p">{</span><span class="nx">section</span><span class="p">.</span><span class="nx">permission</span><span class="p">}</span>
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">    </span><span class="o">/&gt;</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">  </span><span class="p">));</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="p">};</span>
+</code></pre></div>
+<p><strong>Limitations:</strong></p>
+<ul>
+<li>Contributed routes use raw <code>react-router-dom</code> <code>&lt;Route&gt;</code> elements, not Backstage
+  <code>RouteRef</code>s. This means other plugins cannot <code>useRouteRef()</code> to link to contributed
+  pages. Contributors must use hardcoded paths (<code>/self-service/&lt;path&gt;</code>) for cross-links.</li>
+<li>Route paths must be unique across all contributions. Duplicate paths are rejected at
+  registration time with a console error.</li>
+<li>Contributed pages are full-page components — they manage their own layout, data fetching,
+  and sub-routes. The host provides only the sidebar frame, permission gate, and theme.</li>
+</ul>
+<p><strong>Open questions:</strong></p>
+<ul>
+<li>Should contributed sections be able to define sub-routes (nested <code>&lt;Route&gt;</code> elements)?</li>
+<li>Should the sidebar support grouping/nesting contributed items under a parent?</li>
+<li>Will Backstage's new frontend system (<code>@backstage/frontend-plugin-api</code>) provide a
+  better mechanism for dynamic route registration, making this pattern obsolete?</li>
+</ul>
+<hr />
+<h2 id="9-documentation-deliverables">9. Documentation Deliverables<a class="headerlink" href="#9-documentation-deliverables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Location</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Architecture doc (this file)</td>
+<td><code>docs/architecture/self-service-extension-sdk.md</code></td>
+<td>Overall design, rationale, package layout</td>
+</tr>
+<tr>
+<td>Component library API reference</td>
+<td><code>plugins/backstage-rhaap-react/README.md</code></td>
+<td>All exported components, props, examples</td>
+</tr>
+<tr>
+<td>Extension SDK guide</td>
+<td><code>plugins/backstage-rhaap-extension-api/README.md</code></td>
+<td>How to register tabs/cards/actions, all extension points</td>
+</tr>
+<tr>
+<td>Community developer quickstart</td>
+<td><code>docs/sdk/quickstart.md</code></td>
+<td>End-to-end example: build a plugin that adds a tab</td>
+</tr>
+<tr>
+<td>Design tokens reference</td>
+<td><code>docs/sdk/design-tokens.md</code></td>
+<td>All CSS custom properties (dynamic) + JS tokens (static), theme guidance</td>
+</tr>
+<tr>
+<td>RHDH dynamic plugin guide</td>
+<td><code>docs/sdk/rhdh-dynamic-plugins.md</code></td>
+<td>Registration via <code>dynamic-plugins.yaml</code>, Scalprum resolution, declarative config</td>
+</tr>
+<tr>
+<td>Migration guide (internal)</td>
+<td><code>docs/sdk/migration-from-self-service.md</code></td>
+<td>How to update self-service imports to use new packages</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="10-testing-strategy">10. Testing Strategy<a class="headerlink" href="#10-testing-strategy" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Unit tests</strong> for <code>ContributionRegistry</code> (register, unregister, filter, sort, subscribe, disable, <strong>reset</strong>, <strong>duplicate-ID replacement</strong>, <strong>priority tiebreaker</strong>, <strong>filter try/catch — verify a throwing filter omits the contribution and warns</strong>)</li>
+<li><strong>Hook tests</strong> for <code>useExtensionTabs</code>, <code>useExtensionCards</code>, <code>useExtensionActions</code> (initial render, late registration, filtering)</li>
+<li><strong>Integration tests</strong> for detail pages (verify contributed tabs render alongside built-in tabs)</li>
+<li><strong>Component tests</strong> for <code>RhaapThemeProvider</code> (MUI v4 theme inheritance)</li>
+<li><strong>Component tests</strong> for <code>ExtensionRenderer</code> (CSS custom properties injection, Suspense fallback, <strong>ErrorBoundary isolation — verify a throwing contributed component does not crash the host page</strong>, <strong>handler error safety — verify a throwing/rejecting action handler surfaces an alert and does not crash the host page</strong>)</li>
+<li><strong>All existing self-service tests must continue to pass</strong> throughout migration</li>
+<li><strong>Test isolation:</strong> All test suites that interact with the <code>ContributionRegistry</code> must call <code>registry.reset()</code> in <code>afterEach</code> to prevent state leakage between tests</li>
+</ul>
+<hr />
+<h2 id="11-risks-mitigations">11. Risks &amp; Mitigations<a class="headerlink" href="#11-risks-mitigations" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Circular dependency between new packages and self-service</td>
+<td>Strict dependency direction enforcement; re-export shims only in self-service</td>
+</tr>
+<tr>
+<td>Breaking existing dynamic plugin artifacts</td>
+<td>shared UI extraction uses re-exports; no public API changes</td>
+</tr>
+<tr>
+<td>Late-loading dynamic plugins cause UI flicker</td>
+<td><code>useExtensionTabs</code> subscription + graceful rendering (no layout shift)</td>
+</tr>
+<tr>
+<td>Community plugins use incompatible React version</td>
+<td>Peer dependency on <code>react ^18.3.1</code>; documented requirement</td>
+</tr>
+<tr>
+<td>CSS custom property names collide with other plugins</td>
+<td><code>--rhaap-</code> prefix is unique; documented naming convention</td>
+</tr>
+<tr>
+<td><strong>Community plugin throws during render</strong></td>
+<td><strong>Each contribution slot wrapped in its own <code>ErrorBoundary</code>; fallback UI instead of page crash</strong></td>
+</tr>
+<tr>
+<td><strong>Registry state leaks between tests</strong></td>
+<td><strong><code>reset()</code> method on registry; required in <code>afterEach</code> per testing strategy</strong></td>
+</tr>
+<tr>
+<td><strong>Duplicate registration in HMR / dev mode</strong></td>
+<td><strong>Second registration replaces first with console warning; deterministic behavior</strong></td>
+</tr>
+<tr>
+<td><strong>Non-deterministic ordering at equal priority</strong></td>
+<td><strong>Stable sort guarantees insertion-order tiebreaker; documented</strong></td>
+</tr>
+<tr>
+<td><strong>DynamicExtensionDiscovery fails in non-RHDH Backstage</strong></td>
+<td><strong>Scalprum detection; clean no-op when absent</strong></td>
+</tr>
+<tr>
+<td><strong>Internal dependency chains break during shared UI extraction</strong></td>
+<td><strong>Dependency graph verified from actual imports; extraction order enforced; <code>syncPollingService</code> refactor noted as prerequisite</strong></td>
+</tr>
+<tr>
+<td><strong>Community plugin's filter callback throws inside useMemo</strong></td>
+<td><strong>Registry getters wrap <code>filter()</code> in try/catch; throwing filter omits contribution + logs warning</strong></td>
+</tr>
+<tr>
+<td><strong>Community plugin's action handler throws or returns rejected promise</strong></td>
+<td><strong><code>ExtensionRenderer</code> wraps handler invocation in try/catch + await; surfaces error via <code>alertApi</code>; host page unaffected</strong></td>
+</tr>
+<tr>
+<td><strong>Scalprum integration is net-new with no local examples</strong></td>
+<td><strong>Target <code>@scalprum/react-core</code> API documented; RHDH docs linked; higher implementation risk flagged for detail-page integration</strong></td>
+</tr>
+<tr>
+<td><strong>Registry singleton duplicated across dynamic plugins</strong></td>
+<td><strong><code>backstage-rhaap-extension-api</code> must be in RHDH <code>sharedPackages</code> scope; community plugins use peerDep only — no <code>--embed-package</code></strong></td>
+</tr>
+<tr>
+<td><strong><code>syncPollingService</code> has page-specific hard imports</strong></td>
+<td><strong>Must refactor to callback-based invalidation before extraction (documented in shared UI extraction pre-requisite)</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-alignment-with-full-architecture">12. Alignment with Full Architecture<a class="headerlink" href="#12-alignment-with-full-architecture" title="Permanent link">&para;</a></h2>
+<p>Brad Thornton reviewed this plan against the full architecture (Ganesh's doc + PR <a class="magiclink magiclink-github magiclink-issue" href="https://github.com/facelessuser/pymdown-extensions/issues/712" title="GitHub Issue: facelessuser/pymdown-extensions #712">#712</a>) and identified six conflicts. Each has an agreed resolution. The implementation workstreams above remain the right sequence — the items below are corrections to specific design decisions within those workstreams.</p>
+<h3 id="121-who-owns-the-extension-host">12.1 Who owns the extension host?<a class="headerlink" href="#121-who-owns-the-extension-host" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>ExtensionRenderer</code> and <code>ContributionRegistry</code> live in self-service. Detail
+pages act as hosts.</p>
+<p><strong>Full architecture:</strong> <code>portal-core</code> owns <code>portal-extension-host</code>. Self-service is a
+<em>contributor</em> to experiences, not a host. (Ganesh's doc §6.2)</p>
+<p><strong>Resolution:</strong> The earlier implementation's <code>ContributionRegistry</code> + <code>ExtensionRenderer</code> are the first implementation of <code>portal-extension-host</code>. Before production use, they move to a <code>portal-core</code> workspace and are published as <code>@ansible/portal-extension-host</code>. Self-service becomes a contributor, not a host. The detail-page integration work in §8 is still the right implementation step — it just lands in the right package at the end.</p>
+<h3 id="122-handler-vs-capabilitylaunch">12.2 <code>handler()</code> vs <code>CapabilityLaunch</code><a class="headerlink" href="#122-handler-vs-capabilitylaunch" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>ActionContribution.handler({ entity, getApi })</code> can call any Backstage API.</p>
+<p><strong>Full architecture:</strong> Server-side effects go through <code>CapabilityLaunch</code> with constrained types only: <code>{ type: 'slot' | 'workflow' | 'operation'; operationId?; workflowId? }</code>. (Ganesh's doc §6.3, §9.2)</p>
+<p><strong>Resolution:</strong></p>
+<ul>
+<li>Keep <code>handler()</code> <strong>for pure UI/navigation only</strong> (open a dialog, navigate, copy to clipboard). Document clearly: no network requests.</li>
+<li>Server-side effects (start a scan, trigger a build) must use <code>operationId</code> or <code>workflowId</code> — registered operations with schemas, permissions, and audit records.</li>
+<li>Update <code>ActionContribution</code> to add <code>launches?: CapabilityLaunch</code> alongside <code>handler</code>. The extension-contract implementation should ship both.</li>
+</ul>
+<h3 id="123-frozen-ids-vs-experiences">12.3 Frozen IDs vs experiences<a class="headerlink" href="#123-frozen-ids-vs-experiences" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>EXTENSION_POINTS</code> constants like <code>rhaap.collection.detail.tabs</code> are the primary public contract.</p>
+<p><strong>Full architecture:</strong> Host-owned <em>experiences</em> (Quality, Authoring, Migration) that plugins contribute <em>capabilities</em> into. Per-page IDs are implementation slots inside experiences, not the public API. (Ganesh's doc §6.2)</p>
+<p><strong>Resolution:</strong></p>
+<ul>
+<li>The <code>rhaap.*.detail.tabs</code> IDs become <strong>compatibility aliases</strong> for current pages during the transition, not the primary contract.</li>
+<li>No new extension point IDs should follow the <code>rhaap.*</code> frozen-ID pattern.</li>
+<li>New capability registrations should target <code>experienceId</code> once <code>portal-core</code> defines experiences.</li>
+<li>The <code>EXTENSION_POINTS</code> constants in extension contracts are still the right step for the earlier implementation — just documented as aliases.</li>
+</ul>
+<h3 id="124-filter-vs-appliestocontenttypes">12.4 <code>filter?</code> vs <code>appliesToContentTypes</code><a class="headerlink" href="#124-filter-vs-appliestocontenttypes" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>filter?: (entity: Entity) =&gt; boolean</code> is the content-type gate.</p>
+<p><strong>Full architecture:</strong> <code>appliesToContentTypes: string[]</code> is the primary, declarative gate. The host needs this statically — before React renders — to hide MCP tools and filter REST responses. (Ganesh's doc §6.3)</p>
+<p><strong>Resolution:</strong></p>
+<ul>
+<li>Add <code>appliesToContentTypes?: string[]</code> to all contribution types in extension contracts.</li>
+<li><code>filter</code> stays as an <em>additional</em> UI-side predicate for narrow annotation-level cases.</li>
+<li><code>appliesToContentTypes</code> is evaluated by the host before the component loads; <code>filter</code> runs at render time.</li>
+</ul>
+<h3 id="125-single-ee-surface-vs-definition-vs-built-image">12.5 Single EE surface vs definition vs built image<a class="headerlink" href="#125-single-ee-surface-vs-definition-vs-built-image" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>EE_DETAIL_TABS</code> / <code>EE_LIST_TABS</code> treat EE as one undifferentiated kind.</p>
+<p><strong>Full architecture:</strong> EE definition (the <code>execution-environment.yml</code>) and EE built image OCI artifact with digest, trust signals) are two different content types with different entry points. (Ganesh's doc §3.1)</p>
+<p><strong>Resolution:</strong></p>
+<ul>
+<li>Two content type IDs from day one: <code>execution-environment-definition</code> and <code>execution-environment-image</code>.</li>
+<li>Shared UI extraction wires only the definition pages described in this plan.</li>
+<li>Update extension contracts to split <code>EE_DETAIL_TABS</code> into two constants with the correct type IDs.</li>
+</ul>
+<h3 id="126-package-naming">12.6 Package naming<a class="headerlink" href="#126-package-naming" title="Permanent link">&para;</a></h3>
+<p><strong>This plan:</strong> <code>@ansible/backstage-rhaap-react</code>, <code>@ansible/backstage-rhaap-extension-api</code></p>
+<p><strong>Full architecture:</strong> <code>portal-extension-common</code>, <code>portal-extension-api</code>, <code>portal-extension-host</code>, <code>portal-plugin-sdk</code> — all in <code>workspaces/portal-core/</code>. Repository proposes renaming to <code>automation-portal-plugins</code>. (Ganesh's doc §2.2, §2.6)</p>
+<p><strong>Resolution:</strong> Rename before any external publishing. Since the earlier implementation is unpublished this
+costs nothing now.</p>
+<table>
+<thead>
+<tr>
+<th>Original package name</th>
+<th>Target name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backstage-rhaap-react</code></td>
+<td><code>portal-plugin-sdk</code></td>
+</tr>
+<tr>
+<td><code>backstage-rhaap-extension-api</code></td>
+<td><code>portal-extension-api</code></td>
+</tr>
+<tr>
+<td><em>(host, currently in self-service)</em></td>
+<td><code>portal-extension-host</code></td>
+</tr>
+<tr>
+<td><em>(contracts, currently inline)</em></td>
+<td><code>portal-extension-common</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="127-what-the-current-self-service-plugin-actually-is">12.7 What the current self-service plugin actually is<a class="headerlink" href="#127-what-the-current-self-service-plugin-actually-is" title="Permanent link">&para;</a></h3>
+<p>Per Brad's analysis — the plugin today bundles four distinct concerns:</p>
+<table>
+<thead>
+<tr>
+<th>Cluster</th>
+<th>What it does</th>
+<th>Target home</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Portal chrome</td>
+<td><code>SignInPage</code>, <code>AAPLogoutButton</code>, <code>AppThemeFixer</code>, <code>LandingPage</code></td>
+<td><code>portal-core</code> / <code>aap</code></td>
+</tr>
+<tr>
+<td>Content catalogs</td>
+<td>Collections, Git repos, EE catalog, sync</td>
+<td><code>workspaces/content/automation-content</code></td>
+</tr>
+<tr>
+<td>Create / run templates</td>
+<td>Templates catalog, <code>CreateTask</code>, <code>RunTask</code>, task history</td>
+<td><code>workspaces/self-service/</code> (→ <code>portal-scaffolder</code>)</td>
+</tr>
+<tr>
+<td>Scaffolder fields</td>
+<td>11 field extensions</td>
+<td>Stay in <code>self-service</code> or <code>scaffolder-backend-module-self-service</code></td>
+</tr>
+</tbody>
+</table>
+<p>After content discovery extraction, the remaining plugin (templates + tasks + fields) should
+be named <code>portal-scaffolder</code> (plugin ID <code>portal-scaffolder</code>, package
+<code>@ansible/backstage-plugin-portal-scaffolder</code>). Keep <code>/self-service/*</code> as redirects.</p>
+<hr />
+<h2 id="13-compatibility-policy">13. Compatibility Policy<a class="headerlink" href="#13-compatibility-policy" title="Permanent link">&para;</a></h2>
+<p><code>@ansible/backstage-rhaap-extension-api</code> is a public SDK that external consumers depend on. The following semver guarantees apply once the package reaches <code>1.0.0</code>:</p>
+<ul>
+<li><strong>Extension point IDs</strong> (<code>EXTENSION_POINTS</code> values) are stable across minor versions. An ID is never renamed or removed in a minor release.</li>
+<li><strong>Contribution types</strong> (<code>TabContribution</code>, <code>CardContribution</code>, <code>ActionContribution</code>) are additive-only across minor versions. New optional fields may be added; existing fields are never removed or made required.</li>
+<li><strong>Registry API</strong> (<code>registerTab</code>, <code>getTabs</code>, <code>subscribe</code>, <code>reset</code>, etc.) is backward-compatible across minor versions. New methods may be added; existing method signatures are never changed.</li>
+<li><strong>Breaking changes</strong> (removing an extension point, changing a required field type, changing <code>getApi</code> signature) require a major version bump with a migration guide.</li>
+</ul>
+<p>Pre-<code>1.0.0</code> releases follow <code>0.x.y</code> semver: minor bumps may include breaking changes, documented in the changelog.</p>
+<blockquote>
+<p><strong>Note:</strong> Once packages are renamed to <code>portal-extension-api</code> / <code>portal-plugin-sdk</code> (§12.6),
+the semver guarantees above transfer to the new package names. The <code>backstage-rhaap-*</code>
+names become re-export shims and are considered deprecated from that point.</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../content-experience-refactor-and-sdk/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Content experience refactoring plan">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Content experience refactoring plan
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../diagrams/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2025 Red Hat, Inc.
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/ansible/ansible-backstage-plugins/releases" target="_blank" rel="noopener" title="Releases" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M0 112c0-41.5 31.6-75.6 72-79.6V32h280c53 0 96 43 96 96v176H272c-39.8 0-72 32.2-72 72v60c0 24.3-19.7 44-44 44s-44-19.7-44-44V208H48c-26.5 0-48-21.5-48-48zm236.8 368c7.1-13.1 11.2-28.1 11.2-44v-60c0-13.3 10.7-24 24-24h248c13.3 0 24 10.7 24 24v24c0 44.2-35.8 80-80 80zM80 80c-17.7 0-32 14.3-32 32v48h64v-48c0-17.7-14.3-32-32-32"/></svg>
+    </a>
+  
+    
+    
+      
+    
+    
+    
+    <a href="https://fosstodon.org/@ansible" target="_blank" rel="noopener me" title="Mastodon" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M23.268 5.313c-.35-2.578-2.617-4.61-5.304-5.004C17.51.242 15.792 0 11.813 0h-.03c-3.98 0-4.835.242-5.288.309C3.882.692 1.496 2.518.917 5.127.64 6.412.61 7.837.661 9.143c.074 1.874.088 3.745.26 5.611.118 1.24.325 2.47.62 3.68.55 2.237 2.777 4.098 4.96 4.857 2.336.792 4.849.923 7.256.38q.398-.092.786-.213c.585-.184 1.27-.39 1.774-.753a.06.06 0 0 0 .023-.043v-1.809a.05.05 0 0 0-.02-.041.05.05 0 0 0-.046-.01 20.3 20.3 0 0 1-4.709.545c-2.73 0-3.463-1.284-3.674-1.818a5.6 5.6 0 0 1-.319-1.433.053.053 0 0 1 .066-.054c1.517.363 3.072.546 4.632.546.376 0 .75 0 1.125-.01 1.57-.044 3.224-.124 4.768-.422q.059-.011.11-.024c2.435-.464 4.753-1.92 4.989-5.604.008-.145.03-1.52.03-1.67.002-.512.167-3.63-.024-5.545m-3.748 9.195h-2.561V8.29c0-1.309-.55-1.976-1.67-1.976-1.23 0-1.846.79-1.846 2.35v3.403h-2.546V8.663c0-1.56-.617-2.35-1.848-2.35-1.112 0-1.668.668-1.67 1.977v6.218H4.822V8.102q0-1.965 1.011-3.12c.696-.77 1.608-1.164 2.74-1.164 1.311 0 2.302.5 2.962 1.498l.638 1.06.638-1.06c.66-.999 1.65-1.498 2.96-1.498 1.13 0 2.043.395 2.74 1.164q1.012 1.155 1.012 3.12z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://twitter.com/ansible" target="_blank" rel="noopener" title="Twitter" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M459.4 151.7c.3 4.5.3 9.1.3 13.6 0 138.7-105.6 298.6-298.6 298.6-59.5 0-114.7-17.2-161.1-47.1 8.4 1 16.6 1.3 25.3 1.3 49.1 0 94.2-16.6 130.3-44.8-46.1-1-84.8-31.2-98.1-72.8 6.5 1 13 1.6 19.8 1.6 9.4 0 18.8-1.3 27.6-3.6-48.1-9.7-84.1-52-84.1-103v-1.3c14 7.8 30.2 12.7 47.4 13.3-28.3-18.8-46.8-51-46.8-87.4 0-19.5 5.2-37.4 14.3-53C87.4 130.8 165 172.4 252.1 176.9c-1.6-7.8-2.6-15.9-2.6-24C249.5 95.1 296.3 48 354.4 48c30.2 0 57.5 12.7 76.7 33.1 23.7-4.5 46.5-13.3 66.6-25.3-7.8 24.4-24.4 44.8-46.1 57.8 21.1-2.3 41.6-8.1 60.4-16.2-14.3 20.8-32.2 39.3-52.6 54.3"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://matrix.to/#/#devtools:ansible.com" target="_blank" rel="noopener" title="Matrix" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M.632.55v22.9H2.28V24H0V0h2.28v.55zm7.043 7.26v1.157h.033a3.3 3.3 0 0 1 1.117-1.024c.433-.245.936-.365 1.5-.365q.81.002 1.481.314c.448.208.785.582 1.02 1.108q.382-.562 1.034-.992.651-.43 1.546-.43.679 0 1.26.167c.388.11.716.286.993.53.276.245.489.559.646.951q.229.587.23 1.417v5.728h-2.349V11.52q0-.43-.032-.812a1.8 1.8 0 0 0-.18-.66 1.1 1.1 0 0 0-.438-.448q-.292-.165-.785-.166-.498 0-.803.189a1.4 1.4 0 0 0-.48.499 2 2 0 0 0-.231.696 5.6 5.6 0 0 0-.06.785v4.768h-2.35v-4.8q.002-.38-.018-.752a2.1 2.1 0 0 0-.143-.688 1.05 1.05 0 0 0-.415-.503c-.194-.125-.476-.19-.854-.19q-.168 0-.439.074c-.18.051-.36.143-.53.282a1.64 1.64 0 0 0-.439.595q-.18.39-.18 1.02v4.966H5.46V7.81zm15.693 15.64V.55H21.72V0H24v24h-2.28v-.55z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://forum.ansible.com/c/project/7" target="_blank" rel="noopener" title="Ansible forum" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M225.9 32C103.3 32 0 130.5 0 252.1 0 256 .1 480 .1 480l225.8-.2c122.7 0 222.1-102.3 222.1-223.9S348.6 32 225.9 32M224 384c-19.4 0-37.9-4.3-54.4-12.1L88.5 392l22.9-75c-9.8-18.1-15.4-38.9-15.4-61 0-70.7 57.3-128 128-128s128 57.3 128 128-57.3 128-128 128"/></svg>
+    </a>
+  
+    
+    
+    
+    
+    <a href="https://github.com/ansible/ansible-backstage-plugins" target="_blank" rel="noopener" title="GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["announce.dismiss", "content.action.edit", "content.action.view", "content.code.annotate", "content.code.copy", "content.tabs.link", "content.tooltips", "header.autohide", "navigation.expand", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.path", "navigation.prune", "navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.integrate"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>
