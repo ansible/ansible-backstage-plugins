@@ -23,6 +23,12 @@ the optional portal-scaffolder implementation. See
 the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md).
 The registry/discovery examples below are legacy migration APIs.
 
+`useNativeAppHeaderActions('create')` resolves the provider's validated header
+destinations against installed pages, effective path overrides, configuration,
+and permissions. Missing APIs, permission errors/denial, disabled pages, invalid
+paths, and foreign page ownership omit the action. The source header consumes these resolved actions; the generic host
+does not import platform header packages. Destination/backend authorization remains required.
+
 ## Purpose
 
 `portal-extension-host` is the **consumer side** of the contribution system. It is used by the pages and layouts that _display_ contributed content — not by the plugins that _produce_ it. Plugin authors rarely depend on this package directly; they depend on `@ansible/portal-extension-api`.

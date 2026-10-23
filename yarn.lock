@@ -752,6 +752,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/portal-plugin-sdk@workspace:workspaces/portal-core/plugins/portal-plugin-sdk"
   dependencies:
+    "@ansible/portal-extension-api": "workspace:^"
     "@backstage/catalog-model": "npm:^1.7.7"
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/core-components": "npm:^0.18.8"
@@ -25834,6 +25835,8 @@ __metadata:
     "@ansible/plugin-backstage-rhaap": "workspace:^"
     "@ansible/portal-core": "workspace:^"
     "@ansible/portal-extension-api": "workspace:^"
+    "@ansible/portal-extension-host": "workspace:^"
+    "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder": "workspace:^"
     "@backstage-community/plugin-github-actions": "npm:^0.11.1"
     "@backstage-community/plugin-rbac": "npm:1.51.0"

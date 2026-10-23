@@ -13,6 +13,16 @@ Validated field declarations are exposed as `scaffolderFields`; declaring a fiel
 does not require portal-scaffolder or load its widget implementation. An installed
 templates adapter consumes the declarations when needed. Native declarations do
 not register with the singleton.
+
+`AppHeaderActionBlueprint` declares UI-only Create destinations in the same
+provider's `appHeaderActions` input. Supply `group: 'create'`, a title, the
+declaring plugin's installed `targetPage` extension ID, and a
+`requiredPermission`; optional `order` and `enabledByConfig` control presentation.
+The collector binds IDs/ownership to the actual native extension. The host
+resolves the effective page path and fails closed for unavailable/denied
+destinations. These declarations contain no arbitrary URL or backend launch.
+See the [Create authoring example](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-create-destination).
+
 See the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md)
 for provider installation, applicability, deployment, and remaining work.
 

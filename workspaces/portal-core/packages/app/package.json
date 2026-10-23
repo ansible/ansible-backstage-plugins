@@ -21,6 +21,8 @@
     "@ansible/plugin-backstage-rhaap": "workspace:^",
     "@ansible/portal-core": "workspace:^",
     "@ansible/portal-extension-api": "workspace:^",
+    "@ansible/portal-extension-host": "workspace:^",
+    "@ansible/portal-plugin-sdk": "workspace:^",
     "@ansible/portal-scaffolder": "workspace:^",
     "@backstage-community/plugin-github-actions": "^0.11.1",
     "@backstage-community/plugin-rbac": "1.51.0",
