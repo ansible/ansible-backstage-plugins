@@ -1,6 +1,6 @@
 # ADR-006: TLS Verification by Default, One Auditable Opt-Out
 
-**Status**: Accepted
+**Status**: Accepted (amended 2026-10-22)
 **Date**: 2026-10-16
 **Deciders**: Content management team
 **Scope**: Every network request `OCIClient` issues on behalf of a registry connection.
@@ -61,17 +61,47 @@ connection is the single, explicit, auditable opt-out.**
    `NODE_TLS_REJECT_UNAUTHORIZED=0` set for unrelated reasons cannot silently
    disable it.
 8. A connection may instead name a `caFile`: a PEM bundle the registry's
-   certificate is verified against, instead of the process trust store.
-   Verification stays on — this is how a registry behind a private CA is trusted
-   without the opt-out. `caFile` and `insecure` together are a configuration
-   error.
+   certificate is verified against, **in addition to** the process trust
+   store. Verification stays on — this is how a registry behind a private CA
+   is trusted without the opt-out — and trust is additive on purpose: a
+   registry behind a private CA can redirect to, or authenticate through, a
+   host whose certificate chains to the default roots (a CDN in front of the
+   registry, a separate auth host), and requiring operators to duplicate
+   public roots into every bundle is exactly the trap additive trust closes.
+   The connection attempts the process trust store first and retries
+   chain-of-trust failures against the bundle; both attempts verify the
+   certificate and the hostname, and neither admits plain HTTP. `caFile` and
+   `insecure` together are a configuration error — refused at startup, by
+   `/config/validate`, and by the client itself.
+
+## Amendment (2026-10-22)
+
+Review of the first implementation found a compatibility trap in point 8: a
+`caFile` bundle that _replaced_ the process trust store also replaced it for
+every host a registry delegates to — redirect targets, bearer-token realms —
+so a registry behind a private CA that redirected to a publicly-trusted host
+failed verification through no misconfiguration of its own. Point 8 now
+specifies additive trust: the process store first, the bundle as a fallback
+for chain-of-trust failures, both verifying in full.
+
+The same review tightened public diagnostics: the anonymous `/registries`
+and `/health` routes now report a failed reconciliation as a fixed summary,
+because the detailed cause can quote internal hostnames (a TLS rejection
+names the certificate's subject alternative names). The detail stays in the
+backend log and in the authenticated sync responses. See the registry TLS
+guide for the operator-facing wording.
 
 ## Consequences
 
-- Operators with internal CAs have two standard ways to trust them: the process
-  trust store (`NODE_EXTRA_CA_CERTS` at startup) or a per-registry `caFile`.
-  A registry connection pins its own dispatcher either way and does not inherit
-  dispatcher customizations from elsewhere in the process.
+- Operators with internal CAs have two standard ways to trust them — the
+  process trust store (`NODE_EXTRA_CA_CERTS` at startup) or a per-registry
+  `caFile` — and the two compose: a certificate chains to the bundle or to
+  the process's default roots. A registry connection pins its own dispatcher
+  either way and does not inherit dispatcher customizations from elsewhere in
+  the process.
+- A connection whose registry is trusted only through its bundle pays one
+  extra TLS handshake per new socket (the default store is tried first and
+  refuses); connection pooling keeps that per-connection, not per-request.
 - Local development must set `insecure: true` for the plain-HTTP Quay — the
   commented `automationContent` block in the bundled `app-config.yaml` notes the
   opt-out. The full portal demo, including the trusted and untrusted HTTPS
@@ -82,7 +112,10 @@ connection is the single, explicit, auditable opt-out.**
   socket, so certificate validation is tested against loopback HTTPS servers
   whose fixtures are generated at runtime by `src/testing/tlsCertificates.ts` —
   no private keys are committed — and the consumers are additionally driven
-  over real TLS in `ContentIndexTransport.test.ts`.
+  over real TLS in `ContentIndexTransport.test.ts`. The default-store branch
+  is proven in a subprocess (`OCIProcessTrust.test.ts`), because
+  `NODE_EXTRA_CA_CERTS` is read at startup and cannot be installed by a test
+  that is already running.
 - undici is loaded lazily by the default transport, because this package also runs
   under jsdom and in bundles that must never see a node-only HTTP client. In jest's
   VM (no dynamic-import callback) the load falls back to `require`, which is what

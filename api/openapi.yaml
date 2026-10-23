@@ -353,6 +353,22 @@ components:
       properties:
         name: { type: string }
         url: { type: string }
+        lastReconciledAt:
+          type: string
+          format: date-time
+          description: When the registry was last read, successfully or not.
+        lastReconcileOk: { type: boolean }
+        lastReconcileError:
+          type: string
+          description: |
+            Fixed failure summary. This route is readable without credentials,
+            so the detailed cause — which can quote internal hostnames from
+            certificate validation — is kept to backend logs and authenticated
+            sync responses.
+        lastCheckedAt:
+          type: string
+          format: date-time
+          description: When the registry was last cheaply checked for changes.
         namespaces:
           type: array
           items: { type: string }
@@ -2712,6 +2728,10 @@ paths:
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
+
+        Reconciliation failures are reported as a fixed summary: the route is readable
+        without credentials, so the detailed cause is kept to backend logs and
+        authenticated sync responses.
       responses:
         '200':
           description: Configured registries
@@ -2755,7 +2775,9 @@ paths:
                         registry: { type: string }
                         ok: { type: boolean }
                         discovered: { type: integer }
-                        error: { type: string }
+                        error:
+                          type: string
+                          description: Detailed failure cause; this route requires authentication.
 
   /registries/{name}/poll:
     servers:
@@ -2813,6 +2835,9 @@ paths:
                 properties:
                   status: { type: string }
                   discovered: { type: integer }
+                  error:
+                    type: string
+                    description: Detailed failure cause; this route requires authentication.
         '404':
           description: No such registry
           content:

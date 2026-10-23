@@ -35,9 +35,11 @@ export interface Config {
            */
           insecure?: boolean;
           /**
-           * PEM bundle this registry's certificate is verified against, instead of
-           * the process's default root store. Verification stays on — this is how
-           * a registry behind a private CA is trusted without `insecure: true`.
+           * PEM bundle this registry's certificate is verified against, in
+           * addition to the process's default root store. Verification stays
+           * on — this is how a registry behind a private CA is trusted
+           * without `insecure: true`. Trust is additive, so redirects and
+           * auth realms on hosts the process already trusts still verify.
            */
           caFile?: string;
           /**

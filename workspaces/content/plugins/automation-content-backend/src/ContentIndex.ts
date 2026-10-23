@@ -94,21 +94,48 @@ export interface ReconcileState {
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
 /**
- * The deepest message an error chain carries.
+ * The deepest message an error chain carries, within fixed bounds.
  *
  * Transport failures arrive wrapped — undici reports a TLS rejection as
  * `fetch failed` with the real reason on `cause` — and a sync that fails with
  * "fetch failed" tells an operator nothing. The chain is walked so the error
  * that reaches the API names the actual problem.
+ *
+ * The walk is bounded in two dimensions because the chain is untrusted
+ * input: a `cause` cycle would loop forever, and a pathological chain would
+ * grow the message without limit. A chain stopped early — by a cycle or by
+ * the depth cap — says so, so the truncation is visible rather than mistaken
+ * for the whole story.
  */
+const MAX_CAUSE_DEPTH = 10;
+
 function errorText(error: unknown): string {
   const parts: string[] = [];
-  let current = error as { message?: unknown; cause?: unknown };
-  while (current && typeof current.message === 'string') {
-    parts.push(current.message);
-    current = current.cause as typeof current;
+  const visited = new Set<unknown>();
+  let current: unknown = error;
+  for (;;) {
+    const link = chainLink(current);
+    if (!link) break;
+    if (visited.has(current) || parts.length >= MAX_CAUSE_DEPTH) {
+      parts.push('(cause chain truncated)');
+      break;
+    }
+    visited.add(current);
+    parts.push(link.message);
+    current = link.cause;
   }
   return parts.join(': ') || String(error);
+}
+
+/** A chain step: an object carrying a string `message`, which errors are. */
+function chainLink(
+  value: unknown,
+): { message: string; cause?: unknown } | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const { message } = value as { message?: unknown };
+  return typeof message === 'string'
+    ? (value as { message: string; cause?: unknown })
+    : undefined;
 }
 
 /** Composite key for a content item. */

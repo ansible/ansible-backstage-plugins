@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { ContentIndex } from './ContentIndex';
-import { createRouter } from './router';
+import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
 
 const logger = {
   info: () => {},
@@ -177,6 +177,116 @@ describe('reconcile state', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.refreshedAt).toBeUndefined();
+  });
+});
+
+describe('public diagnostics are summarised', () => {
+  /**
+   * An index with one registry whose last reconciliation — and drift check —
+   * failed the way a TLS rejection would: the error text quotes hostnames
+   * from the certificate's subject alternative names.
+   *
+   * `GET /registries` and `GET /health` are readable without credentials, so
+   * neither may carry that detail; the fixed summary must be all an
+   * anonymous caller learns. The private fields are written directly because
+   * the point of these tests is the HTTP contract, not discovery.
+   */
+  function indexWithFailedReconcile(): ContentIndex {
+    const connection = {
+      name: 'corporate',
+      url: 'https://registry.corp.example.com',
+      auth: { type: 'anonymous' },
+    };
+    const index = new ContentIndex([connection as never], {
+      info: () => {},
+      warn: () => {},
+      debug: () => {},
+    });
+    const internals = index as unknown as {
+      reconcile: Map<string, unknown>;
+      drift: Map<string, unknown>;
+    };
+    internals.reconcile.set('corporate', {
+      at: '2026-10-22T00:00:00.000Z',
+      ok: false,
+      error:
+        `repository listing failed: fetch failed: Hostname/IP does not match ` +
+        `certificate's altnames: Hostname: registry.corp.example.com. is not ` +
+        `in cert's altnames: DNS:secret-host.internal`,
+      artifacts: 2,
+    });
+    internals.drift.set('corporate', {
+      at: '2026-10-22T00:00:00.000Z',
+      changed: false,
+      details: ['check failed: connection refused from 10.1.2.3'],
+      requests: 3,
+    });
+    return index;
+  }
+
+  it('replaces the reconcile error with the fixed summary on /registries', async () => {
+    const res = await request(await appWith(indexWithFailedReconcile())).get(
+      '/registries',
+    );
+
+    expect(res.status).toBe(200);
+    const corporate = res.body.items.find(
+      (item: { name: string }) => item.name === 'corporate',
+    );
+    // Status, timestamp, and counts stay; the cause does not.
+    expect(corporate.lastReconcileOk).toBe(false);
+    expect(corporate.lastReconciledAt).toBe('2026-10-22T00:00:00.000Z');
+    expect(corporate.lastReconcileError).toBe(RECONCILE_FAILURE_SUMMARY);
+    // No certificate subjects, SANs, or internal hostnames leak: the
+    // registry's own URL is configuration this route serves on purpose;
+    // everything beyond it is diagnostic detail.
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('secret-host.internal');
+    expect(body).not.toContain('altnames');
+    expect(body).not.toContain('10.1.2.3');
+  });
+
+  it('summarises the error and drops drift details on /health', async () => {
+    const res = await request(await appWith(indexWithFailedReconcile())).get(
+      '/health',
+    );
+
+    expect(res.status).toBe(200);
+    const corporate = res.body.registries.find(
+      (item: { name: string }) => item.name === 'corporate',
+    );
+    expect(corporate.lastReconcileOk).toBe(false);
+    expect(corporate.lastReconcileError).toBe(RECONCILE_FAILURE_SUMMARY);
+    expect(corporate.artifacts).toBe(2);
+    // The drift view keeps when, whether, and what it cost — not the
+    // human-readable differences, which can quote transport errors.
+    expect(corporate.drift).toBeDefined();
+    expect(corporate.drift.changed).toBe(false);
+    expect(corporate.drift.requests).toBe(3);
+    expect(corporate.drift.details).toBeUndefined();
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('secret-host.internal');
+    expect(body).not.toContain('altnames');
+    expect(body).not.toContain('10.1.2.3');
+  });
+
+  it('keeps the detailed cause on the authenticated sync response', async () => {
+    const index = indexWithFailedReconcile();
+    // A live sync of the same registry fails with a detailed cause, the way
+    // a TLS rejection would: the authenticated response must carry it.
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+      () => Promise.reject(new Error('fetch failed: certificate has expired'));
+
+    const res = await request(await appWith(index)).post(
+      '/registries/corporate/sync',
+    );
+
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toContain('certificate has expired');
   });
 });
 

@@ -110,12 +110,17 @@ export interface RegistryConnection {
    */
   insecure?: boolean;
   /**
-   * PEM bundle this registry's certificate is verified against, instead of the
-   * process's default root store. Verification stays on: this is how a registry
-   * behind a private CA is trusted without resorting to `insecure: true`.
+   * PEM bundle this registry's certificate is verified against, in addition
+   * to the process's default root store. Verification stays on: this is how a
+   * registry behind a private CA is trusted without resorting to
+   * `insecure: true`.
    *
-   * When set, the bundle is the complete trust store for the connection — the
-   * default roots are not merged in.
+   * Trust is additive, deliberately: a registry behind a private CA can
+   * redirect to, or authenticate through, a host whose certificate chains to
+   * the process's default roots — a CDN in front of the registry, a separate
+   * auth host — and duplicating those roots into every bundle is exactly the
+   * trap additive trust avoids. Combining `ca` with `insecure: true` is
+   * refused outright.
    */
   ca?: string;
   /**

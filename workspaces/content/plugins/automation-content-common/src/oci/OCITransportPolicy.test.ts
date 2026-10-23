@@ -12,7 +12,13 @@
  *
  * Trust is configured the way a deployment would configure it: a per-registry
  * CA bundle on the connection, not a mutation of process-global state. The
- * pinned dispatcher each connection builds trusts exactly that bundle.
+ * pinned dispatcher each connection builds trusts that bundle in addition to
+ * the process's default roots — the default store is tried first and
+ * chain-of-trust failures fall back to the bundle, so a redirect or auth
+ * realm on a host the process already trusts still verifies. The
+ * default-store branch itself is proven by `OCIProcessTrust.test.ts`, which
+ * runs the client in a subprocess whose `NODE_EXTRA_CA_CERTS` was set before
+ * startup.
  *
  * The policy under test: registry connections verify TLS certificates by
  * default and refuse plain HTTP, and the only way around either is an explicit
@@ -135,7 +141,7 @@ async function startServer(
   return loopback;
 }
 
-/** A connection to `url` trusting exactly the test CA, plus any overrides. */
+/** A connection to `url` trusting the test CA plus the default roots, with overrides. */
 function connection(
   url: string,
   overrides: Partial<RegistryConnection> = {},
@@ -144,9 +150,11 @@ function connection(
     name: 'tls-test',
     url,
     auth: { type: 'anonymous' },
-    // Trust exactly the test CA, the way a deployment trusts its
-    // organisational CA: through the connection, not ambient process state.
-    ca: FIXTURES.ca,
+    // Trust the test CA the way a deployment trusts its organisational CA:
+    // through the connection, not ambient process state. Not combined with
+    // the opt-out — the client refuses that pair, so the helper must not
+    // fabricate it when a test opts out.
+    ...(overrides.insecure === true ? {} : { ca: FIXTURES.ca }),
     ...overrides,
   };
 }
@@ -337,6 +345,41 @@ describe('insecure: false is as strict as the default', () => {
   });
 });
 
+describe('a CA bundle and the opt-out cannot be combined', () => {
+  it('refuses a connection that sets both', () => {
+    // The same refusal the config layer makes at startup: a bundle to verify
+    // against and an opt-out of verification contradict each other, and one
+    // of them is always a mistake. The client enforces it too, so a
+    // programmatically constructed connection cannot slip the pair through.
+    expect(
+      () =>
+        new OCIClient(
+          connection('https://127.0.0.1:1', {
+            insecure: true,
+            ca: FIXTURES.ca,
+          }),
+        ),
+    ).toThrow(/ca.*insecure|insecure.*ca/);
+  });
+
+  it('accepts the bundle on its own, the opt-out on its own, and an explicit insecure: false', () => {
+    // Three legitimate configurations must keep working: verification
+    // against a bundle, the auditable opt-out, and verification with the
+    // opt-out explicitly (redundantly) switched off.
+    expect(
+      () => new OCIClient(connection('https://127.0.0.1:1')),
+    ).not.toThrow();
+    expect(
+      () =>
+        new OCIClient(connection('https://127.0.0.1:1', { insecure: true })),
+    ).not.toThrow();
+    expect(
+      () =>
+        new OCIClient(connection('https://127.0.0.1:1', { insecure: false })),
+    ).not.toThrow();
+  });
+});
+
 describe('insecure: true is explicit and auditable', () => {
   it('warns when the client is created', () => {
     const warnings: string[] = [];
@@ -454,6 +497,35 @@ describe('redirects cannot downgrade the transport', () => {
 
     expect((await client.ping()).ok).toBe(true);
     expect(target.hits).toBeGreaterThan(0);
+
+    await client.dispose();
+  });
+
+  it('rejects a cross-origin redirect to a host neither trust store covers', async () => {
+    // The additive-trust regression test: a bundle that replaced the default
+    // store also replaced it for redirect targets, so a registry that
+    // redirected to an unrelated host failed for the wrong reason. With
+    // additive trust the target is still refused here — it chains to neither
+    // the bundle nor the process's default roots — and refused *before* any
+    // request leaves the process.
+    const target = await startServer(
+      'https',
+      certificatePair('untrusted-server'),
+    );
+    const source = await startServer(
+      'https',
+      certificatePair('trusted-server'),
+      (_req, res) => {
+        res.writeHead(302, { location: `${target.url}/v2/` });
+        res.end();
+      },
+    );
+    const client = new OCIClient(connection(source.url));
+
+    expect(await failureOf(() => client.ping())).toMatch(
+      /self-signed|certificate|verify/i,
+    );
+    expect(target.hits).toBe(0);
 
     await client.dispose();
   });

@@ -31,6 +31,18 @@ type RouteResponse = {
 const EE_TYPE = 'execution-environment';
 
 /**
+ * What an anonymous caller learns about a failed reconciliation.
+ *
+ * `GET /health` and `GET /registries` are readable without credentials, and
+ * a reconcile error's detail can quote internal hostnames — a TLS rejection
+ * names the certificate's subject alternative names, for instance. The
+ * detail stays in the backend log and in the authenticated sync responses;
+ * the public routes carry this fixed summary instead.
+ */
+export const RECONCILE_FAILURE_SUMMARY =
+  'reconciliation failed — see backend logs, or an authenticated sync, for the cause';
+
+/**
  * Coerce a documentation field to an array.
  *
  * `ansible-doc` returns `description`, `author` and `notes` as either a scalar or a
@@ -121,15 +133,36 @@ export async function createRouter(
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
+    // An explicit public mapping, not a spread of the reconciliation state:
+    // this route is unauthenticated, and the raw state carries the detailed
+    // failure cause. See RECONCILE_FAILURE_SUMMARY.
     res.json({
       status: 'ok',
       refreshedAt: index.refreshedAt,
       cache: index.cacheStats,
-      registries: index.listRegistries().map(state => ({
-        name: state.connection.name,
-        ...index.reconcileStateFor(state.connection.name),
-        drift: index.driftStateFor(state.connection.name),
-      })),
+      registries: index.listRegistries().map(state => {
+        const reconcile = index.reconcileStateFor(state.connection.name);
+        const drift = index.driftStateFor(state.connection.name);
+        return {
+          name: state.connection.name,
+          lastReconciledAt: reconcile?.at,
+          lastReconcileOk: reconcile?.ok,
+          lastReconcileError:
+            reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
+          artifacts: reconcile?.artifacts,
+          drift: drift
+            ? {
+                at: drift.at,
+                changed: drift.changed,
+                // Counts only: drift details can quote error text from the
+                // registry transport, which is not for anonymous readers.
+                // The differences stay in the log and in the authenticated
+                // poll response.
+                requests: drift.requests,
+              }
+            : undefined,
+        };
+      }),
     });
   });
 
@@ -147,7 +180,10 @@ export async function createRouter(
           capabilities: state.capabilities,
           lastReconciledAt: reconcile?.at,
           lastReconcileOk: reconcile?.ok,
-          lastReconcileError: reconcile?.error,
+          // Fixed summary only — this route is unauthenticated, and the raw
+          // cause can quote internal hostnames. See RECONCILE_FAILURE_SUMMARY.
+          lastReconcileError:
+            reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
           lastCheckedAt: index.driftStateFor(state.connection.name)?.at,
         };
       }),

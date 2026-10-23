@@ -1,4 +1,5 @@
 import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
+import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
 import {
   ArtifactRef,
@@ -147,6 +148,11 @@ function parseChallengeParams(input: string): Record<string, string> {
  *   `rejectUnauthorized` to the ambient default would inherit any process-wide
  *   `NODE_TLS_REJECT_UNAUTHORIZED=0` set for unrelated reasons, silently
  *   disabling this connection's verification.
+ * - Trust is additive: a connection with a `ca` bundle accepts certificates
+ *   that chain to the bundle *or* to the process's default root store, so a
+ *   registry behind a private CA can still redirect to, or authenticate
+ *   through, a host the process already trusts. Both paths verify the
+ *   certificate and the hostname; neither admits plain HTTP.
  */
 export class OCIClient {
   private readonly fetchImpl: FetchLike;
@@ -171,6 +177,19 @@ export class OCIClient {
     private readonly connection: RegistryConnection,
     options: OCIClientOptions = {},
   ) {
+    if (connection.insecure === true && connection.ca) {
+      // The same refusal the config layer makes at startup, enforced here so a
+      // programmatically constructed connection cannot combine them either: a
+      // bundle to verify against and an opt-out of verification contradict
+      // each other, and one of them is always a mistake. Checked before either
+      // transport — injected or default — is selected.
+      throw new RegistryError(
+        `registry "${connection.name}" sets both ca and insecure: verify ` +
+          `against the bundle or opt out of verification, not both`,
+        undefined,
+        connection.name,
+      );
+    }
     this.allowInsecure = connection.insecure === true;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.logger = options.logger;
@@ -179,11 +198,14 @@ export class OCIClient {
     const injected = options.fetch;
     const transport: FetchLike = async (url, init) => {
       if (injected) return this.followRedirects(injected, url, init);
-      const { Agent, fetch: undiciFetch } = await loadUndici();
+      const { Agent, buildConnector, fetch: undiciFetch } = await loadUndici();
       return this.followRedirects(
         (next, request) => {
           const undiciRequest: UndiciRequestInit = { ...request };
-          undiciRequest.dispatcher = this.pinnedDispatcher(Agent);
+          undiciRequest.dispatcher = this.pinnedDispatcher({
+            Agent,
+            buildConnector,
+          });
           // undici's Response and the global Response are the same runtime shape;
           // their type declarations disagree only on ReadableStream variance.
           return undiciFetch(
@@ -249,21 +271,27 @@ export class OCIClient {
    * The dispatcher this connection's trust policy pins.
    *
    * Both dispatchers pin `rejectUnauthorized` explicitly; see the class
-   * docblock. The verified one trusts the connection's `ca` bundle when given,
-   * and the process's default root store otherwise.
+   * docblock. The verified one trusts the process's default root store, and a
+   * connection with a `ca` bundle trusts that bundle *in addition*: a
+   * registry behind a private CA can redirect to, or authenticate through, a
+   * host whose certificate chains to the default roots — a CDN in front of
+   * the registry, a separate auth host — without duplicating those roots
+   * into the bundle. See `AdditiveTrustConnector` for how the two stores are
+   * combined.
    */
-  private pinnedDispatcher(Agent: typeof import('undici').Agent): Agent {
+  private pinnedDispatcher(
+    undici: Pick<typeof import('undici'), 'Agent' | 'buildConnector'>,
+  ): Agent {
     if (this.allowInsecure) {
-      this.insecureDispatcher ??= new Agent({
+      this.insecureDispatcher ??= new undici.Agent({
         connect: { rejectUnauthorized: false },
       });
       return this.insecureDispatcher;
     }
-    this.secureDispatcher ??= new Agent({
-      connect: {
-        rejectUnauthorized: true,
-        ...(this.connection.ca ? { ca: this.connection.ca } : {}),
-      },
+    this.secureDispatcher ??= new undici.Agent({
+      connect: this.connection.ca
+        ? createAdditiveTrustConnector(undici, { ca: this.connection.ca })
+        : { rejectUnauthorized: true },
     });
     return this.secureDispatcher;
   }

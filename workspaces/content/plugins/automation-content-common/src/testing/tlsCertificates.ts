@@ -45,82 +45,149 @@ export function generateTlsTestFixtures(): TlsTestFixtures {
   return cached;
 }
 
+/** A CA independent of the shared fixtures, with one server it has signed. */
+export interface StandaloneCa {
+  /** The CA certificate, PEM — trusted as `ca` on a connection, or installed as a process root. */
+  ca: string;
+  /** A loopback server certificate chaining to the CA. */
+  server: CertificatePair;
+}
+
+/**
+ * A CA independent of the shared fixtures, with one server it has signed.
+ *
+ * The process-trust tests need several CAs at once, each playing a different
+ * role: one the connection trusts through `ca`, one the process itself
+ * trusts (installed through `NODE_EXTRA_CA_CERTS` before startup, which is
+ * why those tests run in a subprocess), and one nobody trusts. The shared
+ * fixtures have a single CA, which cannot demonstrate trust arriving from
+ * two directions.
+ */
+export function generateStandaloneCa(cn: string): StandaloneCa {
+  const ca = issueTestCa(cn);
+  return { ca: ca.pem, server: issueLoopbackServerCertificate(ca) };
+}
+
+/** Extensions every test CA carries: it must be able to sign certificates. */
+const CA_EXTENSIONS = [
+  { name: 'basicConstraints', cA: true, critical: true },
+  { name: 'keyUsage', keyCertSign: true, cRLSign: true, critical: true },
+];
+
+/** SANs valid for the loopback interface, where every test server listens. */
+const LOOPBACK_SAN = [
+  { type: 7, ip: '127.0.0.1' },
+  { type: 2, value: 'localhost' },
+];
+
+/** A key pair in the PEM forms forge consumes. */
+interface KeyPair {
+  privatePem: string;
+  publicPem: string;
+}
+
+/** A test certificate authority: its certificate, and the pair that signed it. */
+interface TestCa {
+  pem: string;
+  keys: KeyPair;
+  /** The CN certificates issued by this CA are signed with. */
+  cn: string;
+}
+
+function issueTestCa(cn: string): TestCa {
+  const keys = rsaKeyPair();
+  return {
+    pem: issueCertificate({
+      subjectCn: cn,
+      issuerCn: cn,
+      issuerKeys: keys,
+      subjectKeys: keys,
+      notBefore: daysFromNow(-1),
+      notAfter: daysFromNow(3650),
+      extensions: CA_EXTENSIONS,
+    }),
+    keys,
+    cn,
+  };
+}
+
+/**
+ * A loopback server certificate signed by a test CA.
+ *
+ * The options exist for the fixture shapes the policy must distinguish: a
+ * shared key pair (the fixtures vary by certificate, not key material), a
+ * validity window that has closed, and SANs for the wrong hostname.
+ */
+function issueLoopbackServerCertificate(
+  ca: TestCa,
+  options: {
+    subjectCn?: string;
+    subjectKeys?: KeyPair;
+    notBefore?: Date;
+    notAfter?: Date;
+    altNames?: unknown[];
+  } = {},
+): CertificatePair {
+  const subjectKeys = options.subjectKeys ?? rsaKeyPair();
+  return {
+    cert: issueCertificate({
+      subjectCn: options.subjectCn ?? '127.0.0.1',
+      issuerCn: ca.cn,
+      issuerKeys: ca.keys,
+      subjectKeys,
+      notBefore: options.notBefore ?? daysFromNow(-1),
+      notAfter: options.notAfter ?? daysFromNow(3650),
+      extensions: [
+        {
+          name: 'subjectAltName',
+          altNames: options.altNames ?? LOOPBACK_SAN,
+        },
+      ],
+    }),
+    key: subjectKeys.privatePem,
+  };
+}
+
 function build(): TlsTestFixtures {
-  const caKeys = rsaKeyPair();
+  const ca = issueTestCa('automation-content test CA');
+  // One key pair shared by the server fixtures: they vary by certificate —
+  // issuer, hostname, validity — not by key material.
   const serverKeys = rsaKeyPair();
-  const CA_CN = 'automation-content test CA';
-
-  const ca = issueCertificate({
-    subjectCn: CA_CN,
-    issuerCn: CA_CN,
-    issuerKeys: caKeys,
-    subjectKeys: caKeys,
-    notBefore: daysFromNow(-1),
-    notAfter: daysFromNow(3650),
-    extensions: [
-      { name: 'basicConstraints', cA: true, critical: true },
-      { name: 'keyUsage', keyCertSign: true, cRLSign: true, critical: true },
-    ],
-  });
-
-  const loopbackSan = [
-    { type: 7, ip: '127.0.0.1' },
-    { type: 2, value: 'localhost' },
-  ];
-
-  const trusted = issueCertificate({
-    subjectCn: '127.0.0.1',
-    issuerCn: CA_CN,
-    issuerKeys: caKeys,
-    subjectKeys: serverKeys,
-    notBefore: daysFromNow(-1),
-    notAfter: daysFromNow(3650),
-    extensions: [{ name: 'subjectAltName', altNames: loopbackSan }],
-  });
-  const untrusted = issueCertificate({
-    subjectCn: '127.0.0.1',
-    issuerCn: '127.0.0.1',
-    issuerKeys: serverKeys,
-    subjectKeys: serverKeys,
-    notBefore: daysFromNow(-1),
-    notAfter: daysFromNow(3650),
-    extensions: [{ name: 'subjectAltName', altNames: loopbackSan }],
-  });
-  const wrongHost = issueCertificate({
-    subjectCn: 'wrong.example',
-    issuerCn: CA_CN,
-    issuerKeys: caKeys,
-    subjectKeys: serverKeys,
-    notBefore: daysFromNow(-1),
-    notAfter: daysFromNow(3650),
-    extensions: [
-      {
-        name: 'subjectAltName',
-        altNames: [{ type: 2, value: 'wrong.example' }],
-      },
-    ],
-  });
-  const expired = issueCertificate({
-    subjectCn: '127.0.0.1',
-    issuerCn: CA_CN,
-    issuerKeys: caKeys,
-    subjectKeys: serverKeys,
-    notBefore: daysFromNow(-2),
-    notAfter: daysFromNow(-1),
-    extensions: [{ name: 'subjectAltName', altNames: loopbackSan }],
-  });
 
   return {
-    ca,
-    trustedServer: { cert: trusted, key: serverKeys.privatePem },
-    untrustedServer: { cert: untrusted, key: serverKeys.privatePem },
-    wrongHostServer: { cert: wrongHost, key: serverKeys.privatePem },
-    expiredServer: { cert: expired, key: serverKeys.privatePem },
+    ca: ca.pem,
+    trustedServer: issueLoopbackServerCertificate(ca, {
+      subjectKeys: serverKeys,
+    }),
+    untrustedServer: {
+      // Self-signed: the subject is its own issuer, so no store that does not
+      // already hold the certificate itself can trust it.
+      cert: issueCertificate({
+        subjectCn: '127.0.0.1',
+        issuerCn: '127.0.0.1',
+        issuerKeys: serverKeys,
+        subjectKeys: serverKeys,
+        notBefore: daysFromNow(-1),
+        notAfter: daysFromNow(3650),
+        extensions: [{ name: 'subjectAltName', altNames: LOOPBACK_SAN }],
+      }),
+      key: serverKeys.privatePem,
+    },
+    wrongHostServer: issueLoopbackServerCertificate(ca, {
+      subjectCn: 'wrong.example',
+      subjectKeys: serverKeys,
+      altNames: [{ type: 2, value: 'wrong.example' }],
+    }),
+    expiredServer: issueLoopbackServerCertificate(ca, {
+      subjectKeys: serverKeys,
+      notBefore: daysFromNow(-2),
+      notAfter: daysFromNow(-1),
+    }),
   };
 }
 
 /** A fresh RSA-2048 pair, exported in the PEM forms forge consumes. */
-function rsaKeyPair(): { privatePem: string; publicPem: string } {
+function rsaKeyPair(): KeyPair {
   const { publicKey, privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
   });
