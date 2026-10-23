@@ -42,7 +42,7 @@ where versioned packages apply.
 
 ### Fixed
 
-- **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema; client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`; this does not bypass redirect validation or fix token-revocation transport errors.
+- **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema, while client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`. Deployments configured only with `ansible.rhaap.baseUrl` must also set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl` as described in the upgrade notes. This does not bypass redirect validation or fix token-revocation transport errors.
 
 - **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
 
@@ -58,6 +58,8 @@ where versioned packages apply.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
 ### Upgrade notes
+
+1. **AAP browser logout:** set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl`, using `auth.environment` to select the provider environment (default `development`). Set `auth.providers.rhaap.<environment>.host` or retain `ansible.rhaap.baseUrl` as the host fallback. Register the exact `app.baseUrl` in the matching OAuth application's Post Logout Redirect URIs. A host without the required client ID or valid Portal URL reports a configuration error and clears Portal auth without ending the AAP browser session.
 
 1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.
 
