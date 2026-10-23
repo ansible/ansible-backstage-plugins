@@ -228,3 +228,105 @@ describe('registry mutation authentication', () => {
     expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
   });
 });
+
+describe('configuration boundary', () => {
+  /**
+   * Registry endpoints are install-time configuration, and that is the SSRF trust
+   * boundary: the API may inspect and re-read them, but must offer no way to create
+   * or edit one. If a mutating route ever appears here, this test failing is the
+   * reminder that it widens the boundary the security review approved.
+   */
+  it('offers no route that creates or edits a registry at runtime', async () => {
+    const app = await appWith(seed([]));
+    const hostile = { name: 'evil', url: 'https://evil.example' };
+
+    const created = await request(app).post('/registries').send(hostile);
+    const replaced = await request(app).put('/registries/reg').send(hostile);
+    const patched = await request(app).patch('/registries/reg').send(hostile);
+
+    expect(created.status).toBe(404);
+    expect(replaced.status).toBe(404);
+    expect(patched.status).toBe(404);
+  });
+
+  it('flags a registry URL without an http(s) scheme', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 'ftp://quay.io' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'registries[0].url' }),
+    );
+  });
+
+  it('flags a registry URL with no scheme at all', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 'quay.io' }],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].url',
+        message: 'Must include a scheme',
+      }),
+    );
+  });
+
+  it('reports duplicate registry names, which would be ambiguous endpoints', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [
+          { name: 'quay', url: 'https://quay.io' },
+          { name: 'quay', url: 'https://quay.example' },
+        ],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[1].name',
+        message: expect.stringContaining('Duplicate'),
+      }),
+    );
+  });
+
+  it('accepts a well-formed configuration and only warns about insecure registries', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [
+          { name: 'local', url: 'http://localhost:5000', insecure: true },
+          {
+            name: 'quay',
+            url: 'https://quay.io',
+            repositories: ['ansible/ee'],
+          },
+        ],
+      });
+
+    expect(res.body.valid).toBe(true);
+    expect(res.body.errors).toEqual([]);
+    expect(res.body.warnings).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].insecure',
+        message: expect.stringContaining('Plain HTTP'),
+      }),
+    );
+  });
+});

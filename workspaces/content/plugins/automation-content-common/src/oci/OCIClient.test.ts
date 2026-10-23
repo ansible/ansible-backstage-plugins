@@ -449,3 +449,131 @@ describe('auth priming', () => {
     expect(seen.every(r => r.auth === undefined)).toBe(true);
   });
 });
+
+describe('SSRF refusals', () => {
+  /**
+   * A registry that answers every request with the given bearer challenge.
+   *
+   * `https://auth.example/token` is the legitimate shape this suite exercises:
+   * registries legitimately use separate auth hosts, so the challenge — not the
+   * configured URL — decides where the token exchange goes. That is exactly why
+   * the realm is the interesting attack surface: it is registry-controlled
+   * input that directs a credential-bearing request.
+   */
+  function challengingRegistry(challenge: string) {
+    const seen: Array<{ url: string; auth: string | undefined }> = [];
+    const fetchImpl = async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      seen.push({ url, auth: init?.headers?.Authorization });
+      if (url.startsWith('https://auth.example/')) {
+        return new Response(JSON.stringify({ token: 'issued-token' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      const path = new URL(url).pathname;
+      if (path === '/v2/') return new Response('{}', { status: 200 });
+      if (!init?.headers?.Authorization?.startsWith('Bearer ')) {
+        return new Response('unauthorized', {
+          status: 401,
+          headers: { 'www-authenticate': challenge },
+        });
+      }
+      return new Response(
+        JSON.stringify({ name: 'ansible/ee', tags: ['dev'] }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
+    };
+    return { seen, fetchImpl: fetchImpl as never };
+  }
+
+  it('refuses an auth realm whose scheme is not http(s)', async () => {
+    // A `file:` realm would direct the credential-bearing token request at the
+    // local filesystem. The refusal must leave the original request standing at
+    // 401 rather than retrying, and no request may leave the configured registry.
+    const { seen, fetchImpl } = challengingRegistry(
+      'Bearer realm="file:///etc/shadow",service="x"',
+    );
+    const client = new OCIClient(connection(), { fetch: fetchImpl });
+
+    const res = await client.request('/v2/ansible/ee/tags/list');
+
+    expect(res.status).toBe(401);
+    expect(seen.every(r => r.url.startsWith('https://mock.registry'))).toBe(
+      true,
+    );
+  });
+
+  it('refuses a plaintext auth realm for an HTTPS registry', async () => {
+    // Sending Basic credentials to an http:// realm would leak them to anyone
+    // watching the wire. Same contract as above: 401 stands, nothing is sent.
+    const { seen, fetchImpl } = challengingRegistry(
+      'Bearer realm="http://auth.example/token",service="x"',
+    );
+    const client = new OCIClient(connection(), { fetch: fetchImpl });
+
+    const res = await client.request('/v2/ansible/ee/tags/list');
+
+    expect(res.status).toBe(401);
+    expect(seen.some(r => r.url.startsWith('http://'))).toBe(false);
+  });
+
+  it('still exchanges tokens with a separate HTTPS auth host — the deliberate exemption', async () => {
+    // The realm origin check is intentionally NOT applied to auth realms:
+    // registries legitimately use dedicated auth hosts (auth.docker.io,
+    // auth.example). This pins that exemption as intended behaviour, so a future
+    // tightening has to argue with this test, not silently regress it.
+    const { seen, fetchImpl } = challengingRegistry(
+      'Bearer realm="https://auth.example/token",service="x"',
+    );
+    const client = new OCIClient(connection(), { fetch: fetchImpl });
+
+    const res = await client.request('/v2/ansible/ee/tags/list');
+
+    expect(res.status).toBe(200);
+    expect(seen.some(r => r.url.startsWith('https://auth.example/'))).toBe(
+      true,
+    );
+  });
+
+  it('refuses a pagination Link that points away from the configured registry', async () => {
+    // Link headers are registry controlled. Without the origin check a hostile
+    // registry could direct a credential-bearing request at any host by merely
+    // advertising a next page there. (Same-origin absolute Links are the allowed
+    // case — the "follows Link-header pagination" test above covers those.)
+    const seen: string[] = [];
+    const fetchImpl = async (url: string) => {
+      seen.push(url);
+      const path = new URL(url).pathname;
+      if (path === '/v2/') return new Response('{}', { status: 200 });
+      if (path.endsWith('/tags/list')) {
+        return new Response(
+          JSON.stringify({ name: 'ansible/ee', tags: ['a'] }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+              link: '<https://evil.example/v2/ansible/ee/tags/list?n=100&last=a>; rel="next"',
+            },
+          },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    };
+    const client = new OCIClient(connection(), { fetch: fetchImpl as never });
+
+    const tags: string[] = [];
+    await expect(async () => {
+      for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+    }).rejects.toThrow('is not the configured registry');
+
+    // The first page was served before the hostile Link was refused.
+    expect(tags).toEqual(['a']);
+    expect(seen.every(url => new URL(url).origin === HOST)).toBe(true);
+  });
+});
