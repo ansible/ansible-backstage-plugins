@@ -20,8 +20,11 @@ import {
 } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef, performAapLogout } from '@ansible/aap-app-auth';
 import { useState } from 'react';
-import type { ResolvedAppHeaderAction } from '@ansible/portal-extension-api/alpha';
-import { CreateActionMenu } from '@ansible/portal-plugin-sdk';
+import type {
+  ResolvedAppHeaderAction,
+  ResolvedAppProfileMenuItem,
+} from '@ansible/portal-extension-api/alpha';
+import { CreateActionMenu, ProfileMenuItems } from '@ansible/portal-plugin-sdk';
 
 const useStyles = makeStyles(theme => ({
   appBar: {
@@ -121,9 +124,11 @@ const useStyles = makeStyles(theme => ({
 export const GlobalHeader = ({
   createPath,
   createActions,
+  profileItems,
 }: Readonly<{
   createPath?: string;
   createActions?: readonly ResolvedAppHeaderAction[];
+  profileItems?: readonly ResolvedAppProfileMenuItem[];
 }>) => {
   const classes = useStyles();
   const navigate = useNavigate();
@@ -239,9 +244,13 @@ export const GlobalHeader = ({
           >
             Settings
           </MenuItem>
-          <MenuItem onClick={handleLogout} className={classes.menuItem}>
-            Logout
-          </MenuItem>
+          {profileItems === undefined ? (
+            <MenuItem onClick={handleLogout} className={classes.menuItem}>
+              Logout
+            </MenuItem>
+          ) : (
+            <ProfileMenuItems items={profileItems} onClose={handleMenuClose} />
+          )}
         </Menu>
       </Toolbar>
     </AppBar>

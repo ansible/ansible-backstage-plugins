@@ -5,6 +5,7 @@ import { NativeGlobalHeader } from './NativeGlobalHeader';
 
 jest.mock('@ansible/portal-extension-host/alpha', () => ({
   useNativeAppHeaderActions: jest.fn(),
+  useNativeAppProfileMenuItems: jest.fn(() => []),
 }));
 jest.mock('@backstage/core-compat-api', () => ({
   compatWrapper: (element: JSX.Element) => element,
@@ -27,7 +28,7 @@ it.each([
     render(<NativeGlobalHeader />);
     expect(useNativeAppHeaderActions).toHaveBeenCalledWith('create');
     expect(GlobalHeader).toHaveBeenLastCalledWith(
-      { createActions: actions },
+      { createActions: actions, profileItems: [] },
       expect.anything(),
     );
   },

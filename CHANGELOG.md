@@ -10,6 +10,8 @@ where versioned packages apply.
 
 ### Added
 
+- **Portal profile contributions** support owned-page navigation and lazy UI actions through `AppProfileMenuItemBlueprint`, explicit authentication/permission gates, and shared source-app rendering. AAP owns its opt-in `app-profile-menu-item:app/aap-logout` declaration; the source renderer needs no per-plugin menu changes. AAP OAuth transport handling is unchanged.
+
 - **Portal header actions** use native, owner-bound Create declarations with installed-page, configuration, and permission checks. The source header uses the shared menu presentation without depending on the RHDH header.
 
 - **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when no eligible destination is declared.
