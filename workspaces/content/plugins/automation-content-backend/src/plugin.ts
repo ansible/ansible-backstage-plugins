@@ -62,6 +62,7 @@ export const automationContentPlugin = createBackendPlugin({
           '/content-items/{*rest}',
           '/plugins',
           '/plugins/{*rest}',
+          '/sync',
         ]) {
           httpRouter.addAuthPolicy({ path, allow: 'unauthenticated' });
         }
