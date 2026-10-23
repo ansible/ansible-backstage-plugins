@@ -290,32 +290,38 @@ export class OCIClient {
   }
 
   /**
-   * Resolve a request path to a URL, refusing absolute URLs that point away
-   * from the configured registry.
+   * Resolve a request path to a URL, refusing anything that points away from
+   * the configured registry.
    *
-   * Pagination `Link` headers are registry controlled; without this check a
-   * hostile registry could direct a credential-bearing request at any host.
-   * The auth realm is exempt — it is fetched separately, by design, since
-   * registries legitimately use separate auth hosts.
+   * Pagination `Link` headers are registry controlled, and the target can take
+   * any reference form: absolute, path-relative, or authority-relative. Resolving
+   * first and authorizing the *parsed* origin is what closes the door — testing
+   * whether the string starts with `http` would let a Link like
+   * `<.attacker.example/v2/...>` concatenate onto the configured host and
+   * silently redirect discovery (and its credentials) to
+   * `mock.registry.attacker.example`. The auth realm is exempt — it is fetched
+   * separately, by design, since registries legitimately use separate auth
+   * hosts.
    */
   private resolveUrl(path: string): string {
-    if (!path.startsWith('http')) return `${this.base}${path}`;
+    const origin = new URL(this.base);
+    let target: URL;
     try {
-      const target = new URL(path);
-      const origin = new URL(this.base);
-      if (target.origin !== origin.origin) {
-        throw new Error(
-          `absolute URL ${target.origin} is not the configured registry ` +
-            `${origin.origin}`,
-        );
-      }
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error(`invalid absolute URL: ${path}`);
-      }
-      throw error;
+      target = new URL(path, origin);
+    } catch {
+      // The path is registry controlled; cap what gets echoed so a hostile
+      // Link header cannot flood the logs.
+      throw new Error(
+        `invalid request path from registry: ${path.slice(0, 200)}`,
+      );
     }
-    return path;
+    if (target.origin !== origin.origin) {
+      throw new Error(
+        `absolute URL ${target.origin} is not the configured registry ` +
+          `${origin.origin}`,
+      );
+    }
+    return target.toString();
   }
 
   /**

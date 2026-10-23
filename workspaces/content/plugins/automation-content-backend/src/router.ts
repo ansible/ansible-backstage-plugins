@@ -2,6 +2,7 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
+import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
   index: ContentIndex;
@@ -716,19 +717,34 @@ export async function createRouter(
       body.registries.forEach(
         (registry: Record<string, unknown>, i: number) => {
           const at = `registries[${i}]`;
-          if (!registry.name)
-            errors.push({ path: `${at}.name`, message: 'Required' });
-          if (!registry.url)
-            errors.push({ path: `${at}.url`, message: 'Required' });
+          if (registry === null || typeof registry !== 'object') {
+            errors.push({ path: at, message: 'Must be an object' });
+            return;
+          }
 
-          if (typeof registry.name === 'string') {
-            if (seen.has(registry.name)) {
-              errors.push({
-                path: `${at}.name`,
-                message: `Duplicate registry name: ${registry.name}`,
-              });
-            }
+          if (typeof registry.name !== 'string' || registry.name === '') {
+            errors.push({ path: `${at}.name`, message: 'Required' });
+          } else if (seen.has(registry.name)) {
+            errors.push({
+              path: `${at}.name`,
+              message: `Duplicate registry name: ${registry.name}`,
+            });
+          } else {
             seen.add(registry.name);
+          }
+
+          if (typeof registry.url !== 'string' || registry.url === '') {
+            errors.push({
+              path: `${at}.url`,
+              message: 'Required and must be a string',
+            });
+          } else {
+            // The same rule the loader enforces at startup, so a configuration
+            // this endpoint approves can never prevent the backend from starting.
+            const reason = registryUrlError(registry.url);
+            if (reason) {
+              errors.push({ path: `${at}.url`, message: `Invalid: ${reason}` });
+            }
           }
 
           const hasRepos =
@@ -758,13 +774,6 @@ export async function createRouter(
                 'Credentials will be sent to the configured host rather than the realm ' +
                 'the registry advertises. Intended for registries advertising an ' +
                 'unreachable token endpoint.',
-            });
-          }
-          const url = typeof registry.url === 'string' ? registry.url : '';
-          if (url && !/^https?:\/\//.test(url)) {
-            errors.push({
-              path: `${at}.url`,
-              message: 'Must include a scheme',
             });
           }
         },
