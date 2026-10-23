@@ -16,7 +16,9 @@
     "workspaces/aap/plugins/*/migrations",
     "workspaces/apme/plugins/*/src",
     "workspaces/apme/plugins/*/dev",
-    "workspaces/apme/plugins/*/config.d.ts"
+    "workspaces/apme/plugins/*/config.d.ts",
+    "workspaces/portal-scaffolder/plugins/*/src",
+    "workspaces/portal-scaffolder/plugins/*/config.d.ts"
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {
