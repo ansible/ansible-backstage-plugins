@@ -167,6 +167,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/aap-app-auth@workspace:workspaces/aap/plugins/aap-app-auth"
   dependencies:
+    "@ansible/portal-extension-api": "workspace:^"
     "@backstage/cli": "npm:0.36.2"
     "@backstage/config": "npm:1.3.6"
     "@backstage/core-app-api": "npm:1.19.6"
@@ -25834,6 +25835,8 @@ __metadata:
     "@ansible/plugin-backstage-rhaap": "workspace:^"
     "@ansible/portal-core": "workspace:^"
     "@ansible/portal-extension-api": "workspace:^"
+    "@ansible/portal-extension-host": "workspace:^"
+    "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder": "workspace:^"
     "@backstage-community/plugin-github-actions": "npm:^0.11.1"
     "@backstage-community/plugin-rbac": "npm:1.51.0"

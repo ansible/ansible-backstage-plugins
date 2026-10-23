@@ -20,6 +20,7 @@ import { baseApis } from './baseApis';
 import { providers } from './identityProviders';
 import { optionalContributorLoader } from './composition';
 import { NativeGlobalHeader } from './components/GlobalHeader/NativeGlobalHeader';
+import { createAapProfileModule } from '@ansible/aap-app-auth';
 
 /** Additive NFS app: no legacy APME entry point or registration side effects. */
 export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
@@ -45,6 +46,7 @@ export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   userSettingsPlugin,
   searchPlugin,
   portalPlugin,
+  createAapProfileModule({ logoutDisabled: false }),
   portalNavigation,
   createFrontendModule({
     pluginId: 'app',

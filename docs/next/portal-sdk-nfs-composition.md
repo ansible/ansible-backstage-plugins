@@ -401,6 +401,22 @@ Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
 
+## Profile menu contributions
+
+`AppProfileMenuItemBlueprint` contributes navigation or lazy UI-action rows to
+the shared provider. `useNativeAppProfileMenuItems()` checks user identity,
+declared permissions, configuration, and owned page targets. The shared SDK
+`ProfileMenuItems` renders accepted rows, closes the menu before opening a new
+UI surface, prevents duplicate activation while pending, and contains failures.
+No action implementation loads just to decide visibility. The source header consumes the same resolver for every plugin item.
+
+The AAP auth module owns its disabled-by-default logout declaration and shared
+logout implementation. The source NFS app explicitly installs
+`createAapProfileModule({ logoutDisabled: false })` from `aap-app-auth`, without
+replacing its existing sign-in composition.
+
+See the [profile authoring example](portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item).
+
 ## AAP OIDC logout
 
 The existing logout component waits for identity sign-out before navigating to the
