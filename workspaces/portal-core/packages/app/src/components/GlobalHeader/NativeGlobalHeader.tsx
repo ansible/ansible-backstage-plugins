@@ -1,20 +1,15 @@
 import {
-  appTreeApiRef,
-  coreExtensionData,
-  useApi,
-} from '@backstage/frontend-plugin-api';
+  useNativeAppHeaderActions,
+  useNativeAppProfileMenuItems,
+} from '@ansible/portal-extension-host/alpha';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { GlobalHeader } from './GlobalHeader';
 
-/** Resolve the optional Templates destination from mounted native metadata. */
+/** Shell actions are declared by installed contributors, not selected by plugin ID. */
 export function NativeGlobalHeader() {
-  const appTree = useApi(appTreeApiRef);
-  const page = appTree.getTree().tree.nodes.get('page:portal-scaffolder');
-  const path =
-    !page?.spec.disabled &&
-    page?.edges.attachedTo?.node.spec.id === 'app/routes' &&
-    page.edges.attachedTo.input === 'routes'
-      ? page.instance?.getData(coreExtensionData.routePath)
-      : undefined;
-  return compatWrapper(<GlobalHeader createPath={path} />);
+  const actions = useNativeAppHeaderActions('create');
+  const profileItems = useNativeAppProfileMenuItems();
+  return compatWrapper(
+    <GlobalHeader createActions={actions} profileItems={profileItems} />,
+  );
 }

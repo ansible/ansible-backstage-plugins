@@ -232,7 +232,10 @@ The source app defaults to the new frontend system (NFS). Its user-facing routes
 
 Sidebar configuration selects installed page extensions; it does not install plugins or
 grant permissions. `?portalFrontend=legacy` explicitly selects the legacy app.
-The local header retains account/logout controls. RHDH uses its platform header.
+The local header retains account/logout controls and renders contributed Create
+destinations. RHDH keeps its platform header; the optional `portal-rhdh` adapter
+renders the same Create destinations and contributed profile-menu items there.
+AAP auth owns its opt-in Sign out contribution; the adapter has no AAP dependency.
 The duplicate `/portal/*` pages have been removed. See
 [Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md) for integration,
 navigation configuration, and verification boundaries. Backend port 7007 is the checked-in
@@ -273,7 +276,7 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-The 19 packages below include installable plugins/modules and shared libraries.
+The packages below include installable plugins/modules and shared libraries.
 A library does not create a page or sidebar item merely by being installed.
 
 ### Portal core and SDK
@@ -286,6 +289,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH header adapter for Create destinations and contributed profile-menu items.
 
 ### AAP integration
 
@@ -328,8 +332,8 @@ portal:
 `full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
 omits both. AAP authentication, host services, Administration, and Settings
 remain available. Without a configured installed landing page, `/` shows the
-neutral Portal fallback. The header omits Create when the Templates adapter is
-absent. Existing content browsing pages still belong to portal-scaffolder;
+neutral Portal fallback. The header omits Create when no eligible contributor
+declares a destination. Existing content browsing pages still belong to portal-scaffolder;
 removing that contributor also removes those pages.
 
 These presets are development/test conveniences, not production configuration,
@@ -546,7 +550,7 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-All 19 package references are linked in [Available Plugins](#available-plugins).
+Package references are linked in [Available Plugins](#available-plugins).
 The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
 APME, and Self-service ownership.
 

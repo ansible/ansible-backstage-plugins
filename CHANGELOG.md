@@ -10,7 +10,11 @@ where versioned packages apply.
 
 ### Added
 
-- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when its Templates adapter is absent.
+- **Portal profile contributions** support owned-page navigation and lazy UI actions through `AppProfileMenuItemBlueprint`, explicit authentication/permission gates, and shared source/RHDH rendering. AAP owns its opt-in `app-profile-menu-item:app/aap-logout` declaration; `portal-rhdh` does not depend on AAP or need per-plugin menu changes. AAP OAuth transport handling is unchanged.
+
+- **Portal header actions** use native, owner-bound Create declarations with installed-page, configuration, and permission checks. Source and RHDH consumers share the menu presentation. The optional `@ansible/portal-rhdh` package isolates public RHDH header Blueprint dependencies and adds opt-in native AAP logout; it does not change OAuth token-exchange behavior.
+
+- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when no eligible destination is declared.
 
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
 
@@ -37,6 +41,8 @@ where versioned packages apply.
 - **Launch credential normalization:** `credential_type` is only set when the type can be resolved from the credential or its `summary_fields`; it is no longer defaulted to `0`, avoiding spurious duplicate-type detection when metadata is missing.
 
 ### Fixed
+
+- **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema; client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`; this does not bypass redirect validation or fix token-revocation transport errors.
 
 - **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
 

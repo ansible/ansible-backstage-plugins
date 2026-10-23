@@ -27,6 +27,9 @@ const mockErrorPost = jest.fn();
 jest.mock('@ansible/aap-app-auth', () => ({
   __esModule: true,
   rhAapAuthApiRef: Symbol('rhAapAuthApiRef'),
+  performAapLogout: jest.requireActual(
+    '../../../../../../aap/plugins/aap-app-auth/src/logout',
+  ).performAapLogout,
 }));
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -46,6 +49,31 @@ import { GlobalHeader } from './GlobalHeader';
 describe('GlobalHeader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('renders contributed profile rows instead of the legacy logout action', async () => {
+    const activate = jest.fn().mockResolvedValue(undefined);
+    render(
+      <GlobalHeader
+        profileItems={[
+          {
+            id: 'preferences',
+            title: 'Open preferences',
+            type: 'action',
+            activate,
+          },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(
+      screen.queryByRole('menuitem', { name: 'Logout' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Open preferences' }),
+    );
+    await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
 
   it('renders title, search input and action buttons', () => {
@@ -77,6 +105,74 @@ describe('GlobalHeader', () => {
     await userEvent.click(createBtn);
 
     expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog');
+  });
+
+  it('navigates directly for one generic contributor action', async () => {
+    render(
+      <GlobalHeader
+        createActions={[
+          { id: 'other.create', title: 'Create content', path: '/content' },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Create...' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/content');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('opens a menu for multiple actions and navigates only after selection', async () => {
+    render(
+      <GlobalHeader
+        createActions={[
+          { id: 'other.create', title: 'Create content', path: '/content' },
+          {
+            id: 'template.create',
+            title: 'Create from template',
+            path: '/templates',
+          },
+        ]}
+      />,
+    );
+    const create = screen.getByRole('button', { name: 'Create...' });
+    expect(create).toHaveAttribute('aria-haspopup', 'menu');
+    await userEvent.click(create);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(create).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Create content' }),
+    );
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/content');
+    await waitFor(() =>
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('does not fall back to a legacy path when the native action list is empty', () => {
+    render(<GlobalHeader createPath="/legacy" createActions={[]} />);
+    expect(
+      screen.queryByRole('button', { name: 'Create...' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('closes an open Create menu when eligible destinations disappear', async () => {
+    const actions = [
+      { id: 'one', title: 'First action', path: '/one' },
+      { id: 'two', title: 'Second action', path: '/two' },
+    ];
+    const { rerender } = render(<GlobalHeader createActions={actions} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Create...' }));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    rerender(<GlobalHeader createActions={[]} />);
+    expect(
+      screen.queryByRole('button', { name: 'Create...' }),
+    ).not.toBeInTheDocument();
+    rerender(<GlobalHeader createActions={actions} />);
+    expect(screen.getByRole('button', { name: 'Create...' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('submits search form and navigates to search results', async () => {

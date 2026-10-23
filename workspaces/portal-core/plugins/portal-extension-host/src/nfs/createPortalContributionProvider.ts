@@ -14,6 +14,8 @@ import {
   catalogTabDataRef,
   catalogTableColumnDataRef,
   scaffolderFieldDataRef,
+  appHeaderActionDataRef,
+  appProfileMenuItemDataRef,
 } from '@ansible/portal-extension-api/alpha';
 import { collectEntityTabs } from './validateEntityTab';
 import { collectCatalogTabs } from './catalogTabs';
@@ -22,6 +24,8 @@ import { collectEntityActions } from './validateEntityAction';
 import { collectEntityOverviewCards } from './validateEntityOverviewCard';
 import { collectCatalogItemActions } from './validateCatalogItemAction';
 import { collectScaffolderFields } from './validateScaffolderField';
+import { collectAppHeaderActions } from './appHeaderActions';
+import { collectAppProfileMenuItems } from './appProfileMenuItems';
 import {
   collectCatalogHeaderActions,
   collectScaffolderWorkflows,
@@ -32,6 +36,8 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
   return ApiBlueprint.makeWithOverrides({
     name: 'contributions',
     inputs: {
+      appProfileMenuItems: createExtensionInput([appProfileMenuItemDataRef]),
+      appHeaderActions: createExtensionInput([appHeaderActionDataRef]),
       entityTabs: createExtensionInput([entityDetailTabDataRef]),
       entityActions: createExtensionInput([entityActionDataRef]),
       entityOverviewCards: createExtensionInput([entityOverviewCardDataRef]),
@@ -52,6 +58,24 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
         ),
       );
       const contributions = Object.freeze({
+        appProfileMenuItems: Object.freeze(
+          collectAppProfileMenuItems(
+            inputs.appProfileMenuItems.map(input => ({
+              ...input.get(appProfileMenuItemDataRef),
+              id: input.node.spec.id,
+              ownerPlugin: input.node.spec.plugin.id,
+            })),
+          ),
+        ),
+        appHeaderActions: Object.freeze(
+          collectAppHeaderActions(
+            inputs.appHeaderActions.map(input => ({
+              ...input.get(appHeaderActionDataRef),
+              id: input.node.spec.id,
+              ownerPlugin: input.node.spec.plugin.id,
+            })),
+          ),
+        ),
         scaffolderFields: Object.freeze(
           collectScaffolderFields(
             inputs.scaffolderFields.map(input => {

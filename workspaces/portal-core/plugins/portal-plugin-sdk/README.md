@@ -17,6 +17,25 @@ yarn workspace my-plugin add @ansible/portal-plugin-sdk
 
 ## Components
 
+### `CreateActionMenu`
+
+Renders host-resolved Create destinations: no button for an empty list, direct
+navigation for one action, or an accessible menu for multiple actions. It accepts
+`ResolvedAppHeaderAction[]` from the host's `useNativeAppHeaderActions('create')`
+resolver; callers must not pass unvalidated plugin URLs. The component does not
+make authorization decisions or import the RHDH header. Source and RHDH adapters
+share this presentation; target pages and backend operations keep their own guards.
+
+### `ProfileMenuItems`
+
+Renders `ResolvedAppProfileMenuItem[]` from `useNativeAppProfileMenuItems()` as
+host-owned navigation or UI-action rows. Navigation uses the resolved route;
+action implementations load only after a deliberate click. The parent menu
+closes after loading and before the handler opens another UI surface. Pending
+actions cannot be submitted twice, and failures use the standard error API
+without disabling other items. An optional `onClose` connects the host menu
+lifecycle. Contributors use the Blueprint, not this host rendering component.
+
 ### `PageHeaderSection`
 
 Standard page header with title, subtitle, icon, and optional action slot. Extracted from `self-service` — use this instead of building your own heading layout.

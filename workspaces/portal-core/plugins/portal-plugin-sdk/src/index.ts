@@ -5,6 +5,8 @@
 // See docs/architecture/self-service-extension-sdk.md for extraction order.
 
 export * from './components';
+export { CreateActionMenu } from './components/CreateActionMenu/CreateActionMenu';
+export { ProfileMenuItems } from './components/ProfileMenuItems/ProfileMenuItems';
 export * from './notifications';
 export * from './cache';
 export * from './hooks';
