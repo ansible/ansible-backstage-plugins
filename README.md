@@ -68,12 +68,10 @@ Before setting up the development environment, ensure you have:
 ### Required Software
 
 - **Node.js**: Version **22** or **24**, matching the root package engines and CI matrix
-
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
 
 - **Yarn**: Version **4.12.0** (managed via Corepack, as pinned in `package.json`)
-
   - Install Corepack if your Node.js distribution does not include it
   - Enable Corepack: `corepack enable`
   - Verify: `yarn --version`
@@ -90,7 +88,6 @@ Before setting up the development environment, ensure you have:
 ### Optional But Recommended
 
 - **Ansible Automation Platform**: Access to an AAP instance for full functionality
-
   - Version 2.4 or later recommended
   - API access token with appropriate permissions
 
@@ -236,7 +233,9 @@ The source app defaults to the new frontend system (NFS). Its user-facing routes
 Sidebar configuration selects installed page extensions; it does not install plugins or
 grant permissions. `?portalFrontend=legacy` explicitly selects the legacy app.
 The local header retains account/logout controls and renders contributed Create
-destinations. RHDH uses its platform header.
+destinations. RHDH keeps its platform header; the optional `portal-rhdh` adapter
+renders the same Create destinations and contributed profile-menu items there.
+AAP auth owns its opt-in Sign out contribution; the adapter has no AAP dependency.
 The duplicate `/portal/*` pages have been removed. See
 [Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md) for integration,
 navigation configuration, and verification boundaries. Backend port 7007 is the checked-in
@@ -277,7 +276,7 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-The 19 packages below include installable plugins/modules and shared libraries.
+The packages below include installable plugins/modules and shared libraries.
 A library does not create a page or sidebar item merely by being installed.
 
 ### Portal core and SDK
@@ -290,6 +289,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH header adapter for Create destinations and contributed profile-menu items.
 
 ### AAP integration
 
@@ -550,7 +550,7 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-All 19 package references are linked in [Available Plugins](#available-plugins).
+Package references are linked in [Available Plugins](#available-plugins).
 The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
 APME, and Self-service ownership.
 

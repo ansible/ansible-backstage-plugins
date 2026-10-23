@@ -207,19 +207,19 @@ contributor responsible for installing the provider.
 
 ## Supported native interaction contracts
 
-| Blueprint                      | Current purpose                      | Attachment or integration                                              |
-| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------- |
-| `EntityDetailTabBlueprint`     | Durable entity facet                 | `entity.detail.tabs`                                                   |
-| `EntityOverviewCardBlueprint`  | Compact entity summary               | `entity.overview.main` or `entity.overview.secondary`                  |
-| `EntityActionBlueprint`        | Operation on the current entity      | `entity.actions`                                                       |
-| `CatalogItemActionBlueprint`   | Operation from a catalog item        | `catalog.item.actions`                                                 |
-| `CatalogTabBlueprint`          | Additional catalog view              | `catalog.tabs`                                                         |
-| `CatalogTableColumnBlueprint`  | Comparable catalog value             | `catalog.table.columns`                                                |
-| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry         | `catalog.header.actions` with registered workflow                      |
-| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping            | Namespaced workflow ID and template reference                          |
-| `ScaffolderFieldBlueprint`     | Typed custom template input          | `scaffolder.fields` via shared provider and optional templates adapter |
-| `AppHeaderActionBlueprint`     | UI-only Create destination           | `appHeaderActions` via shared provider; source header consumer         |
-| `AppProfileMenuItemBlueprint`  | Profile navigation or lazy UI action | `appProfileMenuItems` via shared provider; source header consumer      |
+| Blueprint                      | Current purpose                      | Attachment or integration                                                          |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------- |
+| `EntityDetailTabBlueprint`     | Durable entity facet                 | `entity.detail.tabs`                                                               |
+| `EntityOverviewCardBlueprint`  | Compact entity summary               | `entity.overview.main` or `entity.overview.secondary`                              |
+| `EntityActionBlueprint`        | Operation on the current entity      | `entity.actions`                                                                   |
+| `CatalogItemActionBlueprint`   | Operation from a catalog item        | `catalog.item.actions`                                                             |
+| `CatalogTabBlueprint`          | Additional catalog view              | `catalog.tabs`                                                                     |
+| `CatalogTableColumnBlueprint`  | Comparable catalog value             | `catalog.table.columns`                                                            |
+| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry         | `catalog.header.actions` with registered workflow                                  |
+| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping            | Namespaced workflow ID and template reference                                      |
+| `ScaffolderFieldBlueprint`     | Typed custom template input          | `scaffolder.fields` via shared provider and optional templates adapter             |
+| `AppHeaderActionBlueprint`     | UI-only Create destination           | `appHeaderActions` via shared provider; source or optional RHDH header consumer    |
+| `AppProfileMenuItemBlueprint`  | Profile navigation or lazy UI action | `appProfileMenuItems` via shared provider; source or optional RHDH header consumer |
 
 For exact descriptor fields, use the exported types and the
 [NFS composition guide](portal-sdk-nfs-composition.md). A union member in common
@@ -302,14 +302,17 @@ One eligible destination opens directly; multiple destinations produce a menu;
 none means no Create button. Independently protect the page and backend resource:
 header filtering is not authorization for data or mutations.
 
-The source header consumes these declarations directly. Contributors remain
-independent of platform header packages.
+The source header consumes these declarations directly. RHDH deployments can
+install the optional [portal-rhdh adapter](../plugins/portal-rhdh.md); contributors
+do not depend on RHDH's header package. AAP logout is a separate opt-in integration,
+not a Create prerequisite.
 
 ## Declaring a profile menu item
 
-Use `AppProfileMenuItemBlueprint` for a profile-menu row. The source header
-renders validated declarations; plugins do not import platform header code
-or provide their own menu DOM.
+Use `AppProfileMenuItemBlueprint` for a profile-menu row. No change to
+`portal-rhdh` is needed for each contributor. The source header and optional RHDH
+adapter render the same validated declarations; plugins do not import platform
+header code or provide their own menu DOM.
 
 ### Prerequisites
 
