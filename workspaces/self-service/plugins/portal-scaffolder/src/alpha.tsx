@@ -9,6 +9,8 @@ import {
   convertLegacyRouteRef,
 } from '@backstage/core-compat-api';
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
+import { AppHeaderActionBlueprint } from '@ansible/portal-extension-api/alpha';
+import { templatesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 import { AAPApis, EEBuildApis } from './apis';
 import {
   rootRouteRef,
@@ -36,6 +38,15 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     history: convertLegacyRouteRef(historyRouteRef),
   },
   extensions: [
+    AppHeaderActionBlueprint.make({
+      name: 'templates',
+      params: {
+        group: 'create',
+        title: 'Create from template',
+        targetPage: 'page:portal-scaffolder/templates',
+        requiredPermission: templatesViewPermission,
+      },
+    }),
     ApiBlueprint.make({ name: 'aap', params: define => define(AAPApis) }),
     ApiBlueprint.make({
       name: 'ee-build',

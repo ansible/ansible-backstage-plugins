@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
-import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
+import {
+  AppRootElementBlueprint,
+  createFrontendModule,
+  createFrontendPlugin,
+} from '@backstage/frontend-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -14,7 +18,10 @@ import {
   type ScaffolderFieldDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import plugin from './alpha';
-import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
+import {
+  createPortalContributionProvider,
+  useNativeAppHeaderActions,
+} from '@ansible/portal-extension-host/alpha';
 import { notificationStore } from './components/notifications';
 
 afterEach(() => notificationStore.clearAll());
@@ -164,6 +171,37 @@ it('provides distinct native sidebar icons for the existing self-service section
   );
   expect(paths.every(Boolean)).toBe(true);
   expect(new Set(paths).size).toBe(5);
+});
+
+it('declares an eligible Create action resolving the actual named Templates extension', async () => {
+  function HeaderProbe() {
+    return (
+      <>
+        {useNativeAppHeaderActions('create').map(action => (
+          <a key={action.id} href={action.path}>
+            {action.title}
+          </a>
+        ))}
+      </>
+    );
+  }
+  const headerProbe = createFrontendModule({
+    pluginId: 'app',
+    extensions: [
+      AppRootElementBlueprint.make({
+        name: 'create-action-probe',
+        params: { element: <HeaderProbe /> },
+      }),
+    ],
+  });
+  await renderTestApp({
+    features: [portalHost, plugin, headerProbe],
+    initialRouteEntries: ['/self-service'],
+    apis: [mockApis.permission()],
+  });
+  expect(
+    await screen.findByRole('link', { name: 'Create from template' }),
+  ).toHaveAttribute('href', '/self-service');
 });
 
 it('discovers native fields on the real Portal wizard route and keeps the existing task/secrets flow', async () => {

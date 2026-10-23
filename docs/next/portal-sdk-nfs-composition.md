@@ -390,8 +390,8 @@ through the host's `@deepVisibility frontend` schema.
 
 The source app registers native RBAC, user settings, and Search features. Its
 global header reuses the existing AAP/identity logout behavior through an
-app-owned root wrapper. Create is omitted when the installed Templates adapter
-is unavailable; it follows that adapter's effective route when present.
+app-owned root wrapper. Create consumes eligible `AppHeaderActionBlueprint`
+declarations and follows each owned page's effective installed route.
 RHDH retains its own platform header instead of loading
 the source app wrapper. Guest users can see navigation but remain subject to
 page permissions; an RBAC 403 is not a missing route.
@@ -400,6 +400,21 @@ Restart the source dev server after changing configuration or schema visibility.
 Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
+
+## Header Create actions
+
+Contributors declare Create destinations using `AppHeaderActionBlueprint` from
+`@ansible/portal-extension-api/alpha`. The shared provider binds declaration IDs
+and ownership; `useNativeAppHeaderActions('create')` resolves installed pages,
+effective route overrides, optional configuration gates, and required permissions.
+Only allow decisions expose actions. Missing APIs, unsafe paths, foreign page
+ownership, disabled destinations, and permission errors omit them. Pages and
+backend handlers must still enforce their own authorization.
+
+The shared SDK `CreateActionMenu` renders zero, one, or multiple destinations.
+The source header consumes it directly.
+
+See the [Create authoring example](portal-sdk-plugin-author-guide.md#declaring-a-create-destination).
 
 ## AAP OIDC logout
 

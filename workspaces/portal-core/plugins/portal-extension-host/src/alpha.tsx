@@ -1,4 +1,5 @@
 export { createPortalEntityPage } from './nfs/createPortalEntityPage';
+export { useNativeAppHeaderActions } from './nfs/useNativeAppHeaderActions';
 export { NativeCatalogHeaderActions } from './nfs/NativeCatalogHeaderActions';
 export { useNativeCatalogTabs } from './nfs/useNativeCatalogTabs';
 export { createPortalContributionProvider } from './nfs/createPortalContributionProvider';

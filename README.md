@@ -68,10 +68,12 @@ Before setting up the development environment, ensure you have:
 ### Required Software
 
 - **Node.js**: Version **22** or **24**, matching the root package engines and CI matrix
+
   - Check version: `node --version`
   - Install via [nvm](https://github.com/nvm-sh/nvm) or from [nodejs.org](https://nodejs.org/)
 
 - **Yarn**: Version **4.12.0** (managed via Corepack, as pinned in `package.json`)
+
   - Install Corepack if your Node.js distribution does not include it
   - Enable Corepack: `corepack enable`
   - Verify: `yarn --version`
@@ -88,6 +90,7 @@ Before setting up the development environment, ensure you have:
 ### Optional But Recommended
 
 - **Ansible Automation Platform**: Access to an AAP instance for full functionality
+
   - Version 2.4 or later recommended
   - API access token with appropriate permissions
 
@@ -232,7 +235,8 @@ The source app defaults to the new frontend system (NFS). Its user-facing routes
 
 Sidebar configuration selects installed page extensions; it does not install plugins or
 grant permissions. `?portalFrontend=legacy` explicitly selects the legacy app.
-The local header retains account/logout controls. RHDH uses its platform header.
+The local header retains account/logout controls and renders contributed Create
+destinations. RHDH uses its platform header.
 The duplicate `/portal/*` pages have been removed. See
 [Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md) for integration,
 navigation configuration, and verification boundaries. Backend port 7007 is the checked-in
@@ -328,8 +332,8 @@ portal:
 `full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
 omits both. AAP authentication, host services, Administration, and Settings
 remain available. Without a configured installed landing page, `/` shows the
-neutral Portal fallback. The header omits Create when the Templates adapter is
-absent. Existing content browsing pages still belong to portal-scaffolder;
+neutral Portal fallback. The header omits Create when no eligible contributor
+declares a destination. Existing content browsing pages still belong to portal-scaffolder;
 removing that contributor also removes those pages.
 
 These presets are development/test conveniences, not production configuration,
