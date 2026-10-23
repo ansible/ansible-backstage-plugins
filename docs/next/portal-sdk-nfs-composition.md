@@ -401,6 +401,36 @@ Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
 
+## AAP OIDC logout
+
+The existing logout component waits for identity sign-out before selecting the
+AAP logout destination. This prevents the identity proxy's final redirect from
+overwriting the OIDC redirect. Transport failure during AAP token revocation
+is still reported by the auth backend; a visible logged-out browser does not
+prove successful server-side token revocation.
+
+The AAP deployment must advertise `/o/logout/` as its OIDC end-session endpoint.
+Set `auth.providers.rhaap.<environment>.clientId` to the public OAuth client ID.
+The selected environment comes from `auth.environment`, which defaults to
+`development`. The browser-facing AAP host comes from
+`auth.providers.rhaap.<environment>.host`, falling back to `ansible.rhaap.baseUrl`.
+Both the client ID and `app.baseUrl` are required whenever an AAP host resolves.
+
+Register the exact `app.baseUrl` in the OAuth application's **Post Logout Redirect
+URIs**. The handler sends that URL as `post_logout_redirect_uri`, together with
+the configured environment's public OAuth client ID. AAP validates the URL,
+presents its confirmation screen, and returns to Portal sign-in after confirmation.
+Cancelling leaves AAP's browser session active even though Portal auth is cleared.
+The public OAuth host/client ID are frontend-visible; client secrets remain
+backend-only. This does not bypass AAP validation or change gateway-wide settings.
+
+Upgrade deployments that configure only `ansible.rhaap.baseUrl` by adding
+`auth.providers.rhaap.<environment>.clientId` and ensuring `app.baseUrl` is set.
+If a host resolves but the client ID or Portal URL is missing or invalid, logout
+reports "AAP browser logout is unavailable: check the OAuth client and Portal
+URLs" and still clears Portal auth. It does not redirect to AAP, so the AAP
+browser session remains active.
+
 ## Task history and RBAC
 
 The native frontend provides Task history at `/self-service/create/tasks`, with
