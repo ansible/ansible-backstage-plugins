@@ -89,22 +89,41 @@ Keep the stock logout item when AAP logout is not enabled. Do not replace the
 entire extensions list or remove other auth/navigation configuration.
 
 The AAP auth module owns the disabled-by-default logout declaration. Its lazy
-handler shares the existing AAP logout implementation; the RHDH adapter only
-renders the generic profile item. It clears the Portal auth session and redirects this
-browser to AAP's `/api/gateway/v1/logout/`. Configure a browser-reachable AAP URL
-under `ansible.rhaap.baseUrl`; a container-only hostname cannot serve that
-redirect. The AAP auth module and its APIs must be installed when enabling this
-declaration; they are not dependencies of `portal-rhdh`.
+handler clears Portal auth, then sends the browser to AAP's OIDC `/o/logout/`
+endpoint with `client_id` and `post_logout_redirect_uri`. AAP validates the
+registered URI and presents its logout confirmation. Confirming ends the AAP
+browser session and returns to Portal's sign-in screen. Cancelling does not
+complete AAP browser-session logout; Portal authentication has already been cleared.
+The adapter only renders the generic profile item and has no AAP dependency.
 
-Replace the earlier experimental `gh-menu-item:portal-rhdh/aap-logout` override
-with `app-profile-menu-item:app/aap-logout` and rebuild the host, auth module, and
-adapter together. The source app explicitly installs
+The source app explicitly installs
 `createAapProfileModule({ logoutDisabled: false })` without replacing its sign-in
 composition. Its native header consumes the same profile declarations.
 
-The AAP gateway currently chooses its post-logout destination, which can be the
-REST API page. Returning to Portal's sign-in screen is deferred; this adapter
-does not change AAP redirect allowlists or bypass their validation.
+### Configuring the logout return
+
+Prerequisites: an AAP deployment advertising `/o/logout/` as its OIDC
+`end_session_endpoint` and a registered Portal OAuth application. This flow is
+not a fallback to the older gateway logout endpoint.
+
+1. In the AAP OAuth application's **Post Logout Redirect URIs**, register the
+   exact Portal base URL. For local source and RHDH testing, use the
+   space-separated values `http://localhost:3000/ http://localhost:7007/`.
+   Production deployments register their actual HTTPS Portal URL instead.
+2. Set `app.baseUrl` to that URL, and configure `auth.environment` plus
+   `auth.providers.rhaap.<environment>.host` and `.clientId` for the same OAuth
+   application. The host is browser-facing; never use the private token host.
+   The client ID and public host are frontend-visible; the client secret remains
+   backend-only. `ansible.rhaap.baseUrl` is a host fallback, not an alternative
+   source of the client ID.
+3. Re-export the AAP auth artifact and restart RHDH. Restart the source dev
+   server after schema/configuration changes.
+4. Sign out, confirm AAP's logout screen, and verify Portal's sign-in screen.
+   Revisit an AAP protected page to verify that fresh authentication is required.
+
+Missing or unsafe logout configuration reports an error while still clearing
+Portal auth; it does not claim AAP browser-session logout succeeded. No
+gateway-wide logout allowlist change or confirmation bypass is performed.
 
 Do not use legacy `mountPoints: global.header/profile` YAML for this native
 adapter. The existing native AAP auth artifact does not expose that legacy

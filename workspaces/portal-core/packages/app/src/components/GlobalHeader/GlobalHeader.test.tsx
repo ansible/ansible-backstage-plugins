@@ -27,6 +27,9 @@ const mockErrorPost = jest.fn();
 jest.mock('@ansible/aap-app-auth', () => ({
   __esModule: true,
   rhAapAuthApiRef: Symbol('rhAapAuthApiRef'),
+  performAapLogout: jest.requireActual(
+    '../../../../../../aap/plugins/aap-app-auth/src/logout',
+  ).performAapLogout,
 }));
 
 jest.mock('@backstage/core-plugin-api', () => ({

@@ -449,28 +449,33 @@ consumers use the same resolver; new plugin items require no adapter edits.
 
 The AAP auth module owns its disabled-by-default logout declaration and shared
 logout implementation. `portal-rhdh` has no AAP dependency or logout-specific
-extension. Replace the earlier experimental
-`gh-menu-item:portal-rhdh/aap-logout` override with
-`app-profile-menu-item:app/aap-logout`; keep the generic
+extension. Enable `app-profile-menu-item:app/aap-logout` and keep the generic
 `gh-menu-item:portal-rhdh/profile` consumer enabled. Rebuild the provider, adapter,
 and AAP auth artifact together. The source NFS app explicitly installs
 `createAapProfileModule({ logoutDisabled: false })` from `aap-app-auth`, without
 replacing its existing sign-in composition.
 
-The AAP-owned handler clears Portal auth and redirects to AAP gateway logout;
+The AAP-owned handler clears Portal auth and redirects to AAP OIDC logout;
 legacy `global.header/profile` mount-point YAML is not its registration mechanism.
 This integration does not change OAuth token-exchange handling or resolve
 intermittent transport failures during initial sign-in.
 
 The existing logout component waits for identity sign-out before selecting the
 AAP logout destination. This prevents the identity proxy's final redirect from
-overwriting the gateway redirect. Transport failure during AAP token revocation
+overwriting the OIDC redirect. Transport failure during AAP token revocation
 is still reported by the auth backend; a visible logged-out browser does not
 prove successful server-side token revocation.
 
-The gateway currently controls the final destination, which can be its REST API
-page. Returning to Portal sign-in remains deferred; this integration does not
-change AAP's redirect policy or bypass cross-origin validation.
+The AAP deployment must advertise `/o/logout/` as its OIDC end-session endpoint.
+Register the exact `app.baseUrl` in the OAuth application's **Post Logout Redirect
+URIs**. The handler sends that URL as `post_logout_redirect_uri`, together with
+the configured environment's public OAuth client ID. AAP validates the URL,
+presents its confirmation screen, and returns to Portal sign-in after confirmation.
+Cancelling leaves AAP's browser session active even though Portal auth is cleared.
+The public OAuth host/client ID are frontend-visible; client secrets remain
+backend-only. This does not bypass AAP validation or change gateway-wide settings.
+See [logout setup](../plugins/portal-rhdh.md) and the adapter README for the
+configuration and verification procedure.
 
 See the [Create authoring example](portal-sdk-plugin-author-guide.md#declaring-a-create-destination)
 and [profile authoring example](portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item)

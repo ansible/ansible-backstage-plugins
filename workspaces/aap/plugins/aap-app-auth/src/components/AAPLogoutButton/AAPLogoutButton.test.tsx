@@ -23,7 +23,7 @@ describe('AAPLogoutButton', () => {
   };
 
   const mockConfigApi = {
-    getOptionalString: jest.fn().mockReturnValue('https://aap.example.com'),
+    getOptionalString: jest.fn(),
     has: jest.fn(),
     keys: jest.fn(),
     get: jest.fn(),
@@ -69,6 +69,15 @@ describe('AAPLogoutButton', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConfigApi.getOptionalString.mockImplementation(
+      (key: string) =>
+        ({
+          'auth.environment': 'development',
+          'auth.providers.rhaap.development.host': 'https://aap.example.com',
+          'auth.providers.rhaap.development.clientId': 'portal',
+          'app.baseUrl': 'http://localhost:3000/',
+        })[key],
+    );
     delete (window as any).location;
     (window as any).location = { href: '', origin: 'http://localhost:3000' };
   });
@@ -122,13 +131,13 @@ describe('AAPLogoutButton', () => {
 
     await waitFor(() => {
       expect(window.location.href).toBe(
-        'https://aap.example.com/api/gateway/v1/logout/',
+        'https://aap.example.com/o/logout/?client_id=portal&post_logout_redirect_uri=http%3A%2F%2Flocalhost%3A3000%2F',
       );
     });
   });
 
   it('should skip AAP redirect when baseUrl is not configured', async () => {
-    mockConfigApi.getOptionalString.mockReturnValueOnce(undefined);
+    mockConfigApi.getOptionalString.mockReturnValue(undefined);
 
     await renderComponent();
 
@@ -160,7 +169,7 @@ describe('AAPLogoutButton', () => {
 
     await waitFor(() => {
       expect(window.location.href).toBe(
-        'https://aap.example.com/api/gateway/v1/logout/',
+        'https://aap.example.com/o/logout/?client_id=portal&post_logout_redirect_uri=http%3A%2F%2Flocalhost%3A3000%2F',
       );
     });
   });
