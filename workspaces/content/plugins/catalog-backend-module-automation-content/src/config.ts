@@ -18,6 +18,34 @@ const DEFAULT_SCHEDULE: SchedulerServiceTaskScheduleDefinition = {
 };
 
 /**
+ * Validate a configured registry endpoint before anything can use it.
+ *
+ * Registry URLs are install-time configuration, and that is the SSRF trust
+ * boundary: no runtime path may introduce or change an endpoint. The boundary
+ * only holds if a bad endpoint fails loudly at startup — with the registry's
+ * name in the message — rather than surfacing as a confusing request failure
+ * mid-sync, or being quietly fetched anyway. This is the same check
+ * `POST /config/validate` offers interactively; here it is enforced, not
+ * advised.
+ */
+function validateRegistryUrl(name: string, url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(
+      `automation-content registry "${name}": url is not a valid absolute URL: "${url}"`,
+    );
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(
+      `automation-content registry "${name}": url must start with http:// or ` +
+        `https://, got "${url}"`,
+    );
+  }
+}
+
+/**
  * Read registry definitions from configuration.
  *
  * Placed under `catalog.providers.*` rather than the `ansible.*` plugin namespace
@@ -33,13 +61,16 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
   const registriesConfig = providers.getOptionalConfigArray('registries') ?? [];
 
   return registriesConfig.map(registry => {
+    const name = registry.getString('name');
+    const url = registry.getString('url');
+    validateRegistryUrl(name, url);
+
     const authConfig = registry.getOptionalConfig('auth');
     const authType = (authConfig?.getOptionalString('type') ?? 'anonymous') as
       | 'anonymous'
       | 'basic'
       | 'bearer';
 
-    const name = registry.getString('name');
     const caFile = registry.getOptionalString('caFile');
     if (caFile && registry.getOptionalBoolean('insecure')) {
       throw new Error(
@@ -51,7 +82,7 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
     return {
       connection: {
         name,
-        url: registry.getString('url'),
+        url,
         auth: {
           type: authType,
           username: authConfig?.getOptionalString('username'),
