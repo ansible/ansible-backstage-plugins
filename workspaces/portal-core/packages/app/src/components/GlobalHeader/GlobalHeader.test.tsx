@@ -48,6 +48,31 @@ describe('GlobalHeader', () => {
     jest.clearAllMocks();
   });
 
+  it('renders contributed profile rows instead of the legacy logout action', async () => {
+    const activate = jest.fn().mockResolvedValue(undefined);
+    render(
+      <GlobalHeader
+        profileItems={[
+          {
+            id: 'preferences',
+            title: 'Open preferences',
+            type: 'action',
+            activate,
+          },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(
+      screen.queryByRole('menuitem', { name: 'Logout' }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: 'Open preferences' }),
+    );
+    await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
   it('renders title, search input and action buttons', () => {
     render(<GlobalHeader createPath="/self-service/catalog" />);
 

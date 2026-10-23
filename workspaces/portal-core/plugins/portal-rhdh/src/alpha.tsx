@@ -1,5 +1,4 @@
 import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
-import { compatWrapper } from '@backstage/core-compat-api';
 import {
   GlobalHeaderComponentBlueprint,
   GlobalHeaderMenuItemBlueprint,
@@ -17,17 +16,13 @@ export default createFrontendPlugin({
           import('./RhdhCreateAction').then(m => m.RhdhCreateAction),
       },
     }),
-    // Explicit opt-in: generic Create integration must not enable AAP authentication.
     GlobalHeaderMenuItemBlueprint.make({
-      name: 'aap-logout',
-      disabled: true,
+      name: 'profile',
       params: {
         target: 'profile',
         priority: 10,
-        loader: async () => {
-          const { AAPLogoutButton } = await import('@ansible/aap-app-auth');
-          return () => compatWrapper(<AAPLogoutButton />);
-        },
+        loader: () =>
+          import('./RhdhProfileMenuItems').then(m => m.RhdhProfileMenuItems),
       },
     }),
   ],

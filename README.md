@@ -234,7 +234,8 @@ Sidebar configuration selects installed page extensions; it does not install plu
 grant permissions. `?portalFrontend=legacy` explicitly selects the legacy app.
 The local header retains account/logout controls and renders contributed Create
 destinations. RHDH keeps its platform header; the optional `portal-rhdh` adapter
-renders the same Create destinations and opt-in AAP logout there.
+renders the same Create destinations and contributed profile-menu items there.
+AAP auth owns its opt-in Sign out contribution; the adapter has no AAP dependency.
 The duplicate `/portal/*` pages have been removed. See
 [Portal NFS composition](./docs/next/portal-sdk-nfs-composition.md) for integration,
 navigation configuration, and verification boundaries. Backend port 7007 is the checked-in
@@ -288,7 +289,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
-- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH header adapter for Create destinations and opt-in AAP logout.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH header adapter for Create destinations and contributed profile-menu items.
 
 ### AAP integration
 

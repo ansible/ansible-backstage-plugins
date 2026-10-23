@@ -167,6 +167,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/aap-app-auth@workspace:workspaces/aap/plugins/aap-app-auth"
   dependencies:
+    "@ansible/portal-extension-api": "workspace:^"
     "@backstage/cli": "npm:0.36.2"
     "@backstage/config": "npm:1.3.6"
     "@backstage/core-app-api": "npm:1.19.6"
@@ -786,7 +787,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/portal-rhdh@workspace:workspaces/portal-core/plugins/portal-rhdh"
   dependencies:
-    "@ansible/aap-app-auth": "workspace:^"
     "@ansible/portal-extension-api": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
@@ -804,12 +804,8 @@ __metadata:
     react-dom: "npm:^18.3.1"
     typescript: "npm:~5.8.0"
   peerDependencies:
-    "@ansible/aap-app-auth": "workspace:^"
     react: ^18.3.1
     react-dom: ^18.3.1
-  peerDependenciesMeta:
-    "@ansible/aap-app-auth":
-      optional: true
   languageName: unknown
   linkType: soft
 

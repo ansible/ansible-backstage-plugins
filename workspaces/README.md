@@ -59,7 +59,8 @@ domain rules.
   its navigation module adapts discovered pages to configured navigation.
 - `portal-plugin-sdk`: reusable frontend components and utilities.
 - `portal-rhdh`: optional adapter to RHDH's public header Blueprints for Create
-  destinations and opt-in AAP logout. Generic SDK contracts do not import it.
+  destinations and contributed profile-menu items. It has no AAP dependency;
+  AAP auth owns its opt-in Sign out contribution. Generic SDK contracts do not import it.
 - `portal-plugin-node`: injected backend services and helpers for operations,
   identity/context, audit, organization and health.
 - `portal-operations-backend`: authenticated operation transport and

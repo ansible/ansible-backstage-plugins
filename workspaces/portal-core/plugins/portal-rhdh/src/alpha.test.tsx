@@ -1,23 +1,31 @@
 import '@testing-library/jest-dom';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import {
   createExtensionInput,
   createFrontendModule,
   createFrontendPlugin,
   PageBlueprint,
-  ApiBlueprint,
 } from '@backstage/frontend-plugin-api';
 import { AppRootWrapperBlueprint } from '@backstage/plugin-app-react';
-import { createApiFactory } from '@backstage/core-plugin-api';
 import {
   globalHeaderComponentDataRef,
   globalHeaderMenuItemDataRef,
 } from '@red-hat-developer-hub/backstage-plugin-global-header';
-import { AppHeaderActionBlueprint } from '@ansible/portal-extension-api/alpha';
+import {
+  AppHeaderActionBlueprint,
+  AppProfileMenuItemBlueprint,
+} from '@ansible/portal-extension-api/alpha';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import portalRhdh from './alpha';
+
+jest.mock(
+  '@ansible/aap-app-auth',
+  () => {
+    throw new Error('The RHDH adapter must not import an AAP implementation');
+  },
+  { virtual: true },
+);
 
 // Exercise the real public Blueprint attachment/data refs without unrelated header widgets.
 const headerHost = createFrontendModule({
@@ -92,7 +100,7 @@ function contributor(id: string) {
   });
 }
 
-it('registers only native header attachments and keeps AAP logout opt-in', () => {
+it('registers generic native header attachments without AAP dependencies', () => {
   const extensions = (
     portalRhdh as unknown as {
       extensions: Array<{ id: string; disabled: boolean }>;
@@ -100,9 +108,8 @@ it('registers only native header attachments and keeps AAP logout opt-in', () =>
   ).extensions;
   expect(extensions.map(e => e.id)).toEqual([
     'gh-component:portal-rhdh/create',
-    'gh-menu-item:portal-rhdh/aap-logout',
+    'gh-menu-item:portal-rhdh/profile',
   ]);
-  expect(extensions[1].disabled).toBe(true);
 });
 
 it('renders nothing without eligible actions and does not require AAP authentication', async () => {
@@ -160,31 +167,123 @@ it('omits a disabled destination without loading a plugin-specific fallback', as
   ).not.toBeInTheDocument();
 });
 
-it('mounts the existing AAP logout component only when explicitly enabled', async () => {
-  const auth = createFrontendModule({
-    pluginId: 'app',
+it('renders and invokes an independent UI action without importing an AAP implementation', async () => {
+  const activate = jest.fn();
+  const loadAction = jest.fn(async () => activate);
+  const independent = createFrontendPlugin({
+    pluginId: 'preferences',
     extensions: [
-      ApiBlueprint.make({
-        name: 'test-aap-auth',
-        params: define =>
-          define(
-            createApiFactory({
-              api: rhAapAuthApiRef,
-              deps: {},
-              factory: () =>
-                ({ signOut: jest.fn(), sessionState$: jest.fn() }) as any,
-            }),
-          ),
+      AppProfileMenuItemBlueprint.make({
+        name: 'open',
+        params: {
+          type: 'action',
+          title: 'Open preferences',
+          authorization: { type: 'authenticated' },
+          loadAction,
+        },
       }),
     ],
   });
   await renderTestApp({
-    features: [headerHost, host, portalRhdh, auth],
+    features: [headerHost, host, portalRhdh, independent],
+    apis: [mockApis.identity()],
+  });
+  const item = await screen.findByRole('menuitem', {
+    name: 'Open preferences',
+  });
+  expect(loadAction).not.toHaveBeenCalled();
+  fireEvent.click(item);
+  await screen.findByRole('menuitem', { name: 'Open preferences' });
+  await waitFor(() => expect(activate).toHaveBeenCalled());
+});
+
+it('follows a profile destination using the declaring plugin effective page path', async () => {
+  const profile = createFrontendModule({
+    pluginId: 'editor',
+    extensions: [
+      AppProfileMenuItemBlueprint.make({
+        name: 'preferences',
+        params: {
+          type: 'navigation',
+          title: 'Editor preferences',
+          targetPage: 'page:editor/create',
+          authorization: { type: 'authenticated' },
+        },
+      }),
+    ],
+  });
+  await renderTestApp({
+    features: [headerHost, host, portalRhdh, contributor('editor'), profile],
+    apis: [mockApis.identity(), mockApis.permission()],
     config: {
-      app: { extensions: [{ 'gh-menu-item:portal-rhdh/aap-logout': true }] },
+      app: {
+        extensions: [
+          { 'page:editor/create': { config: { path: '/renamed-editor' } } },
+        ],
+      },
+    },
+  });
+  fireEvent.click(
+    await screen.findByRole('menuitem', { name: 'Editor preferences' }),
+  );
+  expect(await screen.findByText('editor destination')).toBeInTheDocument();
+});
+
+it('does not load a permission-denied profile action', async () => {
+  const loadAction = jest.fn();
+  const authorize = jest.fn(() => 'DENY' as const);
+  const profile = createFrontendPlugin({
+    pluginId: 'restricted',
+    extensions: [
+      AppProfileMenuItemBlueprint.make({
+        name: 'preferences',
+        params: {
+          type: 'action',
+          title: 'Restricted preferences',
+          loadAction,
+          authorization: { type: 'permission', requirement: permission },
+        },
+      }),
+    ],
+  });
+  await renderTestApp({
+    features: [headerHost, host, portalRhdh, profile],
+    apis: [mockApis.identity(), mockApis.permission({ authorize })],
+  });
+  await waitFor(() => expect(authorize).toHaveBeenCalled());
+  expect(
+    screen.queryByRole('menuitem', { name: 'Restricted preferences' }),
+  ).not.toBeInTheDocument();
+  expect(loadAction).not.toHaveBeenCalled();
+});
+
+it('omits a native-disabled profile declaration without invoking its loader', async () => {
+  const loadAction = jest.fn();
+  const profile = createFrontendPlugin({
+    pluginId: 'preferences',
+    extensions: [
+      AppProfileMenuItemBlueprint.make({
+        name: 'open',
+        params: {
+          type: 'action',
+          title: 'Preferences',
+          loadAction,
+          authorization: { type: 'authenticated' },
+        },
+      }),
+    ],
+  });
+  await renderTestApp({
+    features: [headerHost, host, portalRhdh, profile],
+    apis: [mockApis.identity()],
+    config: {
+      app: {
+        extensions: [{ 'app-profile-menu-item:preferences/open': false }],
+      },
     },
   });
   expect(
-    await screen.findByRole('menuitem', { name: 'Sign out' }),
-  ).toBeInTheDocument();
+    screen.queryByRole('menuitem', { name: 'Preferences' }),
+  ).not.toBeInTheDocument();
+  expect(loadAction).not.toHaveBeenCalled();
 });

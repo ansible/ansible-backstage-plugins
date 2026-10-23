@@ -5,9 +5,11 @@ Portal contracts and contributor plugins remain independent of the header
 package; the source development app does not need this adapter.
 
 It renders validated Portal Create destinations through RHDH's public component
-Blueprint and optionally mounts the existing AAP logout component in the native
-profile menu. AAP logout is disabled by default. When enabled, it replaces the
-stock logout item and requires the AAP auth frontend/backend integration.
+Blueprint and renders generic navigation/UI-action profile contributions through
+the native profile-menu Blueprint. New contributors do not require adapter edits.
+The AAP auth module owns its opt-in logout contribution; the adapter has no AAP
+dependency. When enabled, AAP logout replaces the stock logout item and requires
+the AAP auth frontend/backend integration.
 
 See [header setup](../next/portal-sdk-nfs-composition.md#header-create-actions-and-optional-rhdh-integration)
 and [Create authoring](../next/portal-sdk-plugin-author-guide.md#declaring-a-create-destination)

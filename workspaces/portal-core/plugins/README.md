@@ -21,7 +21,8 @@ composition; they do not require a global contribution registry singleton.
 - **`portal-plugin-sdk`** — shared UI, notifications, caching, context hooks,
   polling integration, styles, icons and theme utilities.
 - **`portal-rhdh`** — optional public RHDH header adapter for generic Create
-  destinations and opt-in AAP logout; generic contracts remain platform-neutral.
+  destinations and profile-menu items; generic contracts remain platform-neutral.
+  AAP auth owns its opt-in Sign out contribution, without an adapter dependency on AAP.
 - **`portal-plugin-node`** — injected operation, entitlement, organization and
   health services; identity/context, audit and persistence helpers.
 - **`portal-operations-backend`** — operation HTTP transport and entitlement

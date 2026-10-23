@@ -10,6 +10,8 @@ where versioned packages apply.
 
 ### Added
 
+- **Portal profile contributions** support owned-page navigation and lazy UI actions through `AppProfileMenuItemBlueprint`, explicit authentication/permission gates, and shared source/RHDH rendering. AAP owns its opt-in logout declaration; `portal-rhdh` no longer depends on AAP or needs per-plugin menu changes. Use `app-profile-menu-item:app/aap-logout` instead of the earlier adapter-specific override. Post-logout return-page behavior and AAP OAuth transport handling are unchanged.
+
 - **Portal header actions** use native, owner-bound Create declarations with installed-page, configuration, and permission checks. Source and RHDH consumers share the menu presentation. The optional `@ansible/portal-rhdh` package isolates public RHDH header Blueprint dependencies and adds opt-in native AAP logout; it does not change OAuth token-exchange behavior.
 
 - **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when no eligible destination is declared.

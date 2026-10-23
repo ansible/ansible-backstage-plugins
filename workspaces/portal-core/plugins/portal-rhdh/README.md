@@ -1,7 +1,7 @@
 # @ansible/portal-rhdh
 
 Optional native RHDH header integration for Automation Portal. This package
-adapts Portal Create declarations and the existing AAP logout component to
+adapts Portal Create and profile-menu declarations to
 RHDH's public global-header Blueprints. It does not replace the platform header.
 
 Generic SDK contracts and contributor plugins do not depend on the RHDH header.
@@ -53,6 +53,25 @@ must be an installed page owned by the declaring plugin; effective page-path
 overrides are respected. This is UI navigation, not a backend operation launch.
 Destination pages and backend handlers retain their own authorization checks.
 
+## Contributing profile items
+
+The enabled `gh-menu-item:portal-rhdh/profile` attachment renders accepted
+`AppProfileMenuItemBlueprint` declarations from any installed contributor. The
+adapter has no AAP dependency or plugin-specific item list. Adding an item does
+not require editing this package.
+
+Declare either navigation to an installed, owned page or a lazy UI action. Each
+item explicitly requires an authenticated session or a permission; permission
+decisions must allow. Optional configuration gates, native extension enablement,
+and ordering apply before action code loads. Ordering is within the Portal
+profile block, not across unrelated platform menu contributions.
+
+The host owns row presentation, closes the menu before an action opens another
+UI surface, prevents repeated clicks while pending, and reports failures through
+the standard error API. UI handlers receive the host API holder; they must use
+registered operations for backend mutations. Header visibility is not backend
+authorization. Missing providers or unavailable items render nothing.
+
 ## Opting in to AAP logout
 
 AAP logout is disabled by default, and Create does not require AAP authentication.
@@ -63,18 +82,29 @@ When AAP authentication is installed, merge both entries below into the same
 app:
   extensions:
     - gh-menu-item:global-header/logout: false
-    - gh-menu-item:portal-rhdh/aap-logout: true
+    - app-profile-menu-item:app/aap-logout: true
 ```
 
 Keep the stock logout item when AAP logout is not enabled. Do not replace the
 entire extensions list or remove other auth/navigation configuration.
 
-The native profile-menu attachment lazily reuses `AAPLogoutButton` from
-`@ansible/aap-app-auth`. It clears the Portal auth session and redirects this
+The AAP auth module owns the disabled-by-default logout declaration. Its lazy
+handler shares the existing AAP logout implementation; the RHDH adapter only
+renders the generic profile item. It clears the Portal auth session and redirects this
 browser to AAP's `/api/gateway/v1/logout/`. Configure a browser-reachable AAP URL
 under `ansible.rhaap.baseUrl`; a container-only hostname cannot serve that
-redirect. The optional AAP peer dependency must be available when enabling this
-extension. Missing auth APIs are not a substitute for a configured provider.
+redirect. The AAP auth module and its APIs must be installed when enabling this
+declaration; they are not dependencies of `portal-rhdh`.
+
+Replace the earlier experimental `gh-menu-item:portal-rhdh/aap-logout` override
+with `app-profile-menu-item:app/aap-logout` and rebuild the host, auth module, and
+adapter together. The source app explicitly installs
+`createAapProfileModule({ logoutDisabled: false })` without replacing its sign-in
+composition. Its native header consumes the same profile declarations.
+
+The AAP gateway currently chooses its post-logout destination, which can be the
+REST API page. Returning to Portal's sign-in screen is deferred; this adapter
+does not change AAP redirect allowlists or bypass their validation.
 
 Do not use legacy `mountPoints: global.header/profile` YAML for this native
 adapter. The existing native AAP auth artifact does not expose that legacy
@@ -96,5 +126,6 @@ confirm Sign out clears Portal authentication and redirects to AAP logout.
 That last check ends the current browser's session; use a test session.
 
 See the [Create authoring contract](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-create-destination)
+and [profile authoring contract](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item)
 and [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md)
 for contributor declarations and host configuration.

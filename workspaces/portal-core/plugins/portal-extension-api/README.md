@@ -23,6 +23,15 @@ resolves the effective page path and fails closed for unavailable/denied
 destinations. These declarations contain no arbitrary URL or backend launch.
 See the [Create authoring example](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-create-destination).
 
+`AppProfileMenuItemBlueprint` declares profile rows in `appProfileMenuItems`.
+Use `type: 'navigation'` with an owned `targetPage`, or `type: 'action'` with
+`loadAction` returning a UI handler. Declare `authorization` explicitly as
+`{ type: 'authenticated' }` or `{ type: 'permission', requirement }`. Optional
+`order` and `enabledByConfig` control presentation. The host binds identity,
+checks eligibility before loading, and supplies `{ apis }` to a deliberately
+activated UI handler. Backend effects still require registered operations.
+See the [profile authoring example](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item).
+
 See the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md)
 for provider installation, applicability, deployment, and remaining work.
 

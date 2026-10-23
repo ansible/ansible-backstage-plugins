@@ -4,7 +4,9 @@ import {
 } from '@backstage/frontend-plugin-api';
 import type { AppHeaderActionDescriptor } from '@ansible/portal-extension-api/alpha';
 
-function hasValidPermission(action: AppHeaderActionDescriptor): boolean {
+export function hasValidPermission(
+  action: Pick<AppHeaderActionDescriptor, 'requiredPermission'>,
+): boolean {
   const requirement = action.requiredPermission;
   if ('permission' in requirement) {
     return Boolean(
@@ -14,7 +16,9 @@ function hasValidPermission(action: AppHeaderActionDescriptor): boolean {
   return Boolean(requirement.name?.trim()) && !('resourceType' in requirement);
 }
 
-function hasOwnedPageReference(action: AppHeaderActionDescriptor): boolean {
+export function hasOwnedPageReference(
+  action: Pick<AppHeaderActionDescriptor, 'ownerPlugin' | 'targetPage'>,
+): boolean {
   const prefix = `page:${action.ownerPlugin}`;
   return (
     /^page:[a-z0-9_.-]+(?:\/[a-z0-9_.-]+)?$/i.test(action.targetPage) &&
@@ -62,7 +66,7 @@ export function collectAppHeaderActions(
 
 /** Only mounted, owned pages with safe effective routes can be header destinations. */
 export function resolveAppHeaderActionPath(
-  action: AppHeaderActionDescriptor,
+  action: Pick<AppHeaderActionDescriptor, 'ownerPlugin' | 'targetPage'>,
   appTree: AppTreeApi,
 ) {
   const page = appTree.getTree().tree.nodes.get(action.targetPage);

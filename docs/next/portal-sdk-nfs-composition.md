@@ -430,7 +430,7 @@ app:
   extensions:
     - gh-component:global-header/self-service-button: false
     - gh-menu-item:global-header/logout: false
-    - gh-menu-item:portal-rhdh/aap-logout: true
+    - app-profile-menu-item:app/aap-logout: true
 ```
 
 The Create adapter is enabled by default. AAP logout is disabled by default and
@@ -439,8 +439,25 @@ and browser-reachable AAP connection configuration. For Create-only deployments,
 disable only the stock self-service button and keep stock logout unchanged.
 Do not overwrite other auth or navigation entries while merging this list.
 
-The adapter lazily mounts the existing `AAPLogoutButton` in the native profile
-menu. It clears Portal auth and redirects this browser to AAP gateway logout;
+`AppProfileMenuItemBlueprint` contributes navigation or lazy UI-action rows to
+the shared provider. `useNativeAppProfileMenuItems()` checks user identity,
+declared permissions, configuration, and owned page targets. The shared SDK
+`ProfileMenuItems` renders accepted rows, closes the menu before opening a new
+UI surface, prevents duplicate activation while pending, and contains failures.
+No action implementation loads just to decide visibility. Source and RHDH
+consumers use the same resolver; new plugin items require no adapter edits.
+
+The AAP auth module owns its disabled-by-default logout declaration and shared
+logout implementation. `portal-rhdh` has no AAP dependency or logout-specific
+extension. Replace the earlier experimental
+`gh-menu-item:portal-rhdh/aap-logout` override with
+`app-profile-menu-item:app/aap-logout`; keep the generic
+`gh-menu-item:portal-rhdh/profile` consumer enabled. Rebuild the provider, adapter,
+and AAP auth artifact together. The source NFS app explicitly installs
+`createAapProfileModule({ logoutDisabled: false })` from `aap-app-auth`, without
+replacing its existing sign-in composition.
+
+The AAP-owned handler clears Portal auth and redirects to AAP gateway logout;
 legacy `global.header/profile` mount-point YAML is not its registration mechanism.
 This integration does not change OAuth token-exchange handling or resolve
 intermittent transport failures during initial sign-in.
@@ -451,7 +468,12 @@ overwriting the gateway redirect. Transport failure during AAP token revocation
 is still reported by the auth backend; a visible logged-out browser does not
 prove successful server-side token revocation.
 
+The gateway currently controls the final destination, which can be its REST API
+page. Returning to Portal sign-in remains deferred; this integration does not
+change AAP's redirect policy or bypass cross-origin validation.
+
 See the [Create authoring example](portal-sdk-plugin-author-guide.md#declaring-a-create-destination)
+and [profile authoring example](portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item)
 and [RHDH adapter reference](../plugins/portal-rhdh.md). Re-export the affected host,
 adapter, and contributors after shared header-contract changes. Header integration
 is verified on the agreed `next-2.1` baseline, not every RHDH version.
