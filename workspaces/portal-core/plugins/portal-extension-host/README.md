@@ -28,7 +28,8 @@ declarations. Every item requires a resolved user identity and, when declared,
 an allowed permission. Owned-page, configuration, and native enablement checks
 apply before code loading. Action handlers load only on activation and receive
 the app API holder. The host rechecks eligibility on activation and ignores
-obsolete resolutions or code loaded after the consumer unmounts. The source renderer uses these decisions without a contributor-specific list.
+obsolete resolutions or code loaded after the consumer unmounts. Source and
+RHDH renderers share these decisions; neither maintains a contributor-specific list.
 
 ## Purpose
 

@@ -273,7 +273,7 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-The 19 packages below include installable plugins/modules and shared libraries.
+The packages below include installable plugins/modules and shared libraries.
 A library does not create a page or sidebar item merely by being installed.
 
 ### Portal core and SDK
@@ -286,6 +286,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH adapter for contributed profile-menu items, including AAP Sign out.
 
 ### AAP integration
 
@@ -547,7 +548,7 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-All 19 package references are linked in [Available Plugins](#available-plugins).
+Package references are linked in [Available Plugins](#available-plugins).
 The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
 APME, and Self-service ownership.
 

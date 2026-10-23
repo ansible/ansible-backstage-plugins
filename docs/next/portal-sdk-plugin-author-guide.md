@@ -252,9 +252,10 @@ is required.
 
 ## Declaring a profile menu item
 
-Use `AppProfileMenuItemBlueprint` for a profile-menu row. The source header
-renders validated declarations; plugins do not import platform header code
-or provide their own menu DOM.
+Use `AppProfileMenuItemBlueprint` for a profile-menu row. No change to
+`portal-rhdh` is needed for each contributor. The source header and optional RHDH
+adapter render the same validated declarations; plugins do not import platform
+header code or provide their own menu DOM.
 
 ### Prerequisites
 

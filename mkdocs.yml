@@ -74,6 +74,7 @@ nav:
           - portal-operations-backend: plugins/portal-operations-backend.md
           - portal-plugin-node: plugins/portal-plugin-node.md
           - portal-plugin-sdk: plugins/portal-plugin-sdk.md
+          - portal-rhdh: plugins/portal-rhdh.md
       - AAP:
           - auth-backend-module-rhaap-provider: plugins/auth.md
           - backstage-rhaap: plugins/backstage-frontend.md
