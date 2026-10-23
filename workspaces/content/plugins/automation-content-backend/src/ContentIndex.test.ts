@@ -256,9 +256,8 @@ describe('error cause traversal is bounded', () => {
   });
 
   it('describes a non-Error rejection value', async () => {
-    const outcome = await indexFailingWith('gateway gone').refreshRegistry(
-      'mock',
-    );
+    const failing = indexFailingWith('gateway gone');
+    const outcome = await failing.refreshRegistry('mock');
 
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toContain('gateway gone');
