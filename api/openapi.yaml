@@ -347,12 +347,110 @@ components:
           items: { type: string }
           description: Human-readable observations from probing, including why a capability was not determined.
 
+    CatalogHealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+      additionalProperties: false
+
+    ContentCacheStats:
+      type: object
+      required: [hits, misses, entries, bytes, evictions]
+      properties:
+        hits: { type: integer }
+        misses: { type: integer }
+        entries: { type: integer }
+        bytes: { type: integer }
+        evictions: { type: integer }
+      additionalProperties: false
+
+    AutomationContentHealthResponse:
+      type: object
+      description: Public automation-content health; no detailed reconciliation or drift failure causes.
+      required: [status, cache, registries]
+      properties:
+        status: { type: string, enum: [ok] }
+        refreshedAt:
+          type: string
+          format: date-time
+          description: Absent until a successful reconciliation.
+        cache:
+          $ref: '#/components/schemas/ContentCacheStats'
+        registries:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              lastReconciledAt:
+                type: string
+                format: date-time
+              lastReconcileOk: { type: boolean }
+              lastReconcileError:
+                type: string
+                description: Fixed failure summary, present only after a failed reconciliation.
+              artifacts: { type: integer }
+              drift:
+                type: object
+                required: [at, changed, requests]
+                properties:
+                  at: { type: string, format: date-time }
+                  changed: { type: boolean }
+                  requests: { type: integer }
+                additionalProperties: false
+            additionalProperties: false
+      additionalProperties: false
+
+    ContentSyncResponse:
+      type: object
+      required: [status, durationMs, registries, cache]
+      properties:
+        status: { type: string, enum: [completed, partial] }
+        durationMs: { type: integer }
+        refreshedAt:
+          type: string
+          format: date-time
+        cache:
+          $ref: '#/components/schemas/ContentCacheStats'
+        registries:
+          type: array
+          items:
+            type: object
+            required: [registry, ok, discovered]
+            properties:
+              registry: { type: string }
+              ok: { type: boolean }
+              discovered: { type: integer }
+              error:
+                type: string
+                description: |
+                  Fixed failure summary for anonymous callers. Detailed failure cause
+                  only for verified user/service callers. Absent on success.
+
     ContentRegistry:
       type: object
       required: [name, url]
       properties:
         name: { type: string }
         url: { type: string }
+        lastReconciledAt:
+          type: string
+          format: date-time
+          description: When the registry was last read, successfully or not.
+        lastReconcileOk: { type: boolean }
+        lastReconcileError:
+          type: string
+          description: |
+            Fixed failure summary. This route is readable without credentials,
+            so the detailed cause — which can quote internal hostnames from
+            certificate validation — is kept to backend logs and authenticated
+            sync responses.
+        lastCheckedAt:
+          type: string
+          format: date-time
+          description: When the registry was last cheaply checked for changes.
         namespaces:
           type: array
           items: { type: string }
@@ -774,27 +872,32 @@ paths:
         '500':
           description: Handler or output validation failure
   /health:
+    servers:
+      - url: /api/catalog
+        description: Catalog backend health
+      - url: /api/automation-content
+        description: Automation content health and public index diagnostics
     get:
       operationId: getHealth
-      summary: Health check
-      description: Returns the health status of the plugin backend.
+      summary: Plugin backend health
+      description: |
+        At /api/catalog/health, returns the catalog's status-only response.
+        At /api/automation-content/health, returns index freshness, cache statistics,
+        per-registry reconciliation status and counts-only drift data. Failure causes
+        are fixed summaries; certificate SANs, internal hostnames and drift details
+        are not exposed. Optional timestamps are absent before the first operation.
       tags:
         - Health
+      security: []
       responses:
         '200':
-          description: Service is healthy
+          description: Plugin health response; schema depends on the selected plugin mount.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    enum:
-                      - ok
-                additionalProperties: false
+                oneOf:
+                  - $ref: '#/components/schemas/CatalogHealthResponse'
+                  - $ref: '#/components/schemas/AutomationContentHealthResponse'
 
   /ansible/sync/from-aap/orgs_users_teams:
     post:
@@ -2712,6 +2815,10 @@ paths:
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
+
+        Reconciliation failures are reported as a fixed summary: the route is readable
+        without credentials, so the detailed cause is kept to backend logs and
+        authenticated sync responses.
       responses:
         '200':
           description: Configured registries
@@ -2731,31 +2838,31 @@ paths:
       operationId: syncAllRegistries
       tags: [Automation Content Registries]
       security:
+        - {}
         - JWT: []
       summary: Trigger discovery for all configured registries
-      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      description: |
+        Deliberate manual discovery for all registries. Authentication is optional.
+        Anonymous callers receive fixed failure summaries; verified user/service
+        callers receive detailed causes. Invalid supplied credentials are rejected
+        before discovery starts. Detailed diagnostics remain in backend logs.
       responses:
         '401':
-          description: Authentication required
+          description: Supplied credentials are invalid.
         '403':
-          description: Insufficient permissions
+          description: Supplied credentials are not allowed for this request.
         '200':
-          description: Sync result per registry
+          description: All registries reconciled successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  durationMs: { type: integer }
-                  registries:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        registry: { type: string }
-                        ok: { type: boolean }
-                        discovered: { type: integer }
-                        error: { type: string }
+                $ref: '#/components/schemas/ContentSyncResponse'
+        '207':
+          description: At least one registry failed; error visibility depends on the caller's verified credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentSyncResponse'
 
   /registries/{name}/poll:
     servers:
@@ -2813,6 +2920,9 @@ paths:
                 properties:
                   status: { type: string }
                   discovered: { type: integer }
+                  error:
+                    type: string
+                    description: Detailed failure cause; this route requires authentication.
         '404':
           description: No such registry
           content:

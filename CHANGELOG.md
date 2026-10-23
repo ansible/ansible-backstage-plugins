@@ -22,6 +22,13 @@ where versioned packages apply.
 
 ### Changed
 
+- **Automation content custom transports:** injected `FetchLike` implementations
+  now receive `redirect: 'manual'` and must return redirect responses without
+  following them. Update wrappers that automatically follow redirects to forward
+  this option to the underlying transport. `OCIClient` checks each redirect's
+  scheme and removes Authorization headers when crossing origins; redirects
+  followed inside a custom transport bypass those checks.
+
 - **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
 
 - **Portal SDK documentation** defines the proposed internal developer-preview contract, supported native launch combinations, backend responsibilities and exclusions, coordinated compatibility/migration policy, and fresh-clone workspace onboarding acceptance. Teams use this monorepo with `workspace:^` SDK dependencies; npm publication and external repositories are not preview requirements. This clarification does not announce published artifacts, joint contract sign-off, or new runtime guarantees.
@@ -52,6 +59,12 @@ where versioned packages apply.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
 ### Upgrade notes
+
+1. **Automation content custom transport authors:** forward `TransportInit`,
+   including `redirect: 'manual'`, and return the original redirect status and
+   Location header to `OCIClient`. Remove automatic redirect loops from injected
+   `FetchLike` adapters. The client now owns redirect following and applies its
+   transport and credential policy to each hop.
 
 1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.
 

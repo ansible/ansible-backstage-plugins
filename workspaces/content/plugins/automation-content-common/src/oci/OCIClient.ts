@@ -1,3 +1,5 @@
+import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
+import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
 import {
   ArtifactRef,
@@ -12,10 +14,60 @@ import {
   isIndex,
 } from './types';
 
-/** Injected so tests can drive the client without a network. */
+/** Ceiling on followed redirects — a registry redirecting more than this is a loop. */
+const MAX_REDIRECT_HOPS = 5;
+
+/**
+ * undici is loaded lazily, and only by the default transport. This package also
+ * runs under jsdom, where undici's web-global dependencies do not exist, and is
+ * compiled for environments that must never see a node-only HTTP client.
+ * Injecting a `fetch` — which every hermetic test does — bypasses this entirely.
+ */
+let undiciModule: Promise<typeof import('undici')> | undefined;
+
+/**
+ * Load undici once, lazily — only the default transport calls this.
+ *
+ * The CommonJS fallback exists for jest, whose VM has no dynamic-import
+ * callback; the `require` there resolves the same module the dynamic import
+ * would.
+ */
+function loadUndici(): Promise<typeof import('undici')> {
+  undiciModule ??= import('undici').catch(() => {
+    // Jest executes modules in a VM that has no dynamic-import callback; its
+    // CommonJS `require` is available instead. Outside jest the dynamic import
+    // above succeeds — or is compiled to `require` — so this never runs.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return Promise.resolve(require('undici') as typeof import('undici'));
+  });
+  return undiciModule;
+}
+
+/**
+ * The request shape every transport receives from this client.
+ *
+ * `redirect` is always `'manual'`: the client follows redirects itself, hop by
+ * hop, so the trust policy can see each one.
+ */
+export interface TransportInit {
+  method?: string;
+  headers?: Record<string, string>;
+  redirect?: 'manual';
+  signal?: AbortSignal;
+}
+
+/**
+ * Injected so tests can drive the client without a network.
+ *
+ * The transport-trust policy applies before any transport, injected or real: a
+ * plain-HTTP URL is refused unless the connection opted out with `insecure: true`.
+ * The client follows redirects itself — an injected transport receives
+ * `redirect: 'manual'` and must honor it by returning the redirect response
+ * rather than following it, or the policy cannot see each hop.
+ */
 export type FetchLike = (
   url: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: TransportInit,
 ) => Promise<Response>;
 
 export interface OCIClientOptions {
@@ -78,12 +130,41 @@ function parseChallengeParams(input: string): Record<string, string> {
  * which is metadata that happens to be stored as a blob.
  *
  * Nothing here knows what an execution environment or a collection is.
+ *
+ * Transport trust is policy, not accident: every request goes out over HTTPS with
+ * certificate verification unless the connection explicitly opts out with
+ * `insecure: true` — an opt-out that is warned about when the client is created
+ * and that also admits plain HTTP. See the `insecure` field on `RegistryConnection`.
+ *
+ * Three properties hold by construction, not by convention:
+ *
+ * - Every request is checked, including each hop of a redirect. Redirects are
+ *   followed manually so an HTTPS endpoint cannot downgrade a request to plain
+ *   HTTP inside the transport, where the connection's policy would never see it.
+ * - The check reads the URL through the URL parser, not a string pattern: the
+ *   parser is the authority on which transport a URL asks for, and patterns are
+ *   bypassable by spelling (`http:\\host` is plain HTTP once parsed).
+ * - Verification is pinned per connection. A dispatcher that leaves
+ *   `rejectUnauthorized` to the ambient default would inherit any process-wide
+ *   `NODE_TLS_REJECT_UNAUTHORIZED=0` set for unrelated reasons, silently
+ *   disabling this connection's verification.
+ * - Trust is additive: a connection with a `ca` bundle accepts certificates
+ *   that chain to the bundle *or* to the process's default root store, so a
+ *   registry behind a private CA can still redirect to, or authenticate
+ *   through, a host the process already trusts. Both paths verify the
+ *   certificate and the hostname; neither admits plain HTTP.
  */
 export class OCIClient {
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
   private readonly logger?: OCIClientOptions['logger'];
   private readonly cache?: DigestCache;
+  /** Whether this connection explicitly opted out of transport trust. */
+  private readonly allowInsecure: boolean;
+  /** Built lazily by verified connections — see the class docblock. */
+  private secureDispatcher?: Agent;
+  /** Held only by connections that opted out of TLS verification. */
+  private insecureDispatcher?: Agent;
   /** Bearer tokens from the token-exchange flow, keyed by scope. */
   private readonly tokenCache = new Map<
     string,
@@ -96,10 +177,59 @@ export class OCIClient {
     private readonly connection: RegistryConnection,
     options: OCIClientOptions = {},
   ) {
-    this.fetchImpl = options.fetch ?? ((url, init) => fetch(url, init));
+    if (connection.insecure === true && connection.ca) {
+      // The same refusal the config layer makes at startup, enforced here so a
+      // programmatically constructed connection cannot combine them either: a
+      // bundle to verify against and an opt-out of verification contradict
+      // each other, and one of them is always a mistake. Checked before either
+      // transport — injected or default — is selected.
+      throw new RegistryError(
+        `registry "${connection.name}" sets both ca and insecure: verify ` +
+          `against the bundle or opt out of verification, not both`,
+        undefined,
+        connection.name,
+      );
+    }
+    this.allowInsecure = connection.insecure === true;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.logger = options.logger;
     this.cache = options.cache;
+
+    const injected = options.fetch;
+    const transport: FetchLike = async (url, init) => {
+      if (injected) return this.followRedirects(injected, url, init);
+      const { Agent, buildConnector, fetch: undiciFetch } = await loadUndici();
+      return this.followRedirects(
+        (next, request) => {
+          const undiciRequest: UndiciRequestInit = { ...request };
+          undiciRequest.dispatcher = this.pinnedDispatcher({
+            Agent,
+            buildConnector,
+          });
+          // undici's Response and the global Response are the same runtime shape;
+          // their type declarations disagree only on ReadableStream variance.
+          return undiciFetch(
+            next,
+            undiciRequest,
+          ) as unknown as Promise<Response>;
+        },
+        url,
+        init,
+      );
+    };
+
+    this.fetchImpl = async (url, init) => {
+      if (!this.allowInsecure) this.assertTransportAllowed(url);
+      return transport(url, init);
+    };
+
+    if (this.allowInsecure) {
+      this.logger?.warn(
+        `[${connection.name}] insecure registry connection: TLS certificate ` +
+          `verification is disabled and plain HTTP is allowed — local ` +
+          `development only`,
+      );
+    }
   }
 
   get registryName(): string {
@@ -112,6 +242,128 @@ export class OCIClient {
     let url = this.connection.url;
     while (url.endsWith('/')) url = url.slice(0, -1);
     return url;
+  }
+
+  // -------------------------------------------------------------------------
+  // Transport trust
+  // -------------------------------------------------------------------------
+
+  /**
+   * Refuse a URL that does not ask for verified HTTPS.
+   *
+   * Applies to the first request and to every redirect hop, so a redirect cannot
+   * downgrade the transport after the initial check has passed.
+   */
+  private assertTransportAllowed(url: string): void {
+    const protocol = transportProtocol(url);
+    if (protocol !== 'https:') {
+      throw new RegistryError(
+        `refused ${protocol ?? 'unparseable'} request to ${redactUrl(url)}: ` +
+          `registry connections verify TLS by default; set insecure: true on ` +
+          `registry "${this.connection.name}" to allow this (local development only)`,
+        undefined,
+        this.connection.name,
+      );
+    }
+  }
+
+  /**
+   * The dispatcher this connection's trust policy pins.
+   *
+   * Both dispatchers pin `rejectUnauthorized` explicitly; see the class
+   * docblock. The verified one trusts the process's default root store, and a
+   * connection with a `ca` bundle trusts that bundle *in addition*: a
+   * registry behind a private CA can redirect to, or authenticate through, a
+   * host whose certificate chains to the default roots — a CDN in front of
+   * the registry, a separate auth host — without duplicating those roots
+   * into the bundle. See `AdditiveTrustConnector` for how the two stores are
+   * combined.
+   */
+  private pinnedDispatcher(
+    undici: Pick<typeof import('undici'), 'Agent' | 'buildConnector'>,
+  ): Agent {
+    if (this.allowInsecure) {
+      this.insecureDispatcher ??= new undici.Agent({
+        connect: { rejectUnauthorized: false },
+      });
+      return this.insecureDispatcher;
+    }
+    this.secureDispatcher ??= new undici.Agent({
+      connect: this.connection.ca
+        ? createAdditiveTrustConnector(undici, { ca: this.connection.ca })
+        : { rejectUnauthorized: true },
+    });
+    return this.secureDispatcher;
+  }
+
+  /**
+   * Follow redirects by hand, for every transport.
+   *
+   * Automatic redirect following would let an HTTPS endpoint downgrade a
+   * request to plain HTTP inside the transport, where the connection's trust
+   * policy never sees it. Following manually applies the policy to every hop —
+   * for injected transports as much as the default one — and drops credentials
+   * when a redirect crosses origin, the same rule the fetch specification
+   * applies, so a token issued for one registry is never silently presented to
+   * another server.
+   */
+  private async followRedirects(
+    send: (url: string, init: TransportInit) => Promise<Response>,
+    url: string,
+    init?: TransportInit,
+  ): Promise<Response> {
+    let current = url;
+    let headers = init?.headers;
+    for (let hop = 0; ; hop++) {
+      const res = await send(current, {
+        ...init,
+        headers,
+        redirect: 'manual',
+      });
+
+      if (res.status < 300 || res.status > 399) return res;
+      const location = res.headers.get('location');
+      if (!location) return res;
+      await res.body?.cancel().catch(() => {});
+
+      if (hop >= MAX_REDIRECT_HOPS) {
+        throw new RegistryError(
+          `too many redirects following ${redactUrl(url)}: registry ` +
+            `"${this.connection.name}" redirected more than ` +
+            `${MAX_REDIRECT_HOPS} times`,
+          undefined,
+          this.connection.name,
+        );
+      }
+
+      const target = new URL(location, current).toString();
+      if (!this.allowInsecure) this.assertTransportAllowed(target);
+
+      const crossOrigin = originOf(target) !== originOf(current);
+      if (crossOrigin && headers) {
+        headers = Object.fromEntries(
+          Object.entries(headers).filter(
+            ([name]) => name.toLowerCase() !== 'authorization',
+          ),
+        );
+      }
+      current = target;
+    }
+  }
+
+  /**
+   * Release transport resources held by this client.
+   *
+   * Verified and opted-out connections alike hold a dispatcher of their own;
+   * both are closed, and a later request simply builds a fresh one.
+   */
+  async dispose(): Promise<void> {
+    await Promise.allSettled([
+      this.secureDispatcher?.close(),
+      this.insecureDispatcher?.close(),
+    ]);
+    this.secureDispatcher = undefined;
+    this.insecureDispatcher = undefined;
   }
 
   // -------------------------------------------------------------------------
@@ -166,8 +418,8 @@ export class OCIClient {
     }
     if (url.protocol === 'http:' && new URL(this.base).protocol === 'https:') {
       this.logger?.warn(
-        `[${this.connection.name}] refusing non-TLS auth realm ` +
-          `${url.toString()}`,
+        `[${this.connection.name}] refusing non-TLS auth realm for an ` +
+          `HTTPS registry`,
       );
       return undefined;
     }
@@ -197,14 +449,13 @@ export class OCIClient {
     // endpoint would otherwise hang the shared priming promise and every
     // request waiting on it.
     const res = await this.withTimeout(signal =>
-      this.fetchImpl(url.toString(), { headers, signal } as never),
+      this.fetchImpl(url.toString(), { headers, signal }),
     );
+    // Status only: the token endpoint is untrusted, and its body can echo
+    // submitted credentials. The status is enough to act on.
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
       this.logger?.warn(
-        `[${this.connection.name}] token exchange failed: ${
-          res.status
-        } ${url.toString()} — ${detail}`,
+        `[${this.connection.name}] token exchange failed: ${res.status}`,
       );
       return undefined;
     }
@@ -256,7 +507,7 @@ export class OCIClient {
             this.fetchImpl(`${this.base}/v2/`, {
               headers: {},
               signal,
-            } as never),
+            }),
           );
           if (res.status !== 401) return; // anonymous access, or an unexpected answer
           const header = res.headers.get('www-authenticate');
@@ -340,7 +591,7 @@ export class OCIClient {
     if (staticAuth) headers.Authorization = staticAuth;
 
     let res = await this.withTimeout(signal =>
-      this.fetchImpl(url, { ...init, headers, signal } as never),
+      this.fetchImpl(url, { ...init, headers, signal }),
     );
 
     if (res.status === 401) {
@@ -356,7 +607,7 @@ export class OCIClient {
               ...init,
               headers: { ...headers, Authorization: `Bearer ${token}` },
               signal,
-            } as never),
+            }),
           );
         }
       }
@@ -418,7 +669,7 @@ export class OCIClient {
       init.auth === false ? undefined : this.staticAuthHeader();
     if (staticAuth) headers.Authorization = staticAuth;
     return this.withTimeout(signal =>
-      this.fetchImpl(url, { ...init, headers, signal } as never),
+      this.fetchImpl(url, { ...init, headers, signal }),
     );
   }
 
@@ -757,4 +1008,44 @@ export function nextLink(header: string | null): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * The transport a URL asks for, per the URL parser — the only authority that
+ * matters. A string pattern is bypassable by spelling: `http:\\host` and other
+ * variants parse to plain HTTP. Unparseable URLs never get a transport at all.
+ */
+function transportProtocol(url: string): string | undefined {
+  try {
+    return new URL(url).protocol;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A URL's origin, or a placeholder when it does not parse. */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return '(unparseable URL)';
+  }
+}
+
+/**
+ * A URL safe for error text: userinfo masked, query and fragment dropped.
+ *
+ * Userinfo, query, and fragment can each carry a secret, and errors are
+ * logged. The URL parser is the authority on which part is which — string
+ * surgery is bypassable by spelling. Unparseable URLs are reduced to a
+ * placeholder rather than echoed.
+ */
+function redactUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const userinfo = parsed.username || parsed.password ? '***@' : '';
+    return `${parsed.protocol}//${userinfo}${parsed.host}${parsed.pathname}`;
+  } catch {
+    return '(unparseable URL)';
+  }
 }

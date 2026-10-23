@@ -28,6 +28,9 @@ describeLive('live registry end-to-end', () => {
   const connection: RegistryConnection = {
     name: registry!,
     url: `http://${registry}`,
+    // The dev registry in the e2e pipeline is plain HTTP, so transport trust
+    // is explicitly opted out here — the very escape hatch the client ships.
+    insecure: true,
     auth: process.env.E2E_USERNAME
       ? {
           type: 'basic',

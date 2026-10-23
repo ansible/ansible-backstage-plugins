@@ -97,8 +97,32 @@ export interface RegistryConnection {
   namespaces?: string[];
   /** Explicit repositories. Required when _catalog is unavailable. */
   repositories?: string[];
-  /** Skip TLS verification. Local development only. */
+  /**
+   * The explicit, auditable opt-out from transport trust.
+   *
+   * Omitted or false — the default — means every request goes out over HTTPS with
+   * certificate verification: a registry presenting an untrusted, expired or
+   * wrong-host certificate fails the connection, and plain HTTP is refused outright.
+   *
+   * True disables certificate verification and admits plain HTTP for this registry
+   * only, and is warned about when the client is created. Local development against
+   * a throwaway registry is the intended use.
+   */
   insecure?: boolean;
+  /**
+   * PEM bundle this registry's certificate is verified against, in addition
+   * to the process's default root store. Verification stays on: this is how a
+   * registry behind a private CA is trusted without resorting to
+   * `insecure: true`.
+   *
+   * Trust is additive, deliberately: a registry behind a private CA can
+   * redirect to, or authenticate through, a host whose certificate chains to
+   * the process's default roots — a CDN in front of the registry, a separate
+   * auth host — and duplicating those roots into every bundle is exactly the
+   * trap additive trust avoids. Combining `ca` with `insecure: true` is
+   * refused outright.
+   */
+  ca?: string;
   /**
    * Rewrite the host of a bearer-auth realm to match this connection's host.
    *
