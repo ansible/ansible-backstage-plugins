@@ -102,6 +102,12 @@ guide for the operator-facing wording.
 - A connection whose registry is trusted only through its bundle pays one
   extra TLS handshake per new socket (the default store is tried first and
   refuses); connection pooling keeps that per-connection, not per-request.
+- `caFile` adds trust rather than pinning a certificate or issuer. A valid
+  certificate for the registry hostname that chains to any process-trusted CA
+  is accepted even when the bundle does not cover it. This includes corporate
+  inspection CAs installed in the process trust store. Bundle-only trust and
+  certificate pinning are not supported; reversing the handshake order with a
+  fallback would not provide either guarantee.
 - Local development must set `insecure: true` for the plain-HTTP Quay — the
   commented `automationContent` block in the bundled `app-config.yaml` notes the
   opt-out. The full portal demo, including the trusted and untrusted HTTPS

@@ -46,9 +46,9 @@ export const automationContentPlugin = createBackendPlugin({
         // inspectable and agents can ground on them. Backstage matches these
         // policies as path prefixes with no method awareness, so the mutating
         // routes beneath the /registries prefix (POST /registries/:name/poll
-        // and /sync) enforce credentials in the router itself; POST /sync and
-        // /config/* sit outside every anonymous prefix and keep the portal's
-        // default authentication.
+        // and /sync) enforce credentials in the router itself. POST /sync is
+        // also anonymous, but only verified user/service callers receive detailed
+        // failure causes. /config/* keeps the portal's default authentication.
         for (const path of [
           '/health',
           '/registries',

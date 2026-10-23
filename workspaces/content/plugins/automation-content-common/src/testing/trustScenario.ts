@@ -123,15 +123,16 @@ async function failureOf(run: () => Promise<unknown>): Promise<string> {
 }
 
 /**
- * A certificate the process itself trusts verifies with no `ca` configured —
- * the default-store branch of the client's trust policy, through the real
- * transport.
+ * A certificate the process itself trusts verifies with no `ca` configured,
+ * or with an unrelated bundle — caFile adds trust, it does not pin the issuer.
+ * Both cases exercise the default-store branch through the real transport.
  */
 async function processTrustedScenario(
   input: TrustScenarioInput,
+  ca?: string,
 ): Promise<TrustScenarioVerdict> {
   const server = await serve(input.process.server, serveV2);
-  const client = new OCIClient(connection(server.url));
+  const client = new OCIClient(connection(server.url, { ca }));
   try {
     const ping = await client.ping();
     return ping.ok
@@ -275,6 +276,8 @@ const SCENARIOS: Record<
   (input: TrustScenarioInput) => Promise<TrustScenarioVerdict>
 > = {
   'process-trusted': processTrustedScenario,
+  'process-trusted-with-bundle': input =>
+    processTrustedScenario(input, input.bundle.ca),
   'process-untrusted': processUntrustedScenario,
   'mixed-redirect': mixedRedirectScenario,
   'bearer-realm': bearerRealmScenario,

@@ -311,7 +311,7 @@ export class ContentIndex {
       const failure: DriftState = {
         at,
         changed: false,
-        details: [`check failed: ${(error as Error).message}`],
+        details: [`check failed: ${errorText(error)}`],
         requests,
       };
       this.drift.set(name, failure);

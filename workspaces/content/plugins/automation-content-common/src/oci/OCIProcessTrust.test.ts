@@ -13,6 +13,7 @@
  *
  * - a certificate the process itself trusts verifies with no `ca` configured
  * - a certificate nobody trusts is still refused
+ * - an unrelated connection bundle does not restrict process trust (no pinning)
  * - a registry trusted through its connection bundle can redirect to, and
  *   exchange a bearer token with, a host trusted only by the process — the
  *   compatibility trap additive trust exists to close
@@ -125,6 +126,14 @@ describe('the default trust store is the process\u2019s', () => {
 });
 
 describe('connection trust and process trust compose', () => {
+  it('accepts a process-trusted registry outside the configured bundle', async () => {
+    const verdict = await runScenario('process-trusted-with-bundle');
+
+    expect(verdict.ok).toBe(true);
+    expect(verdict.error).toBeUndefined();
+    expect(verdict.evidence?.hits).toBeGreaterThan(0);
+  });
+
   it('follows a redirect from a bundled registry to a process-trusted host', async () => {
     const verdict = await runScenario('mixed-redirect');
 

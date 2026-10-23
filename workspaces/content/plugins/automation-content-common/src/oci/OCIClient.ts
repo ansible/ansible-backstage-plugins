@@ -341,9 +341,11 @@ export class OCIClient {
 
       const crossOrigin = originOf(target) !== originOf(current);
       if (crossOrigin && headers) {
-        headers = { ...headers };
-        delete headers.Authorization;
-        delete headers.authorization;
+        headers = Object.fromEntries(
+          Object.entries(headers).filter(
+            ([name]) => name.toLowerCase() !== 'authorization',
+          ),
+        );
       }
       current = target;
     }

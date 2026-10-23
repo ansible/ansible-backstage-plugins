@@ -20,7 +20,10 @@ async function appWith(index: ContentIndex, httpAuth?: unknown) {
       httpAuth: (httpAuth ?? {
         // Permissive by default: the credentials barrier, not the router, is
         // what these tests exercise elsewhere.
-        credentials: () => Promise.resolve({}),
+        credentials: () =>
+          Promise.resolve({
+            principal: { type: 'user', userEntityRef: 'user:default/test' },
+          }),
       }) as never,
     }),
   );
@@ -288,6 +291,80 @@ describe('public diagnostics are summarised', () => {
     expect(res.body.status).toBe('failed');
     expect(res.body.error).toContain('certificate has expired');
   });
+
+  it.each(['none', 'user', 'service'])(
+    'controls global sync diagnostics for a %s principal',
+    async type => {
+      const index = indexWithFailedReconcile();
+      const clients = (
+        index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+      ).clients;
+      const detail =
+        'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
+      (clients.get('corporate') as { fetchImpl: unknown }).fetchImpl = () =>
+        Promise.reject(new Error(detail));
+      const httpAuth = {
+        credentials: jest.fn().mockResolvedValue({ principal: { type } }),
+      };
+
+      const res = await request(await appWith(index, httpAuth)).post('/sync');
+
+      expect(res.status).toBe(207);
+      expect(res.body.status).toBe('partial');
+      expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+        allow: ['none', 'user', 'service'],
+      });
+      const outcome = res.body.registries[0];
+      expect(outcome.ok).toBe(false);
+      const internalError = index.reconcileStateFor('corporate')?.error;
+      const expectedError =
+        type === 'none' ? RECONCILE_FAILURE_SUMMARY : internalError;
+      expect(outcome.error).toBe(expectedError);
+      const body = JSON.stringify(res.body);
+      for (const privateText of [
+        'secret-host.internal',
+        'altnames',
+        '10.1.2.3',
+      ]) {
+        expect(body.includes(privateText)).toBe(type !== 'none');
+      }
+      // Response sanitization must not erase the operator's diagnostic state.
+      expect(internalError).toContain(detail);
+    },
+  );
+
+  it('allows an anonymous successful global sync', async () => {
+    const index = indexWithFailedReconcile();
+    const refresh = jest.spyOn(index, 'refreshRegistry').mockResolvedValue({
+      ok: true,
+      discovered: 3,
+    });
+    const httpAuth = {
+      credentials: jest.fn().mockResolvedValue({ principal: { type: 'none' } }),
+    };
+
+    const res = await request(await appWith(index, httpAuth)).post('/sync');
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('completed');
+    expect(res.body.registries).toEqual([
+      { registry: 'corporate', ok: true, discovered: 3 },
+    ]);
+    expect(refresh).toHaveBeenCalledWith('corporate');
+  });
+
+  it('rejects invalid credentials before global sync work starts', async () => {
+    const index = indexWithFailedReconcile();
+    const refresh = jest.spyOn(index, 'refreshRegistry');
+    const httpAuth = {
+      credentials: jest.fn().mockRejectedValue(new Error('invalid token')),
+    };
+
+    const res = await request(await appWith(index, httpAuth)).post('/sync');
+
+    expect(res.status).toBe(401);
+    expect(refresh).not.toHaveBeenCalled();
+  });
 });
 
 describe('registry mutation authentication', () => {
@@ -350,7 +427,7 @@ describe('config validation', () => {
     };
   }
 
-  function document(registries: Array<Record<string, unknown>>) {
+  function document(registries: unknown[]) {
     return {
       apiVersion: 'content.ansible.com/v1',
       kind: 'ContentConfiguration',
@@ -392,4 +469,67 @@ describe('config validation', () => {
       message: expect.stringMatching(/caFile.*insecure|insecure.*caFile/),
     });
   });
+
+  it.each(['y', 'yes', 'true', '1', 'on', ' ON ', ' YeS ', 1])(
+    'rejects caFile combined with insecure=%p, matching startup coercion',
+    async insecure => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send(document([registry({ caFile: '/etc/pki/ca.pem', insecure })]));
+
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors).toContainEqual(
+        expect.objectContaining({ path: 'registries[0].caFile' }),
+      );
+      expect(res.body.warnings).toContainEqual(
+        expect.objectContaining({ path: 'registries[0].insecure' }),
+      );
+    },
+  );
+
+  it.each([false, 'n', 'no', 'false', '0', 'off', ' OFF ', 0, null])(
+    'accepts caFile combined with insecure=%p',
+    async insecure => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send(document([registry({ caFile: '/etc/pki/ca.pem', insecure })]));
+
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(true);
+      expect(res.body.warnings).toEqual([]);
+    },
+  );
+
+  it.each(['maybe', '', 2, {}, []])(
+    'reports invalid insecure=%p at its field path',
+    async insecure => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send(document([registry({ insecure })]));
+
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors).toContainEqual(
+        expect.objectContaining({ path: 'registries[0].insecure' }),
+      );
+      expect(res.body.warnings).toEqual([]);
+    },
+  );
+
+  it.each([null, [], 'registry', 1, true])(
+    'reports malformed registry entry %p and continues validating',
+    async entry => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send(document([entry, registry({ insecure: 'maybe' })]));
+
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors).toEqual([
+        { path: 'registries[0]', message: 'Must be an object' },
+        expect.objectContaining({ path: 'registries[1].insecure' }),
+      ]);
+    },
+  );
 });

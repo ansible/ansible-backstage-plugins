@@ -599,6 +599,53 @@ describe('redirects cannot downgrade the transport', () => {
 
     await client.dispose();
   });
+
+  it.each([true, false])(
+    'handles mixed-case Authorization on redirects (cross-origin=%s)',
+    async crossOrigin => {
+      const target = await startServer(
+        'https',
+        certificatePair('trusted-server'),
+      );
+      const source = await startServer(
+        'https',
+        certificatePair('trusted-server'),
+        (req, res) => {
+          if (req.url === '/v2/' || req.url === '/done') {
+            res.writeHead(200);
+          } else {
+            res.writeHead(302, {
+              location: crossOrigin ? `${target.url}/v2/` : '/done',
+            });
+          }
+          res.end('{}');
+        },
+      );
+      const headers = { aUtHoRiZaTiOn: 'Bearer caller-token' };
+      const client = new OCIClient(connection(source.url));
+      try {
+        const res = await client.request('/v2/demo/ee/tags/list', { headers });
+
+        expect(res.status).toBe(200);
+        const initial = source.requests.find(
+          entry => entry.path === '/v2/demo/ee/tags/list',
+        );
+        expect(initial?.authorization).toBe('Bearer caller-token');
+        const redirected = crossOrigin
+          ? target.requests
+          : source.requests.filter(entry => entry.path === '/done');
+        expect(redirected.length).toBeGreaterThan(0);
+        for (const entry of redirected) {
+          expect(entry.authorization).toBe(
+            crossOrigin ? undefined : 'Bearer caller-token',
+          );
+        }
+        expect(headers).toEqual({ aUtHoRiZaTiOn: 'Bearer caller-token' });
+      } finally {
+        await client.dispose();
+      }
+    },
+  );
 });
 
 describe('the redirect policy covers injected transports too', () => {

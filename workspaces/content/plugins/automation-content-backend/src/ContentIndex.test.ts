@@ -262,4 +262,40 @@ describe('error cause traversal is bounded', () => {
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toContain('gateway gone');
   });
+
+  it('reports the cause chain when a drift check fails', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+    const index = indexFailingWith(wrapped);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: fetch failed: unable to get local issuer certificate',
+    ]);
+    expect(index.driftStateFor('mock')).toEqual(drift);
+  });
+
+  it('describes non-Error drift-check failures', async () => {
+    const index = indexFailingWith('gateway gone');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual(['check failed: gateway gone']);
+  });
+
+  it('bounds cyclic drift-check failures', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+    const index = indexFailingWith(cyclic);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: loop: (cause chain truncated)',
+    ]);
+  });
 });

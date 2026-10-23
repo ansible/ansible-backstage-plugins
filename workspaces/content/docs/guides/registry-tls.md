@@ -81,6 +81,13 @@ verify the certificate and the hostname. The cost is one extra handshake per
 new connection to a registry only the bundle trusts, which connection pooling
 keeps negligible.
 
+`caFile` adds trusted CAs; it does **not** pin a certificate or restrict trust to
+that bundle. A valid certificate for the registry's hostname is also accepted
+when it chains to any process-trusted CA, including a corporate inspection CA,
+even if the configured bundle does not cover it. There is no bundle-only or
+certificate-pinning mode. Trying the bundle first and falling back to process
+trust would still accept those certificates.
+
 Setting `caFile` and `insecure` together is a configuration error and is
 rejected at startup — by `/config/validate` before it reaches startup — and
 by the client itself.
@@ -97,7 +104,10 @@ available and composes with everything here.
   reconciliation as a fixed summary: the detailed cause can quote internal
   hostnames — a TLS rejection names the certificate's subject alternative
   names — and those routes are readable without credentials. The detail stays
-  in the backend log and in the authenticated sync responses
+  in the backend log and in sync responses to verified user/service callers
+- `POST /sync` remains accessible anonymously. Anonymous callers receive the
+  same fixed failure summary; verified user/service callers receive the detailed
+  cause. The per-registry sync and poll routes require authentication
 - Refusals and warnings name the registry, never URL data: a URL that reaches
   an error is reduced to its scheme, host, and path — userinfo is masked and
   query and fragment dropped, since each can carry a secret
