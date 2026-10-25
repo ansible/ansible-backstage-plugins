@@ -41,7 +41,7 @@
     "express": "^5.1.0",
     "express-promise-router": "^4.1.1",
     "passport-oauth2": "^1.8.0",
-    "undici": "^6.26.0"
+    "undici": "^6.29.1"
   },
   "devDependencies": {
     "@backstage/backend-defaults": "^0.16.0",
