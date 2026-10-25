@@ -34,7 +34,7 @@
     "@backstage/core-compat-api": "0.5.11",
     "@backstage/frontend-plugin-api": "0.17.1",
     "@backstage/plugin-permission-common": "^0.9.8",
-    "@material-ui/icons": "^4.9.1"
+    "@mui/icons-material": "^5.0.0"
   },
   "peerDependencies": {
     "@backstage/catalog-model": "^1.7.7",
