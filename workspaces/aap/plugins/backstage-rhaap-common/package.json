@@ -69,7 +69,7 @@
     "@backstage/core-plugin-api": "^1.12.4",
     "@backstage/errors": "^1.2.7",
     "@backstage/integration": "^2.0.0",
-    "@backstage/plugin-auth-node": "^0.6.14",
+    "@backstage/plugin-auth-node": "^0.7.0",
     "@backstage/plugin-permission-common": "^0.9.7",
     "@backstage/plugin-permission-node": "^0.11.0",
     "lodash.uniqby": "^4.7.0",
