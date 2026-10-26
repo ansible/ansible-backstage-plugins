@@ -3,7 +3,6 @@
 export {
   EmptyState,
   EntityLinkButton,
-  PageHeaderSection,
   ScmIntegrationAuthError,
   SkeletonLoader,
   SyncDialog,
@@ -11,9 +10,11 @@ export {
 } from '@ansible/portal-plugin-sdk';
 export type {
   EmptyStateProps,
-  PageHeaderSectionProps,
   SyncDialogProps,
 } from '@ansible/portal-plugin-sdk';
+
+export { CatalogSyncHeader } from './CatalogSyncHeader';
+export type { CatalogSyncHeaderProps } from './CatalogSyncHeader';
 
 // Icons
 export { GitLabIcon, RedHatIcon } from '@ansible/portal-plugin-sdk';

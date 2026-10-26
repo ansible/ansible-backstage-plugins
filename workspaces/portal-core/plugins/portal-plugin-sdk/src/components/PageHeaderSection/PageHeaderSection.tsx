@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Button, Divider, Tooltip, Typography } from '@material-ui/core';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
-import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import SyncIcon from '@material-ui/icons/Sync';
 import { useIsSuperuser } from '../../hooks';
 import {
@@ -10,9 +9,11 @@ import {
   useProgressTooltipStyles,
 } from '../../styles';
 import { SyncProgressPopover } from '../SyncProgressPopover';
+import { PageHeader } from '../PageHeader';
 import type { SyncProgressEntry } from '../../types';
 import { formatRelativeTime } from '../../utils';
 
+/** @deprecated Use PageHeaderProps for generic headers. Sync integrations belong to the consumer. */
 export interface PageHeaderSectionProps {
   title: string;
   tooltip: string;
@@ -32,6 +33,7 @@ export interface PageHeaderSectionProps {
   descriptionExtra?: ReactNode;
 }
 
+/** @deprecated Use PageHeader and compose consumer-owned actions. Retained for preview compatibility. */
 export const PageHeaderSection = ({
   title,
   tooltip,
@@ -106,27 +108,17 @@ export const PageHeaderSection = ({
   const buttonTooltip = getButtonTooltip();
 
   return (
-    <Box className={classes.pageHeader}>
-      <Box className={classes.headerRow}>
-        <Box className={classes.headerTitle}>
-          <Typography
-            variant="h4"
-            component="h1"
-            className={classes.headerTitleText}
-          >
-            {title}
-          </Typography>
-          <Tooltip title={tooltip} arrow placement="right">
-            <HelpOutlineIcon className={classes.helpIcon} />
-          </Tooltip>
-        </Box>
-        <Box
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-          }}
-        >
+    <PageHeader
+      title={title}
+      tooltip={tooltip}
+      description={
+        <>
+          {description}
+          {descriptionExtra && <> {descriptionExtra}</>}
+        </>
+      }
+      actions={
+        <>
           {actions}
           {showSyncButton && (
             <Box
@@ -176,12 +168,8 @@ export const PageHeaderSection = ({
               </Tooltip>
             </Box>
           )}
-        </Box>
-      </Box>
-      <Typography variant="body1" className={classes.description}>
-        {description}
-        {descriptionExtra && <> {descriptionExtra}</>}
-      </Typography>
-    </Box>
+        </>
+      }
+    />
   );
 };

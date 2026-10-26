@@ -17,20 +17,37 @@ yarn workspace my-plugin add @ansible/portal-plugin-sdk
 
 ## Components
 
-### `PageHeaderSection`
+### `PageHeader`
 
-Standard page header with title, subtitle, icon, and optional action slot. Extracted from `self-service` — use this instead of building your own heading layout.
+Shared page-heading layout with a title, optional description, optional help
+tooltip, and optional actions. It does not resolve authentication, check
+permissions, or render synchronization controls. Consumers own action visibility,
+disabled states, and handlers. Backend operations must enforce authorization.
 
 ```tsx
-import { PageHeaderSection } from '@ansible/portal-plugin-sdk';
+import { PageHeader } from '@ansible/portal-plugin-sdk';
 
-<PageHeaderSection
-  title="My Plugin"
-  subtitle="Description of what this page does."
-  icon={<MyIcon />}
-  action={<Button variant="contained">Create</Button>}
+<PageHeader
+  title="Conversions"
+  description="Convert source content to Ansible."
+  tooltip="About source conversion"
+  actions={<Button onClick={startConversion}>Start conversion</Button>}
 />;
 ```
+
+Only `title` is required. The description accepts React content, including links.
+The help tooltip supports pointer hover and keyboard focus.
+
+### `PageHeaderSection` (deprecated compatibility export)
+
+The existing sync-aware header and `PageHeaderSectionProps` remain exported with
+their existing props and behavior for preview compatibility. New plugins should
+use `PageHeader` and supply their own actions. Existing synchronization consumers
+can keep the legacy export until they migrate. No removal version is scheduled.
+
+Portal-scaffolder uses its local `CatalogSyncHeader` wrapper for the Sync Now
+button, superuser checks, progress, and last-sync timestamps. Other plugins must
+not depend on portal-scaffolder to reuse the generic header.
 
 ### `EmptyState`
 

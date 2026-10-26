@@ -16,6 +16,17 @@ and [portal-extension-host](portal-extension-host.md) for host rendering.
 
 ## Styling and ownership
 
+`PageHeader` renders a title, optional description/help tooltip, and optional
+consumer-supplied actions. It has no authentication or synchronization
+requirements. The consumer owns UI permission checks and action handlers, while
+backend authorization remains mandatory for protected operations.
+
+Portal-scaffolder composes this layout through its local `CatalogSyncHeader` for
+catalog synchronization. The SDK's sync-aware `PageHeaderSection` and its props
+remain available as deprecated compatibility exports. Existing callers continue
+to work. New consumers should use `PageHeader`, and legacy callers should migrate
+before a separately coordinated removal. No removal version is scheduled.
+
 Prefer shared components and theme-adaptive tokens over importing private RHDH
 UI implementation details. Synchronization/cache integration uses injected
 callbacks rather than direct imports of a content plugin.
