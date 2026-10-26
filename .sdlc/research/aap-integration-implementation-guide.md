@@ -1,7 +1,7 @@
 # AAP Integration Re-Architecture — Implementation Guide
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §2.5 dependency rules, §7.3–7.4 AAP provider/keep-leave boundaries)
-> **Related Jira:** [AAP-95802](https://redhat.atlassian.net/browse/AAP-95802) (this spike — AAP integration research), [AAP-95782](https://redhat.atlassian.net/browse/AAP-95782) (scaffolder split), [AAP-95785](https://redhat.atlassian.net/browse/AAP-95785) (catalog split), [AAP-95616](https://redhat.atlassian.net/browse/AAP-95616) (Research Spikes Epic)
+> **Related work items:** AAP-95802 (this spike — AAP integration research), AAP-95782 (scaffolder split), AAP-95785 (catalog split), AAP-95616 (Research Spikes Epic)
 > **Companion docs (under `docs/next/`):** [Portal implementation guide](../../docs/next/portal-plugin-factory-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
 > **Related PRs:** [PR #744](https://github.com/ansible/ansible-backstage-plugins/pull/744) (RHDH 2.1 NFS migration + `rhaap-app-auth`), [PR #801](https://github.com/ansible/ansible-backstage-plugins/pull/801) (scaffolder implementation guide)
 > **Status:** Research complete — 4-package layer split recommended
