@@ -53,7 +53,7 @@ describe('GlobalHeader', () => {
   });
 
   it('renders title, search input and action buttons', () => {
-    render(<GlobalHeader createPath="/self-service/catalog" />);
+    render(<GlobalHeader />);
 
     // Title/link present
     expect(screen.getByText('Automation Portal')).toBeInTheDocument();
@@ -63,24 +63,8 @@ describe('GlobalHeader', () => {
     expect(input).toBeInTheDocument();
     expect(input).toHaveAttribute('aria-label', 'search');
 
-    // Create button (has title attribute)
-    expect(screen.getByTitle('Create...')).toBeInTheDocument();
-
-    // Profile icon button present
-    // const profileBtn = screen.getAllByRole('button').find(btn =>
-    //   btn.innerHTML.includes('AccountCircle') || btn.getAttribute('aria-label') === 'account',
-    // );
-    // There should be at least one button; we won't require exact icon internals
-    expect(screen.getAllByRole('button').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('navigates to catalog when Create button is clicked', async () => {
-    render(<GlobalHeader createPath="/self-service/catalog" />);
-
-    const createBtn = screen.getByTitle('Create...');
-    await userEvent.click(createBtn);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog');
+    expect(screen.queryByTitle('Create...')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Account menu' })).toBeVisible();
   });
 
   it('submits search form and navigates to search results', async () => {
@@ -102,7 +86,7 @@ describe('GlobalHeader', () => {
     });
   });
 
-  it('omits Create when there is no installed Templates destination', () => {
+  it('has no global Create button while keeping the account menu', () => {
     render(<GlobalHeader />);
     expect(screen.queryByTitle('Create...')).not.toBeInTheDocument();
     expect(
@@ -110,21 +94,10 @@ describe('GlobalHeader', () => {
     ).toBeInTheDocument();
   });
 
-  it('uses the supplied installed destination rather than a hardcoded route', async () => {
-    render(<GlobalHeader createPath="/templates" />);
-    await userEvent.click(screen.getByTitle('Create...'));
-    expect(mockNavigate).toHaveBeenCalledWith('/templates');
-  });
-
   it('opens profile menu and logs out (calls identityApi.signOut) then closes menu', async () => {
     render(<GlobalHeader />);
 
-    // Click profile icon (the last icon button)
-    // There are multiple icon buttons; find the one that does not have title 'Create...'
-    const buttons = screen.getAllByRole('button');
-    // The AccountCircle button is typically the last one — click the last button
-    const profileBtn = buttons[buttons.length - 1];
-    await userEvent.click(profileBtn);
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 
     // Menu should appear - look for Settings and Logout menu items
     expect(await screen.findByText('Settings')).toBeInTheDocument();

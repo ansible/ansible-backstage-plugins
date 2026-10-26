@@ -390,8 +390,8 @@ through the host's `@deepVisibility frontend` schema.
 
 The source app registers native RBAC, user settings, and Search features. Its
 global header reuses the existing AAP/identity logout behavior through an
-app-owned root wrapper. Create is omitted when the installed Templates adapter
-is unavailable; it follows that adapter's effective route when present.
+app-owned root wrapper. The global header has no Create button or
+Create-contribution API. Workflow entry points remain in the installed pages.
 RHDH retains its own platform header instead of loading
 the source app wrapper. Guest users can see navigation but remain subject to
 page permissions; an RBAC 403 is not a missing route.

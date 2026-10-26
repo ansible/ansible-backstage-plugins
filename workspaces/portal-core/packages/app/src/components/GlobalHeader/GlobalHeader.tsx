@@ -9,7 +9,6 @@ import {
   MenuItem,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
-import AddIcon from '@material-ui/icons/Add';
 import AccountCircle from '@material-ui/icons/AccountCircle';
 import { makeStyles, alpha } from '@material-ui/core/styles';
 import { Link, useNavigate } from 'react-router-dom';
@@ -117,9 +116,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-export const GlobalHeader = ({
-  createPath,
-}: Readonly<{ createPath?: string }>) => {
+export const GlobalHeader = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const identityApi = useApi(identityApiRef);
@@ -184,16 +181,6 @@ export const GlobalHeader = ({
         </Box>
 
         <div className={classes.spacer} />
-
-        {createPath && (
-          <IconButton
-            className={classes.iconButton}
-            onClick={() => navigate(createPath)}
-            title="Create..."
-          >
-            <AddIcon />
-          </IconButton>
-        )}
 
         <IconButton
           edge="end"

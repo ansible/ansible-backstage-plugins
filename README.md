@@ -328,9 +328,10 @@ portal:
 `full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
 omits both. AAP authentication, host services, Administration, and Settings
 remain available. Without a configured installed landing page, `/` shows the
-neutral Portal fallback. The header omits Create when the Templates adapter is
-absent. Existing content browsing pages still belong to portal-scaffolder;
-removing that contributor also removes those pages.
+neutral Portal fallback. The global header has no Create shortcut. Use the
+installed pages and their page-level actions to start workflows. Existing content
+browsing pages still belong to portal-scaffolder; removing that contributor also
+removes those pages.
 
 These presets are development/test conveniences, not production configuration,
 authorization policy, or a list of supported plugins. The explicit legacy
