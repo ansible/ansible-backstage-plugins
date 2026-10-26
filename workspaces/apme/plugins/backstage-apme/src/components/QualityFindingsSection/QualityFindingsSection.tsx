@@ -33,7 +33,7 @@ export function QualityFindingsSection({
   ruleFilter,
   categoryFilter,
   description,
-}: QualityFindingsSectionProps) {
+}: Readonly<QualityFindingsSectionProps>) {
   const apmeApi = useApi(apmeApiRef);
   const [knownRuleIds, setKnownRuleIds] = useState<ReadonlySet<string> | null>(
     null,
@@ -41,7 +41,7 @@ export function QualityFindingsSection({
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const rules = await apmeApi.getRules();
         if (!cancelled) {

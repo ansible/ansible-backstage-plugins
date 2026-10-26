@@ -59,7 +59,7 @@ export async function registerPortalGalaxyServersSync(
     );
   }
 
-  scheduler.scheduleTask({
+  void scheduler.scheduleTask({
     id: GALAXY_SYNC_TASK_ID,
     frequency: { hours: 1 },
     timeout: { minutes: 5 },
@@ -68,7 +68,9 @@ export async function registerPortalGalaxyServersSync(
         await runSync();
       } catch (error) {
         logger.warn(
-          `Scheduled portal galaxy servers sync failed: ${(error as Error).message}`,
+          `Scheduled portal galaxy servers sync failed: ${
+            (error as Error).message
+          }`,
         );
       }
     },

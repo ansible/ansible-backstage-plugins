@@ -65,7 +65,7 @@ export interface ApmeEntityTabProps {
  * permanent "Starting scan…" spinner (native SPA only mounts it when
  * ``sessionTabVisible``).
  */
-function WorkflowBody({ projectId }: { projectId: string }) {
+function WorkflowBody({ projectId }: Readonly<{ projectId: string }>) {
   const apmeApi = useApi(apmeApiRef);
   const configApi = useApi(configApiRef);
   const portalAiEnabled = useApmeAiEnabled();
@@ -86,13 +86,17 @@ function WorkflowBody({ projectId }: { projectId: string }) {
   // Prefill from Quality settings / project scan-target (US-004).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const version = await resolveDefaultAnsibleVersionForScan(
-        apmeApi,
-        projectId,
-      );
-      if (!cancelled) {
-        setAnsibleVersion(version);
+    void (async () => {
+      try {
+        const version = await resolveDefaultAnsibleVersionForScan(
+          apmeApi,
+          projectId,
+        );
+        if (!cancelled) {
+          setAnsibleVersion(version);
+        }
+      } catch {
+        // Silently fail - default version will be used
       }
     })();
     return () => {

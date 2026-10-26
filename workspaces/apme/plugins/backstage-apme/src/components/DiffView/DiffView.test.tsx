@@ -55,6 +55,67 @@ describe('DiffView', () => {
     expect(screen.getByText('unchanged')).toBeInTheDocument();
   });
 
+  it('renders file headers and context lines without a leading space', () => {
+    render(
+      <DiffView
+        diff={'--- a/tasks.yml\n+++ b/tasks.yml\nno-leading-space-context'}
+      />,
+    );
+    expect(screen.getByText('--- a/tasks.yml')).toBeInTheDocument();
+    expect(screen.getByText('+++ b/tasks.yml')).toBeInTheDocument();
+    expect(screen.getByText('no-leading-space-context')).toBeInTheDocument();
+  });
+
+  it('parses hunk headers with comma ranges and assigns line numbers', () => {
+    render(<DiffView diff={'@@ -12,2 +14,2 @@\n removed\n+added\n context'} />);
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('14')).toBeInTheDocument();
+    expect(screen.getByText('removed')).toBeInTheDocument();
+    expect(screen.getByText('added')).toBeInTheDocument();
+    expect(screen.getByText('context')).toBeInTheDocument();
+  });
+
+  it('skips trailing blank lines inside a hunk', () => {
+    const { container } = render(<DiffView diff={'-only\n+\n'} />);
+    const { container: withoutTrailingNewline } = render(
+      <DiffView diff={'-only\n+'} />,
+    );
+    expect(screen.getAllByText('only')).toHaveLength(2);
+    expect(container.textContent).toBe(withoutTrailingNewline.textContent);
+    expect(container.querySelectorAll('div').length).toBe(
+      withoutTrailingNewline.querySelectorAll('div').length,
+    );
+  });
+
+  it('assigns line numbers when hunk numbers are positive', () => {
+    const { container } = render(
+      <DiffView diff={'@@ -5,3 +10,3 @@\n-removed\n+added\n ctx'} />,
+    );
+    // removed line should show oldNum 5
+    expect(screen.getByText('5')).toBeInTheDocument();
+    // added line should show newNum 10
+    expect(screen.getByText('10')).toBeInTheDocument();
+    // context should show both 6 and 11
+    expect(screen.getByText('6')).toBeInTheDocument();
+    expect(screen.getByText('11')).toBeInTheDocument();
+    expect(container.textContent).toContain('removed');
+    expect(container.textContent).toContain('added');
+  });
+
+  it('omits line numbers when diff lines appear before any hunk header', () => {
+    const { container } = render(<DiffView diff={'-old\n+new\n plain'} />);
+    // Lines before any @@ header have state {0,0} → no numeric line numbers
+    expect(screen.getByText('old')).toBeInTheDocument();
+    expect(screen.getByText('new')).toBeInTheDocument();
+    expect(screen.getByText('plain')).toBeInTheDocument();
+    // No digits should appear in the line-number cells
+    const lineNumbers = container.querySelectorAll('span');
+    const numericSpans = Array.from(lineNumbers).filter(el =>
+      /^\d+$/.test(el.textContent ?? ''),
+    );
+    expect(numericSpans).toHaveLength(0);
+  });
+
   it('renders labeled side-by-side panels and tolerates a missing side', () => {
     render(
       <DiffView

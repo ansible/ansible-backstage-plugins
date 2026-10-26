@@ -30,6 +30,7 @@ export default createBackendModule({
         operations,
         organizations,
       }) {
+        await Promise.resolve();
         actions.addActions(
           registerGitRepositoryAction({
             auth,

@@ -143,6 +143,14 @@ describe('operationStatus', () => {
         latest_message: 'fallback',
       }),
     ).toBe('fallback');
+    expect(
+      latestOperationProgressMessage({
+        operation_id: 'op',
+        project_id: 'p',
+        status: 'scanning',
+        progress: [{ phase: 'scan', message: '', timestamp: 't1' }],
+      }),
+    ).toBe('');
   });
 
   it('treats legacy string active_operation as in-flight only for active statuses', () => {

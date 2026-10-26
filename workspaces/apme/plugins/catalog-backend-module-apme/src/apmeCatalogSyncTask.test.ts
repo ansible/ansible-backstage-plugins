@@ -17,6 +17,7 @@ describe('catalog sync after deregistration', () => {
     spec: { type: 'git-repository', repository_default_branch: 'main' },
   };
   const getProjectByRepoUrl = jest.fn();
+  const getProjects = jest.fn();
   const triggerScan = jest.fn();
   const createProject = jest.fn();
   let stopped: boolean;
@@ -29,6 +30,7 @@ describe('catalog sync after deregistration', () => {
       } as unknown as CatalogClient,
       apmeService: {
         getProjectByRepoUrl,
+        getProjects,
         triggerScan,
         createProject,
       } as unknown as IApmeService,
@@ -48,6 +50,7 @@ describe('catalog sync after deregistration', () => {
     jest.resetAllMocks();
     stopped = false;
     getProjectByRepoUrl.mockResolvedValue({ id: 'project' });
+    getProjects.mockResolvedValue([]);
   });
   it('skips stale catalog snapshots after removal', async () => {
     stopped = true;
@@ -79,5 +82,17 @@ describe('catalog sync after deregistration', () => {
     });
     expect(await run()).toMatchObject({ skipped: 1, scanned: 0 });
     expect(triggerScan).not.toHaveBeenCalled();
+  });
+
+  it('registers and scans when no project exists yet', async () => {
+    getProjectByRepoUrl.mockResolvedValue(null);
+    createProject.mockResolvedValue({ id: 'new-project' });
+    expect(await run()).toMatchObject({
+      registered: 1,
+      scanned: 1,
+      skipped: 0,
+    });
+    expect(createProject).toHaveBeenCalled();
+    expect(triggerScan).toHaveBeenCalledWith('new-project', expect.any(Object));
   });
 });

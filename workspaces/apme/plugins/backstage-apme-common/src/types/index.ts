@@ -345,10 +345,16 @@ export interface ApmeAiProviderConfigureRequest {
 
 function normalizeProviderEntry(p: unknown): ApmeAiProviderSummary {
   if (!p || typeof p !== 'object') {
-    return { id: String(p ?? ''), engine: '', models: [] };
+    const id = typeof p === 'string' || typeof p === 'number' ? String(p) : '';
+    return { id, engine: '', models: [] };
   }
   const obj = p as Record<string, unknown>;
-  const id = typeof obj.id === 'string' ? obj.id : String(obj.id ?? '');
+  let id = '';
+  if (typeof obj.id === 'string') {
+    id = obj.id;
+  } else if (typeof obj.id === 'number') {
+    id = String(obj.id);
+  }
   const engine = typeof obj.engine === 'string' ? obj.engine : '';
   let models: string[] = [];
   if (Array.isArray(obj.models)) {

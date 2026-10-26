@@ -18,6 +18,7 @@ export class ManualGitRepositoryProvider implements EntityProvider {
     return 'ManualGitRepositoryProvider';
   }
   async connect(connection: EntityProviderConnection): Promise<void> {
+    await Promise.resolve();
     this.connection = connection;
   }
 

@@ -48,7 +48,9 @@ function ensureSharedProjectMapPoller(
   fetchProjectMap: () => Promise<Map<string, Project>>,
 ): void {
   activeFetchFn = fetchProjectMap;
-  const hasActiveScan = [...map.values()].some(projectHasActiveOperation);
+  const hasActiveScan = [...map.values()].some(project =>
+    projectHasActiveOperation(project),
+  );
   if (!hasActiveScan) {
     stopSharedProjectMapPoller();
     return;
@@ -65,7 +67,11 @@ function ensureSharedProjectMapPoller(
     );
     void projectsFetchPromise.then(updatedMap => {
       notifyProjectMapListeners(updatedMap);
-      if (![...updatedMap.values()].some(projectHasActiveOperation)) {
+      if (
+        ![...updatedMap.values()].some(project =>
+          projectHasActiveOperation(project),
+        )
+      ) {
         stopSharedProjectMapPoller();
       }
     });
@@ -100,7 +106,7 @@ function violationCountStyle(
   };
 }
 
-export function ApmeViolationsCell({ entity }: { entity: Entity }) {
+export function ApmeViolationsCell({ entity }: Readonly<{ entity: Entity }>) {
   const theme = useTheme();
   const mode = theme.palette.type === 'dark' ? 'dark' : 'light';
   const colorTokens = useApmeColorTokens();
@@ -132,12 +138,10 @@ export function ApmeViolationsCell({ entity }: { entity: Entity }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!projectsFetchPromise) {
-      projectsFetchPromise = fetchProjectMap().catch(
-        () => new Map<string, Project>(),
-      );
-    }
-    projectsFetchPromise.then(map => {
+    projectsFetchPromise ??= fetchProjectMap().catch(
+      () => new Map<string, Project>(),
+    );
+    void projectsFetchPromise.then(map => {
       if (!cancelled) {
         setProjectMap(map);
       }

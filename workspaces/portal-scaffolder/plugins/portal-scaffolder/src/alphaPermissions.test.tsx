@@ -1,0 +1,43 @@
+import '@testing-library/jest-dom';
+import { screen } from '@testing-library/react';
+import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
+import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
+import plugin from './alpha';
+
+jest.mock('./hooks', () => ({
+  ...jest.requireActual('./hooks'),
+  useIsSuperuser: () => ({ isSuperuser: true, loading: false }),
+}));
+jest.mock('./components/CatalogImport', () => ({
+  CatalogImport: () => <div>Native catalog import</div>,
+}));
+jest.mock('./components/CreateTask/formExtraFields', () => ({
+  formExtraFields: [],
+}));
+
+// Separate environment avoids reusing the legacy permission hook's SWR ALLOW
+// cache from the route-parity suite when testing the opposite decision.
+it('does not expose native catalog import when create permission is denied', async () => {
+  await renderTestApp({
+    features: [
+      createFrontendPlugin({
+        pluginId: 'portal',
+        extensions: [createPortalContributionProvider()],
+      }),
+      plugin,
+    ],
+    initialRouteEntries: ['/self-service/catalog-import'],
+    apis: [mockApis.permission({ authorize: AuthorizeResult.DENY })],
+  });
+  expect(
+    await screen.findByText(
+      'ERROR 404: PAGE NOT FOUND',
+      {},
+      // Cold NFS route loading is substantially slower with coverage instrumentation.
+      { timeout: 30000 },
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('Native catalog import')).not.toBeInTheDocument();
+}, 45000);

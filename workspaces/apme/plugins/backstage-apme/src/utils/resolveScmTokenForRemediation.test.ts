@@ -145,4 +145,11 @@ describe('formatScmAuthFailureMessage', () => {
       formatScmAuthFailureMessage(new Error('Branch already exists')),
     ).toBe('Branch already exists');
   });
+
+  it('serializes non-Error values without Object stringification', () => {
+    expect(formatScmAuthFailureMessage('plain failure')).toBe('plain failure');
+    expect(formatScmAuthFailureMessage({ detail: 'nope' })).toBe(
+      '{"detail":"nope"}',
+    );
+  });
 });

@@ -23,7 +23,7 @@ export function ActivityPublishedCell({
   pr_url,
   branch_name,
   commit_sha,
-}: ActivityPublishedCellProps) {
+}: Readonly<ActivityPublishedCellProps>) {
   if (pr_url) {
     return (
       <Button

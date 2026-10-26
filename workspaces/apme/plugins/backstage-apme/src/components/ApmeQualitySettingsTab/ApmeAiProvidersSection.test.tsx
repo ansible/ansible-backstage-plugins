@@ -635,6 +635,40 @@ describe('ApmeAiProvidersSection', () => {
     });
   });
 
+  it('save starts from an empty providers map when AI config has none', async () => {
+    getAiConfig.mockResolvedValue(undefined);
+
+    renderSection();
+    await screen.findByText('AI providers');
+
+    fireEvent.click(screen.getByRole('button', { name: /add provider/i }));
+    fireEvent.change(screen.getByLabelText('Provider name'), {
+      target: { value: 'fresh-prov' },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Engine/i)).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /next: models/i }));
+    await screen.findByLabelText('Model ID');
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(updateAiConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            providers: expect.objectContaining({
+              'fresh-prov': expect.objectContaining({ engine: 'openai' }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
   it('save merges new provider models while preserving existing providers and server config', async () => {
     getAiConfig.mockResolvedValue({
       config: {

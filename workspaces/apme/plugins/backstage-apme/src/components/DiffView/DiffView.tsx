@@ -165,62 +165,126 @@ interface DiffLine {
   newNum?: number;
 }
 
+function diffLineReactKey(line: DiffLine): string {
+  return `${line.type}:${line.oldNum ?? 'x'}:${line.newNum ?? 'x'}:${
+    line.content
+  }`;
+}
+
+interface DiffParseState {
+  oldNum: number;
+  newNum: number;
+}
+
+/** Parse hunk header and extract line numbers */
+function parseHunkHeader(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(raw);
+  const newState = match
+    ? {
+        oldNum: Number.parseInt(match[1], 10),
+        newNum: Number.parseInt(match[2], 10),
+      }
+    : state;
+  return { line: { type: 'context', content: raw }, state: newState };
+}
+
+function parseAddedDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const line: DiffLine = {
+    type: 'added',
+    content: raw.slice(1),
+    newNum: state.newNum > 0 ? state.newNum : undefined,
+  };
+  return {
+    line,
+    state: {
+      ...state,
+      newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+    },
+  };
+}
+
+function parseRemovedDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const line: DiffLine = {
+    type: 'removed',
+    content: raw.slice(1),
+    oldNum: state.oldNum > 0 ? state.oldNum : undefined,
+  };
+  return {
+    line,
+    state: {
+      ...state,
+      oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
+    },
+  };
+}
+
+function parseContextDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } {
+  const content = raw.startsWith(' ') ? raw.slice(1) : raw;
+  const line: DiffLine = {
+    type: 'context',
+    content,
+    oldNum: state.oldNum > 0 ? state.oldNum : undefined,
+    newNum: state.newNum > 0 ? state.newNum : undefined,
+  };
+  return {
+    line,
+    state: {
+      oldNum: state.oldNum > 0 ? state.oldNum + 1 : 0,
+      newNum: state.newNum > 0 ? state.newNum + 1 : 0,
+    },
+  };
+}
+
+/** Parse a single diff line and return the DiffLine with updated state */
+function parseDiffLine(
+  raw: string,
+  state: DiffParseState,
+): { line: DiffLine; state: DiffParseState } | null {
+  if (!raw) return null;
+
+  if (raw.startsWith('@@')) {
+    return parseHunkHeader(raw, state);
+  }
+
+  if (raw.startsWith('+++') || raw.startsWith('---')) {
+    return { line: { type: 'context', content: raw }, state };
+  }
+
+  if (raw.startsWith('+')) {
+    return parseAddedDiffLine(raw, state);
+  }
+
+  if (raw.startsWith('-')) {
+    return parseRemovedDiffLine(raw, state);
+  }
+
+  return parseContextDiffLine(raw, state);
+}
+
 function parseUnifiedDiffHunk(diff: string): DiffLine[] {
   const result: DiffLine[] = [];
-  let oldNum = 0;
-  let newNum = 0;
+  let state: DiffParseState = { oldNum: 0, newNum: 0 };
 
   for (const raw of diff.split('\n')) {
-    if (!raw && result.length > 0) {
-      continue;
-    }
-    if (raw.startsWith('@@')) {
-      const match = raw.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (match) {
-        oldNum = Number.parseInt(match[1], 10);
-        newNum = Number.parseInt(match[2], 10);
-      }
-      result.push({ type: 'context', content: raw });
-      continue;
-    }
-    if (raw.startsWith('+++') || raw.startsWith('---')) {
-      result.push({ type: 'context', content: raw });
-      continue;
-    }
-    if (raw.startsWith('+')) {
-      result.push({
-        type: 'added',
-        content: raw.slice(1),
-        newNum: newNum > 0 ? newNum : undefined,
-      });
-      if (newNum > 0) {
-        newNum += 1;
-      }
-      continue;
-    }
-    if (raw.startsWith('-')) {
-      result.push({
-        type: 'removed',
-        content: raw.slice(1),
-        oldNum: oldNum > 0 ? oldNum : undefined,
-      });
-      if (oldNum > 0) {
-        oldNum += 1;
-      }
-      continue;
-    }
-    const content = raw.startsWith(' ') ? raw.slice(1) : raw;
-    result.push({
-      type: 'context',
-      content,
-      oldNum: oldNum > 0 ? oldNum : undefined,
-      newNum: newNum > 0 ? newNum : undefined,
-    });
-    if (oldNum > 0) {
-      oldNum += 1;
-    }
-    if (newNum > 0) {
-      newNum += 1;
+    // Skip empty lines only when we already have results
+    if (!raw && result.length > 0) continue;
+
+    const parsed = parseDiffLine(raw, state);
+    if (parsed) {
+      result.push(parsed.line);
+      state = parsed.state;
     }
   }
 
@@ -241,12 +305,12 @@ function computeUnifiedDiff(before: string, after: string): DiffLine[] {
       ...oldLines.map((l, idx) => ({
         type: 'removed' as const,
         content: l,
-        lineNumber: idx + 1,
+        oldNum: idx + 1,
       })),
       ...newLines.map((l, idx) => ({
         type: 'added' as const,
         content: l,
-        lineNumber: idx + 1,
+        newNum: idx + 1,
       })),
     ];
   }
@@ -308,11 +372,11 @@ function SideBySideDiff({
   before,
   after,
   afterLabel = 'After (proposed)',
-}: {
+}: Readonly<{
   before?: string;
   after?: string;
   afterLabel?: string;
-}) {
+}>) {
   const classes = useStyles();
   if (!before?.trim() && !after?.trim()) return null;
   return (
@@ -404,10 +468,13 @@ export const DiffView = ({
     >
       {title && <Typography className={classes.title}>{title}</Typography>}
       <Box className={fillHeight ? classes.linesScroll : undefined}>
-        {lines.map((line, idx) => (
+        {lines.map(line => (
           <div
-            key={idx}
-            className={`${classes.line} ${diffLineClassName(classes, line.type)}`}
+            key={diffLineReactKey(line)}
+            className={`${classes.line} ${diffLineClassName(
+              classes,
+              line.type,
+            )}`}
           >
             <span className={classes.lineNumber}>{line.oldNum ?? ''}</span>
             <span className={classes.lineNumber}>{line.newNum ?? ''}</span>

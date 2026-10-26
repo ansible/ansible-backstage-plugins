@@ -40,8 +40,9 @@ export function inferCategoryFromRuleId(ruleId: string): string | undefined {
   if (/^L\d/.test(id)) return 'lint';
   if (/^R\d/.test(id)) return 'risk';
   if (/^SEC|^SECRET/.test(id)) return 'secrets';
-  if (/^CVE|^DEP/.test(id) || id.startsWith('CVE-')) return 'dependencies';
-  if (/^POL/.test(id)) return 'policy';
+  if (id.startsWith('CVE') || id.startsWith('DEP') || id.startsWith('CVE-'))
+    return 'dependencies';
+  if (id.startsWith('POL')) return 'policy';
   const lower = normalizeRuleId(ruleId).toLowerCase();
   if (lower.includes('secret') || lower.includes('gitleaks')) return 'secrets';
   if (lower.includes('risk') || lower.includes('permission')) return 'risk';

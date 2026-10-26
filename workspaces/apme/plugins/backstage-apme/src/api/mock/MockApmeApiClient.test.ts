@@ -1,4 +1,4 @@
-import { MockApmeApiClient } from './MockApmeApiClient';
+import { lastPathSegment, MockApmeApiClient } from './MockApmeApiClient';
 import { MOCK_ACTIVITY, MOCK_PROJECTS, MOCK_RULES } from './fixtures';
 
 async function settle<T>(promise: Promise<T>): Promise<T> {
@@ -11,6 +11,13 @@ async function settle<T>(promise: Promise<T>): Promise<T> {
   if ('error' in result) throw result.error;
   return result.value;
 }
+
+describe('lastPathSegment', () => {
+  it('returns the last item or an empty string', () => {
+    expect(lastPathSegment([])).toBe('');
+    expect(lastPathSegment(['prop', '12'])).toBe('12');
+  });
+});
 
 describe('MockApmeApiClient behavior', () => {
   let client: MockApmeApiClient;

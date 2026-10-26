@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { Entity } from '@backstage/catalog-model';
 import type { CollectionRef } from '@ansible/backstage-apme-common';
 

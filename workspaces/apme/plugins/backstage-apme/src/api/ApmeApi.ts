@@ -213,7 +213,7 @@ export class ApmeApiClient implements ApmeApi {
       const errorText = await response.text();
       const method = (options?.method ?? 'GET').toUpperCase();
       const isStartOperation =
-        method === 'POST' && /\/operation$/.test(endpoint);
+        method === 'POST' && endpoint.endsWith('/operation');
       if (response.status === 409 && isStartOperation) {
         throw new Error('A scan is already in progress for this project');
       }

@@ -26,8 +26,8 @@ export function collectOperationActions<
     .filter(action => {
       try {
         const { capability, entry } = resolveEntityContribution(action);
-        const known = (type: string) =>
-          Object.values(CONTENT_TYPES).some(value => value === type);
+        const knownContentTypes = new Set<string>(Object.values(CONTENT_TYPES));
+        const known = (type: string) => knownContentTypes.has(type);
         if (
           !validateManifest(action.manifest, hostApiVersion).valid ||
           !capability ||

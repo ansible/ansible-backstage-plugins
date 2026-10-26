@@ -7,9 +7,12 @@ Frontend extension API for Automation Portal. Provides the `ContributionRegistry
 The `./alpha` entry point exports `EntityDetailTabBlueprint`,
 `EntityOverviewCardBlueprint`, `EntityActionBlueprint`,
 `CatalogItemActionBlueprint`, and `ScaffolderFieldBlueprint`.
-Entity/catalog descriptors attach to the host-owned `api:portal/contributions`
-provider, consumed through `portalContributionsApiRef`. Fields attach to the
-native templates page. Native declarations do not register with the singleton.
+Entity, catalog, and scaffolder-field descriptors attach to the host-owned
+`api:portal/contributions` provider, consumed through `portalContributionsApiRef`.
+Validated field declarations are exposed as `scaffolderFields`; declaring a field
+does not require portal-scaffolder or load its widget implementation. An installed
+templates adapter consumes the declarations when needed. Native declarations do
+not register with the singleton.
 See the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md)
 for provider installation, applicability, deployment, and remaining work.
 

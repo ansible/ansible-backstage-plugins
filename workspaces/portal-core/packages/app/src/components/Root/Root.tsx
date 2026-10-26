@@ -31,6 +31,7 @@ import SearchIcon from '@material-ui/icons/Search';
 import { MyGroupsSidebarItem } from '@backstage/plugin-org';
 import GroupIcon from '@material-ui/icons/People';
 import { AnsibleLogo } from '@ansible/plugin-backstage-rhaap';
+import { AutomationContentSidebarItem } from '@ansible/plugin-automation-content';
 import { Administration } from '@backstage-community/plugin-rbac';
 
 const useSidebarLogoStyles = makeStyles({
@@ -89,6 +90,9 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
             to="ansible/overview"
             text="Ansible"
           />
+          {/* Content discovery (execution environments, collections) from the
+              configured OCI registries — /automation-content */}
+          <AutomationContentSidebarItem />
           <SidebarItem
             icon={HomeIcon}
             to="/self-service/catalog"

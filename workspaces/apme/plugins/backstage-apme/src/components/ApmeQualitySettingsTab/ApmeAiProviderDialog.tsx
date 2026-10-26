@@ -363,21 +363,21 @@ export const ApmeAiProviderDialog = ({
             </div>
 
             {models.length > 0 && (
-              <div
+              <ul
                 className={classes.chips}
-                role="list"
                 aria-label="Enabled models"
+                style={{ listStyle: 'none', padding: 0, margin: 0 }}
               >
                 {models.map(model => (
-                  <Chip
-                    key={model}
-                    label={model}
-                    onDelete={() => handleRemoveModel(model)}
-                    size="small"
-                    role="listitem"
-                  />
+                  <li key={model} style={{ display: 'inline-block' }}>
+                    <Chip
+                      label={model}
+                      onDelete={() => handleRemoveModel(model)}
+                      size="small"
+                    />
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
             {models.length === 0 && (
               <Typography variant="body2" className={classes.helperText}>

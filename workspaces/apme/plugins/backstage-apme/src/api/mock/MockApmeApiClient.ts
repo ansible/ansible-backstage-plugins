@@ -48,6 +48,11 @@ import {
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+/** Last id segment, or empty string when the list is empty. */
+export function lastPathSegment(parts: string[]): string {
+  return parts.at(-1) ?? '';
+}
+
 function severityFromOverride(value: number): Rule['severity'] {
   return severityLevelToCatalogSeverity(severityProtoToLabel(value));
 }
@@ -73,8 +78,8 @@ interface RemediateState {
 export class MockApmeApiClient implements ApmeApi {
   private projects: Project[] = MOCK_PROJECTS.map(p => ({ ...p }));
   private violations: Record<string, Violation[]> = { ...MOCK_VIOLATIONS };
-  private activeScans: Map<string, ScanState> = new Map();
-  private activeRemediations: Map<string, RemediateState> = new Map();
+  private readonly activeScans: Map<string, ScanState> = new Map();
+  private readonly activeRemediations: Map<string, RemediateState> = new Map();
   private nextProjectId = 100;
   private nextPrNumber = 142;
   private nextGalaxyServerId = 2;
@@ -688,12 +693,13 @@ export class MockApmeApiClient implements ApmeApi {
     proposalIds: string[],
   ): Promise<void> {
     await delay(200);
-    const approvedViolationIds = proposalIds.map(pid => {
-      const parts = pid.split('-');
-      return parseInt(parts[parts.length - 1], 10);
-    });
+    const approvedViolationIds = new Set(
+      proposalIds.map(pid => {
+        return Number.parseInt(lastPathSegment(pid.split('-')), 10);
+      }),
+    );
     this.violations[projectId] = (this.violations[projectId] ?? []).filter(
-      v => !approvedViolationIds.includes(v.id),
+      v => !approvedViolationIds.has(v.id),
     );
     const proj = this.projects.find(p => p.id === projectId);
     if (proj) {

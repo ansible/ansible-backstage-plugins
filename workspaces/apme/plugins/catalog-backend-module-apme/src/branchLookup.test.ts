@@ -4,7 +4,11 @@
 
 import { ConfigReader } from '@backstage/config';
 import { InputError } from '@backstage/errors';
-import { parseGitRepoUrl, validateRepoBranch } from './branchLookup';
+import {
+  lastPathSegment,
+  parseGitRepoUrl,
+  validateRepoBranch,
+} from './branchLookup';
 
 describe('branchLookup', () => {
   describe('parseGitRepoUrl', () => {
@@ -32,6 +36,11 @@ describe('branchLookup', () => {
 
     it('throws for invalid URLs', () => {
       expect(() => parseGitRepoUrl('not-a-url')).toThrow(InputError);
+    });
+
+    it('returns an empty last path segment for empty lists', () => {
+      expect(lastPathSegment([])).toBe('');
+      expect(lastPathSegment(['group', 'repo'])).toBe('repo');
     });
   });
 
