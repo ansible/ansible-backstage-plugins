@@ -33,7 +33,7 @@
     "packages": [
       "workspaces/portal-core/packages/*",
       "workspaces/portal-core/plugins/*",
-      "workspaces/self-service/plugins/*",
+      "workspaces/portal-scaffolder/plugins/*",
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
       "workspaces/content/plugins/*",
