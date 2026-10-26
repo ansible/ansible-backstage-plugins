@@ -53,6 +53,7 @@ This spike and its follow-on implementation deliver:
 - Physically splitting the catalog module into AAP + content providers → catalog split spike
 - Physically splitting the scaffolder module into AAP + self-service actions → scaffolder split spike
 - Repo rename to `automation-portal-plugins` and `workspaces/` physical move → portal SDK effort (Phase 7)
+- Provider-neutral contracts for identity, authorization/RBAC, or automation capabilities. This guide focuses exclusively on cleaning up the AAP integration layering into well-defined packages. Defining provider-agnostic abstractions at the Portal Core level (e.g., running the portal without AAP, or with a different orchestrator or identity provider supplying those capabilities) is a separate architectural follow-up. The cleaner AAP boundaries proposed here should make that future abstraction easier, but this effort does not attempt to define those contracts.
 
 ---
 
