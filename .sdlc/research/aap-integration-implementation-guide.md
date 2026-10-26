@@ -1,9 +1,8 @@
 # AAP Integration Re-Architecture — Implementation Guide
 
 > **Canonical architecture:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (§2.2 workspace layout, §2.5 dependency rules, §7.3–7.4 AAP provider/keep-leave boundaries)
-> **Related work items:** AAP-95802 (this spike — AAP integration research), AAP-95782 (scaffolder split), AAP-95785 (catalog split), AAP-95616 (Research Spikes Epic)
-> **Companion docs (under `docs/next/`):** [Portal implementation guide](../../docs/next/portal-plugin-factory-implementation-guide.md), [Scaffolder implementation guide](https://github.com/ansible/ansible-backstage-plugins/pull/801) (PR 801)
-> **Related PRs:** [PR #744](https://github.com/ansible/ansible-backstage-plugins/pull/744) (RHDH 2.1 NFS migration + `rhaap-app-auth`), [PR #801](https://github.com/ansible/ansible-backstage-plugins/pull/801) (scaffolder implementation guide)
+> **Related work:** This spike (AAP integration research), scaffolder split spike, catalog split spike
+> **Companion docs (under `docs/next/`):** [Portal implementation guide](../../docs/next/portal-plugin-factory-implementation-guide.md), Scaffolder implementation guide
 > **Status:** Research complete — 4-package layer split recommended
 > **Branch baseline:** `main` at `48cb832e` (2026-10-19)
 >
@@ -40,11 +39,10 @@ This spike and its follow-on implementation deliver:
 
 5. **Boundary definitions for AAP catalog and scaffolder modules** — Which providers
    and actions belong to the AAP workspace versus content or self-service. Implementation
-   of those splits is owned by sibling spikes AAP-95785 (catalog) and AAP-95782
-   (scaffolder).
+   of those splits is owned by the sibling catalog split and scaffolder split spikes.
 
 6. **`rhaap-app-auth` / `aap-app-auth`** — Separate `FrontendModule` for RHDH 2.1 NFS
-   sign-in (from PR 744). Must keep `pluginId: 'app'` due to Backstage `SignInPageBlueprint`
+   sign-in (from the NFS migration PR). Must keep `pluginId: 'app'` due to Backstage `SignInPageBlueprint`
    constraint.
 
 **What this effort does NOT own:**
@@ -52,8 +50,8 @@ This spike and its follow-on implementation deliver:
 - Content management (PAH collections, git repository browsing, OCI adapters) → content workspace effort
 - Self-service UI, scaffolder field extensions, EE definition catalog → portal SDK / portal-scaffolder effort
 - Portal SDK (`portal-extension-common`, `portal-extension-api`, `portal-plugin-sdk`) → portal SDK effort
-- Physically splitting the catalog module into AAP + content providers → AAP-95785
-- Physically splitting the scaffolder module into AAP + self-service actions → AAP-95782
+- Physically splitting the catalog module into AAP + content providers → catalog split spike
+- Physically splitting the scaffolder module into AAP + self-service actions → scaffolder split spike
 - Repo rename to `automation-portal-plugins` and `workspaces/` physical move → portal SDK effort (Phase 7)
 
 ---
@@ -206,7 +204,7 @@ the `rhaap` OAuth provider and a user job templates router.
 ### 2.6 Frontend — `@ansible/aap-app-auth` (already on main)
 
 `@ansible/aap-app-auth` is a frontend-plugin-module (`backstage.role: frontend-plugin-module`)
-already merged on main (PR #880) at `workspaces/aap/plugins/aap-app-auth/`.
+already merged on main at `workspaces/aap/plugins/aap-app-auth/`.
 
 - `pluginId: 'app'` — required by Backstage `SignInPageBlueprint`
 - Provides `SignInPage` and `AAPLogoutButton` as NFS frontend modules
@@ -301,7 +299,7 @@ workspaces/aap/
     ├── aap-node/            node-library
     ├── aap-backend/         backend-plugin
     ├── aap/                 frontend-plugin
-    ├── aap-app-auth/        frontend-plugin  (from PR 744)
+    ├── aap-app-auth/        frontend-plugin  (from NFS migration PR)
     ├── auth-backend-module-aap-provider/    backend-plugin-module
     ├── catalog-backend-module-aap/          backend-plugin-module
     └── scaffolder-backend-module-aap/       backend-plugin-module
@@ -550,7 +548,7 @@ Until all consumers migrate, the old package re-exports from the new ones:
 | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | `@ansible/backstage-plugin-auth-backend-module-aap-provider` | Provider ID `rhaap` unchanged for operator compat |
 | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | `@ansible/backstage-plugin-catalog-backend-module-aap`       | Module ID: `aap` (was `rhaap`)                    |
 | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | `@ansible/plugin-scaffolder-backend-module-aap`              | Module ID: `aap` (was `ansible`)                  |
-| _(PR 744)_ `rhaap-app-auth`                                    | `@ansible/aap-app-auth`                                      | Already merged on main (PR #880), NFS only        |
+| _(NFS migration)_ `rhaap-app-auth`                             | `@ansible/aap-app-auth`                                      | Already merged on main, NFS only                  |
 
 ---
 
@@ -1064,8 +1062,8 @@ in `backstage-rhaap-common`, classified into target packages. Decision record.
 | Config path ownership map                                                                                 | Captured in §4.6                    |
 | ScmClient classification (out of AAP)                                                                     | Captured in §4.5                    |
 | Decision record — 4-package split accepted                                                                | Captured in §4.1                    |
-| Cross-spike dependency matrix with AAP-95782, AAP-95785                                                   | Captured in §8                      |
-| Document PR 744 constraints on frontend/auth packaging                                                    | Captured in §7.1                    |
+| Cross-spike dependency matrix with catalog and scaffolder splits                                          | Captured in §8                      |
+| Document NFS migration constraints on frontend/auth packaging                                             | Captured in §7.1                    |
 
 ---
 
@@ -1174,7 +1172,7 @@ from `aap-common` / `aap-node`.
 
 ### Phase 6 — Auth + NFS frontend module (complete)
 
-**Status:** Complete — `@ansible/aap-app-auth` merged on main via PR #880.
+**Status:** Complete — `@ansible/aap-app-auth` merged on main.
 
 | Item                                                        | Status |
 | ----------------------------------------------------------- | ------ |
@@ -1209,15 +1207,15 @@ are already located under `workspaces/aap/plugins/`. The workspace `package.json
 
 ## 6. Contracts Published for Other Teams
 
-| Consumer                     | Contract                                                                                                   | Provided by                      |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| AAP-95785 (catalog split)    | `aap-common` types + `aap-node` `ansibleServiceRef`                                                        | `aap-common`, `aap-node`         |
-| AAP-95782 (scaffolder split) | `ansibleServiceRef` + AAP action ID ownership table (§2.4)                                                 | `aap-node` + this guide          |
-| Portal SDK effort            | AAP workspace slot in `workspaces/aap/`; no dependency on portal-extension-api                             | This guide                       |
-| Content workspace effort     | PAH methods + ScmClient available via deprecated shim until content workspace claims them                  | Shim in `backstage-rhaap-common` |
-| PR 744 / RHDH 2.1            | `aap-app-auth` separate FrontendModule; `/ansible` route unchanged                                         | Complete (PR #880)               |
-| RHDH operator                | Service ID `rhaap.client.service` unchanged; `--embed-package` targets updated in dynamic plugin manifests | Phase 5                          |
-| Template authors             | All `rhaap:*` action IDs unchanged; `aap-api-cloud` autocomplete provider ID unchanged                     | Phase 5 changelog                |
+| Consumer                 | Contract                                                                                                   | Provided by                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Catalog split spike      | `aap-common` types + `aap-node` `ansibleServiceRef`                                                        | `aap-common`, `aap-node`         |
+| Scaffolder split spike   | `ansibleServiceRef` + AAP action ID ownership table (§2.4)                                                 | `aap-node` + this guide          |
+| Portal SDK effort        | AAP workspace slot in `workspaces/aap/`; no dependency on portal-extension-api                             | This guide                       |
+| Content workspace effort | PAH methods + ScmClient available via deprecated shim until content workspace claims them                  | Shim in `backstage-rhaap-common` |
+| RHDH 2.1 NFS migration   | `aap-app-auth` separate FrontendModule; `/ansible` route unchanged                                         | Complete                         |
+| RHDH operator            | Service ID `rhaap.client.service` unchanged; `--embed-package` targets updated in dynamic plugin manifests | Phase 5                          |
+| Template authors         | All `rhaap:*` action IDs unchanged; `aap-api-cloud` autocomplete provider ID unchanged                     | Phase 5 changelog                |
 
 **Semver policy:** Package split is internal packaging — minor bump if action IDs and
 service IDs remain stable. Breaking schema changes require major bump + migration guide.
@@ -1231,7 +1229,7 @@ begins:
 
 ### 7.1 With NFS auth extraction (complete)
 
-PR 744 has been merged as PR #880. `@ansible/aap-app-auth` is on main with:
+The NFS migration has been merged. `@ansible/aap-app-auth` is on main with:
 
 1. **`pluginId: 'app'`** for NFS `SignInPageBlueprint` — confirmed.
 2. NFS-only export (`--no-generate-scalprum-assets`) — no Scalprum fallback.
@@ -1243,7 +1241,7 @@ PR 744 has been merged as PR #880. `@ansible/aap-app-auth` is on main with:
 
 ## 8. Suggested Sequencing with Sibling Spikes
 
-| This guide phase           | AAP-95785 (catalog)                      | AAP-95782 (scaffolder)                      | Portal SDK effort     |
+| This guide phase           | Catalog split                            | Scaffolder split                            | Portal SDK effort     |
 | -------------------------- | ---------------------------------------- | ------------------------------------------- | --------------------- |
 | Phase 0 (inventory)        | Share provider ownership table           | Share action ownership table                | Reference §2.2 layout |
 | Phase 1 (aap-common)       | Unblocked — types available              | Unblocked — types available                 | Independent           |
