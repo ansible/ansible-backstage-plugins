@@ -41,6 +41,10 @@ import { RequirePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import { providers } from './identityProviders';
 import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
+// Local-testing mount for the content experience. In a dynamic (RHDH) deployment
+// the same page is mounted by `dynamicRoutes` config instead — see the plugin's
+// routes.ts.
+import { AutomationContentPage } from '@ansible/plugin-automation-content';
 // Side-effect import: triggers registerManifest() + registerApmeExtensions() in plugin.ts
 import '@ansible/plugin-backstage-apme';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
@@ -142,6 +146,7 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
+    <Route path="/automation-content" element={<AutomationContentPage />} />
     <Route path="/self-service" element={<SelfServicePage />} />
   </FlatRoutes>
 );
@@ -152,7 +157,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
-      <GlobalHeader />
+      <GlobalHeader createPath="/self-service/catalog" />
       <Root>{routes}</Root>
     </AppRouter>
   </>,

@@ -1,5 +1,11 @@
 export interface Config {
   portal?: {
+    /** Exact installed NFS page path, relative to the app base URL.
+     * Defaults to /self-service when installed. Unavailable or invalid
+     * destinations display the host fallback; permissions remain page-owned.
+     * @visibility frontend
+     */
+    landingPage?: string;
     navigation?: {
       /** Ordered links and expandable groups. Missing plugin pages are omitted.
        * @deepVisibility frontend

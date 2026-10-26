@@ -1,0 +1,8 @@
+# Example RHDH dynamic-plugin config for the automation content backend plugin —
+# not loaded at runtime. RHDH reads dynamic-plugins.yaml pluginConfig; this file
+# follows the Janus IDP convention so `rhdh-cli plugin package` can print an
+# example overlay. Changing this file alone does not change Portal.
+
+dynamicPlugins:
+  backend:
+    ansible.plugin-automation-content-backend: {}

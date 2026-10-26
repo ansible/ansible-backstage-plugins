@@ -165,6 +165,12 @@ interface DiffLine {
   newNum?: number;
 }
 
+function diffLineReactKey(line: DiffLine): string {
+  return `${line.type}:${line.oldNum ?? 'x'}:${line.newNum ?? 'x'}:${
+    line.content
+  }`;
+}
+
 interface DiffParseState {
   oldNum: number;
   newNum: number;
@@ -299,12 +305,12 @@ function computeUnifiedDiff(before: string, after: string): DiffLine[] {
       ...oldLines.map((l, idx) => ({
         type: 'removed' as const,
         content: l,
-        lineNumber: idx + 1,
+        oldNum: idx + 1,
       })),
       ...newLines.map((l, idx) => ({
         type: 'added' as const,
         content: l,
-        lineNumber: idx + 1,
+        newNum: idx + 1,
       })),
     ];
   }
@@ -462,9 +468,9 @@ export const DiffView = ({
     >
       {title && <Typography className={classes.title}>{title}</Typography>}
       <Box className={fillHeight ? classes.linesScroll : undefined}>
-        {lines.map((line, idx) => (
+        {lines.map(line => (
           <div
-            key={idx}
+            key={diffLineReactKey(line)}
             className={`${classes.line} ${diffLineClassName(
               classes,
               line.type,

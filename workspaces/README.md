@@ -11,7 +11,8 @@ workspaces/
 │   └── plugins/                Contracts, host, SDKs, operations, health
 ├── portal-scaffolder/plugins/  Portal scaffolder and current content pages
 ├── aap/plugins/                AAP clients, auth, catalog, provisioning, actions
-└── apme/plugins/               Third-party contribution example and backend modules
+├── apme/plugins/               Third-party contribution example and backend modules
+└── content/plugins/            Automation content over OCI registries (PoC)
 ```
 
 ## Workspace relationships
@@ -92,6 +93,25 @@ The AAP group contains the shared integration library, frontend plugin,
 catalog module, authentication provider, user-provisioning module and scaffolder
 module. Backend code uses AAP clients/services; frontend surfaces communicate
 through platform APIs rather than directly contacting AAP.
+
+### Content
+
+- `automation-content`: `@ansible/plugin-automation-content` frontend mounted
+  at `/automation-content`; a drill-down content browser (execution
+  environment → collection → content item → documentation) built on the Portal
+  SDK.
+- `automation-content-backend`: content API — discovery, documentation and
+  requirements resolution over OCI registries.
+- `automation-content-common`: OCI client, capability probe, digest cache and
+  the two-axis adapter contracts.
+- `catalog-backend-module-automation-content`: catalog entity provider syncing
+  registry content into the catalog.
+- `content-model`: content manifest and content object model.
+- `content-type-execution-environment`: execution-environment content-type
+  adapter.
+
+Proof-of-concept status: interfaces, config shape, API routes and entity shape
+still move without notice. See `content/README.md` and `content/docs/adrs/`.
 
 ## Current boundaries
 

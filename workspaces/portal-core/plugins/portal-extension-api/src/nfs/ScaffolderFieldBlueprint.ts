@@ -4,8 +4,9 @@ import {
 } from '@backstage/frontend-plugin-api';
 import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import type { PluginManifest } from '@ansible/portal-extension-common';
+import { PORTAL_CONTRIBUTIONS_ATTACHMENT } from './contributions';
 
-/** Template-context widget, not an entity presentation or server capability. */
+/** Template-context widget; declaring it does not require a templates page. */
 export interface ScaffolderFieldDescriptor {
   manifest: PluginManifest;
   capabilityId: string;
@@ -32,7 +33,7 @@ export const scaffolderFieldDataRef =
 export const ScaffolderFieldBlueprint = createExtensionBlueprint({
   kind: 'scaffolder-field',
   attachTo: {
-    id: 'page:portal-scaffolder/templates',
+    id: PORTAL_CONTRIBUTIONS_ATTACHMENT,
     input: 'scaffolderFields',
   },
   output: [scaffolderFieldDataRef],

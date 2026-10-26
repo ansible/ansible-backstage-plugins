@@ -9,7 +9,7 @@ structure, APIs, examples and acceptance requirements, see the
 
 The host owns the `entity.detail.tabs` interaction and placement. Contributors
 declare static Blueprint extensions in their `./alpha` entry points.
-NFS supplies typed entity/catalog descriptors to `api:portal/contributions`,
+NFS supplies typed entity, catalog, and scaffolder-field descriptors to `api:portal/contributions`,
 an app-scoped API extension owned by the `portal` frontend plugin. Pages share
 its validated snapshot through `portalContributionsApiRef`. There is no native global contribution registry,
 module-load registration, or imperative module resolver in this path.
@@ -21,9 +21,10 @@ its declarations, but component loaders are deferred until filtering and
 authorization complete. Only the selected eligible tab loads its component.
 
 The provider uses `ApiBlueprint`, avoiding an app-root wrapper that the
-installed Backstage API restricts to the app plugin. Scaffolder fields retain
-their separate input on the native templates page. Operations remain separate
-from presentation and receive the current subject, not contributor-supplied URLs.
+installed Backstage API restricts to the app plugin. Scaffolder fields use the
+shared provider rather than attaching directly to an optional templates page.
+Operations remain separate from presentation and receive the current subject,
+not contributor-supplied URLs.
 
 ## Integrating the host
 
@@ -62,7 +63,11 @@ from presentation and receive the current subject, not contributor-supplied URLs
 From the repository root, run:
 
 ```bash
-yarn test --runInBand workspaces/portal-core/plugins/portal-extension-host workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alpha.test.tsx workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
+yarn test --runInBand \
+  workspaces/portal-core/plugins/portal-extension-host \
+  workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alpha.test.tsx \
+  workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alphaPermissions.test.tsx \
+  workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
 ```
 
 The host tests exercise real NFS discovery, filtering, selection, permission
@@ -71,6 +76,68 @@ manifest rejection, and failure isolation. The APME test uses its actual NFS
 declaration and substitutes the Quality component to avoid a live backend.
 Shared-provider tests also cover cross-page discovery, NFS-disabled extensions,
 operation subjects, follow-on navigation, and refresh of already-selected results.
+Field composition tests cover absent and alternative templates hosts,
+first- and third-party fields, duplicate and malformed declarations, and
+preservation of field schemas and asynchronous validation.
+The separate scaffolder permission suite checks catalog-import denial without
+reusing the route-parity suite's cached permission decisions.
+
+## Optional templates hosts
+
+Portal host services and AAP authentication do not require portal-scaffolder.
+Application and deployment composition can omit that contributor. Install
+independent native plugins through their declared frontend features and normal
+RHDH dynamic plugin configuration; shared SDK libraries are not standalone
+dynamic page plugins. Existing Collections, Execution Environments, and Git
+repositories pages still belong to portal-scaffolder until content extraction.
+APME's current repository UI therefore still needs that contributor.
+
+`ScaffolderFieldBlueprint` attaches declarations to `api:portal/contributions`
+through its `scaffolderFields` input. At app startup, the Portal provider checks
+actual NFS ownership, manifest references, API compatibility, content scope,
+field names, and duplicate names/entry-point IDs. It publishes accepted
+declarations as the read-only `portalContributionsApiRef.scaffolderFields`
+snapshot without invoking widget loaders.
+
+`createPortalScaffolderPage` is an optional consumer adapter. When its route is
+opened, it supplies the shared declarations to the templates implementation.
+`NativeScaffolderFields` checks configuration, experience availability,
+permissions, and reserved field names before loading widgets. The returned
+field name must match the declaration; value/UI schemas and asynchronous
+validators remain part of the existing field contract.
+
+Without a templates adapter, declarations remain discoverable but unused. No
+widget is loaded and no missing templates-page attachment is required. An
+alternative templates plugin can use the same adapter without taking the
+`portal-scaffolder` plugin ID. Field discovery does not make workflows runnable
+without a templates host. Application/deployment selection is separate from
+field discovery and does not itself extract the existing content pages.
+Root routing is configured separately through the Portal host's landing
+destination.
+
+### Migrating field attachments
+
+Prerequisites: install the shared Portal provider and build the host, templates
+adapter, and native contributors from a coordinated SDK revision.
+
+1. Keep existing `ScaffolderFieldBlueprint.make` descriptors, field names, manifest
+   IDs, widget schemas, and validation functions. Rebuild the shared API and host
+   packages, then rebuild/re-export the consuming native plugins together.
+2. Remove explicit NFS attachment overrides targeting
+   `page:portal-scaffolder/templates`. The Blueprint now defaults to
+   `api:portal/contributions`, input `scaffolderFields`. Do not restore a second
+   page collector or legacy registration side effects.
+3. Keep `createPortalScaffolderPage` for the templates route. Custom composition
+   tests must install `createPortalContributionProvider()` in the `portal` plugin,
+   just as the real app does. The page helper retains its loader/route options;
+   an explicit `hostApiVersion` adds an adapter-specific restriction to the
+   provider's version validation.
+
+Verify that a permitted field renders with the templates host installed and
+that removing that host leaves the declaration inspectable without calling its
+widget loader. The field tests in the repository verification command exercise
+both cases. Coordinated rebuilds are required; this migration does not promise
+mixed old/new dynamic artifact compatibility or require npm publication.
 
 ## Contribution contract
 
@@ -134,6 +201,13 @@ catalog Quality/settings/Violations tabs, table columns, the Add repository
 workflow launcher, and deregistration. Scanning requires
 `ansible.apme.enabled: true` and the host-resolved
 `apme.scanning` entitlement. Configuration alone is not an entitlement decision.
+
+The complete repository UI journey still uses portal-scaffolder's Git Repositories
+list/detail pages and its Templates UI for Add repository. APME has no declared
+package dependency on portal-scaffolder, but these presentation and navigation
+paths still require their current host. Its Content Quality route redirects into
+the repository catalog. Collecting fields independently does not extract those
+pages or make that full UI journey available without them.
 
 ## Acceptance boundaries
 
@@ -202,6 +276,66 @@ After exporting and restarting the host, verify that `api:app/rhaap-auth` and
 unresolved `ansible.auth.rhaap` API is a reason to check the installed dynamic
 plugin list, not to restore authentication exports in portal-scaffolder.
 
+### Landing behavior
+
+The Portal host owns `/`. With no `portal.landingPage` override, it opens
+`/self-service` only if that NFS page is mounted. If no destination is available,
+Portal displays a neutral welcome message inside the existing app shell instead
+of redirecting to a missing page. This fallback is not a separate content catalog
+or a new homepage design.
+
+An explicit override must match an installed top-level NFS page's effective
+path, including any NFS page-path configuration override. The host checks
+mounted metadata without invoking page loaders. It rejects external URLs,
+relative paths, `/`, dot segments, encoded paths, query strings, fragments,
+trailing slashes, and arbitrary descendants of a registered page. A missing or
+disabled destination also uses the fallback. An invalid explicit override does
+not silently select Templates or the first sidebar item.
+
+Landing selection is not authorization: navigation enters the page through its
+normal NFS lifecycle, and the destination retains its permission checks. A
+restricted destination may show its normal access-denied state. Sidebar
+ordering and visibility do not grant access or change landing selection.
+
+### Configuring the landing destination
+
+Prerequisites: install the Portal native frontend host and the destination page
+in the NFS app. No additional landing configuration is needed for the default
+Templates behavior; omit `portal.landingPage` in the minimal configuration.
+
+1. To override the default, set the exact installed page path in host config:
+
+   ```yaml
+   portal:
+     landingPage: /self-service/collections
+   ```
+
+   This is the complete landing configuration; the field is optional. Paths
+   are app-relative: if the app is hosted under a URL prefix, do not include
+   that prefix or a host name in this value.
+
+2. Restart the source app after changing configuration. For RHDH, export/install
+   the updated Portal artifact and restart the host with the configuration.
+3. Open the app root. Verify that it opens the selected page and that the page's
+   normal permission checks still apply. With an unavailable destination, verify
+   the neutral fallback rather than a missing-page redirect.
+
+Migration: existing deployments with Templates at `/self-service` need no new
+setting. If NFS configuration moves that page, set `portal.landingPage` to its
+effective path. Deployments without portal-scaffolder may select another
+installed page or leave the host fallback. This does not remove portal-scaffolder
+from source-app or installer composition; deployment selection is separate.
+
+Verify the routing behavior with:
+
+```bash
+yarn test --runInBand workspaces/portal-core/plugins/portal-core
+```
+
+The tests cover configured and default destinations, absent and disabled
+contributors, page-path overrides, unsafe destinations, lazy-loader isolation,
+and destination permission denial.
+
 ### Configuring navigation
 
 Plugins own page routes and icon metadata. Portal navigation selects discovered
@@ -256,12 +390,14 @@ through the host's `@deepVisibility frontend` schema.
 
 The source app registers native RBAC, user settings, and Search features. Its
 global header reuses the existing AAP/identity logout behavior through an
-app-owned root wrapper. RHDH retains its own platform header instead of loading
+app-owned root wrapper. Create is omitted when the installed Templates adapter
+is unavailable; it follows that adapter's effective route when present.
+RHDH retains its own platform header instead of loading
 the source app wrapper. Guest users can see navigation but remain subject to
 page permissions; an RBAC 403 is not a missing route.
 
 Restart the source dev server after changing configuration or schema visibility.
-Re-export and restart RHDH after changing dynamic plugins. The fork startup
+Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
 
@@ -289,6 +425,20 @@ Open `/self-service/create/tasks` directly to distinguish missing navigation
 from a route or permission failure. Check `page:portal-scaffolder/history` and
 the deployed bundle. For RBAC, inspect installed dynamic packages and the
 existing administrator configuration; do not bypass restrictions with broader grants.
+
+### Template field is declared but unavailable
+
+Inspect the NFS extension tree for the field under `api:portal/contributions`,
+input `scaffolderFields`, and inspect the contribution API's validated field
+list in a host integration or test. A valid declaration with no templates
+consumer is intentionally unused; no widget import is expected.
+
+If the field is missing from the snapshot, check native discovery, ownership,
+manifest/version compatibility, and duplicate IDs or field names. If it is
+present but an installed templates adapter does not expose it, check the
+configuration, experience, permission, and reserved-name gates. Loader or widget
+failures use the existing template-field error states. There is no separate
+field diagnostics page or automatic fallback registration.
 
 ### Component fails to load
 

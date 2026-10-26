@@ -5,6 +5,7 @@ import type { EntityOverviewCardDescriptor } from './EntityOverviewCardBlueprint
 import type { CatalogItemActionDescriptor } from './CatalogItemActionBlueprint';
 import type { CatalogTabDescriptor } from './CatalogTabBlueprint';
 import type { CatalogTableColumnDescriptor } from './CatalogTableColumnBlueprint';
+import type { ScaffolderFieldDescriptor } from './ScaffolderFieldBlueprint';
 import type {
   CatalogHeaderActionDescriptor,
   ScaffolderWorkflowDescriptor,
@@ -20,6 +21,8 @@ export interface PortalContributionsApi {
   readonly catalogColumns?: readonly CatalogTableColumnDescriptor[];
   readonly catalogHeaderActions?: readonly CatalogHeaderActionDescriptor[];
   readonly scaffolderWorkflows?: readonly ScaffolderWorkflowDescriptor[];
+  /** Validated declarations, inert until an installed templates adapter consumes them. */
+  readonly scaffolderFields?: readonly ScaffolderFieldDescriptor[];
 }
 
 export const portalContributionsApiRef = createApiRef<PortalContributionsApi>({
