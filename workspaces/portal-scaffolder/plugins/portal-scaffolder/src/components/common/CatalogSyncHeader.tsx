@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Box, Button, Divider, Tooltip, Typography } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core/styles';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import SyncIcon from '@material-ui/icons/Sync';
 import {
@@ -12,6 +13,17 @@ import {
   formatRelativeTime,
 } from '@ansible/portal-plugin-sdk';
 import type { SyncProgressEntry } from '@ansible/portal-plugin-sdk';
+
+const useStyles = makeStyles(theme => ({
+  syncWrapper: {
+    display: 'inline-flex',
+    '&:focus': {
+      outline: `2px solid ${theme.palette.primary.main}`,
+      outlineOffset: 2,
+      borderRadius: theme.shape.borderRadius,
+    },
+  },
+}));
 
 export interface CatalogSyncHeaderProps {
   title: string;
@@ -46,6 +58,7 @@ export const CatalogSyncHeader = ({
   actions,
   descriptionExtra,
 }: CatalogSyncHeaderProps) => {
+  const localClasses = useStyles();
   const classes = usePageHeaderStyles();
   const sharedClasses = useSharedStyles();
   const tooltipClasses = useProgressTooltipStyles();
@@ -54,13 +67,20 @@ export const CatalogSyncHeader = ({
 
   const showSyncButton = checkingPermission || allowed;
   const isButtonDisabled = checkingPermission || syncDisabled;
+  const hasBlockingExplanation =
+    checkingPermission || (syncDisabled && Boolean(syncDisabledReason));
 
   const hasNonSuccessOutcome = syncProgress.some(e => e.outcome !== 'success');
   const showProgressPopover =
-    syncProgress.length > 0 && (syncInProgress || hasNonSuccessOutcome);
+    !hasBlockingExplanation &&
+    syncProgress.length > 0 &&
+    (syncInProgress || hasNonSuccessOutcome);
   const synced = lastSyncTimes.filter(s => s.time);
   const showLastSyncPopover =
-    !syncInProgress && !showProgressPopover && synced.length > 0;
+    !hasBlockingExplanation &&
+    !syncInProgress &&
+    !showProgressPopover &&
+    synced.length > 0;
 
   const getButtonTooltip = (): string | React.ReactElement => {
     if (checkingPermission) return 'Checking permissions...';
@@ -144,7 +164,15 @@ export const CatalogSyncHeader = ({
                 arrow
                 placement="bottom-end"
               >
-                <span>
+                <span
+                  className={localClasses.syncWrapper}
+                  role={isButtonDisabled ? 'button' : undefined}
+                  tabIndex={isButtonDisabled ? 0 : undefined}
+                  aria-label={
+                    isButtonDisabled ? 'Synchronization unavailable' : undefined
+                  }
+                  aria-disabled={isButtonDisabled || undefined}
+                >
                   <Button
                     variant="outlined"
                     color="primary"

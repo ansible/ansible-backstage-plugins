@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useIsSuperuser } from '@ansible/portal-plugin-sdk';
 import { CatalogSyncHeader } from './CatalogSyncHeader';
 import type { CatalogSyncHeaderProps } from './CatalogSyncHeader';
@@ -100,6 +101,90 @@ describe('CatalogSyncHeader', () => {
   it('can disable synchronization without an explanatory tooltip', () => {
     mount({ syncDisabled: true });
     expect(screen.getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+  });
+
+  it.each(['pending', 'failure'] as const)(
+    'prioritizes permission lookup over %s progress and a disabled reason',
+    async outcome => {
+      jest.mocked(useIsSuperuser).mockReturnValue({
+        isSuperuser: false,
+        loading: true,
+        error: null,
+      });
+      mount({
+        syncDisabled: true,
+        syncDisabledReason: 'Source is unavailable',
+        syncInProgress: true,
+        syncProgress: [{ sourceId: 'hub', displayName: 'Hub', outcome }],
+      });
+      hoverSync();
+      const tooltip = await screen.findByRole('tooltip');
+      expect(tooltip).toHaveTextContent('Checking permissions...');
+      expect(tooltip).not.toHaveTextContent('Source is unavailable');
+      expect(tooltip).not.toHaveTextContent('Hub');
+    },
+  );
+
+  it.each(['pending', 'failure'] as const)(
+    'prioritizes a disabled reason over %s progress',
+    async outcome => {
+      mount({
+        syncDisabled: true,
+        syncDisabledReason: 'Source is unavailable',
+        syncInProgress: true,
+        syncProgress: [{ sourceId: 'hub', displayName: 'Hub', outcome }],
+      });
+      hoverSync();
+      const tooltip = await screen.findByRole('tooltip');
+      expect(tooltip).toHaveTextContent('Source is unavailable');
+      expect(tooltip).not.toHaveTextContent('Hub');
+    },
+  );
+
+  it.each([true, false])(
+    'makes the disabled explanation keyboard-accessible (permission loading: %s)',
+    async checkingPermission => {
+      const user = userEvent.setup();
+      jest.mocked(useIsSuperuser).mockReturnValue({
+        isSuperuser: !checkingPermission,
+        loading: checkingPermission,
+        error: null,
+      });
+      mount({
+        syncDisabled: true,
+        syncDisabledReason: 'Source is unavailable',
+      });
+      const wrapper = screen.getByRole('button', {
+        name: 'Synchronization unavailable',
+      });
+      expect(wrapper).toHaveAttribute('tabindex', '0');
+      expect(wrapper).toHaveAttribute('aria-disabled', 'true');
+      await user.tab();
+      await user.tab();
+      expect(wrapper).toHaveFocus();
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+        checkingPermission
+          ? 'Checking permissions...'
+          : 'Source is unavailable',
+      );
+      await user.keyboard('{Enter} ');
+      fireEvent.click(wrapper);
+      expect(onSyncClick).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the enabled button as the only sync keyboard target', async () => {
+    const user = userEvent.setup();
+    mount();
+    expect(
+      screen.queryByRole('button', { name: 'Synchronization unavailable' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Sync Now' }).parentElement,
+    ).not.toHaveAttribute('tabindex');
+    await user.tab();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Sync Now' })).toHaveFocus();
   });
 
   it('shows only sources with a recorded last sync while idle', async () => {
