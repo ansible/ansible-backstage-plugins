@@ -24,13 +24,15 @@ import type {
 } from '@backstage/integration';
 import { ResponseError } from '@backstage/errors';
 import {
-  GitlabClient,
-  resolveGithubToken,
-  createGithubClientForWorkflowDispatch,
   sanitizeAapName,
   toSourceNamespace,
   DEFAULT_CATALOG_ENTITY_SOURCE,
   type CatalogEntitySource,
+} from '@ansible/aap-common';
+import {
+  GitlabClient,
+  resolveGithubToken,
+  createGithubClientForWorkflowDispatch,
 } from '@ansible/backstage-rhaap-common';
 
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';

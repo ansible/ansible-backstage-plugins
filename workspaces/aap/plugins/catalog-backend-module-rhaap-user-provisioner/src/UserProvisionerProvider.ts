@@ -11,14 +11,16 @@ import type {
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import {
-  IAAPService,
   User,
-  resolveActiveOrganizations,
   toUserEntityName,
   toUserEntityRef,
   toSourceNamespace,
   toOrgGroupRef,
   toTeamGroupRef,
+} from '@ansible/aap-common';
+import {
+  IAAPService,
+  resolveActiveOrganizations,
 } from '@ansible/backstage-rhaap-common';
 
 const PROVIDER_NAME = 'rhaap-user-provisioner';

@@ -7,11 +7,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { AAPJobTemplateProvider } from './AAPJobTemplateProvider';
 import { mockAnsibleService } from '../mock/mockIAAPService';
-import {
-  IJobTemplate,
-  ISurvey,
-  InstanceGroup,
-} from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey, InstanceGroup } from '@ansible/aap-common';
 
 // Mock config for job template provider
 const MOCK_JOB_TEMPLATE_CONFIG = {

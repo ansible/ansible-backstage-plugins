@@ -1,7 +1,7 @@
 import { createProjectAction } from './aapCreateProject';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
 import { MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
-import { Project } from '@ansible/backstage-rhaap-common';
+import { Project } from '@ansible/aap-common';
 import { mockAnsibleService } from './mockIAAPService';
 
 describe('ansible-aap:project:create', () => {

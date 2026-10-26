@@ -36,6 +36,8 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
+} from '@ansible/aap-common';
+import {
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
 } from '@ansible/backstage-rhaap-common';

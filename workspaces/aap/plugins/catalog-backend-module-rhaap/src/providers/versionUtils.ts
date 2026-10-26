@@ -1,5 +1,5 @@
 import { Entity } from '@backstage/catalog-model';
-import { compareVersions } from '@ansible/backstage-rhaap-common';
+import { compareVersions } from '@ansible/aap-common';
 
 export { compareVersions };
 

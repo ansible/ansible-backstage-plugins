@@ -16,7 +16,7 @@ import {
   toOrgEntityName,
   toTeamEntityName,
   toUserEntityName,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/aap-common';
 import { generateTemplate } from './dynamicJobTemplate';
 import {
   generateSourceId,
@@ -26,7 +26,7 @@ import {
   sanitizeTagForBackstage,
   sanitizeHostName,
 } from './ansible-collections/utils';
-import type { CatalogEntityIdentityOptions } from '@ansible/backstage-rhaap-common';
+import type { CatalogEntityIdentityOptions } from '@ansible/aap-common';
 import type {
   CollectionParserOptions,
   RepositoryParserOptions,
