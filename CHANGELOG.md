@@ -12,6 +12,8 @@ where versioned packages apply.
 
 - **SDK page header** adds `PageHeader` with a title, optional description/help, and consumer-owned actions. It requires no sync configuration or authentication APIs. Portal-scaffolder uses a local `CatalogSyncHeader` to retain existing sync controls, permission checks, progress, and timestamps. The SDK's `PageHeaderSection` and its props remain available as deprecated compatibility exports.
 
+- **SDK empty-state view** adds `EmptyStateView` with consumer-owned text, optional decorative icon, and actions, without catalog or auth requirements. Portal-scaffolder keeps collection guidance and sync behavior in a local wrapper, while missing repositories show repository-specific guidance. Existing SDK `EmptyState` and props remain as deprecated compatibility exports.
+
 - **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when its Templates adapter is absent.
 
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
