@@ -191,6 +191,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/aap-common@workspace:workspaces/aap/plugins/aap-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/aap-common@workspace:workspaces/aap/plugins/aap-common"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/integration": "npm:^2.0.0"
+    "@backstage/plugin-permission-common": "npm:^0.9.7"
+    "@jest/globals": "npm:^30.1.2"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/automation-content-common@workspace:^, @ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common":
   version: 0.0.0-use.local
   resolution: "@ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common"
