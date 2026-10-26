@@ -1,0 +1,17 @@
+# Example RHDH pluginConfig for the automation content frontend plugin — not
+# loaded at runtime.
+#
+# RHDH does not read this file. Mount points exist only when a host copies this
+# block into dynamic-plugins.yaml pluginConfig. Filename is a Janus IDP
+# convention so `rhdh-cli plugin package` can print an example overlay.
+# Changing this file alone does not change Portal.
+
+dynamicPlugins:
+  frontend:
+    ansible.plugin-automation-content:
+      dynamicRoutes:
+        - path: /automation-content
+          importName: AutomationContentPage
+          menuItem:
+            icon: CatalogIcon
+            text: Automation Content

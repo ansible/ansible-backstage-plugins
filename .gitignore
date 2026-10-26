@@ -109,3 +109,6 @@ deploy/
 
 # Jest stderr and console output captured by yarn test
 test-console.log
+
+# graphify knowledge-graph output (local analysis artifact)
+graphify-out/

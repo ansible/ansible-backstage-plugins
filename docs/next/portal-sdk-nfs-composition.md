@@ -84,6 +84,14 @@ reusing the route-parity suite's cached permission decisions.
 
 ## Optional templates hosts
 
+Portal host services and AAP authentication do not require portal-scaffolder.
+Application and deployment composition can omit that contributor. Install
+independent native plugins through their declared frontend features and normal
+RHDH dynamic plugin configuration; shared SDK libraries are not standalone
+dynamic page plugins. Existing Collections, Execution Environments, and Git
+repositories pages still belong to portal-scaffolder until content extraction.
+APME's current repository UI therefore still needs that contributor.
+
 `ScaffolderFieldBlueprint` attaches declarations to `api:portal/contributions`
 through its `scaffolderFields` input. At app startup, the Portal provider checks
 actual NFS ownership, manifest references, API compatibility, content scope,
@@ -101,9 +109,11 @@ validators remain part of the existing field contract.
 Without a templates adapter, declarations remain discoverable but unused. No
 widget is loaded and no missing templates-page attachment is required. An
 alternative templates plugin can use the same adapter without taking the
-`portal-scaffolder` plugin ID. This boundary does not make workflows runnable
-without a templates host, change the root landing route, or complete optional
-application/deployment composition.
+`portal-scaffolder` plugin ID. Field discovery does not make workflows runnable
+without a templates host. Application/deployment selection is separate from
+field discovery and does not itself extract the existing content pages.
+Root routing is configured separately through the Portal host's landing
+destination.
 
 ### Migrating field attachments
 
@@ -266,6 +276,66 @@ After exporting and restarting the host, verify that `api:app/rhaap-auth` and
 unresolved `ansible.auth.rhaap` API is a reason to check the installed dynamic
 plugin list, not to restore authentication exports in portal-scaffolder.
 
+### Landing behavior
+
+The Portal host owns `/`. With no `portal.landingPage` override, it opens
+`/self-service` only if that NFS page is mounted. If no destination is available,
+Portal displays a neutral welcome message inside the existing app shell instead
+of redirecting to a missing page. This fallback is not a separate content catalog
+or a new homepage design.
+
+An explicit override must match an installed top-level NFS page's effective
+path, including any NFS page-path configuration override. The host checks
+mounted metadata without invoking page loaders. It rejects external URLs,
+relative paths, `/`, dot segments, encoded paths, query strings, fragments,
+trailing slashes, and arbitrary descendants of a registered page. A missing or
+disabled destination also uses the fallback. An invalid explicit override does
+not silently select Templates or the first sidebar item.
+
+Landing selection is not authorization: navigation enters the page through its
+normal NFS lifecycle, and the destination retains its permission checks. A
+restricted destination may show its normal access-denied state. Sidebar
+ordering and visibility do not grant access or change landing selection.
+
+### Configuring the landing destination
+
+Prerequisites: install the Portal native frontend host and the destination page
+in the NFS app. No additional landing configuration is needed for the default
+Templates behavior; omit `portal.landingPage` in the minimal configuration.
+
+1. To override the default, set the exact installed page path in host config:
+
+   ```yaml
+   portal:
+     landingPage: /self-service/collections
+   ```
+
+   This is the complete landing configuration; the field is optional. Paths
+   are app-relative: if the app is hosted under a URL prefix, do not include
+   that prefix or a host name in this value.
+
+2. Restart the source app after changing configuration. For RHDH, export/install
+   the updated Portal artifact and restart the host with the configuration.
+3. Open the app root. Verify that it opens the selected page and that the page's
+   normal permission checks still apply. With an unavailable destination, verify
+   the neutral fallback rather than a missing-page redirect.
+
+Migration: existing deployments with Templates at `/self-service` need no new
+setting. If NFS configuration moves that page, set `portal.landingPage` to its
+effective path. Deployments without portal-scaffolder may select another
+installed page or leave the host fallback. This does not remove portal-scaffolder
+from source-app or installer composition; deployment selection is separate.
+
+Verify the routing behavior with:
+
+```bash
+yarn test --runInBand workspaces/portal-core/plugins/portal-core
+```
+
+The tests cover configured and default destinations, absent and disabled
+contributors, page-path overrides, unsafe destinations, lazy-loader isolation,
+and destination permission denial.
+
 ### Configuring navigation
 
 Plugins own page routes and icon metadata. Portal navigation selects discovered
@@ -320,12 +390,14 @@ through the host's `@deepVisibility frontend` schema.
 
 The source app registers native RBAC, user settings, and Search features. Its
 global header reuses the existing AAP/identity logout behavior through an
-app-owned root wrapper. RHDH retains its own platform header instead of loading
+app-owned root wrapper. Create is omitted when the installed Templates adapter
+is unavailable; it follows that adapter's effective route when present.
+RHDH retains its own platform header instead of loading
 the source app wrapper. Guest users can see navigation but remain subject to
 page permissions; an RBAC 403 is not a missing route.
 
 Restart the source dev server after changing configuration or schema visibility.
-Re-export and restart RHDH after changing dynamic plugins. The fork startup
+Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
 

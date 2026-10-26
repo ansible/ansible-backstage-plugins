@@ -73,6 +73,12 @@ backend.add(
   import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
 );
 
+// Automation content — OCI registry content provider and content API
+backend.add(
+  import('@ansible/plugin-catalog-backend-module-automation-content'),
+);
+backend.add(import('@ansible/plugin-automation-content-backend'));
+
 // Portal health aggregation — exposes GET /api/portal-health/status
 backend.add(import('@ansible/portal-health-backend'));
 backend.add(import('@ansible/portal-operations-backend'));

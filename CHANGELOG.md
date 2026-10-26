@@ -10,6 +10,10 @@ where versioned packages apply.
 
 ### Added
 
+- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when its Templates adapter is absent.
+
+- **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
+
 - **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
 
 - Scaffolder **payload normalization** (`rhaapActionPayloadUtils`, `parseAapActionValues`) so `rhaap:*` actions receive consistent shapes for launch and resource-creation flows, with expanded unit tests.
@@ -57,7 +61,7 @@ where versioned packages apply.
 
 1. **Frontend SDK consumers:** `usePortalContext` requires authenticated access to the host context endpoint. Handle `loading`, `error`, an optional `organizationId`, and multiple `organizationIds`; do not pass browser context as backend authorization authority.
 
-1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect; `/` continues to open Templates. This does not complete content extraction.
+1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect. With no `portal.landingPage` override, `/` opens Templates only when `/self-service` is installed; otherwise it displays the host fallback. Set an exact installed page path to override this behavior, including when NFS configuration moves the Templates page. This does not complete content extraction or optional deployment composition.
 
 1. **Custom callers** of catalog sync GET endpoints: update URLs as listed above.
 1. **Template authors:** ensure `rhaap:launch-job-template` (and other `rhaap:*` actions that require `token`) use **`secrets.aapToken`** (or your chosen secret key) in the template YAML, not `parameters.token`, if you relied on values carrying the token.

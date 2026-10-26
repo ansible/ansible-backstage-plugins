@@ -113,13 +113,13 @@ export class ApmeLearnedDepsEntityProvider implements EntityProvider {
   }
 
   async connect(connection: EntityProviderConnection): Promise<void> {
-    // NOSONAR - async required by EntityProvider interface contract
+    await Promise.resolve();
     this.connection = connection;
     this.logger.info(`${PROVIDER_NAME} connected`);
   }
 
   async schedule(scheduler: SchedulerService): Promise<void> {
-    // NOSONAR - async required by EntityProvider interface contract
+    await Promise.resolve();
     if (isApmeMockMode(this.rootConfig)) {
       this.logger.info(
         'APME mockMode is enabled; skipping learned deps sync schedule',
