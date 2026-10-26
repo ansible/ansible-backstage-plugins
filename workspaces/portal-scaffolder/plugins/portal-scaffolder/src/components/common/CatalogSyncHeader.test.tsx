@@ -203,6 +203,7 @@ describe('CatalogSyncHeader', () => {
 
   it('shows in-flight progress instead of a previous successful sync', async () => {
     mount({
+      syncDisabled: true,
       syncInProgress: true,
       syncProgress: [
         { sourceId: 'hub', displayName: 'Hub', outcome: 'pending' },

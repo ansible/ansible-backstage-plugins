@@ -288,6 +288,56 @@ describe('GitRepositoriesPage', () => {
     ]);
   });
 
+  it.each([
+    {
+      configured: true,
+      expected: 'Syncing',
+      excluded: 'No content sources configured',
+    },
+    {
+      configured: false,
+      expected: 'No content sources configured',
+      excluded: 'Hub',
+    },
+  ])(
+    'shows detailed progress unless sources are unavailable (configured: $configured)',
+    async ({ configured, expected, excluded }) => {
+      mockUseSyncStatusPolling.mockReturnValue({
+        isSyncInProgress: true,
+        syncProgress: [
+          { sourceId: 'hub', displayName: 'Hub', outcome: 'pending' },
+        ],
+        startTracking: mockStartTracking,
+      });
+      try {
+        await renderInTestApp(
+          <TestApiProvider apis={baseApis}>
+            <ThemeProvider theme={theme}>
+              <GitRepositoriesPage />
+            </ThemeProvider>
+          </TestApiProvider>,
+        );
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: configured ? 'Set sources' : 'Set no sources',
+          }),
+        );
+        const sync = screen.getByRole('button', { name: 'Sync Now' });
+        expect(sync).toBeDisabled();
+        fireEvent.mouseOver(sync.parentElement!);
+        const tooltip = await screen.findByRole('tooltip');
+        expect(tooltip).toHaveTextContent(expected);
+        expect(tooltip).not.toHaveTextContent(excluded);
+        expect(tooltip.textContent?.includes('Hub')).toBe(configured);
+      } finally {
+        mockUseSyncStatusPolling.mockReturnValue({
+          isSyncInProgress: false,
+          startTracking: mockStartTracking,
+        });
+      }
+    },
+  );
+
   it('shows Sync in progress as sync disabled reason when polling reports in progress', async () => {
     mockUseSyncStatusPolling.mockReturnValue({
       isSyncInProgress: true,

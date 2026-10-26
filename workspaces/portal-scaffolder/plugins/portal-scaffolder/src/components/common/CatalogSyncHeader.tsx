@@ -31,6 +31,7 @@ export interface CatalogSyncHeaderProps {
   description: string;
   onSyncClick: () => void;
   syncDisabled?: boolean;
+  /** Blocking explanation, or a busy fallback when detailed progress is unavailable. */
   syncDisabledReason?: string;
   /** When true, the sync icon animates (e.g. catalog sync in progress). */
   syncInProgress?: boolean;
