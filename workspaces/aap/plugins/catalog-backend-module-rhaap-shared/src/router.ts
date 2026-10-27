@@ -68,6 +68,7 @@ import { ConflictError } from '@backstage/errors';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
+import type { CatalogModuleSlice } from './sliceGuard';
 
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
@@ -108,12 +109,13 @@ function parseExecutionEnvironmentNameParam(
 }
 
 export function createRouter(options: {
+  slice: CatalogModuleSlice;
   logger: LoggerService;
   config: Config;
   scheduler: SchedulerService;
-  aapEntityProvider: AAPEntityProvider;
-  jobTemplateProvider: AAPJobTemplateProvider;
-  eeEntityProvider: EEEntityProvider;
+  aapEntityProvider?: AAPEntityProvider;
+  jobTemplateProvider?: AAPJobTemplateProvider;
+  eeEntityProvider?: EEEntityProvider;
   pahCollectionProviders: PAHCollectionProvider[];
   httpAuth: HttpAuthService;
   userInfo: UserInfoService;
@@ -124,6 +126,7 @@ export function createRouter(options: {
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
   const {
+    slice,
     logger,
     config,
     scheduler,
@@ -139,6 +142,9 @@ export function createRouter(options: {
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
   } = options;
+  const includeAap = slice === 'all' || slice === 'aap';
+  const includeContent = slice === 'all' || slice === 'content';
+  const includeEe = slice === 'all' || slice === 'ee';
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
 
@@ -206,22 +212,90 @@ export function createRouter(options: {
     };
   };
 
-  router.post(
-    '/ansible/sync/from-aap/orgs_users_teams',
-    express.json(),
-    requireSuperuserMiddleware,
-    createAsyncSyncHandler(aapEntityProvider, 'orgs, users and teams'),
+  if (includeAap && aapEntityProvider && jobTemplateProvider) {
+    router.post(
+      '/ansible/sync/from-aap/orgs_users_teams',
+      express.json(),
+      requireSuperuserMiddleware,
+      createAsyncSyncHandler(aapEntityProvider, 'orgs, users and teams'),
+    );
+
+    router.post(
+      '/ansible/sync/from-aap/job_templates',
+      express.json(),
+      requireSuperuserMiddleware,
+      createAsyncSyncHandler(jobTemplateProvider, 'job templates'),
+    );
+  }
+
+  const syncStatusPermissionMiddleware = createPermissionCheckMiddleware(
+    { httpAuth, permissions },
+    [catalogEntityReadPermission],
   );
 
-  router.post(
-    '/ansible/sync/from-aap/job_templates',
-    express.json(),
-    requireSuperuserMiddleware,
-    createAsyncSyncHandler(jobTemplateProvider, 'job templates'),
-  );
+  const buildAapSyncStatusPayload = () => ({
+    orgsUsersTeams: {
+      lastSync: aapEntityProvider!.getLastSyncTime(),
+      syncInProgress: aapEntityProvider!.getIsSyncing(),
+      lastFailedSyncTime: aapEntityProvider!.getLastFailedSyncTime(),
+      lastSyncStatus: aapEntityProvider!.getLastSyncStatus(),
+      lastDuplicateEntityCount:
+        aapEntityProvider!.getLastDuplicateEntityCount(),
+      lastMissingOrganizations:
+        aapEntityProvider!.getLastMissingOrganizations(),
+    },
+    jobTemplates: {
+      lastSync: jobTemplateProvider!.getLastSyncTime(),
+      syncInProgress: jobTemplateProvider!.getIsSyncing(),
+      lastFailedSyncTime: jobTemplateProvider!.getLastFailedSyncTime(),
+      lastSyncStatus: jobTemplateProvider!.getLastSyncStatus(),
+      lastDuplicateEntityCount:
+        jobTemplateProvider!.getLastDuplicateEntityCount(),
+      lastMissingOrganizations:
+        jobTemplateProvider!.getLastMissingOrganizations(),
+    },
+  });
 
-  router.get(
-    '/ansible/sync/status',
+  const buildContentSyncStatusPayload = () => {
+    const pahProviders = pahCollectionProviders.map(provider => ({
+      sourceId: provider.getSourceId(),
+      repository: provider.getPahRepositoryName(),
+      providerName: provider.getProviderName(),
+      enabled: provider.isEnabled(),
+      syncInProgress: provider.getIsSyncing(),
+      lastSyncTime: provider.getLastSyncTime(),
+      lastFailedSyncTime: provider.getLastFailedSyncTime(),
+      lastSyncStatus: provider.getLastSyncStatus(),
+      collectionsFound: provider.getCurrentCollectionsCount(),
+      collectionsDelta: provider.getCollectionsDelta(),
+    }));
+    const scmProviders = ansibleGitContentsProviders.map(provider => {
+      const providerInfo = parseSourceId(provider.getSourceId());
+      return {
+        sourceId: provider.getSourceId(),
+        scmProvider: providerInfo.scmProvider,
+        hostName: providerInfo.hostName,
+        organization: providerInfo.organization,
+        providerName: provider.getProviderName(),
+        enabled: provider.isEnabled(),
+        syncInProgress: provider.getIsSyncing(),
+        lastSyncTime: provider.getLastSyncTime(),
+        lastFailedSyncTime: provider.getLastFailedSyncTime(),
+        lastSyncStatus: provider.getLastSyncStatus(),
+        collectionsFound: provider.getCurrentCollectionsCount(),
+        collectionsDelta: provider.getCollectionsDelta(),
+      };
+    });
+    const providers = [...pahProviders, ...scmProviders];
+    return {
+      syncInProgress: providers.some(p => p.syncInProgress),
+      providers,
+    };
+  };
+
+  if (slice === 'all') {
+    router.get(
+      '/ansible/sync/status',
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
       catalogEntityReadPermission,
     ]),
@@ -282,68 +356,16 @@ export function createRouter(options: {
         } = {};
 
         // Include aap block if aap_entities=true or no query params
-        if (aapEntities || noQueryParams) {
-          result.aap = {
-            orgsUsersTeams: {
-              lastSync: aapEntityProvider.getLastSyncTime(),
-              syncInProgress: aapEntityProvider.getIsSyncing(),
-              lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
-              lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
-              lastDuplicateEntityCount:
-                aapEntityProvider.getLastDuplicateEntityCount(),
-              lastMissingOrganizations:
-                aapEntityProvider.getLastMissingOrganizations(),
-            },
-            jobTemplates: {
-              lastSync: jobTemplateProvider.getLastSyncTime(),
-              syncInProgress: jobTemplateProvider.getIsSyncing(),
-              lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
-              lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
-              lastDuplicateEntityCount:
-                jobTemplateProvider.getLastDuplicateEntityCount(),
-              lastMissingOrganizations:
-                jobTemplateProvider.getLastMissingOrganizations(),
-            },
-          };
+        if (
+          (aapEntities || noQueryParams) &&
+          aapEntityProvider &&
+          jobTemplateProvider
+        ) {
+          result.aap = buildAapSyncStatusPayload();
         }
 
         if (ansibleContents || noQueryParams) {
-          const pahProviders = pahCollectionProviders.map(provider => ({
-            sourceId: provider.getSourceId(),
-            repository: provider.getPahRepositoryName(),
-            providerName: provider.getProviderName(),
-            enabled: provider.isEnabled(),
-            syncInProgress: provider.getIsSyncing(),
-            lastSyncTime: provider.getLastSyncTime(),
-            lastFailedSyncTime: provider.getLastFailedSyncTime(),
-            lastSyncStatus: provider.getLastSyncStatus(),
-            collectionsFound: provider.getCurrentCollectionsCount(),
-            collectionsDelta: provider.getCollectionsDelta(),
-          }));
-          const scmProviders = ansibleGitContentsProviders.map(provider => {
-            const providerInfo = parseSourceId(provider.getSourceId());
-            return {
-              sourceId: provider.getSourceId(),
-              scmProvider: providerInfo.scmProvider,
-              hostName: providerInfo.hostName,
-              organization: providerInfo.organization,
-              providerName: provider.getProviderName(),
-              enabled: provider.isEnabled(),
-              syncInProgress: provider.getIsSyncing(),
-              lastSyncTime: provider.getLastSyncTime(),
-              lastFailedSyncTime: provider.getLastFailedSyncTime(),
-              lastSyncStatus: provider.getLastSyncStatus(),
-              collectionsFound: provider.getCurrentCollectionsCount(),
-              collectionsDelta: provider.getCollectionsDelta(),
-            };
-          });
-          const providers = [...pahProviders, ...scmProviders];
-          const anySyncInProgress = providers.some(p => p.syncInProgress);
-
-          result.content = {
-            syncInProgress: anySyncInProgress,
-            providers,
-          };
+          result.content = buildContentSyncStatusPayload();
         }
 
         response.status(200).json(result);
@@ -363,7 +385,65 @@ export function createRouter(options: {
       }
     },
   );
+  }
 
+  if (includeAap && aapEntityProvider && jobTemplateProvider) {
+    router.get(
+      '/ansible/sync/status/aap',
+      syncStatusPermissionMiddleware,
+      (_request, response) => {
+        const perms = response.locals.permissions as Record<string, boolean>;
+        if (!perms[catalogEntityReadPermission.name]) {
+          response
+            .status(403)
+            .json({ error: 'Forbidden: insufficient permissions' });
+          return;
+        }
+        response.status(200).json({ aap: buildAapSyncStatusPayload() });
+      },
+    );
+  }
+
+  if (includeContent) {
+    router.get(
+      '/ansible/sync/status/content',
+      syncStatusPermissionMiddleware,
+      (_request, response) => {
+        const perms = response.locals.permissions as Record<string, boolean>;
+        if (!perms[catalogEntityReadPermission.name]) {
+          response
+            .status(403)
+            .json({ error: 'Forbidden: insufficient permissions' });
+          return;
+        }
+        response.status(200).json({ content: buildContentSyncStatusPayload() });
+      },
+    );
+  }
+
+  if (includeEe && eeEntityProvider) {
+    router.get(
+      '/ansible/sync/status/self-service',
+      syncStatusPermissionMiddleware,
+      (_request, response) => {
+        const perms = response.locals.permissions as Record<string, boolean>;
+        if (!perms[catalogEntityReadPermission.name]) {
+          response
+            .status(403)
+            .json({ error: 'Forbidden: insufficient permissions' });
+          return;
+        }
+        response.status(200).json({
+          selfService: {
+            syncInProgress: false,
+            lastSyncStatus: 'idle' as ProviderSyncStatus,
+          },
+        });
+      },
+    );
+  }
+
+  if (includeEe && eeEntityProvider) {
   router.post('/ansible/ee', express.json(), async (request, response) => {
     // Only allow backend service calls (for example, scaffolder to catalog), not user requests
     await httpAuth.credentials(
@@ -643,7 +723,9 @@ export function createRouter(options: {
       }
     },
   );
+  }
 
+  if (includeContent) {
   router.post(
     '/ansible/sync/from-aap/content',
     express.json(),
@@ -1180,6 +1262,7 @@ export function createRouter(options: {
       response.status(200).json({ results });
     },
   );
+  }
 
   return Promise.resolve(router);
 }
