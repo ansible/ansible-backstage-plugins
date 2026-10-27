@@ -672,3 +672,172 @@ describe('SSRF refusals', () => {
     },
   );
 });
+
+describe('sub-path mounted registries', () => {
+  // A registry behind a reverse proxy mounted under a sub-path. Every request
+  // must keep the prefix: dropping it turns the registry's 404s into what
+  // looks like an empty catalog, with no error anywhere.
+  const PREFIXED_URL = 'https://registry.example.com/harbor-proxy';
+  const PREFIX = '/harbor-proxy';
+
+  function tagsRegistry(link?: string): {
+    seen: string[];
+    fetchImpl: ReturnType<() => typeof fetch>;
+  } {
+    const seen: string[] = [];
+    const fetchImpl = async (url: string) => {
+      const full = new URL(url);
+      seen.push(full.pathname + full.search);
+      if (full.pathname === `${PREFIX}/v2/`) {
+        return new Response('{}', { status: 200 });
+      }
+      if (full.pathname === `${PREFIX}/v2/ansible/ee/tags/list`) {
+        const pageTwo = full.search.includes('last=');
+        return new Response(
+          JSON.stringify({ name: 'ansible/ee', tags: pageTwo ? ['b'] : ['a'] }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+              ...(pageTwo || !link ? {} : { link }),
+            },
+          },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    };
+    return { seen, fetchImpl: fetchImpl as never };
+  }
+
+  it('keeps the configured base path on the first /v2 request and every data request', async () => {
+    const { seen, fetchImpl } = tagsRegistry();
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl,
+    });
+
+    const tags: string[] = [];
+    for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+
+    expect(tags).toEqual(['a']);
+    // The priming probe and the data request both landed under the prefix.
+    expect(seen).toEqual([
+      `${PREFIX}/v2/`,
+      `${PREFIX}/v2/ansible/ee/tags/list?n=100`,
+    ]);
+  });
+
+  it('does not double the prefix when a same-origin Link already carries it', async () => {
+    // The allowed pagination case: an absolute Link that already includes the
+    // configured prefix. It must be followed as-is, not prefixed again.
+    const { seen, fetchImpl } = tagsRegistry(
+      `<${PREFIXED_URL}/v2/ansible/ee/tags/list?n=100&last=a>; rel="next"`,
+    );
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl,
+    });
+
+    const tags: string[] = [];
+    for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+
+    expect(tags).toEqual(['a', 'b']);
+    expect(seen.every(url => url.startsWith(PREFIX))).toBe(true);
+    expect(seen.some(url => url.includes(`${PREFIX}${PREFIX}`))).toBe(false);
+  });
+
+  it('still refuses a Link that points away from a prefixed registry', async () => {
+    const { seen, fetchImpl } = tagsRegistry(
+      `<https://evil.example/v2/ansible/ee/tags/list?n=100&last=a>; rel="next"`,
+    );
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl,
+    });
+
+    const tags: string[] = [];
+    await expect(async () => {
+      for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+    }).rejects.toThrow();
+
+    // The first page was served before the hostile Link was refused, and
+    // nothing left the prefixed registry.
+    expect(tags).toEqual(['a']);
+    expect(seen.every(url => url.startsWith(PREFIX))).toBe(true);
+  });
+});
+
+describe('refusal messages carry no registry-controlled text', () => {
+  /**
+   * The Link header is chosen by the registry. Whatever it contains must not
+   * reach the logs: the refusal messages are fixed wording naming only the
+   * registry (which is our configuration, not theirs).
+   */
+  function hostileLinkRegistry(link: string) {
+    const fetchImpl = async (url: string) => {
+      const path = new URL(url).pathname;
+      if (path === '/v2/') return new Response('{}', { status: 200 });
+      if (path === '/v2/ansible/ee/tags/list') {
+        return new Response(
+          JSON.stringify({ name: 'ansible/ee', tags: ['a'] }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+              link,
+            },
+          },
+        );
+      }
+      return new Response('{}', { status: 404 });
+    };
+    return { fetchImpl: fetchImpl as never };
+  }
+
+  async function refusalMessage(link: string): Promise<string> {
+    const { fetchImpl } = hostileLinkRegistry(link);
+    const client = new OCIClient(connection(), { fetch: fetchImpl });
+    let thrown: unknown;
+    try {
+      for await (const _tag of client.listTags('ansible/ee')) {
+        // drain
+      }
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    return (thrown as Error).message;
+  }
+
+  it('refuses a malformed link without echoing its contents', async () => {
+    const secret = 'hunter2-top-secret';
+    const message = await refusalMessage(
+      `<https://[invalid-${secret}>; rel="next"`,
+    );
+
+    expect(message).toContain('refusing to follow malformed pagination link');
+    expect(message).not.toContain(secret);
+    expect(message).toContain('[mock]');
+  });
+
+  it('refuses a cross-origin link without naming either host', async () => {
+    const secret = 'hunter2-top-secret';
+    const message = await refusalMessage(
+      `<https://evil-${secret}.example/v2/ansible/ee/tags/list>; rel="next"`,
+    );
+
+    expect(message).toContain(
+      'refusing pagination link that points away from the configured registry',
+    );
+    expect(message).not.toContain(secret);
+    expect(message).not.toContain('evil');
+    expect(message).not.toContain(HOST);
+  });
+
+  it('refuses a scheme-relative link that swaps the host outright', async () => {
+    const message = await refusalMessage(
+      `<//evil.example/v2/ansible/ee/tags/list>; rel="next"`,
+    );
+
+    expect(message).toContain(
+      'refusing pagination link that points away from the configured registry',
+    );
+  });
+});

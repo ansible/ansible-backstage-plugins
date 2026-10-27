@@ -47,7 +47,18 @@ export function registryUrlError(url: string): string | undefined {
   if (parsed.username || parsed.password) {
     return 'must not embed credentials; use the auth fields instead';
   }
-  if (parsed.search || parsed.hash) {
+  // A URL can also end in a bare `?` or `#` — someone started typing a query
+  // or fragment and stopped. The check below misses that (both parts come
+  // back empty), but the stray character survives into the stored URL and
+  // then corrupts every request built on it, so the finished URL is checked
+  // too.
+  const serialized = parsed.toString();
+  if (
+    parsed.search ||
+    parsed.hash ||
+    serialized.endsWith('?') ||
+    serialized.endsWith('#')
+  ) {
     return 'must not include a query or fragment';
   }
   return undefined;
@@ -73,6 +84,10 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
     const url = registry.getString('url');
     const reason = registryUrlError(url);
     if (reason !== undefined) {
+      // Stop the backend from starting instead of quietly skipping this
+      // registry. A skipped registry looks exactly like one with nothing in
+      // it, so the person running the portal would see an empty catalog and
+      // never learn that their registry URL was wrong.
       throw new Error(`automation-content registry "${name}": url ${reason}`);
     }
 

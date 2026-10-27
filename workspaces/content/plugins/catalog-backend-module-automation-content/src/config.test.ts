@@ -33,6 +33,11 @@ describe('registryUrlError', () => {
     ['https://user:secret@quay.io', 'must not embed credentials'],
     ['https://quay.io?token=x', 'must not include a query or fragment'],
     ['https://quay.io#fragment', 'must not include a query or fragment'],
+    // A bare delimiter — someone started typing a query or fragment and
+    // stopped. Both parts come back empty, so only checking the finished URL
+    // catches it; the stray character would otherwise corrupt every request.
+    ['https://quay.io?', 'must not include a query or fragment'],
+    ['https://quay.io#', 'must not include a query or fragment'],
   ])('rejects %s', (url, reason) => {
     expect(registryUrlError(url)).toContain(reason);
   });

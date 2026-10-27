@@ -280,6 +280,8 @@ describe('configuration boundary', () => {
   });
 
   it('flags a registry URL with a non-HTTP scheme', async () => {
+    // A URL like ftp://quay.io is a real URL — just not one this plugin can
+    // talk to. It has to be rejected up front, before any request is sent.
     const res = await request(await appWith(seed([])))
       .post('/config/validate')
       .send({
@@ -339,7 +341,38 @@ describe('configuration boundary', () => {
     },
   );
 
+  /**
+   * A URL ending in a bare `?` or `#` is a query or fragment someone never
+   * finished typing. The shared rule rejects it, so this endpoint must too.
+   */
+  it.each(['https://quay.io?', 'https://quay.io#'])(
+    'rejects %s — an unfinished query or fragment — like the loader',
+    async badUrl => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send({
+          apiVersion: 'content.ansible.com/v1',
+          kind: 'ContentConfiguration',
+          registries: [{ name: 'quay', url: badUrl }],
+        });
+
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors).toContainEqual(
+        expect.objectContaining({
+          path: 'registries[0].url',
+          message: expect.stringContaining(
+            'must not include a query or fragment',
+          ),
+        }),
+      );
+    },
+  );
+
   it('accepts an uppercase scheme, matching the loader (which canonicalizes it)', async () => {
+    // The startup code accepts this URL and cleans it up — it lowercases the
+    // HTTPS:// prefix — instead of rejecting it. This endpoint has to reach
+    // the same verdict, or it would tell users their working configuration
+    // is broken.
     const res = await request(await appWith(seed([])))
       .post('/config/validate')
       .send({
@@ -382,6 +415,9 @@ describe('configuration boundary', () => {
   });
 
   it('reports a non-object registry entry as a validation error, not a crash', async () => {
+    // Before this fix, a registry entry that wasn't a proper settings object
+    // crashed the endpoint with a server error (500). Now it comes back as an
+    // ordinary "this is wrong with your configuration" report.
     const res = await request(await appWith(seed([])))
       .post('/config/validate')
       .send({
@@ -401,6 +437,8 @@ describe('configuration boundary', () => {
   });
 
   it('reports a non-string URL as a validation error, not a crash', async () => {
+    // Same idea as the test above: `url: 123` is a mistake in the document,
+    // and the endpoint's job is to say so, not to fail.
     const res = await request(await appWith(seed([])))
       .post('/config/validate')
       .send({
