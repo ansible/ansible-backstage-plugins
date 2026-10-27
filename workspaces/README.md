@@ -9,7 +9,7 @@ workspaces/
 │   ├── packages/app/           Native development app and legacy fallback
 │   ├── packages/backend/       Development backend composition
 │   └── plugins/                Contracts, host, SDKs, operations, health
-├── self-service/plugins/       Portal scaffolder and current content pages
+├── portal-scaffolder/plugins/  Portal scaffolder and current content pages
 ├── aap/plugins/                AAP clients, auth, catalog, provisioning, actions
 ├── apme/plugins/               Third-party contribution example and backend modules
 └── content/plugins/            Automation content over OCI registries (PoC)

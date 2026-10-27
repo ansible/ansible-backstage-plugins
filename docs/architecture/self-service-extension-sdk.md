@@ -1010,7 +1010,7 @@ Per Brad's analysis — the plugin today bundles four distinct concerns:
 | ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Portal chrome          | `SignInPage`, `AAPLogoutButton`, `AppThemeFixer`, `LandingPage` | `portal-core` / `aap`                                              |
 | Content catalogs       | Collections, Git repos, EE catalog, sync                        | `workspaces/content/automation-content`                            |
-| Create / run templates | Templates catalog, `CreateTask`, `RunTask`, task history        | `workspaces/self-service/` (→ `portal-scaffolder`)                 |
+| Create / run templates | Templates catalog, `CreateTask`, `RunTask`, task history        | `workspaces/portal-scaffolder/` (done)                             |
 | Scaffolder fields      | 11 field extensions                                             | Stay in `self-service` or `scaffolder-backend-module-self-service` |
 
 After content discovery extraction, the remaining plugin (templates + tasks + fields) should
