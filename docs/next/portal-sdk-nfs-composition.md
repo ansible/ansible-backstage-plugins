@@ -403,7 +403,7 @@ navigation example, cache validators, and non-destructive refresh steps.
 
 ## AAP OIDC logout
 
-The existing logout component waits for identity sign-out before selecting the
+The existing logout component waits for identity sign-out before navigating to the
 AAP logout destination. This prevents the identity proxy's final redirect from
 overwriting the OIDC redirect. Transport failure during AAP token revocation
 is still reported by the auth backend; a visible logged-out browser does not

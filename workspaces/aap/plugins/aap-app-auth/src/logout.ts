@@ -5,6 +5,10 @@ import type {
   SessionApi,
 } from '@backstage/core-plugin-api';
 
+/**
+ * Build the AAP OIDC end-session URL, or return undefined when no AAP host is configured.
+ * Throws when a host resolves but the client ID, Portal URL, or URL safety checks fail.
+ */
 function logoutDestination(config: Pick<ConfigApi, 'getOptionalString'>) {
   const environment =
     config.getOptionalString('auth.environment') ?? 'development';
