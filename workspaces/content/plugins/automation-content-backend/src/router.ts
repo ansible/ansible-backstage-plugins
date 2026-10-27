@@ -121,16 +121,7 @@ export async function createRouter(
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      refreshedAt: index.refreshedAt,
-      cache: index.cacheStats,
-      registries: index.listRegistries().map(state => ({
-        name: state.connection.name,
-        ...index.reconcileStateFor(state.connection.name),
-        drift: index.driftStateFor(state.connection.name),
-      })),
-    });
+    res.json({ status: 'ok' });
   });
 
   // -- Registries ---------------------------------------------------------
