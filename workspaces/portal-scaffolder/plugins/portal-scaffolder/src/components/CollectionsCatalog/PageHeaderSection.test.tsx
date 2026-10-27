@@ -69,7 +69,7 @@ describe('PageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renders help icon with tooltip', () => {
@@ -104,7 +104,7 @@ describe('PageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
   });
 });

@@ -93,7 +93,7 @@ describe('TemplatesPageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('does not render Sync Now when user is not superuser', () => {
@@ -156,7 +156,7 @@ it('preserves template guidance, extra actions, and last-sync information', asyn
   );
   expect(screen.getByRole('button', { name: 'Import template' })).toBeVisible();
   const sync = screen.getByRole('button', { name: 'Sync Now' });
-  fireEvent.mouseOver(sync.parentElement!);
+  fireEvent.mouseOver(sync);
   const tooltip = await screen.findByRole('tooltip');
   expect(tooltip).toHaveTextContent('Last synced');
   expect(tooltip).toHaveTextContent('AAP');

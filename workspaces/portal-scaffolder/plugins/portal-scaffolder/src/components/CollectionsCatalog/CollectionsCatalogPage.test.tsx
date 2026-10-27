@@ -204,10 +204,10 @@ describe('CollectionsCatalogPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /Set no sources/i }));
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByTitle('No content sources configured'),
     ).toBeInTheDocument();
@@ -273,8 +273,8 @@ describe('CollectionsCatalogPage', () => {
           }),
         );
         const sync = screen.getByRole('button', { name: 'Sync Now' });
-        expect(sync).toBeDisabled();
-        fireEvent.mouseOver(sync.parentElement!);
+        expect(sync).toHaveAttribute('aria-disabled', 'true');
+        fireEvent.mouseOver(sync);
         const tooltip = await screen.findByRole('tooltip');
         expect(tooltip).toHaveTextContent(expected);
         expect(tooltip).not.toHaveTextContent(excluded);
@@ -303,7 +303,7 @@ describe('CollectionsCatalogPage', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
 
     mockUseSyncStatusPolling.mockReturnValue({
@@ -338,7 +338,7 @@ describe('CollectionsCatalogPage', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('sync is enabled when hasConfiguredSources is true and not syncing (line 36)', async () => {
@@ -357,7 +357,7 @@ describe('CollectionsCatalogPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('syncDisabledReason is undefined when sources are configured and not syncing (line 38-43)', async () => {
@@ -376,7 +376,7 @@ describe('CollectionsCatalogPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.queryByTitle('No content sources configured'),
     ).not.toBeInTheDocument();

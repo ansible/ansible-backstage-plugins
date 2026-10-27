@@ -24,7 +24,7 @@ describe('CatalogSyncHeader', () => {
     );
   const hoverSync = () => {
     const button = screen.getByRole('button', { name: 'Sync Now' });
-    fireEvent.mouseOver(button.parentElement!);
+    fireEvent.mouseOver(button);
     return button;
   };
 
@@ -81,7 +81,7 @@ describe('CatalogSyncHeader', () => {
       .mocked(useIsSuperuser)
       .mockReturnValue({ isSuperuser: false, loading: true, error: null });
     mount();
-    expect(hoverSync()).toBeDisabled();
+    expect(hoverSync()).toHaveAttribute('aria-disabled', 'true');
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Checking permissions...',
     );
@@ -90,7 +90,7 @@ describe('CatalogSyncHeader', () => {
   it('explains why synchronization is disabled and prevents a request', async () => {
     mount({ syncDisabled: true, syncDisabledReason: 'Source is unavailable' });
     const button = hoverSync();
-    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(button);
     expect(onSyncClick).not.toHaveBeenCalled();
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
@@ -100,7 +100,10 @@ describe('CatalogSyncHeader', () => {
 
   it('can disable synchronization without an explanatory tooltip', () => {
     mount({ syncDisabled: true });
-    expect(screen.getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Sync Now' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it.each(['pending', 'failure'] as const)(
@@ -155,7 +158,7 @@ describe('CatalogSyncHeader', () => {
         syncDisabledReason: 'Source is unavailable',
       });
       const wrapper = screen.getByRole('button', {
-        name: 'Synchronization unavailable',
+        name: 'Sync Now',
       });
       expect(wrapper).toHaveAttribute('tabindex', '0');
       expect(wrapper).toHaveAttribute('aria-disabled', 'true');
