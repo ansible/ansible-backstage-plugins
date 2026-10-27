@@ -118,8 +118,8 @@ describe('CollectionsEmptyState', () => {
         syncProgress: [{ sourceId: 'hub', displayName: 'Hub', outcome }],
       });
       const button = screen.getByRole('button', { name: 'Sync Now' });
-      expect(button).toBeDisabled();
-      fireEvent.mouseOver(button.parentElement!);
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.mouseOver(button);
       const tooltip = await screen.findByRole('tooltip');
       expect(tooltip).toHaveTextContent(text);
       expect(tooltip).toHaveTextContent('Hub');
@@ -140,7 +140,7 @@ describe('CollectionsEmptyState', () => {
     });
     await user.tab();
     const wrapper = screen.getByRole('button', {
-      name: 'Synchronization unavailable',
+      name: 'Sync Now',
     });
     expect(wrapper).toHaveFocus();
     expect(wrapper).toHaveAttribute('aria-disabled', 'true');
