@@ -284,7 +284,7 @@ describe('autocomplete utils', () => {
         {
           ref: 'v1.0.1',
           version: null,
-          label: 'null',
+          label: 'v1.0.1',
           source: scmSource,
         },
       ]);
