@@ -37,6 +37,12 @@ export async function ansibleCreatorRun(
     ? workspacePath
     : `${os.homedir()}/.ansible/collections/ansible_collections`;
 
+  if (
+    applicationType !== appType.DEVFILE &&
+    !/^[a-z0-9_-]+$/i.test(collectionGroup)
+  ) {
+    throw new Error(`Invalid collection namespace: ${collectionGroup}`);
+  }
   const tarName =
     applicationType === appType.DEVFILE
       ? 'devfile.tar'
@@ -80,6 +86,7 @@ export async function ansibleCreatorRun(
       `[${BackendServiceAPI.pluginLogName}] Error occurred while downloading the project tar at:`,
       error as Error,
     );
+    throw error;
   }
 
   logger.info(

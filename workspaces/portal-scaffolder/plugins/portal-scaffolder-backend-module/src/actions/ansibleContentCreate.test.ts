@@ -218,15 +218,17 @@ describe('ansibleContentCreate', () => {
         downloadError,
       );
 
-      await ansibleCreatorRun(
-        mockWorkspacePath,
-        appType.PLAYBOOK,
-        logger,
-        mockDescription,
-        mockCollectionGroup,
-        mockCollectionName,
-        mockCreatorServiceUrl,
-      );
+      await expect(
+        ansibleCreatorRun(
+          mockWorkspacePath,
+          appType.PLAYBOOK,
+          logger,
+          mockDescription,
+          mockCollectionGroup,
+          mockCollectionName,
+          mockCreatorServiceUrl,
+        ),
+      ).rejects.toThrow(downloadError);
 
       expect(logger.error).toHaveBeenCalledWith(
         '[portal-scaffolder-backend-module] Error occurred while downloading the project tar at:',

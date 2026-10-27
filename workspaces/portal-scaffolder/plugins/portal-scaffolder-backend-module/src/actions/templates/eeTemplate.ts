@@ -7,6 +7,12 @@ export function generateEETemplate(values: EEDefinitionInput): string {
   const packagesJson = JSON.stringify(values.systemPackages);
   const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
   const tagsJson = JSON.stringify(values.tags);
+  const quoteYamlScalar = (v: string) =>
+    yaml.dump(v, { forceQuotes: true }).trim();
+  const defaultBaseImage = values.customBaseImage || values.baseImage || '';
+  const customBaseImageEnumEntry = values.customBaseImage?.trim()
+    ? `\n            - ${quoteYamlScalar(values.customBaseImage)}`
+    : '';
   return `---
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
@@ -28,17 +34,17 @@ spec:
         baseImage:
           title: Base execution environment image
           type: string
-          default: '${values.customBaseImage || values.baseImage}'
+          default: ${quoteYamlScalar(defaultBaseImage)}
           enum:
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18'
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16'
-            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'${customBaseImageEnumEntry}
           enumNames:
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 8)'
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 9)'
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 8)'
-            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)'${customBaseImageEnumEntry}
           ui:field: BaseImagePicker
       dependencies:
         baseImage:
@@ -54,7 +60,7 @@ spec:
                   ui:
                     field: EntityNamePicker
                     options:
-                    allowArbitraryValues: true
+                      allowArbitraryValues: true
                     help: 'Format: [registry[:port]/][namespace/]name[:tag]'
                     placeholder: 'e.g., quay.io/org/custom-ee:latest'
               required:
