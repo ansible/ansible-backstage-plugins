@@ -404,11 +404,50 @@ export class OCIClient {
 
     const url = new URL(challenge.realm);
 
+    // The advertised realm host may be unreachable or wrong: a registry
+    // configured as `localhost` but reached from inside a container, or — the
+    // case that matters most — a registry behind a TLS-terminating proxy that
+    // advertises its token endpoint on its internal plain-HTTP address. The
+    // rewrite is opt-in because it changes where credentials are sent.
+    if (this.connection.rewriteAuthRealmHost) {
+      const target = new URL(this.base);
+      // Rewrite when the host differs, or when the host matches but the realm
+      // is plaintext while the registry itself is TLS — Quay behind a
+      // TLS-terminating proxy advertises exactly that, with its public
+      // hostname. Either way, the realm ends up aligned with the address the
+      // registry was actually configured with. The protocol is only ever
+      // rewritten upward here (http realm, https base) or alongside a host
+      // rewrite; a TLS realm is never downgraded to plaintext on its own.
+      if (
+        url.host !== target.host ||
+        (url.protocol === 'http:' && target.protocol === 'https:')
+      ) {
+        this.logger?.debug(
+          `[${this.connection.name}] rewriting auth realm ${url.protocol}//${url.host} -> ${target.protocol}//${target.host}`,
+        );
+        url.protocol = target.protocol;
+        // hostname and port are assigned separately, on purpose: assigning
+        // `host` alone leaves a stale port from the advertised realm in place
+        // (http://internal:8080 -> https://registry:8080), silently pointing
+        // the credential-bearing exchange at the wrong endpoint.
+        url.hostname = target.hostname;
+        url.port = target.port;
+      }
+    }
+
     // The realm is advertised by the registry and is therefore untrusted input.
     // Refuse anything that is not plain HTTP(S) — a `file:` or `data:` realm
     // would direct the credential-bearing request somewhere it must never go —
     // and refuse a plaintext realm for an HTTPS registry, where sending Basic
     // credentials would leak them to a network observer.
+    //
+    // These checks run AFTER the opt-in rewrite above, deliberately: they must
+    // validate the URL the credentials would actually be sent to, not the
+    // unreachable internal address it replaces. Before the reorder, the
+    // plain-HTTP-realm refusal fired first, which made `rewriteAuthRealmHost`
+    // dead code for exactly the deployments it exists for (Quay behind a
+    // TLS-terminating proxy) — the token exchange was refused and every
+    // request failed 401.
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
       this.logger?.warn(
         `[${this.connection.name}] refusing auth realm with protocol ` +
@@ -422,20 +461,6 @@ export class OCIClient {
           `HTTPS registry`,
       );
       return undefined;
-    }
-
-    // The advertised realm host may be unreachable from here — a registry configured
-    // as `localhost` reached from inside a container, for instance. Only ever done
-    // when explicitly enabled, since this changes where credentials are sent.
-    if (this.connection.rewriteAuthRealmHost) {
-      const target = new URL(this.base);
-      if (url.host !== target.host) {
-        this.logger?.debug(
-          `[${this.connection.name}] rewriting auth realm host ${url.host} -> ${target.host}`,
-        );
-        url.protocol = target.protocol;
-        url.host = target.host;
-      }
     }
 
     if (challenge.service) url.searchParams.set('service', challenge.service);

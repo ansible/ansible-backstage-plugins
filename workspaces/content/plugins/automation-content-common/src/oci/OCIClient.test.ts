@@ -449,3 +449,126 @@ describe('auth priming', () => {
     expect(seen.every(r => r.auth === undefined)).toBe(true);
   });
 });
+
+describe('auth realm rewriting (rewriteAuthRealmHost)', () => {
+  /**
+   * A TLS registry whose advertised token endpoint is wrong, as Quay behind a
+   * TLS-terminating proxy behaves: the client connects to https://mock.registry,
+   * but the challenge points the token exchange at a plain-HTTP address.
+   *
+   * This was not hypothetical: against a real local Quay fronted by a TLS proxy,
+   * the refusal check for plaintext realms ran before the rewrite, the token
+   * exchange never happened, and every request failed 401 — reading exactly like
+   * a credentials or certificate problem (found 2026-10-27, PR #945).
+   *
+   * `realmOrigin` varies the defect's shape: a different internal host with a
+   * port, and the registry's own public host on plain HTTP.
+   */
+  function tlsRegistryAdvertisingPlainRealm(realmOrigin: string) {
+    const seen: Array<{ url: string; auth: string | undefined }> = [];
+    const fetchImpl = async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      const auth = init?.headers?.Authorization;
+      seen.push({ url, auth });
+
+      const reply = (
+        status: number,
+        body: unknown,
+        headers: Record<string, string> = {},
+      ) => new Response(JSON.stringify(body), { status, headers });
+
+      // The advertised token endpoint, in both its shapes.
+      if (url.startsWith(`${realmOrigin}/v2/auth`)) {
+        return auth?.startsWith('Basic ')
+          ? reply(200, { token: 'issued-token', expires_in: 300 })
+          : reply(401, { error: 'auth required' });
+      }
+      // The registry's real endpoints, over TLS.
+      if (url.startsWith(`${HOST}/v2/auth`)) {
+        return auth?.startsWith('Basic ')
+          ? reply(200, { token: 'rewritten-token', expires_in: 300 })
+          : reply(401, { error: 'auth required' });
+      }
+      if (!auth) {
+        return reply(
+          401,
+          {},
+          {
+            'www-authenticate': `Bearer realm="${realmOrigin}/v2/auth",service="quay"`,
+          },
+        );
+      }
+      if (!auth.startsWith('Bearer ')) {
+        return reply(400, { error: 'Invalid bearer token format' });
+      }
+      return reply(200, { name: 'demo/ee', tags: ['dev'] });
+    };
+    return { seen, fetchImpl: fetchImpl as never };
+  }
+
+  const basic = { type: 'basic' as const, username: 'u', password: 'p' };
+
+  it.each([
+    ['a different internal host', 'http://internal.registry:8080'],
+    ['the same host on plain HTTP', 'http://mock.registry'],
+  ])(
+    'rewrites a plain-HTTP realm (%s) so the token exchange stays on TLS',
+    async (_label, realmOrigin) => {
+      const { seen, fetchImpl } = tlsRegistryAdvertisingPlainRealm(realmOrigin);
+      const client = new OCIClient(
+        connection({ auth: basic, rewriteAuthRealmHost: true }),
+        { fetch: fetchImpl },
+      );
+
+      const res = await client.request('/v2/demo/ee/tags/list');
+
+      expect(res.status).toBe(200);
+      // The exchange went to the configured TLS registry, not the advertised
+      // plaintext address, and the real endpoints saw the resulting token.
+      const exchanges = seen.filter(r => r.url.startsWith(`${HOST}/v2/auth`));
+      expect(exchanges).toHaveLength(1);
+      expect(exchanges[0].auth).toMatch(/^Basic /);
+      const plaintextExchanges = seen.filter(r =>
+        r.url.startsWith(`${realmOrigin}/v2/auth`),
+      );
+      expect(plaintextExchanges).toEqual([]);
+    },
+  );
+
+  it('still refuses a plain-HTTP realm when rewriting is not enabled', async () => {
+    const { seen, fetchImpl } = tlsRegistryAdvertisingPlainRealm(
+      'http://internal.registry:8080',
+    );
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: fetchImpl,
+    });
+
+    const res = await client.request('/v2/demo/ee/tags/list');
+
+    // Without the opt-in, no token is acquired; the registry rejects the
+    // static credentials (Quay-style 400 here — the exact status is the
+    // stub's, the point is the request did not succeed).
+    expect([400, 401]).toContain(res.status);
+
+    // The security property: nothing was ever sent to the advertised
+    // plaintext realm — the Basic credentials never left TLS.
+    const plaintext = seen.filter(r => r.url.startsWith('http://'));
+    expect(plaintext).toEqual([]);
+  });
+
+  it('leaves a correct TLS realm untouched', async () => {
+    // A realm already on the right origin exercises the no-rewrite path.
+    const { seen, fetchImpl } = tlsRegistryAdvertisingPlainRealm(HOST);
+    const client = new OCIClient(
+      connection({ auth: basic, rewriteAuthRealmHost: true }),
+      { fetch: fetchImpl },
+    );
+
+    const res = await client.request('/v2/demo/ee/tags/list');
+
+    expect(res.status).toBe(200);
+    expect(seen.filter(r => r.url.includes('/v2/auth'))).toHaveLength(1);
+  });
+});
