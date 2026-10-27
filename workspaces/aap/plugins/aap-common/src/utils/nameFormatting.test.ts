@@ -256,6 +256,32 @@ describe('sanitizeAapName', () => {
       expect(sanitizeAapName('---a---')).toBe('a');
       expect(sanitizeAapName('a-b-c')).toBe('a-b-c');
     });
+
+    it('throws when sanitized output fails the Backstage name regex', () => {
+      const originalTest = RegExp.prototype.test;
+      function forceInvalidBackstageName(
+        this: RegExp,
+        value?: string,
+      ): boolean {
+        if (
+          typeof this.source === 'string' &&
+          this.source.startsWith('^[a-z0-9')
+        ) {
+          return false;
+        }
+        return originalTest.call(this, value as string);
+      }
+      const spy = jest
+        .spyOn(RegExp.prototype, 'test')
+        .mockImplementation(forceInvalidBackstageName);
+      try {
+        expect(() => sanitizeAapNameBase('Engineering')).toThrow(
+          /produced invalid Backstage identifier/,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 });
 
@@ -384,6 +410,21 @@ describe('toSourceNamespace', () => {
         orgId: -1,
       }),
     ).toThrow(/requires a stable numeric id/);
+    expect(() =>
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 1.5,
+      }),
+    ).toThrow(/requires a stable numeric id/);
+  });
+
+  it('defaults the catalog entity source when neither positional nor identity source is set', () => {
+    expect(
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 7,
+      }),
+    ).toBe('aap-7');
   });
 });
 

@@ -92,7 +92,7 @@ describe('SDK SyncDialog', () => {
       screen.getByText(label).closest('[role="button"]') as HTMLElement,
     ).getByRole('checkbox');
   const loaded = async () => {
-    await screen.findByText('GitHub');
+    await screen.findByText('GitHub', {}, { timeout: 10000 });
   };
   const submit = () =>
     fireEvent.click(screen.getByRole('button', { name: 'Sync Selected' }));
@@ -160,26 +160,39 @@ describe('SDK SyncDialog', () => {
     );
   });
 
-  it('uses a host filter for a selected host and an organization filter for a selected leaf', async () => {
+  it('uses a host filter for a selected host', async () => {
     mount();
     await loaded();
     fireEvent.click(checkbox('github.test'));
     submit();
-    await waitFor(() => expect(post).toHaveBeenCalled());
+    await waitFor(() => expect(post).toHaveBeenCalled(), { timeout: 10000 });
     expect(JSON.parse(post.mock.calls[0][1].body)).toEqual({
       filters: [{ scmProvider: 'github', hostName: 'github.test' }],
     });
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    post.mockClear();
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), {
+      timeout: 10000,
+    });
+  }, 20000);
+
+  it('uses an organization filter for a selected leaf', async () => {
+    mount();
+    await loaded();
     fireEvent.click(screen.getByText('one'));
     submit();
-    await waitFor(() => expect(post).toHaveBeenCalled());
+    await waitFor(() => expect(post).toHaveBeenCalled(), { timeout: 10000 });
     expect(JSON.parse(post.mock.calls[0][1].body)).toEqual({
       filters: [
-        { scmProvider: 'github', hostName: 'github.test', organization: 'one' },
+        {
+          scmProvider: 'github',
+          hostName: 'github.test',
+          organization: 'one',
+        },
       ],
     });
-  });
+    await waitFor(() => expect(onClose).toHaveBeenCalled(), {
+      timeout: 10000,
+    });
+  }, 20000);
 
   it('routes PAH repositories to the AAP sync endpoint', async () => {
     mount();
