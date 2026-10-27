@@ -26,7 +26,11 @@ describe('catalogProviderConfig', () => {
   it('reads split aap config with legacy rhaap fallback', () => {
     const config = new ConfigReader({
       ansible: {
-        rhaap: { baseUrl: 'https://aap.example.com', token: 't', checkSSL: true },
+        rhaap: {
+          baseUrl: 'https://aap.example.com',
+          token: 't',
+          checkSSL: true,
+        },
       },
       catalog: {
         providers: {
@@ -47,7 +51,11 @@ describe('catalogProviderConfig', () => {
   it('prefers primary key over legacy when both are set', () => {
     const config = new ConfigReader({
       ansible: {
-        rhaap: { baseUrl: 'https://aap.example.com', token: 't', checkSSL: true },
+        rhaap: {
+          baseUrl: 'https://aap.example.com',
+          token: 't',
+          checkSSL: true,
+        },
       },
       catalog: {
         providers: {
