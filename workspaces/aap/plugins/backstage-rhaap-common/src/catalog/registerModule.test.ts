@@ -42,10 +42,7 @@ describe('createCatalogModule', () => {
 
     await startTestBackend({
       extensionPoints: [
-        [
-          catalogModelExtensionPoint,
-          { setFieldValidators: () => undefined },
-        ],
+        [catalogModelExtensionPoint, { setFieldValidators: () => undefined }],
         [catalogProcessingExtensionPoint, extensionPoint],
       ],
       features: [
