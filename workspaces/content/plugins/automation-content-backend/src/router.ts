@@ -720,6 +720,11 @@ export async function createRouter(
       const seen = new Set<string>();
       body.registries.forEach((entry: unknown, i: number) => {
         const at = `registries[${i}]`;
+        // Each entry in `registries` should be a settings object like
+        // `{ name: ..., url: ... }`. If it is anything else — a bare
+        // string, a number, null — that is a mistake in the document being
+        // checked, and telling the user what is wrong is this endpoint's
+        // entire job. It must never crash on the input it exists to judge.
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
           errors.push({ path: at, message: 'Must be an object' });
           return;
@@ -738,6 +743,9 @@ export async function createRouter(
           seen.add(registry.name);
         }
 
+        // The URL must be text. A number or a nested object here is a
+        // mistake in the document, not a server error: report it and keep
+        // checking the rest of the entry.
         if (typeof registry.url !== 'string' || registry.url === '') {
           errors.push({
             path: `${at}.url`,

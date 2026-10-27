@@ -35,6 +35,35 @@ export const ANNOTATION_PREFIX = 'ansible.com';
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
 /**
+ * Build the "Registry" link shown on a catalog entity.
+ *
+ * The configured registry URL is stored in canonical form, where a bare host
+ * gains a trailing slash (`https://quay.io/`). Gluing strings onto that with
+ * a `/` in the middle produces `https://quay.io//repo`, so the link is
+ * assembled through the URL parser instead, which normalises the join for
+ * every URL shape — including a registry mounted under a sub-path.
+ *
+ * The scheme the registry was configured with is kept as-is, because forcing
+ * `http://` would downgrade HTTPS registries; `https` is assumed when the
+ * configured URL somehow carries no scheme at all.
+ */
+export function registryLinkUrl(
+  registryUrl: string,
+  repository: string,
+): string {
+  const withScheme = registryUrl.startsWith('http')
+    ? registryUrl
+    : `https://${registryUrl}`;
+  // The parser replaces the last path segment when joining a relative
+  // reference, so the base is normalised to end with a slash first. The one
+  // shape the parser does not add it to is a sub-path mount
+  // (`https://host/prefix`), which is exactly the shape that would lose its
+  // prefix without this.
+  const base = withScheme.endsWith('/') ? withScheme : `${withScheme}/`;
+  return new URL(repository, base).toString();
+}
+
+/**
  * Whether the adapter that claimed this artifact reads a build-time content manifest.
  *
  * The provider renders rich sub-entities — a component per collection — only for such
@@ -474,14 +503,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         tags: [classification.type, ...(summary ? [] : ['contents-unknown'])],
         links: [
           {
-            // Keep the scheme the registry was configured with — forcing
-            // `http://` downgrades HTTPS registries. Default to https when
-            // the configured URL carries no scheme.
-            url: `${
-              registry.url.startsWith('http')
-                ? registry.url
-                : `https://${registry.url}`
-            }/${repository}`,
+            url: registryLinkUrl(registry.url, repository),
             title: 'Registry',
           },
         ],
