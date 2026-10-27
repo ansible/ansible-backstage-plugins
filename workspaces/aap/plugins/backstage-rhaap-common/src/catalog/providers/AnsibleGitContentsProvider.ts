@@ -26,6 +26,7 @@ import {
   generateCollectionEntityName,
 } from './ansible-collections/utils';
 import { scmCollectionParser, repositoryParser } from './entityParser';
+import { getCatalogProvidersConfigRoot } from '../catalogProviderConfig';
 import { readAnsibleGitContentsConfigs } from './config';
 
 const DEFAULT_CRAWL_DEPTH = 1;
@@ -70,7 +71,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     if (sourceConfigs.length === 0) {
       logger.info(
         `[${this.pluginLogName}]: No Ansible Git Contents sources configured. ` +
-          `Add providers under catalog.providers.rhaap.<env>.sync.ansibleGitContents.providers`,
+          `Add providers under ${getCatalogProvidersConfigRoot()}.<env>.sync.ansibleGitContents.providers (legacy fallback: catalog.providers.rhaap)`,
       );
       return [];
     }
