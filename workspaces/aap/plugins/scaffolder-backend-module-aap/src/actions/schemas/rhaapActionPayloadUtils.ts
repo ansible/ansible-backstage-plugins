@@ -316,18 +316,21 @@ export function normalizeExecutionEnvironmentInputValues(
     return pickLaunchExecutionEnvironment(input);
   }
 
-  const organization = pickOrganization(o.organization);
-  const environmentName = readLaunchEEEnvironmentName(o);
-  const environmentDescription = readLaunchEEEnvironmentDescription(o);
-  const image = typeof o.image === 'string' ? o.image : '';
-  const pull = typeof o.pull === 'string' ? o.pull : '';
-
   const out: Record<string, unknown> = {
-    environmentName,
-    organization,
-    image,
-    pull,
+    organization: pickOrganization(o.organization),
   };
+  if (typeof o.environmentName === 'string') {
+    out.environmentName = o.environmentName;
+  } else if (typeof o.name === 'string') {
+    out.environmentName = o.name;
+  }
+  if (typeof o.image === 'string') {
+    out.image = o.image;
+  }
+  if (typeof o.pull === 'string') {
+    out.pull = o.pull;
+  }
+  const environmentDescription = readLaunchEEEnvironmentDescription(o);
   if (environmentDescription !== undefined) {
     out.environmentDescription = environmentDescription;
   }
