@@ -9,9 +9,11 @@ describe('sliceGuard', () => {
   });
 
   it('allows split modules together', () => {
-    assertCatalogModuleSliceAllowed('aap', 'aap');
-    assertCatalogModuleSliceAllowed('interim-content', 'content');
-    assertCatalogModuleSliceAllowed('self-service-ee', 'ee');
+    expect(() => {
+      assertCatalogModuleSliceAllowed('aap', 'aap');
+      assertCatalogModuleSliceAllowed('interim-content', 'content');
+      assertCatalogModuleSliceAllowed('self-service-ee', 'ee');
+    }).not.toThrow();
   });
 
   it('rejects shim with split modules', () => {

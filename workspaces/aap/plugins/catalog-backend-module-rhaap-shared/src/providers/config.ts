@@ -1,3 +1,6 @@
+/* eslint-disable no-console */
+// Config reader utilities — no Backstage logger available at this layer;
+// console.log is used intentionally for provider-configuration diagnostics.
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
 import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
