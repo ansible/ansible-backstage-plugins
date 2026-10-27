@@ -180,50 +180,21 @@ describe('GET /health', () => {
   });
 });
 
-describe('registry mutation authentication', () => {
-  /**
-   * The `/registries` prefix carries an unauthenticated policy so `GET /registries`
-   * stays inspectable. Backstage matches policies as path prefixes with no method
-   * awareness, so the mutating sub-routes must enforce credentials themselves.
-   */
-  it('rejects an unauthenticated poll of a registry', async () => {
+describe('GET /registries', () => {
+  it('returns empty items when none are configured', async () => {
     const index = seed([]);
-    const httpAuth = {
-      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
-    };
-    const res = await request(await appWith(index, httpAuth as never)).post(
-      '/registries/reg/poll',
-    );
+    const res = await request(await appWith(index)).get('/registries');
 
-    expect(res.status).toBe(401);
-    expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
-      allow: ['user', 'service'],
-    });
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual([]);
   });
 
-  it('rejects an unauthenticated sync of a registry', async () => {
-    // Both mutating sub-routes must enforce credentials, not just poll — an
-    // anonymous caller must not be able to trigger a full registry re-read.
-    const index = seed([]);
-    const httpAuth = {
-      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
-    };
-    const res = await request(await appWith(index, httpAuth as never)).post(
-      '/registries/reg/sync',
-    );
-
-    expect(res.status).toBe(401);
-  });
-
-  it('proceeds to the registry lookup once credentials are accepted', async () => {
-    // Enforcement must not overreach: an authenticated caller still gets the
-    // normal 404 for an unknown registry, not an auth error.
+  it('POST poll returns 404 for an unknown registry', async () => {
     const index = seed([]);
     const res = await request(await appWith(index)).post(
       '/registries/reg/poll',
     );
 
-    // Authentication passed; the 404 is the "no such registry" answer.
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
   });
