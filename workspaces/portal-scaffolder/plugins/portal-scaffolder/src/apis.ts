@@ -11,7 +11,6 @@ import { rhAapAuthApiRef, type AapAuthApiType } from '@ansible/aap-app-auth';
 import type {
   AnsibleApi,
   EEBuildApi,
-  EEBuildRegistryType,
   EEBuildRequest,
   EEBuildResult,
   EEBuildTriggerOptions,
