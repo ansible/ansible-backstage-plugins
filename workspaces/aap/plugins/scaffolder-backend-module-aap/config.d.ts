@@ -6,7 +6,7 @@ export interface Config {
     rhaap?: {
       /** @visibility backend */
       baseUrl?: string;
-      /** @visibility backend */
+      /** @visibility secret */
       token?: string;
       /** @visibility backend */
       checkSSL?: boolean;
