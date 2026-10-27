@@ -15,6 +15,7 @@
  */
 
 import * as fs from 'node:fs';
+import { pipeline } from 'node:stream/promises';
 import fetch, { Response } from 'node-fetch';
 import { LoggerService } from '@backstage/backend-plugin-api';
 
@@ -52,23 +53,18 @@ export class BackendServiceAPI {
     tarName: string,
   ) {
     try {
-      const fileStream = fs.createWriteStream(`${workspacePath}/${tarName}`);
-      await new Promise((resolve, reject) => {
-        response.body.pipe(fileStream);
-        response.body.on('error', (err: any) => {
-          reject(err);
-        });
-        fileStream.on('finish', () => {
-          resolve(true);
-        });
-      });
+      await pipeline(
+        response.body,
+        fs.createWriteStream(`${workspacePath}/${tarName}`),
+      );
       logger.debug(
         `[${BackendServiceAPI.pluginLogName}] Project tar file downloaded successfully`,
       );
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to download file: ${error.message}`);
-      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to download file: ${message}`, {
+        cause: error instanceof Error ? error : undefined,
+      });
     }
   }
 

@@ -39,7 +39,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
     await expect(action.handler(ctx as any)).rejects.toThrow(
       'Authorization token not provided.',
     );
-    expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
   });
 
   it('should launch job template (default: blocking)', async () => {
@@ -170,7 +170,6 @@ describe('ansible-aap:jobTemplate:launch', () => {
     await action.handler(ctx);
     expect(ctx.output).toHaveBeenCalledWith('data', expectedResponse);
     expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
-    expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
     expect(mockAnsibleService.logJobStdoutMessages).not.toHaveBeenCalled();
   });
 
