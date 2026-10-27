@@ -170,13 +170,13 @@ describe('documentation field normalisation', () => {
   });
 });
 
-describe('reconcile state', () => {
-  it('reports never-reconciled rather than inventing a timestamp', async () => {
+describe('GET /health', () => {
+  it('returns an ok status for a liveness check', async () => {
     const index = seed([]);
     const res = await request(await appWith(index)).get('/health');
 
     expect(res.status).toBe(200);
-    expect(res.body.refreshedAt).toBeUndefined();
+    expect(res.body).toEqual({ status: 'ok' });
   });
 });
 
