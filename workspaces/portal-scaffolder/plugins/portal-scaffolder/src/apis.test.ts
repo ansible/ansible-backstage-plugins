@@ -4,6 +4,16 @@ import {
   EEBuildApiClient,
   ansibleApiRef,
 } from './apis.ts';
+import type { EEBuildRequest as PublicEEBuildRequest } from './apis.ts';
+
+const publicEEBuildRequest: PublicEEBuildRequest = {
+  entityRef: 'component:default/application',
+  registryType: 'pah',
+  customRegistryUrl: '',
+  imageName: 'application',
+  imageTag: 'latest',
+  verifyTls: true,
+};
 
 const mockRhaapAuthApi = {
   getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
@@ -366,6 +376,10 @@ describe('Ansible API module', () => {
     expect(ansibleApiRef).toBeDefined();
     expect(require('./apis')).not.toHaveProperty('rhAapAuthApiRef');
     expect(require('./apis')).not.toHaveProperty('AapAuthApi');
+  });
+
+  it('preserves the frontend public export for shared API request types', () => {
+    expect(publicEEBuildRequest.registryType).toBe('pah');
   });
 });
 

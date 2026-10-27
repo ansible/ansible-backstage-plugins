@@ -781,7 +781,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
+"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common"
   dependencies:
@@ -799,6 +799,7 @@ __metadata:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
+    "@ansible/portal-scaffolder-common": "workspace:^"
     "@backstage/catalog-client": "npm:^1.14.0"
     "@backstage/catalog-model": "npm:^1.7.7"
     "@backstage/cli": "npm:^0.36.0"
