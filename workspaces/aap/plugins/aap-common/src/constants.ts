@@ -26,9 +26,11 @@ type VersionParts = {
  * others are compared as strings (semver precedence).
  */
 const parseVersion = (version: string): VersionParts => {
-  const dash = version.indexOf('-');
-  const corePart = dash === -1 ? version : version.slice(0, dash);
-  const prePart = dash === -1 ? null : version.slice(dash + 1);
+  // SemVer build metadata (+...) is ignored for precedence.
+  const withoutBuild = version.split('+', 1)[0];
+  const dash = withoutBuild.indexOf('-');
+  const corePart = dash === -1 ? withoutBuild : withoutBuild.slice(0, dash);
+  const prePart = dash === -1 ? null : withoutBuild.slice(dash + 1);
 
   const core = corePart.split('.').map(p => Number.parseInt(p, 10) || 0);
   const pre =

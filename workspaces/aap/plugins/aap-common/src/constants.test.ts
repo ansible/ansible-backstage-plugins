@@ -92,4 +92,10 @@ describe('compareVersions', () => {
     expect(compareVersions('1.0.0-alpha', '1.0.0-beta')).toBeLessThan(0);
     expect(compareVersions('1.0.0-rc.1', '1.0.0-rc.2')).toBeLessThan(0);
   });
+
+  it('ignores SemVer build metadata when comparing', () => {
+    expect(compareVersions('1.0.0+build.1', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0-rc.1+build.1', '1.0.0-rc.1')).toBe(0);
+    expect(compareVersions('1.0.0-rc.1+build.1', '1.0.0-rc.2')).toBeLessThan(0);
+  });
 });
