@@ -5,12 +5,13 @@ import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage
 import type { Config } from '@backstage/config';
 import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
 import type { AapConfig, PAHRepositoryConfig } from './types';
+import { getResolvedCatalogProvidersConfig } from '../catalogProviderConfig';
 
 export function readAapApiEntityConfigs(
   config: Config,
   syncEntity: string,
 ): AapConfig[] {
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = getResolvedCatalogProvidersConfig(config);
   if (!providerConfigs) {
     return [];
   }
