@@ -73,6 +73,20 @@ import type { CatalogModuleSlice } from './sliceGuard';
 /** Extends ProviderSyncStatus with 'idle' for providers that have not synced yet. */
 type SelfServiceSyncStatus = ProviderSyncStatus | 'idle';
 
+type AapProviderSyncStatusBlock = {
+  lastSync: string | null;
+  syncInProgress: boolean;
+  lastFailedSyncTime: string | null;
+  lastSyncStatus: ProviderSyncStatus;
+  lastDuplicateEntityCount: number;
+  lastMissingOrganizations: string[];
+};
+
+type AapSyncStatusPayload = {
+  orgsUsersTeams?: AapProviderSyncStatusBlock;
+  jobTemplates?: AapProviderSyncStatusBlock;
+};
+
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
 
@@ -239,7 +253,7 @@ export function createRouter(options: {
     [catalogEntityReadPermission],
   );
 
-  const buildAapSyncStatusPayload = () => ({
+  const buildAapSyncStatusPayload = (): AapSyncStatusPayload => ({
     ...(aapEntityProvider
       ? {
           orgsUsersTeams: {
@@ -331,24 +345,7 @@ export function createRouter(options: {
 
         try {
           const result: {
-            aap?: {
-              orgsUsersTeams: {
-                lastSync: string | null;
-                syncInProgress: boolean;
-                lastFailedSyncTime: string | null;
-                lastSyncStatus: ProviderSyncStatus;
-                lastDuplicateEntityCount: number;
-                lastMissingOrganizations: string[];
-              };
-              jobTemplates: {
-                lastSync: string | null;
-                syncInProgress: boolean;
-                lastFailedSyncTime: string | null;
-                lastSyncStatus: ProviderSyncStatus;
-                lastDuplicateEntityCount: number;
-                lastMissingOrganizations: string[];
-              };
-            };
+            aap?: AapSyncStatusPayload;
             content?: {
               syncInProgress: boolean;
               providers: Array<{
