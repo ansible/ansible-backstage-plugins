@@ -193,6 +193,47 @@ describe('Ansible API module', () => {
     });
   });
 
+  it('AnsibleApiClient.getSyncStatus falls back to slice route when legacy returns 404', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const legacyJson = jest.fn().mockResolvedValue({});
+    const sliceJson = jest.fn().mockResolvedValue({
+      aap: {
+        orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
+        jobTemplates: { lastSync: null },
+      },
+    });
+    const mockFetch = {
+      fetch: jest
+        .fn()
+        .mockResolvedValueOnce({ status: 404, json: legacyJson })
+        .mockResolvedValueOnce({ status: 200, json: sliceJson }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    const result = await client.getSyncStatus();
+
+    expect(mockFetch.fetch).toHaveBeenNthCalledWith(
+      1,
+      'http://example.com/ansible/sync/status?aap_entities=true',
+    );
+    expect(mockFetch.fetch).toHaveBeenNthCalledWith(
+      2,
+      'http://example.com/ansible/sync/status/aap',
+    );
+    expect(result).toEqual({
+      aap: {
+        orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
+        jobTemplates: { lastSync: null },
+      },
+    });
+  });
+
   it('AnsibleApiClient.getSyncStatus returns default values when fetch throws', async () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),

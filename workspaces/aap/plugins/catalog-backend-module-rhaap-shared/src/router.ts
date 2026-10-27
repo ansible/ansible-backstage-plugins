@@ -216,14 +216,16 @@ export function createRouter(options: {
     };
   };
 
-  if (includeAap && aapEntityProvider && jobTemplateProvider) {
+  if (includeAap && aapEntityProvider) {
     router.post(
       '/ansible/sync/from-aap/orgs_users_teams',
       express.json(),
       requireSuperuserMiddleware,
       createAsyncSyncHandler(aapEntityProvider, 'orgs, users and teams'),
     );
+  }
 
+  if (includeAap && jobTemplateProvider) {
     router.post(
       '/ansible/sync/from-aap/job_templates',
       express.json(),
@@ -238,26 +240,34 @@ export function createRouter(options: {
   );
 
   const buildAapSyncStatusPayload = () => ({
-    orgsUsersTeams: {
-      lastSync: aapEntityProvider!.getLastSyncTime(),
-      syncInProgress: aapEntityProvider!.getIsSyncing(),
-      lastFailedSyncTime: aapEntityProvider!.getLastFailedSyncTime(),
-      lastSyncStatus: aapEntityProvider!.getLastSyncStatus(),
-      lastDuplicateEntityCount:
-        aapEntityProvider!.getLastDuplicateEntityCount(),
-      lastMissingOrganizations:
-        aapEntityProvider!.getLastMissingOrganizations(),
-    },
-    jobTemplates: {
-      lastSync: jobTemplateProvider!.getLastSyncTime(),
-      syncInProgress: jobTemplateProvider!.getIsSyncing(),
-      lastFailedSyncTime: jobTemplateProvider!.getLastFailedSyncTime(),
-      lastSyncStatus: jobTemplateProvider!.getLastSyncStatus(),
-      lastDuplicateEntityCount:
-        jobTemplateProvider!.getLastDuplicateEntityCount(),
-      lastMissingOrganizations:
-        jobTemplateProvider!.getLastMissingOrganizations(),
-    },
+    ...(aapEntityProvider
+      ? {
+          orgsUsersTeams: {
+            lastSync: aapEntityProvider.getLastSyncTime(),
+            syncInProgress: aapEntityProvider.getIsSyncing(),
+            lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
+            lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
+            lastDuplicateEntityCount:
+              aapEntityProvider.getLastDuplicateEntityCount(),
+            lastMissingOrganizations:
+              aapEntityProvider.getLastMissingOrganizations(),
+          },
+        }
+      : {}),
+    ...(jobTemplateProvider
+      ? {
+          jobTemplates: {
+            lastSync: jobTemplateProvider.getLastSyncTime(),
+            syncInProgress: jobTemplateProvider.getIsSyncing(),
+            lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
+            lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
+            lastDuplicateEntityCount:
+              jobTemplateProvider.getLastDuplicateEntityCount(),
+            lastMissingOrganizations:
+              jobTemplateProvider.getLastMissingOrganizations(),
+          },
+        }
+      : {}),
   });
 
   const buildContentSyncStatusPayload = () => {
@@ -362,8 +372,7 @@ export function createRouter(options: {
           // Include aap block if aap_entities=true or no query params
           if (
             (aapEntities || noQueryParams) &&
-            aapEntityProvider &&
-            jobTemplateProvider
+            (aapEntityProvider || jobTemplateProvider)
           ) {
             result.aap = buildAapSyncStatusPayload();
           }
@@ -391,7 +400,7 @@ export function createRouter(options: {
     );
   }
 
-  if (includeAap && aapEntityProvider && jobTemplateProvider) {
+  if (includeAap && (aapEntityProvider || jobTemplateProvider)) {
     router.get(
       '/ansible/sync/status/aap',
       syncStatusPermissionMiddleware,

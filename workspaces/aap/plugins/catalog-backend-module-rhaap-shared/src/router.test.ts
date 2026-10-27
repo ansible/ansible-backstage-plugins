@@ -4007,7 +4007,6 @@ describe('createRouter', () => {
 
       const testApp = express().use(routerWithInvalidProvider);
 
-      // AAP sync routes are not mounted without both AAP providers
       const response = await request(testApp)
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send();
@@ -4034,11 +4033,15 @@ describe('createRouter', () => {
 
       const testApp = express().use(routerWithInvalidProvider);
 
-      // AAP sync routes are not mounted without both AAP providers
-      const response = await request(testApp)
+      const orgsResponse = await request(testApp)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
+      expect(orgsResponse.status).toBe(202);
+
+      const jobTemplatesResponse = await request(testApp)
         .post('/ansible/sync/from-aap/job_templates')
         .send();
-      expect(response.status).toBe(404);
+      expect(jobTemplatesResponse.status).toBe(404);
     });
   });
 
