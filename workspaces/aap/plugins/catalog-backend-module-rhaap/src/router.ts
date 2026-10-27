@@ -29,6 +29,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import {
+  catalogEntityCreatePermission,
   catalogEntityDeletePermission,
   catalogEntityReadPermission,
 } from '@backstage/plugin-catalog-common/alpha';
@@ -365,13 +366,14 @@ export function createRouter(options: {
   );
 
   router.post('/ansible/ee', express.json(), async (request, response) => {
-    // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(
+    // Accept the initiator's credentials (forwarded by the scaffolder action)
+    // so catalog RBAC applies, in addition to trusted service-to-service calls.
+    const credentials = await httpAuth.credentials(
       // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
       // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
       request,
       {
-        allow: ['service'],
+        allow: ['user', 'service'],
       },
     );
 
@@ -383,6 +385,43 @@ export function createRouter(options: {
     }
 
     try {
+      const [createDecision] = await permissions.authorize(
+        [{ permission: catalogEntityCreatePermission }],
+        { credentials },
+      );
+      if (createDecision.result !== AuthorizeResult.ALLOW) {
+        response.status(403).json({
+          error: 'Forbidden: insufficient permissions to create entity',
+        });
+        return;
+      }
+
+      const entityRef = stringifyEntityRef(entity);
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: credentials,
+        targetPluginId: 'catalog',
+      });
+      const existing = await catalogClient.getEntityByRef(entityRef, {
+        token,
+      });
+
+      // Replacing an entity that already exists (for example a
+      // provider-managed EE) requires the caller to have delete rights on
+      // that specific entity, mirroring the DELETE route below.
+      if (existing) {
+        const [deleteDecision] = await permissions.authorize(
+          [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
+          { credentials },
+        );
+        if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+          response.status(403).json({
+            error:
+              'Forbidden: insufficient permissions to replace existing entity',
+          });
+          return;
+        }
+      }
+
       await eeEntityProvider.registerExecutionEnvironment(entity);
       response.status(200).json({ success: true });
     } catch (error) {
