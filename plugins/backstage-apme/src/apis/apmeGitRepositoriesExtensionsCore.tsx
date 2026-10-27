@@ -13,8 +13,12 @@ import {
   configApiRef,
   createApiFactory,
 } from '@backstage/core-plugin-api';
+import { Config } from '@backstage/config';
 import { Entity } from '@backstage/catalog-model';
-import { isApmeEnabled } from '@ansible/backstage-apme-common/config';
+import {
+  isApmeAddRepositoryButtonEnabled,
+  isApmeEnabled,
+} from '@ansible/backstage-apme-common/config';
 import {
   DefaultGitRepositoriesExtensionsApi,
   gitRepositoriesExtensionsApiRef,
@@ -72,7 +76,7 @@ export type ApmeGitRepositoriesComponents = {
 
 export function createApmeGitRepositoriesExtensionsApi(
   components: ApmeGitRepositoriesComponents,
-): new () => GitRepositoriesExtensionsApi {
+): new (config: Config) => GitRepositoriesExtensionsApi {
   const {
     FleetQualityTab,
     EntityQualityTab,
@@ -88,7 +92,14 @@ export function createApmeGitRepositoriesExtensionsApi(
     extends DefaultGitRepositoriesExtensionsApi
     implements GitRepositoriesExtensionsApi
   {
+    constructor(private readonly config: Config) {
+      super();
+    }
+
     getPageHeaderActions() {
+      if (!isApmeAddRepositoryButtonEnabled(this.config)) {
+        return [];
+      }
       return [
         {
           id: 'add-repository',
@@ -102,7 +113,7 @@ export function createApmeGitRepositoriesExtensionsApi(
       return [
         {
           id: 'quality',
-          label: 'Quality',
+          label: 'Modernization',
           path: 'quality',
           order: 10,
           render: ({ repositoryDetailPath }: GitRepositoriesPageTabContext) => (
@@ -111,7 +122,7 @@ export function createApmeGitRepositoriesExtensionsApi(
         },
         {
           id: 'quality-settings',
-          label: 'Quality settings',
+          label: 'Modernization settings',
           path: 'quality-settings',
           order: 15,
           render: () => (
@@ -137,7 +148,7 @@ export function createApmeGitRepositoriesExtensionsApi(
       return [
         {
           id: 'quality',
-          label: 'Quality',
+          label: 'Modernization',
           order: 10,
           render: ({
             entity,
@@ -153,7 +164,7 @@ export function createApmeGitRepositoriesExtensionsApi(
         },
         {
           id: 'quality-activity',
-          label: 'Quality activity',
+          label: 'Modernization activity',
           order: 15,
           render: ({ entity }: GitRepositoryDetailTabContext) => (
             <EntityQualityActivityTab entity={entity} />
@@ -264,14 +275,14 @@ export function createApmeGitRepositoriesExtensionsApi(
 }
 
 export function createGitRepositoriesExtensionsApiFactory(
-  ApiClass: new () => GitRepositoriesExtensionsApi,
+  ApiClass: new (config: Config) => GitRepositoriesExtensionsApi,
 ): AnyApiFactory {
   return createApiFactory({
     api: gitRepositoriesExtensionsApiRef,
     deps: { configApi: configApiRef },
     factory: ({ configApi }) =>
       isApmeEnabled(configApi)
-        ? new ApiClass()
+        ? new ApiClass(configApi)
         : new DefaultGitRepositoriesExtensionsApi(),
   });
 }

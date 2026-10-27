@@ -188,7 +188,7 @@ const ApmeAbbenaySettingsTabContent = () => {
               <strong>{enableAi ? 'enabled' : 'disabled'}</strong>
               <span style={{ opacity: 0.7 }}>
                 {' '}
-                (set in Git Repositories → Quality settings)
+                (set in Git Repositories → Modernization settings)
               </span>
             </div>
           </FlexItem>

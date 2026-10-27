@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ComponentProps, type FC } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FC,
+} from 'react';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { Progress, ResponseErrorPanel } from '@backstage/core-components';
 import { Button, Card, CardBody, Flex, FlexItem } from '@patternfly/react-core';
@@ -22,6 +30,9 @@ import '@patternfly/react-core/dist/styles/base.css';
 import {
   ApmeApiProvider,
   CheckOptionsForm,
+  fetchProjectOperationState,
+  LIVE_OPERATION_STATUSES,
+  useApmeApi,
   useProjectWorkflow,
   type ProjectWorkflowController,
 } from '@apme/ui-workflow';
@@ -60,7 +71,9 @@ export interface ApmeEntityTabProps {
  */
 function WorkflowBody({ projectId }: { projectId: string }) {
   const apmeApi = useApi(apmeApiRef);
+  const uiWorkflowApi = useApmeApi();
   const configApi = useApi(configApiRef);
+  const [remountProbeComplete, setRemountProbeComplete] = useState(false);
   const portalAiEnabled = useApmeAiEnabled();
   const [project, setProject] = useState<Project | null>(null);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -107,7 +120,42 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     getAiModel,
   });
 
-  const { sessionTabVisible, isRunning, startScan, cancel, dismiss } = workflow;
+  const {
+    sessionTabVisible,
+    isRunning,
+    startScan,
+    cancel,
+    dismiss,
+    resumeSession,
+  } = workflow;
+  const resumeSessionRef = useRef(resumeSession);
+  resumeSessionRef.current = resumeSession;
+
+  // Re-attach when the Quality tab remounts after navigating away (backstage-plugins#742).
+  useEffect(() => {
+    let cancelled = false;
+    setRemountProbeComplete(false);
+    (async () => {
+      try {
+        const op = await fetchProjectOperationState(projectId, uiWorkflowApi);
+        if (cancelled) return;
+        if (op && LIVE_OPERATION_STATUSES.has(op.status)) {
+          resumeSessionRef.current();
+        }
+      } catch {
+        /* transient probe errors: stay on idle form */
+      } finally {
+        if (!cancelled) {
+          setRemountProbeComplete(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Probe once per project mount; adapter is stable for the ApmeApiProvider tree.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- uiWorkflowApi from context
+  }, [projectId]);
 
   const createPRWithCapture = useCallback(
     async (options?: Parameters<ProjectWorkflowController['createPR']>[0]) => {
@@ -184,6 +232,10 @@ function WorkflowBody({ projectId }: { projectId: string }) {
     );
   }
 
+  if (!remountProbeComplete) {
+    return <Progress />;
+  }
+
   if (loadError) {
     return <ResponseErrorPanel error={loadError} />;
   }
@@ -240,7 +292,7 @@ function WorkflowBody({ projectId }: { projectId: string }) {
             />
             {!portalAiEnabled && (
               <div style={{ opacity: 0.6, fontSize: 13, marginTop: 8 }}>
-                AI is disabled in Quality settings.
+                AI is disabled in Modernization settings.
               </div>
             )}
           </FlexItem>

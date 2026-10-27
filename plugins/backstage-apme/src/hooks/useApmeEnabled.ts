@@ -74,6 +74,18 @@ export function useApmeEnabled(): boolean {
   return configApi.getOptionalBoolean('ansible.apme.enabled') ?? false;
 }
 
+/** Git Repos header + Fleet Quality empty-state Add repository (opt-in). */
+export function useApmeAddRepositoryButtonEnabled(): boolean {
+  const configApi = useApi(configApiRef);
+  if (!(configApi.getOptionalBoolean('ansible.apme.enabled') ?? false)) {
+    return false;
+  }
+  return (
+    configApi.getOptionalBoolean('ansible.apme.addRepositoryButton.enabled') ??
+    false
+  );
+}
+
 /**
  * Portal AI tier flag from Quality settings (`GET /apme/settings`).
  */
