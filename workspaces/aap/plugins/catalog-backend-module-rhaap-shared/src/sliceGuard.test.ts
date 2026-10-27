@@ -29,4 +29,11 @@ describe('sliceGuard', () => {
       /while deprecated catalog-backend-module-rhaap/,
     );
   });
+
+  it('allows repeated shim registration (idempotent)', () => {
+    expect(() => {
+      assertCatalogModuleSliceAllowed('rhaap', 'all');
+      assertCatalogModuleSliceAllowed('rhaap', 'all');
+    }).not.toThrow();
+  });
 });

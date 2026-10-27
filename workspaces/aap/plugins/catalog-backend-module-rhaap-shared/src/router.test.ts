@@ -277,6 +277,65 @@ describe('createRouter', () => {
     jest.clearAllMocks();
   });
 
+  describe('slice isolation', () => {
+    /** Helper to build a router with the given slice. */
+    async function buildSliceApp(slice: 'aap' | 'content' | 'ee') {
+      const router = await createRouter({
+        slice,
+        logger: mockLogger,
+        config: mockConfig,
+        scheduler: mockScheduler,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+      });
+      return express().use(router);
+    }
+
+    it.each([
+      [
+        'aap',
+        '/ansible/sync/status/aap',
+        ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
+      ],
+      [
+        'content',
+        '/ansible/sync/status/content',
+        ['/ansible/sync/status/aap', '/ansible/sync/status/self-service'],
+      ],
+      [
+        'ee',
+        '/ansible/sync/status/self-service',
+        ['/ansible/sync/status/aap', '/ansible/sync/status/content'],
+      ],
+    ] as const)(
+      'slice %s mounts only its own status route',
+      async (slice, ownRoute, otherRoutes) => {
+        const sliceApp = await buildSliceApp(slice);
+
+        const ownResponse = await request(sliceApp).get(ownRoute);
+        expect(ownResponse.status).toBe(200);
+
+        for (const route of otherRoutes) {
+          const otherResponse = await request(sliceApp).get(route);
+          expect(otherResponse.status).toBe(404);
+        }
+
+        const legacyResponse = await request(sliceApp).get(
+          '/ansible/sync/status',
+        );
+        expect(legacyResponse.status).toBe(404);
+      },
+    );
+  });
+
   describe('GET /health', () => {
     it('should return ok status', async () => {
       const response = await request(app).get('/health');

@@ -70,6 +70,9 @@ import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 import type { CatalogModuleSlice } from './sliceGuard';
 
+/** Extends ProviderSyncStatus with 'idle' for providers that have not synced yet. */
+type SelfServiceSyncStatus = ProviderSyncStatus | 'idle';
+
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
 
@@ -437,7 +440,7 @@ export function createRouter(options: {
         response.status(200).json({
           selfService: {
             syncInProgress: false,
-            lastSyncStatus: 'idle' as ProviderSyncStatus,
+            lastSyncStatus: 'idle' satisfies SelfServiceSyncStatus,
           },
         });
       },

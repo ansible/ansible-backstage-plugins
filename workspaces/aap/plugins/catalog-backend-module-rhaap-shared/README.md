@@ -26,8 +26,8 @@ Fragment for `app-config.local.yaml` when using the **split catalog modules** (`
 ```yaml
 catalog:
   providers:
-    # Primary key for catalog-backend-module-aap (split bundle)
-    aap:
+    # Config key read by readAapApiEntityConfigs / readPahCollectionConfigs
+    rhaap:
       development:
         orgs: Default
         sync:
@@ -49,7 +49,7 @@ ansible:
     checkSSL: false
 ```
 
-> **Legacy / shim deployments:** If you are still using the deprecated `catalog-backend-module-rhaap` shim (single bundle), replace `aap:` with `rhaap:` above. The split modules fall back to `catalog.providers.rhaap` automatically when their primary key is absent.
+> Both split modules and the legacy `catalog-backend-module-rhaap` shim read from `catalog.providers.rhaap`.
 
 ## Features
 
