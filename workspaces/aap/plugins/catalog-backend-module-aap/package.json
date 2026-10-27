@@ -1,0 +1,44 @@
+{
+  "name": "@ansible/backstage-plugin-catalog-backend-module-aap",
+  "description": "AAP identity and job-template catalog providers for the catalog plugin.",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "backend-plugin-module",
+    "pluginId": "catalog",
+    "pluginPackage": "@backstage/plugin-catalog-backend"
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/backstage-plugin-catalog-backend-module-rhaap-shared --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
+  },
+  "dependencies": {
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^",
+    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@backstage/backend-plugin-api": "^1.8.0",
+    "@backstage/plugin-catalog-backend": "^3.6.1"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.0"
+  },
+  "files": [
+    "dist",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "dist-dynamic/alpha/*",
+    "build",
+    "src/**/*.d.ts"
+  ],
+  "configSchema": "config.d.ts"
+}

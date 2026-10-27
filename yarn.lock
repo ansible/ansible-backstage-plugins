@@ -253,6 +253,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap":
+  version: 0.0.0-use.local
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap"
+  dependencies:
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/plugin-catalog-backend": "npm:^3.6.1"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/backstage-plugin-catalog-backend-module-apme@workspace:^, @ansible/backstage-plugin-catalog-backend-module-apme@workspace:workspaces/apme/plugins/catalog-backend-module-apme":
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-apme@workspace:workspaces/apme/plugins/catalog-backend-module-apme"
@@ -282,6 +294,52 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/backstage-plugin-catalog-backend-module-interim-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-interim-content":
+  version: 0.0.0-use.local
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-interim-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-interim-content"
+  dependencies:
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/plugin-catalog-backend": "npm:^3.6.1"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/backstage-plugin-catalog-backend-module-rhaap-shared@workspace:^, @ansible/backstage-plugin-catalog-backend-module-rhaap-shared@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap-shared":
+  version: 0.0.0-use.local
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap-shared"
+  dependencies:
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/portal-plugin-node": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/backend-test-utils": "npm:^1.11.1"
+    "@backstage/catalog-client": "npm:^1.14.0"
+    "@backstage/catalog-model": "npm:^1.10.0"
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/config": "npm:^1.3.6"
+    "@backstage/errors": "npm:^1.2.7"
+    "@backstage/integration": "npm:^2.0.0"
+    "@backstage/plugin-catalog-common": "npm:^1.1.8"
+    "@backstage/plugin-catalog-node": "npm:^2.1.0"
+    "@backstage/plugin-permission-common": "npm:^0.9.7"
+    "@backstage/plugin-signals-node": "npm:^0.2.3"
+    "@backstage/types": "npm:^1.2.2"
+    "@testing-library/jest-dom": "npm:^6.6.3"
+    "@types/express": "npm:^5.0.3"
+    "@types/jest": "npm:^29.5.14"
+    "@types/supertest": "npm:^6.0.3"
+    cross-fetch: "npm:^4.1.0"
+    express: "npm:^5.1.0"
+    express-promise-router: "npm:^4.1.1"
+    supertest: "npm:^7.1.1"
+    undici: "npm:^6.26.0"
+    web-streams-polyfill: "npm:^4.1.0"
+    yaml: "npm:^2.4.5"
+    zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner@workspace:^, @ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap-user-provisioner":
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap-user-provisioner"
@@ -303,6 +361,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap"
   dependencies:
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-node": "workspace:^"
     "@backstage/backend-defaults": "npm:^0.16.0"
@@ -331,6 +390,18 @@ __metadata:
     undici: "npm:^6.26.0"
     yaml: "npm:^2.4.5"
     zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/backstage-plugin-catalog-backend-module-self-service-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-self-service-ee":
+  version: 0.0.0-use.local
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-self-service-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-self-service-ee"
+  dependencies:
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/plugin-catalog-backend": "npm:^3.6.1"
   languageName: unknown
   linkType: soft
 
