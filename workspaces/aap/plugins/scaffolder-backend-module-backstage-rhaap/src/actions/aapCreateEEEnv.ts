@@ -1,8 +1,6 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
-import {
-  type ExecutionEnvironment,
-  IAAPService,
-} from '@ansible/backstage-rhaap-common';
+import { ExecutionEnvironment } from '@ansible/aap-common';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
   parseAapActionValues,
   rethrowPreservingInputError,

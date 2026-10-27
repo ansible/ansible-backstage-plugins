@@ -1158,14 +1158,14 @@ export class AAPClient implements IAAPService {
     return sanitizeAapName(name);
   }
 
-  private async executeCatalogRequest(
+  private async executeCatalogRequest<T = never>(
     endPoint: string,
     token: string | null,
-    results?: never[],
-  ): Promise<never[]> {
+    results?: T[],
+  ): Promise<T[]> {
     let result = results ?? [];
     const response = await this.executeGetRequest(endPoint, token);
-    const jsonResponse = (await response.json()) as PaginatedResponse;
+    const jsonResponse = (await response.json()) as PaginatedResponse<T>;
     result = [...result, ...jsonResponse.results];
     if (jsonResponse.next) {
       return await this.executeCatalogRequest(jsonResponse.next, token, result);
