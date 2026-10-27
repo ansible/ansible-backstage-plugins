@@ -65,8 +65,8 @@ From the repository root, run:
 ```bash
 yarn test --runInBand \
   workspaces/portal-core/plugins/portal-extension-host \
-  workspaces/self-service/plugins/portal-scaffolder/src/alpha.test.tsx \
-  workspaces/self-service/plugins/portal-scaffolder/src/alphaPermissions.test.tsx \
+  workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alpha.test.tsx \
+  workspaces/portal-scaffolder/plugins/portal-scaffolder/src/alphaPermissions.test.tsx \
   workspaces/apme/plugins/backstage-apme/src/alpha.test.tsx
 ```
 
