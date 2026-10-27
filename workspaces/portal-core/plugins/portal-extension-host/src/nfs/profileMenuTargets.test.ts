@@ -2,7 +2,26 @@ import {
   coreExtensionData,
   type AppTreeApi,
 } from '@backstage/frontend-plugin-api';
-import { resolveProfileMenuPath } from './profileMenuTargets';
+import {
+  hasValidPermission,
+  resolveProfileMenuPath,
+} from './profileMenuTargets';
+
+it('accepts a resource-scoped permission with a concrete resource reference', () => {
+  expect(
+    hasValidPermission({
+      requiredPermission: {
+        permission: {
+          type: 'resource',
+          name: 'preferences.read',
+          attributes: { action: 'read' },
+          resourceType: 'preferences',
+        },
+        resourceRef: 'preferences:default/team',
+      },
+    }),
+  ).toBe(true);
+});
 
 const target = {
   ownerPlugin: 'independent',
