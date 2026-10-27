@@ -75,14 +75,17 @@ describe('ApmeQualityActivityTab', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Relative times so scan-1 is always newest for ?rule= auto-open.
+    const now = Date.now();
+    const newer = new Date(now).toISOString();
+    const older = new Date(now - 60_000).toISOString();
     getActivity.mockResolvedValue([
       {
         scan_id: 'scan-1',
         session_id: 's1',
         project_path: '/demo',
         source: 'portal',
-        // Strictly newer than scan-2 so ?rule= auto-open is deterministic.
-        created_at: '2026-10-27T12:00:00.000Z',
+        created_at: newer,
         scan_type: 'check',
         total_violations: 2,
         fixable: 1,
@@ -98,7 +101,7 @@ describe('ApmeQualityActivityTab', () => {
         session_id: 's2',
         project_path: '/demo',
         source: 'portal',
-        created_at: '2026-10-27T11:00:00.000Z',
+        created_at: older,
         scan_type: 'remediate',
         total_violations: 0,
         fixable: 0,
@@ -118,7 +121,7 @@ describe('ApmeQualityActivityTab', () => {
       session_id: 's1',
       project_path: '/demo',
       source: 'portal',
-      created_at: '2026-10-27T12:00:00.000Z',
+      created_at: newer,
       scan_type: 'check',
       total_violations: 1,
       fixable: 1,
