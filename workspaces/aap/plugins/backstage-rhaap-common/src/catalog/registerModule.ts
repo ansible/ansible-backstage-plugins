@@ -127,101 +127,108 @@ export function createCatalogModule(options: CreateCatalogModuleOptions) {
           await runWithCatalogProvidersConfigRootAsync(
             catalogProvidersConfigRootForSlice(slice),
             async () => {
-          const aapEntityProvider = includesAap(slice)
-            ? AAPEntityProvider.fromConfig(config, ansibleService, {
-                logger,
-                scheduler,
-              })
-            : [];
-          const jobTemplateProvider = includesAap(slice)
-            ? AAPJobTemplateProvider.fromConfig(config, ansibleService, {
-                logger,
-                scheduler,
-              })
-            : [];
-          let eeEntityProvider;
-          let pahCollectionProviders: ContentCatalogProviders['pahCollectionProviders'] =
-            [];
-          let ansibleGitContentsProviders: ContentCatalogProviders['ansibleGitContentsProviders'] =
-            [];
+              const aapEntityProvider = includesAap(slice)
+                ? AAPEntityProvider.fromConfig(config, ansibleService, {
+                    logger,
+                    scheduler,
+                  })
+                : [];
+              const jobTemplateProvider = includesAap(slice)
+                ? AAPJobTemplateProvider.fromConfig(config, ansibleService, {
+                    logger,
+                    scheduler,
+                  })
+                : [];
+              let eeEntityProvider;
+              let pahCollectionProviders: ContentCatalogProviders['pahCollectionProviders'] =
+                [];
+              let ansibleGitContentsProviders: ContentCatalogProviders['ansibleGitContentsProviders'] =
+                [];
 
-          if (includesContent(slice)) {
-            if (!contentCatalogRegistration) {
-              throw new Error(
-                `[catalog-module-${moduleId}] Content slice requires contentCatalogRegistration from @ansible/backstage-plugin-catalog-backend-module-content.`,
-              );
-            }
-            const contentProviders =
-              await contentCatalogRegistration.createProviders({
-                config,
-                logger,
-                scheduler,
-                ansibleService,
+              if (includesContent(slice)) {
+                if (!contentCatalogRegistration) {
+                  throw new Error(
+                    `[catalog-module-${moduleId}] Content slice requires contentCatalogRegistration from @ansible/backstage-plugin-catalog-backend-module-content.`,
+                  );
+                }
+                const contentProviders =
+                  await contentCatalogRegistration.createProviders({
+                    config,
+                    logger,
+                    scheduler,
+                    ansibleService,
+                  });
+                eeEntityProvider = includesEe(slice)
+                  ? contentProviders.eeEntityProvider
+                  : undefined;
+                pahCollectionProviders =
+                  contentProviders.pahCollectionProviders;
+                ansibleGitContentsProviders =
+                  contentProviders.ansibleGitContentsProviders;
+
+                logger.info(
+                  `[catalog-module-${moduleId}]: Created ${ansibleGitContentsProviders.length} Ansible Git Contents provider(s)`,
+                );
+              } else if (includesEe(slice)) {
+                eeEntityProvider = undefined;
+              }
+
+              for (const p of aapEntityProvider) {
+                p.setSignals(signals);
+              }
+              for (const p of jobTemplateProvider) {
+                p.setSignals(signals);
+              }
+
+              const entityProviders = [
+                ...aapEntityProvider,
+                ...jobTemplateProvider,
+                ...(eeEntityProvider ? [eeEntityProvider] : []),
+                ...pahCollectionProviders,
+                ...ansibleGitContentsProviders,
+              ];
+              if (entityProviders.length > 0) {
+                catalogProcessing.addEntityProvider(...entityProviders);
+              }
+
+              const catalogClient = new CatalogClient({
+                discoveryApi: discovery,
               });
-            eeEntityProvider = includesEe(slice)
-              ? contentProviders.eeEntityProvider
-              : undefined;
-            pahCollectionProviders = contentProviders.pahCollectionProviders;
-            ansibleGitContentsProviders =
-              contentProviders.ansibleGitContentsProviders;
-          } else if (includesEe(slice)) {
-            eeEntityProvider = undefined;
-          }
 
-          for (const p of aapEntityProvider) {
-            p.setSignals(signals);
-          }
-          for (const p of jobTemplateProvider) {
-            p.setSignals(signals);
-          }
+              const externalAccessConfig = config
+                .getOptionalConfig('backend')
+                ?.getOptionalConfig('auth')
+                ?.getOptionalConfigArray('externalAccess');
+              const allowedExternalAccessSubjects: string[] = [];
+              if (externalAccessConfig) {
+                for (const entry of externalAccessConfig) {
+                  const subject = entry.getOptionalString('options.subject');
+                  if (subject) allowedExternalAccessSubjects.push(subject);
+                }
+              }
 
-          const entityProviders = [
-            ...aapEntityProvider,
-            ...jobTemplateProvider,
-            ...(eeEntityProvider ? [eeEntityProvider] : []),
-            ...pahCollectionProviders,
-            ...ansibleGitContentsProviders,
-          ];
-          if (entityProviders.length > 0) {
-            catalogProcessing.addEntityProvider(...entityProviders);
-          }
-
-          const catalogClient = new CatalogClient({ discoveryApi: discovery });
-
-          const externalAccessConfig = config
-            .getOptionalConfig('backend')
-            ?.getOptionalConfig('auth')
-            ?.getOptionalConfigArray('externalAccess');
-          const allowedExternalAccessSubjects: string[] = [];
-          if (externalAccessConfig) {
-            for (const entry of externalAccessConfig) {
-              const subject = entry.getOptionalString('options.subject');
-              if (subject) allowedExternalAccessSubjects.push(subject);
-            }
-          }
-
-          httpRouter.use(
-            (await createRouter({
-              slice,
-              logger,
-              config,
-              scheduler,
-              aapEntityProvider: aapEntityProvider[0],
-              jobTemplateProvider: jobTemplateProvider[0],
-              eeEntityProvider,
-              pahCollectionProviders,
-              httpAuth,
-              userInfo,
-              auth,
-              catalogClient,
-              permissions: permissionsApi,
-              ansibleGitContentsProviders,
-              allowedExternalAccessSubjects:
-                allowedExternalAccessSubjects.length > 0
-                  ? allowedExternalAccessSubjects
-                  : undefined,
-            })) as any,
-          );
+              httpRouter.use(
+                (await createRouter({
+                  slice,
+                  logger,
+                  config,
+                  scheduler,
+                  aapEntityProvider: aapEntityProvider[0],
+                  jobTemplateProvider: jobTemplateProvider[0],
+                  eeEntityProvider,
+                  pahCollectionProviders,
+                  httpAuth,
+                  userInfo,
+                  auth,
+                  catalogClient,
+                  permissions: permissionsApi,
+                  ansibleGitContentsProviders,
+                  allowedExternalAccessSubjects:
+                    allowedExternalAccessSubjects.length > 0
+                      ? allowedExternalAccessSubjects
+                      : undefined,
+                })) as any,
+              );
             },
           );
         },
