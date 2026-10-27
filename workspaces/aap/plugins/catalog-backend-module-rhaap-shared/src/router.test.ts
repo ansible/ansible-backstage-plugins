@@ -3354,6 +3354,78 @@ describe('createRouter', () => {
     });
   });
 
+  describe('GET split catalog sync status routes', () => {
+    it('serves /ansible/sync/status/aap only when slice is aap', async () => {
+      mockAAPEntityProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T10:00:00Z',
+      );
+      mockJobTemplateProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T11:00:00Z',
+      );
+
+      const router = await createRouter({
+        slice: 'aap',
+        logger: mockLogger,
+        config: mockConfig,
+        scheduler: mockScheduler,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+      });
+      const testApp = express().use(router);
+
+      const monolithic = await request(testApp).get('/ansible/sync/status');
+      expect(monolithic.status).toBe(404);
+
+      const split = await request(testApp).get('/ansible/sync/status/aap');
+      expect(split.status).toBe(200);
+      expect(split.body.aap.orgsUsersTeams.lastSync).toBe(
+        '2024-01-15T10:00:00Z',
+      );
+    });
+
+    it('serves /ansible/sync/status/content only when slice is content', async () => {
+      mockPAHCollectionProvider.getIsSyncing.mockReturnValue(false);
+      mockPAHCollectionProvider.getLastSyncTime.mockReturnValue(
+        '2024-01-15T12:00:00Z',
+      );
+
+      const router = await createRouter({
+        slice: 'content',
+        logger: mockLogger,
+        config: mockConfig,
+        scheduler: mockScheduler,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+      });
+      const testApp = express().use(router);
+
+      const monolithic = await request(testApp).get(
+        '/ansible/sync/status?ansible_contents=true',
+      );
+      expect(monolithic.status).toBe(404);
+
+      const split = await request(testApp).get('/ansible/sync/status/content');
+      expect(split.status).toBe(200);
+      expect(split.body.content.providers).toHaveLength(1);
+    });
+  });
+
   async function createAppWithSyncProviders(
     providers: jest.Mocked<AnsibleGitContentsProvider>[],
   ): Promise<express.Express> {

@@ -30,6 +30,7 @@ import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { fetchCatalogContentSyncStatus } from '@ansible/portal-plugin-sdk';
 
 import {
   useApi,
@@ -178,16 +179,13 @@ export const GitRepositoriesPage = () => {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const response = await fetchApi.fetch(
-        `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-      );
-      if (!response.ok) {
+      const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
+      if (!data?.content) {
         setHasConfiguredSources(false);
         return;
       }
-      const data = await response.json();
       const statusMap: SyncStatusMap = {};
-      const providers = data.content?.providers || [];
+      const providers = data.content.providers || [];
       providers.forEach(
         (provider: {
           sourceId: string;

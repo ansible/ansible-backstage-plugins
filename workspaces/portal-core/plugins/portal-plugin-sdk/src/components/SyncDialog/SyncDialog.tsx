@@ -37,7 +37,11 @@ import {
 } from '../../types';
 import { useSharedStyles } from '../../styles';
 import { GitLabIcon, RedHatIcon } from '../../icons';
-import { SYNC_FAILED_CATEGORY, SYNC_STARTED_CATEGORY } from '../../utils';
+import {
+  SYNC_FAILED_CATEGORY,
+  SYNC_STARTED_CATEGORY,
+  fetchCatalogContentSyncStatus,
+} from '../../utils';
 
 type AnsibleSyncPostResult = {
   status: string;
@@ -195,14 +199,11 @@ export const SyncDialog = ({
       setError(null);
       try {
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetchApi.fetch(
-          `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-        );
-        if (!response.ok) {
+        const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
+        if (!data?.content) {
           throw new Error('Failed to fetch sources');
         }
-        const data = await response.json();
-        const rawProviders = data.content?.providers || [];
+        const rawProviders = data.content.providers || [];
 
         setProviders(rawProviders);
 
