@@ -25,6 +25,12 @@ jest.mock(
   { virtual: true },
 );
 
+const handleClose = jest.fn();
+
+beforeEach(() => {
+  handleClose.mockClear();
+});
+
 // Exercise the real public Blueprint attachment/data refs without unrelated header widgets.
 const headerHost = createFrontendModule({
   pluginId: 'app',
@@ -54,7 +60,9 @@ const headerHost = createFrontendModule({
                 {menuItems
                   .filter(item => item.target === 'profile')
                   .map(({ component: Component }, i) =>
-                    Component ? <Component key={i} /> : null,
+                    Component ? (
+                      <Component key={i} handleClose={handleClose} />
+                    ) : null,
                   )}
               </div>
               {children}
@@ -150,7 +158,10 @@ it('keeps Sign out available when configuration disables the stock Create button
     screen.queryByRole('button', { name: 'Create...' }),
   ).not.toBeInTheDocument();
   fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
-  await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  await waitFor(() => {
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 it('renders and invokes an independent UI action without importing an AAP implementation', async () => {
@@ -213,6 +224,7 @@ it('follows a profile destination using the declaring plugin effective page path
     await screen.findByRole('menuitem', { name: 'Editor preferences' }),
   );
   expect(await screen.findByText('editor destination')).toBeInTheDocument();
+  expect(handleClose).toHaveBeenCalledTimes(1);
 });
 
 it('does not load a permission-denied profile action', async () => {
