@@ -781,6 +781,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@types/js-yaml": "npm:^4"
+    js-yaml: "npm:^4.3.0"
+    typescript: "npm:~5.8.0"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
