@@ -79,9 +79,10 @@ export function buildCollectionsFromCatalogEntities(
   const map = new Map<string, Collections>();
 
   for (const item of entities) {
-    const name =
-      item.spec?.collection_full_name ??
-      `${item.spec?.collection_namespace}.${item.spec?.collection_name}`;
+    const ns = item.spec?.collection_namespace;
+    const cn = item.spec?.collection_name;
+    const name: string | undefined =
+      item.spec?.collection_full_name ?? (ns && cn ? `${ns}.${cn}` : undefined);
 
     if (!name) continue;
 
@@ -116,7 +117,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : `${version}`,
+        label: ref && version ? `${ref} / ${version}` : version ?? ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -174,8 +175,11 @@ export async function getCollections(options: {
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
   const trimmed = searchQuery?.trim();
+  const baseFilter = 'spec.type=ansible-collection';
   const filter =
-    trimmed && trimmed.length > 0 ? trimmed : 'spec.type=ansible-collection';
+    trimmed && trimmed.length > 0 && !trimmed.includes(baseFilter)
+      ? `${trimmed},${baseFilter}`
+      : trimmed || baseFilter;
 
   if (
     collectionsCache?.filter === filter &&
@@ -203,6 +207,7 @@ export async function getCollections(options: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${catalogToken}`,
         },
+        signal: AbortSignal.timeout(15_000),
       },
     );
     if (!response.ok) {

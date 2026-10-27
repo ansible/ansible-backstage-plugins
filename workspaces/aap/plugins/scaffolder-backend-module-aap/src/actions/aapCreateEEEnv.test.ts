@@ -77,9 +77,7 @@ describe('ansible-aap:eEnv:create', () => {
   });
 
   it('should fail without message', async () => {
-    mockAnsibleService.createExecutionEnvironment.mockRejectedValue(
-      new Error('Something went wrong.'),
-    );
+    mockAnsibleService.createExecutionEnvironment.mockRejectedValue(undefined);
 
     let error;
     try {
