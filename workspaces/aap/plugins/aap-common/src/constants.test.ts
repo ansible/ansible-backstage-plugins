@@ -92,4 +92,18 @@ describe('compareVersions', () => {
     expect(compareVersions('1.0.0-alpha', '1.0.0-beta')).toBeLessThan(0);
     expect(compareVersions('1.0.0-rc.1', '1.0.0-rc.2')).toBeLessThan(0);
   });
+
+  it('ranks a shorter prerelease list lower when common prefixes match', () => {
+    expect(compareVersions('1.0.0-rc', '1.0.0-rc.1')).toBeLessThan(0);
+    expect(compareVersions('1.0.0-rc.1', '1.0.0-rc')).toBeGreaterThan(0);
+  });
+
+  it('ranks numeric prerelease ids below non-numeric ones at the same position', () => {
+    expect(compareVersions('1.0.0-1', '1.0.0-rc')).toBeLessThan(0);
+    expect(compareVersions('1.0.0-rc', '1.0.0-1')).toBeGreaterThan(0);
+  });
+
+  it('treats equal prereleases as equal', () => {
+    expect(compareVersions('1.0.0-rc.1', '1.0.0-rc.1')).toBe(0);
+  });
 });
