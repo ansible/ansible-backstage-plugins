@@ -111,7 +111,7 @@ function buildEntityName(options: {
 
 export function toSourceNamespace(
   orgName: string,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  source?: CatalogEntitySource,
   identity: CatalogEntityIdentityOptions = {},
 ): string {
   if (!identity.multiOrgEnabled) {
@@ -122,7 +122,10 @@ export function toSourceNamespace(
       `AAP organization "${orgName}" requires a stable numeric id for multi-org namespace assignment.`,
     );
   }
-  return `${source}-${identity.orgId}`;
+  // Positional source wins when provided; otherwise fall back to identity.source.
+  const resolvedSource =
+    source ?? identity.source ?? DEFAULT_CATALOG_ENTITY_SOURCE;
+  return `${resolvedSource}-${identity.orgId}`;
 }
 
 export function toOrgEntityName(
@@ -244,12 +247,13 @@ export function toOrgGroupRef(
   namespace: string,
   orgName: string,
   orgId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  source?: CatalogEntitySource,
   identity: CatalogEntityIdentityOptions = {},
 ): string {
   return `group:${namespace}/${toOrgEntityName(orgName, orgId, {
     ...identity,
-    source,
+    // Only override identity.source when a positional source was provided.
+    ...(source !== undefined ? { source } : {}),
   })}`;
 }
 
@@ -257,12 +261,12 @@ export function toTeamGroupRef(
   namespace: string,
   teamName: string,
   teamId: number,
-  source: CatalogEntitySource = DEFAULT_CATALOG_ENTITY_SOURCE,
+  source?: CatalogEntitySource,
   identity: CatalogEntityIdentityOptions = {},
 ): string {
   return `group:${namespace}/${toTeamEntityName(teamName, teamId, {
     ...identity,
-    source,
+    ...(source !== undefined ? { source } : {}),
   })}`;
 }
 

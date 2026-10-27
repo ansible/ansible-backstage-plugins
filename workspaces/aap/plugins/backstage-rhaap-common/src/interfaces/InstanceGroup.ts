@@ -5,4 +5,5 @@ export type {
   SummaryFieldCredential,
   SummaryFieldObjectRole,
   InstanceGroup,
+  InstanceGroupListResponse,
 } from '@ansible/aap-common';

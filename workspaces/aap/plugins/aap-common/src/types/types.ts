@@ -198,11 +198,11 @@ export type TokenResponse = {
   refresh_token: string;
 };
 
-export type PaginatedResponse = {
+export type PaginatedResponse<T = unknown> = {
   count: number;
-  next: string;
-  previous: string;
-  results: [];
+  next: string | null;
+  previous: string | null;
+  results: T[];
 };
 
 export type User = {

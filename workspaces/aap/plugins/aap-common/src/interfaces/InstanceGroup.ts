@@ -13,6 +13,10 @@ export interface SummaryFieldObjectRole {
   user_only?: boolean;
 }
 
+/**
+ * A single instance-group record from the AAP Controller API.
+ * List endpoints wrap these in {@link InstanceGroupListResponse}.
+ */
 export interface InstanceGroup {
   id: number;
   name: string;
@@ -25,7 +29,6 @@ export interface InstanceGroup {
   is_container_group: boolean;
   policy_instance_list: string[];
   capacity: number | null;
-  results: InstanceGroup[];
   summary_fields: {
     credential?: SummaryFieldCredential;
     object_roles: {
@@ -41,3 +44,11 @@ export interface InstanceGroup {
     };
   };
 }
+
+/** Paginated list response for the instance-groups collection endpoint. */
+export type InstanceGroupListResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: InstanceGroup[];
+};

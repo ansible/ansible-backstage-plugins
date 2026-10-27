@@ -889,7 +889,6 @@ describe('AAPJobTemplateProvider', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },
@@ -912,7 +911,6 @@ describe('AAPJobTemplateProvider', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },

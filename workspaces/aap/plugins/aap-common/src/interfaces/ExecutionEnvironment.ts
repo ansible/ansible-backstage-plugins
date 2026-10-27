@@ -40,7 +40,7 @@ export interface IExecutionEnvironment {
   modified: string;
   name: string;
   description: string;
-  organization: number;
+  organization: number | null;
   image: string;
   managed: boolean;
   credential: number | null;

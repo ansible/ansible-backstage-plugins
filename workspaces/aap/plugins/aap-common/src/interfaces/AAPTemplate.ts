@@ -91,7 +91,7 @@ export type IJobTemplate = {
   last_job_failed: boolean;
   last_job_run: string | null;
   limit: string;
-  next_job_run: string;
+  next_job_run: string | null;
   playbook: string;
   prevent_instance_group_fallback: boolean;
   scm_branch: string;
@@ -210,12 +210,12 @@ export type IJobTemplate = {
     };
     recent_jobs: IRecentJob[];
     credentials: ISummaryFieldCredential[] | [];
-    webhook_credential: ISummaryFieldCredential;
+    webhook_credential: ISummaryFieldCredential | null;
   };
-  webhook_credential: number;
+  webhook_credential: number | null;
   webhook_url: string;
   webhook_key: string;
-  webhook_service: 'github' | 'gitlab' | 'bitbucket_dc';
+  webhook_service: 'github' | 'gitlab' | 'bitbucket_dc' | '';
   project: number | null;
   opa_query_path?: string;
 };

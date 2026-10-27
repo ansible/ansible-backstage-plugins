@@ -304,6 +304,16 @@ describe('catalog entity names with AAP IDs', () => {
     );
   });
 
+  it('preserves identity.source when positional source is omitted', () => {
+    const options = { multiOrgEnabled: true, source: 'ao' as const };
+    expect(toOrgGroupRef('ao-12', 'Engineering', 12, undefined, options)).toBe(
+      'group:ao-12/ao-org-12',
+    );
+    expect(toTeamGroupRef('ao-12', 'QA', 101, undefined, options)).toBe(
+      'group:ao-12/ao-team-101',
+    );
+  });
+
   it('keeps assembled names within 63 characters', () => {
     const longName = `Org-${'a'.repeat(80)}`;
     const result = toOrgEntityName(longName, 5238394829);
@@ -332,6 +342,26 @@ describe('toSourceNamespace', () => {
         orgId: 42,
       }),
     ).toBe('aap-42');
+  });
+
+  it('falls back to identity.source when positional source is omitted', () => {
+    expect(
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 42,
+        source: 'ao',
+      }),
+    ).toBe('ao-42');
+  });
+
+  it('lets an explicit positional source override identity.source', () => {
+    expect(
+      toSourceNamespace('Engineering', 'scm', {
+        multiOrgEnabled: true,
+        orgId: 42,
+        source: 'ao',
+      }),
+    ).toBe('scm-42');
   });
 });
 

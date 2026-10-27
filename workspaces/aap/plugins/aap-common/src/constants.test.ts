@@ -82,4 +82,14 @@ describe('compareVersions', () => {
     expect(compareVersions('1.0', '1.0.0')).toBe(0);
     expect(compareVersions('1.0.1', '1.0')).toBe(1);
   });
+
+  it('ranks a prerelease before the matching release', () => {
+    expect(compareVersions('1.2.3-rc.1', '1.2.3')).toBeLessThan(0);
+    expect(compareVersions('1.2.3', '1.2.3-rc.1')).toBeGreaterThan(0);
+  });
+
+  it('compares prerelease identifiers', () => {
+    expect(compareVersions('1.0.0-alpha', '1.0.0-beta')).toBeLessThan(0);
+    expect(compareVersions('1.0.0-rc.1', '1.0.0-rc.2')).toBeLessThan(0);
+  });
 });
