@@ -18,6 +18,10 @@ export type CatalogModuleSlice = 'all' | 'aap' | 'content' | 'ee';
 
 const SHIM_MODULE_ID = 'rhaap';
 
+// Each dynamic plugin bundle embeds its own copy of this module, so
+// module-scope state cannot be shared across bundles.  A Symbol.for key
+// on globalThis gives every copy the same Set, enabling cross-bundle
+// conflict detection between the deprecated shim and the split modules.
 const GUARD_KEY = Symbol.for('@ansible/catalog-module-slice-guard');
 const guardStore = globalThis as unknown as Record<
   symbol,
@@ -34,10 +38,11 @@ export function assertCatalogModuleSliceAllowed(
   slice: CatalogModuleSlice,
 ): void {
   if (slice === 'all') {
-    if (activeSlices.size > 0) {
+    const splitSlices = [...activeSlices].filter(s => s !== 'all');
+    if (splitSlices.length > 0) {
       throw new Error(
         `[catalog] Cannot load deprecated catalog-backend-module-rhaap (moduleId: ${SHIM_MODULE_ID}) ` +
-          `together with split catalog modules (${[...activeSlices].join(', ')}). ` +
+          `together with split catalog modules (${splitSlices.join(', ')}). ` +
           'Use mutually exclusive dynamic plugin bundles per catalog-module-research §4.5.',
       );
     }
