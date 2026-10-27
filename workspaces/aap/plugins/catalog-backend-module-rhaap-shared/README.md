@@ -1,6 +1,6 @@
-# catalog-backend-module-rhaap
+# catalog-backend-module-rhaap-shared
 
-The catalog-backend-module-rhaap plugin synchronizes users, teams, organizations, and job templates from AAP into RHDH / Ansible Self-Service.
+Shared provider library for the AAP catalog backend split. Houses all entity providers, the sync router, slice-guard, and `createCatalogModule()`. Consumed by `catalog-backend-module-aap`, `catalog-backend-module-interim-content`, `catalog-backend-module-self-service-ee`, and the legacy `catalog-backend-module-rhaap` shim.
 
 ## Installation
 
@@ -21,12 +21,13 @@ Use token value as `AAP_TOKEN`
 
 ### RHDH
 
-Fragment for `app-config.local.yaml`:
+Fragment for `app-config.local.yaml` when using the **split catalog modules** (`catalog-backend-module-aap`, `catalog-backend-module-interim-content`, etc.):
 
 ```yaml
 catalog:
   providers:
-    rhaap:
+    # Primary key for catalog-backend-module-aap (split bundle)
+    aap:
       development:
         orgs: Default
         sync:
@@ -47,6 +48,8 @@ ansible:
     token: { $AAP_TOKEN }
     checkSSL: false
 ```
+
+> **Legacy / shim deployments:** If you are still using the deprecated `catalog-backend-module-rhaap` shim (single bundle), replace `aap:` with `rhaap:` above. The split modules fall back to `catalog.providers.rhaap` automatically when their primary key is absent.
 
 ## Features
 

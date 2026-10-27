@@ -266,18 +266,12 @@ export function usePaginatedCollections({
       const statusMap: SyncStatusMap = {};
       const providers = data.content.providers || [];
 
-      providers.forEach(
-        (provider: {
-          sourceId: string;
-          lastSyncTime: string | null;
-          lastFailedSyncTime: string | null;
-        }) => {
-          statusMap[provider.sourceId] = {
-            lastSyncTime: provider.lastSyncTime,
-            lastFailedSyncTime: provider.lastFailedSyncTime,
-          };
-        },
-      );
+      providers.forEach(provider => {
+        statusMap[provider.sourceId] = {
+          lastSyncTime: provider.lastSyncTime,
+          lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+        };
+      });
 
       if (isMountedRef.current) {
         setSyncStatusMap(statusMap);

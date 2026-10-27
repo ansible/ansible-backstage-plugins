@@ -3950,6 +3950,7 @@ describe('createRouter', () => {
 
     it('should work when ansibleGitContentsProviders is omitted (defaults to empty array)', async () => {
       const opts = {
+        slice: 'all' as const,
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3965,9 +3966,7 @@ describe('createRouter', () => {
         ansibleGitContentsProviders: [] as AnsibleGitContentsProvider[],
       };
       const { ansibleGitContentsProviders: _omit, ...rest } = opts;
-      const router = await createRouter(
-        rest as Parameters<typeof createRouter>[0],
-      );
+      const router = await createRouter(rest);
       const testApp = express().use(router);
       const response = await request(testApp).get('/health');
       expect(response.status).toBe(200);

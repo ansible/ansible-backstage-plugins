@@ -8,17 +8,19 @@ function mockFetchApi(
   handlers: Record<string, () => Promise<{ ok: boolean; status: number; body: unknown }>>,
 ): FetchApi {
   return {
-    fetch: jest.fn(async (url: string) => {
-      const handler = handlers[url];
+    fetch: jest.fn(async (url: string | URL | Request) => {
+      const urlStr = url instanceof Request ? url.url : url.toString();
+      const handler = handlers[urlStr];
       if (!handler) {
-        throw new Error(`Unexpected fetch: ${url}`);
+        throw new Error(`Unexpected fetch: ${urlStr}`);
       }
       const result = await handler();
       return {
         ok: result.ok,
         status: result.status,
         json: async () => result.body,
-      } as Response;
+        // partial Response — only fields accessed by fetchJsonIfOk
+      } as unknown as Response;
     }),
   };
 }
