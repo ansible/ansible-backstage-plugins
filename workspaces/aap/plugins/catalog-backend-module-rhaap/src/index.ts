@@ -6,4 +6,7 @@
  */
 
 export { catalogModuleRhaap as default } from './module';
-export * from './router';
+export {
+  createCatalogModule,
+  createRouter,
+} from '@ansible/backstage-plugin-catalog-backend-module-rhaap-shared';
