@@ -16,6 +16,7 @@ import type {
   EEBuildTriggerOptions,
   UserJobTemplate,
 } from '@ansible/portal-scaffolder-common';
+
 export type {
   AnsibleApi,
   EEBuildApi,

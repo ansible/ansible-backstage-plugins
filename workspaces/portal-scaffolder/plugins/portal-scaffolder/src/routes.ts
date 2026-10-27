@@ -1,43 +1,47 @@
 import { createRouteRef, createSubRouteRef } from '@backstage/core-plugin-api';
+import {
+  PORTAL_SCAFFOLDER_ROUTE_IDS,
+  PORTAL_SCAFFOLDER_ROUTE_PATHS,
+} from '@ansible/portal-scaffolder-common';
 
 export const rootRouteRef = createRouteRef({
-  id: 'self-service',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.root,
 });
 
 export const eeRouteRef = createRouteRef({
-  id: 'self-service/ee',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.ee,
 });
 
 export const collectionsRouteRef = createRouteRef({
-  id: 'self-service/collections',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.collections,
 });
 
 export const gitRepositoriesRouteRef = createRouteRef({
-  id: 'self-service/repositories',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.gitRepositories,
 });
 
 export const templatesRouteRef = createRouteRef({
-  id: 'self-service/templates',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.templates,
 });
 
 export const historyRouteRef = createRouteRef({
-  id: 'self-service/history',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.history,
 });
 
 export const catalogImportRouteRef = createSubRouteRef({
-  id: 'self-service/catalog-import',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.catalogImport,
   parent: rootRouteRef,
-  path: '/catalog-import',
+  path: PORTAL_SCAFFOLDER_ROUTE_PATHS.catalogImport,
 });
 
 export const selectedTemplateRouteRef = createSubRouteRef({
-  id: 'self-service/selected-template',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.selectedTemplate,
   parent: rootRouteRef,
-  path: '/create/templates/:namespace/:templateName',
+  path: PORTAL_SCAFFOLDER_ROUTE_PATHS.selectedTemplate,
 });
 
 export const createTaskRouteRef = createSubRouteRef({
-  id: 'self-service/task',
+  id: PORTAL_SCAFFOLDER_ROUTE_IDS.createTask,
   parent: rootRouteRef,
-  path: '/create/tasks/:taskId',
+  path: PORTAL_SCAFFOLDER_ROUTE_PATHS.createTask,
 });

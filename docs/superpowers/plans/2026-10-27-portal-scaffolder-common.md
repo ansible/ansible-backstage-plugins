@@ -33,6 +33,7 @@
 ### Task 1: Scaffold the common-library package
 
 **Files:**
+
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/package.json`
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/tsconfig.json`
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/index.ts`
@@ -40,6 +41,7 @@
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: Existing root workspace glob `workspaces/portal-scaffolder/plugins/*` and package conventions from `automation-content-common` and `backstage-rhaap-common`.
 - Produces: Package `@ansible/portal-scaffolder-common`, role `common-library`, root export `.`, subpath exports `./types`, `./schemas`, `./routes`, and `./package.json`.
 
@@ -75,6 +77,7 @@ git commit -m "feat(portal-scaffolder): scaffold common package"
 ### Task 2: Extract shared API and wire types
 
 **Files:**
+
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/types.ts`
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/types.test.ts`
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/index.ts`
@@ -83,6 +86,7 @@ git commit -m "feat(portal-scaffolder): scaffold common package"
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder/src/apis.test.ts`
 
 **Interfaces:**
+
 - Consumes: Existing public declarations in `portal-scaffolder/src/apis.ts`.
 - Produces: Common exports `UserJobTemplate`, `AnsibleApi`, `EEBuildRegistryType`, `EEBuildRequest`, `EEBuildResult`, `EEBuildTriggerOptions`, and `EEBuildApi`, preserving all existing field names, optionality, literal unions, and method signatures.
 
@@ -122,6 +126,7 @@ git commit -m "refactor(portal-scaffolder): extract common API contracts"
 ### Task 3: Extract EE definition schemas and preserve the legacy utility
 
 **Files:**
+
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/schemas.ts`
 - Create: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/schemas.test.ts`
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/index.ts`
@@ -129,6 +134,7 @@ git commit -m "refactor(portal-scaffolder): extract common API contracts"
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder/src/utils/eeDefinitionUtils.test.ts`
 
 **Interfaces:**
+
 - Consumes: Existing `ParsedEEDefinition` and `parseEEDefinition(definitionYaml: string | undefined): ParsedEEDefinition | null` behavior.
 - Produces: Common `ParsedEEDefinition` and `parseEEDefinition` exports through both the root and `./schemas` subpath; the frontend utility remains a compatibility re-export.
 
@@ -168,12 +174,14 @@ git commit -m "refactor(portal-scaffolder): extract EE definition schemas"
 ### Task 4: Wire route constants, workspace metadata, and full verification
 
 **Files:**
+
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder/src/routes.ts`
 - Modify: `yarn.lock`
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common/src/index.ts` (only if export wiring remains incomplete)
 - Modify: `workspaces/portal-scaffolder/plugins/portal-scaffolder/src/routes.test.ts` (only if compatibility assertions need shared constants)
 
 **Interfaces:**
+
 - Consumes: `PORTAL_SCAFFOLDER_ROUTE_IDS` and `PORTAL_SCAFFOLDER_ROUTE_PATHS` from Task 1.
 - Produces: Existing Backstage route refs backed by common constants, with no route ID/path drift and a lockfile entry for the new workspace.
 
@@ -224,4 +232,3 @@ Expected: no formatting or whitespace errors.
 git add yarn.lock workspaces/portal-scaffolder/plugins/portal-scaffolder/src/routes.ts workspaces/portal-scaffolder/plugins/portal-scaffolder/src/routes.test.ts
 git commit -m "refactor(portal-scaffolder): wire common route contracts"
 ```
-
