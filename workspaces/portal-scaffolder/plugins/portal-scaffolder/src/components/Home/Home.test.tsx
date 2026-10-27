@@ -761,17 +761,22 @@ describe('self-service', () => {
       });
 
       // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
-      });
+      // Use an extended timeout: CATALOG_SETTLE_MS is 750ms and CI runners can
+      // be slow, so 1000ms default is insufficient on busy machines.
+      await waitFor(
+        async () => {
+          expect(
+            mockCatalogApi.getEntityFacets.mock.calls.length,
+          ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(
+            mockCatalogApi.queryEntities.mock.calls.length,
+          ).toBeGreaterThan(queryCallsBeforeSync);
+          const items = await lastFetchedJobTemplates();
+          expect(items?.map(t => t.id)).toEqual([1, 2]);
+          expect(items?.[1]?.name).toBe('Renamed Template');
+        },
+        { timeout: 4000 },
+      );
     });
   });
 
