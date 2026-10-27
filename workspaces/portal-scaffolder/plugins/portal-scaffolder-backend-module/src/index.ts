@@ -1,1 +1,1 @@
-export { createAnsibleContentAction } from './actions/ansibleContentCreate';
+export { createAnsibleContentAction } from './actions/ansible';
