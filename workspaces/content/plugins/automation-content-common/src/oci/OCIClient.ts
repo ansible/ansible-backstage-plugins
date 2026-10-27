@@ -290,32 +290,67 @@ export class OCIClient {
   }
 
   /**
-   * Resolve a request path to a URL, refusing absolute URLs that point away
-   * from the configured registry.
+   * Turn a request path into the full URL to fetch, refusing anything that
+   * points away from the configured registry.
    *
-   * Pagination `Link` headers are registry controlled; without this check a
-   * hostile registry could direct a credential-bearing request at any host.
-   * The auth realm is exempt — it is fetched separately, by design, since
-   * registries legitimately use separate auth hosts.
+   * Two rules have to hold at once:
+   *
+   * 1. A registry mounted under a sub-path (for example
+   *    https://host.example.com/harbor-proxy) must keep that prefix on every
+   *    request. The URL parser cannot be trusted to do this on its own: a
+   *    path starting with `/` restarts from the host's root, and a path
+   *    without one replaces the last path segment. Either way the prefix is
+   *    silently dropped, the registry answers 404, and the portal shows an
+   *    empty catalog that looks legitimate. So both path shapes are joined
+   *    onto the configured base path by hand before parsing.
+   *
+   * 2. Pagination Link headers are chosen by the registry, and a hostile one
+   *    can point them anywhere. Anything that resolves to a different origin
+   *    than the configured registry is refused, and links that try to swap
+   *    the host outright (`//host/...`) are refused before they are even
+   *    parsed. The auth realm is the one exemption — it is fetched
+   *    separately, by design, since registries legitimately use separate
+   *    auth hosts.
+   *
+   * Refusals use fixed wording and name only the registry. The link text is
+   * chosen by the registry, so echoing any of it would let a hostile registry
+   * write whatever it likes into the portal's logs.
    */
   private resolveUrl(path: string): string {
-    if (!path.startsWith('http')) return `${this.base}${path}`;
-    try {
-      const target = new URL(path);
-      const origin = new URL(this.base);
-      if (target.origin !== origin.origin) {
-        throw new Error(
-          `absolute URL ${target.origin} is not the configured registry ` +
-            `${origin.origin}`,
-        );
-      }
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error(`invalid absolute URL: ${path}`);
-      }
-      throw error;
+    const base = new URL(this.base);
+    // A link starting with `//` swaps the host outright. Refuse it before
+    // parsing rather than neutralising it, so the attempt shows up as the
+    // refusal it is.
+    if (path.startsWith('//')) {
+      throw new Error(
+        `[${this.connection.name}] refusing pagination link that points ` +
+          `away from the configured registry`,
+      );
     }
-    return path;
+    let target: URL;
+    try {
+      // Trim trailing slashes without a regex — same reasoning as the `base`
+      // getter above.
+      let basePath = base.pathname;
+      while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
+      // Root-relative paths are prefixed with the configured base path;
+      // relative ones are resolved against it. See the JSDoc for why the
+      // parser cannot be left to do this.
+      const reference = path.startsWith('/') ? `${basePath}${path}` : path;
+      const baseUrl = new URL(`${base.origin}${basePath}/`);
+      target = new URL(reference, baseUrl);
+    } catch {
+      throw new Error(
+        `[${this.connection.name}] refusing to follow malformed pagination link`,
+      );
+    }
+    if (target.origin !== base.origin) {
+      throw new Error(
+        `[${this.connection.name}] refusing pagination link that points ` +
+          `away from the configured registry`,
+      );
+    }
+    return target.toString();
   }
 
   /**

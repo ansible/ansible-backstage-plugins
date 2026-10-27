@@ -37,6 +37,31 @@ built with a content manifest (generated inside the image by the image's own
 inspecting an image afterwards is approximate and labelled as such. Design
 decision records for the model live in [`docs/adrs/`](docs/adrs/).
 
+## Registry configuration
+
+Registries are **install-time configuration only** — there is no Portal or API
+route that creates or edits one (the SSRF trust boundary for this plugin).
+Configuration lives under `catalog.providers.automationContent.registries`:
+
+```yaml
+catalog:
+  providers:
+    automationContent:
+      registries:
+        - name: quay
+          url: https://quay.io
+          repositories: [ansible/ee]
+```
+
+A registry `url` must be an absolute `http`/`https` URL with **no** embedded
+credentials, query, or fragment. Anything else — including `file://`,
+scheme-less strings like `quay.io`, URLs with userinfo, or trailing
+whitespace that would break requests later — fails **backend startup** with an
+error naming the offending registry. Surrounding whitespace and scheme case
+are normalized to canonical form. Credentials belong in the `auth` fields,
+never the URL. `POST /automation-content/config/validate` checks a
+configuration document against the same rule before you install it.
+
 The original standalone repository documents the full local end-to-end setup —
 building an execution environment with a content manifest, running a local Quay,
 and pushing images and manifests — see its README and `docs/guides/` on the
