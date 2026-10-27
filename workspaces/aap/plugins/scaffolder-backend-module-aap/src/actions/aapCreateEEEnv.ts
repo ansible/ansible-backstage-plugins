@@ -34,22 +34,24 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       }
 
       ansibleServiceRef.setLogger(logger);
-      const normalized = normalizeExecutionEnvironmentInputValues(input.values);
-      let parsedData: ExecutionEnvironment;
+      let eeData;
       try {
-        parsedData = parseAapActionValues(
+        const normalized = normalizeExecutionEnvironmentInputValues(
+          input.values,
+        );
+        const parsedData: ExecutionEnvironment = parseAapActionValues(
           executionEnvironmentInputSchema,
           normalized,
           'rhaap:create-execution-environment',
         );
+        eeData = await ansibleServiceRef.createExecutionEnvironment(
+          parsedData,
+          input.token,
+          input.deleteIfExist,
+        );
       } catch (e: unknown) {
         rethrowPreservingInputError(e);
       }
-      const eeData = await ansibleServiceRef.createExecutionEnvironment(
-        parsedData,
-        input.token,
-        input.deleteIfExist,
-      );
       ctx.output('executionEnvironment', eeData);
     },
   });

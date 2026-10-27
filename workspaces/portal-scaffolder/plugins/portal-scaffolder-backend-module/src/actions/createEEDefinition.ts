@@ -359,7 +359,7 @@ export function createEEDefinitionAction(options: {
         } else {
           const baseUrl = await discovery.getBaseUrl('catalog');
           const { token } = await auth.getPluginRequestToken({
-            onBehalfOf: await auth.getOwnServiceCredentials(),
+            onBehalfOf: await ctx.getInitiatorCredentials(),
             targetPluginId: 'catalog',
           });
 
@@ -645,7 +645,13 @@ function mergeCollections(collections: Collection[]): Collection[] {
       }
 
       // Rule 2: Compare semantic versions, keep higher
-      if (semver.gt(curr.version, existing.version)) {
+      const currVersion = semver.valid(semver.coerce(curr.version));
+      const existingVersion = semver.valid(semver.coerce(existing.version));
+      if (
+        currVersion &&
+        existingVersion &&
+        semver.gt(currVersion, existingVersion)
+      ) {
         acc[curr.name] = curr;
       }
 
