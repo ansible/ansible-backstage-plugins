@@ -12,6 +12,9 @@ import { ApmeEntityTab } from './ApmeEntityTab';
 
 const mockUseApmeAiEnabled = jest.fn(() => false);
 const mockUseProjectWorkflow = jest.fn();
+const mockFetchProjectOperationState = jest.fn();
+const mockResumeSession = jest.fn();
+const stableUiWorkflowApi = {};
 
 jest.mock('../../hooks/useApmeEnabled', () => ({
   useApmeAiEnabled: () => mockUseApmeAiEnabled(),
@@ -59,6 +62,14 @@ jest.mock('../PreviewChip', () => ({
 }));
 
 jest.mock('@apme/ui-workflow', () => ({
+  useApmeApi: () => stableUiWorkflowApi,
+  fetchProjectOperationState: (...args: unknown[]) =>
+    mockFetchProjectOperationState(...args),
+  LIVE_OPERATION_STATUSES: new Set([
+    'running',
+    'applying',
+    'awaiting_approval',
+  ]),
   ApmeApiProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -71,7 +82,9 @@ jest.mock('@apme/ui-workflow', () => ({
     onEnableAiChange: (checked: boolean) => void;
   }) => (
     <div data-testid="check-options">
-      <span data-testid="show-collections">{String(props.showCollections ?? true)}</span>
+      <span data-testid="show-collections">
+        {String(props.showCollections ?? true)}
+      </span>
       <span data-testid="show-ai-options">{String(!!props.showAiOptions)}</span>
       <span data-testid="form-enable-ai">{String(props.enableAi)}</span>
       <span data-testid="form-auto-apply">
@@ -101,12 +114,14 @@ describe('ApmeEntityTab', () => {
     cancel: jest.fn(),
     dismiss: jest.fn(),
     createPR: jest.fn(),
+    resumeSession: mockResumeSession,
     opState: null,
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseApmeAiEnabled.mockReturnValue(false);
+    mockFetchProjectOperationState.mockResolvedValue(null);
     mockUseProjectWorkflow.mockReturnValue(workflowStub);
     getProject.mockResolvedValue({
       id: 'proj-1',
@@ -145,6 +160,25 @@ describe('ApmeEntityTab', () => {
       autoApplyTier1: boolean;
     };
   }
+
+  it('re-attaches workflow when a live operation exists on tab mount (#742)', async () => {
+    mockFetchProjectOperationState.mockResolvedValue({ status: 'running' });
+    renderTab();
+    await waitFor(() => {
+      expect(mockFetchProjectOperationState).toHaveBeenCalledWith(
+        'proj-1',
+        expect.anything(),
+      );
+      expect(mockResumeSession).toHaveBeenCalled();
+    });
+  });
+
+  it('does not resume session when gateway has no live operation on mount', async () => {
+    mockFetchProjectOperationState.mockResolvedValue(null);
+    renderTab();
+    await screen.findByText('demo-repo');
+    expect(mockResumeSession).not.toHaveBeenCalled();
+  });
 
   it('hides the collections input from the portal form (AAP-89526)', async () => {
     renderTab();
