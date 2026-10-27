@@ -415,6 +415,7 @@ describe('AAPEntityProvider', () => {
     try {
       await provider.connect(entityProviderConnection);
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error('Error during provider connection:', error);
     }
 

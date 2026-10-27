@@ -1031,6 +1031,7 @@ export function parseSourceId(sourceId: string): ParsedSourceInfo {
   const parts = sourceId.split(':');
 
   if (parts.length !== 4) {
+    // eslint-disable-next-line no-console
     console.warn(
       `[parseSourceId] Invalid sourceId format: ${sourceId}, expected 4 parts separated by ':'`,
     );

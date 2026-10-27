@@ -145,6 +145,7 @@ export function createRouter(options: {
   const includeAap = slice === 'all' || slice === 'aap';
   const includeContent = slice === 'all' || slice === 'content';
   const includeEe = slice === 'all' || slice === 'ee';
+  // eslint-disable-next-line new-cap
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });
 
@@ -731,6 +732,19 @@ export function createRouter(options: {
   }
 
   if (includeContent) {
+    const getProvidersFromFilters = (
+      filters: SyncFilter[],
+    ): AnsibleGitContentsProvider[] => {
+      const matchedIds = findMatchingProviders(
+        ansibleGitContentsProviders,
+        filters,
+      );
+      return Array.from(matchedIds).flatMap(id => {
+        const provider = _GIT_CONTENTS_PROVIDERS.get(id);
+        return provider === undefined ? [] : [provider];
+      });
+    };
+
     router.post(
       '/ansible/sync/from-aap/content',
       express.json(),
@@ -976,19 +990,6 @@ export function createRouter(options: {
         });
       },
     );
-
-    function getProvidersFromFilters(
-      filters: SyncFilter[],
-    ): AnsibleGitContentsProvider[] {
-      const matchedIds = findMatchingProviders(
-        ansibleGitContentsProviders,
-        filters,
-      );
-      return Array.from(matchedIds).flatMap(id => {
-        const provider = _GIT_CONTENTS_PROVIDERS.get(id);
-        return provider === undefined ? [] : [provider];
-      });
-    }
 
     router.get('/ansible/git/file-content', async (request, response) => {
       const credentials = await httpAuth.credentials(request as any);
