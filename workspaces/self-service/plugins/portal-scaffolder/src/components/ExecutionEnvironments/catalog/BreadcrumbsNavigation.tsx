@@ -1,11 +1,6 @@
-import { Breadcrumbs, Link, Typography } from '@material-ui/core';
-import { makeStyles } from '@material-ui/core/styles';
-
-const useStyles = makeStyles(theme => ({
-  breadcrumb: {
-    marginBottom: theme.spacing(2),
-  },
-}));
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Link from '@mui/material/Link';
+import Typography from '@mui/material/Typography';
 
 interface BreadcrumbsNavigationProps {
   templateName: string;
@@ -16,17 +11,15 @@ export const BreadcrumbsNavigation: React.FC<BreadcrumbsNavigationProps> = ({
   templateName,
   onNavigateToCatalog,
 }) => {
-  const classes = useStyles();
-
   return (
-    <Breadcrumbs className={classes.breadcrumb}>
+    <Breadcrumbs sx={{ mb: 2 }}>
       <Link color="inherit" href="#">
         Execution environment definition files
       </Link>
       <Link color="inherit" href="#" onClick={onNavigateToCatalog}>
         Catalog
       </Link>
-      <Typography color="textPrimary">{templateName}</Typography>
+      <Typography color="text.primary">{templateName}</Typography>
     </Breadcrumbs>
   );
 };

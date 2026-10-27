@@ -1,7 +1,6 @@
-import { Breadcrumbs, Typography } from '@material-ui/core';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
-
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Typography from '@mui/material/Typography';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 
 export interface RepositoryBreadcrumbsProps {
   repositoryName: string;
@@ -12,20 +11,19 @@ export const RepositoryBreadcrumbs = ({
   repositoryName,
   onNavigateToCatalog,
 }: RepositoryBreadcrumbsProps) => {
-  const classes = useCollectionsStyles();
-
   return (
     <Breadcrumbs
       separator={<NavigateNextIcon fontSize="small" />}
-      className={classes.breadcrumbs}
+      sx={{ mb: 2 }}
     >
       <Typography
-        className={classes.breadcrumbLink}
+        color="primary"
+        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
         onClick={onNavigateToCatalog}
       >
         Repositories
       </Typography>
-      <Typography className={classes.breadcrumbCurrent}>
+      <Typography color="text.primary" fontWeight={500}>
         {repositoryName}
       </Typography>
     </Breadcrumbs>

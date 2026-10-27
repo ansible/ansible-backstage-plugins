@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Fab, Typography, useTheme } from '@material-ui/core';
-import CommentIcon from '@material-ui/icons/Comment';
+import Fab from '@mui/material/Fab';
+import Typography from '@mui/material/Typography';
+import CommentIcon from '@mui/icons-material/Comment';
 import { useApi, configApiRef } from '@backstage/core-plugin-api';
 import RatingsFeedbackModal from './RatingsFeedbackModal';
 
 export const FeedbackFooter = () => {
-  const theme = useTheme();
   const config = useApi(configApiRef);
   const [open, setOpen] = useState(false);
 
@@ -26,7 +26,7 @@ export const FeedbackFooter = () => {
         size="small"
         onClick={handleOpen}
         disableRipple
-        style={{
+        sx={{
           position: 'fixed',
           bottom: '10px',
           right: '20px',
@@ -34,12 +34,15 @@ export const FeedbackFooter = () => {
           zIndex: 99999,
           textTransform: 'none',
           borderRadius: 17,
-          background: theme.palette.type === 'light' ? '#0066CC' : '#9CC9FF',
-          color:
-            theme.palette.type === 'light' ? '#ffffff' : 'rgba(0, 0, 0, 0.87)',
+          bgcolor: theme =>
+            theme.palette.mode === 'light' ? '#0066CC' : '#9CC9FF',
+          color: theme =>
+            theme.palette.mode === 'light'
+              ? '#ffffff'
+              : 'rgba(0, 0, 0, 0.87)',
         }}
       >
-        <CommentIcon style={{ marginBottom: '2px' }} />
+        <CommentIcon sx={{ mb: '2px' }} />
         &nbsp;
         <Typography component="span">Feedback</Typography>
       </Fab>

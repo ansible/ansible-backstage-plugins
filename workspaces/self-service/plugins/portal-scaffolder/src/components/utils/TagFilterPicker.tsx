@@ -1,7 +1,10 @@
-import { Box, Checkbox, TextField, Typography } from '@material-ui/core';
-import Autocomplete from '@material-ui/lab/Autocomplete';
-import CheckBoxOutlineBlankIcon from '@material-ui/icons/CheckBoxOutlineBlank';
-import CheckBoxIcon from '@material-ui/icons/CheckBox';
+import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
 const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
@@ -32,7 +35,7 @@ export const TagFilterPicker = ({
       <Typography
         variant="subtitle2"
         component="label"
-        style={{ fontWeight: 500 }}
+        sx={{ fontWeight: 500 }}
       >
         {label}
       </Typography>
@@ -43,16 +46,16 @@ export const TagFilterPicker = ({
         value={value}
         onChange={handleChange}
         getOptionLabel={option => option}
-        renderOption={(option, { selected }) => (
-          <>
+        renderOption={(props, option, { selected }) => (
+          <li {...props}>
             <Checkbox
               icon={icon}
               checkedIcon={checkedIcon}
               checked={selected}
-              style={{ marginRight: 8 }}
+              sx={{ mr: 1 }}
             />
             {option}
-          </>
+          </li>
         )}
         size="small"
         renderInput={params => (
