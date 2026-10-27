@@ -44,8 +44,8 @@ catalog:
               timeout: { minutes: 15 }
 ansible:
   rhaap:
-    baseUrl: { $AAP_URL }
-    token: { $AAP_TOKEN }
+    baseUrl: ${AAP_URL}
+    token: ${AAP_TOKEN}
     checkSSL: false
 ```
 
@@ -78,7 +78,7 @@ For detailed configuration and usage of job template synchronization, see the [J
 
 On-demand sync triggers exposed by this module use:
 
-- `GET .../ansible/sync/from-aap/orgs_users_teams`
-- `GET .../ansible/sync/from-aap/job_templates`
+- `POST .../ansible/sync/from-aap/orgs_users_teams`
+- `POST .../ansible/sync/from-aap/job_templates`
 
 Older path names under `/aap/sync_*` are **removed**; update custom clients. See the [CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md).
