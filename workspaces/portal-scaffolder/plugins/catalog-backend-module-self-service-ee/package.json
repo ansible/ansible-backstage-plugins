@@ -26,11 +26,11 @@
   "dependencies": {
     "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
-    "@backstage/backend-plugin-api": "1.8.0",
-    "@backstage/plugin-catalog-backend": "3.6.1"
+    "@backstage/backend-plugin-api": "^1.8.0",
+    "@backstage/plugin-catalog-backend": "^3.6.1"
   },
   "devDependencies": {
-    "@backstage/cli": "0.36.0"
+    "@backstage/cli": "^0.36.0"
   },
   "files": [
     "dist",
