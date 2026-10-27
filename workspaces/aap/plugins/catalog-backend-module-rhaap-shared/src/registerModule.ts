@@ -32,6 +32,10 @@ import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import {
+  catalogProvidersConfigRootForSlice,
+  runWithCatalogProvidersConfigRootAsync,
+} from './catalogProviderConfig';
+import {
   assertCatalogModuleSliceAllowed,
   type CatalogModuleSlice,
 } from './sliceGuard';
@@ -118,6 +122,9 @@ export function createCatalogModule(options: CreateCatalogModuleOptions) {
             }),
           );
 
+          await runWithCatalogProvidersConfigRootAsync(
+            catalogProvidersConfigRootForSlice(slice),
+            async () => {
           const aapEntityProvider = includesAap(slice)
             ? AAPEntityProvider.fromConfig(config, ansibleService, {
                 logger,
@@ -206,6 +213,8 @@ export function createCatalogModule(options: CreateCatalogModuleOptions) {
                   ? allowedExternalAccessSubjects
                   : undefined,
             })) as any,
+          );
+            },
           );
         },
       });
