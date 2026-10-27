@@ -18,7 +18,13 @@ export type CatalogModuleSlice = 'all' | 'aap' | 'content' | 'ee';
 
 const SHIM_MODULE_ID = 'rhaap';
 
-const activeSlices = new Set<CatalogModuleSlice>();
+const GUARD_KEY = Symbol.for('@ansible/catalog-module-slice-guard');
+const guardStore = globalThis as unknown as Record<
+  symbol,
+  Set<CatalogModuleSlice> | undefined
+>;
+const activeSlices: Set<CatalogModuleSlice> = (guardStore[GUARD_KEY] ??=
+  new Set<CatalogModuleSlice>());
 
 /**
  * §4.8 — fail fast when the deprecated shim loads together with any split module.

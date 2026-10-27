@@ -18,6 +18,7 @@ import 'cross-fetch/polyfill';
 
 // eslint-disable-next-line no-restricted-imports
 import { clearImmediate, setImmediate } from 'node:timers';
+import { webcrypto } from 'node:crypto';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { ReadableStream, WritableStream } from 'web-streams-polyfill';
 
@@ -32,12 +33,10 @@ Object.defineProperty(globalThis, 'clearImmediate', {
 const selfTarget =
   typeof globalThis.self !== 'undefined' ? globalThis.self : globalThis;
 
+// Use Node's native WebCrypto so crypto.subtle.digest produces real digests
+// in tests. An identity shim would mask hashing defects (No-Weak-Crypto).
 Object.defineProperty(selfTarget, 'crypto', {
-  value: {
-    subtle: {
-      digest: (_algo: string, data: Uint8Array): ArrayBuffer => data.buffer,
-    },
-  },
+  value: webcrypto,
 });
 
 Object.defineProperty(selfTarget, 'TextEncoder', {
