@@ -19,7 +19,7 @@ export function createRouter(
   options: Omit<Parameters<typeof createSharedRouter>[0], 'slice'> & {
     slice?: CatalogModuleSlice;
   },
-) {
+): Promise<import('express').Router> {
   return createSharedRouter({
     ...options,
     slice: options.slice ?? 'all',
