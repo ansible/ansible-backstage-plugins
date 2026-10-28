@@ -19,7 +19,8 @@
     "workspaces/apme/plugins/*/config.d.ts",
     "workspaces/content/plugins/*/src",
     "workspaces/content/plugins/*/dev",
-    "workspaces/content/plugins/*/config.d.ts"
+    "workspaces/content/plugins/*/config.d.ts",
+    "workspaces/content/plugins/*/migrations"
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {
