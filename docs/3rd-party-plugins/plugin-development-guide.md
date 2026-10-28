@@ -292,7 +292,7 @@ Binding for authors and agents:
    or status chip).
 ```
 
-[ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) (reuse over custom) and `portal-design` sit under this tree. Today’s `portal-design` skill still describes Material-UI adapted to PatternFly 6 and is not published here. The author-facing default for ANSTRAT-2497 is **BUI first**. Aligning that skill is follow-on.
+[ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) (reuse over custom) sits under this tree. Visual and content standards are maintained separately by the team and are not published in this repository. The author-facing default for ANSTRAT-2497 is **BUI first**.
 
 ### 8.2 Blueprints and regions
 

@@ -18,31 +18,18 @@ Skills were initially placed in `.cursor/skills/` (Cursor-specific) and `.claude
 
 ## Decision
 
-This decision applies to the Portal team's **private process repository**, not this public plugin repository. This checkout has no `skills/` directory; `portal-design` is **not published here**. Do not run the symlink commands below from `ansible-backstage-plugins`.
+This decision applies to the team's private process material, not this public
+plugin repository. This checkout has no `skills/` directory at the
+repository root.
 
-All agent skills live under the top-level `skills/` directory of the process repository:
+Agent skills are maintained outside this repository, one directory per skill with
+a `SKILL.md` entry point plus optional examples and evaluation cases. Developers
+link them into each agent's expected directory on their own machine, so the same
+skill serves Claude Code, Cursor, and other agents without a per-vendor copy in
+git.
 
-```
-skills/
-├── README.md                          Setup instructions and skill index
-├── portal-design/                     Portal design system skill
-│   ├── SKILL.md                       Skill definition (read by agents)
-│   ├── reference.md                   Extended examples
-│   ├── README.md                      Human-readable usage guide
-│   └── eval/                          Evaluation test cases
-└── ansible-portal-helm-dev-testing/   Helm dev testing skill
-    ├── SKILL.md
-    └── eval/
-        └── eval.json
-```
-
-Developers symlink skills into their agent's expected directory:
-
-```bash
-mkdir -p ~/.claude/skills ~/.cursor/skills
-ln -sf $(pwd)/skills/portal-design ~/.claude/skills/portal-design
-ln -sf $(pwd)/skills/portal-design ~/.cursor/skills/portal-design
-```
+Do not add a `skills/` directory here, and do not check in symlink recipes that
+only work from a private checkout.
 
 ## Alternatives Considered
 
@@ -68,13 +55,13 @@ Rejected: Git doesn't track symlinks well across platforms. Windows users hit pa
 
 ### Positive
 
-- Agent-agnostic: any AI tool can read `skills/` without vendor-specific path knowledge
-- Single source of truth: no symlink chains or duplicate content
-- Visible at repo root: new contributors discover skills naturally
-- Consistent with ADR-006 (clear top-level directories by artifact type)
+- Agent-agnostic: any AI tool can read the shared skill tree without vendor-specific path knowledge
+- Single source of truth: no per-vendor copies or duplicate content
+- Discoverable: the process repository has one obvious place to add a skill
+- Bounded: this repository documents where skills are *not* kept, so contributors stop guessing
 
 ### Negative
 
-- Requires initial symlink setup per developer (documented in `skills/README.md`)
-- Agents that auto-discover skills from their native directory need the symlink
-- Adding a new agent means adding one more symlink command to the README
+- Requires initial symlink setup per developer, documented in the skill index
+- Agents that auto-discover skills from their native directory need that symlink
+- Adding a new agent means adding one more symlink command to the team's setup notes

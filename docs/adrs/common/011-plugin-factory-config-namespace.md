@@ -71,7 +71,7 @@ ansible:
     checkSSL: false
   compliance:
     enabled: true
-    baseUrl: http://compliance-svc:9090
+    baseUrl: https://compliance.example.com
   feedback:
     enabled: true
 ```

@@ -5,11 +5,10 @@
 - **Status**: Accepted
 - **Date**: 2026-09-18
 - **Updated**: 2026-09-24
-- **Deciders**: Portal team (ANSTRAT-912 discussions 2026-09-18 and 2026-09-22)
+- **Deciders**: Portal team
 - **Partially supersedes**: ADR-020 entity naming and namespace assignment when `multiOrgEnabled` is on (`{source}-{type}-{id}` names + `{source}-{org-id}` namespaces + `{source}-user-{id}`); flag off keeps ADR-020-style slug names and raw usernames in `default`; users / `aap-admins` stay in `default` and config-time collision validation remain
 - **Research**: 013 — Catalog Entity Naming and Namespace Proposals (research not published in this repository)
 - **Jira**: [AAP-93499](https://redhat.atlassian.net/browse/AAP-93499), spike [AAP-93500](https://redhat.atlassian.net/browse/AAP-93500), ADR [AAP-93501](https://redhat.atlassian.net/browse/AAP-93501), implement [AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)
-- **Meetings**: ANSTRAT-912 discussions 2026-09-18 and 2026-09-22 (internal notes not published)
 
 ## Context
 
@@ -127,7 +126,7 @@ These guarantees cover AAP entities only. Unchanged SCM templates, PAH collectio
 
 ### 2. Display conventions vs identity
 
-The 2026-09-22 ANSTRAT-912 weekly sync agreed on these conventions. Machine names are catalog identity; human display does not define entity refs. For groups, `spec.profile.displayName` is the display value used by the RBAC picker. Do not define a second org/team display convention from `metadata.title`.
+These conventions were agreed during ADR review. Machine names are catalog identity; human display does not define entity refs. For groups, `spec.profile.displayName` is the display value used by the RBAC picker. Do not define a second org/team display convention from `metadata.title`.
 
 | AAP entity        | `metadata.name` (flag off) | `metadata.name` (flag on) | Display field              | Display value (flag off)    | Display value (flag on)     |
 | ----------------- | -------------------------- | ------------------------- | -------------------------- | --------------------------- | --------------------------- |

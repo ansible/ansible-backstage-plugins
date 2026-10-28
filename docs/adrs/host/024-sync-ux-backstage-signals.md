@@ -96,5 +96,4 @@ Future channels follow the same pattern for content sync, job status, and user r
 - ADR-020 — Multi-org namespace isolation
 - ADR-021 — Template type taxonomy
 - Research: Backstage Signals adoption notes (not published in this repository)
-- PoC branch: `feat/combined-sync-poc` (ansible-backstage-plugins)
-- PoC deployed on a development OpenShift cluster (environment name omitted)
+- PoC validated on a development cluster
