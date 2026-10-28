@@ -241,6 +241,11 @@ export class AnsibleApiClient implements AnsibleApi {
           `${baseUrl}/ansible/sync/status/aap`,
         );
       }
+      if (!response.ok) {
+        throw new Error(
+          `Sync status request failed with status ${response.status}`,
+        );
+      }
       const data = await response.json();
       return data;
     } catch {

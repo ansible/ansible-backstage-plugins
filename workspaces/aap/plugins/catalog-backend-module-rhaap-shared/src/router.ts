@@ -83,8 +83,18 @@ type AapProviderSyncStatusBlock = {
 };
 
 type AapSyncStatusPayload = {
-  orgsUsersTeams?: AapProviderSyncStatusBlock;
-  jobTemplates?: AapProviderSyncStatusBlock;
+  orgsUsersTeams: AapProviderSyncStatusBlock;
+  jobTemplates: AapProviderSyncStatusBlock;
+};
+
+/** Default status block when a provider is not configured. */
+const DEFAULT_AAP_STATUS_BLOCK: AapProviderSyncStatusBlock = {
+  lastSync: null,
+  syncInProgress: false,
+  lastFailedSyncTime: null,
+  lastSyncStatus: null,
+  lastDuplicateEntityCount: 0,
+  lastMissingOrganizations: [],
 };
 
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
@@ -254,34 +264,30 @@ export function createRouter(options: {
   );
 
   const buildAapSyncStatusPayload = (): AapSyncStatusPayload => ({
-    ...(aapEntityProvider
+    orgsUsersTeams: aapEntityProvider
       ? {
-          orgsUsersTeams: {
-            lastSync: aapEntityProvider.getLastSyncTime(),
-            syncInProgress: aapEntityProvider.getIsSyncing(),
-            lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
-            lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
-            lastDuplicateEntityCount:
-              aapEntityProvider.getLastDuplicateEntityCount(),
-            lastMissingOrganizations:
-              aapEntityProvider.getLastMissingOrganizations(),
-          },
+          lastSync: aapEntityProvider.getLastSyncTime(),
+          syncInProgress: aapEntityProvider.getIsSyncing(),
+          lastFailedSyncTime: aapEntityProvider.getLastFailedSyncTime(),
+          lastSyncStatus: aapEntityProvider.getLastSyncStatus(),
+          lastDuplicateEntityCount:
+            aapEntityProvider.getLastDuplicateEntityCount(),
+          lastMissingOrganizations:
+            aapEntityProvider.getLastMissingOrganizations(),
         }
-      : {}),
-    ...(jobTemplateProvider
+      : DEFAULT_AAP_STATUS_BLOCK,
+    jobTemplates: jobTemplateProvider
       ? {
-          jobTemplates: {
-            lastSync: jobTemplateProvider.getLastSyncTime(),
-            syncInProgress: jobTemplateProvider.getIsSyncing(),
-            lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
-            lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
-            lastDuplicateEntityCount:
-              jobTemplateProvider.getLastDuplicateEntityCount(),
-            lastMissingOrganizations:
-              jobTemplateProvider.getLastMissingOrganizations(),
-          },
+          lastSync: jobTemplateProvider.getLastSyncTime(),
+          syncInProgress: jobTemplateProvider.getIsSyncing(),
+          lastFailedSyncTime: jobTemplateProvider.getLastFailedSyncTime(),
+          lastSyncStatus: jobTemplateProvider.getLastSyncStatus(),
+          lastDuplicateEntityCount:
+            jobTemplateProvider.getLastDuplicateEntityCount(),
+          lastMissingOrganizations:
+            jobTemplateProvider.getLastMissingOrganizations(),
         }
-      : {}),
+      : DEFAULT_AAP_STATUS_BLOCK,
   });
 
   const buildContentSyncStatusPayload = () => {
