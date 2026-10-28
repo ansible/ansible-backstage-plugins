@@ -252,7 +252,9 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
     const { items } = await this.get<{ items: ExecutionEnvironment[] }>(
-      // '/content?type=execution-environment',
+      // Keep unclassified images visible: the type filter is an exact classification
+      // match and would hide legitimate EEs lacking builder labels or a manifest
+      // referrer. Their unknown classification/inventory is shown explicitly in the UI.
       '/content',
     );
     return items;
