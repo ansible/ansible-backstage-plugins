@@ -58,7 +58,7 @@ Rejected: Git doesn't track symlinks well across platforms. Windows users hit pa
 - Agent-agnostic: any AI tool can read the shared skill tree without vendor-specific path knowledge
 - Single source of truth: no per-vendor copies or duplicate content
 - Discoverable: the process repository has one obvious place to add a skill
-- Bounded: this repository documents where skills are *not* kept, so contributors stop guessing
+- Bounded: this repository documents where skills are _not_ kept, so contributors stop guessing
 
 ### Negative
 
