@@ -129,10 +129,21 @@ export async function createRouter(
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
-  /** Reuse the AAP backend's catalog annotation check; never trust UI gating. */
-  const requireSuperuser: express.RequestHandler = async (req, res, next) => {
-    const credentials = await httpAuth.credentials(req);
+  /**
+   * Reuse the AAP backend's catalog annotation check; never trust UI gating.
+   * Typed structurally (req: unknown) for the same @types/express identity
+   * reasons as RouteRequest above; cast only at the httpAuth boundary, the
+   * same pattern as workspaces/apme .../router.ts `ensureUser`.
+   */
+  const requireSuperuser = async (
+    req: unknown,
+    res: RouteResponse,
+    next: () => void,
+  ) => {
     try {
+      const credentials = await httpAuth.credentials(
+        req as Parameters<HttpAuthService['credentials']>[0],
+      );
       const { userEntityRef } = await userInfo.getUserInfo(credentials);
       const { token } = await auth.getPluginRequestToken({
         onBehalfOf: credentials,
