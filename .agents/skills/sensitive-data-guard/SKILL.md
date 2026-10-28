@@ -5,7 +5,7 @@ description: "Review a change for sensitive business information before it lands
 
 # Sensitive data guard
 
-Code in a public repository is usually fine to publish; *context* often is not.
+Code in a public repository is usually fine to publish; _context_ often is not.
 AI-assisted work makes this worse: a summary drafted from meeting notes or an
 internal ticket inherits customer names, unreleased plans, and internal
 codenames with no signal that it does.
@@ -17,15 +17,15 @@ They do not catch **data-classification** problems. That is this skill's job.
 
 Fill this in per repository before the first use; do not assume.
 
-| Field | `ansible/ansible-backstage-plugins` |
-|---|---|
-| Visibility | public |
-| Where docs land | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/architecture/` |
-| Repo's own publishing rule | `docs/adrs/index.md`: ADRs are **public by default**; one stays unpublished if it still contains secrets, internal hostnames, or customer data |
-| Credential scanning | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets` |
-| Prose review | CodeRabbit `path_instructions` + `custom_checks` (`.coderabbit.yaml`) |
-| Private disclosure | `SECURITY.md` -> `security@ansible.com` |
-| Skill placement | this repo's `.agents/skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see *Placement caveat* |
+| Field                      | `ansible/ansible-backstage-plugins`                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visibility                 | public                                                                                                                                            |
+| Where docs land            | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/architecture/`                                                                        |
+| Repo's own publishing rule | `docs/adrs/index.md`: ADRs are **public by default**; one stays unpublished if it still contains secrets, internal hostnames, or customer data    |
+| Credential scanning        | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets`                                                                   |
+| Prose review               | CodeRabbit `path_instructions` + `custom_checks` (`.coderabbit.yaml`)                                                                             |
+| Private disclosure         | `SECURITY.md` -> `security@ansible.com`                                                                                                           |
+| Skill placement            | this repo's `.agents/skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see _Placement caveat_ |
 
 **The repo's stated rule is a floor, not the bar.** If `docs/adrs/index.md`
 says public-by-default, that is a statement of intent to publish; it is not
@@ -44,7 +44,7 @@ unreleased customer information, or that a `**Meetings**:` header is provenance
 that should not be public. Paraphrase is the normal way this leaks, and
 paraphrase is invisible to patterns.
 
-But grep is still the right way to *find candidates* in a large diff. Use it for
+But grep is still the right way to _find candidates_ in a large diff. Use it for
 inventory, then read every hit and judge it:
 
 ```bash
@@ -66,11 +66,11 @@ report.
 
 Classify every claim before you publish it. Lower number, stricter handling.
 
-| Tier | Sensitivity | Publishable? | Typical content |
-|---|---|---|---|
-| **Tier 1** | Most sensitive | **No** | Credential values, customer/partner data, employee or customer PII |
-| **Tier 2** | Internal | **No**, unless the audience is internal or the owner approves | Ticket provenance, internal meetings, internal process and artifact names, unreleased plans, internal hostnames, system and security posture, architecture that maps how the product is deployed or attacked |
-| **Tier 3** | Public | Yes — only once release approval for this content is recorded, never because the repository is public | Product documentation, integration guidance already released |
+| Tier       | Sensitivity    | Publishable?                                                                                          | Typical content                                                                                                                                                                                              |
+| ---------- | -------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Tier 1** | Most sensitive | **No**                                                                                                | Credential values, customer/partner data, employee or customer PII                                                                                                                                           |
+| **Tier 2** | Internal       | **No**, unless the audience is internal or the owner approves                                         | Ticket provenance, internal meetings, internal process and artifact names, unreleased plans, internal hostnames, system and security posture, architecture that maps how the product is deployed or attacked |
+| **Tier 3** | Public         | Yes — only once release approval for this content is recorded, never because the repository is public | Product documentation, integration guidance already released                                                                                                                                                 |
 
 > **A public repository is not permission to publish.** Readable by anyone is
 > not the same as approved for anyone to read. Unsure between two tiers -> use
@@ -118,24 +118,24 @@ If the answer is "something only knowable internally", it is a finding.
 
 **Tier 1 — remove before publishing**
 
-| Category | Ask this | Action |
-|---|---|---|
-| Credential / private key | Token, key block, password, connection string? | Remove. Rotate if pushed. |
-| Internal URL | Points at an internal wiki, VPN-only host, or internal board? | Public equivalent, or `<internal-link>` |
-| Personal data | Email, phone, employee name, customer contact? | Remove; reference a role |
-| Customer / partner names | Real account, org, or unapproved logo? | Replace with a role: "a large financial-services customer" |
+| Category                 | Ask this                                                      | Action                                                     |
+| ------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| Credential / private key | Token, key block, password, connection string?                | Remove. Rotate if pushed.                                  |
+| Internal URL             | Points at an internal wiki, VPN-only host, or internal board? | Public equivalent, or `<internal-link>`                    |
+| Personal data            | Email, phone, employee name, customer contact?                | Remove; reference a role                                   |
+| Customer / partner names | Real account, org, or unapproved logo?                        | Replace with a role: "a large financial-services customer" |
 
 **Tier 2 — decide deliberately, often trim**
 
-| Category | Ask this | Action |
-|---|---|---|
-| Ticket provenance | Does prose cite a ticket key, a tracker URL, or a link to an internal board? | **Remove the key.** Keep the sentence's subject and drop the pointer. Publicly viewable is not a reason to keep it |
-| Internal meetings | `**Meetings**:`, `**Deciders**: <forum + date>`, "weekly sync", attendees? | **Cite the decision, not the forum.** Keep the conclusion; drop the who/when |
-| Internal notes | "internal notes", "not published", "internal only", pointer to a private doc? | Remove the reference; if the material is needed, summarize it in place |
-| Unreleased plans | Dates, embargoes, launch/GTM plans, reorg or headcount? | Remove entirely. Paraphrase still leaks. |
-| Internal codenames | Pre-public project or product name? | Public name or generic description |
-| Internal artifacts | Names of private repos, private skill names, internal record or review-board names? | Generic description: "the team's private process repository" |
-| Meeting transcripts | Speaker labels, "Attendees:", pasted notes? | Never paste; summarize the decision |
+| Category            | Ask this                                                                            | Action                                                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Ticket provenance   | Does prose cite a ticket key, a tracker URL, or a link to an internal board?        | **Remove the key.** Keep the sentence's subject and drop the pointer. Publicly viewable is not a reason to keep it |
+| Internal meetings   | `**Meetings**:`, `**Deciders**: <forum + date>`, "weekly sync", attendees?          | **Cite the decision, not the forum.** Keep the conclusion; drop the who/when                                       |
+| Internal notes      | "internal notes", "not published", "internal only", pointer to a private doc?       | Remove the reference; if the material is needed, summarize it in place                                             |
+| Unreleased plans    | Dates, embargoes, launch/GTM plans, reorg or headcount?                             | Remove entirely. Paraphrase still leaks.                                                                           |
+| Internal codenames  | Pre-public project or product name?                                                 | Public name or generic description                                                                                 |
+| Internal artifacts  | Names of private repos, private skill names, internal record or review-board names? | Generic description: "the team's private process repository"                                                       |
+| Meeting transcripts | Speaker labels, "Attendees:", pasted notes?                                         | Never paste; summarize the decision                                                                                |
 
 ### 4. Verify what survived step 3 still resolves
 
@@ -155,7 +155,7 @@ Do not test `/browse/<KEY>` instead. A login-walled issue still answers `200`
 there, with an application shell and an error card in place of the issue, so the
 check reads as "resolves" for exactly the references that do not. Verify with
 the REST endpoint, unauthenticated, and never with a token: an authenticated
-`200` only proves *you* can see it.
+`200` only proves _you_ can see it.
 
 A ticket key that survived the trim is a Tier 2 finding whether or not it opens:
 provenance if it resolves, and a dangling pointer that advertises a private
@@ -194,11 +194,11 @@ one finding naming the files, not as scattered trivia.
 
 Use this shape exactly. The verbatim quote is what makes the review auditable:
 
-| File:line | Tier | Category | Quoted text | Why it matters | Suggested replacement |
-|---|---|---|---|---|---|
-| `docs/adrs/common/<nnn>-<slug>.md:12` | 2 | Internal meeting | `- **Meetings**: <TICKET> discussions <date> and <date> (internal notes not published)` | Names an internal forum and two dates, and confirms unpublished notes exist | Delete the line; the decision stands in the Decision section |
-| `docs/adrs/common/<nnn>-<slug>.md:74` | 2 | Internal hostname | `baseUrl: http://<service-name>:9090` | An unbracketed service name reads as a real deployment | `baseUrl: https://compliance.example.com` |
-| `docs/adrs/host/001`-`005` (set) | 2 | Composition | — (no single line) | Individually benign; together a map of storage, secrets, bootstrap, and restart | Record as one finding; the owner decides whether the set is releasable |
+| File:line                             | Tier | Category          | Quoted text                                                                             | Why it matters                                                                  | Suggested replacement                                                  |
+| ------------------------------------- | ---- | ----------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `docs/adrs/common/<nnn>-<slug>.md:12` | 2    | Internal meeting  | `- **Meetings**: <TICKET> discussions <date> and <date> (internal notes not published)` | Names an internal forum and two dates, and confirms unpublished notes exist     | Delete the line; the decision stands in the Decision section           |
+| `docs/adrs/common/<nnn>-<slug>.md:74` | 2    | Internal hostname | `baseUrl: http://<service-name>:9090`                                                   | An unbracketed service name reads as a real deployment                          | `baseUrl: https://compliance.example.com`                              |
+| `docs/adrs/host/001`-`005` (set)      | 2    | Composition       | — (no single line)                                                                      | Individually benign; together a map of storage, secrets, bootstrap, and restart | Record as one finding; the owner decides whether the set is releasable |
 
 Never summarize a finding as "some provenance". Quote it.
 
@@ -208,7 +208,7 @@ End with one of these plus what must change before merge:
 
 - **BLOCK** — at least one Tier 1 finding. Remove it; do not paraphrase it.
 - **TRIM** — Tier 2 findings only. Apply the replacements, or state explicitly why the audience makes them acceptable.
-- **PASS** — nothing above Tier 3 *and* release approval for this content is recorded elsewhere. List what you read and what you did not. A PASS is a classification result, not an approval.
+- **PASS** — nothing above Tier 3 _and_ release approval for this content is recorded elsewhere. List what you read and what you did not. A PASS is a classification result, not an approval.
 
 ## Calibration cases
 
@@ -219,26 +219,26 @@ stated verdict, re-read the tier table.
 ADR that describes Preview/GA enablement defaults as a general product
 lifecycle, cites no ticket, names no dates, customers, or forums, and maps no
 internal system.
-*Verdict: PASS. Lifecycle vocabulary is Tier 3; a ticket key would have made it
-TRIM, which is why citing one is never the safer choice.*
+_Verdict: PASS. Lifecycle vocabulary is Tier 3; a ticket key would have made it
+TRIM, which is why citing one is never the safer choice._
 
 **B. TRIM.** An ADR whose decision is sound and needed, but whose page names the
 team's private process repository, lists its private `skills/` layout, and names
 an internal tool.
-*Verdict: TRIM. Keep the rule ("skills do not live in this repo"); describe the
-private layout generically, and cut the symlink recipe that only applies there.*
+_Verdict: TRIM. Keep the rule ("skills do not live in this repo"); describe the
+private layout generically, and cut the symlink recipe that only applies there._
 
 **C. BLOCK.** A guide section reading "Per the Q3 summit plan, the financial
 services account will migrate before GA — see the internal notes."
-*Verdict: BLOCK. Unreleased customer plan plus pointer to internal material.
-Delete the sentence outright; there is no remediation by rewording.*
+_Verdict: BLOCK. Unreleased customer plan plus pointer to internal material.
+Delete the sentence outright; there is no remediation by rewording._
 
 ## Judgment rules
 
 - **Unsure between two tiers -> use the lower number.** Ask the owner.
 - **Do not invent.** An unrecognized proper noun is a question, not a decision.
 - **Paraphrase is not remediation.** A reworded unreleased plan is still an unreleased plan. Tier 1 is removed, not disguised.
-- **Trim provenance, keep substance — verify, do not assume.** Safe to delete a `**Meetings**:` line *only if* the decisions it introduced still live in the body. List each decision the forum produced and point at the paragraph that now carries it; if any has no home, move it into prose first.
+- **Trim provenance, keep substance — verify, do not assume.** Safe to delete a `**Meetings**:` line _only if_ the decisions it introduced still live in the body. List each decision the forum produced and point at the paragraph that now carries it; if any has no home, move it into prose first.
 - **Never name the internal classification scheme.** Tier 1/2/3 here are deliberately abstract and carry no source. Do not write the scheme's name, its own tier or label names, the wiki or intranet URL that defines it, the name of the approval route, or a screenshot of any of the above into any repository, PR, commit message, or review comment that lands in one. If you need the mapping, keep it outside the repo. The same applies to review write-ups: a findings document that names the scheme is Tier 2 and does not belong in the pull request.
 - **Write for the reader, not the archive.** An ADR is a decision record; the meeting that produced it is not part of the decision.
 - **Re-read after editing.** Fixes introduce text. Re-run steps 2-7 on the amended diff.
@@ -248,12 +248,12 @@ Delete the sentence outright; there is no remediation by rewording.*
 A skill that nothing invokes is documentation, not a control. Pick the layers
 that exist in the target repo:
 
-| Layer | Mechanism | Catches |
-|---|---|---|
-| Agent, pre-PR | This skill, invoked by an `AGENTS.md` instruction | Documents the agent is about to write |
-| Agent, any time | Skill directory discovered by the harness | Same, when the agent is told to look |
-| Reviewer PR check | `.coderabbit.yaml` `custom_checks` + `path_instructions` scoped to docs paths | Prose added by a human or a bot |
-| Human PR check | One line in the PR template | Whatever the author remembers |
+| Layer             | Mechanism                                                                     | Catches                               |
+| ----------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
+| Agent, pre-PR     | This skill, invoked by an `AGENTS.md` instruction                             | Documents the agent is about to write |
+| Agent, any time   | Skill directory discovered by the harness                                     | Same, when the agent is told to look  |
+| Reviewer PR check | `.coderabbit.yaml` `custom_checks` + `path_instructions` scoped to docs paths | Prose added by a human or a bot       |
+| Human PR check    | One line in the PR template                                                   | Whatever the author remembers         |
 
 **Placement caveat.** In `ansible-backstage-plugins`, ADR-007 puts agent skills
 in the Portal team's private process repository, not this one. A public guard for
