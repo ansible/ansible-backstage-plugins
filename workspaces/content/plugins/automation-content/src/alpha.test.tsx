@@ -11,10 +11,6 @@ it.each([
   ['/automation-content', 'Automation content is coming in the next commit.'],
   ['/automation-content/execution-environments', 'Execution environments'],
   [
-    '/automation-content/execution-environments/default/example',
-    'Execution environments',
-  ],
-  [
     '/automation-content/collections',
     'Collections are coming in the next commit.',
   ],

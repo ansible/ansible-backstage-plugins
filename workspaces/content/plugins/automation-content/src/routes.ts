@@ -16,11 +16,11 @@ export const eeRouteRef = createRouteRef({
   id: 'automation-content/execution-environments',
 });
 
-/** Entity identity uses namespace and name to avoid collisions across catalogs. */
+/** Immutable artifact identity is URL-encoded as a single route parameter. */
 export const eeDetailsRouteRef = createSubRouteRef({
   id: 'automation-content/execution-environments/details',
   parent: eeRouteRef,
-  path: '/:namespace/:name',
+  path: '/:ref',
 });
 
 /** Collections have their own catalog entry point for host navigation. */

@@ -13,11 +13,14 @@ it('keeps catalog roots distinct and parameter-free', () => {
   }
 });
 
-it.each([
-  [eeDetailsRouteRef, eeRouteRef],
-  [collectionDetailsRouteRef, collectionsRouteRef],
-])('preserves namespaced identity on detail routes', (details, parent) => {
-  expect(details.parent).toBe(parent);
-  expect(details.params).toEqual(['namespace', 'name']);
-  expect(details.path).toBe('/:namespace/:name');
+it('preserves immutable artifact identity on EE details', () => {
+  expect(eeDetailsRouteRef.parent).toBe(eeRouteRef);
+  expect(eeDetailsRouteRef.params).toEqual(['ref']);
+  expect(eeDetailsRouteRef.path).toBe('/:ref');
+});
+
+it('preserves namespaced collection identity', () => {
+  expect(collectionDetailsRouteRef.parent).toBe(collectionsRouteRef);
+  expect(collectionDetailsRouteRef.params).toEqual(['namespace', 'name']);
+  expect(collectionDetailsRouteRef.path).toBe('/:namespace/:name');
 });
