@@ -29,6 +29,30 @@ const base: ExecutionEnvironment = {
   collections: [],
 };
 
+it('does not describe a failed inventory request as empty', async () => {
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            listExecutionEnvironments: async () => {
+              throw new Error('offline');
+            },
+          },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <ImagesCatalogPage />
+    </TestApiProvider>,
+  );
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+  expect(screen.queryByText('0 images loaded')).toBeNull();
+  expect(screen.queryByText('No execution environments discovered')).toBeNull();
+});
+
 it('labels partial counts and unknown contents without requiring catalog matches', async () => {
   render(
     <TestApiProvider

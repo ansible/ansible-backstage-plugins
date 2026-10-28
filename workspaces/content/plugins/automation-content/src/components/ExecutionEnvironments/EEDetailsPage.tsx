@@ -249,25 +249,27 @@ export function EEDetailsPage() {
                 {contents.value?.enumeration.source ?? 'Unknown source'}
               </Text>
               <div aria-busy={contents.loading}>
-                <Table
-                  {...table.tableProps}
-                  isPending={contents.loading}
-                  columnConfig={columns}
-                  emptyState={
-                    <EmptyState
-                      title={
-                        value.contentsKnown
-                          ? 'No collections included'
-                          : 'Image contents are unknown'
-                      }
-                      description={
-                        value.contentsKnown
-                          ? 'No collections were reported in this inventory.'
-                          : 'No manifest is available; the image may still contain collections.'
-                      }
-                    />
-                  }
-                />
+                {!contents.error && (
+                  <Table
+                    {...table.tableProps}
+                    isPending={contents.loading}
+                    columnConfig={columns}
+                    emptyState={
+                      <EmptyState
+                        title={
+                          value.contentsKnown
+                            ? 'No collections included'
+                            : 'Image contents are unknown'
+                        }
+                        description={
+                          value.contentsKnown
+                            ? 'No collections were reported in this inventory.'
+                            : 'No manifest is available; the image may still contain collections.'
+                        }
+                      />
+                    }
+                  />
+                )}
               </div>
             </TabPanel>
             <TabPanel id="content">

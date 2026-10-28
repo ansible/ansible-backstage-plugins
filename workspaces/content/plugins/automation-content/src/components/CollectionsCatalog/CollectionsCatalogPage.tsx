@@ -60,9 +60,11 @@ export function CollectionsCatalogPage() {
             <Button onPress={result.retry}>Retry</Button>
           </div>
         )}
-        <Text as="h2" variant="title-medium" aria-live="polite">
-          Ansible Collections ({filtered.length})
-        </Text>
+        {!result.loading && !result.error && result.value && (
+          <Text as="h2" variant="title-medium" aria-live="polite">
+            Ansible Collections ({filtered.length})
+          </Text>
+        )}
         <div aria-busy={result.loading}>
           {result.loading && (
             <Grid.Root columns={{ initial: '1', md: '2', xl: '3' }} gap="4">

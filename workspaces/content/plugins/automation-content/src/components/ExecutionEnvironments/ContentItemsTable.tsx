@@ -91,27 +91,31 @@ export function ContentItemsTable({
           <Button onPress={result.retry}>Retry</Button>
         </div>
       )}
-      <Text aria-live="polite">
-        {data?.length ?? 0} loaded of {result.value?.totalItems ?? 0} matching
-        content items
-      </Text>
+      {!result.loading && !result.error && result.value && (
+        <Text aria-live="polite">
+          {data?.length ?? 0} loaded of {result.value?.totalItems ?? 0} matching
+          content items
+        </Text>
+      )}
       {result.value && result.value.totalItems > result.value.items.length && (
         <Text>
           Results are limited to 500 items. Refine your search to find more.
         </Text>
       )}
       <div aria-busy={result.loading}>
-        <Table
-          {...table.tableProps}
-          isPending={result.loading}
-          columnConfig={columns}
-          emptyState={
-            <EmptyState
-              title="No content items found"
-              description="Refine your search, or check the image inventory fidelity."
-            />
-          }
-        />
+        {!result.error && (
+          <Table
+            {...table.tableProps}
+            isPending={result.loading}
+            columnConfig={columns}
+            emptyState={
+              <EmptyState
+                title="No content items found"
+                description="Refine your search, or check the image inventory fidelity."
+              />
+            }
+          />
+        )}
       </div>
     </Flex>
   );

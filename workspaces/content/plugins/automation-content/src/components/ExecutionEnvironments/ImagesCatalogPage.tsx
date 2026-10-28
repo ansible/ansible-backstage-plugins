@@ -199,27 +199,31 @@ export function ImagesCatalogPage() {
             Favorites are unavailable. Image inventory is still available.
           </Text>
         )}
-        <Text aria-live="polite">{data?.length ?? 0} images loaded</Text>
+        {!images.loading && !images.error && images.value && (
+          <Text aria-live="polite">{data?.length ?? 0} images loaded</Text>
+        )}
         <div aria-busy={images.loading}>
-          <Table
-            {...table.tableProps}
-            isPending={images.loading}
-            columnConfig={columns}
-            emptyState={
-              <EmptyState
-                title={
-                  data?.length
-                    ? 'No images match your filters'
-                    : 'No execution environments discovered'
-                }
-                description={
-                  data?.length
-                    ? 'Change your search or turn off Favorites only.'
-                    : 'Images appear after configured registries are reconciled.'
-                }
-              />
-            }
-          />
+          {!images.error && (
+            <Table
+              {...table.tableProps}
+              isPending={images.loading}
+              columnConfig={columns}
+              emptyState={
+                <EmptyState
+                  title={
+                    data?.length
+                      ? 'No images match your filters'
+                      : 'No execution environments discovered'
+                  }
+                  description={
+                    data?.length
+                      ? 'Change your search or turn off Favorites only.'
+                      : 'Images appear after configured registries are reconciled.'
+                  }
+                />
+              }
+            />
+          )}
         </div>
       </Flex>
     </Container>
