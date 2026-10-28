@@ -1,5 +1,5 @@
 export { automationContentPlugin, AutomationContentPage } from './plugin';
-export { AutomationContentSidebarItem } from './components/SidebarItem';
+export { AutomationContentSidebarItem } from './components/LegacyContentNavigation';
 export { automationContentApiRef, AutomationContentClient } from './api';
 export type {
   AutomationContentApi,
