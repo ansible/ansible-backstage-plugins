@@ -91,6 +91,8 @@ describe('scaffolderModuleAnsible', () => {
     expect(actions).toContain('action4');
     expect(actions).toContain('action5');
     expect(actions).toContain('action6');
+    expect(actions).toContain('action7');
+    expect(actions).toContain('action9');
 
     // --- Verify template filters ---
     expect(

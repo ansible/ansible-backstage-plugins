@@ -67,7 +67,7 @@ export function createEEDefinitionAction(options: {
   config: Config;
 }) {
   const { frontendUrl, auth, discovery, config } = options;
-  // @ts-ignore TS2589: complex ZodEffects schema triggers deep type recursion (flaky: depends on checker instantiation depth, not always triggered)
+  // @ts-ignore TS2589: complex ZodEffects schema triggers deep type recursion.
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',

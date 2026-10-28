@@ -89,6 +89,9 @@ describe('ansible-aap:autocomplete', () => {
         { id: 5, name: '5 (WinRM Debug)' },
       ],
     });
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return organizations', async () => {
@@ -126,6 +129,9 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual({
       results: [{ id: 1, name: 'https://rhaap.test' }],
     });
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return collections with search query', async () => {
