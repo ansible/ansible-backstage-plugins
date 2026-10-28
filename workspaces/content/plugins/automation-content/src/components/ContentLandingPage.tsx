@@ -32,6 +32,10 @@ function healthLabel(ok?: boolean): string {
 function LandingContent() {
   const api = useApi(automationContentApiRef);
   const { isSuperuser } = useIsSuperuser();
+  const syncError = (error?: string) =>
+    isSuperuser
+      ? error ?? 'Registry reconciliation failed.'
+      : 'Sync failed for this registry';
   const { showNotification, notifications, removeNotification } =
     useNotifications();
   const [syncing, setSyncing] = useState(false);
@@ -73,7 +77,7 @@ function LandingContent() {
           title: `${name}: ${ok ? 'sync complete' : 'sync failed'}`,
           description: ok
             ? `${result.discovered} artifacts discovered`
-            : result.error ?? 'Registry reconciliation failed.',
+            : syncError(result.error),
           severity: ok ? 'success' : 'error',
         });
         setStatus(`${name}: ${ok ? 'sync completed' : 'sync failed'}`);
@@ -86,7 +90,7 @@ function LandingContent() {
             }`,
             description: registry.ok
               ? `${registry.discovered} artifacts discovered`
-              : registry.error ?? 'Registry reconciliation failed.',
+              : syncError(registry.error),
             severity: registry.ok ? 'success' : 'error',
           });
         }
@@ -209,7 +213,7 @@ function LandingContent() {
               </CardHeader>
               <CardBody>
                 <Flex direction="column" gap="2">
-                  <Text>{registry.url}</Text>
+                  {isSuperuser && <Text>{registry.url}</Text>}
                   {isSuperuser && (
                     <Button
                       variant="secondary"
@@ -229,7 +233,11 @@ function LandingContent() {
                     {healthLabel(registry.lastReconcileOk)}
                   </Text>
                   {registry.lastReconcileError && (
-                    <Text>{registry.lastReconcileError}</Text>
+                    <Text>
+                      {isSuperuser
+                        ? registry.lastReconcileError
+                        : 'Last sync failed'}
+                    </Text>
                   )}
                   <Text>{relativeTime(registry.lastReconciledAt)}</Text>
                   <Text>{registry.lastReconciledAt ?? 'Never reconciled'}</Text>

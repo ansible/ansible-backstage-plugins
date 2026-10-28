@@ -4,10 +4,14 @@ import { automationContentApiRef } from '../api';
 import { ContentLandingPage } from './ContentLandingPage';
 
 const showNotification = jest.fn();
-beforeEach(() => showNotification.mockClear());
+let mockSuperuser = true;
+beforeEach(() => {
+  showNotification.mockClear();
+  mockSuperuser = true;
+});
 jest.mock('@ansible/portal-plugin-sdk', () => ({
   ...jest.requireActual('@ansible/portal-plugin-sdk'),
-  useIsSuperuser: () => ({ isSuperuser: true }),
+  useIsSuperuser: () => ({ isSuperuser: mockSuperuser }),
   useNotifications: () => ({
     showNotification,
     notifications: [],
@@ -18,6 +22,44 @@ jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useRouteRef: () => () => '/catalog',
 }));
+
+it.each([true, false])(
+  'gates registry details for superuser=%s',
+  async superuser => {
+    mockSuperuser = superuser;
+    render(
+      <TestApiProvider
+        apis={[
+          [
+            automationContentApiRef,
+            {
+              listRegistries: async () => [
+                {
+                  name: 'private',
+                  url: 'https://internal.example:5000',
+                  lastReconcileError: 'internal.example:5000 refused',
+                  lastReconcileOk: false,
+                },
+              ],
+              listExecutionEnvironments: async () => [],
+              listCollections: async () => [],
+            },
+          ],
+        ]}
+      >
+        <ContentLandingPage />
+      </TestApiProvider>,
+    );
+    await screen.findByText('private');
+    expect(!!screen.queryByText('https://internal.example:5000')).toBe(
+      superuser,
+    );
+    expect(!!screen.queryByText('internal.example:5000 refused')).toBe(
+      superuser,
+    );
+    expect(!!screen.queryByText('Last sync failed')).toBe(!superuser);
+  },
+);
 
 it('renders a failed registry and reports each registry sync outcome', async () => {
   const syncAll = jest.fn().mockResolvedValue({
@@ -78,14 +120,12 @@ it('renders a failed registry and reports each registry sync outcome', async () 
 
 it('syncs the chosen registry without triggering sync all', async () => {
   const syncAll = jest.fn();
-  const syncRegistry = jest
-    .fn()
-    .mockResolvedValue({
-      status: 'failed',
-      discovered: 0,
-      retainedPrevious: true,
-      error: 'Unavailable',
-    });
+  const syncRegistry = jest.fn().mockResolvedValue({
+    status: 'failed',
+    discovered: 0,
+    retainedPrevious: true,
+    error: 'Unavailable',
+  });
   render(
     <TestApiProvider
       apis={[
