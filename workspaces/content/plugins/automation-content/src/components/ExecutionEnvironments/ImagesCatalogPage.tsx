@@ -158,6 +158,7 @@ export function ImagesCatalogPage() {
             {entity && (
               <Button
                 variant="tertiary"
+                aria-pressed={isStarredEntity(entity)}
                 aria-label={`${isStarredEntity(entity) ? 'Remove' : 'Add'} ${
                   row.repository
                 } ${row.digest} ${
@@ -202,7 +203,10 @@ export function ImagesCatalogPage() {
         {!images.loading && !images.error && images.value && (
           <Text aria-live="polite">{data?.length ?? 0} images loaded</Text>
         )}
-        <div aria-busy={images.loading}>
+        <div
+          aria-busy={images.loading}
+          style={{ overflowX: 'auto', minWidth: 0 }}
+        >
           {!images.error && (
             <Table
               {...table.tableProps}

@@ -39,8 +39,11 @@ export function ContentItemDocumentation({
       <PageHeaderSection title={fqcn} description={doc?.shortDescription} />
       {result.loading && (
         <div aria-busy="true" aria-label="Loading documentation">
-          <Skeleton width="100%" height="6rem" />
-          <Skeleton width="100%" height="12rem" />
+          <Text role="status">Loading documentation…</Text>
+          <div aria-hidden="true">
+            <Skeleton width="100%" height="6rem" />
+            <Skeleton width="100%" height="12rem" />
+          </div>
         </div>
       )}
       {result.error && (

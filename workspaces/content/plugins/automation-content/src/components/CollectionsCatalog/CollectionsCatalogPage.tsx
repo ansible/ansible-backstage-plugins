@@ -73,8 +73,13 @@ export function CollectionsCatalogPage() {
           </Text>
         )}
         <div aria-busy={result.loading}>
+          {result.loading && <Text role="status">Loading collections…</Text>}
           {result.loading && (
-            <Grid.Root columns={{ initial: '1', md: '2', xl: '3' }} gap="4">
+            <Grid.Root
+              aria-hidden="true"
+              columns={{ initial: '1', md: '2', xl: '3' }}
+              gap="4"
+            >
               {[0, 1, 2].map(i => (
                 <Skeleton key={i} width="100%" height="12rem" />
               ))}

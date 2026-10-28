@@ -153,9 +153,16 @@ function LandingContent() {
             </Button>
           </div>
         )}
+        {(environments.loading ||
+          collections.loading ||
+          registries.loading) && (
+          <Text role="status">Loading automation content…</Text>
+        )}
         {environments.loading || collections.loading ? (
           <div aria-busy="true" aria-label="Loading inventory counts">
-            <Skeleton width="100%" height="4rem" />
+            <div aria-hidden="true">
+              <Skeleton width="100%" height="4rem" />
+            </div>
           </div>
         ) : (
           !(environments.error || collections.error) && (
@@ -194,7 +201,9 @@ function LandingContent() {
         )}
         {registries.loading && (
           <div aria-busy="true" aria-label="Loading registry health">
-            <Skeleton width="100%" height="12rem" />
+            <div aria-hidden="true">
+              <Skeleton width="100%" height="12rem" />
+            </div>
           </div>
         )}
         {registries.value?.length === 0 && (
@@ -240,7 +249,9 @@ function LandingContent() {
                     </Text>
                   )}
                   <Text>{relativeTime(registry.lastReconciledAt)}</Text>
-                  <Text>{registry.lastReconciledAt ?? 'Never reconciled'}</Text>
+                  {registry.lastReconciledAt && (
+                    <Text color="secondary">{registry.lastReconciledAt}</Text>
+                  )}
                   {registry.capabilities ? (
                     <>
                       <Text>Referrers: {registry.capabilities.referrers}</Text>

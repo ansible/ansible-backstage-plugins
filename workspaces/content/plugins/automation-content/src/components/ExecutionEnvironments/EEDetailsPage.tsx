@@ -159,8 +159,11 @@ export function EEDetailsPage() {
         />
         {image.loading && (
           <div aria-busy="true" aria-label="Loading image details">
-            <Skeleton width="100%" height="4rem" />
-            <Skeleton width="100%" height="12rem" />
+            <Text role="status">Loading image details…</Text>
+            <div aria-hidden="true">
+              <Skeleton width="100%" height="4rem" />
+              <Skeleton width="100%" height="12rem" />
+            </div>
           </div>
         )}
         {image.error && (

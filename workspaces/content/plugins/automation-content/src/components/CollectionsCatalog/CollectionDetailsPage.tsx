@@ -80,8 +80,11 @@ export function CollectionDetailsPage() {
         />
         {result.loading && (
           <div aria-busy="true" aria-label="Loading collection details">
-            <Skeleton width="100%" height="4rem" />
-            <Skeleton width="100%" height="12rem" />
+            <Text role="status">Loading collection details…</Text>
+            <div aria-hidden="true">
+              <Skeleton width="100%" height="4rem" />
+              <Skeleton width="100%" height="12rem" />
+            </div>
           </div>
         )}
         {result.error && (
