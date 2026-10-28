@@ -96,3 +96,12 @@ it('renders shared documentation preserving the providing artifact', async () =>
     }),
   ).toBeTruthy();
 });
+
+it('shows every version/provider relationship in the environments table', async () => {
+  mount('/ns/name_with.dots?tab=environments');
+  expect(await screen.findByRole('grid')).toBeTruthy();
+  expect(screen.getAllByRole('link', { name: 'r/ee@sha256:one' })).toHaveLength(
+    2,
+  );
+  expect(screen.getByRole('link', { name: 'r/ee@sha256:two' })).toBeTruthy();
+});

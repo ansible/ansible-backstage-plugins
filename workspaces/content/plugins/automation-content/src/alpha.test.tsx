@@ -12,11 +12,15 @@ jest.mock('./components/ContentLandingPage', () => ({
 jest.mock('./components/CollectionsCatalog/CollectionsCatalogPage', () => ({
   CollectionsCatalogPage: () => <h1>Collections</h1>,
 }));
+jest.mock('./components/CollectionsCatalog/CollectionDetailsPage', () => ({
+  CollectionDetailsPage: () => <h1>Collection details</h1>,
+}));
 
 it.each([
   ['/automation-content', 'Automation content'],
   ['/automation-content/execution-environments', 'Execution environments'],
   ['/automation-content/collections', 'Collections'],
+  ['/automation-content/collections/ns/name_with.dots', 'Collection details'],
 ])('discovers the native page at %s', async (path, text) => {
   await renderTestApp({ features: [plugin], initialRouteEntries: [path] });
   expect(await screen.findByText(text, {}, { timeout: 10000 })).toBeTruthy();

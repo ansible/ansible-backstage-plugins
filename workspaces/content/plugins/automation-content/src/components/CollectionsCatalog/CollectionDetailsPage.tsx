@@ -24,6 +24,7 @@ import { ContentItemsTable } from '../ExecutionEnvironments/ContentItemsTable';
 import { ContentItemDocumentation } from '../ContentItemDocumentation';
 import { collectionHref, groupCollections } from './collectionHelpers';
 import { CollectionMetadata } from './CollectionMetadata';
+import { CollectionEnvironmentsTable } from './CollectionEnvironmentsTable';
 
 /** Collection versions and artifact relationships, with shared ansible-doc rendering. */
 export function CollectionDetailsPage() {
@@ -176,22 +177,10 @@ export function CollectionDetailsPage() {
                 <Text as="h2" variant="title-medium">
                   All versions and providing execution environments
                 </Text>
-                {group.versions.map(v => (
-                  <Card key={v.version}>
-                    <CardHeader>
-                      <Text as="h3" variant="title-small">
-                        Version {v.version}
-                      </Text>
-                    </CardHeader>
-                    <CardBody>
-                      <CollectionMetadata
-                        counts={v.counts}
-                        providedBy={v.providedBy}
-                        environmentBase={environmentBase}
-                      />
-                    </CardBody>
-                  </Card>
-                ))}
+                <CollectionEnvironmentsTable
+                  versions={group.versions}
+                  environmentBase={environmentBase}
+                />
               </TabPanel>
             </Tabs>
           </>

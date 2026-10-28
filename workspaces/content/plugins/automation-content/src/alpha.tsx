@@ -78,6 +78,20 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
         },
       },
     }),
+    PageBlueprint.make({
+      name: 'collection-details',
+      params: {
+        path: '/automation-content/collections/:namespace/:name',
+        title: 'Collection details',
+        noHeader: true,
+        loader: async () => {
+          const { CollectionDetailsPage } = await import(
+            './components/CollectionsCatalog/CollectionDetailsPage'
+          );
+          return compatWrapper(<CollectionDetailsPage />);
+        },
+      },
+    }),
   ],
 });
 
