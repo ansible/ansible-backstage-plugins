@@ -1,12 +1,21 @@
 import express from 'express';
 import Router from 'express-promise-router';
-import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
+import {
+  AuthService,
+  HttpAuthService,
+  LoggerService,
+  UserInfoService,
+} from '@backstage/backend-plugin-api';
+import { CatalogClient } from '@backstage/catalog-client';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
 
 export interface RouterOptions {
   index: ContentIndex;
   logger: LoggerService;
   httpAuth: HttpAuthService;
+  auth: AuthService;
+  userInfo: UserInfoService;
+  catalogClient: CatalogClient;
 }
 
 /**
@@ -116,9 +125,34 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger } = options;
+  const { index, logger, httpAuth, auth, userInfo, catalogClient } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
+
+  /** Reuse the AAP backend's catalog annotation check; never trust UI gating. */
+  const requireSuperuser: express.RequestHandler = async (req, res, next) => {
+    const credentials = await httpAuth.credentials(req);
+    try {
+      const { userEntityRef } = await userInfo.getUserInfo(credentials);
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: credentials,
+        targetPluginId: 'catalog',
+      });
+      const entity = await catalogClient.getEntityByRef(userEntityRef, {
+        token,
+      });
+      if (
+        entity?.metadata.annotations?.['aap.platform/is_superuser'] === 'true'
+      ) {
+        next();
+        return;
+      }
+    } catch {
+      // Missing identities and failed catalog lookups fail closed without leaking details.
+      logger.warn('Unable to authorize content registry sync');
+    }
+    res.status(403).json({ error: 'Forbidden: superuser access required' });
+  };
 
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
@@ -151,7 +185,7 @@ export async function createRouter(
    * Backs the manual refresh control in the UI: a full re-read, for when a user knows
    * something changed and does not want to wait for the poll.
    */
-  router.post('/sync', async (_req, res) => {
+  router.post('/sync', requireSuperuser, async (_req, res) => {
     const started = Date.now();
     const results = [];
     for (const state of index.listRegistries()) {
@@ -191,7 +225,7 @@ export async function createRouter(
    * Full re-read of one registry: the single-registry counterpart of POST /sync,
    * backing the per-registry refresh control in the UI.
    */
-  router.post('/registries/:name/sync', async (req, res) => {
+  router.post('/registries/:name/sync', requireSuperuser, async (req, res) => {
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({

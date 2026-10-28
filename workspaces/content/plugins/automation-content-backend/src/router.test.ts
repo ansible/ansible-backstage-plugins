@@ -11,12 +11,29 @@ const logger = {
   child: () => logger,
 } as never;
 
-async function appWith(index: ContentIndex, httpAuth?: unknown) {
+async function appWith(
+  index: ContentIndex,
+  httpAuth?: unknown,
+  superuser = true,
+) {
   const app = express();
   app.use(
     await createRouter({
       index,
       logger,
+      userInfo: {
+        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
+      } as never,
+      auth: {
+        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
+      } as never,
+      catalogClient: {
+        getEntityByRef: async () => ({
+          metadata: {
+            annotations: { 'aap.platform/is_superuser': String(superuser) },
+          },
+        }),
+      } as never,
       httpAuth: (httpAuth ?? {
         // Permissive by default: the credentials barrier, not the router, is
         // what these tests exercise elsewhere.
@@ -81,6 +98,24 @@ function seed(items: Array<Record<string, unknown>>): ContentIndex {
   (index as unknown as { items: Map<string, unknown> }).items = map;
   return index;
 }
+
+describe('sync authorization', () => {
+  it.each(['/sync', '/registries/reg/sync'])(
+    'denies non-superusers on %s',
+    async path => {
+      const index = seed([]);
+      const refresh = jest.spyOn(index, 'refreshRegistry');
+      const app = await appWith(index, undefined, false);
+      await request(app).post(path).expect(403);
+      expect(refresh).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows superusers to sync', async () => {
+    const app = await appWith(seed([]));
+    await request(app).post('/sync').expect(200);
+  });
+});
 
 describe('documentation field normalisation', () => {
   /**

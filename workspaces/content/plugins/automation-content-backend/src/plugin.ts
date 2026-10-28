@@ -6,6 +6,7 @@ import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-auto
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentIndex } from './ContentIndex';
 import { createRouter } from './router';
+import { CatalogClient } from '@backstage/catalog-client';
 
 /**
  * The automation content API.
@@ -24,8 +25,20 @@ export const automationContentPlugin = createBackendPlugin({
         httpRouter: coreServices.httpRouter,
         httpAuth: coreServices.httpAuth,
         scheduler: coreServices.scheduler,
+        auth: coreServices.auth,
+        userInfo: coreServices.userInfo,
+        discovery: coreServices.discovery,
       },
-      async init({ config, logger, httpRouter, httpAuth, scheduler }) {
+      async init({
+        config,
+        logger,
+        httpRouter,
+        httpAuth,
+        scheduler,
+        auth,
+        userInfo,
+        discovery,
+      }) {
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
         const index = new ContentIndex(
@@ -40,7 +53,16 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ index, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({
+            index,
+            logger,
+            httpAuth,
+            auth,
+            userInfo,
+            catalogClient: new CatalogClient({ discoveryApi: discovery }),
+          }),
+        );
         httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
 
         // Cheap drift check between full refreshes. Lists tags and HEADs each one —
