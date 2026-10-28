@@ -1,0 +1,6 @@
+{
+  "name": "@ansible/portal-scaffolder-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Portal scaffolder workspace — portal-scaffolder plugin (ANSTRAT-2497)"
+}
