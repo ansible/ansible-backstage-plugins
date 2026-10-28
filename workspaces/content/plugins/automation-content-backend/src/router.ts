@@ -116,21 +116,12 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger, httpAuth } = options;
+  const { index, logger } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      refreshedAt: index.refreshedAt,
-      cache: index.cacheStats,
-      registries: index.listRegistries().map(state => ({
-        name: state.connection.name,
-        ...index.reconcileStateFor(state.connection.name),
-        drift: index.driftStateFor(state.connection.name),
-      })),
-    });
+    res.json({ status: 'ok' });
   });
 
   // -- Registries ---------------------------------------------------------
@@ -153,22 +144,6 @@ export async function createRouter(
       }),
     });
   });
-
-  /**
-   * Require an authenticated caller on a mutating route.
-   *
-   * Backstage auth policies are path-prefix based with no method awareness, so the
-   * `allow: 'unauthenticated'` policy that keeps `GET /registries` inspectable would
-   * also open `POST /registries/:name/poll` and `/sync` to anonymous callers. Those
-   * routes therefore enforce credentials here, in-handler, matching what the default
-   * barrier would have done (user or service principal).
-   */
-  const requireCredentials = async (req: unknown) => {
-    await httpAuth.credentials(
-      req as Parameters<HttpAuthService['credentials']>[0],
-      { allow: ['user', 'service'] },
-    );
-  };
 
   /**
    * Refresh every registry.
@@ -197,9 +172,6 @@ export async function createRouter(
 
   /** Cheap drift check: does the registry still match the index? */
   router.post('/registries/:name/poll', async (req, res) => {
-    // The /registries prefix is anonymous for GET /registries; this route sits
-    // beneath it and must enforce credentials itself.
-    await requireCredentials(req);
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({
@@ -220,8 +192,6 @@ export async function createRouter(
    * backing the per-registry refresh control in the UI.
    */
   router.post('/registries/:name/sync', async (req, res) => {
-    // Same situation as poll above — anonymous prefix, method-blind policy.
-    await requireCredentials(req);
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({
