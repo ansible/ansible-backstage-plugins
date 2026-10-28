@@ -577,10 +577,34 @@ export class AAPClient implements IAAPService {
     const endPoint = 'api/controller/v2/job_templates/';
     let extraVariables: Record<string, unknown> | '' = '';
     if (payload?.extraVariables) {
+      const rejectUnsafeNumbers = (value: unknown, seen = new WeakSet<object>()): void => {
+        if (typeof value === 'number') {
+          if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+            throw new RangeError(
+              'Job template extraVariables contains an unsafe integer; provide it as YAML text to preserve its precision.',
+            );
+          }
+          return;
+        }
+        if (!value || typeof value !== 'object' || seen.has(value)) return;
+        seen.add(value);
+        for (const nested of Object.values(value)) {
+          rejectUnsafeNumbers(nested, seen);
+        }
+      };
+      if (typeof payload.extraVariables !== 'string') {
+        rejectUnsafeNumbers(payload.extraVariables);
+      }
       const parsedExtraVariables =
         typeof payload.extraVariables === 'string'
-          ? YAML.parse(payload.extraVariables)
-          : JSON.parse(JSON.stringify(payload.extraVariables)); // NOSONAR — structuredClone unavailable in test runtime
+          ? YAML.parse(payload.extraVariables, {
+              version: '1.1',
+              intAsBigInt: true,
+            })
+          : YAML.parse(
+              YAML.stringify(payload.extraVariables, { version: '1.1' }),
+              { version: '1.1', intAsBigInt: true },
+            );
       if (
         !parsedExtraVariables ||
         typeof parsedExtraVariables !== 'object' ||
@@ -616,7 +640,9 @@ export class AAPClient implements IAAPService {
       project: payload.project.id,
       playbook: payload.playbook,
       execution_environment: payload?.executionEnvironment?.id ?? '',
-      extra_vars: extraVariables ? YAML.stringify(extraVariables) : '',
+      extra_vars: extraVariables
+        ? YAML.stringify(extraVariables, { version: '1.1' })
+        : '',
     };
     this.logger.info(`Begin creating job template ${payload.templateName}.`);
     const response = await this.executePostRequest(endPoint, token, data);
