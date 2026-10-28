@@ -624,42 +624,6 @@ export async function createRouter(
 
   // -- Configuration as code ----------------------------------------------
 
-  router.get('/config/export', (req, res) => {
-    const config = {
-      apiVersion: 'content.ansible.com/v1',
-      kind: 'ContentConfiguration',
-      registries: index.listRegistries().map(state => ({
-        name: state.connection.name,
-        url: state.connection.url,
-        ...(state.connection.namespaces
-          ? { namespaces: state.connection.namespaces }
-          : {}),
-        ...(state.connection.repositories
-          ? { repositories: state.connection.repositories }
-          : {}),
-        auth: {
-          type: state.connection.auth.type,
-          ...(state.connection.auth.username
-            ? { username: '${CONTENT_REGISTRY_USERNAME}' }
-            : {}),
-          ...(state.connection.auth.password
-            ? { password: '${CONTENT_REGISTRY_PASSWORD}' }
-            : {}),
-        },
-        ...(state.connection.insecure ? { insecure: true } : {}),
-        ...(state.connection.rewriteAuthRealmHost
-          ? { rewriteAuthRealmHost: true }
-          : {}),
-      })),
-    };
-
-    if (req.query.format === 'yaml') {
-      res.type('application/yaml').send(toYaml(config));
-      return;
-    }
-    res.json(config);
-  });
-
   router.post('/config/validate', (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];
@@ -748,27 +712,3 @@ export async function createRouter(
   return router as unknown as express.Router;
 }
 
-/** Minimal YAML emitter, sufficient for the config document shape. */
-function toYaml(value: unknown, indent = 0): string {
-  const pad = ' '.repeat(indent);
-  if (Array.isArray(value)) {
-    return value
-      .map(entry => `${pad}- ${toYaml(entry, indent + 2).trimStart()}`)
-      .join('\n');
-  }
-  if (value && typeof value === 'object') {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([key, val]) =>
-        val && typeof val === 'object'
-          ? `${pad}${key}:\n${toYaml(val, indent + 2)}`
-          : `${pad}${key}: ${formatScalar(val)}`,
-      )
-      .join('\n');
-  }
-  return `${pad}${formatScalar(value)}`;
-}
-
-function formatScalar(value: unknown): string {
-  if (typeof value !== 'string') return String(value);
-  return /[:#{}[\]]|^\s|\s$/.test(value) ? JSON.stringify(value) : value;
-}
