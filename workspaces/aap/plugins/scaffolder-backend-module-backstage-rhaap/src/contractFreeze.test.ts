@@ -107,19 +107,27 @@ describe('Phase 0 contract freeze: action IDs', () => {
   });
 });
 
+// Must stay in sync with `module.ts` `addTemplateFilters({ ... })` keys.
+const MODULE_REGISTERED_TEMPLATE_FILTERS = {
+  useCaseNameFilter,
+  resourceFilter,
+  multiResourceFilter,
+  uuidFilter,
+};
+
 describe('Phase 0 contract freeze: template filters (target: scaffolder-backend-module-aap)', () => {
-  it('exports exactly the four filters module.ts registers', () => {
-    expect({
-      useCaseNameFilter: typeof useCaseNameFilter,
-      resourceFilter: typeof resourceFilter,
-      multiResourceFilter: typeof multiResourceFilter,
-      uuidFilter: typeof uuidFilter,
-    }).toEqual({
-      useCaseNameFilter: 'function',
-      resourceFilter: 'function',
-      multiResourceFilter: 'function',
-      uuidFilter: 'function',
-    });
+  it('registers exactly the four template filters wired in module.ts', () => {
+    expect(Object.keys(MODULE_REGISTERED_TEMPLATE_FILTERS).sort()).toEqual([
+      'multiResourceFilter',
+      'resourceFilter',
+      'useCaseNameFilter',
+      'uuidFilter',
+    ]);
+    expect(
+      Object.values(MODULE_REGISTERED_TEMPLATE_FILTERS).every(
+        filter => typeof filter === 'function',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -159,7 +167,7 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
         metadata: {
           annotations: {
             'ansible.io/scm-provider': 'github',
-            'ansible.io/scm-host-name': 'github.com',
+            'ansible.io/scm-host-name': 'github-public',
             'ansible.io/scm-organization': 'org1',
             'ansible.io/scm-repository': 'repo1',
           },
@@ -167,14 +175,14 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
       },
     ]);
 
-    expect(entry.sources).toEqual(['Github / github.com / org1 / repo1']);
+    expect(entry.sources).toEqual(['Github / github-public / org1 / repo1']);
   });
 
   // The consumer side of this contract — createEEDefinition.ts actually
   // parsing a producer-generated source string back into a `private_hub_*`
   // id (PAH) or a git URL + scmServers entry (SCM) — is asserted end-to-end
   // against the real action in `./actions/createEEDefinition.test.ts`
-  // ("buildCollectionsFromCatalogEntities output feeds the ..." tests).
+  // ("accepts a PAH/SCM source emitted by the collections picker" tests).
   // Re-deriving the parse here with hand-written split()/startsWith() logic
   // would duplicate createEEDefinition.ts's own logic in the test rather
   // than exercising it, so it is intentionally not repeated in this file.

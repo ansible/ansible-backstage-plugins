@@ -67,7 +67,7 @@ export function createEEDefinitionAction(options: {
   config: Config;
 }) {
   const { frontendUrl, auth, discovery, config } = options;
-  // @ts-ignore TS2589: complex ZodEffects schema triggers deep type recursion (flaky: depends on checker instantiation depth, not always triggered)
+  // @ts-expect-error TS2589: complex ZodEffects schema triggers deep type recursion
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
@@ -347,8 +347,7 @@ export function createEEDefinitionAction(options: {
           auth,
           logger,
           getInitiatorCredentials: () => ctx.getInitiatorCredentials(),
-          output: (key: string, value: any) =>
-            ctx.output(key as Parameters<typeof ctx.output>[0], value),
+          output: (key, value) => ctx.output(key, value),
         });
 
         if (values.publishToSCM) {
@@ -424,7 +423,10 @@ async function bestEffortUnregisterExistingEE(options: {
   auth: AuthService;
   logger: LoggerService;
   getInitiatorCredentials: () => Promise<BackstageCredentials>;
-  output?: (name: string, value: any) => void;
+  output?: (
+    name: 'eeCleanupStatus' | 'eeCleanupWarning',
+    value: string,
+  ) => void;
 }): Promise<void> {
   const {
     name,

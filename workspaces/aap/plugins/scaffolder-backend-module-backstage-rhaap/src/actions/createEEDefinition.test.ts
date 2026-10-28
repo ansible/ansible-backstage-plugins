@@ -31,6 +31,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
+import { buildCollectionsFromCatalogEntities } from '../autocomplete/utils';
 
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;
@@ -959,6 +960,37 @@ describe('createEEDefinition', () => {
     expect(eeConfig.collections[0].source).toBe('private_hub_validated');
   });
 
+  it('accepts a PAH source emitted by the collections picker', async () => {
+    const [collection] = buildCollectionsFromCatalogEntities([
+      {
+        spec: {
+          collection_full_name: 'my.collection',
+          collection_version: '1.0.0',
+        },
+        metadata: {
+          annotations: {
+            'ansible.io/collection-source': 'pah',
+            'ansible.io/collection-source-repository': 'validated',
+          },
+        },
+      },
+    ]);
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [{ name: collection.name, source: collection.sources![0] }],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([
+      { name: 'my.collection', source: 'private_hub_validated' },
+    ]);
+  });
+
   it('normalizes PAH source using deterministic repo-id rules', async () => {
     const action = makeAction();
     const ctx = makeCtx({
@@ -1575,6 +1607,60 @@ describe('createEEDefinition', () => {
         name: 'https://${AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_MY_ORG_TOKEN}@github.com/my-org/my-repo',
         type: 'git',
         version: 'main',
+      },
+    ]);
+  });
+
+  it('accepts an SCM source emitted by the collections picker', async () => {
+    const [collection] = buildCollectionsFromCatalogEntities([
+      {
+        spec: {
+          collection_full_name: 'my.scm_collection',
+          collection_version: '1.0.0',
+        },
+        metadata: {
+          annotations: {
+            'ansible.io/scm-provider': 'github',
+            'ansible.io/scm-host-name': 'github-public',
+            'ansible.io/scm-organization': 'my-org',
+            'ansible.io/scm-repository': 'my-repo',
+          },
+        },
+      },
+    ]);
+    const action = makeAction(
+      makeScmConfig({
+        github: [{ name: 'github-public', host: 'github.com' }],
+      }),
+    );
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: collection.name,
+          source: collection.sources![0],
+          version: '1.0.0',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections).toEqual([
+      {
+        name: 'https://${AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_MY_ORG_TOKEN}@github.com/my-org/my-repo',
+        type: 'git',
+        version: '1.0.0',
+      },
+    ]);
+    expect(eeConfig.scm_servers).toEqual([
+      {
+        id: 'aap_ee_builder_github_github_public_my_org_token',
+        hostname: 'github.com',
+        token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_MY_ORG_TOKEN',
       },
     ]);
   });
