@@ -88,12 +88,17 @@ Collect everything that will become public, not just the source diff:
 
 ```bash
 git fetch origin
-# Base: the PR's target branch, as a remote-tracking ref. gh pr view exits
-# non-zero both when the branch has no PR and when the call itself fails, so
-# never read a failure as "no PR". If BASE comes back empty, stop and name the
-# base yourself instead of reviewing an unvalidated one.
-BASE=$(gh pr view --json baseRefName -q .baseRefName | sed 's|^|origin/|')
-test -n "$BASE" || { echo "no base resolved; set BASE=origin/<branch> and re-run"; exit 1; }
+# A shallow clone stops at its boundary, so the log below can miss commits that
+# were later removed. Deepen it before relying on history.
+git rev-parse --is-shallow-repository | grep -q true && git fetch --unshallow origin
+# Base: honour the ref the caller exported, otherwise take the PR's target branch
+# as a remote-tracking ref. gh pr view exits non-zero both when the branch has no
+# PR and when the call itself fails, so never read a failure as "no PR".
+if [ -z "${BASE:-}" ]; then
+  BASE=$(gh pr view --json baseRefName -q .baseRefName | sed 's|^|origin/|')
+fi
+test -n "$BASE" || { echo "no base resolved; export BASE=origin/<branch> and re-run"; exit 1; }
+git rev-parse --verify --quiet "$BASE" >/dev/null || { echo "base $BASE does not exist; fetch it first"; exit 1; }
 git diff --stat "$BASE"...HEAD
 git diff --name-status "$BASE"...HEAD
 git log "$BASE"..HEAD --format='--- %h%n%B'
@@ -185,7 +190,11 @@ owner, and a plan. Check whether anything still cited actually resolves:
 # taken from the content under review: a crafted link is how a review turns
 # into a request against something internal. Reject private, link-local, and
 # unapproved destinations instead of resolving them.
-curl -s "https://<approved-tracker-host>/rest/api/2/issue/<KEY>" | jq -er '.key'
+# -f fails on 4xx/5xx, and the predicate rejects a non-JSON body, a missing key,
+# or a key that is not a string: {"key": 7} is not a resolved issue.
+curl -sf "https://<approved-tracker-host>/rest/api/2/issue/<KEY>" \
+  | jq -e 'type == "object" and (.key | type == "string")' >/dev/null \
+  && echo resolved || echo "does not resolve"
 
 # gh api is authenticated, so a 200 here only proves you can see the branch.
 gh api repos/<owner>/<repo>/branches/<branch> --jq .name
