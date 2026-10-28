@@ -9,18 +9,14 @@ jest.mock('./components/ExecutionEnvironments/ImagesCatalogPage', () => ({
 jest.mock('./components/ContentLandingPage', () => ({
   ContentLandingPage: () => <h1>Automation content</h1>,
 }));
+jest.mock('./components/CollectionsCatalog/CollectionsCatalogPage', () => ({
+  CollectionsCatalogPage: () => <h1>Collections</h1>,
+}));
 
 it.each([
   ['/automation-content', 'Automation content'],
   ['/automation-content/execution-environments', 'Execution environments'],
-  [
-    '/automation-content/collections',
-    'Collections are coming in the next commit.',
-  ],
-  [
-    '/automation-content/collections/default/example',
-    'Collections are coming in the next commit.',
-  ],
+  ['/automation-content/collections', 'Collections'],
 ])('discovers the native page at %s', async (path, text) => {
   await renderTestApp({ features: [plugin], initialRouteEntries: [path] });
   expect(await screen.findByText(text, {}, { timeout: 10000 })).toBeTruthy();

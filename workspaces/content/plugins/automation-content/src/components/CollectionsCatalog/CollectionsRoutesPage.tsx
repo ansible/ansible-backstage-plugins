@@ -1,11 +1,12 @@
-import { Flex, Text } from '@backstage/ui';
+import { Route, Routes } from 'react-router-dom';
+import { CollectionsCatalogPage } from './CollectionsCatalogPage';
 import type { ReactElement } from 'react';
 
-/** Keep direct collection navigation available while the catalog is migrated. */
+/** Collection catalog route entry point. */
 export function CollectionsRoutesPage(): ReactElement {
   return (
-    <Flex>
-      <Text>Collections are coming in the next commit.</Text>
-    </Flex>
+    <Routes>
+      <Route index element={<CollectionsCatalogPage />} />
+    </Routes>
   );
 }
