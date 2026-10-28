@@ -160,6 +160,17 @@ export interface AutomationContentApi {
   getContentItem(fqcn: string, inArtifact?: string): Promise<ContentItem>;
   /** Re-read every registry and rebuild the index. */
   syncAll(): Promise<SyncResult>;
+  /** Reconcile only the named registry, retaining its previous index on failure. */
+  syncRegistry(name: string): Promise<RegistrySyncResult>;
+}
+
+/** Result of the backend's single-registry reconciliation endpoint. */
+export interface RegistrySyncResult {
+  status: 'completed' | 'failed';
+  discovered: number;
+  retainedPrevious: boolean;
+  error?: string;
+  lastReconciledAt?: string;
 }
 
 export interface SyncResult {
@@ -219,6 +230,10 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async syncAll(): Promise<SyncResult> {
     return this.post('/sync');
+  }
+
+  async syncRegistry(name: string): Promise<RegistrySyncResult> {
+    return this.post(`/registries/${encodeURIComponent(name)}/sync`);
   }
 
   private async get<T>(path: string): Promise<T> {

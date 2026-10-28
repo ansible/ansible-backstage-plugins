@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -35,6 +35,8 @@ function LandingContent() {
   const { showNotification, notifications, removeNotification } =
     useNotifications();
   const [syncing, setSyncing] = useState(false);
+  const [syncingRegistry, setSyncingRegistry] = useState<string>();
+  const syncInFlight = useRef(false);
   const [status, setStatus] = useState('');
   const eeHref = useRouteRef(eeRouteRef)();
   const collectionsHref = useRouteRef(collectionsRouteRef)();
@@ -57,28 +59,43 @@ function LandingContent() {
       (collection.counts.rulebooks ?? 0),
     0,
   );
-  const sync = async () => {
-    if (syncing || !isSuperuser) return;
+  const sync = async (name?: string) => {
+    if (syncInFlight.current || !isSuperuser) return;
+    syncInFlight.current = true;
     setSyncing(true);
-    setStatus('Syncing configured registries');
+    setSyncingRegistry(name);
+    setStatus(name ? `Syncing ${name}` : 'Syncing configured registries');
     try {
-      const result = await api.syncAll();
-      for (const registry of result.registries) {
+      if (name) {
+        const result = await api.syncRegistry(name);
+        const ok = result.status === 'completed';
         showNotification({
-          title: `${registry.registry}: ${
-            registry.ok ? 'sync complete' : 'sync failed'
-          }`,
-          description: registry.ok
-            ? `${registry.discovered} artifacts discovered`
-            : registry.error ?? 'Registry reconciliation failed.',
-          severity: registry.ok ? 'success' : 'error',
+          title: `${name}: ${ok ? 'sync complete' : 'sync failed'}`,
+          description: ok
+            ? `${result.discovered} artifacts discovered`
+            : result.error ?? 'Registry reconciliation failed.',
+          severity: ok ? 'success' : 'error',
         });
+        setStatus(`${name}: ${ok ? 'sync completed' : 'sync failed'}`);
+      } else {
+        const result = await api.syncAll();
+        for (const registry of result.registries) {
+          showNotification({
+            title: `${registry.registry}: ${
+              registry.ok ? 'sync complete' : 'sync failed'
+            }`,
+            description: registry.ok
+              ? `${registry.discovered} artifacts discovered`
+              : registry.error ?? 'Registry reconciliation failed.',
+            severity: registry.ok ? 'success' : 'error',
+          });
+        }
+        setStatus(
+          result.registries.some(registry => !registry.ok)
+            ? 'Sync completed with registry failures'
+            : 'Sync completed',
+        );
       }
-      setStatus(
-        result.registries.some(registry => !registry.ok)
-          ? 'Sync completed with registry failures'
-          : 'Sync completed',
-      );
       registries.retry();
       environments.retry();
       collections.retry();
@@ -90,7 +107,9 @@ function LandingContent() {
         severity: 'error',
       });
     } finally {
+      syncInFlight.current = false;
       setSyncing(false);
+      setSyncingRegistry(undefined);
     }
   };
   return (
@@ -101,8 +120,13 @@ function LandingContent() {
           description="Discover and inspect Ansible content across configured OCI registries."
           actions={
             isSuperuser && (
-              <Button variant="secondary" isPending={syncing} onPress={sync}>
-                Sync all registries
+              <Button
+                variant="secondary"
+                isPending={syncing && !syncingRegistry}
+                isDisabled={syncing}
+                onPress={() => sync()}
+              >
+                Sync all
               </Button>
             )
           }
@@ -186,6 +210,17 @@ function LandingContent() {
               <CardBody>
                 <Flex direction="column" gap="2">
                   <Text>{registry.url}</Text>
+                  {isSuperuser && (
+                    <Button
+                      variant="secondary"
+                      aria-label={`Sync ${registry.name}`}
+                      isDisabled={syncing}
+                      isPending={syncing && syncingRegistry === registry.name}
+                      onPress={() => sync(registry.name)}
+                    >
+                      Sync registry
+                    </Button>
+                  )}
                   <Text
                     color={
                       registry.lastReconcileOk === false ? 'danger' : 'primary'
