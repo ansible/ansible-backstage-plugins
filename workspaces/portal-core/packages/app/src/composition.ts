@@ -32,6 +32,7 @@ export const optionalContributorLoader = createFrontendFeatureLoader({
         ? [
             import('@ansible/plugin-backstage-apme/alpha'),
             import('@ansible/plugin-backstage-rhaap/alpha'),
+            import('@ansible/plugin-automation-content/alpha'),
           ]
         : []),
     ];

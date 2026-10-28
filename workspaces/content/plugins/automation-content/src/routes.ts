@@ -1,4 +1,4 @@
-import { createRouteRef } from '@backstage/core-plugin-api';
+import { createRouteRef, createSubRouteRef } from '@backstage/core-plugin-api';
 
 /**
  * The plugin's root route.
@@ -9,4 +9,28 @@ import { createRouteRef } from '@backstage/core-plugin-api';
  */
 export const rootRouteRef = createRouteRef({
   id: 'automation-content',
+});
+
+/** Keep execution environment navigation independent of the host mount path. */
+export const eeRouteRef = createRouteRef({
+  id: 'automation-content/execution-environments',
+});
+
+/** Entity identity uses namespace and name to avoid collisions across catalogs. */
+export const eeDetailsRouteRef = createSubRouteRef({
+  id: 'automation-content/execution-environments/details',
+  parent: eeRouteRef,
+  path: '/:namespace/:name',
+});
+
+/** Collections have their own catalog entry point for host navigation. */
+export const collectionsRouteRef = createRouteRef({
+  id: 'automation-content/collections',
+});
+
+/** Preserve the full entity identity when opening a collection directly. */
+export const collectionDetailsRouteRef = createSubRouteRef({
+  id: 'automation-content/collections/details',
+  parent: collectionsRouteRef,
+  path: '/:namespace/:name',
 });
