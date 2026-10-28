@@ -179,6 +179,14 @@ export const automationContentApiRef = createApiRef<AutomationContentApi>({
   id: 'plugin.automation-content.service',
 });
 
+/** HTTP failure with status retained so pages distinguish missing resources from outages. */
+export class ContentApiError extends Error {
+  constructor(readonly status: number, statusText: string) {
+    super(`Content API request failed: ${status} ${statusText}`);
+    this.name = 'ContentApiError';
+  }
+}
+
 /**
  * Client for the automation content API.
  *
@@ -204,9 +212,7 @@ export class AutomationContentClient implements AutomationContentApi {
       method: 'POST',
     });
     if (!res.ok && res.status !== 207) {
-      throw new Error(
-        `Content API request failed: ${res.status} ${res.statusText}`,
-      );
+      throw new ContentApiError(res.status, res.statusText);
     }
     return (await res.json()) as T;
   }
@@ -219,9 +225,7 @@ export class AutomationContentClient implements AutomationContentApi {
     const base = await this.baseUrl();
     const res = await this.options.fetchApi.fetch(`${base}${path}`);
     if (!res.ok) {
-      throw new Error(
-        `Content API request failed: ${res.status} ${res.statusText}`,
-      );
+      throw new ContentApiError(res.status, res.statusText);
     }
     return (await res.json()) as T;
   }

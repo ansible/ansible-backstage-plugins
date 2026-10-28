@@ -10,7 +10,7 @@ import {
   Skeleton,
   Text,
 } from '@backstage/ui';
-import { automationContentApiRef } from '../../api';
+import { automationContentApiRef, ContentApiError } from '../../api';
 import { PageHeaderSection } from '../common';
 import { OptionTree } from './OptionTree';
 import styles from './documentation.module.css';
@@ -45,7 +45,10 @@ export function ContentItemDocumentation({
       )}
       {result.error && (
         <div role="alert">
-          Unable to load documentation for this content item.{' '}
+          {result.error instanceof ContentApiError &&
+          result.error.status === 404
+            ? 'Documentation was not found for this content item in the selected artifact.'
+            : 'Unable to load documentation for this content item.'}{' '}
           <Button onPress={result.retry}>Retry</Button>
         </div>
       )}

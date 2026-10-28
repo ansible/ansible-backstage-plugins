@@ -21,7 +21,11 @@ import {
   useTable,
   type ColumnConfig,
 } from '@backstage/ui';
-import { automationContentApiRef, type ArtifactContents } from '../../api';
+import {
+  automationContentApiRef,
+  ContentApiError,
+  type ArtifactContents,
+} from '../../api';
 import { collectionsRouteRef, eeRouteRef, rootRouteRef } from '../../routes';
 import { EmptyState, PageHeaderSection } from '../common';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
@@ -161,7 +165,10 @@ export function EEDetailsPage() {
         )}
         {image.error && (
           <div role="alert">
-            Unable to load this execution environment.{' '}
+            {image.error instanceof ContentApiError &&
+            image.error.status === 404
+              ? 'This execution environment was not found. It may no longer be indexed.'
+              : 'Unable to load this execution environment.'}{' '}
             <Button onPress={image.retry}>Retry</Button>
           </div>
         )}
