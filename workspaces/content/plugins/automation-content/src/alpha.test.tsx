@@ -2,15 +2,17 @@ import { screen } from '@testing-library/react';
 import { renderTestApp } from '@backstage/frontend-test-utils';
 import plugin from './alpha';
 
+// Route discovery is independent of registry/catalog networking, covered by page tests.
+jest.mock('./components/ExecutionEnvironments/ImagesCatalogPage', () => ({
+  ImagesCatalogPage: () => <h1>Execution environments</h1>,
+}));
+
 it.each([
   ['/automation-content', 'Automation content is coming in the next commit.'],
-  [
-    '/automation-content/execution-environments',
-    'Execution environments are coming in the next commit.',
-  ],
+  ['/automation-content/execution-environments', 'Execution environments'],
   [
     '/automation-content/execution-environments/default/example',
-    'Execution environments are coming in the next commit.',
+    'Execution environments',
   ],
   [
     '/automation-content/collections',
