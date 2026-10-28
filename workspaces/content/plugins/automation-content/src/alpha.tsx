@@ -1,5 +1,4 @@
 import {
-  ApiBlueprint,
   PageBlueprint,
   createFrontendPlugin,
   type FrontendPlugin,
@@ -8,7 +7,6 @@ import {
   compatWrapper,
   convertLegacyRouteRef,
 } from '@backstage/core-compat-api';
-import { EEBuildApis } from './apis';
 import {
   rootRouteRef,
   eeRouteRef,
@@ -29,10 +27,6 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
     collectionDetails: convertLegacyRouteRef(collectionDetailsRouteRef),
   },
   extensions: [
-    ApiBlueprint.make({
-      name: 'ee-build',
-      params: define => define(EEBuildApis),
-    }),
     PageBlueprint.make({
       name: 'root',
       params: {
