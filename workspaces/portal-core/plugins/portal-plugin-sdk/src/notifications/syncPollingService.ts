@@ -8,6 +8,7 @@ import {
   FAST_POLL_INTERVAL_MS,
   SLOW_POLL_INTERVAL_MS,
   TRACKING_TIMEOUT_MS,
+  fetchContentSyncStatus,
 } from '../utils';
 import type { StartedSyncInfo, SyncOutcome, SyncProgressEntry } from '../types';
 
@@ -203,9 +204,7 @@ export class SyncPollingService {
 
     try {
       const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
-      const response = await this.fetchApi.fetch(
-        `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-      );
+      const response = await fetchContentSyncStatus(this.fetchApi, baseUrl);
 
       if (!response.ok) {
         return null;
