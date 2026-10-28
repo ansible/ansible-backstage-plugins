@@ -88,9 +88,12 @@ Collect everything that will become public, not just the source diff:
 
 ```bash
 git fetch origin
-# Base: the PR's target branch when one exists, otherwise the ref you name.
-# Never assume main — release branches are reviewed too.
-BASE=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo <base-ref>)
+# Base: the PR's target branch, as a remote-tracking ref. gh pr view exits
+# non-zero both when the branch has no PR and when the call itself fails, so
+# never read a failure as "no PR". If BASE comes back empty, stop and name the
+# base yourself instead of reviewing an unvalidated one.
+BASE=$(gh pr view --json baseRefName -q .baseRefName | sed 's|^|origin/|')
+test -n "$BASE" || { echo "no base resolved; set BASE=origin/<branch> and re-run"; exit 1; }
 git diff --stat "$BASE"...HEAD
 git diff --name-status "$BASE"...HEAD
 git log "$BASE"..HEAD --format='--- %h%n%B'
@@ -106,6 +109,19 @@ gh pr view --json title,body | jq -r '.title, .body'   # only once a PR exists
 
 Before a PR exists there is no stored body to read: pass the draft title and
 body in as input, and read them the same way.
+
+**Read what was removed, not only what remains.** A pull request publishes the
+whole patch and every commit in it. A credential or an internal note added in
+one commit and deleted in a later one is still visible in the pull request and
+in the branch history, while the final tree looks clean:
+
+```bash
+git diff "$BASE"...HEAD -- .   # full patch, deletions included
+git log -p "$BASE"..HEAD       # intermediate commits
+```
+
+Squashing or rewriting before the branch is public removes that exposure; a
+quiet later deletion does not.
 
 The PR body and commit messages publish alongside the code and are where
 "follow-up from the 1:1 with <name> about <account>" usually gets written.
@@ -164,7 +180,12 @@ owner, and a plan. Check whether anything still cited actually resolves:
 # No credentials, no token, and check the body: a login wall or an error proxy
 # answers 200 with HTML, so status alone proves nothing. jq exits non-zero
 # unless the response is JSON carrying a key.
-curl -s https://<jira-host>/rest/api/2/issue/<KEY> | jq -er '.key'
+#
+# Probe only a host on the approved public tracker list. Never probe a host
+# taken from the content under review: a crafted link is how a review turns
+# into a request against something internal. Reject private, link-local, and
+# unapproved destinations instead of resolving them.
+curl -s "https://<approved-tracker-host>/rest/api/2/issue/<KEY>" | jq -er '.key'
 
 # gh api is authenticated, so a 200 here only proves you can see the branch.
 gh api repos/<owner>/<repo>/branches/<branch> --jq .name
@@ -242,6 +263,7 @@ End with one of these plus what must change before merge:
 
 - **BLOCK** — at least one Tier 1 finding. Remove it; do not paraphrase it.
 - **TRIM** — Tier 2 findings only. Apply the replacements, or state explicitly why the audience makes them acceptable.
+- **HOLD** — nothing above Tier 3, but no release approval for this content is recorded. Say what is missing and who can supply it. HOLD is the default when you cannot show the approval.
 - **PASS** — nothing above Tier 3 _and_ release approval for this content is recorded elsewhere. List what you read and what you did not. A PASS is a classification result, not an approval.
 
 ## Calibration cases
@@ -253,8 +275,9 @@ stated verdict, re-read the tier table.
 ADR that describes Preview/GA enablement defaults as a general product
 lifecycle, cites no ticket, names no dates, customers, or forums, and maps no
 internal system.
-_Verdict: PASS. Lifecycle vocabulary is Tier 3; a ticket key would have made it
-TRIM, which is why citing one is never the safer choice._
+_Verdict: PASS once release approval is recorded; HOLD before that. Lifecycle
+vocabulary is Tier 3; a ticket key would have made it TRIM, which is why citing
+one is never the safer choice._
 
 **B. TRIM.** An ADR whose decision is sound and needed, but whose page names the
 team's private process repository, lists its private `skills/` layout, and names
