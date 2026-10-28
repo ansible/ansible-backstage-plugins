@@ -1,4 +1,4 @@
-# ADR-026: Multi-Org Architecture Overview (ANSTRAT-912)
+# ADR-026: Multi-Org Architecture Overview
 
 **Audience:** `common` — see [ADR index](../index.md).
 
@@ -9,7 +9,7 @@
 
 ## Context
 
-ANSTRAT-912 delivers multi-AAP-organization support for the Ansible Automation Portal. The feature spans namespace isolation, catalog entity naming, template taxonomy, auth/session management, and sync UX. ADRs 020–024 and 027 capture those decisions; this document provides the architectural overview that connects them. [ADR-027](027-catalog-entity-naming-and-namespaces.md) is **Accepted** and is the governing contract for catalog names and namespaces; it partially supersedes ADR-020. Shared frontend library extraction (ADR-025 / plugin factory) is separate future work — not part of multi-org.
+The multi-org initiative delivers multi-AAP-organization support for the Ansible Automation Portal. The feature spans namespace isolation, catalog entity naming, template taxonomy, auth/session management, and sync UX. ADRs 020–024 and 027 capture those decisions; this document provides the architectural overview that connects them. [ADR-027](027-catalog-entity-naming-and-namespaces.md) is **Accepted** and is the governing contract for catalog names and namespaces; it partially supersedes ADR-020. Shared frontend library extraction (ADR-025 / plugin factory) is separate future work — not part of multi-org.
 
 ## Architecture
 
@@ -93,7 +93,7 @@ flowchart TB
 
 4. **Template Taxonomy** — Synced templates use `spec.type: automation-template` with `ansible.com/template-source: aap-template`. User-added SCM templates use `source: scm`. The Source Type filter enables UI-level categorization (ADR-021).
 
-5. **Auth and Session** — Users authenticate via AAP OAuth (PKCE). With the flag off, catalog and auth resolve the **raw** AAP username. Under ADR-027, the flag-on contract uses `{source}-user-{id}` and auth looks up / creates by AAP user id ([AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)). Logout from AAP terminates the portal session (ADR-022).
+5. **Auth and Session** — Users authenticate via AAP OAuth (PKCE). With the flag off, catalog and auth resolve the **raw** AAP username. Under ADR-027, the flag-on contract uses `{source}-user-{id}` and auth looks up / creates by AAP user id. Logout from AAP terminates the portal session (ADR-022).
 
 6. **UI** — `PageHeaderSection` provides Sync Now with progress popover and last-synced tooltip. Source Type, Categories, Tags, and Owner filters narrow the template view.
 
@@ -126,6 +126,9 @@ flowchart TB
 
 ## Related
 
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
-- [AAP-80077](https://redhat.atlassian.net/browse/AAP-80077) — Frontend multi-org fixes epic
-- [ANSTRAT-2270](https://redhat.atlassian.net/browse/ANSTRAT-2270) — Plugin Factory initiative
+- [ADR-020](020-multi-org-namespace-isolation.md) — Multi-org namespace isolation (partially superseded by ADR-027)
+- [ADR-021](../host/021-template-type-taxonomy.md) — Template type taxonomy
+- [ADR-022](022-multi-org-rbac-and-auth.md) — Multi-org RBAC and auth
+- [ADR-023](../host/023-per-template-rbac-filtering.md) — Per-template RBAC visibility filtering
+- [ADR-024](../host/024-sync-ux-backstage-signals.md) — Sync UX: Backstage signals and unified pattern
+- [ADR-027](027-catalog-entity-naming-and-namespaces.md) — Catalog entity naming and namespaces (governing contract)

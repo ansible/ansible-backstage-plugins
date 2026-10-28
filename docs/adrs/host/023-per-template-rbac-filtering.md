@@ -2,7 +2,7 @@
 
 **Audience:** `host` — see [ADR index](../index.md).
 
-- **Status**: Accepted (implementation deferred from ANSTRAT-912)
+- **Status**: Accepted (implementation deferred)
 - **Date**: 2026-07-08
 - **Deciders**: Portal team
 - **Supersedes**: ADR-022 frontend-based filtering approach
@@ -110,7 +110,6 @@ execute_role = ImplicitRoleField(
 
 ## Related
 
-- [AAP-80078](https://redhat.atlassian.net/browse/AAP-80078) — Custom permissions and RBAC epic
 - PR #466 — Implementation (upstream)
 - ADR-022 — Multi-org RBAC and Auth (superseded for filtering; auth decisions remain active)
 - ADR-020 — Multi-org namespace isolation

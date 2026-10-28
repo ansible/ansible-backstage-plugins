@@ -8,11 +8,10 @@
 - **Deciders**: Portal team
 - **Partially supersedes**: ADR-020 entity naming and namespace assignment when `multiOrgEnabled` is on (`{source}-{type}-{id}` names + `{source}-{org-id}` namespaces + `{source}-user-{id}`); flag off keeps ADR-020-style slug names and raw usernames in `default`; users / `aap-admins` stay in `default` and config-time collision validation remain
 - **Research**: 013 — Catalog Entity Naming and Namespace Proposals (research not published in this repository)
-- **Jira**: [AAP-93499](https://redhat.atlassian.net/browse/AAP-93499), spike [AAP-93500](https://redhat.atlassian.net/browse/AAP-93500), ADR [AAP-93501](https://redhat.atlassian.net/browse/AAP-93501), implement [AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)
 
 ## Context
 
-ADR-020 isolated multi-org catalog entities with Backstage namespaces and assumed **slug-only** entity names (`group:default/engineering`). AAP-91915 unified three incompatible AAP→Backstage sanitizers. Remaining gaps:
+ADR-020 isolated multi-org catalog entities with Backstage namespaces and assumed **slug-only** entity names (`group:default/engineering`). Earlier work unified three incompatible AAP→Backstage sanitizers. Remaining gaps:
 
 - Different AAP resources collapse to the same slug (case-only JT names; org vs team with the same name)
 - AAP usernames with `@` / `+` are valid in AAP but not as Backstage `metadata.name`; aggressive normalize of `.` / `_` → `-` is **not injective** (`ops_admin` ≡ `ops-admin`)
@@ -39,7 +38,7 @@ Single-org upgrades (`multiOrgEnabled: false`) must not change entity **names** 
 | Silent username sanitize (`.`/`_` → `-`) as identity      | **Rejected** — `ops_admin`/`ops-admin` collide; can map login onto wrong User (e.g. inherit `aap-admins`) |
 | Custom kinds (`Organisation`, `Team`, `JobTemplate`)      | Reimplements Group/Template ownership, memberOf, scaffolder, and RBAC; no collision benefit               |
 | `{source}-user-{id}` always (even flag off)               | Breaks every single-org user ref / auth path on upgrade                                                   |
-| `{source}-user-{id}` in this ADR without auth migration   | Half-migration breaks login; must ship with auth under the same flag (AAP-93502)                          |
+| `{source}-user-{id}` in this ADR without auth migration   | Half-migration breaks login; must ship with auth under the same flag                                      |
 
 ## Decision
 
@@ -93,14 +92,14 @@ Catalog and auth used raw usernames in both modes at that baseline. The current 
 | Display              | `spec.profile.username` stays raw; `spec.profile.displayName` follows §2 in both modes                                                                                                                                                    |
 | Rejected             | Silent `sanitizeAapUsername` (`.`/`_` → `-`) as identity — `ops_admin`≡`ops-admin`; can confuse auth with superuser entities                                                                                                              |
 | Rejected             | `{source}-user-{username}` — still folds case/punctuation; still breaks refs without fixing collisions                                                                                                                                    |
-| Coupling             | Flag-on user rename **must** ship with auth resolver + `create_user` / `createSingleUser` + membership builders in the same change ([AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)). Half-migrating catalog only is rejected. |
+| Coupling             | Flag-on user rename **must** ship with auth resolver + `create_user` / `createSingleUser` + membership builders in the same change. Half-migrating catalog only is rejected. |
 | Why gate on the flag | Same explicit opt-in as org/team/JT: single-org keeps today’s user refs; enabling multi-org is the documented user-ref + RBAC migration                                                                                                   |
 
 **Tests (flag on):** `ops_admin` / `ops-admin` are distinct users (`aap-user-{id}` differs); `user@host` works; case-distinct AAP usernames do not collide on `metadata.name`.
 
 AAP configured with OIDC still surfaces **AAP users** to Portal — id comes from the AAP user record, not from inventing a separate Portal IdP rename.
 
-AAP users are platform-global: one username can belong to multiple organizations. Direct organization membership and team membership are independent. Org-only, team-only, both, and superuser are valid; team membership alone does **not** imply direct org membership. A superuser belongs to every configured org Group and also to the separate `group:default/aap-admins`; these memberships serve different purposes. One catalog User stays in `default`, rather than creating a User per org. Verified `memberOf` refs and annotations carry org/team context; the AAP Users page is the source of truth for membership details. A user display name has no `Org:` / `Team:` prefix or org suffix (§2). When the per-user team API and bulk org payload disagree, sync must not turn a missing team into org membership ([AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)).
+AAP users are platform-global: one username can belong to multiple organizations. Direct organization membership and team membership are independent. Org-only, team-only, both, and superuser are valid; team membership alone does **not** imply direct org membership. A superuser belongs to every configured org Group and also to the separate `group:default/aap-admins`; these memberships serve different purposes. One catalog User stays in `default`, rather than creating a User per org. Verified `memberOf` refs and annotations carry org/team context; the AAP Users page is the source of truth for membership details. A user display name has no `Org:` / `Team:` prefix or org suffix (§2). When the per-user team API and bulk org payload disagree, sync must not turn a missing team into org membership.
 
 ### 1.2 Provider identity matrix
 
@@ -110,9 +109,9 @@ Kinds stay Backstage-standard. Discriminate with `spec.type` and annotations (AD
 | ------------------------ | ------------------------ | ----------------------------- | ------------------------- | -------------------- | ------------------------- | ----------------------------------------------------------------------------------------------- |
 | AAP organization         | `Group`                  | org slug                      | `{source}-org-{id}`       | `default`            | `{source}-{org-id}`       | `spec.type: organization`                                                                       |
 | AAP team                 | `Group`                  | team slug                     | `{source}-team-{id}`      | `default`            | `{source}-{org-id}`       | `spec.type: team`; parent/children via builders                                                 |
-| AAP user                 | `User`                   | raw username                  | `{source}-user-{id}`      | `default`            | `default`                 | Auth + create_user must use id when flag on (AAP-93502)                                         |
+| AAP user                 | `User`                   | raw username                  | `{source}-user-{id}`      | `default`            | `default`                 | Auth + create_user must use id when flag on                                                     |
 | AAP job template         | `Template`               | JT slug                       | `{source}-jt-{id}`        | `default`            | `{source}-{org-id}`       | `spec.type: automation-template`; `ansible.com/template-source: aap-template`                   |
-| AAP workflow template    | `Template`               | WFT slug                      | `{source}-wft-{id}`       | `default`            | `{source}-{org-id}`       | Same taxonomy; provider wiring [ANSTRAT-1651](https://redhat.atlassian.net/browse/ANSTRAT-1651) |
+| AAP workflow template    | `Template`               | WFT slug                      | `{source}-wft-{id}`       | `default`            | `{source}-{org-id}`       | Same taxonomy; provider wiring in follow-on work                                                 |
 | SCM scaffolder templates | `Template`               | YAML `metadata.name` (author) | unchanged by this ADR     | per catalog location | unchanged by this ADR     | Source `scm`; author-controlled name can collide with another `Template` in the same namespace  |
 | Future AO / orchestrator | TBD                      | TBD                           | Prefer `{source}-…-{id}`  | TBD                  | Prefer source + stable id | Define before AO sync ships                                                                     |
 | PAH collections          | Component / custom today | existing PAH naming           | unchanged                 | `default`            | `default`                 | Name includes repo, collection namespace/name, and version; no catalog-wide guarantee           |
@@ -137,7 +136,7 @@ These conventions were agreed during ADR review. Machine names are catalog ident
 | Workflow template | WFT slug                   | `{source}-wft-{id}`       | `metadata.title`           | exact AAP workflow name     | exact AAP workflow name     |
 | `aap-admins`      | `aap-admins`               | `aap-admins`              | `spec.profile.displayName` | `AAP Administrators`        | `AAP Administrators`        |
 
-For users without a first or last name, use the available name and username; if neither name exists, display the username. `spec.profile.username` and `ansible.com/aap-username` retain the raw AAP username. Collections, execution environments, and git repositories keep their existing names and display patterns. Source prefixes on User display when other IdPs sync users, and admin membership views beyond the AAP Users page, are deferred outside ANSTRAT-912.
+For users without a first or last name, use the available name and username; if neither name exists, display the username. `spec.profile.username` and `ansible.com/aap-username` retain the raw AAP username. Collections, execution environments, and git repositories keep their existing names and display patterns. Source prefixes on User display when other IdPs sync users, and admin membership views beyond the AAP Users page, are deferred outside this scope.
 
 These display changes do **not** break Casbin policies: policies use entity refs, not display values. Enabling `multiOrgEnabled` changes machine names and refs as described in §6; that migration remains necessary.
 
@@ -206,14 +205,14 @@ Compared to ADR-020: when the flag is on, namespaces use `{source}-{org-id}` (no
 
 ### 6. Catalog refresh and external refs
 
-Scheduled org/team and JT providers use `applyMutation({ type: 'full' })`. The next full sync replaces provider-owned entities — no one-time catalog migration job. Document updates for **external** refs (RBAC CSV, bookmarks, favourites) when enabling `multiOrgEnabled` (org/team/JT/WFT names **and** namespaces **and** user refs change together). Flag-off upgrades do not rewrite those refs. `createSingleUser` must emit the flag-appropriate user name; auth must resolve the same way ([AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)).
+Scheduled org/team and JT providers use `applyMutation({ type: 'full' })`. The next full sync replaces provider-owned entities — no one-time catalog migration job. Document updates for **external** refs (RBAC CSV, bookmarks, favourites) when enabling `multiOrgEnabled` (org/team/JT/WFT names **and** namespaces **and** user refs change together). Flag-off upgrades do not rewrite those refs. `createSingleUser` must emit the flag-appropriate user name; auth must resolve the same way.
 
 ### 7. Day 0 alignment
 
 Bootc and operator validate **configured AAP org names** in `orgs` / `spec.plugins.catalog.orgs`.
 
 - **Always:** sanitizer token parity with plugins for **config validation** helpers
-- **Flag on:** Day 0 effective namespace / collision keys / status UX use `{source}-{org-id}` (resolve id from AAP or require id in config — implementation detail for AAP-93502 / operator stories; document chosen approach in those PRs)
+- **Flag on:** Day 0 effective namespace / collision keys / status UX use `{source}-{org-id}` (resolve id from AAP or require id in config — an implementation detail; document the chosen approach in those PRs)
 - **Flag off:** Day 0 namespace logic stays on `default`
 
 ## Consequences
@@ -232,15 +231,15 @@ Bootc and operator validate **configured AAP org names** in `orgs` / `spec.plugi
 - Flag on: org/team/jt/wft/user **name**, **namespace**, and **auth** migration together — RBAC / favourites / external refs (larger blast radius than namespaces-only)
 - Flag on: namespaces differ from both ADR-020 slug-only **and** the call’s `{source}-{slug}` sketch — migration guide must show `aap-{id}`
 - Flag off: slug collisions (case-only JT names, org↔team same slug) and raw-username Backstage-invalid chars remain until the flag is enabled
-- Implementation ([AAP-93502](https://redhat.atlassian.net/browse/AAP-93502)) must keep catalog + auth + create_user in lockstep when the flag flips
+- Implementation must keep catalog + auth + create_user in lockstep when the flag flips
 
 ### Neutral / follow-ups
 
 - ADR-026 / migration guide: flag-on user refs `user:default/aap-user-{id}`; auth by AAP user id
-- AAP-93502 implemented hybrid user naming and auth; preserve the regression coverage for `ops_admin`/`ops-admin`, verified IDs, provisioning, and membership references when changing these paths
+- The implementation introduced hybrid user naming and auth; preserve the regression coverage for `ops_admin`/`ops-admin`, verified IDs, provisioning, and membership references when changing these paths
 - Forward-looking AAP object type-token appendix — separate from ADR-027
 - Portal org/template metadata views (RBAC authoring) — separate stories
-- Workflow template provider wiring (ANSTRAT-1651)
+- Workflow template provider wiring
 - Multi-controller identity key — separate decision if needed
 - Overview Favourites: use `metadata.title` + real namespace in links (follow-up UI)
 
@@ -250,8 +249,6 @@ Bootc and operator validate **configured AAP org names** in `orgs` / `spec.plugi
 - [ADR-021](../host/021-template-type-taxonomy.md) — Template type taxonomy
 - [ADR-022](022-multi-org-rbac-and-auth.md) — Multi-org RBAC and auth
 - [ADR-026](026-multi-org-architecture-overview.md) — Multi-org architecture overview
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
-- [AAP-93502](https://redhat.atlassian.net/browse/AAP-93502) — Implement naming + auth wiring (includes flag-on `{source}-user-{id}`)
 - `workspaces/aap/plugins/backstage-rhaap-common/src/utils/nameFormatting.ts` — shared naming helpers
 - `workspaces/aap/plugins/auth-backend-module-rhaap-provider/src/resolvers.ts` — flag off: raw username; flag on: AAP user id
 - `bootc/scripts/lib/yaml-helper.py` — Day 0 sanitizer (bootc)

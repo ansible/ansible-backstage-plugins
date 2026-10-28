@@ -77,8 +77,6 @@ SCM tokens are acquired on demand via `scmAuthApi.getCredentials({ url: repoUrl 
 
 ## Related
 
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
-- [AAP-80078](https://redhat.atlassian.net/browse/AAP-80078) — Custom permissions and RBAC epic
 - PR #402 — `issueTokenWithOwnership` (merged)
 - ADR-020 — Multi-org namespace isolation
 - `workspaces/self-service/plugins/portal-scaffolder/src/components/Home/createHomeCatalogApi.ts` — `queryEntities` visibility predicate

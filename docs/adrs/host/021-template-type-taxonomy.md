@@ -33,8 +33,8 @@ Use a single unified type with a source annotation:
 | ----------------------------- | --------------------------------------------------- | --------------------------------------------- | -------------- |
 | `aap-template`                | AAP Controller sync (`AAPJobTemplateProvider`)      | AAP job templates synced via catalog provider | In scope (912) |
 | `scm`                         | SCM import (catalog locations, user "Add Template") | Scaffolder templates from GitHub/GitLab repos | In scope (912) |
-| `aap-workflow`                | AAP Workflow Job Templates                          | AAP workflow templates (ANSTRAT-1651)         | Document only  |
-| `orchestrator`                | Automation Orchestrator                             | Orchestrator workflows (ANSTRAT-1938)         | Document only  |
+| `aap-workflow`                | AAP Workflow Job Templates                          | AAP workflow templates                        | Document only  |
+| `orchestrator`                | Automation Orchestrator                             | Orchestrator workflows                        | Document only  |
 
 Execution environments retain `kind: Component` with `spec.type: execution-environment`. The type is distinct from `automation-template`; this decision does not introduce a custom catalog kind.
 
@@ -77,8 +77,4 @@ const aapOnly = allTemplates.filter(
 
 ## Related
 
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
-- [AAP-80076](https://redhat.atlassian.net/browse/AAP-80076) — Template type taxonomy epic
-- [ANSTRAT-1651](https://redhat.atlassian.net/browse/ANSTRAT-1651) — AAP Workflow RBAC (future `aap-workflow`)
-- [ANSTRAT-1938](https://redhat.atlassian.net/browse/ANSTRAT-1938) — Orchestrator integration (future `orchestrator`)
 - ADR-020 — Multi-org namespace isolation (related)

@@ -14,9 +14,9 @@ Multi-org support compounds sync complexity — more orgs mean longer syncs and 
 
 ### Crawl-Walk-Run Strategy
 
-**Crawl (current scope — ANSTRAT-912):** All-or-nothing sync. All configured organizations sync simultaneously. No granular per-org selection. Consistent UI pattern across templates, collections, and git repos.
+**Crawl (current scope):** All-or-nothing sync. All configured organizations sync simultaneously. No granular per-org selection. Consistent UI pattern across templates, collections, and git repos.
 
-### Future Phases (Out of Scope for ANSTRAT-912)
+### Future Phases (Out of Scope)
 
 **Walk:** Per-org sync selection in a tree dialog. Admin chooses which orgs/content types to sync.
 
@@ -91,8 +91,6 @@ Future channels follow the same pattern for content sync, job status, and user r
 
 ## Related
 
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
-- [AAP-84854](https://redhat.atlassian.net/browse/AAP-84854) — Sync button disable during active sync
 - ADR-020 — Multi-org namespace isolation
 - ADR-021 — Template type taxonomy
 - Research: Backstage Signals adoption notes (not published in this repository)

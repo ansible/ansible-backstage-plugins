@@ -68,7 +68,6 @@ Use Backstage namespaces to isolate entities per AAP organization via `getEffect
 
 ## Related
 
-- [ANSTRAT-912](https://redhat.atlassian.net/browse/ANSTRAT-912) — Portal multi-org support
 - PR #408 — Implementation (upstream)
 - ADR-021 — Template type taxonomy (related)
 - ADR-022 — Multi-org RBAC and auth (related)

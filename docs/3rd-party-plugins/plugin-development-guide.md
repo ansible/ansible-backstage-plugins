@@ -1,6 +1,6 @@
 # Plugin Development Guide
 
-**Status:** specified — ANSTRAT-2497, Portal Plugin Factory (guide and SDK specification). This Feature does not implement host APIs, a scaffold CLI, reusable CI, or packaging automation.
+**Status:** specified — Portal Plugin Factory (guide and SDK specification). This specification does not implement host APIs, a scaffold CLI, reusable CI, or packaging automation.
 **Binding ADRs:** [010](../adrs/common/010-plugin-factory-composability.md)–[013](../adrs/common/013-plugin-factory-enablement-defaults.md), [015](../adrs/common/015-plugin-factory-catalog-first-surfaces.md)–[019](../adrs/common/019-plugin-factory-delivery-lifecycle.md). The out-of-tree additions in [ADR-028](../adrs/third-party/028-out-of-tree-plugin-obligations.md) are **Proposed**, pending acceptance; references to that record describe the proposed target, not an approved policy.
 
 This page specifies the out-of-tree contributor path. The [current SDK author guide](../next/portal-sdk-plugin-author-guide.md) and [NFS composition guide](../next/portal-sdk-nfs-composition.md) document the implemented in-tree development subset and its verification boundaries. An implemented internal preview does not establish published npm packages or a supported out-of-tree distribution path.
@@ -214,13 +214,13 @@ An in-tree first-party workspace can demonstrate compile-time isolation (guest d
 - Layout, ordering, responsive behavior
 - Loading, empty, restricted, and error chrome
 
-**Honesty.** ANSTRAT-2497 may describe target APIs before host code exists. **Fail closed**. Do not invent `apiEndpoint`, `handlerPath`, plugin-named Blueprints, or content-type-named Blueprints.
+**Honesty.** This specification may describe target APIs before host code exists. **Fail closed**. Do not invent `apiEndpoint`, `handlerPath`, plugin-named Blueprints, or content-type-named Blueprints.
 
 **PoC vs architecture.** Early portal-core types required `experienceId` on the capability and used page-frozen registration helpers such as `registerGitRepoDetailTab`. The published contract is an abstract Blueprint family plus advisory `recommendedExperienceId`; the host binds. Do not teach required Experience binding or `register<HostPage>Tab()` helpers as the author API. `SlotLaunch.moduleName` is legacy; NFS is the target.
 
 ## 7. SDK surface
 
-ANSTRAT-2497 **publishes the specification**. Follow-on Features implement packages. Until then, document the compile-against map as **specified**. Do not claim this Feature ships the npm packages.
+This guide **publishes the specification**. Follow-on implementations provide the packages. Until then, document the compile-against map as **specified**. Do not claim this guide ships the npm packages.
 
 ### 7.1 Compile-against map
 
@@ -292,7 +292,7 @@ Binding for authors and agents:
    or status chip).
 ```
 
-[ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) (reuse over custom) sits under this tree. Visual and content standards are maintained separately by the team and are not published in this repository. The author-facing default for ANSTRAT-2497 is **BUI first**.
+[ADR-018](../adrs/common/018-plugin-factory-shared-ui-primitives.md) (reuse over custom) sits under this tree. Visual and content standards are maintained separately by the team and are not published in this repository. The author-facing default is **BUI first**.
 
 ### 8.2 Blueprints and regions
 
@@ -324,7 +324,7 @@ Two field models, both valid:
 
 Keep the “no arbitrary URL in the template” rule for both.
 
-The current native development path already accepts `ScaffolderFieldBlueprint` declarations through the shared provider and an optional templates adapter; see the [implemented field contract](../next/portal-sdk-plugin-author-guide.md#field-declarations-and-optional-templates-adapters). That bounded native contract does not establish compatibility with every stock or legacy dynamically registered field. The generic-superset behavior above remains a specified out-of-tree obligation; ANSTRAT-2497 does not assign its remaining delivery work to a team.
+The current native development path already accepts `ScaffolderFieldBlueprint` declarations through the shared provider and an optional templates adapter; see the [implemented field contract](../next/portal-sdk-plugin-author-guide.md#field-declarations-and-optional-templates-adapters). That bounded native contract does not establish compatibility with every stock or legacy dynamically registered field. The generic-superset behavior above remains a specified out-of-tree obligation; this specification does not assign its remaining delivery work to a team.
 
 If asked “register field extensions like RHDH and they appear on Portal,” distinguish the implemented native field contract from the proposed stock/legacy registry compatibility. Tag unimplemented compatibility as **host-missing**; do not describe native declarations as unavailable or tell a third-party team to hardcode a widget into a Portal package.
 
@@ -357,7 +357,7 @@ If asked how to publish or where the tarball goes: state the repo-boundary rule 
 
 ### 10.3 CI and test — not yet
 
-Reusable workflows and a shared test harness are out of scope for ANSTRAT-2497. Still list **obligations** the eventual workflows must enforce:
+Reusable workflows and a shared test harness are out of scope for this specification. Still list **obligations** the eventual workflows must enforce:
 
 - Zero footprint when disabled
 - No `apiEndpoint` / `handlerPath`
@@ -435,7 +435,7 @@ Eval cases on the onboarding skill must refuse a plugin-owned Experience page, a
 
 ## 13. Factory backlog this guide is allowed to specify
 
-ANSTRAT-2497 is out of scope to **implement**. The guide may still name these as host obligations:
+This specification is out of scope to **implement**. The guide may still name these as host obligations:
 
 - Host registry, settings registration, RBAC registration, navigation slots, persistence APIs
 - Published SDK npm packages
