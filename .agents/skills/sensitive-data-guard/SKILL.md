@@ -20,7 +20,7 @@ Fill this in per repository before the first use; do not assume.
 | Field | `ansible/ansible-backstage-plugins` |
 |---|---|
 | Visibility | public |
-| Where docs land | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/3rd-party-plugins/` |
+| Where docs land | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/architecture/` |
 | Repo's own publishing rule | `docs/adrs/index.md`: ADRs are **public by default**; one stays unpublished if it still contains secrets, internal hostnames, or customer data |
 | Credential scanning | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets` |
 | Prose review | CodeRabbit `path_instructions` + `custom_checks` (`.coderabbit.yaml`) |
@@ -52,6 +52,9 @@ inventory, then read every hit and judge it:
 grep -rnE '[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[a-z]{2,}|https?://|BEGIN [A-Z ]*PRIVATE KEY' <paths>
 # Tier 2 candidates
 grep -rniE '\b(meeting|attendees|weekly sync|standup|internal|private|roadmap|launch|EAP|pre-GA|Q[1-4] 20|customer|partner|BU)\b' <paths>
+# issue-tracker keys and board links; drop this repo's own document numbers (ADR-010)
+grep -rnoE '\b[A-Z][A-Z0-9]{1,9}-[0-9]{1,6}\b|atlassian\.net/browse/[A-Z][A-Z0-9]+-[0-9]+' <paths> \
+  | grep -vE '\bADR-[0-9]+'
 # internal-looking hostnames
 grep -rnoE '\b[a-z0-9-]+(-svc|\.internal|\.corp|\.local|[0-9]{1,3}(\.[0-9]{1,3}){3})\b' <paths>
 ```
@@ -126,7 +129,7 @@ If the answer is "something only knowable internally", it is a finding.
 
 | Category | Ask this | Action |
 |---|---|---|
-| Ticket provenance | Does prose cite a ticket for context, not tracking? | Allowed **only if the issue is publicly viewable** — check with step 4 |
+| Ticket provenance | Does prose cite a ticket key, a tracker URL, or a link to an internal board? | **Remove the key.** Keep the sentence's subject and drop the pointer. Publicly viewable is not a reason to keep it |
 | Internal meetings | `**Meetings**:`, `**Deciders**: <forum + date>`, "weekly sync", attendees? | **Cite the decision, not the forum.** Keep the conclusion; drop the who/when |
 | Internal notes | "internal notes", "not published", "internal only", pointer to a private doc? | Remove the reference; if the material is needed, summarize it in place |
 | Unreleased plans | Dates, embargoes, launch/GTM plans, reorg or headcount? | Remove entirely. Paraphrase still leaks. |
@@ -134,13 +137,13 @@ If the answer is "something only knowable internally", it is a finding.
 | Internal artifacts | Names of private repos, private skill names, internal record or review-board names? | Generic description: "the team's private process repository" |
 | Meeting transcripts | Speaker labels, "Attendees:", pasted notes? | Never paste; summarize the decision |
 
-### 4. Verify the two things that are checkable
+### 4. Verify what survived step 3 still resolves
 
-**Ticket and branch reachability.** Reachability is necessary and *not*
-sufficient. A key that opens is still provenance: it tells a stranger there is a
-backlog entry behind this document, with a status, an owner, and a plan. Treat
-ticket identifiers as Tier 2 unless the content owner rules otherwise, and check
-whether the thing cited actually resolves:
+Ticket keys are removed in step 3 regardless of visibility, so this step is
+what catches the ones that were missed and confirms the finding when you need
+one. Proving a key is readable does not license keeping it: the key still tells
+a stranger there is a backlog entry behind this document, with a status, an
+owner, and a plan. Check whether anything still cited actually resolves:
 
 ```bash
 # unauthenticated REST call: 200 = a stranger can read it, 401/404 = they cannot
@@ -154,10 +157,10 @@ check reads as "resolves" for exactly the references that do not. Verify with
 the REST endpoint, unauthenticated, and never with a token: an authenticated
 `200` only proves *you* can see it.
 
-A key a stranger cannot open, a branch or PR that returns 404, or a reference to
-a repository that is not public is a defect either way: it is provenance if it
-resolves, and a dangling pointer that advertises a private artifact if it does
-not.
+A ticket key that survived the trim is a Tier 2 finding whether or not it opens:
+provenance if it resolves, and a dangling pointer that advertises a private
+artifact if it does not. The same holds for a branch or PR that returns 404, or a
+reference to a repository that is not public.
 
 **Hostnames.** `localhost`, `example.com`, `*.invalid`, and RFC 2606 names are
 examples. Anything else that looks like a service name is a question, not an
@@ -217,7 +220,7 @@ ADR that describes Preview/GA enablement defaults as a general product
 lifecycle, cites no ticket, names no dates, customers, or forums, and maps no
 internal system.
 *Verdict: PASS. Lifecycle vocabulary is Tier 3; a ticket key would have made it
-TRIM.*
+TRIM, which is why citing one is never the safer choice.*
 
 **B. TRIM.** An ADR whose decision is sound and needed, but whose page names the
 team's private process repository, lists its private `skills/` layout, and names
