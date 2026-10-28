@@ -44,7 +44,11 @@ import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
 // Local-testing mount for the content experience. In a dynamic (RHDH) deployment
 // the same page is mounted by `dynamicRoutes` config instead — see the plugin's
 // routes.ts.
-import { AutomationContentPage } from '@ansible/plugin-automation-content';
+import {
+  AutomationContentPage,
+  AutomationContentEEPage,
+  AutomationContentCollectionsPage,
+} from '@ansible/plugin-automation-content';
 // Side-effect import: triggers registerManifest() + registerApmeExtensions() in plugin.ts
 import '@ansible/plugin-backstage-apme';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
@@ -147,6 +151,14 @@ const routes = (
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
     <Route path="/automation-content" element={<AutomationContentPage />} />
+    <Route
+      path="/automation-content/execution-environments"
+      element={<AutomationContentEEPage />}
+    />
+    <Route
+      path="/automation-content/collections"
+      element={<AutomationContentCollectionsPage />}
+    />
     <Route path="/self-service" element={<SelfServicePage />} />
   </FlatRoutes>
 );

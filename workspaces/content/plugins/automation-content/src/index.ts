@@ -1,4 +1,9 @@
-export { automationContentPlugin, AutomationContentPage } from './plugin';
+export {
+  automationContentPlugin,
+  AutomationContentPage,
+  AutomationContentEEPage,
+  AutomationContentCollectionsPage,
+} from './plugin';
 export { AutomationContentSidebarItem } from './components/LegacyContentNavigation';
 export { automationContentApiRef, AutomationContentClient } from './api';
 export type {
