@@ -59,7 +59,10 @@ it('labels partial counts and unknown contents without requiring catalog matches
   expect(
     await screen.findByText('Approximate: 2 collections / 3 plugins'),
   ).toBeTruthy();
-  expect(await screen.findByText('Contents unknown')).toBeTruthy();
+  expect(screen.getAllByText('Contents unknown')).toHaveLength(2);
+  expect(screen.getByText('partial')).toBeTruthy();
+  expect(screen.queryByText('unknown')).toBeNull();
+  expect(screen.getAllByText('labels')).toHaveLength(2);
   expect(screen.queryByRole('button', { name: /to favorites/ })).toBeNull();
   expect(
     screen.getAllByRole('link', { name: 'repo' })[0].getAttribute('href'),

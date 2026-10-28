@@ -123,7 +123,9 @@ export function ImagesCatalogPage() {
       cell: row => (
         <Cell>
           <Flex direction="column" gap="1">
-            <Badge>{row.enumeration.status}</Badge>
+            <Badge>
+              {row.contentsKnown ? row.enumeration.status : 'Contents unknown'}
+            </Badge>
             <Text>{row.enumeration.source}</Text>
           </Flex>
         </Cell>
