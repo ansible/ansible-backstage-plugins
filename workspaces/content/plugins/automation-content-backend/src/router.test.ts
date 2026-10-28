@@ -11,33 +11,23 @@ const logger = {
   child: () => logger,
 } as never;
 
-async function appWith(index: ContentIndex, httpAuth?: unknown) {
+async function appWith(index: ContentIndex) {
   const app = express();
   app.use(
     await createRouter({
       index,
       logger,
-      httpAuth: (httpAuth ?? {
-        // Permissive by default: the credentials barrier, not the router, is
-        // what these tests exercise elsewhere.
+      // The router no longer reads credentials: every route except
+      // GET /health sits behind the plugin's sign-in barrier (#977), which
+      // these router-level tests bypass on purpose — plugin.test.ts covers
+      // the barrier itself. This stub only satisfies RouterOptions.
+      httpAuth: {
         credentials: () =>
           Promise.resolve({
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
-      }) as never,
+      } as never,
     }),
-  );
-  // Mirrors the backend's root error handler, which maps a rejected
-  // `httpAuth.credentials` call to a 401 rather than a 500.
-  app.use(
-    (
-      _err: unknown,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction,
-    ) => {
-      res.status(401).json({ error: 'unauthenticated' });
-    },
   );
   return app;
 }
@@ -173,26 +163,27 @@ describe('documentation field normalisation', () => {
   });
 });
 
-describe('reconcile state', () => {
-  it('reports never-reconciled rather than inventing a timestamp', async () => {
+describe('GET /health', () => {
+  it('returns an ok status for a liveness check', async () => {
     const index = seed([]);
     const res = await request(await appWith(index)).get('/health');
 
     expect(res.status).toBe(200);
-    expect(res.body.refreshedAt).toBeUndefined();
+    expect(res.body).toEqual({ status: 'ok' });
   });
 });
 
-describe('public diagnostics are summarised', () => {
+describe('diagnostics are summarised on the registry listing', () => {
   /**
    * An index with one registry whose last reconciliation — and drift check —
    * failed the way a TLS rejection would: the error text quotes hostnames
    * from the certificate's subject alternative names.
    *
-   * `GET /registries` and `GET /health` are readable without credentials, so
-   * neither may carry that detail; the fixed summary must be all an
-   * anonymous caller learns. The private fields are written directly because
-   * the point of these tests is the HTTP contract, not discovery.
+   * Every route except `GET /health` sits behind the sign-in barrier (#977),
+   * and the fixed summary is all the listing reports — the raw cause goes to
+   * the backend log and the sync responses. The private fields are written
+   * directly because the point of these tests is the HTTP contract, not
+   * discovery.
    */
   function indexWithFailedReconcile(): ContentIndex {
     const connection = {
@@ -249,34 +240,11 @@ describe('public diagnostics are summarised', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
-  it('summarises the error and drops drift details on /health', async () => {
-    const res = await request(await appWith(indexWithFailedReconcile())).get(
-      '/health',
-    );
-
-    expect(res.status).toBe(200);
-    const corporate = res.body.registries.find(
-      (item: { name: string }) => item.name === 'corporate',
-    );
-    expect(corporate.lastReconcileOk).toBe(false);
-    expect(corporate.lastReconcileError).toBe(RECONCILE_FAILURE_SUMMARY);
-    expect(corporate.artifacts).toBe(2);
-    // The drift view keeps when, whether, and what it cost — not the
-    // human-readable differences, which can quote transport errors.
-    expect(corporate.drift).toBeDefined();
-    expect(corporate.drift.changed).toBe(false);
-    expect(corporate.drift.requests).toBe(3);
-    expect(corporate.drift.details).toBeUndefined();
-    const body = JSON.stringify(res.body);
-    expect(body).not.toContain('secret-host.internal');
-    expect(body).not.toContain('altnames');
-    expect(body).not.toContain('10.1.2.3');
-  });
-
-  it('keeps the detailed cause on the authenticated sync response', async () => {
+  it('keeps the detailed cause on the per-registry sync response', async () => {
     const index = indexWithFailedReconcile();
     // A live sync of the same registry fails with a detailed cause, the way
-    // a TLS rejection would: the authenticated response must carry it.
+    // a TLS rejection would: the caller explicitly asked for the refresh, so
+    // the response must carry it.
     const clients = (
       index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
     ).clients;
@@ -292,58 +260,34 @@ describe('public diagnostics are summarised', () => {
     expect(res.body.error).toContain('certificate has expired');
   });
 
-  it.each(['none', 'user', 'service'])(
-    'controls global sync diagnostics for a %s principal',
-    async type => {
-      const index = indexWithFailedReconcile();
-      const clients = (
-        index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-      ).clients;
-      const detail =
-        'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
-      (clients.get('corporate') as { fetchImpl: unknown }).fetchImpl = () =>
-        Promise.reject(new Error(detail));
-      const httpAuth = {
-        credentials: jest.fn().mockResolvedValue({ principal: { type } }),
-      };
+  it('keeps the detailed cause on the global sync response', async () => {
+    const index = indexWithFailedReconcile();
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    const detail = 'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
+    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+      () => Promise.reject(new Error(detail));
 
-      const res = await request(await appWith(index, httpAuth)).post('/sync');
+    const res = await request(await appWith(index)).post('/sync');
 
-      expect(res.status).toBe(207);
-      expect(res.body.status).toBe('partial');
-      expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
-        allow: ['none', 'user', 'service'],
-      });
-      const outcome = res.body.registries[0];
-      expect(outcome.ok).toBe(false);
-      const internalError = index.reconcileStateFor('corporate')?.error;
-      const expectedError =
-        type === 'none' ? RECONCILE_FAILURE_SUMMARY : internalError;
-      expect(outcome.error).toBe(expectedError);
-      const body = JSON.stringify(res.body);
-      for (const privateText of [
-        'secret-host.internal',
-        'altnames',
-        '10.1.2.3',
-      ]) {
-        expect(body.includes(privateText)).toBe(type !== 'none');
-      }
-      // Response sanitization must not erase the operator's diagnostic state.
-      expect(internalError).toContain(detail);
-    },
-  );
+    expect(res.status).toBe(207);
+    expect(res.body.status).toBe('partial');
+    const outcome = res.body.registries[0];
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain(detail);
+    // Response detail must not erase the operator's diagnostic state.
+    expect(index.reconcileStateFor('corporate')?.error).toContain(detail);
+  });
 
-  it('allows an anonymous successful global sync', async () => {
+  it('completes a global sync of healthy registries', async () => {
     const index = indexWithFailedReconcile();
     const refresh = jest.spyOn(index, 'refreshRegistry').mockResolvedValue({
       ok: true,
       discovered: 3,
     });
-    const httpAuth = {
-      credentials: jest.fn().mockResolvedValue({ principal: { type: 'none' } }),
-    };
 
-    const res = await request(await appWith(index, httpAuth)).post('/sync');
+    const res = await request(await appWith(index)).post('/sync');
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('completed');
@@ -352,65 +296,23 @@ describe('public diagnostics are summarised', () => {
     ]);
     expect(refresh).toHaveBeenCalledWith('corporate');
   });
-
-  it('rejects invalid credentials before global sync work starts', async () => {
-    const index = indexWithFailedReconcile();
-    const refresh = jest.spyOn(index, 'refreshRegistry');
-    const httpAuth = {
-      credentials: jest.fn().mockRejectedValue(new Error('invalid token')),
-    };
-
-    const res = await request(await appWith(index, httpAuth)).post('/sync');
-
-    expect(res.status).toBe(401);
-    expect(refresh).not.toHaveBeenCalled();
-  });
 });
 
-describe('registry mutation authentication', () => {
-  /**
-   * The `/registries` prefix carries an unauthenticated policy so `GET /registries`
-   * stays inspectable. Backstage matches policies as path prefixes with no method
-   * awareness, so the mutating sub-routes must enforce credentials themselves.
-   */
-  it('rejects an unauthenticated poll of a registry', async () => {
+describe('GET /registries', () => {
+  it('returns empty items when none are configured', async () => {
     const index = seed([]);
-    const httpAuth = {
-      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
-    };
-    const res = await request(await appWith(index, httpAuth as never)).post(
-      '/registries/reg/poll',
-    );
+    const res = await request(await appWith(index)).get('/registries');
 
-    expect(res.status).toBe(401);
-    expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
-      allow: ['user', 'service'],
-    });
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual([]);
   });
 
-  it('rejects an unauthenticated sync of a registry', async () => {
-    // Both mutating sub-routes must enforce credentials, not just poll — an
-    // anonymous caller must not be able to trigger a full registry re-read.
-    const index = seed([]);
-    const httpAuth = {
-      credentials: jest.fn().mockRejectedValue(new Error('unauthenticated')),
-    };
-    const res = await request(await appWith(index, httpAuth as never)).post(
-      '/registries/reg/sync',
-    );
-
-    expect(res.status).toBe(401);
-  });
-
-  it('proceeds to the registry lookup once credentials are accepted', async () => {
-    // Enforcement must not overreach: an authenticated caller still gets the
-    // normal 404 for an unknown registry, not an auth error.
+  it('POST poll returns 404 for an unknown registry', async () => {
     const index = seed([]);
     const res = await request(await appWith(index)).post(
       '/registries/reg/poll',
     );
 
-    // Authentication passed; the 404 is the "no such registry" answer.
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
   });

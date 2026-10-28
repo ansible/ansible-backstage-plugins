@@ -365,44 +365,6 @@ components:
         evictions: { type: integer }
       additionalProperties: false
 
-    AutomationContentHealthResponse:
-      type: object
-      description: Public automation-content health; no detailed reconciliation or drift failure causes.
-      required: [status, cache, registries]
-      properties:
-        status: { type: string, enum: [ok] }
-        refreshedAt:
-          type: string
-          format: date-time
-          description: Absent until a successful reconciliation.
-        cache:
-          $ref: '#/components/schemas/ContentCacheStats'
-        registries:
-          type: array
-          items:
-            type: object
-            required: [name]
-            properties:
-              name: { type: string }
-              lastReconciledAt:
-                type: string
-                format: date-time
-              lastReconcileOk: { type: boolean }
-              lastReconcileError:
-                type: string
-                description: Fixed failure summary, present only after a failed reconciliation.
-              artifacts: { type: integer }
-              drift:
-                type: object
-                required: [at, changed, requests]
-                properties:
-                  at: { type: string, format: date-time }
-                  changed: { type: boolean }
-                  requests: { type: integer }
-                additionalProperties: false
-            additionalProperties: false
-      additionalProperties: false
-
     ContentSyncResponse:
       type: object
       required: [status, durationMs, registries, cache]
@@ -426,8 +388,9 @@ components:
               error:
                 type: string
                 description: |
-                  Fixed failure summary for anonymous callers. Detailed failure cause
-                  only for verified user/service callers. Absent on success.
+                  Detailed failure cause. The route sits behind the sign-in
+                  barrier, so every caller is a verified user or service.
+                  Absent on success.
 
     ContentRegistry:
       type: object
@@ -443,10 +406,9 @@ components:
         lastReconcileError:
           type: string
           description: |
-            Fixed failure summary. This route is readable without credentials,
-            so the detailed cause — which can quote internal hostnames from
-            certificate validation — is kept to backend logs and authenticated
-            sync responses.
+            Fixed failure summary. The listing stays conservative — the detailed
+            cause, which can quote internal hostnames from certificate
+            validation, is kept to backend logs and sync responses.
         lastCheckedAt:
           type: string
           format: date-time
@@ -876,28 +838,24 @@ paths:
       - url: /api/catalog
         description: Catalog backend health
       - url: /api/automation-content
-        description: Automation content health and public index diagnostics
+        description: Automation content liveness probe
     get:
       operationId: getHealth
       summary: Plugin backend health
       description: |
-        At /api/catalog/health, returns the catalog's status-only response.
-        At /api/automation-content/health, returns index freshness, cache statistics,
-        per-registry reconciliation status and counts-only drift data. Failure causes
-        are fixed summaries; certificate SANs, internal hostnames and drift details
-        are not exposed. Optional timestamps are absent before the first operation.
+        A liveness probe's answer: a bare status, nothing else. Both mounts are
+        unauthenticated and return the same shape; neither describes registries,
+        cache state, or failure causes.
       tags:
         - Health
       security: []
       responses:
         '200':
-          description: Plugin health response; schema depends on the selected plugin mount.
+          description: Plugin health response; both mounts answer a status-only body.
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/CatalogHealthResponse'
-                  - $ref: '#/components/schemas/AutomationContentHealthResponse'
+                $ref: '#/components/schemas/CatalogHealthResponse'
 
   /ansible/sync/from-aap/orgs_users_teams:
     post:
@@ -2810,16 +2768,21 @@ paths:
     get:
       operationId: listRegistries
       tags: [Automation Content Registries]
+      security:
+        - JWT: []
       summary: List configured registries and their discovered capabilities
       description: |
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
 
-        Reconciliation failures are reported as a fixed summary: the route is readable
-        without credentials, so the detailed cause is kept to backend logs and
-        authenticated sync responses.
+        Reconciliation failures are reported as a fixed summary; the detailed cause
+        is kept to backend logs and sync responses.
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Configured registries
           content:
@@ -2838,19 +2801,18 @@ paths:
       operationId: syncAllRegistries
       tags: [Automation Content Registries]
       security:
-        - {}
         - JWT: []
       summary: Trigger discovery for all configured registries
       description: |
-        Deliberate manual discovery for all registries. Authentication is optional.
-        Anonymous callers receive fixed failure summaries; verified user/service
-        callers receive detailed causes. Invalid supplied credentials are rejected
-        before discovery starts. Detailed diagnostics remain in backend logs.
+        Deliberate manual discovery for all registries, behind the platform's
+        sign-in barrier: anonymous callers are turned away before any discovery
+        starts, and every response carries the detailed failure cause. Detailed
+        diagnostics are also written to backend logs.
       responses:
         '401':
-          description: Supplied credentials are invalid.
+          description: Authentication required
         '403':
-          description: Supplied credentials are not allowed for this request.
+          description: Insufficient permissions
         '200':
           description: All registries reconciled successfully.
           content:
@@ -2858,7 +2820,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ContentSyncResponse'
         '207':
-          description: At least one registry failed; error visibility depends on the caller's verified credentials.
+          description: At least one registry failed; responses carry the detailed failure cause.
           content:
             application/json:
               schema:
@@ -2935,6 +2897,8 @@ paths:
     get:
       operationId: listContent
       tags: [Automation Content]
+      security:
+        - JWT: []
       summary: List content artifacts of any type
       description: |
         Type-agnostic artifact listing. `/execution-environments` and `/collections` are
@@ -2955,6 +2919,10 @@ paths:
           in: query
           schema: { type: boolean }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Matching artifacts
           content:
@@ -2972,6 +2940,8 @@ paths:
     get:
       operationId: getContent
       tags: [Automation Content]
+      security:
+        - JWT: []
       summary: Get one content artifact
       description: The artifact, addressed by its opaque stable ref.
       parameters:
@@ -2980,6 +2950,10 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: The artifact
           content:
@@ -2997,6 +2971,8 @@ paths:
     get:
       operationId: getContentContents
       tags: [Automation Content]
+      security:
+        - JWT: []
       summary: What is inside an artifact
       description: |
         `depth=direct` returns the artifacts it contains — for an execution environment,
@@ -3022,6 +2998,10 @@ paths:
           description: Restrict items to one type. Implies `depth=flat`.
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Contents
           content:
@@ -3044,6 +3024,8 @@ paths:
     get:
       operationId: listExecutionEnvironments
       tags: [Automation Content Execution Environments]
+      security:
+        - JWT: []
       summary: List execution environments
       description: Thin alias over `/content?type=execution-environment`.
       parameters:
@@ -3059,6 +3041,10 @@ paths:
           description: Filter by whether the contents could be determined.
           schema: { type: boolean }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Matching environments
           content:
@@ -3076,6 +3062,8 @@ paths:
     get:
       operationId: getExecutionEnvironment
       tags: [Automation Content Execution Environments]
+      security:
+        - JWT: []
       summary: Get one execution environment
       description: Thin alias over `/content/{ref}`.
       parameters:
@@ -3084,6 +3072,10 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: The environment
           content:
@@ -3101,6 +3093,8 @@ paths:
     get:
       operationId: getExecutionEnvironmentContents
       tags: [Automation Content Execution Environments]
+      security:
+        - JWT: []
       summary: List everything inside an environment
       description: |
         Returns content items, not artifacts. When contents could not be determined the
@@ -3115,6 +3109,10 @@ paths:
           description: Restrict to one item type, e.g. `module`, `filter`, `event_source`.
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Contents
           content:
@@ -3133,6 +3131,8 @@ paths:
     get:
       operationId: listCollections
       tags: [Automation Content Collections]
+      security:
+        - JWT: []
       summary: List collections available across all registries
       description: Collections discovered inside artifacts, aggregated across registries.
       parameters:
@@ -3141,6 +3141,10 @@ paths:
           description: Substring match on namespace, name or description.
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Matching collections
           content:
@@ -3158,6 +3162,8 @@ paths:
     get:
       operationId: getCollection
       tags: [Automation Content Collections]
+      security:
+        - JWT: []
       summary: Get a collection, including which environments provide it
       description: The collection plus the execution environments that ship this version of it.
       parameters:
@@ -3170,6 +3176,10 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: The collection
           content:
@@ -3187,6 +3197,8 @@ paths:
     get:
       operationId: searchContentItemsTypeAgnostic
       tags: [Automation Content Items]
+      security:
+        - JWT: []
       summary: Search content items across all artifacts
       description: |
         Type-agnostic content-item search across every artifact. Scope with `in` to a
@@ -3210,6 +3222,10 @@ paths:
           in: query
           schema: { type: integer, default: 50, maximum: 500 }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Matching items
           content:
@@ -3228,6 +3244,8 @@ paths:
     get:
       operationId: getContentItemTypeAgnostic
       tags: [Automation Content Items]
+      security:
+        - JWT: []
       summary: Full documentation for one content item
       description: |
         Scope with `in` to resolve within a specific artifact. Unscoped, and where the
@@ -3258,6 +3276,10 @@ paths:
                       variants:
                         type: array
                         items: { $ref: '#/components/schemas/ContentItem' }
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '404':
           description: Not found
           content:
@@ -3270,6 +3292,8 @@ paths:
     get:
       operationId: searchContentItems
       tags: [Automation Content Items]
+      security:
+        - JWT: []
       summary: Search modules, plugins, roles and EDA plugins
       description: |
         The primary agent-grounding endpoint. Answers "does this environment provide the
@@ -3295,6 +3319,10 @@ paths:
           in: query
           schema: { type: integer, default: 50, maximum: 500 }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: Matching items
           content:
@@ -3313,6 +3341,8 @@ paths:
     get:
       operationId: getContentItem
       tags: [Automation Content Items]
+      security:
+        - JWT: []
       summary: Full documentation for one content item
       description: |
         Returns the complete argument specification including nested suboptions, plus
@@ -3331,6 +3361,10 @@ paths:
             different versions of the same collection, so the documentation differs.
           schema: { type: string }
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: The item
           content:
@@ -3393,6 +3427,8 @@ paths:
     get:
       operationId: exportContentConfig
       tags: [Automation Content Configuration]
+      security:
+        - JWT: []
       summary: Export the live content configuration as a declarative document
       description: |
         Emits configuration suitable for committing to Git. Secrets are never included;
@@ -3406,6 +3442,10 @@ paths:
             enum: [json, yaml]
             default: json
       responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
         '200':
           description: The configuration
           content:

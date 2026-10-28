@@ -32,13 +32,14 @@ type RouteResponse = {
 const EE_TYPE = 'execution-environment';
 
 /**
- * What an anonymous caller learns about a failed reconciliation.
+ * What GET /registries reports about a failed reconciliation.
  *
- * `GET /health`, `GET /registries`, and `POST /sync` allow anonymous callers.
  * A reconcile error's detail can quote internal hostnames — a TLS rejection
- * names the certificate's subject alternative names, for instance. The
- * detail stays in the backend log and in the authenticated sync responses;
- * the public routes carry this fixed summary instead.
+ * names the certificate's subject alternative names, for instance. Every
+ * route except GET /health requires sign-in (#977), and /health answers a
+ * bare status only; the registry listing stays conservative with this fixed
+ * summary, while the raw cause goes to the backend log and the sync
+ * responses, where the caller explicitly asked for a refresh.
  */
 export const RECONCILE_FAILURE_SUMMARY =
   'reconciliation failed — see backend logs, or an authenticated sync, for the cause';
@@ -129,42 +130,15 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger, httpAuth } = options;
+  const { index, logger } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
-    // An explicit public mapping, not a spread of the reconciliation state:
-    // this route is unauthenticated, and the raw state carries the detailed
-    // failure cause. See RECONCILE_FAILURE_SUMMARY.
-    res.json({
-      status: 'ok',
-      refreshedAt: index.refreshedAt,
-      cache: index.cacheStats,
-      registries: index.listRegistries().map(state => {
-        const reconcile = index.reconcileStateFor(state.connection.name);
-        const drift = index.driftStateFor(state.connection.name);
-        return {
-          name: state.connection.name,
-          lastReconciledAt: reconcile?.at,
-          lastReconcileOk: reconcile?.ok,
-          lastReconcileError:
-            reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
-          artifacts: reconcile?.artifacts,
-          drift: drift
-            ? {
-                at: drift.at,
-                changed: drift.changed,
-                // Counts only: drift details can quote error text from the
-                // registry transport, which is not for anonymous readers.
-                // The differences stay in the log and in the authenticated
-                // poll response.
-                requests: drift.requests,
-              }
-            : undefined,
-        };
-      }),
-    });
+    // A liveness probe's answer: nothing else. The route is unauthenticated
+    // (#977), so it must not describe registries, cache state, or failure
+    // causes — see RECONCILE_FAILURE_SUMMARY for where those live now.
+    res.json({ status: 'ok' });
   });
 
   // -- Registries ---------------------------------------------------------
@@ -181,8 +155,9 @@ export async function createRouter(
           capabilities: state.capabilities,
           lastReconciledAt: reconcile?.at,
           lastReconcileOk: reconcile?.ok,
-          // Fixed summary only — this route is unauthenticated, and the raw
-          // cause can quote internal hostnames. See RECONCILE_FAILURE_SUMMARY.
+          // Fixed summary only — the raw cause can quote internal hostnames;
+          // the log and the sync responses are where it belongs. See
+          // RECONCILE_FAILURE_SUMMARY.
           lastReconcileError:
             reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
           lastCheckedAt: index.driftStateFor(state.connection.name)?.at,
@@ -192,51 +167,22 @@ export async function createRouter(
   });
 
   /**
-   * Require an authenticated caller on a mutating route.
-   *
-   * Backstage auth policies are path-prefix based with no method awareness, so the
-   * `allow: 'unauthenticated'` policy that keeps `GET /registries` inspectable would
-   * also open `POST /registries/:name/poll` and `/sync` to anonymous callers. Those
-   * routes therefore enforce credentials here, in-handler, matching what the default
-   * barrier would have done (user or service principal).
-   */
-  const requireCredentials = async (req: unknown) => {
-    await httpAuth.credentials(
-      req as Parameters<HttpAuthService['credentials']>[0],
-      { allow: ['user', 'service'] },
-    );
-  };
-
-  /**
    * Refresh every registry.
    *
    * Backs the manual refresh control in the UI: a full re-read, for when a user knows
    * something changed and does not want to wait for the poll.
    */
-  router.post('/sync', async (req, res) => {
-    // Anonymous sync is supported, but only verified user/service callers may
-    // see causes that can quote certificate SANs or internal infrastructure.
-    const credentials = await httpAuth.credentials(
-      req as unknown as Parameters<HttpAuthService['credentials']>[0],
-      { allow: ['none', 'user', 'service'] },
-    );
-    const includeDetails =
-      credentials.principal.type === 'user' ||
-      credentials.principal.type === 'service';
+  router.post('/sync', async (_req, res) => {
+    // This route sits behind the default sign-in barrier (#977), so every
+    // caller is a verified user or service principal — the detailed failure
+    // cause is the only view this handler produces. Anonymous callers are
+    // turned away before the router runs at all.
     const started = Date.now();
     const results = [];
     for (const state of index.listRegistries()) {
       const name = state.connection.name;
       const outcome = await index.refreshRegistry(name);
-      let error: string | undefined;
-      if (!outcome.ok) {
-        error = includeDetails ? outcome.error : RECONCILE_FAILURE_SUMMARY;
-      }
-      results.push({
-        registry: name,
-        ...outcome,
-        error,
-      });
+      results.push({ registry: name, ...outcome });
     }
     const ok = results.every(r => r.ok);
     logger.info(`manual sync of ${results.length} registr(ies), ok=${ok}`);
@@ -251,9 +197,6 @@ export async function createRouter(
 
   /** Cheap drift check: does the registry still match the index? */
   router.post('/registries/:name/poll', async (req, res) => {
-    // The /registries prefix is anonymous for GET /registries; this route sits
-    // beneath it and must enforce credentials itself.
-    await requireCredentials(req);
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({
@@ -274,8 +217,6 @@ export async function createRouter(
    * backing the per-registry refresh control in the UI.
    */
   router.post('/registries/:name/sync', async (req, res) => {
-    // Same situation as poll above — anonymous prefix, method-blind policy.
-    await requireCredentials(req);
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({

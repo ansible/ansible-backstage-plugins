@@ -42,30 +42,9 @@ export const automationContentPlugin = createBackendPlugin({
 
         httpRouter.use(await createRouter({ index, logger, httpAuth }));
 
-        // Read-only discovery endpoints stay unauthenticated so the PoC remains
-        // inspectable and agents can ground on them. Backstage matches these
-        // policies as path prefixes with no method awareness, so the mutating
-        // routes beneath the /registries prefix (POST /registries/:name/poll
-        // and /sync) enforce credentials in the router itself. POST /sync is
-        // also anonymous, but only verified user/service callers receive detailed
-        // failure causes. /config/* keeps the portal's default authentication.
-        for (const path of [
-          '/health',
-          '/registries',
-          '/content',
-          '/content/{*rest}',
-          '/execution-environments',
-          '/execution-environments/{*rest}',
-          '/collections',
-          '/collections/{*rest}',
-          '/content-items',
-          '/content-items/{*rest}',
-          '/plugins',
-          '/plugins/{*rest}',
-          '/sync',
-        ]) {
-          httpRouter.addAuthPolicy({ path, allow: 'unauthenticated' });
-        }
+        // Every route requires a signed-in user or service token except the
+        // liveness probe (#977). GET /health answers a bare status only (#958).
+        httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
 
         // Cheap drift check between full refreshes. Lists tags and HEADs each one —
         // no bodies, no blobs — and only triggers a real refresh when the
