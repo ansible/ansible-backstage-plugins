@@ -1,0 +1,10 @@
+.code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.wrap {
+  overflow-wrap: anywhere;
+}

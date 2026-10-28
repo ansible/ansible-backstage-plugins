@@ -28,6 +28,7 @@ import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
 import { ContentItemsTable } from './ContentItemsTable';
 import { environmentHref } from './catalogHelpers';
 import styles from './details.module.css';
+import { ContentItemDocumentation } from '../ContentItemDocumentation';
 
 type IncludedCollection = ArtifactContents['collections'][number];
 interface CollectionRow extends IncludedCollection {
@@ -119,6 +120,26 @@ export function EEDetailsPage() {
         'Last reconciled': value.lastReconciledAt ?? 'Never',
       }
     : {};
+  const itemFqcn = params.get('item');
+  if (itemFqcn) {
+    return (
+      <Container>
+        <Flex direction="column" gap="4">
+          <BreadcrumbsNavigation
+            items={[
+              { label: 'Execution environments', href: base },
+              {
+                label: value?.repository ?? ref,
+                href: `${environmentHref(base, ref)}?tab=content`,
+              },
+              { label: itemFqcn },
+            ]}
+          />
+          <ContentItemDocumentation fqcn={itemFqcn} inArtifact={ref} />
+        </Flex>
+      </Container>
+    );
+  }
   return (
     <Container>
       <Flex direction="column" gap="4">
