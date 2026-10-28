@@ -1005,7 +1005,9 @@ export function createRouter(options: {
         });
       },
     );
+  }
 
+  if (includeContent || includeEe) {
     router.get('/ansible/git/file-content', async (request, response) => {
       const credentials = await httpAuth.credentials(request as any);
 
