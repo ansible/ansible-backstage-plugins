@@ -17,15 +17,15 @@ They do not catch **data-classification** problems. That is this skill's job.
 
 Fill this in per repository before the first use; do not assume.
 
-| Field                      | `ansible/ansible-backstage-plugins`                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Visibility                 | public                                                                                                                                            |
-| Where docs land            | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/architecture/`                                                                        |
-| Repo's own publishing rule | `docs/adrs/index.md`: ADRs are **public by default**; one stays unpublished if it still contains secrets, internal hostnames, or customer data    |
-| Credential scanning        | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets`                                                                   |
-| Prose review               | CodeRabbit `path_instructions` + `custom_checks` (`.coderabbit.yaml`)                                                                             |
-| Private disclosure         | `SECURITY.md` -> `security@ansible.com`                                                                                                           |
-| Skill placement            | this repo's `.agents/skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see _Placement caveat_ |
+| Field                      | `ansible/ansible-backstage-plugins`                                                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visibility                 | public                                                                                                                                                          |
+| Where docs land            | `docs/adrs/{common,host,third-party}/`, `docs/next/`, `docs/architecture/`                                                                                      |
+| Repo's own publishing rule | `docs/adrs/index.md`: ADRs are **public by default**; one stays unpublished if it still contains secrets, internal hostnames, or customer data                  |
+| Credential scanning        | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets`                                                                                 |
+| Prose review               | **None.** Every `.coderabbit.yaml` check targets code, config, crypto, containers, logs, or secrets; none reads prose. This skill is the only prose check       |
+| Private disclosure         | `SECURITY.md` -> `security@ansible.com`, **vulnerabilities only**. Customer, PII, and business-sensitive material has no published route: ask the content owner |
+| Skill placement            | this repo's `.agents/skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see _Placement caveat_               |
 
 **The repo's stated rule is a floor, not the bar.** If `docs/adrs/index.md`
 says public-by-default, that is a statement of intent to publish; it is not
@@ -52,9 +52,11 @@ inventory, then read every hit and judge it:
 grep -rnE '[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[a-z]{2,}|https?://|BEGIN [A-Z ]*PRIVATE KEY' <paths>
 # Tier 2 candidates
 grep -rniE '\b(meeting|attendees|weekly sync|standup|internal|private|roadmap|launch|EAP|pre-GA|Q[1-4] 20|customer|partner|BU)\b' <paths>
-# issue-tracker keys and board links; drop this repo's own document numbers (ADR-010)
+# issue-tracker keys and board links. This repo's own ADR numbering appears as
+# ADR-<n> under docs/adrs/ and is dropped there only; a foreign ADR id, or one
+# cited outside docs/adrs/, stays a candidate.
 grep -rnoE '\b[A-Z][A-Z0-9]{1,9}-[0-9]{1,6}\b|atlassian\.net/browse/[A-Z][A-Z0-9]+-[0-9]+' <paths> \
-  | grep -vE '\bADR-[0-9]+'
+  | grep -vE '^docs/adrs/[^:]+:[0-9]+:ADR-[0-9]+$'
 # internal-looking hostnames
 grep -rnoE '\b[a-z0-9-]+(-svc|\.internal|\.corp|\.local|[0-9]{1,3}(\.[0-9]{1,3}){3})\b' <paths>
 ```
@@ -86,11 +88,24 @@ Collect everything that will become public, not just the source diff:
 
 ```bash
 git fetch origin
-git diff --stat origin/main...HEAD
-git diff --name-status origin/main...HEAD
-git log origin/main..HEAD --format='--- %h%n%B'
-gh pr view --json title,body | jq -r '.title, .body'
+# Base: the PR's target branch when one exists, otherwise the ref you name.
+# Never assume main — release branches are reviewed too.
+BASE=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || echo <base-ref>)
+git diff --stat "$BASE"...HEAD
+git diff --name-status "$BASE"...HEAD
+git log "$BASE"..HEAD --format='--- %h%n%B'
+# Uncommitted work is part of the surface: review it before it is committed
+git diff --stat
+git diff --cached --stat
+git status --porcelain --untracked-files=all
 ```
+
+```bash
+gh pr view --json title,body | jq -r '.title, .body'   # only once a PR exists
+```
+
+Before a PR exists there is no stored body to read: pass the draft title and
+body in as input, and read them the same way.
 
 The PR body and commit messages publish alongside the code and are where
 "follow-up from the 1:1 with <name> about <account>" usually gets written.
@@ -146,9 +161,13 @@ a stranger there is a backlog entry behind this document, with a status, an
 owner, and a plan. Check whether anything still cited actually resolves:
 
 ```bash
-# unauthenticated REST call: 200 = a stranger can read it, 401/404 = they cannot
-curl -s -o /dev/null -w '%{http_code}\n' https://<jira-host>/rest/api/2/issue/<KEY>
-gh api repos/<owner>/<repo>/branches/<branch> --jq .name   # 404 = dangling
+# No credentials, no token, and check the body: a login wall or an error proxy
+# answers 200 with HTML, so status alone proves nothing. jq exits non-zero
+# unless the response is JSON carrying a key.
+curl -s https://<jira-host>/rest/api/2/issue/<KEY> | jq -er '.key'
+
+# gh api is authenticated, so a 200 here only proves you can see the branch.
+gh api repos/<owner>/<repo>/branches/<branch> --jq .name
 ```
 
 Do not test `/browse/<KEY>` instead. A login-walled issue still answers `200`
@@ -157,10 +176,19 @@ check reads as "resolves" for exactly the references that do not. Verify with
 the REST endpoint, unauthenticated, and never with a token: an authenticated
 `200` only proves _you_ can see it.
 
+Every check here has to answer the way a stranger's client would. Strip the
+token, and if the machine sits behind a proxy, VPN, or SSO that resolves internal
+names, the check is inconclusive rather than passing: verify from outside, or say
+you could not.
+
 A ticket key that survived the trim is a Tier 2 finding whether or not it opens:
-provenance if it resolves, and a dangling pointer that advertises a private
-artifact if it does not. The same holds for a branch or PR that returns 404, or a
-reference to a repository that is not public.
+provenance if it resolves, a pointer nobody can follow if it does not.
+
+Unreachable is **inconclusive**, not evidence of a private artifact. A typo, a
+deleted item, and a renamed public item all look the same. Report it as "does
+not resolve", and ask the owner before claiming private provenance. The same
+holds for a branch or PR that returns 404, or a reference to a repository that
+is not public.
 
 **Hostnames.** `localhost`, `example.com`, `*.invalid`, and RFC 2606 names are
 examples. Anything else that looks like a service name is a question, not an
@@ -201,6 +229,12 @@ Use this shape exactly. The verbatim quote is what makes the review auditable:
 | `docs/adrs/host/001`-`005` (set)      | 2    | Composition       | — (no single line)                                                                      | Individually benign; together a map of storage, secrets, bootstrap, and restart | Record as one finding; the owner decides whether the set is releasable |
 
 Never summarize a finding as "some provenance". Quote it.
+
+**Redact before you quote in public.** The quote proves the finding; it must not
+reproduce what the finding is about. Substitute `<redacted>` for the credential,
+the customer name, the personal data, or the private URL, and keep the full text
+out of the pull request, the review comment, and the commit message. A finding
+that pastes a secret into a public thread has published the secret.
 
 ### 8. Verdict
 
@@ -248,12 +282,12 @@ Delete the sentence outright; there is no remediation by rewording._
 A skill that nothing invokes is documentation, not a control. Pick the layers
 that exist in the target repo:
 
-| Layer             | Mechanism                                                                     | Catches                               |
-| ----------------- | ----------------------------------------------------------------------------- | ------------------------------------- |
-| Agent, pre-PR     | This skill, invoked by an `AGENTS.md` instruction                             | Documents the agent is about to write |
-| Agent, any time   | Skill directory discovered by the harness                                     | Same, when the agent is told to look  |
-| Reviewer PR check | `.coderabbit.yaml` `custom_checks` + `path_instructions` scoped to docs paths | Prose added by a human or a bot       |
-| Human PR check    | One line in the PR template                                                   | Whatever the author remembers         |
+| Layer             | Mechanism                                                            | Catches                               |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------- |
+| Agent, pre-PR     | This skill, invoked by an `AGENTS.md` instruction                    | Documents the agent is about to write |
+| Agent, any time   | Skill directory discovered by the harness                            | Same, when the agent is told to look  |
+| Reviewer PR check | **Not configured here.** `.coderabbit.yaml` has no docs-scoped check | Nothing until one is added            |
+| Human PR check    | One line in the PR template                                          | Whatever the author remembers         |
 
 **Placement caveat.** In `ansible-backstage-plugins`, ADR-007 puts agent skills
 in the Portal team's private process repository, not this one. A public guard for
@@ -264,8 +298,9 @@ where no agent looks.
 ## If something is already merged
 
 Do not open a quiet deletion PR — that leaves the content in git history and
-draws attention to it. Report it privately per `SECURITY.md` so history can be
-rewritten deliberately.
+draws attention to it. Report it privately through the content owner's channel
+so history can be rewritten deliberately. `SECURITY.md` covers vulnerabilities
+only; business-sensitive material needs the owner's route, not that mailbox.
 
 ## Limitations — be honest about them
 
