@@ -575,10 +575,21 @@ export class AAPClient implements IAAPService {
       );
     }
     const endPoint = 'api/controller/v2/job_templates/';
-    let extraVariables;
-    extraVariables = payload?.extraVariables
-      ? JSON.parse(JSON.stringify(payload.extraVariables)) // NOSONAR — structuredClone unavailable in test runtime
-      : '';
+    let extraVariables: Record<string, unknown> | '' = '';
+    if (payload?.extraVariables) {
+      const parsedExtraVariables =
+        typeof payload.extraVariables === 'string'
+          ? YAML.parse(payload.extraVariables)
+          : JSON.parse(JSON.stringify(payload.extraVariables)); // NOSONAR — structuredClone unavailable in test runtime
+      if (
+        !parsedExtraVariables ||
+        typeof parsedExtraVariables !== 'object' ||
+        Array.isArray(parsedExtraVariables)
+      ) {
+        throw new TypeError('Job template extraVariables must be a mapping.');
+      }
+      extraVariables = parsedExtraVariables;
+    }
     if (extraVariables !== '') {
       extraVariables.aap_validate_certs = this.ansibleConfig.rhaap?.checkSSL;
       extraVariables.aap_hostname = this.ansibleConfig.rhaap?.baseUrl;
