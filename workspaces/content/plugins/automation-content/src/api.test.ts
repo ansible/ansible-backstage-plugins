@@ -34,3 +34,29 @@ it('syncs only the selected registry through authenticated fetch', async () => {
     { method: 'POST' },
   );
 });
+
+it('lists only classified execution environments by default', async () => {
+  const fetch = jest
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
+  const client = new AutomationContentClient({
+    discoveryApi: { getBaseUrl: async () => '/backend' },
+    fetchApi: { fetch },
+  });
+  await client.listExecutionEnvironments();
+  expect(fetch).toHaveBeenCalledWith(
+    '/backend/content?type=execution-environment',
+  );
+});
+
+it('lists the full inventory when all types are requested', async () => {
+  const fetch = jest
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
+  const client = new AutomationContentClient({
+    discoveryApi: { getBaseUrl: async () => '/backend' },
+    fetchApi: { fetch },
+  });
+  await client.listExecutionEnvironments({ allTypes: true });
+  expect(fetch).toHaveBeenCalledWith('/backend/content');
+});

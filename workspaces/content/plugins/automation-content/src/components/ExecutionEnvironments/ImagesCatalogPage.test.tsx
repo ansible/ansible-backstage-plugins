@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { automationContentApiRef, type ExecutionEnvironment } from '../../api';
@@ -51,6 +52,30 @@ it('does not describe a failed inventory request as empty', async () => {
   expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
   expect(screen.queryByText('0 images loaded')).toBeNull();
   expect(screen.queryByText('No execution environments discovered')).toBeNull();
+});
+
+it('defaults to classified EEs and refetches everything when toggled', async () => {
+  const listExecutionEnvironments = jest.fn(
+    async (): Promise<ExecutionEnvironment[]> => [base],
+  );
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, { listExecutionEnvironments }],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <ImagesCatalogPage />
+    </TestApiProvider>,
+  );
+  expect(await screen.findByRole('link', { name: 'repo' })).toBeTruthy();
+  expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+    allTypes: false,
+  });
+  await userEvent.click(screen.getByRole('checkbox', { name: /all images/ }));
+  expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+    allTypes: true,
+  });
 });
 
 it('labels partial counts and unknown contents without requiring catalog matches', async () => {

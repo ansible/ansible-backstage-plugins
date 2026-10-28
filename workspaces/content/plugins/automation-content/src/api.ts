@@ -142,7 +142,9 @@ export interface Classification {
 
 export interface AutomationContentApi {
   listRegistries(): Promise<Registry[]>;
-  listExecutionEnvironments(): Promise<ExecutionEnvironment[]>;
+  listExecutionEnvironments(
+    opts?: { allTypes?: boolean },
+  ): Promise<ExecutionEnvironment[]>;
   getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment>;
   getContents(
     ref: string,
@@ -250,12 +252,17 @@ export class AutomationContentClient implements AutomationContentApi {
     return items;
   }
 
-  async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
+  async listExecutionEnvironments(
+    opts: { allTypes?: boolean } = {},
+  ): Promise<ExecutionEnvironment[]> {
+    // By default only artifacts classified as execution environments are
+    // listed. `allTypes` opts in to the full registry inventory: the
+    // classification is an exact type match, so unclassified images
+    // (legitimate EEs lacking builder labels or a manifest referrer) are
+    // hidden by the default filter and only reachable through this option.
+    const suffix = opts.allTypes ? '' : '?type=execution-environment';
     const { items } = await this.get<{ items: ExecutionEnvironment[] }>(
-      // Keep unclassified images visible: the type filter is an exact classification
-      // match and would hide legitimate EEs lacking builder labels or a manifest
-      // referrer. Their unknown classification/inventory is shown explicitly in the UI.
-      '/content',
+      `/content${suffix}`,
     );
     return items;
   }

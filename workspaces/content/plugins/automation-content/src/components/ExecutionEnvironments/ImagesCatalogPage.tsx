@@ -39,7 +39,11 @@ export function ImagesCatalogPage() {
   const base = useRouteRef(eeRouteRef)();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [starredOnly, setStarredOnly] = useState(false);
-  const images = useAsyncRetry(() => api.listExecutionEnvironments(), [api]);
+  const [allTypes, setAllTypes] = useState(false);
+  const images = useAsyncRetry(
+    () => api.listExecutionEnvironments({ allTypes }),
+    [api, allTypes],
+  );
   // Catalog failure must never hide backend inventory.
   const entities = useAsyncRetry(
     () => catalog.getEntities({ filter: { kind: 'Component' } }),
@@ -188,6 +192,9 @@ export function ImagesCatalogPage() {
         />
         <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
           Favorites only
+        </Checkbox>
+        <Checkbox isSelected={allTypes} onChange={setAllTypes}>
+          Show all images
         </Checkbox>
         {images.error && (
           <div role="alert">
