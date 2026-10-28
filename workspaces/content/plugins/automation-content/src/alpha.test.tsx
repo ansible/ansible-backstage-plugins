@@ -6,9 +6,12 @@ import plugin from './alpha';
 jest.mock('./components/ExecutionEnvironments/ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => <h1>Execution environments</h1>,
 }));
+jest.mock('./components/ContentLandingPage', () => ({
+  ContentLandingPage: () => <h1>Automation content</h1>,
+}));
 
 it.each([
-  ['/automation-content', 'Automation content is coming in the next commit.'],
+  ['/automation-content', 'Automation content'],
   ['/automation-content/execution-environments', 'Execution environments'],
   [
     '/automation-content/collections',
