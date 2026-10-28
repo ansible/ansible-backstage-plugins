@@ -165,6 +165,7 @@ describe('Ansible API module', () => {
     };
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({
+        ok: true,
         json: jest.fn().mockResolvedValue({
           aap: {
             orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
@@ -197,7 +198,6 @@ describe('Ansible API module', () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
     };
-    const legacyJson = jest.fn().mockResolvedValue({});
     const sliceJson = jest.fn().mockResolvedValue({
       aap: {
         orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
@@ -207,8 +207,8 @@ describe('Ansible API module', () => {
     const mockFetch = {
       fetch: jest
         .fn()
-        .mockResolvedValueOnce({ status: 404, json: legacyJson })
-        .mockResolvedValueOnce({ status: 200, json: sliceJson }),
+        .mockResolvedValueOnce({ status: 404 })
+        .mockResolvedValueOnce({ status: 200, ok: true, json: sliceJson }),
     };
 
     const client = createAnsibleApiClient({
@@ -230,6 +230,32 @@ describe('Ansible API module', () => {
       aap: {
         orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
         jobTemplates: { lastSync: null },
+      },
+    });
+  });
+
+  it('AnsibleApiClient.getSyncStatus returns default values when fallback returns non-OK', async () => {
+    const mockDiscovery = {
+      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
+    };
+    const mockFetch = {
+      fetch: jest
+        .fn()
+        .mockResolvedValueOnce({ status: 404 })
+        .mockResolvedValueOnce({ status: 403, ok: false }),
+    };
+
+    const client = createAnsibleApiClient({
+      discoveryApi: mockDiscovery,
+      fetchApi: mockFetch,
+    });
+
+    const result = await client.getSyncStatus();
+
+    expect(result).toEqual({
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
       },
     });
   });
