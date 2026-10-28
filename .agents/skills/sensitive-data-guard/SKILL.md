@@ -143,9 +143,16 @@ ticket identifiers as Tier 2 unless the content owner rules otherwise, and check
 whether the thing cited actually resolves:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://<jira-host>/browse/<KEY>
+# unauthenticated REST call: 200 = a stranger can read it, 401/404 = they cannot
+curl -s -o /dev/null -w '%{http_code}\n' https://<jira-host>/rest/api/2/issue/<KEY>
 gh api repos/<owner>/<repo>/branches/<branch> --jq .name   # 404 = dangling
 ```
+
+Do not test `/browse/<KEY>` instead. A login-walled issue still answers `200`
+there, with an application shell and an error card in place of the issue, so the
+check reads as "resolves" for exactly the references that do not. Verify with
+the REST endpoint, unauthenticated, and never with a token: an authenticated
+`200` only proves *you* can see it.
 
 A key a stranger cannot open, a branch or PR that returns 404, or a reference to
 a repository that is not public is a defect either way: it is provenance if it
