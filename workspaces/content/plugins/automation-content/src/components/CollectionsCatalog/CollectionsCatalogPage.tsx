@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -26,15 +26,22 @@ export function CollectionsCatalogPage() {
   const base = useRouteRef(collectionsRouteRef)();
   const environmentBase = useRouteRef(eeRouteRef)();
   const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(query.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const [page, setPage] = useState(0);
-  const result = useAsyncRetry(() => api.listCollections(), [api]);
+  const result = useAsyncRetry(
+    () => api.listCollections(search || undefined),
+    [api, search],
+  );
   const groups = useMemo(
     () => groupCollections(result.value ?? []),
     [result.value],
   );
-  const filtered = groups.filter(g =>
-    `${g.fqcn} ${g.description}`.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = groups;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / 12));
   const currentPage = Math.min(
     page,
     Math.max(0, Math.ceil(filtered.length / 12) - 1),
@@ -76,12 +83,12 @@ export function CollectionsCatalogPage() {
           {!result.loading && !result.error && !filtered.length && (
             <EmptyState
               title={
-                groups.length
+                search
                   ? 'No collections match your search or filters'
                   : 'No collections found'
               }
               description={
-                groups.length
+                search
                   ? 'Clear your search to browse all collections.'
                   : 'No collections have been reported by the indexed registries.'
               }
@@ -123,7 +130,7 @@ export function CollectionsCatalogPage() {
           </Grid.Root>
         </div>
         {!!filtered.length && (
-          <Flex gap="3" align="center">
+          <Flex gap="3" align="center" style={{ flexWrap: 'wrap' }}>
             <Button
               isDisabled={currentPage === 0}
               onPress={() => setPage(currentPage - 1)}
@@ -134,6 +141,9 @@ export function CollectionsCatalogPage() {
               Showing {currentPage * 12 + 1}–
               {Math.min(currentPage * 12 + 12, filtered.length)} of{' '}
               {filtered.length}
+            </Text>
+            <Text>
+              Page {currentPage + 1} of {totalPages}
             </Text>
             <Button
               isDisabled={(currentPage + 1) * 12 >= filtered.length}

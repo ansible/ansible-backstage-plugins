@@ -38,7 +38,9 @@ const items = [
   { ...first, version: '1.10.0' },
 ];
 const api = {
-  listCollections: jest.fn(async () => items),
+  listCollections: jest.fn(async (query?: string) =>
+    query === 'missing' ? [] : items,
+  ),
   searchContentItems: jest.fn(async () => ({ totalItems: 0, items: [] })),
 };
 
@@ -60,6 +62,7 @@ it('shows a single card, computed latest, fallback description and both digest l
   expect(await screen.findByText('Latest: 1.10.0')).toBeTruthy();
   expect(screen.getAllByText('ns.name_with.dots')).toHaveLength(1);
   expect(screen.getByText('No description available.')).toBeTruthy();
+  expect(screen.getByText('Page 1 of 1')).toBeTruthy();
   expect(
     screen.getByRole('link', { name: 'r/ee@sha256:two' }).getAttribute('href'),
   ).toContain('r%2Fee%40sha256%3Atwo');
@@ -69,6 +72,7 @@ it('shows a single card, computed latest, fallback description and both digest l
   expect(
     await screen.findByText('No collections match your search or filters'),
   ).toBeTruthy();
+  expect(api.listCollections).toHaveBeenLastCalledWith('missing');
 });
 
 it('opens dotted collection details with version context and provider aggregation', async () => {
