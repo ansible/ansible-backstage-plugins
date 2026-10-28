@@ -25,7 +25,7 @@ Fill this in per repository before the first use; do not assume.
 | Credential scanning | pre-commit `gitleaks` + `detect-private-key`; CodeRabbit `no-hardcoded-secrets` |
 | Prose review | CodeRabbit `path_instructions` + `custom_checks` (`.coderabbit.yaml`) |
 | Private disclosure | `SECURITY.md` -> `security@ansible.com` |
-| Skill placement | this repo's `skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see *Placement caveat* |
+| Skill placement | this repo's `.agents/skills/` for contributor-facing guards; team-internal skills stay in the private process repository — see *Placement caveat* |
 
 **The repo's stated rule is a floor, not the bar.** If `docs/adrs/index.md`
 says public-by-default, that is a statement of intent to publish; it is not
