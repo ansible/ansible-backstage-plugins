@@ -535,19 +535,11 @@ __metadata:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.2"
     "@backstage/backend-plugin-api": "npm:1.8.0"
-    "@backstage/backend-test-utils": "npm:1.11.1"
-    "@backstage/catalog-model": "npm:1.10.1"
     "@backstage/cli": "npm:0.36.2"
-    "@backstage/config": "npm:1.3.6"
     "@backstage/errors": "npm:1.2.7"
     "@backstage/plugin-scaffolder-node": "npm:0.13.2"
-    "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.11"
-    "@backstage/types": "npm:1.2.2"
     "@types/jest": "npm:29.5.14"
-    msw: "npm:2.4.9"
     zod: "npm:3.25.76"
-  peerDependencies:
-    react: ^17.0.0 || ^18.0.0
   languageName: unknown
   linkType: soft
 
@@ -4936,7 +4928,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/backend-test-utils@npm:1.11.1, @backstage/backend-test-utils@npm:^1.11.1":
+"@backstage/backend-test-utils@npm:^1.11.1":
   version: 1.11.1
   resolution: "@backstage/backend-test-utils@npm:1.11.1"
   dependencies:
@@ -5110,7 +5102,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/catalog-model@npm:1.10.1, @backstage/catalog-model@npm:^1.10.0, @backstage/catalog-model@npm:^1.10.1, @backstage/catalog-model@npm:^1.5.0, @backstage/catalog-model@npm:^1.7.0":
+"@backstage/catalog-model@npm:^1.10.0, @backstage/catalog-model@npm:^1.10.1, @backstage/catalog-model@npm:^1.5.0, @backstage/catalog-model@npm:^1.7.0":
   version: 1.10.1
   resolution: "@backstage/catalog-model@npm:1.10.1"
   dependencies:
@@ -10223,7 +10215,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-scaffolder-node-test-utils@npm:0.3.11, @backstage/plugin-scaffolder-node-test-utils@npm:^0.3.9":
+"@backstage/plugin-scaffolder-node-test-utils@npm:^0.3.9":
   version: 0.3.11
   resolution: "@backstage/plugin-scaffolder-node-test-utils@npm:0.3.11"
   dependencies:
@@ -11535,7 +11527,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/types@npm:1.2.2, @backstage/types@npm:^1.1.1, @backstage/types@npm:^1.2.2, @backstage/types@npm:~1.2.2":
+"@backstage/types@npm:^1.1.1, @backstage/types@npm:^1.2.2, @backstage/types@npm:~1.2.2":
   version: 1.2.2
   resolution: "@backstage/types@npm:1.2.2"
   checksum: 10c0/3c947cf83c058a56b0cfd90d91483e9a5c1c913f7978a0d5a3c0fd9b502d08e9bdf279afba626826eee84159e698ee4cdaa70040789ac47fc8a25df9f1925612
