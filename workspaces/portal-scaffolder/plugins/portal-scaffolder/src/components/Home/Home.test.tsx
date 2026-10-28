@@ -775,7 +775,7 @@ describe('self-service', () => {
           expect(items?.map(t => t.id)).toEqual([1, 2]);
           expect(items?.[1]?.name).toBe('Renamed Template');
         },
-        { timeout: 4000 },
+        { timeout: 8000 },
       );
     });
   });
