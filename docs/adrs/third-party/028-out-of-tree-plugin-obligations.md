@@ -36,4 +36,3 @@ Without an explicit out-of-tree ADR, authors copy `workspace:^`, embed `portal-e
 - [ADR-010](../common/010-plugin-factory-composability.md) — composability (rules apply; location sentences do not)
 - [ADR-011](../common/011-plugin-factory-config-namespace.md) — `ansible.<pluginId>.*`
 - [ADR-016](../common/016-plugin-factory-template-vs-plugin.md) — template vs plugin
-- [Third-party plugin development guide](../../3rd-party-plugins/plugin-development-guide.md)

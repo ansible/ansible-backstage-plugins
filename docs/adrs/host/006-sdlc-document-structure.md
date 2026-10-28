@@ -55,7 +55,6 @@ All documentation intended for end users, operators, and external contributors l
 ```
 docs/
 ├── adrs/            Public canonical ADRs (common / third-party / host)
-├── 3rd-party-plugins/
 └── guides/          Developer guides, migration guides, operational docs
 ```
 
