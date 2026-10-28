@@ -100,14 +100,15 @@ available and composes with everything here.
 - Failed syncs walk the fetch cause chain (bounded, cycle-safe), so a TLS
   rejection surfaces as the certificate error it is, not as a bare
   `fetch failed`
-- The anonymous `GET /registries` and `GET /health` routes report a failed
-  reconciliation as a fixed summary: the detailed cause can quote internal
-  hostnames — a TLS rejection names the certificate's subject alternative
-  names — and those routes are readable without credentials. The detail stays
-  in the backend log and in sync responses to verified user/service callers
-- `POST /sync` remains accessible anonymously. Anonymous callers receive the
-  same fixed failure summary; verified user/service callers receive the detailed
-  cause. The per-registry sync and poll routes require authentication
+- Every route except the `GET /health` liveness probe sits behind the
+  platform's sign-in barrier, and `GET /health` answers a bare status — so no
+  route leaks diagnostics to anonymous callers. The registry listing reports a
+  failed reconciliation as a fixed summary: the detailed cause can quote
+  internal hostnames — a TLS rejection names the certificate's subject
+  alternative names — and it stays in the backend log and in the sync
+  responses, where the caller explicitly asked for a refresh
+- `POST /sync` carries the detailed failure cause to its verified user/service
+  caller; the per-registry sync and poll routes require authentication too
 - Refusals and warnings name the registry, never URL data: a URL that reaches
   an error is reduced to its scheme, host, and path — userinfo is masked and
   query and fragment dropped, since each can carry a secret

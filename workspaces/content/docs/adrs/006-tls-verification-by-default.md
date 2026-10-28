@@ -84,12 +84,14 @@ failed verification through no misconfiguration of its own. Point 8 now
 specifies additive trust: the process store first, the bundle as a fallback
 for chain-of-trust failures, both verifying in full.
 
-The same review tightened public diagnostics: the anonymous `/registries`
-and `/health` routes now report a failed reconciliation as a fixed summary,
-because the detailed cause can quote internal hostnames (a TLS rejection
-names the certificate's subject alternative names). The detail stays in the
-backend log and in the authenticated sync responses. See the registry TLS
-guide for the operator-facing wording.
+The same review tightened public diagnostics: the registry listing reports a
+failed reconciliation as a fixed summary, because the detailed cause can quote
+internal hostnames (a TLS rejection names the certificate's subject
+alternative names). The detail stays in the backend log and in the sync
+responses. No route leaks it to anonymous callers: every route except the
+`GET /health` liveness probe — which answers a bare status — sits behind the
+platform's sign-in barrier. See the registry TLS guide for the operator-facing
+wording.
 
 ## Consequences
 
