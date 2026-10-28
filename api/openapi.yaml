@@ -44,7 +44,7 @@ tags:
   - name: Automation Content Resolution
     description: Match requirements against available content
   - name: Automation Content Configuration
-    description: Declarative configuration export and validation
+    description: Declarative configuration validation
 
 components:
   securitySchemes:
@@ -578,8 +578,7 @@ components:
     ContentConfig:
       type: object
       description: |
-        Declarative content configuration. Round-trips: what `/config/export` emits can
-        be committed to Git and fed back to `/config/validate`.
+        Declarative content configuration for `/config/validate`.
       required: [apiVersion, kind, registries]
       properties:
         apiVersion:
@@ -3354,40 +3353,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RequirementsResolution' }
-
-  /config/export:
-    servers:
-      - url: /api/automation-content
-    get:
-      operationId: exportContentConfig
-      tags: [Automation Content Configuration]
-      security:
-        - JWT: []
-      summary: Export the live content configuration as a declarative document
-      description: |
-        Emits configuration suitable for committing to Git. Secrets are never included;
-        credential fields are emitted as environment-variable references so the exported
-        document is safe to store in version control.
-      parameters:
-        - name: format
-          in: query
-          schema:
-            type: string
-            enum: [json, yaml]
-            default: json
-      responses:
-        '401':
-          description: Authentication required
-        '403':
-          description: Insufficient permissions
-        '200':
-          description: The configuration
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ContentConfig' }
-            application/yaml:
-              schema:
-                type: string
 
   /config/validate:
     servers:
