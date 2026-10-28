@@ -1,12 +1,8 @@
 import {
-  configApiRef,
-  createApiFactory,
   createPlugin,
   createRoutableExtension,
-  discoveryApiRef,
-  fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { AutomationContentClient, automationContentApiRef } from './api';
+import { automationContentApiFactory } from './apis';
 import { rootRouteRef } from './routes';
 
 export const automationContentPlugin = createPlugin({
@@ -14,18 +10,7 @@ export const automationContentPlugin = createPlugin({
   routes: {
     root: rootRouteRef,
   },
-  apis: [
-    createApiFactory({
-      api: automationContentApiRef,
-      deps: {
-        discoveryApi: discoveryApiRef,
-        fetchApi: fetchApiRef,
-        configApi: configApiRef,
-      },
-      factory: ({ discoveryApi, fetchApi }) =>
-        new AutomationContentClient({ discoveryApi, fetchApi }),
-    }),
-  ],
+  apis: [automationContentApiFactory],
 });
 
 /** Mounted by `dynamicRoutes` config — by default at /automation-content. */
@@ -33,8 +18,8 @@ export const AutomationContentPage = automationContentPlugin.provide(
   createRoutableExtension({
     name: 'AutomationContentPage',
     component: () =>
-      import('./components/AutomationContentPage').then(
-        m => m.AutomationContentPage,
+      import('./components/AutomationContentRoutes').then(
+        m => m.AutomationContentRoutes,
       ),
     mountPoint: rootRouteRef,
   }),
