@@ -762,6 +762,42 @@ describe('sub-path mounted registries', () => {
     expect(tags).toEqual(['a']);
     expect(seen.every(url => url.startsWith(PREFIX))).toBe(true);
   });
+
+  it('does not double the prefix when a root-relative Link already carries it', async () => {
+    // The other legitimate shape from a sub-path proxy: a Link that already
+    // includes the external prefix, but without the scheme or host. Doubling
+    // it would request a path the registry answers with 404 — which reads as
+    // a short result list, not an error.
+    const { seen, fetchImpl } = tagsRegistry(
+      `<${PREFIX}/v2/ansible/ee/tags/list?n=100&last=a>; rel="next"`,
+    );
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl,
+    });
+
+    const tags: string[] = [];
+    for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+
+    expect(tags).toEqual(['a', 'b']);
+    expect(seen.some(url => url.includes(`${PREFIX}${PREFIX}`))).toBe(false);
+  });
+
+  it('resolves a query-only Link against the page that carried it', async () => {
+    // A Link of just `?last=a` means "the same page, next query". Resolving
+    // it against anything but the current page loses the page's path.
+    const { seen, fetchImpl } = tagsRegistry(`<?n=100&last=a>; rel="next"`);
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl,
+    });
+
+    const tags: string[] = [];
+    for await (const tag of client.listTags('ansible/ee')) tags.push(tag);
+
+    expect(tags).toEqual(['a', 'b']);
+    // The third request (after the /v2/ priming probe and the first page)
+    // kept the page's path and only changed the query.
+    expect(seen[2]).toBe(`${PREFIX}/v2/ansible/ee/tags/list?n=100&last=a`);
+  });
 });
 
 describe('refusal messages carry no registry-controlled text', () => {
@@ -839,5 +875,68 @@ describe('refusal messages carry no registry-controlled text', () => {
     expect(message).toContain(
       'refusing pagination link that points away from the configured registry',
     );
+  });
+});
+
+describe('auth failure logs carry no registry-controlled text', () => {
+  /**
+   * The auth realm and its response body are chosen by the registry. Both
+   * must stay out of the logs — the same rule the pagination refusals
+   * follow. Each test embeds a fake secret in the registry-controlled parts
+   * and asserts it never reaches a log line.
+   */
+  it('logs a failed token exchange without the realm URL or response body', async () => {
+    const secret = 'hunter2-top-secret';
+    const warn = jest.fn();
+    const fetchImpl = async (url: string) => {
+      if (url.includes('auth')) {
+        // The advertised realm, answering with a body built to look like a
+        // forged log line.
+        return new Response(`[ERROR] leaked ${secret}`, { status: 500 });
+      }
+      return new Response('{}', {
+        status: 401,
+        headers: {
+          'www-authenticate': `Bearer realm="https://auth-${secret}.example/token",service="mock"`,
+        },
+      });
+    };
+    const client = new OCIClient(connection(), {
+      fetch: fetchImpl as never,
+      logger: { debug: () => {}, warn },
+    });
+
+    await expect(client.listTags('ansible/ee').next()).rejects.toThrow();
+
+    const messages = warn.mock.calls.map(call => call.join(' '));
+    expect(messages.some(m => m.includes('token exchange failed: 500'))).toBe(
+      true,
+    );
+    expect(messages.some(m => m.includes(secret))).toBe(false);
+  });
+
+  it('refuses a non-TLS realm without echoing its URL', async () => {
+    const secret = 'hunter2-top-secret';
+    const warn = jest.fn();
+    const fetchImpl = async () =>
+      new Response('{}', {
+        status: 401,
+        headers: {
+          'www-authenticate': `Bearer realm="http://plain-${secret}.example/token",service="mock"`,
+        },
+      });
+    const client = new OCIClient(connection(), {
+      fetch: fetchImpl as never,
+      logger: { debug: () => {}, warn },
+    });
+
+    const res = await client.request('/v2/ansible/ee/tags/list');
+
+    expect(res.status).toBe(401);
+    const messages = warn.mock.calls.map(call => call.join(' '));
+    expect(messages.some(m => m.includes('refusing non-TLS auth realm'))).toBe(
+      true,
+    );
+    expect(messages.some(m => m.includes(secret))).toBe(false);
   });
 });

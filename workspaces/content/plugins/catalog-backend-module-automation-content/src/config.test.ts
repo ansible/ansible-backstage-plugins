@@ -19,6 +19,9 @@ describe('registryUrlError', () => {
     ['http://localhost:5000'],
     // The parser lowercases the scheme; the loader canonicalizes, so this is valid.
     ['HTTPS://QUAY.IO'],
+    // Trailing empty segments are harmless: request building trims trailing
+    // slashes too. Only empty segments *inside* the path are refused below.
+    ['https://quay.io//'],
   ])('accepts %s', url => {
     expect(registryUrlError(url)).toBeUndefined();
   });
@@ -38,6 +41,15 @@ describe('registryUrlError', () => {
     // catches it; the stray character would otherwise corrupt every request.
     ['https://quay.io?', 'must not include a query or fragment'],
     ['https://quay.io#', 'must not include a query or fragment'],
+    // A double slash inside the path is almost always a configuration
+    // mistake, and it breaks request building in a confusing way: joined
+    // onto request paths, the `//` reads as "swap the host", so the client
+    // would refuse its own configured registry as a foreign origin.
+    ['https://quay.io//v2', 'must not contain empty path segments'],
+    [
+      'https://host.example.com//harbor-proxy',
+      'must not contain empty path segments',
+    ],
   ])('rejects %s', (url, reason) => {
     expect(registryUrlError(url)).toContain(reason);
   });

@@ -61,6 +61,18 @@ export function registryUrlError(url: string): string | undefined {
   ) {
     return 'must not include a query or fragment';
   }
+  // A double slash inside the path (`https://host//prefix`) is almost always
+  // a configuration mistake, and it breaks request building in a confusing
+  // way: once the base path is joined onto request paths, the `//` reads as
+  // "swap the host", so the client ends up refusing its own configured
+  // registry as a foreign origin. Refuse it here, at the boundary, where the
+  // mistake is still easy to see. Trailing slashes are trimmed first because
+  // they are harmless: request building trims them too.
+  let pathOnly = parsed.pathname;
+  while (pathOnly.endsWith('/')) pathOnly = pathOnly.slice(0, -1);
+  if (pathOnly.includes('//')) {
+    return 'must not contain empty path segments';
+  }
   return undefined;
 }
 

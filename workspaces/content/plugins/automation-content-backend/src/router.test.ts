@@ -323,23 +323,26 @@ describe('configuration boundary', () => {
    * endpoint as `valid: true` while preventing startup, because the two
    * boundaries used different rules.
    */
-  it.each(['https://', 'https://quay.io:99999'])(
-    'rejects %s, which the loader also rejects at startup',
-    async badUrl => {
-      const res = await request(await appWith(seed([])))
-        .post('/config/validate')
-        .send({
-          apiVersion: 'content.ansible.com/v1',
-          kind: 'ContentConfiguration',
-          registries: [{ name: 'quay', url: badUrl }],
-        });
+  it.each([
+    'https://',
+    'https://quay.io:99999',
+    // A double slash inside the path: request building would read the joined
+    // `//` as a host swap, so the client would refuse its own registry.
+    'https://quay.io//v2',
+  ])('rejects %s, which the loader also rejects at startup', async badUrl => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: badUrl }],
+      });
 
-      expect(res.body.valid).toBe(false);
-      expect(res.body.errors).toContainEqual(
-        expect.objectContaining({ path: 'registries[0].url' }),
-      );
-    },
-  );
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'registries[0].url' }),
+    );
+  });
 
   /**
    * A URL ending in a bare `?` or `#` is a query or fragment someone never

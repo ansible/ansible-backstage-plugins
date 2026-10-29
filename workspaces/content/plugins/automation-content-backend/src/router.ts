@@ -738,8 +738,11 @@ export async function createRouter(
               message: 'Required and must be a string',
             });
           } else {
-            // The same rule the loader enforces at startup, so a configuration
-            // this endpoint approves can never prevent the backend from starting.
+            // The same registry-URL rule the loader enforces at startup: a
+            // registry URL this endpoint approves can never prevent the
+            // backend from starting. The guarantee covers registry URLs
+            // only; other fields get advisory warnings here and can still
+            // fail loading with a type error.
             const reason = registryUrlError(registry.url);
             if (reason) {
               errors.push({ path: `${at}.url`, message: `Invalid: ${reason}` });
