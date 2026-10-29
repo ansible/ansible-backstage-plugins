@@ -4,7 +4,8 @@
 >
 > **Scope:** Split the monolithic `scaffolder-backend-module-backstage-rhaap` into two
 > backend modules — one for AAP integration, one for portal-scaffolder — with no behaviour
-> change apart from the documented autocomplete-provider migration in Phase 1.
+> change apart from the documented autocomplete-provider migration and the replacement of
+> the EE HTTP routes with an in-process lifecycle service in Phase 1.
 
 ---
 
@@ -118,25 +119,22 @@ These are AAP/catalog config keys, not portal-scaffolder's own. Moving the actio
 
 ### 3.3 EE entity registration
 
-`EEEntityProvider` in `catalog-backend-module-rhaap` is a definition-path concern (architecture §7.4). Phase 2 may relocate provider implementation closer to portal-scaffolder, but **`POST /ansible/ee` stays registered from a catalog-owned backend module** — not from `scaffolder-backend-module-portal`. The path (`/ansible/ee`) and auth contract (`allow: ['service']`, service-to-catalog calls from scaffolder) must not change.
+Replace both EE HTTP routes in Phase 1 with a root-scoped, in-process EE lifecycle service. `createEEDefinition.ts` calls this service directly; it does not call the catalog router or expose replacement HTTP endpoints.
 
-**The migration unit is two routes, not one.** `createEEDefinition.ts` also calls `DELETE /ansible/ee/:name` to clean up an existing catalog entity before re-registering it (`router.ts` line 404), and that route has a _different_ auth contract than `POST /ansible/ee`:
+The service has two operations: register an EE entity through `EEEntityProvider`, and remove an existing EE entity before re-registration. Its implementation owns the catalog interaction and provider cleanup, rather than having the portal action call raw catalog APIs.
+
+**The migration unit is both routes together.** `createEEDefinition.ts` currently calls `DELETE /ansible/ee/:name` to clean up an existing catalog entity before re-registering it (`router.ts` line 404), and the two routes have different credential flows:
 
 | Route                      | Credentials used in `createEEDefinition.ts`                                       | Router `allow`        | Effective RBAC                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------- | ---------------------------------------------------- |
 | `POST /ansible/ee`         | `auth.getOwnServiceCredentials()` — pure service-to-service                       | `['service']`         | No per-user check; scaffolder's own service identity |
 | `DELETE /ansible/ee/:name` | `getInitiatorCredentials()` forwarded via `onBehalfOf` — the calling user's token | `['user', 'service']` | Catalog's own delete-permission RBAC, per user       |
 
-There's also a provider-ownership branch: cleanup is skipped entirely for non-SCM, provider-managed entities (detected via the `ansible.io/download-experience` annotation), since those upsert in place rather than needing a delete-then-recreate.
+The lifecycle service must preserve those flows: registration keeps the existing service-credentialed behavior; removal receives the initiator credentials and continues to enforce catalog delete permission for that user. It must also retain the provider-ownership branch: cleanup is skipped entirely for non-SCM, provider-managed entities (detected via the `ansible.io/download-experience` annotation), since those upsert in place rather than needing a delete-then-recreate.
 
-Any relocation of this contract (today or under a future CEA-aligned phase) must move or re-document **both** routes together, preserve the asymmetric auth contract (service-credentialed create vs. user-credentialed, RBAC-checked delete), and account for the provider-ownership skip logic — moving only `POST` and dropping `DELETE` from this guide's accounting would silently break cleanup-before-recreate or its permission boundary.
+Once direct lifecycle-service calls have parity coverage, remove `POST /ansible/ee` and `DELETE /ansible/ee/:name`, their router wiring, service-token/discovery use for registration, and the route-specific tests. Add service-level coverage for registration, user-authorized deletion, SCM cleanup, provider unregistering, and provider-managed entity handling.
 
-**This is a deliberate deviation from CEA §7.4, not an oversight.** CEA's table assigns `EEEntityProvider` (and the route it serves) to `scaffolder-backend-module-self-service` directly — i.e., out of the catalog module entirely, owned by the self-service/portal-scaffolder side. This guide keeps it catalog-owned for Phase 1/2 instead, because:
-
-- Today's route already lives in a catalog-owned module with an established `allow: ['service']` contract; moving it is a behavior-affecting change, not a pure repackaging, and this guide's Phase 1 scope is explicitly no-behavior-change.
-- Backstage's `httpRouter` mounts a module's routes under its owning plugin's base path. Moving the route to a `scaffolder`-pluginId module changes its effective path and auth wiring, not just which package contains the handler.
-
-If the team wants to follow CEA §7.4 literally, treat that as a distinct, later phase with its own URL-migration and auth-contract plan — not something to fold into this split silently. Tracked as an open question in §8.
+This follows the direct-registration pattern proposed in [PR #189](https://github.com/ansible/ansible-backstage-plugins/pull/189), extended to cover the deletion lifecycle rather than only `POST /ansible/ee`.
 
 ### 3.4 `collections` uses a separate portal autocomplete provider
 
@@ -193,9 +191,9 @@ Capture a machine-readable inventory before changing anything.
 | Document provider migration from `aap-api-cloud` to `aap-api` and `portal-catalog` | ❌     |
 | Capture the picker↔action source-string format as an explicit contract (§1.4)     | ❌     |
 
-### Phase 1 — Split the backend module (no behaviour change)
+### Phase 1 — Split the backend module and replace EE routes
 
-Two modules replacing one; identical behaviour; all existing tests green.
+Two modules replace one. The EE lifecycle keeps existing registration and deletion behavior while replacing route-based calls with direct service calls; all existing tests and lifecycle-parity tests must pass.
 
 | Item                                                                            | Notes                                                                                                                                                                                                                                       |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -205,24 +203,14 @@ Two modules replacing one; identical behaviour; all existing tests green.
 | Each module gets its own `src/dynamic/index.ts`                                 | One dynamic plugin installer per shippable module                                                                                                                                                                                           |
 | Update backend wiring                                                           | Two `backend.add(import(...))` replacing one                                                                                                                                                                                                |
 | Migrate autocomplete-provider references                                        | Replace `aap-api-cloud` with `aap-api` for AAP resources and `portal-catalog` for collections, including the three `CollectionsPickerExtension.tsx` provider strings                                                                        |
+| Add the EE lifecycle service                                                    | The portal action calls it directly for registration and cleanup; preserve service registration, user-authorized deletion, SCM cleanup, provider unregistering, and the provider-managed entity skip                                      |
+| Remove both EE routes after parity coverage                                     | Delete `POST /ansible/ee` and `DELETE /ansible/ee/:name`, router wiring, and route-specific tests; do not add replacement HTTP endpoints                                                                                                    |
 | Deprecate original package                                                      | Retained as a shim with a deprecation log warning                                                                                                                                                                                           |
 | Split unit tests and shared `src/mock/` fixtures                                | Shared fixtures duplicated or extracted to a test-util                                                                                                                                                                                      |
 
 **Verification:** scaffolder module tests pass; smoke-test an EE template end-to-end in the dev app.
 
-### Phase 2 — Relocate `EEEntityProvider` (catalog keeps the route)
-
-| Item                                                                | Notes                                                                                                                                                                                                                                                                                              |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Move `EEEntityProvider` class out of `catalog-backend-module-rhaap` | Implementation may live in portal-scaffolder workspace code; **do not** mount `POST /ansible/ee` or `DELETE /ansible/ee/:name` from `scaffolder-backend-module-portal`                                                                                                                             |
-| Keep `POST /ansible/ee` on a catalog-owned module                   | Same URL; preserve `allow: ['service']` (service-to-service, `auth.getOwnServiceCredentials()` on the caller side). Optional: thin `catalog-backend-module-*` dedicated to definition entities                                                                                                     |
-| Keep `DELETE /ansible/ee/:name` on the same catalog-owned module    | Same URL; preserve `allow: ['user', 'service']` and the fact that the caller forwards the **initiator's** token (`getInitiatorCredentials` + `onBehalfOf`), so catalog delete-permission RBAC applies per user — this is a stricter contract than POST's and must not be flattened to service-only |
-| Preserve the provider-ownership skip logic                          | Cleanup is skipped for non-SCM, provider-managed entities (detected via the `ansible.io/download-experience` annotation) — whichever module owns the route must keep this check                                                                                                                    |
-| Move tests from `catalog-backend-module-rhaap/src/router.test.ts`   | Coverage for **both** `POST /ansible/ee` and `DELETE /ansible/ee/:name` (including the `allow: ['user','service']` and per-user RBAC path) stays with whichever catalog module owns the routes                                                                                                     |
-
-**Open item:** [PR #189](https://github.com/ansible/ansible-backstage-plugins/pull/189) proposes registering the entity directly from the scaffolder action, retiring `POST /ansible/ee` entirely.
-
-### Phase 3 — Drop `backstage-rhaap-common` dependency from portal-scaffolder
+### Phase 2 — Drop `backstage-rhaap-common` dependency from portal-scaffolder
 
 | Item                                                                | Notes                                    |
 | ------------------------------------------------------------------- | ---------------------------------------- |
@@ -248,7 +236,7 @@ Two modules replacing one; identical behaviour; all existing tests green.
 | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `scaffolder-backend-module-aap`                    | `rhaap:*` actions, template filters, `aap-api`                                                        | AAP scaffolder behaviour                        |
 | `scaffolder-backend-module-portal`                 | `ansible:content:create`, `ansible:create:ee-definition`, `ansible:prepare:publish`, `portal-catalog` | Portal-scaffolder actions and collection lookup |
-| Catalog-owned backend module                       | `POST /ansible/ee`, `DELETE /ansible/ee/:name`                                                        | EE registration and cleanup routes              |
+| EE lifecycle service                               | No HTTP routes                                                                                         | EE registration, user-authorized cleanup, and provider lifecycle |
 | `scaffolder-backend-module-backstage-rhaap` (shim) | All current actions, filters, and legacy `aap-api-cloud` during migration                             | Compatibility until consumers migrate           |
 
 ---
@@ -257,9 +245,7 @@ Two modules replacing one; identical behaviour; all existing tests green.
 
 | Question                                                                                                                                                                                                   | Blocking                 |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Should `backstage-rhaap-common` be split so portal-scaffolder drops the AAP edge? (§3.2)                                                                                                                   | Phase 3                  |
-| Should `POST /ansible/ee` be retired via PR #189 rather than moved?                                                                                                                                        | Phase 2                  |
-| Should `EEEntityProvider`/`POST /ansible/ee` eventually move to `scaffolder-backend-module-portal` to match CEA §7.4, despite the URL/auth-contract cost? (§3.3)                                           | Later phase, not 0–3     |
+| Should `backstage-rhaap-common` be split so portal-scaffolder drops the AAP edge? (§3.2)                                                                                                                   | Phase 2                  |
 | Does `createEEDefinition.ts`'s read of `ansible.rhaap` / `catalog.providers.rhaap` get replaced by a content-side contract, or does portal-scaffolder keep reading AAP/catalog config indefinitely? (§3.2) | Phase 1 config ownership |
 
 ---
@@ -279,4 +265,4 @@ Two modules replacing one; identical behaviour; all existing tests green.
 | EE definition schema  | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapActionSchemas.ts` (partial)                                    | `workspaces/portal-scaffolder/plugins/scaffolder-backend-module-portal/src/actions/schemas/eeDefinitionSchema.ts`                                                                                 |
 | Config                | `plugins/scaffolder-backend-module-backstage-rhaap/config.d.ts`                                                                            | Split per module                                                                                                                                                                                  |
 | Backend wiring        | `packages/backend/src/index.ts`                                                                                                            | Two `backend.add()` calls                                                                                                                                                                         |
-| EE push registration  | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `src/router.ts` (`POST /ansible/ee`, `DELETE /ansible/ee/:name`) | Provider code may move; **both routes stay catalog-owned** (Phase 2) — see §3.3 for the asymmetric auth contract                                                                                  |
+| EE push registration  | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `src/router.ts` (`POST /ansible/ee`, `DELETE /ansible/ee/:name`) | EE lifecycle service; both routes and their router wiring are removed after service-parity coverage — see §3.3 for credential and cleanup requirements                                             |
