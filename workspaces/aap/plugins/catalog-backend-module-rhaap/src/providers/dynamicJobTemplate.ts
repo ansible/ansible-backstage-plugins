@@ -5,12 +5,10 @@ import {
   ISpec,
   ISurvey,
   InstanceGroup,
-} from '@ansible/aap-common';
-import {
   toOrgGroupRef,
   toTemplateEntityName,
   CatalogEntityIdentityOptions,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/aap-common';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,

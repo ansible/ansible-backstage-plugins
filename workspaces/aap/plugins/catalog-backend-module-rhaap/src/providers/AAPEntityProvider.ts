@@ -18,15 +18,15 @@ import {
   Users,
   Team,
   Organization,
-} from '@ansible/aap-common';
-import {
-  IAAPService,
-  findMissingConfiguredOrganizations,
   toOrgEntityName,
   toOrgGroupRef,
   toTeamEntityName,
   toTeamGroupRef,
   toUserEntityRef,
+} from '@ansible/aap-common';
+import {
+  IAAPService,
+  findMissingConfiguredOrganizations,
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
