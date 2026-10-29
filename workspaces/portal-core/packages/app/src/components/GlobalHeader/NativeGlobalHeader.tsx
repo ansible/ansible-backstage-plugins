@@ -1,7 +1,9 @@
+import { useNativeAppProfileMenuItems } from '@ansible/portal-extension-host/alpha';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { GlobalHeader } from './GlobalHeader';
 
-/** The global header has no Create shortcut or plugin-contributed Create actions. */
+/** Only profile items are contributed to the global header. */
 export function NativeGlobalHeader() {
-  return compatWrapper(<GlobalHeader />);
+  const profileItems = useNativeAppProfileMenuItems();
+  return compatWrapper(<GlobalHeader profileItems={profileItems} />);
 }
