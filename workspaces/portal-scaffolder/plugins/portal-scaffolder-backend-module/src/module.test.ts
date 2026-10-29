@@ -13,9 +13,15 @@ describe('scaffolderModulePortalScaffolder', () => {
     };
     const env: any = {
       scaffolder: { addActions: jest.fn() },
+      autocomplete: { addAutocompleteProvider: jest.fn() },
       config,
       auth: {},
       discovery: {},
+      eeLifecycle: {
+        registerExecutionEnvironment: jest.fn(),
+        unregisterExecutionEnvironment: jest.fn().mockResolvedValue({ mode: 'noop' }),
+      },
+      logger: { debug: jest.fn() },
     };
 
     const registrations = (
@@ -30,8 +36,7 @@ describe('scaffolderModulePortalScaffolder', () => {
       createAnsibleContentAction(config).id,
       createEEDefinitionAction({
         frontendUrl: config.getString('app.baseUrl'),
-        auth: env.auth,
-        discovery: env.discovery,
+        eeLifecycle: env.eeLifecycle,
         config,
       }).id,
       prepareForPublishAction({ rootConfig: config }).id,
@@ -41,5 +46,31 @@ describe('scaffolderModulePortalScaffolder', () => {
       'ansible:create:ee-definition',
       'ansible:prepare:publish',
     ]);
+  });
+
+  it('registers the portal collection autocomplete provider', async () => {
+    const config: any = { getString: () => 'http://localhost:3000' };
+    const env: any = {
+      scaffolder: { addActions: jest.fn() },
+      autocomplete: { addAutocompleteProvider: jest.fn() },
+      config,
+      auth: {},
+      discovery: {},
+      eeLifecycle: {
+        registerExecutionEnvironment: jest.fn(),
+        unregisterExecutionEnvironment: jest.fn().mockResolvedValue({ mode: 'noop' }),
+      },
+      logger: { debug: jest.fn() },
+    };
+    const registrations = (
+      scaffolderModulePortalScaffolder as any
+    ).getRegistrations();
+    for (const registration of registrations) {
+      await registration.init.func(env);
+    }
+
+    expect(env.autocomplete.addAutocompleteProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'portal-catalog' }),
+    );
   });
 });
