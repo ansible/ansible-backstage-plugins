@@ -10,11 +10,9 @@ import {
   parseUploadedFileContent,
 } from './utils/utils';
 import {
-  AuthService,
-  BackstageCredentials,
-  DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import type { EEEntityLifecycleService } from '@ansible/backstage-rhaap-common';
 import { Config } from '@backstage/config';
 import { BackendServiceAPI } from './utils/api';
 import {
@@ -52,21 +50,17 @@ const PAH_SOURCE_PREFIX = 'Private Automation Hub';
  *
  * @param options.frontendUrl - Base URL of the Backstage frontend, used to
  *   build entity reference links.
- * @param options.auth - Backstage {@link AuthService} for obtaining service
- *   credentials and plugin request tokens.
- * @param options.discovery - Backstage {@link DiscoveryService} for resolving
- *   backend plugin URLs (e.g. the catalog API).
+ * @param options.eeLifecycle - Root-scoped EE lifecycle service.
  * @param options.config - Backstage {@link Config} containing `ansible.*` and
  *   `catalog.providers.rhaap.*` settings.
  * @returns A Backstage scaffolder `TemplateAction`.
  */
 export function createEEDefinitionAction(options: {
   frontendUrl: string;
-  auth: AuthService;
-  discovery: DiscoveryService;
+  eeLifecycle: EEEntityLifecycleService;
   config: Config;
 }) {
-  const { frontendUrl, auth, discovery, config } = options;
+  const { frontendUrl, eeLifecycle, config } = options;
   // @ts-expect-error TS2589: complex ZodEffects schema triggers deep type recursion
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
@@ -340,15 +334,32 @@ export function createEEDefinitionAction(options: {
         // recreates skip DELETE (same locationKey upserts in place).
         // Note: if a later SCM publish/register step fails after cleanup, the
         // prior catalog entry may be gone until the user retries successfully.
-        await bestEffortUnregisterExistingEE({
-          name: eeFileName,
-          publishToSCM: Boolean(values.publishToSCM),
-          discovery,
-          auth,
-          logger,
-          getInitiatorCredentials: () => ctx.getInitiatorCredentials(),
-          output: (key, value) => ctx.output(key, value),
-        });
+        const credentials = await ctx.getInitiatorCredentials();
+        try {
+          const cleanup = await eeLifecycle.unregisterExecutionEnvironment(
+            eeFileName,
+            credentials,
+            { skipProviderManaged: !values.publishToSCM },
+          );
+          ctx.output(
+            'eeCleanupStatus',
+            cleanup.mode === 'noop'
+              ? 'noop'
+              : cleanup.mode === 'provider'
+                ? 'skipped'
+                : 'ok',
+          );
+          if (cleanup.warning) ctx.output('eeCleanupWarning', cleanup.warning);
+        } catch (error) {
+          logger.warn(
+            `[ansible:create:ee-definition] best-effort EE cleanup for "${eeFileName}" failed: ${formatUnknownError(error)}`,
+          );
+          ctx.output('eeCleanupStatus', 'failed');
+          ctx.output(
+            'eeCleanupWarning',
+            `Failed to replace existing EE "${eeFileName}". Creation continues; catalog may keep the prior entity.`,
+          );
+        }
 
         if (values.publishToSCM) {
           const catalogInfoPath = path.join(
@@ -357,12 +368,6 @@ export function createEEDefinitionAction(options: {
           );
           ctx.output('catalogInfoPath', catalogInfoPath);
         } else {
-          const baseUrl = await discovery.getBaseUrl('catalog');
-          const { token } = await auth.getPluginRequestToken({
-            onBehalfOf: await ctx.getInitiatorCredentials(),
-            targetPluginId: 'catalog',
-          });
-
           const entity = generateEECatalogEntity(
             eeFileName,
             eeDescription,
@@ -373,23 +378,10 @@ export function createEEDefinitionAction(options: {
             ansibleConfigContent,
             eeTemplateContent,
           );
-          const response = await fetch(`${baseUrl}/ansible/ee`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ entity }),
-          });
-
-          if (response.ok) {
-            logger.info(
-              `[ansible:create:ee-definition] successfully registered EE catalog entity ${eeFileName} in the catalog`,
-            );
-          } else {
-            const errorText = await response.text();
-            throw new Error(`Failed to register EE definition: ${errorText}`);
-          }
+          await eeLifecycle.registerExecutionEnvironment(entity, credentials);
+          logger.info(
+            `[ansible:create:ee-definition] successfully registered EE catalog entity ${eeFileName} in the catalog`,
+          );
         }
 
         ctx.output(
@@ -406,137 +398,6 @@ export function createEEDefinitionAction(options: {
       }
     },
   });
-}
-
-/**
- * Best-effort DELETE of an existing EE catalog entity before re-registration.
- * Failures are logged and surfaced via ctx.output so create is not blocked, but
- * operators can see that replace cleanup did not succeed.
- *
- * Skips DELETE when recreating a provider-managed (download-experience) EE
- * without SCM publish — the provider delta upsert already replaces in place.
- */
-async function bestEffortUnregisterExistingEE(options: {
-  name: string;
-  publishToSCM: boolean;
-  discovery: DiscoveryService;
-  auth: AuthService;
-  logger: LoggerService;
-  getInitiatorCredentials: () => Promise<BackstageCredentials>;
-  output?: (name: string, value: any) => void;
-}): Promise<void> {
-  const {
-    name,
-    publishToSCM,
-    discovery,
-    auth,
-    logger,
-    getInitiatorCredentials,
-    output,
-  } = options;
-  try {
-    const baseUrl = await discovery.getBaseUrl('catalog');
-    const credentials = await getInitiatorCredentials();
-    const { token } = await auth.getPluginRequestToken({
-      onBehalfOf: credentials,
-      targetPluginId: 'catalog',
-    });
-
-    // Non-SCM → non-SCM with the same provider locationKey does not need DELETE.
-    if (!publishToSCM) {
-      const existing = await fetch(
-        `${baseUrl}/entities/by-name/component/default/${encodeURIComponent(
-          name,
-        )}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (existing.ok) {
-        const entity = (await existing.json()) as {
-          metadata?: { annotations?: Record<string, string> };
-        };
-        const downloadExperience =
-          entity.metadata?.annotations?.['ansible.io/download-experience'] ===
-          'true';
-        if (downloadExperience) {
-          logger.info(
-            `[ansible:create:ee-definition] skipping EE cleanup for provider-managed "${name}" (non-SCM upsert)`,
-          );
-          output?.('eeCleanupStatus', 'skipped');
-          return;
-        }
-      }
-    }
-
-    const response = await fetch(
-      `${baseUrl}/ansible/ee/${encodeURIComponent(name)}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    );
-
-    if (response.status === 204) {
-      logger.info(
-        `[ansible:create:ee-definition] no existing EE catalog entity "${name}" to clean up`,
-      );
-      output?.('eeCleanupStatus', 'noop');
-      return;
-    }
-
-    if (response.ok) {
-      let body: { mode?: string; warning?: string } | undefined;
-      try {
-        body = (await response.json()) as {
-          mode?: string;
-          warning?: string;
-        };
-      } catch {
-        // Non-JSON 2xx is still a success; proceed without body.
-      }
-
-      logger.info(
-        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status}, mode ${body?.mode ?? 'unknown'})`,
-      );
-
-      if (body?.mode === 'entity-transient') {
-        output?.('eeCleanupStatus', 'ok');
-        output?.(
-          'eeCleanupWarning',
-          body.warning ??
-            `Shared catalog location still exists for "${name}". The old entity may reappear unless the source catalog-info.yaml is also updated.`,
-        );
-        return;
-      }
-
-      output?.('eeCleanupStatus', 'ok');
-      return;
-    }
-
-    // Drain body without logging untrusted catalog/proxy content.
-    await response.text().catch(() => undefined);
-    logger.warn(
-      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" returned ${response.status}`,
-    );
-    output?.('eeCleanupStatus', 'failed');
-    output?.(
-      'eeCleanupWarning',
-      `Failed to replace existing EE "${name}" (HTTP ${response.status}). Creation continues; catalog may keep the prior entity.`,
-    );
-  } catch (error: unknown) {
-    const message = formatUnknownError(error);
-    logger.warn(
-      `[ansible:create:ee-definition] best-effort EE cleanup for "${name}" failed: ${message}`,
-    );
-    output?.('eeCleanupStatus', 'failed');
-    output?.(
-      'eeCleanupWarning',
-      `Failed to replace existing EE "${name}". Creation continues; catalog may keep the prior entity.`,
-    );
-  }
 }
 
 function formatUnknownError(error: unknown): string {
