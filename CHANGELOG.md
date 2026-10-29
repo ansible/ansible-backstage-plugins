@@ -10,6 +10,8 @@ where versioned packages apply.
 
 ### Added
 
+- **SDK relative time** adds the neutral `formatTimeAgo()` utility. Timestamp consumers no longer strip synchronization wording, and portal-scaffolder keeps its sync labels in a local wrapper. The existing SDK `formatRelativeTime()` remains available as a deprecated compatibility export with unchanged output.
+
 - **SDK page header** adds `PageHeader` with a title, optional description/help, and consumer-owned actions. It requires no sync configuration or authentication APIs. Portal-scaffolder uses a local `CatalogSyncHeader` to retain existing sync controls, permission checks, progress, and timestamps. The SDK's `PageHeaderSection` and its props remain available as deprecated compatibility exports.
 
 - **SDK empty-state view** adds `EmptyStateView` with consumer-owned text, optional decorative icon, and actions, without catalog or auth requirements. Portal-scaffolder keeps collection guidance and sync behavior in a local wrapper, while missing repositories show repository-specific guidance. Existing SDK `EmptyState` and props remain as deprecated compatibility exports.
