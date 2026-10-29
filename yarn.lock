@@ -539,7 +539,7 @@ __metadata:
     "@backstage/cli": "npm:0.36.2"
     "@backstage/errors": "npm:1.2.7"
     "@backstage/plugin-scaffolder-node": "npm:0.13.2"
-    "@backstage/plugin-scaffolder-node-test-utils": "npm:^0.3.16"
+    "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.16"
     "@types/jest": "npm:29.5.14"
     zod: "npm:3.25.76"
   languageName: unknown
@@ -10993,7 +10993,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-scaffolder-node-test-utils@npm:^0.3.16":
+"@backstage/plugin-scaffolder-node-test-utils@npm:0.3.16":
   version: 0.3.16
   resolution: "@backstage/plugin-scaffolder-node-test-utils@npm:0.3.16"
   dependencies:
