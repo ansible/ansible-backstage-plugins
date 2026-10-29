@@ -40,7 +40,7 @@ import { GitLabIcon, RedHatIcon } from '../../icons';
 import {
   SYNC_FAILED_CATEGORY,
   SYNC_STARTED_CATEGORY,
-  fetchContentSyncStatus,
+  fetchCatalogContentSyncStatus,
 } from '../../utils';
 
 type AnsibleSyncPostResult = {
@@ -199,12 +199,11 @@ export const SyncDialog = ({
       setError(null);
       try {
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetchContentSyncStatus(fetchApi, baseUrl);
-        if (!response.ok) {
+        const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
+        if (!data?.content) {
           throw new Error('Failed to fetch sources');
         }
-        const data = await response.json();
-        const rawProviders = data.content?.providers || [];
+        const rawProviders = data.content.providers || [];
 
         setProviders(rawProviders);
 
