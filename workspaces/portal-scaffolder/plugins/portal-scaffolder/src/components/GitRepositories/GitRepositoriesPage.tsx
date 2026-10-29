@@ -30,6 +30,7 @@ import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { fetchCatalogContentSyncStatus } from '@ansible/portal-plugin-sdk';
 
 import {
   useApi,
@@ -44,7 +45,6 @@ import {
   EXTENSION_POINTS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
-import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import { useSyncStatusPolling } from '../../hooks';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
@@ -179,26 +179,19 @@ export const GitRepositoriesPage = () => {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const response = await fetchContentSyncStatus(fetchApi, baseUrl);
-      if (!response.ok) {
+      const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
+      if (!data?.content) {
         setHasConfiguredSources(false);
         return;
       }
-      const data = await response.json();
       const statusMap: SyncStatusMap = {};
-      const providers = data.content?.providers || [];
-      providers.forEach(
-        (provider: {
-          sourceId: string;
-          lastSyncTime: string | null;
-          lastFailedSyncTime: string | null;
-        }) => {
-          statusMap[provider.sourceId] = {
-            lastSyncTime: provider.lastSyncTime,
-            lastFailedSyncTime: provider.lastFailedSyncTime,
-          };
-        },
-      );
+      const providers = data.content.providers || [];
+      providers.forEach(provider => {
+        statusMap[provider.sourceId] = {
+          lastSyncTime: provider.lastSyncTime,
+          lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+        };
+      });
       setSyncStatusMap(statusMap);
       setHasConfiguredSources(providers.length > 0);
     } catch {
@@ -232,7 +225,7 @@ export const GitRepositoriesPage = () => {
   let syncDisabledReason: string | undefined;
   if (hasConfiguredSources === false) {
     syncDisabledReason = 'No content sources configured';
-  } else if (isSyncInProgress && !syncProgress?.length) {
+  } else if (isSyncInProgress) {
     syncDisabledReason = 'Sync in progress';
   }
 
