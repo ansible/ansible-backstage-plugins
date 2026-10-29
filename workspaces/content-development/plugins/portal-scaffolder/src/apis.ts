@@ -13,6 +13,7 @@ import type {
   EEBuildResult,
   UserJobTemplate,
 } from '@ansible/portal-scaffolder-common';
+import { fetchCatalogAapSyncStatus } from '@ansible/portal-plugin-sdk';
 
 export type {
   EEBuildRegistryType,
@@ -211,29 +212,19 @@ export class AnsibleApiClient implements AnsibleApi {
   }> {
     const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
     try {
-      let response = await this.fetchApi.fetch(
-        `${baseUrl}/ansible/sync/status?aap_entities=true`,
-      );
-      if (response.status === 404) {
-        response = await this.fetchApi.fetch(
-          `${baseUrl}/ansible/sync/status/aap`,
-        );
+      const data = await fetchCatalogAapSyncStatus(baseUrl, this.fetchApi);
+      if (data?.aap) {
+        return data;
       }
-      if (!response.ok) {
-        throw new Error(
-          `Sync status request failed with status ${response.status}`,
-        );
-      }
-      const data = await response.json();
-      return data;
     } catch {
-      return {
-        aap: {
-          orgsUsersTeams: { lastSync: null, syncInProgress: false },
-          jobTemplates: { lastSync: null, syncInProgress: false },
-        },
-      };
+      /* fall through to defaults */
     }
+    return {
+      aap: {
+        orgsUsersTeams: { lastSync: null, syncInProgress: false },
+        jobTemplates: { lastSync: null, syncInProgress: false },
+      },
+    };
   }
 }
 

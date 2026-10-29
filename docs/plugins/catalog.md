@@ -80,5 +80,10 @@ The catalog backend module exposes HTTP routes on the **catalog** service (paths
 | `GET`  | `/ansible/sync/from-aap/orgs_users_teams` | Sync organizations, users, and teams                                                     |
 | `GET`  | `/ansible/sync/from-aap/job_templates`    | Sync job templates into catalog templates                                                |
 | `GET`  | `/ansible/sync/status`                    | Query sync status (supports query parameters such as `aap_entities`, `ansible_contents`) |
+| `GET`  | `/ansible/sync/status/aap`                | AAP-only sync status (split catalog module bundle)                                     |
+| `GET`  | `/ansible/sync/status/content`            | PAH/SCM content sync status (split catalog module bundle)                               |
+| `GET`  | `/ansible/sync/status/self-service`       | Self-service EE sync status (split catalog module bundle)                              |
+
+Portal UI clients try the monolithic `/ansible/sync/status` route first (deprecated shim bundle), then fall back to the per-module routes when that endpoint is not mounted.
 
 **Migration:** Older releases used paths under `/aap/sync_*`. Those were replaced by the `/ansible/sync/from-aap/...` routes above. Update any custom automation or bookmarks accordingly. See the [project CHANGELOG](https://github.com/ansible/ansible-backstage-plugins/blob/main/CHANGELOG.md) for details.
