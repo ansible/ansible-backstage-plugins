@@ -31,6 +31,7 @@
     "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @apme/ui-workflow"
   },
   "dependencies": {
+    "@ansible/aap-common": "workspace:^",
     "@ansible/backstage-apme-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/v2026.9.3/apme-ui-workflow-2026.9.3.tgz",

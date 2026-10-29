@@ -198,6 +198,7 @@ __metadata:
   dependencies:
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/integration": "npm:^2.0.0"
+    "@backstage/plugin-permission-common": "npm:^0.9.7"
     "@jest/globals": "npm:^30.1.2"
   languageName: unknown
   linkType: soft
@@ -446,6 +447,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-backstage-apme@workspace:workspaces/apme/plugins/backstage-apme"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-apme-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"

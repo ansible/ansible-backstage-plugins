@@ -16,7 +16,7 @@ import {
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { collectionsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { collectionsViewPermission } from '@ansible/aap-common/permissions';
 
 import { CollectionBreadcrumbs } from './CollectionBreadcrumbs';
 import { CollectionAboutCard } from './CollectionAboutCard';
