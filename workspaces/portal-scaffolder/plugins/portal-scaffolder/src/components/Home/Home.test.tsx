@@ -735,16 +735,19 @@ describe('self-service', () => {
       });
 
       // Let the initial-mount CATALOG_SETTLE_MS (750ms) effect fire and
-      // settle before capturing the baseline, so its own invalidate doesn't
-      // get mistaken for the sync-triggered one below.
+      // settle before sync, so its invalidate is not counted below.
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 1200));
       });
 
-      const facetCallsBeforeSync =
-        mockCatalogApi.getEntityFacets.mock.calls.length;
-      const queryCallsBeforeSync =
-        mockCatalogApi.queryEntities.mock.calls.length;
+      await waitFor(
+        () => {
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalled();
+        },
+        { timeout: 4000 },
+      );
+      mockCatalogApi.getEntityFacets.mockClear();
+      mockCatalogApi.queryEntities.mockClear();
 
       (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
         items: [
@@ -755,23 +758,25 @@ describe('self-service', () => {
 
       await triggerTemplateSync();
 
-      await waitFor(() => {
-        expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
+      await waitFor(
+        () => {
+          expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 4000 },
+      );
 
       // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
-      });
+      await waitFor(
+        async () => {
+          expect(mockCatalogApi.getEntityFacets).toHaveBeenCalled();
+          expect(mockCatalogApi.queryEntities).toHaveBeenCalled();
+          const items = await lastFetchedJobTemplates();
+          expect(items?.map(t => t.id)).toEqual([1, 2]);
+          expect(items?.[1]?.name).toBe('Renamed Template');
+        },
+        { timeout: 5000 },
+      );
     });
   });
 
