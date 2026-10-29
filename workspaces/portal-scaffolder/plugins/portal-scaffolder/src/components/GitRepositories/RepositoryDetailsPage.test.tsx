@@ -249,6 +249,10 @@ describe('RepositoryDetailsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Repositories')).toBeInTheDocument();
     });
+    expect(
+      await screen.findByRole('heading', { name: 'Repository not found' }),
+    ).toBeVisible();
+    expect(screen.queryByText('No Collections Found')).not.toBeInTheDocument();
   });
 
   it('fetches entity with correct filter', async () => {

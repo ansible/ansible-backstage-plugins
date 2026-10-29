@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { PageHeaderSection } from '../common';
+import { CatalogSyncHeader } from '../common';
 import type { SyncProgressEntry } from '../common';
 import { REPO_TOOLTIP, REPO_DESCRIPTION } from './constants';
 
@@ -21,7 +21,7 @@ export const RepositoriesPageHeaderSection = ({
   syncProgress,
   actions,
 }: RepositoriesPageHeaderSectionProps) => (
-  <PageHeaderSection
+  <CatalogSyncHeader
     title="Git Repositories"
     tooltip={REPO_TOOLTIP}
     description={REPO_DESCRIPTION}

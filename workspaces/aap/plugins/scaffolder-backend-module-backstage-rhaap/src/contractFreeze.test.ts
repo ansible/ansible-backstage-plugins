@@ -49,12 +49,7 @@ import { launchJobTemplate } from './actions/aapLaunchJobTemplate';
 import { cleanUp } from './actions/aapCleanUp';
 import { createEEDefinitionAction } from './actions/createEEDefinition';
 import { prepareForPublishAction } from './actions/prepareForPublish';
-import {
-  multiResourceFilter,
-  resourceFilter,
-  useCaseNameFilter,
-  uuidFilter,
-} from './filters';
+import * as filters from './filters';
 import { buildCollectionsFromCatalogEntities } from './autocomplete/utils';
 
 // These action/filter constructors only touch their injected services inside
@@ -108,18 +103,16 @@ describe('Phase 0 contract freeze: action IDs', () => {
 });
 
 describe('Phase 0 contract freeze: template filters (target: scaffolder-backend-module-aap)', () => {
-  it('exports exactly the four filters module.ts registers', () => {
-    expect({
-      useCaseNameFilter: typeof useCaseNameFilter,
-      resourceFilter: typeof resourceFilter,
-      multiResourceFilter: typeof multiResourceFilter,
-      uuidFilter: typeof uuidFilter,
-    }).toEqual({
-      useCaseNameFilter: 'function',
-      resourceFilter: 'function',
-      multiResourceFilter: 'function',
-      uuidFilter: 'function',
-    });
+  it('exports exactly the four template filters', () => {
+    expect(Object.keys(filters).sort()).toEqual([
+      'multiResourceFilter',
+      'resourceFilter',
+      'useCaseNameFilter',
+      'uuidFilter',
+    ]);
+    expect(
+      Object.values(filters).every(filter => typeof filter === 'function'),
+    ).toBe(true);
   });
 });
 
@@ -152,7 +145,7 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
     expect(entry.sources).toEqual(['Private Automation Hub / validated']);
   });
 
-  it('formats SCM sources using the canonical provider name', () => {
+  it('formats an SCM-backed collection source as "<Provider> / <canonical name> / <org> / <repo>"', () => {
     const [entry] = buildCollectionsFromCatalogEntities([
       {
         spec: { collection_full_name: 'ns.coll', collection_version: '2.0.0' },
@@ -175,7 +168,7 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
   // parsing a producer-generated source string back into a `private_hub_*`
   // id (PAH) or a git URL + scmServers entry (SCM) — is asserted end-to-end
   // against the real action in `./actions/createEEDefinition.test.ts`
-  // ("buildCollectionsFromCatalogEntities output feeds the ..." tests).
+  // ("accepts a PAH/SCM source emitted by the collections picker" tests).
   // Re-deriving the parse here with hand-written split()/startsWith() logic
   // would duplicate createEEDefinition.ts's own logic in the test rather
   // than exercising it, so it is intentionally not repeated in this file.
