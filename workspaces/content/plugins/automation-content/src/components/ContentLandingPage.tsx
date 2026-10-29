@@ -34,7 +34,7 @@ function LandingContent() {
   const { isSuperuser } = useIsSuperuser();
   const syncError = (error?: string) =>
     isSuperuser
-      ? error ?? 'Registry reconciliation failed.'
+      ? (error ?? 'Registry reconciliation failed.')
       : 'Sync failed for this registry';
   const { showNotification, notifications, removeNotification } =
     useNotifications();
