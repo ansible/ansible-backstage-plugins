@@ -528,7 +528,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
+"@ansible/plugin-scaffolder-backend-module-aap@workspace:^, @ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap"
   dependencies:
@@ -801,6 +801,37 @@ __metadata:
     react: ^18.3.1
     react-dom: ^18.3.1
     react-router-dom: "*"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module"
+  dependencies:
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
+    "@backstage/backend-dynamic-feature-service": "npm:0.8.2"
+    "@backstage/backend-plugin-api": "npm:1.8.0"
+    "@backstage/backend-test-utils": "npm:1.11.1"
+    "@backstage/catalog-model": "npm:1.10.1"
+    "@backstage/cli": "npm:0.36.2"
+    "@backstage/config": "npm:1.3.6"
+    "@backstage/errors": "npm:1.2.7"
+    "@backstage/plugin-scaffolder-node": "npm:0.13.2"
+    "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.11"
+    "@backstage/types": "npm:1.2.2"
+    "@types/jest": "npm:29.5.14"
+    "@types/js-yaml": "npm:^4"
+    "@types/node-fetch": "npm:2.6.11"
+    "@types/semver": "npm:^7"
+    dedent: "npm:^1.7.0"
+    js-yaml: "npm:4.3.2"
+    msw: "npm:2.4.9"
+    node-fetch: "npm:2.7.0"
+    semver: "npm:7.7.3"
+    zod: "npm:3.25.76"
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0
   languageName: unknown
   linkType: soft
 
@@ -38839,7 +38870,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.7, node-fetch@npm:^2.6.9, node-fetch@npm:^2.7.0":
+"node-fetch@npm:2.7.0, node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.7, node-fetch@npm:^2.6.9, node-fetch@npm:^2.7.0":
   version: 2.7.0
   resolution: "node-fetch@npm:2.7.0"
   dependencies:
@@ -43605,21 +43636,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"semver@npm:7.7.3, semver@npm:^7.7.3":
+  version: 7.7.3
+  resolution: "semver@npm:7.7.3"
+  bin:
+    semver: bin/semver.js
+  checksum: 10c0/4afe5c986567db82f44c8c6faef8fe9df2a9b1d98098fc1721f57c696c4c21cebd572f297fc21002f81889492345b8470473bc6f4aff5fb032a6ea59ea2bc45e
+  languageName: node
+  linkType: hard
+
 "semver@npm:^6.3.0, semver@npm:^6.3.1":
   version: 6.3.1
   resolution: "semver@npm:6.3.1"
   bin:
     semver: bin/semver.js
   checksum: 10c0/e3d79b609071caa78bcb6ce2ad81c7966a46a7431d9d58b8800cfa9cb6a63699b3899a0e4bcce36167a284578212d9ae6942b6929ba4aa5015c079a67751d42d
-  languageName: node
-  linkType: hard
-
-"semver@npm:^7.7.3":
-  version: 7.7.3
-  resolution: "semver@npm:7.7.3"
-  bin:
-    semver: bin/semver.js
-  checksum: 10c0/4afe5c986567db82f44c8c6faef8fe9df2a9b1d98098fc1721f57c696c4c21cebd572f297fc21002f81889492345b8470473bc6f4aff5fb032a6ea59ea2bc45e
   languageName: node
   linkType: hard
 
