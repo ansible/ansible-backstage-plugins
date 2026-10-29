@@ -90,6 +90,7 @@ describe('readRhaapProviderConfig', () => {
     const config = new ConfigReader(MOCK_CONFIG.data);
     const result = readRhaapProviderConfig(config, 'http://localhost:7007');
     expect(result.host).toBe('https://rhaap.test');
+    expect(result.tokenHost).toBe('https://rhaap.test');
     expect(result.clientId).toBe('clientId');
     expect(result.callbackURL).toBe(
       'http://localhost:7007/api/auth/rhaap/handler/frame',
@@ -143,6 +144,27 @@ describe('readRhaapProviderConfig', () => {
     expect(result.host).toBe('https://rhaap.prod.test');
     expect(result.clientId).toBe('prod-client');
     expect(result.checkSSL).toBe(true);
+  });
+
+  it('reads tokenHost and trims a trailing slash', () => {
+    const config = new ConfigReader({
+      auth: {
+        providers: {
+          rhaap: {
+            development: {
+              host: 'https://rhaap.test',
+              tokenHost: 'http://rhaap.internal:8080/',
+              clientId: 'clientId',
+              clientSecret: 'clientSecret',
+            },
+          },
+        },
+      },
+    });
+
+    const result = readRhaapProviderConfig(config, 'http://localhost:7007');
+    expect(result.host).toBe('https://rhaap.test');
+    expect(result.tokenHost).toBe('http://rhaap.internal:8080');
   });
 });
 
@@ -204,7 +226,10 @@ describe('createUserJobTemplatesRouter', () => {
           .set('Cookie', 'rhaap-refresh-token=test-refresh-token'),
       assertAuth: () => {
         expect(mockAnsibleService.rhAAPAuthenticate).toHaveBeenCalledWith(
-          expect.objectContaining({ refreshToken: 'test-refresh-token' }),
+          expect.objectContaining({
+            host: 'https://rhaap.test',
+            refreshToken: 'test-refresh-token',
+          }),
         );
       },
     },
