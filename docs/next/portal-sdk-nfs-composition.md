@@ -462,8 +462,11 @@ The selected environment comes from `auth.environment`, which defaults to
 `auth.providers.rhaap.<environment>.host`, falling back to `ansible.rhaap.baseUrl`.
 Both the client ID and `app.baseUrl` are required whenever an AAP host resolves.
 
-Register the exact `app.baseUrl` in the OAuth application's **Post Logout Redirect
-URIs**. The handler sends that URL as `post_logout_redirect_uri`, together with
+Register the serialized value of `app.baseUrl` (`new URL(appBaseUrl).href`) in the
+OAuth application's **Post Logout Redirect URIs**. For example, configuring
+`http://localhost:3000` sends `http://localhost:3000/`, including the trailing
+slash. The registered URI must match exactly. The handler sends this serialized
+URL as `post_logout_redirect_uri`, together with
 the configured environment's public OAuth client ID. AAP validates the URL,
 presents its confirmation screen, and returns to Portal sign-in after confirmation.
 Cancelling leaves AAP's browser session active even though Portal auth is cleared.

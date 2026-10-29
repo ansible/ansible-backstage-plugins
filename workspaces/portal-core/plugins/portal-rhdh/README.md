@@ -102,10 +102,13 @@ Prerequisites: an AAP deployment advertising `/o/logout/` as its OIDC
 not a fallback to the older gateway logout endpoint.
 
 1. In the AAP OAuth application's **Post Logout Redirect URIs**, register the
-   exact Portal base URL. For local source and RHDH testing, use the
+   serialized Portal base URL (`new URL(appBaseUrl).href`). For example,
+   `app.baseUrl: http://localhost:3000` serializes to `http://localhost:3000/`.
+   The registered URI must match exactly, including the trailing slash.
+   For local source and RHDH testing, use the
    space-separated values `http://localhost:3000/ http://localhost:7007/`.
    Production deployments register their actual HTTPS Portal URL instead.
-2. Set `app.baseUrl` to that URL, and configure `auth.environment` plus
+2. Set `app.baseUrl` to the Portal URL, and configure `auth.environment` plus
    `auth.providers.rhaap.<environment>.host` and `.clientId` for the same OAuth
    application. The host is browser-facing; never use the private token host.
    The client ID and public host are frontend-visible; the client secret remains

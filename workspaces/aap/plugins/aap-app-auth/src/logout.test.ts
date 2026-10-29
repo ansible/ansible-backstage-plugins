@@ -63,6 +63,19 @@ describe('performAapLogout', () => {
       'http://localhost:3000/portal/',
     );
   });
+  it('serializes an origin-only Portal URL with a trailing slash', async () => {
+    await logout(
+      new MockConfigApi({
+        ...settings,
+        app: { baseUrl: 'http://localhost:3000' },
+      }),
+    );
+    expect(
+      new URL(window.location.href).searchParams.get(
+        'post_logout_redirect_uri',
+      ),
+    ).toBe('http://localhost:3000/');
+  });
   it('waits for Portal identity cleanup before leaving for AAP', async () => {
     let resolve!: () => void;
     identity.signOut.mockImplementationOnce(

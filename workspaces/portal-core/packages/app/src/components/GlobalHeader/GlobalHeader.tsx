@@ -221,12 +221,17 @@ export const GlobalHeader = ({
           >
             Settings
           </MenuItem>
-          {profileItems === undefined ? (
+          <ProfileMenuItems
+            items={profileItems ?? []}
+            onClose={handleMenuClose}
+          />
+          {/* Keep source-app logout available when contribution resolution fails. */}
+          {!profileItems?.some(
+            item => item.id === 'app-profile-menu-item:app/aap-logout',
+          ) && (
             <MenuItem onClick={handleLogout} className={classes.menuItem}>
               Sign out
             </MenuItem>
-          ) : (
-            <ProfileMenuItems items={profileItems} onClose={handleMenuClose} />
           )}
         </Menu>
       </Toolbar>

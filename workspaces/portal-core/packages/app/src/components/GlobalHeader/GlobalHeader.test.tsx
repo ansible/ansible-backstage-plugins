@@ -51,7 +51,7 @@ describe('GlobalHeader', () => {
     jest.clearAllMocks();
   });
 
-  it('renders contributed profile rows instead of the legacy logout action', async () => {
+  it('renders contributed profile rows alongside the fallback logout action', async () => {
     const activate = jest.fn().mockResolvedValue(undefined);
     render(
       <GlobalHeader
@@ -67,11 +67,69 @@ describe('GlobalHeader', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
     expect(
-      screen.queryByRole('menuitem', { name: 'Logout' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('menuitem', { name: 'Sign out' }),
+    ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('menuitem', { name: 'Open preferences' }),
     );
+    await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'keeps logout usable when its contribution is missing (other rows: %s)',
+    async hasOtherRows => {
+      render(
+        <GlobalHeader
+          profileItems={
+            hasOtherRows
+              ? [
+                  {
+                    id: 'app-profile-menu-item:preferences/open',
+                    title: 'Preferences',
+                    type: 'navigation',
+                    path: '/preferences',
+                  },
+                ]
+              : []
+          }
+        />,
+      );
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Account menu' }),
+      );
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
+      await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.getByText('Settings')).not.toBeVisible(),
+      );
+    },
+  );
+
+  it('replaces the fallback with the resolved AAP contribution without duplicating logout', async () => {
+    const activate = jest.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<GlobalHeader profileItems={[]} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(screen.getAllByRole('menuitem', { name: 'Sign out' })).toHaveLength(
+      1,
+    );
+
+    rerender(
+      <GlobalHeader
+        profileItems={[
+          {
+            id: 'app-profile-menu-item:app/aap-logout',
+            title: 'Sign out',
+            type: 'action',
+            activate,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getAllByRole('menuitem', { name: 'Sign out' })).toHaveLength(
+      1,
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sign out' }));
     await waitFor(() => expect(activate).toHaveBeenCalledTimes(1));
     expect(mockSignOut).not.toHaveBeenCalled();
   });
