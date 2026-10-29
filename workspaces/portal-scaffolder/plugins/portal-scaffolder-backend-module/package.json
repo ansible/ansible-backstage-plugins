@@ -30,7 +30,6 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^",
     "@backstage/backend-test-utils": "1.11.1",
     "@backstage/cli": "0.36.2",
     "@backstage/plugin-scaffolder-node-test-utils": "0.3.11",

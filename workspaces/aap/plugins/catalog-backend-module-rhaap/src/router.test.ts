@@ -63,7 +63,6 @@ import { createRouter } from './router';
 import { clearCIActivityCache } from './helpers';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import {
   LoggerService,
@@ -111,7 +110,6 @@ describe('createRouter', () => {
   let mockScheduler: jest.Mocked<SchedulerService>;
   let mockAAPEntityProvider: jest.Mocked<AAPEntityProvider>;
   let mockJobTemplateProvider: jest.Mocked<AAPJobTemplateProvider>;
-  let mockEEEntityProvider: jest.Mocked<EEEntityProvider>;
   let mockPAHCollectionProvider: jest.Mocked<PAHCollectionProvider>;
   let mockHttpAuth: jest.Mocked<HttpAuthService>;
   let mockUserInfo: jest.Mocked<UserInfoService>;
@@ -176,12 +174,6 @@ describe('createRouter', () => {
       getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
 
-    mockEEEntityProvider = {
-      registerExecutionEnvironment: jest.fn(),
-      unregisterExecutionEnvironment: jest.fn(),
-      getProviderName: jest.fn().mockReturnValue('EEEntityProvider:test'),
-      connect: jest.fn(),
-    } as unknown as jest.Mocked<EEEntityProvider>;
 
     mockPAHCollectionProvider = {
       run: jest.fn(),
@@ -259,7 +251,6 @@ describe('createRouter', () => {
       scheduler: mockScheduler,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
-      eeEntityProvider: mockEEEntityProvider,
       pahCollectionProviders: [mockPAHCollectionProvider],
       httpAuth: mockHttpAuth,
       userInfo: mockUserInfo,
@@ -362,761 +353,6 @@ describe('createRouter', () => {
     });
   });
 
-  describe('POST /ansible/ee', () => {
-    it('should successfully register an execution environment', async () => {
-      const mockProvider = {};
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-
-      const mockEntity = {
-        apiVersion: 'backstage.io/v1alpha1',
-        kind: 'Component',
-        metadata: {
-          name: 'test-ee',
-          title: 'test-ee',
-          description: 'test-ee',
-          tags: ['test-ee'],
-          annotations: {
-            'backstage.io/managed-by-location': `url:127.0.0.1`,
-            'backstage.io/managed-by-origin-location': `url:127.0.0.1`,
-            'ansible.io/download-experience': 'true',
-          },
-        },
-        spec: {
-          type: 'execution-environment',
-          lifecycle: 'production',
-          owner: 'team-a',
-          definition: 'sample \ntest-ee \ndefinition',
-          readme: 'sample \ntest-ee \nreadme',
-        },
-      };
-
-      const response = await request(testApp)
-        .post('/ansible/ee')
-        .send({ entity: mockEntity })
-        .expect(200);
-
-      expect(response.body).toEqual({
-        success: true,
-      });
-      expect(
-        mockEEEntityProvider.registerExecutionEnvironment,
-      ).toHaveBeenCalledWith(mockEntity);
-    });
-
-    it('should return 400 when entity is missing', async () => {
-      const mockProvider = {
-        registerExecutionEnvironment: jest.fn(),
-      };
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-
-      const response = await request(testApp)
-        .post('/ansible/ee')
-        .send({})
-        .expect(400);
-
-      expect(response.body).toEqual({
-        error: 'Missing entity in request body.',
-      });
-      expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
-    });
-
-    it('should return 400 when entity is null', async () => {
-      const mockProvider = {
-        registerExecutionEnvironment: jest.fn(),
-      };
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-
-      const response = await request(testApp)
-        .post('/ansible/ee')
-        .send({ entity: null })
-        .expect(400);
-
-      expect(response.body).toEqual({
-        error: 'Missing entity in request body.',
-      });
-      expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
-    });
-
-    it('should handle registerExecutionEnvironment failure with proper error response', async () => {
-      const mockProvider = {};
-
-      mockEEEntityProvider.registerExecutionEnvironment = jest
-        .fn()
-        .mockRejectedValue(
-          new Error(
-            'Type [spec.type] must be "execution-environment" for Execution Environment registration',
-          ),
-        );
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-
-      const mockEntity = {
-        apiVersion: 'backstage.io/v1alpha1',
-        kind: 'Component',
-        metadata: { name: 'test-ee' },
-      };
-
-      const response = await request(testApp)
-        .post('/ansible/ee')
-        .send({ entity: mockEntity })
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error:
-          'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
-      });
-      expect(
-        mockEEEntityProvider.registerExecutionEnvironment,
-      ).toHaveBeenCalledWith(mockEntity);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
-      );
-    });
-
-    it('should handle non-Error exceptions gracefully', async () => {
-      const mockProvider = {};
-
-      mockEEEntityProvider.registerExecutionEnvironment = jest
-        .fn()
-        .mockRejectedValue(new Error('String error'));
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-
-      const mockEntity = {
-        apiVersion: 'backstage.io/v1alpha1',
-        kind: 'Component',
-        metadata: { name: 'test-ee' },
-      };
-
-      const response = await request(testApp)
-        .post('/ansible/ee')
-        .send({ entity: mockEntity })
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Failed to register Execution Environment: String error',
-      });
-      expect(
-        mockEEEntityProvider.registerExecutionEnvironment,
-      ).toHaveBeenCalledWith(mockEntity);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to register Execution Environment: String error',
-      );
-    });
-  });
-
-  describe('DELETE /ansible/ee/:name', () => {
-    const userCredentials = {
-      principal: { type: 'user', userEntityRef: 'user:default/test-user' },
-    };
-    const serviceCredentials = {
-      principal: {
-        type: 'service',
-        subject: 'plugin:catalog-backend-module-rhaap',
-      },
-    };
-
-    async function createDeleteTestApp() {
-      mockHttpAuth.credentials.mockResolvedValue(userCredentials as any);
-      mockAuth.getOwnServiceCredentials.mockResolvedValue(
-        serviceCredentials as any,
-      );
-      mockAuth.getPluginRequestToken.mockImplementation(
-        async ({ onBehalfOf }) => {
-          const principal = (onBehalfOf as { principal?: { type?: string } })
-            ?.principal;
-          if (principal?.type === 'service') {
-            return { token: 'service-catalog-token' };
-          }
-          return { token: 'mock-token' };
-        },
-      );
-
-      const testApp = express();
-      testApp.use(express.json());
-      testApp.use(
-        '/',
-        await createRouter({
-          logger: mockLogger,
-          config: mockConfig,
-          aapEntityProvider: mockAAPEntityProvider as any,
-          jobTemplateProvider: {} as any,
-          eeEntityProvider: mockEEEntityProvider,
-          pahCollectionProviders: [mockPAHCollectionProvider],
-          httpAuth: mockHttpAuth,
-          userInfo: mockUserInfo,
-          auth: mockAuth,
-          catalogClient: mockCatalogClient,
-          scheduler: mockScheduler,
-          permissions: mockPermissions,
-          ansibleGitContentsProviders: [],
-        }),
-      );
-      return testApp;
-    }
-
-    const eeEntity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: { name: 'ee1', uid: 'uid-ee1', namespace: 'default' },
-      spec: { type: 'execution-environment' },
-    };
-
-    it('returns 204 when entity does not exist', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
-      const testApp = await createDeleteTestApp();
-
-      await request(testApp).delete('/ansible/ee/missing-ee').expect(204);
-
-      expect(mockCatalogClient.getEntityByRef).toHaveBeenCalledWith(
-        'component:default/missing-ee',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('returns 400 for invalid names', async () => {
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete(`/ansible/ee/${encodeURIComponent('foo/bar')}`)
-        .expect(400);
-
-      expect(response.body).toEqual({
-        error: 'Invalid execution environment name.',
-      });
-      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('returns 400 when entity is not an execution-environment', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
-        apiVersion: 'backstage.io/v1alpha1',
-        kind: 'Component',
-        metadata: { name: 'service-a' },
-        spec: { type: 'service' },
-      } as any);
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/service-a')
-        .expect(400);
-
-      expect(response.body).toEqual({
-        error: 'Refusing to delete non-execution-environment entity',
-      });
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('removes SCM location when entity is location-managed', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
-        ...eeEntity,
-        metadata: {
-          ...eeEntity.metadata,
-          annotations: {
-            'backstage.io/managed-by-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
-          },
-        },
-      } as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
-        id: 'loc-1',
-        type: 'url',
-        target: 'https://github.com/org/repo/catalog-info.yaml',
-      } as any);
-      mockCatalogClient.getEntities.mockResolvedValueOnce({
-        items: [eeEntity as any],
-      });
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'location' });
-      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
-        expect.objectContaining({
-          filter: {
-            'metadata.annotations.backstage.io/managed-by-origin-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
-          },
-        }),
-        expect.objectContaining({ token: 'service-catalog-token' }),
-      );
-      expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
-        'loc-1',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('removes only the target entity when location has colocated siblings', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
-        ...eeEntity,
-        metadata: {
-          ...eeEntity.metadata,
-          annotations: {
-            'backstage.io/managed-by-location':
-              'url:https://github.com/org/repo/ee1/catalog-info.yaml',
-          },
-        },
-      } as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
-        id: 'loc-1',
-        type: 'url',
-        target: 'https://github.com/org/repo/catalog-info.yaml',
-      } as any);
-      mockCatalogClient.getEntities.mockResolvedValueOnce({
-        items: [
-          eeEntity as any,
-          {
-            apiVersion: 'backstage.io/v1alpha1',
-            kind: 'Component',
-            metadata: { name: 'sibling' },
-          } as any,
-        ],
-      });
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({
-        success: true,
-        mode: 'entity-transient',
-        warning: expect.stringContaining('shared catalog location'),
-      });
-      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
-        expect.objectContaining({
-          filter: {
-            'metadata.annotations.backstage.io/managed-by-origin-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
-          },
-        }),
-        expect.objectContaining({ token: 'service-catalog-token' }),
-      );
-      expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
-      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
-        'uid-ee1',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-    });
-
-    it('returns 400 for names longer than 63 characters', async () => {
-      const testApp = await createDeleteTestApp();
-      const longName = `a${'b'.repeat(63)}`;
-
-      await request(testApp).delete(`/ansible/ee/${longName}`).expect(400);
-      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('returns 409 when colocated siblings exist and target has no uid', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
-        ...eeEntity,
-        metadata: {
-          name: 'ee1',
-          annotations: {
-            'backstage.io/managed-by-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
-          },
-        },
-      } as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
-        id: 'loc-1',
-        type: 'url',
-        target: 'https://github.com/org/repo/catalog-info.yaml',
-      } as any);
-      mockCatalogClient.getEntities.mockResolvedValueOnce({
-        items: [
-          { metadata: { name: 'ee1' } } as any,
-          { metadata: { name: 'sibling' } } as any,
-        ],
-      });
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(409);
-
-      expect(response.body).toEqual({
-        error:
-          'Refusing to remove shared catalog location with colocated entities',
-      });
-      expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
-      expect(mockCatalogClient.removeEntityByUid).not.toHaveBeenCalled();
-    });
-
-    it('unregisters via provider when entity has no location', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).toHaveBeenCalledWith('ee1');
-      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
-        'uid-ee1',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-    });
-
-    it('succeeds when removeEntityByUid fails but entity is already gone via delta', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any) // initial lookup
-        .mockResolvedValueOnce(undefined); // verification after failure — gone
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
-        new Error('already gone'),
-      );
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('entity already removed by delta'),
-      );
-    });
-
-    it('returns 500 when removeEntityByUid fails and entity still present', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any) // initial lookup
-        .mockResolvedValueOnce(eeEntity as any); // verification — still present
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
-        new Error('permission denied'),
-      );
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment',
-      });
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining(
-          'removeEntityByUid after provider unregister failed and entity still exists',
-        ),
-      );
-    });
-
-    it('succeeds when removeEntityByUid fails with non-Error value and entity is gone', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any) // initial lookup
-        .mockResolvedValueOnce(undefined); // verification — gone
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce('already gone');
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('already gone'),
-      );
-    });
-
-    it('returns 500 when removeEntityByUid fails and verification also throws', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any) // initial lookup
-        .mockRejectedValueOnce(new Error('catalog flapping')); // verification throws
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
-        new Error('uid removal failed'),
-      );
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment',
-      });
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('removeEntityByUid failed'),
-      );
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('verification also failed'),
-      );
-    });
-
-    it('succeeds when removeEntityByUid fails with a plain object and entity is gone', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any) // initial lookup
-        .mockResolvedValueOnce(undefined); // verification — gone
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce({
-        reason: 'gone',
-      });
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Unknown error'),
-      );
-    });
-
-    it('still checks origin-location siblings when managed-by-location is absent', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce({
-        id: 'loc-1',
-        type: 'url',
-        target: 'https://github.com/org/repo/catalog-info.yaml',
-      } as any);
-      mockCatalogClient.getEntities.mockResolvedValueOnce({
-        items: [eeEntity as any],
-      });
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'location' });
-      expect(mockCatalogClient.getEntities).toHaveBeenCalledWith(
-        expect.objectContaining({
-          filter: {
-            'metadata.annotations.backstage.io/managed-by-origin-location':
-              'url:https://github.com/org/repo/catalog-info.yaml',
-          },
-        }),
-        expect.any(Object),
-      );
-      expect(mockCatalogClient.removeLocationById).toHaveBeenCalledWith(
-        'loc-1',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-    });
-
-    it('normalizes uppercase EE names before lookup', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
-      const testApp = await createDeleteTestApp();
-
-      await request(testApp).delete('/ansible/ee/My-EE').expect(204);
-
-      expect(mockCatalogClient.getEntityByRef).toHaveBeenCalledWith(
-        'component:default/my-ee',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-    });
-
-    it('returns 400 for malformed percent-encoding in the name', async () => {
-      const testApp = await createDeleteTestApp();
-
-      await request(testApp).delete('/ansible/ee/%E0%A4%A').expect(400);
-      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
-    });
-
-    it('unregisters via provider when entity has no uid', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
-        ...eeEntity,
-        metadata: { name: 'ee1', namespace: 'default' },
-      } as any);
-      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(200);
-
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).toHaveBeenCalledWith('ee1');
-      expect(mockCatalogClient.removeEntityByUid).not.toHaveBeenCalled();
-    });
-
-    it('returns 500 when cleanup throws a non-Error value', async () => {
-      mockCatalogClient.getEntityByRef.mockRejectedValueOnce('catalog down');
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment',
-      });
-    });
-
-    it('returns 500 when cleanup throws', async () => {
-      mockCatalogClient.getEntityByRef.mockRejectedValueOnce(
-        new Error('catalog down'),
-      );
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        error: 'Failed to unregister Execution Environment',
-      });
-    });
-
-    it('returns 403 when delete permission is denied for an existing EE', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(eeEntity as any);
-      mockPermissions.authorize.mockResolvedValueOnce([
-        { result: AuthorizeResult.DENY },
-      ]);
-      const testApp = await createDeleteTestApp();
-
-      const response = await request(testApp)
-        .delete('/ansible/ee/ee1')
-        .expect(403);
-
-      expect(response.body).toEqual({
-        error: 'Forbidden: insufficient permissions to delete entity',
-      });
-      expect(mockCatalogClient.getEntityByRef).toHaveBeenCalledWith(
-        'component:default/ee1',
-        expect.objectContaining({ token: 'mock-token' }),
-      );
-      expect(mockCatalogClient.getLocationByEntity).not.toHaveBeenCalled();
-      expect(
-        mockEEEntityProvider.unregisterExecutionEnvironment,
-      ).not.toHaveBeenCalled();
-    });
-
-    it('returns 204 for missing entity without checking delete permission', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
-      const testApp = await createDeleteTestApp();
-
-      await request(testApp).delete('/ansible/ee/brand-new-ee').expect(204);
-
-      expect(mockPermissions.authorize).not.toHaveBeenCalled();
-      expect(mockCatalogClient.getLocationByEntity).not.toHaveBeenCalled();
-    });
-
-    it('requires authenticated credentials', async () => {
-      mockHttpAuth.credentials.mockRejectedValueOnce(new Error('Unauthorized'));
-      const testApp = await createDeleteTestApp();
-
-      await request(testApp).delete('/ansible/ee/ee1').expect(500);
-      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
-    });
-  });
-
   describe('POST /ansible/ee/build', () => {
     const validBuildBody = {
       entityRef: 'component:default/my-ee',
@@ -1138,7 +374,6 @@ describe('createRouter', () => {
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
           jobTemplateProvider: mockJobTemplateProvider,
-          eeEntityProvider: mockEEEntityProvider,
           pahCollectionProviders: [mockPAHCollectionProvider],
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
@@ -1877,7 +1112,6 @@ describe('createRouter', () => {
         config: configNoGitlab,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -1923,7 +1157,6 @@ describe('createRouter', () => {
         config: configWithoutToken,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2204,7 +1437,6 @@ describe('createRouter', () => {
         config: configWithSkipTls,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2295,7 +1527,6 @@ describe('createRouter', () => {
         config: configWithApiBase,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2560,7 +1791,6 @@ describe('createRouter', () => {
         config: configNoGithub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2596,7 +1826,6 @@ describe('createRouter', () => {
         config: configWithoutToken,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2638,7 +1867,6 @@ describe('createRouter', () => {
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2698,7 +1926,6 @@ describe('createRouter', () => {
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2758,7 +1985,6 @@ describe('createRouter', () => {
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2807,7 +2033,6 @@ describe('createRouter', () => {
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2859,7 +2084,6 @@ describe('createRouter', () => {
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -2917,7 +2141,6 @@ describe('createRouter', () => {
         config: configWithGHE,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3269,7 +2492,6 @@ describe('createRouter', () => {
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
           jobTemplateProvider: mockJobTemplateProvider,
-          eeEntityProvider: mockEEEntityProvider,
           pahCollectionProviders: [],
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
@@ -3311,7 +2533,6 @@ describe('createRouter', () => {
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
           jobTemplateProvider: mockJobTemplateProvider,
-          eeEntityProvider: mockEEEntityProvider,
           pahCollectionProviders: [],
           httpAuth: mockHttpAuth,
           userInfo: mockUserInfo,
@@ -3340,7 +2561,6 @@ describe('createRouter', () => {
       config: mockConfig,
       aapEntityProvider: mockAAPEntityProvider,
       jobTemplateProvider: mockJobTemplateProvider,
-      eeEntityProvider: mockEEEntityProvider,
       pahCollectionProviders: [],
       httpAuth: mockHttpAuth,
       userInfo: mockUserInfo,
@@ -3563,7 +2783,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3601,7 +2820,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3642,7 +2860,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3693,7 +2910,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3855,7 +3071,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockPAHCollectionProvider],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3883,7 +3098,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockPAHCollectionProvider],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3907,7 +3121,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: undefined as any,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockPAHCollectionProvider],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -3933,7 +3146,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: undefined as any,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockPAHCollectionProvider],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -4127,7 +3339,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,
@@ -4223,7 +3434,6 @@ describe('createRouter', () => {
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
         jobTemplateProvider: mockJobTemplateProvider,
-        eeEntityProvider: mockEEEntityProvider,
         pahCollectionProviders: [mockProvider1, mockProvider2],
         httpAuth: mockHttpAuth,
         userInfo: mockUserInfo,

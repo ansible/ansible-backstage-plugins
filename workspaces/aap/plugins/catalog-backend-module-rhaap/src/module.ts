@@ -15,7 +15,7 @@ import * as catalogNode from '@backstage/plugin-catalog-node';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
-import { EEEntityProvider } from './providers/EEEntityProvider';
+import { eeEntityLifecycleServiceRef } from '@ansible/backstage-rhaap-common';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -45,6 +45,7 @@ export const catalogModuleRhaap = createBackendModule({
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
         signals: signalsServiceRef,
+        eeLifecycle: eeEntityLifecycleServiceRef,
       },
       async init({
         logger,
@@ -61,6 +62,7 @@ export const catalogModuleRhaap = createBackendModule({
         discovery,
         auth,
         signals,
+        eeLifecycle,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -83,7 +85,6 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
-        const eeEntityProvider = new EEEntityProvider(logger);
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -117,7 +118,7 @@ export const catalogModuleRhaap = createBackendModule({
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
           jobTemplateProvider,
-          eeEntityProvider,
+          eeLifecycle,
           ...pahCollectionProviders,
           ansibleGitContentsProviders,
         );
@@ -143,7 +144,6 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
-            eeEntityProvider: eeEntityProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
             userInfo: userInfo,

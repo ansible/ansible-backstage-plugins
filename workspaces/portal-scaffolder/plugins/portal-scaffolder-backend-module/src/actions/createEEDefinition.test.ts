@@ -31,13 +31,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
-// Load the real AAP producer only in this contract test. Keeping this as a
-// runtime test lookup avoids adding a production import or public API surface.
-const { buildCollectionsFromCatalogEntities } = jest.requireActual<{
-  buildCollectionsFromCatalogEntities: (
-    entities: any[],
-  ) => Array<{ sources?: string[] }>;
-}>('@ansible/plugin-scaffolder-backend-module-aap/src/autocomplete/utils');
+import { buildCollectionsFromCatalogEntities } from '../autocomplete/utils';
 
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;
@@ -81,10 +75,55 @@ describe('createEEDefinition', () => {
   }
 
   function makeAction(cfg?: ConfigReader) {
+    const eeLifecycle = {
+      unregisterExecutionEnvironment: async (
+        name: string,
+        _credentials: any,
+        options?: { skipProviderManaged?: boolean },
+      ) => {
+        const baseUrl = await discovery.getBaseUrl('catalog');
+        if (options?.skipProviderManaged) {
+          const existing = await mockFetch(
+            `${baseUrl}/entities/by-name/component/default/${encodeURIComponent(name)}`,
+          );
+          if (existing.ok) {
+            const entity = await existing.json();
+            if (entity?.metadata?.annotations?.['ansible.io/download-experience'] === 'true') {
+              return { mode: 'provider' as const };
+            }
+          }
+        }
+        const response = await mockFetch(
+          `${baseUrl}/ansible/ee/${encodeURIComponent(name)}`,
+          { method: 'DELETE' },
+        );
+        if (response.status === 204) return { mode: 'noop' as const };
+        if (response.ok) {
+          let body: any;
+          try {
+            body = await response.json();
+          } catch {
+            body = undefined;
+          }
+          return {
+            mode: body?.mode === 'entity-transient' ? ('entity-transient' as const) : ('location' as const),
+            warning: body?.warning,
+          };
+        }
+        throw new Error(`HTTP ${response.status}`);
+      },
+      registerExecutionEnvironment: async (entity: any) => {
+        const baseUrl = await discovery.getBaseUrl('catalog');
+        const response = await mockFetch(`${baseUrl}/ansible/ee`, {
+          method: 'POST',
+          body: JSON.stringify({ entity }),
+        });
+        if (!response.ok) throw new Error('Failed to register EE definition');
+      },
+    };
     return createEEDefinitionAction({
       frontendUrl: 'http://localhost:3000',
-      auth,
-      discovery,
+      eeLifecycle: eeLifecycle as any,
       config: cfg ?? config,
     });
   }
