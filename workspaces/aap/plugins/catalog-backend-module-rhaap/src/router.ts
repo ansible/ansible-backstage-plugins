@@ -28,10 +28,7 @@ import {
   SchedulerService,
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import {
-  catalogEntityDeletePermission,
-  catalogEntityReadPermission,
-} from '@backstage/plugin-catalog-common/alpha';
+import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
@@ -65,12 +62,7 @@ import {
   isScmIntegrationAuthFailure,
 } from './helpers';
 import { ConflictError } from '@backstage/errors';
-import { stringifyEntityRef } from '@backstage/catalog-model';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
-
-/** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
-const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
 
 function formatUnknownError(error: unknown): string {
   if (error instanceof Error) {
@@ -82,38 +74,12 @@ function formatUnknownError(error: unknown): string {
   return 'Unknown error';
 }
 
-function parseExecutionEnvironmentNameParam(
-  rawName: string | undefined,
-): string | undefined {
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(rawName ?? '');
-  } catch {
-    return undefined;
-  }
-  const name = decoded.toString().trim().toLowerCase();
-  if (
-    !name ||
-    name.length > 63 ||
-    !EE_ENTITY_NAME_PATTERN.test(name) ||
-    name.includes('/') ||
-    name.includes('\\') ||
-    name.includes('\0') ||
-    name === '.' ||
-    name === '..'
-  ) {
-    return undefined;
-  }
-  return name;
-}
-
 export function createRouter(options: {
   logger: LoggerService;
   config: Config;
   scheduler: SchedulerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
-  eeEntityProvider: EEEntityProvider;
   pahCollectionProviders: PAHCollectionProvider[];
   httpAuth: HttpAuthService;
   userInfo: UserInfoService;
@@ -129,7 +95,6 @@ export function createRouter(options: {
     scheduler,
     aapEntityProvider,
     jobTemplateProvider,
-    eeEntityProvider,
     pahCollectionProviders,
     httpAuth,
     userInfo,
@@ -363,222 +328,6 @@ export function createRouter(options: {
       }
     },
   );
-
-  router.post('/ansible/ee', express.json(), async (request, response) => {
-    // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(
-      // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
-      request,
-      {
-        allow: ['service'],
-      },
-    );
-
-    const { entity } = request.body;
-
-    if (!entity) {
-      response.status(400).json({ error: 'Missing entity in request body.' });
-      return;
-    }
-
-    try {
-      await eeEntityProvider.registerExecutionEnvironment(entity);
-      response.status(200).json({ success: true });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to register Execution Environment: ${errorMessage}`);
-      response.status(500).json({
-        error: `Failed to register Execution Environment: ${errorMessage}`,
-      });
-    }
-  });
-
-  /**
-   * Best-effort cleanup of an existing EE catalog entity before re-registration.
-   * Removes SCM-managed locations or provider-managed entities so a recreate with
-   * the same name can claim the entity ref. Catalog mutations run on behalf of
-   * the caller so catalog RBAC (delete permission) applies.
-   */
-  router.delete('/ansible/ee/:name', async (request, response) => {
-    const credentials = await httpAuth.credentials(
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
-      request,
-      {
-        allow: ['user', 'service'],
-      },
-    );
-
-    const name = parseExecutionEnvironmentNameParam(request.params.name);
-    if (!name) {
-      response
-        .status(400)
-        .json({ error: 'Invalid execution environment name.' });
-      return;
-    }
-
-    try {
-      const entityRef = stringifyEntityRef({
-        kind: 'Component',
-        namespace: 'default',
-        name,
-      });
-
-      // Look up with the caller's catalog token first so missing entities
-      // return 204 before delete permission is evaluated (conditional
-      // policies often DENY when the resource does not exist).
-      const { token } = await auth.getPluginRequestToken({
-        onBehalfOf: credentials,
-        targetPluginId: 'catalog',
-      });
-      const catalogOpts = { token };
-
-      const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
-
-      if (!entity) {
-        response.status(204).send();
-        return;
-      }
-
-      if (
-        entity.kind !== 'Component' ||
-        entity.spec?.type !== 'execution-environment'
-      ) {
-        response.status(400).json({
-          error: 'Refusing to delete non-execution-environment entity',
-        });
-        return;
-      }
-
-      const [deleteDecision] = await permissions.authorize(
-        [
-          {
-            permission: catalogEntityDeletePermission,
-            resourceRef: entityRef,
-          },
-        ],
-        { credentials },
-      );
-      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
-        response.status(403).json({
-          error: 'Forbidden: insufficient permissions to delete entity',
-        });
-        return;
-      }
-
-      const location = await catalogClient.getLocationByEntity(
-        entityRef,
-        catalogOpts,
-      );
-
-      if (location?.id) {
-        // Count siblings with service credentials so catalog.entity.read
-        // filtering cannot under-count colocated entities the user cannot see.
-        // Mutations below still use the caller's token so delete RBAC applies.
-        const originLocationRef = `${location.type}:${location.target}`;
-        const serviceCredentials = await auth.getOwnServiceCredentials();
-        const { token: serviceToken } = await auth.getPluginRequestToken({
-          onBehalfOf: serviceCredentials,
-          targetPluginId: 'catalog',
-        });
-        const { items } = await catalogClient.getEntities(
-          {
-            filter: {
-              'metadata.annotations.backstage.io/managed-by-origin-location':
-                originLocationRef,
-            },
-            fields: ['kind', 'metadata.name', 'metadata.namespace'],
-          },
-          { token: serviceToken },
-        );
-        const colocatedCount = items.length;
-
-        // Never wipe a shared location that owns sibling entities.
-        if (colocatedCount > 1) {
-          if (!entity.metadata?.uid) {
-            response.status(409).json({
-              error:
-                'Refusing to remove shared catalog location with colocated entities',
-            });
-            return;
-          }
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
-          );
-          response.status(200).json({
-            success: true,
-            mode: 'entity-transient',
-            warning:
-              'Entity removed but the shared catalog location still exists. ' +
-              'The entity may reappear on the next location refresh unless ' +
-              'the source catalog-info.yaml is also updated.',
-          });
-          return;
-        }
-
-        await catalogClient.removeLocationById(location.id, catalogOpts);
-        response.status(200).json({ success: true, mode: 'location' });
-        return;
-      }
-
-      await eeEntityProvider.unregisterExecutionEnvironment(name);
-
-      if (entity.metadata?.uid) {
-        try {
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
-          );
-        } catch (uidError) {
-          // Entity may already be gone after provider delta; verify before
-          // reporting success so we don't claim cleanup when it didn't happen.
-          let stillPresent: boolean;
-          try {
-            stillPresent = !!(await catalogClient.getEntityByRef(
-              entityRef,
-              catalogOpts,
-            ));
-          } catch (verifyError) {
-            logger.warn(
-              `removeEntityByUid failed (${formatUnknownError(uidError)}) and verification also failed (${formatUnknownError(verifyError)})`,
-            );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
-          }
-          if (stillPresent) {
-            logger.warn(
-              `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
-                uidError,
-              )}`,
-            );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
-          }
-          logger.debug(
-            `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
-              uidError,
-            )})`,
-          );
-        }
-      }
-
-      response.status(200).json({ success: true, mode: 'provider' });
-    } catch (error) {
-      const errorMessage = formatUnknownError(error);
-      logger.error(
-        `Failed to unregister Execution Environment "${name}": ${errorMessage}`,
-      );
-      response.status(500).json({
-        error: 'Failed to unregister Execution Environment',
-      });
-    }
-  });
 
   /**
    * Triggers an EE build via GitHub Actions workflow_dispatch or GitLab CI pipeline.
