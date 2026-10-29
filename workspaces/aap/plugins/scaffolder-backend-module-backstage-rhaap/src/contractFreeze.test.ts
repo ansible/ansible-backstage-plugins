@@ -111,9 +111,7 @@ describe('Phase 0 contract freeze: template filters (target: scaffolder-backend-
       'uuidFilter',
     ]);
     expect(
-      Object.values(filters).every(
-        filter => typeof filter === 'function',
-      ),
+      Object.values(filters).every(filter => typeof filter === 'function'),
     ).toBe(true);
   });
 });
