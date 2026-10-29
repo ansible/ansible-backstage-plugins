@@ -50,6 +50,7 @@
     "@backstage/test-utils": "1.7.21",
     "@red-hat-developer-hub/cli": "^1.10.2",
     "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.0.0",
     "@types/react": "^18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
