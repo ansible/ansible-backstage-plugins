@@ -42,7 +42,6 @@ import {
   findMissingConfiguredOrganizations,
 } from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
-import { normalizeJobTemplateExtraVariables } from './utils/jobTemplateExtraVariables';
 import { parseAndLogStdoutMessages } from './utils/jobStdoutHelpers';
 import {
   PAHHelperContext,
@@ -576,12 +575,10 @@ export class AAPClient implements IAAPService {
       );
     }
     const endPoint = 'api/controller/v2/job_templates/';
-    let extraVariables: Record<string, unknown> | '' = '';
-    if (payload?.extraVariables) {
-      extraVariables = normalizeJobTemplateExtraVariables(
-        payload.extraVariables,
-      );
-    }
+    let extraVariables;
+    extraVariables = payload?.extraVariables
+      ? JSON.parse(JSON.stringify(payload.extraVariables)) // NOSONAR — structuredClone unavailable in test runtime
+      : '';
     if (extraVariables !== '') {
       extraVariables.aap_validate_certs = this.ansibleConfig.rhaap?.checkSSL;
       extraVariables.aap_hostname = this.ansibleConfig.rhaap?.baseUrl;
@@ -608,9 +605,7 @@ export class AAPClient implements IAAPService {
       project: payload.project.id,
       playbook: payload.playbook,
       execution_environment: payload?.executionEnvironment?.id ?? '',
-      extra_vars: extraVariables
-        ? YAML.stringify(extraVariables, { version: '1.1' })
-        : '',
+      extra_vars: extraVariables ? YAML.stringify(extraVariables) : '',
     };
     this.logger.info(`Begin creating job template ${payload.templateName}.`);
     const response = await this.executePostRequest(endPoint, token, data);

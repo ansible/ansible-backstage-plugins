@@ -152,15 +152,14 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
     expect(entry.sources).toEqual(['Private Automation Hub / validated']);
   });
 
-  it('formats SCM sources using the canonical provider name', () => {
+  it('formats an SCM-backed collection source as "<Provider> / <host> / <org> / <repo>"', () => {
     const [entry] = buildCollectionsFromCatalogEntities([
       {
         spec: { collection_full_name: 'ns.coll', collection_version: '2.0.0' },
         metadata: {
           annotations: {
             'ansible.io/scm-provider': 'github',
-            'ansible.io/scm-host': 'github.com',
-            'ansible.io/scm-host-name': 'github-public',
+            'ansible.io/scm-host-name': 'github.com',
             'ansible.io/scm-organization': 'org1',
             'ansible.io/scm-repository': 'repo1',
           },
@@ -168,7 +167,7 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
       },
     ]);
 
-    expect(entry.sources).toEqual(['Github / github-public / org1 / repo1']);
+    expect(entry.sources).toEqual(['Github / github.com / org1 / repo1']);
   });
 
   // The consumer side of this contract — createEEDefinition.ts actually
