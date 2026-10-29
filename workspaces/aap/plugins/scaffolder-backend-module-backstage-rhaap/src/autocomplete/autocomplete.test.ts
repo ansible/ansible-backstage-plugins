@@ -89,6 +89,9 @@ describe('ansible-aap:autocomplete', () => {
         { id: 5, name: '5 (WinRM Debug)' },
       ],
     });
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return organizations', async () => {
@@ -126,6 +129,9 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual({
       results: [{ id: 1, name: 'https://rhaap.test' }],
     });
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return collections with search query', async () => {
@@ -195,6 +201,9 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('entities?filter='),
       expect.any(Object),
     );
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return collections with empty search query when context is not provided', async () => {
@@ -237,6 +246,9 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('ansible-collection'),
       expect.any(Object),
     );
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return collections with empty search query when searchQuery is not in context', async () => {
@@ -282,6 +294,9 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('ansible-collection'),
       expect.any(Object),
     );
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should handle empty collections result', async () => {
