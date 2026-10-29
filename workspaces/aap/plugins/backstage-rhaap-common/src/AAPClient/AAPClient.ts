@@ -42,6 +42,7 @@ import {
   findMissingConfiguredOrganizations,
 } from './utils/config';
 import { buildLaunchPayload } from './utils/jobTemplateHelpers';
+import { normalizeJobTemplateExtraVariables } from './utils/jobTemplateExtraVariables';
 import { parseAndLogStdoutMessages } from './utils/jobStdoutHelpers';
 import {
   PAHHelperContext,
@@ -577,42 +578,9 @@ export class AAPClient implements IAAPService {
     const endPoint = 'api/controller/v2/job_templates/';
     let extraVariables: Record<string, unknown> | '' = '';
     if (payload?.extraVariables) {
-      const rejectUnsafeNumbers = (value: unknown, seen = new WeakSet<object>()): void => {
-        if (typeof value === 'number') {
-          if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-            throw new RangeError(
-              'Job template extraVariables contains an unsafe integer; provide it as YAML text to preserve its precision.',
-            );
-          }
-          return;
-        }
-        if (!value || typeof value !== 'object' || seen.has(value)) return;
-        seen.add(value);
-        for (const nested of Object.values(value)) {
-          rejectUnsafeNumbers(nested, seen);
-        }
-      };
-      if (typeof payload.extraVariables !== 'string') {
-        rejectUnsafeNumbers(payload.extraVariables);
-      }
-      const parsedExtraVariables =
-        typeof payload.extraVariables === 'string'
-          ? YAML.parse(payload.extraVariables, {
-              version: '1.1',
-              intAsBigInt: true,
-            })
-          : YAML.parse(
-              YAML.stringify(payload.extraVariables, { version: '1.1' }),
-              { version: '1.1', intAsBigInt: true },
-            );
-      if (
-        !parsedExtraVariables ||
-        typeof parsedExtraVariables !== 'object' ||
-        Array.isArray(parsedExtraVariables)
-      ) {
-        throw new TypeError('Job template extraVariables must be a mapping.');
-      }
-      extraVariables = parsedExtraVariables;
+      extraVariables = normalizeJobTemplateExtraVariables(
+        payload.extraVariables,
+      );
     }
     if (extraVariables !== '') {
       extraVariables.aap_validate_certs = this.ansibleConfig.rhaap?.checkSSL;
