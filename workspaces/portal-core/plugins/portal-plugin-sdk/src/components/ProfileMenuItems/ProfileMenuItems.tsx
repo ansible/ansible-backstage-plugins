@@ -7,10 +7,10 @@ import type { ResolvedAppProfileMenuItem } from '@ansible/portal-extension-api/a
 function ProfileMenuItem({
   item,
   onClose,
-}: {
+}: Readonly<{
   item: ResolvedAppProfileMenuItem;
   onClose?: () => void;
-}) {
+}>) {
   const navigate = useNavigate();
   const errors = useApi(errorApiRef);
   const inFlight = useRef(false);
