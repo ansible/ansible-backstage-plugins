@@ -33,6 +33,7 @@ describe('AAP app auth module', () => {
       aapAppAuth as unknown as { extensions: Array<{ id: string }> }
     ).extensions;
     expect(extensions.map(extension => extension.id)).toEqual([
+      'app-profile-menu-item:app/aap-logout',
       'api:app/rhaap-auth',
       'sign-in-page:app/rhaap',
     ]);

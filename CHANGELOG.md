@@ -14,7 +14,9 @@ where versioned packages apply.
 
 - **SDK empty-state view** adds `EmptyStateView` with consumer-owned text, optional decorative icon, and actions, without catalog or auth requirements. Portal-scaffolder keeps collection guidance and sync behavior in a local wrapper, while missing repositories show repository-specific guidance. Existing SDK `EmptyState` and props remain as deprecated compatibility exports.
 
-- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header omits Create when its Templates adapter is absent.
+- **Portal profile contributions** support owned-page navigation and lazy UI actions through `AppProfileMenuItemBlueprint`, explicit authentication/permission gates, and shared source/RHDH rendering. AAP owns its opt-in `app-profile-menu-item:app/aap-logout` declaration; `portal-rhdh` does not depend on AAP or need per-plugin menu changes. AAP OAuth transport handling is unchanged.
+
+- **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header has no Create shortcut.
 
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
 
@@ -25,6 +27,8 @@ where versioned packages apply.
 - Self-service **Create Task** flow: clearer **review** display for nested objects; **sessionStorage** may retain bounded **`data:`** URLs across OAuth redirect so typical file uploads are not cleared (very large payloads may still be dropped to respect storage limits; **`blob:`** URLs remain cleared on reload).
 
 ### Changed
+
+- **Portal global header** removes the Create shortcut from both native and legacy source-app composition. Profile-menu access and logout remain available. No global Create-contribution API is introduced.
 
 - **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
 

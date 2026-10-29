@@ -17,6 +17,16 @@ yarn workspace my-plugin add @ansible/portal-plugin-sdk
 
 ## Components
 
+### `ProfileMenuItems`
+
+Renders `ResolvedAppProfileMenuItem[]` from `useNativeAppProfileMenuItems()` as
+host-owned navigation or UI-action rows. Navigation uses the resolved route;
+action implementations load only after a deliberate click. The parent menu
+closes after loading and before the handler opens another UI surface. Pending
+actions cannot be submitted twice, and failures use the standard error API
+without disabling other items. An optional `onClose` connects the host menu
+lifecycle. Contributors use the Blueprint, not this host rendering component.
+
 ### `PageHeader`
 
 Shared page-heading layout with a title, optional description, optional help

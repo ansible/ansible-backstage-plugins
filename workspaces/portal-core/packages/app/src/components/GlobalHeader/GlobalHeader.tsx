@@ -9,7 +9,6 @@ import {
   MenuItem,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
-import AddIcon from '@material-ui/icons/Add';
 import AccountCircle from '@material-ui/icons/AccountCircle';
 import { makeStyles, alpha } from '@material-ui/core/styles';
 import { Link, useNavigate } from 'react-router-dom';
@@ -21,6 +20,8 @@ import {
 } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef, performAapLogout } from '@ansible/aap-app-auth';
 import { useState } from 'react';
+import type { ResolvedAppProfileMenuItem } from '@ansible/portal-extension-api/alpha';
+import { ProfileMenuItems } from '@ansible/portal-plugin-sdk';
 
 const useStyles = makeStyles(theme => ({
   appBar: {
@@ -118,8 +119,10 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export const GlobalHeader = ({
-  createPath,
-}: Readonly<{ createPath?: string }>) => {
+  profileItems,
+}: Readonly<{
+  profileItems?: readonly ResolvedAppProfileMenuItem[];
+}>) => {
   const classes = useStyles();
   const navigate = useNavigate();
   const identityApi = useApi(identityApiRef);
@@ -185,16 +188,6 @@ export const GlobalHeader = ({
 
         <div className={classes.spacer} />
 
-        {createPath && (
-          <IconButton
-            className={classes.iconButton}
-            onClick={() => navigate(createPath)}
-            title="Create..."
-          >
-            <AddIcon />
-          </IconButton>
-        )}
-
         <IconButton
           edge="end"
           onClick={handleProfileMenuOpen}
@@ -228,9 +221,13 @@ export const GlobalHeader = ({
           >
             Settings
           </MenuItem>
-          <MenuItem onClick={handleLogout} className={classes.menuItem}>
-            Logout
-          </MenuItem>
+          {profileItems === undefined ? (
+            <MenuItem onClick={handleLogout} className={classes.menuItem}>
+              Sign out
+            </MenuItem>
+          ) : (
+            <ProfileMenuItems items={profileItems} onClose={handleMenuClose} />
+          )}
         </Menu>
       </Toolbar>
     </AppBar>

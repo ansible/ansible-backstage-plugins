@@ -23,6 +23,14 @@ the optional portal-scaffolder implementation. See
 the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md).
 The registry/discovery examples below are legacy migration APIs.
 
+`useNativeAppProfileMenuItems()` resolves validated navigation and UI-action
+declarations. Every item requires a resolved user identity and, when declared,
+an allowed permission. Owned-page, configuration, and native enablement checks
+apply before code loading. Action handlers load only on activation and receive
+the app API holder. The host rechecks eligibility on activation and ignores
+obsolete resolutions or code loaded after the consumer unmounts. Source and
+RHDH renderers share these decisions; neither maintains a contributor-specific list.
+
 ## Purpose
 
 `portal-extension-host` is the **consumer side** of the contribution system. It is used by the pages and layouts that _display_ contributed content — not by the plugins that _produce_ it. Plugin authors rarely depend on this package directly; they depend on `@ansible/portal-extension-api`.

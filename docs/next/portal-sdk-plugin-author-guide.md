@@ -207,17 +207,18 @@ contributor responsible for installing the provider.
 
 ## Supported native interaction contracts
 
-| Blueprint                      | Current purpose                 | Attachment or integration                                              |
-| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------- |
-| `EntityDetailTabBlueprint`     | Durable entity facet            | `entity.detail.tabs`                                                   |
-| `EntityOverviewCardBlueprint`  | Compact entity summary          | `entity.overview.main` or `entity.overview.secondary`                  |
-| `EntityActionBlueprint`        | Operation on the current entity | `entity.actions`                                                       |
-| `CatalogItemActionBlueprint`   | Operation from a catalog item   | `catalog.item.actions`                                                 |
-| `CatalogTabBlueprint`          | Additional catalog view         | `catalog.tabs`                                                         |
-| `CatalogTableColumnBlueprint`  | Comparable catalog value        | `catalog.table.columns`                                                |
-| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry    | `catalog.header.actions` with registered workflow                      |
-| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping       | Namespaced workflow ID and template reference                          |
-| `ScaffolderFieldBlueprint`     | Typed custom template input     | `scaffolder.fields` via shared provider and optional templates adapter |
+| Blueprint                      | Current purpose                      | Attachment or integration                                              |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------- |
+| `EntityDetailTabBlueprint`     | Durable entity facet                 | `entity.detail.tabs`                                                   |
+| `EntityOverviewCardBlueprint`  | Compact entity summary               | `entity.overview.main` or `entity.overview.secondary`                  |
+| `EntityActionBlueprint`        | Operation on the current entity      | `entity.actions`                                                       |
+| `CatalogItemActionBlueprint`   | Operation from a catalog item        | `catalog.item.actions`                                                 |
+| `CatalogTabBlueprint`          | Additional catalog view              | `catalog.tabs`                                                         |
+| `CatalogTableColumnBlueprint`  | Comparable catalog value             | `catalog.table.columns`                                                |
+| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry         | `catalog.header.actions` with registered workflow                      |
+| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping            | Namespaced workflow ID and template reference                          |
+| `ScaffolderFieldBlueprint`     | Typed custom template input          | `scaffolder.fields` via shared provider and optional templates adapter |
+| `AppProfileMenuItemBlueprint`  | Profile navigation or lazy UI action | `appProfileMenuItems` via shared provider; source header consumer      |
 
 For exact descriptor fields, use the exported types and the
 [NFS composition guide](portal-sdk-nfs-composition.md). A union member in common
@@ -248,6 +249,96 @@ remove old templates-page attachment overrides, and follow the
 [field attachment migration](portal-sdk-nfs-composition.md#migrating-field-attachments).
 No imperative module resolution, global registration fallback, or npm publication
 is required.
+
+## Declaring a profile menu item
+
+Use `AppProfileMenuItemBlueprint` for a profile-menu row. No change to
+`portal-rhdh` is needed for each contributor. The source header and optional RHDH
+adapter render the same validated declarations; plugins do not import platform
+header code or provide their own menu DOM.
+
+### Prerequisites
+
+- The Portal contribution provider and a profile-menu consumer are installed.
+- Your plugin has an agreed ID and any permission is defined in shared contracts
+  and registered by its backend.
+- Navigation targets are enabled pages owned by your plugin. A UI action has
+  the APIs or app-root UI integration it needs; the SDK does not install a dialog
+  service merely because an action is declared.
+
+### Procedure
+
+1. Add a navigation declaration to your native plugin's extensions. This example
+   assumes your plugin already registers `page:content-authoring/editor` through
+   `PageBlueprint`:
+
+   ```ts
+   import { AppProfileMenuItemBlueprint } from '@ansible/portal-extension-api/alpha';
+   import { authoringViewPermission } from './permissions';
+
+   const profileLink = AppProfileMenuItemBlueprint.make({
+     name: 'authoring',
+     params: {
+       type: 'navigation',
+       title: 'Content authoring',
+       targetPage: 'page:content-authoring/editor',
+       authorization: {
+         type: 'permission',
+         requirement: authoringViewPermission,
+       },
+       order: 100,
+     },
+   });
+   ```
+
+2. For a UI interaction instead, declare a lazy handler. For example, display a
+   notification without accessing backend data:
+
+   ```ts
+   const profileAction = AppProfileMenuItemBlueprint.make({
+     name: 'authoring-help',
+     params: {
+       type: 'action',
+       title: 'Authoring help',
+       authorization: { type: 'authenticated' },
+       order: 200,
+       enabledByConfig: 'ansible.content-authoring.enabled',
+       loadAction: async () => {
+         const { alertApiRef } = await import('@backstage/core-plugin-api');
+         return ({ apis }) => {
+           const alerts = apis.get(alertApiRef);
+           if (!alerts) throw new Error('Notification API is unavailable');
+           alerts.post({
+             message: 'Open Content authoring to create content.',
+           });
+         };
+       },
+     },
+   });
+   ```
+
+   Include both declarations in your `content-authoring` plugin's `extensions`
+   array alongside the editor page. A declared
+   config gate must be frontend-visible in your plugin schema. Only UI code
+   belongs in the handler; use registered operations for backend mutations and
+   retain resource authorization in backend handlers. Hooks cannot run inside
+   this callback: use the supplied API holder to access your plugin's UI service
+   when opening a dialog.
+
+### Verification
+
+Verify the owned navigation path, including page-path overrides, and confirm
+action code does not load until clicked. Test missing identity, permission
+denial/errors, disabled configuration/extensions, invalid destinations, action
+load/rejection, and a healthy sibling item. A pending action prevents repeated
+clicks; failure reports a recoverable host error. `order` applies within the
+Portal profile block, not unrelated platform entries.
+
+`authorization.type: 'authenticated'` is for signed-in UI interactions, not a
+backend permission grant. The host always requires a resolved user identity.
+No arbitrary external navigation URL or unauthenticated action is supported.
+AAP logout is one opt-in contribution owned by the AAP auth module; its special
+session handling does not belong in the generic adapter.
 
 ## Declaring a native tab
 
