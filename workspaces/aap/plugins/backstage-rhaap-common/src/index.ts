@@ -7,3 +7,4 @@ export * from './ScmClient';
 export * from './permissions';
 export * from './utils/nameFormatting';
 export * from './UserProvisioner';
+export * from './EEEntityLifecycle';
