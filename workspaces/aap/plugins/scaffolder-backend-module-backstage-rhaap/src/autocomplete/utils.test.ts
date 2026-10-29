@@ -179,7 +179,7 @@ describe('autocomplete utils', () => {
           metadata: {
             annotations: {
               'ansible.io/scm-provider': 'github',
-              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-host-name': 'github-public',
               'ansible.io/scm-organization': 'myorg',
               'ansible.io/scm-repository': 'myrepo',
             },
@@ -189,16 +189,16 @@ describe('autocomplete utils', () => {
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
       expect(result[0].sources).toContain(
-        'Github / github.com / myorg / myrepo',
+        'Github / github-public / myorg / myrepo',
       );
       expect(
-        result[0].sourceVersions!['Github / github.com / myorg / myrepo'],
+        result[0].sourceVersions!['Github / github-public / myorg / myrepo'],
       ).toEqual(['1.0.0']);
     });
 
     it('keeps separate version rows per source when the same collection exists in multiple sources', () => {
       const pah = 'Private Automation Hub / hub-repo';
-      const gh = 'Github / github.com / myorg / myrepo';
+      const gh = 'Github / github-public / myorg / myrepo';
       const entities = [
         {
           spec: {
@@ -220,7 +220,7 @@ describe('autocomplete utils', () => {
           metadata: {
             annotations: {
               'ansible.io/scm-provider': 'github',
-              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-host-name': 'github-public',
               'ansible.io/scm-organization': 'myorg',
               'ansible.io/scm-repository': 'myrepo',
             },
@@ -247,7 +247,7 @@ describe('autocomplete utils', () => {
           metadata: {
             annotations: {
               'ansible.io/scm-provider': 'github',
-              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-host-name': 'github-public',
               'ansible.io/scm-organization': 'myorg',
               'ansible.io/scm-repository': 'myrepo',
               'ansible.io/ref': 'main',
@@ -262,7 +262,7 @@ describe('autocomplete utils', () => {
           metadata: {
             annotations: {
               'ansible.io/scm-provider': 'github',
-              'ansible.io/scm-host-name': 'github.com',
+              'ansible.io/scm-host-name': 'github-public',
               'ansible.io/scm-organization': 'myorg',
               'ansible.io/scm-repository': 'myrepo',
               'ansible.io/ref': 'v1.0.1',
@@ -273,7 +273,7 @@ describe('autocomplete utils', () => {
 
       const result = buildCollectionsFromCatalogEntities(entities);
       expect(result).toHaveLength(1);
-      const scmSource = 'Github / github.com / myorg / myrepo';
+      const scmSource = 'Github / github-public / myorg / myrepo';
       expect(result[0].versions).toEqual([
         {
           ref: 'main',
