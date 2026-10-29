@@ -1283,7 +1283,7 @@ describe('self-service', () => {
     });
 
     const syncButton = screen.getByText('Sync Now').closest('button');
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('should show sync button disabled while checking permissions', async () => {
@@ -1305,7 +1305,7 @@ describe('self-service', () => {
     });
 
     const syncButton = screen.getByText('Sync Now').closest('button');
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('should display last sync time from job templates', async () => {
@@ -1329,7 +1329,7 @@ describe('self-service', () => {
     });
 
     const syncButton = screen.getByText('Sync Now').closest('button');
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('should select the most recent sync timestamp', async () => {
@@ -1354,7 +1354,7 @@ describe('self-service', () => {
     });
 
     const syncButton = screen.getByText('Sync Now').closest('button');
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
   });
 });
 
@@ -1520,7 +1520,7 @@ describe('sync signal integration', () => {
 
     await waitFor(() => {
       const syncButton = screen.getByText('Sync Now').closest('button');
-      expect(syncButton).toBeDisabled();
+      expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     });
 
     mockSyncSignal.lastSignal = {
@@ -1533,7 +1533,7 @@ describe('sync signal integration', () => {
 
     await waitFor(() => {
       const syncButton = screen.getByText('Sync Now').closest('button');
-      expect(syncButton).toBeDisabled();
+      expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     });
 
     mockSyncSignal.lastSignal = null;

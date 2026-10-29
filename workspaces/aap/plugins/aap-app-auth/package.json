@@ -38,6 +38,7 @@
     "export-dynamic": "yarn run -T rhdh-cli plugin export --no-generate-scalprum-assets"
   },
   "dependencies": {
+    "@ansible/portal-extension-api": "workspace:^",
     "@backstage/core-app-api": "1.19.6",
     "@backstage/core-compat-api": "0.5.11",
     "@backstage/core-components": "0.18.8",

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import { PageHeaderSection } from '../common';
+import { CatalogSyncHeader } from '../common';
 import type { SyncProgressEntry } from '../common';
 import { TEMPLATE_TOOLTIP, TEMPLATE_DESCRIPTION } from './constants';
 
@@ -23,7 +23,7 @@ export const TemplatesPageHeaderSection = ({
   lastSyncTimes,
   actions,
 }: TemplatesPageHeaderSectionProps) => (
-  <PageHeaderSection
+  <CatalogSyncHeader
     title="Templates"
     tooltip={TEMPLATE_TOOLTIP}
     description={TEMPLATE_DESCRIPTION}
