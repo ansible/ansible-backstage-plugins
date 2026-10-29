@@ -75,7 +75,7 @@ describe('scaffolderModuleAap', () => {
     });
 
     const [provider] = env.autocomplete.addAutocompleteProvider.mock.calls[0];
-    expect(provider.id).toBe('aap-api-cloud');
+    expect(provider.id).toBe('aap-api');
     await expect(
       provider.handler({ resource: 'x', token: 't', context: {} }),
     ).resolves.toEqual({ results: [] });

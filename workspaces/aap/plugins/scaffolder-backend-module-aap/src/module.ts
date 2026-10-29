@@ -71,7 +71,7 @@ export const scaffolderModuleAap = createBackendModule({
             uuidFilter,
           });
           autocomplete.addAutocompleteProvider({
-            id: 'aap-api-cloud',
+            id: 'aap-api',
             handler: ({ resource, token, context }) =>
               handleAutocompleteRequest({
                 resource,
@@ -82,6 +82,7 @@ export const scaffolderModuleAap = createBackendModule({
                 ansibleService,
                 auth,
                 discovery,
+                includeCollections: false,
               }),
           });
         });
