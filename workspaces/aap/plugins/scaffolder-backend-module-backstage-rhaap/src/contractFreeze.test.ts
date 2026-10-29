@@ -49,12 +49,7 @@ import { launchJobTemplate } from './actions/aapLaunchJobTemplate';
 import { cleanUp } from './actions/aapCleanUp';
 import { createEEDefinitionAction } from './actions/createEEDefinition';
 import { prepareForPublishAction } from './actions/prepareForPublish';
-import {
-  multiResourceFilter,
-  resourceFilter,
-  useCaseNameFilter,
-  uuidFilter,
-} from './filters';
+import * as filters from './filters';
 import { buildCollectionsFromCatalogEntities } from './autocomplete/utils';
 
 // These action/filter constructors only touch their injected services inside
@@ -107,23 +102,16 @@ describe('Phase 0 contract freeze: action IDs', () => {
   });
 });
 
-const EXPORTED_TEMPLATE_FILTERS = {
-  useCaseNameFilter,
-  resourceFilter,
-  multiResourceFilter,
-  uuidFilter,
-};
-
 describe('Phase 0 contract freeze: template filters (target: scaffolder-backend-module-aap)', () => {
   it('exports exactly the four template filters', () => {
-    expect(Object.keys(EXPORTED_TEMPLATE_FILTERS).sort()).toEqual([
+    expect(Object.keys(filters).sort()).toEqual([
       'multiResourceFilter',
       'resourceFilter',
       'useCaseNameFilter',
       'uuidFilter',
     ]);
     expect(
-      Object.values(EXPORTED_TEMPLATE_FILTERS).every(
+      Object.values(filters).every(
         filter => typeof filter === 'function',
       ),
     ).toBe(true);
