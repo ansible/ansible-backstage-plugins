@@ -53,14 +53,12 @@ it('normalizes the unscoped variants response in the client', async () => {
   const client = new AutomationContentClient({
     discoveryApi: { getBaseUrl: async () => '/backend' },
     fetchApi: {
-      fetch: jest
-        .fn()
-        .mockResolvedValue({
-          ok: true,
-          json: async () => ({
-            variants: [doc, { ...doc, in: 'r/repo@sha256:two' }],
-          }),
+      fetch: jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          variants: [doc, { ...doc, in: 'r/repo@sha256:two' }],
         }),
+      }),
     },
   });
   await expect(client.getContentItem(doc.fqcn)).resolves.toEqual(doc);

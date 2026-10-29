@@ -142,9 +142,9 @@ export interface Classification {
 
 export interface AutomationContentApi {
   listRegistries(): Promise<Registry[]>;
-  listExecutionEnvironments(
-    opts?: { allTypes?: boolean },
-  ): Promise<ExecutionEnvironment[]>;
+  listExecutionEnvironments(opts?: {
+    allTypes?: boolean;
+  }): Promise<ExecutionEnvironment[]>;
   getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment>;
   getContents(
     ref: string,
@@ -194,7 +194,10 @@ export const automationContentApiRef = createApiRef<AutomationContentApi>({
 
 /** HTTP failure with status retained so pages distinguish missing resources from outages. */
 export class ContentApiError extends Error {
-  constructor(readonly status: number, statusText: string) {
+  constructor(
+    readonly status: number,
+    statusText: string,
+  ) {
     super(`Content API request failed: ${status} ${statusText}`);
     this.name = 'ContentApiError';
   }

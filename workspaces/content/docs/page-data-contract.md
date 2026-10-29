@@ -7,8 +7,8 @@ document; changes require orchestrator approval. Companion to
 ## Context
 
 The migration replaces the drill-down UI with Tina's prototype catalog pages.
-The prototype pages read **Backstage catalog entities** that model *EE
-definitions* (git-authored recipes). Our content backend serves **registry
+The prototype pages read **Backstage catalog entities** that model _EE
+definitions_ (git-authored recipes). Our content backend serves **registry
 artifacts** (immutable images) — a different shape. This contract defines what
 each page renders and where every field comes from, so the presentation can be
 Tina's while the data stays backend-accurate.
@@ -43,38 +43,38 @@ Three data sources, in priority order:
 
 ### Landing (`/automation-content`)
 
-| Section | Source |
-| --- | --- |
-| Registry health cards (name, url, `lastReconcileOk`, `lastReconciledAt`, capabilities) | `listRegistries()` |
-| Counts (EEs, collections, content items) | `listExecutionEnvironments()`, `listCollections()` |
-| Sync action (admin) | `syncAll()` with per-registry results surfaced as portal notifications |
+| Section                                                                                | Source                                                                 |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Registry health cards (name, url, `lastReconcileOk`, `lastReconciledAt`, capabilities) | `listRegistries()`                                                     |
+| Counts (EEs, collections, content items)                                               | `listExecutionEnvironments()`, `listCollections()`                     |
+| Sync action (admin)                                                                    | `syncAll()` with per-registry results surfaced as portal notifications |
 
 ### EE catalog (`/automation-content/execution-environments`)
 
 Tina's `ImagesCatalogPage` layout, artifact data:
 
-| UI element | Source / mapping |
-| --- | --- |
-| Row identity | `repository` (+ `registry` as secondary text) |
-| Tags | `tags` (digest shown as short sha) |
-| Freshness | `lastReconciledAt` (relative time) |
+| UI element               | Source / mapping                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Row identity             | `repository` (+ `registry` as secondary text)                                                                                  |
+| Tags                     | `tags` (digest shown as short sha)                                                                                             |
+| Freshness                | `lastReconciledAt` (relative time)                                                                                             |
 | Inventory fidelity badge | `enumeration.status` + `enumeration.source`; `contentsKnown` false ⇒ "contents unknown" badge, never render counts as complete |
-| Volume indicators | `counts.collections` / `counts.plugins` labelled approximate when `enumeration.status !== 'complete'` |
-| Classification | `classification.type` with `confidence` |
-| Search / filter | client-side over the loaded list |
-| Favourites | catalog stars (matching rules above) |
-| Row action | navigate to EE details — **no** build, edit, or SCM actions |
+| Volume indicators        | `counts.collections` / `counts.plugins` labelled approximate when `enumeration.status !== 'complete'`                          |
+| Classification           | `classification.type` with `confidence`                                                                                        |
+| Search / filter          | client-side over the loaded list                                                                                               |
+| Favourites               | catalog stars (matching rules above)                                                                                           |
+| Row action               | navigate to EE details — **no** build, edit, or SCM actions                                                                    |
 
 ### EE details (`/automation-content/execution-environments/…`)
 
 Tina's `EEDetailsPage` tabs, artifact data:
 
-| Tab | Content |
-| --- | --- |
-| About | `ref`, `registry`, `repository`, `digest`, `tags`, `pullReference` (copy action), `classification`, `enumeration` (source, status, `ansibleCore`, `extractedAt`), `lastReconciledAt` |
-| Collections in this image | `getContents(ref)` — `collections[]` with per-collection `counts`; row navigates to collection details scoped to this artifact |
-| Content items | `searchContentItems({ in: ref, … })`; item row navigates to item documentation |
-| Item documentation | `getContentItem(fqcn, inArtifact)` — description, notes, options tree, examples, returns. This must preserve the old `ContentItemView` capability (ansible-doc style rendering), including the `variants` fallback behaviour in `AutomationContentClient.getContentItem` |
+| Tab                       | Content                                                                                                                                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| About                     | `ref`, `registry`, `repository`, `digest`, `tags`, `pullReference` (copy action), `classification`, `enumeration` (source, status, `ansibleCore`, `extractedAt`), `lastReconciledAt`                                                                                     |
+| Collections in this image | `getContents(ref)` — `collections[]` with per-collection `counts`; row navigates to collection details scoped to this artifact                                                                                                                                           |
+| Content items             | `searchContentItems({ in: ref, … })`; item row navigates to item documentation                                                                                                                                                                                           |
+| Item documentation        | `getContentItem(fqcn, inArtifact)` — description, notes, options tree, examples, returns. This must preserve the old `ContentItemView` capability (ansible-doc style rendering), including the `variants` fallback behaviour in `AutomationContentClient.getContentItem` |
 
 Readme-from-git, links cards, resources cards and build/edit actions are
 **deferred** — they model definition authoring, not artifacts.
@@ -83,34 +83,34 @@ Readme-from-git, links cards, resources cards and build/edit actions are
 
 Tina's `CollectionsListPage` / `CollectionsCatalogPage` layout, artifact data:
 
-| UI element | Source / mapping |
-| --- | --- |
-| Card/list identity | group `listCollections()` results by `fqcn`; card title `namespace.name`, latest `version` as badge |
-| Version handling | **Do not** filter on `ansible.io/is-latest-version` (prototype bug — OCI entities never set it). Compute "latest" as the max version within the group |
-| Description | `description` |
-| Volume indicators | aggregated `counts` |
-| Provided-by | `providedBy[]` — the EEs shipping it; links to EE details |
-| Search | `listCollections(query)` server-side where supported, plus client-side grouping |
-| Row action | navigate to collection details |
+| UI element         | Source / mapping                                                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Card/list identity | group `listCollections()` results by `fqcn`; card title `namespace.name`, latest `version` as badge                                                   |
+| Version handling   | **Do not** filter on `ansible.io/is-latest-version` (prototype bug — OCI entities never set it). Compute "latest" as the max version within the group |
+| Description        | `description`                                                                                                                                         |
+| Volume indicators  | aggregated `counts`                                                                                                                                   |
+| Provided-by        | `providedBy[]` — the EEs shipping it; links to EE details                                                                                             |
+| Search             | `listCollections(query)` server-side where supported, plus client-side grouping                                                                       |
+| Row action         | navigate to collection details                                                                                                                        |
 
 ### Collection details (`/automation-content/collections/…`)
 
-| Section | Content |
-| --- | --- |
-| Header | `fqcn`, version selector (all versions present in the data, each showing which EEs provide it) |
+| Section  | Content                                                                                                             |
+| -------- | ------------------------------------------------------------------------------------------------------------------- |
+| Header   | `fqcn`, version selector (all versions present in the data, each showing which EEs provide it)                      |
 | Contents | `searchContentItems({ collection: fqcn })`; item rows navigate to item documentation (same component as EE details) |
-| About | `description`, counts, provided-by list |
+| About    | `description`, counts, provided-by list                                                                             |
 
 Readme card is **deferred** (no git readme exists for registry artifacts).
 
 ## Deferred capability register
 
-| Capability | Reason | Where it lives instead |
-| --- | --- | --- |
-| Build EE image dialog | Authoring flow, not discovery; exists in production | portal-scaffolder |
-| SCM token handling | Only needed by the build flow — **this plugin must not handle tokens at all** | portal-scaffolder |
-| Edit / unregister entity | Definition authoring | portal-scaffolder |
-| Readme / links / resources from git | No SCM metadata on artifacts | — |
+| Capability                          | Reason                                                                        | Where it lives instead |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
+| Build EE image dialog               | Authoring flow, not discovery; exists in production                           | portal-scaffolder      |
+| SCM token handling                  | Only needed by the build flow — **this plugin must not handle tokens at all** | portal-scaffolder      |
+| Edit / unregister entity            | Definition authoring                                                          | portal-scaffolder      |
+| Readme / links / resources from git | No SCM metadata on artifacts                                                  | —                      |
 
 ## Testing requirements
 
