@@ -62,6 +62,7 @@
     "fix": "backstage-cli repo fix --publish"
   },
   "dependencies": {
+    "@ansible/aap-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "^0.8.0",
     "@backstage/backend-plugin-api": "^1.8.0",
     "@backstage/catalog-model": "^1.10.0",

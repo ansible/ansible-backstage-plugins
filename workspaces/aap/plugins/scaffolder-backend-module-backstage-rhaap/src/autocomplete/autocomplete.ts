@@ -4,11 +4,8 @@ import {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
-import {
-  IAAPService,
-  getAnsibleConfig,
-  getVerbosityLevels,
-} from '@ansible/backstage-rhaap-common';
+import { getVerbosityLevels } from '@ansible/aap-common';
+import { IAAPService, getAnsibleConfig } from '@ansible/backstage-rhaap-common';
 import {
   InputError,
   NotAllowedError,

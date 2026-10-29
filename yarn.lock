@@ -191,6 +191,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/aap-common@workspace:^, @ansible/aap-common@workspace:workspaces/aap/plugins/aap-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/aap-common@workspace:workspaces/aap/plugins/aap-common"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/integration": "npm:^2.0.0"
+    "@backstage/plugin-permission-common": "npm:^0.9.7"
+    "@jest/globals": "npm:^30.1.2"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/automation-content-common@workspace:^, @ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common":
   version: 0.0.0-use.local
   resolution: "@ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common"
@@ -223,6 +234,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-auth-backend-module-rhaap-provider@workspace:workspaces/aap/plugins/auth-backend-module-rhaap-provider"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-defaults": "npm:^0.16.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.8.0"
@@ -286,6 +298,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap-user-provisioner"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-plugin-api": "npm:^1.8.0"
     "@backstage/backend-test-utils": "npm:^1.11.1"
@@ -303,6 +316,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-rhaap@workspace:workspaces/aap/plugins/catalog-backend-module-rhaap"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-node": "workspace:^"
     "@backstage/backend-defaults": "npm:^0.16.0"
@@ -338,6 +352,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-rhaap-common@workspace:workspaces/aap/plugins/backstage-rhaap-common"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:^0.8.0"
     "@backstage/backend-plugin-api": "npm:^1.8.0"
     "@backstage/backend-test-utils": "npm:^1.11.1"
@@ -432,6 +447,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-backstage-apme@workspace:workspaces/apme/plugins/backstage-apme"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-apme-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"
@@ -532,6 +548,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-backstage-rhaap@workspace:workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-defaults": "npm:^0.16.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.8.0"
@@ -786,6 +803,7 @@ __metadata:
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
   dependencies:
     "@ansible/aap-app-auth": "workspace:^"
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@backstage/catalog-client": "npm:^1.14.0"

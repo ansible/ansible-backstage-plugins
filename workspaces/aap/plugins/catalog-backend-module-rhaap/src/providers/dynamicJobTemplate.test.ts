@@ -16,7 +16,7 @@ import {
   getSurveyDetails,
   generateTemplate,
 } from './dynamicJobTemplate';
-import { IJobTemplate, ISurvey, ISpec } from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey, ISpec } from '@ansible/aap-common';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
@@ -296,7 +296,6 @@ describe('dynamicJobTemplate', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },
@@ -319,7 +318,6 @@ describe('dynamicJobTemplate', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },

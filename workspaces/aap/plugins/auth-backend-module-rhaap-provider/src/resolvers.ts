@@ -13,10 +13,8 @@ import {
   stringifyEntityRef,
 } from '@backstage/catalog-model';
 import type { Config } from '@backstage/config';
-import {
-  IUserProvisioner,
-  toUserEntityName,
-} from '@ansible/backstage-rhaap-common';
+import { toUserEntityName } from '@ansible/aap-common';
+import { IUserProvisioner } from '@ansible/backstage-rhaap-common';
 
 function readMultiOrgEnabled(config?: Config): boolean {
   const providers = config?.getOptionalConfig('catalog.providers.rhaap');

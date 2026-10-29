@@ -8,7 +8,7 @@ import {
   toOrgGroupRef,
   toTemplateEntityName,
   type CatalogEntityIdentityOptions,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/aap-common';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,

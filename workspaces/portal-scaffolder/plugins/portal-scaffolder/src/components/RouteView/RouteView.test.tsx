@@ -53,7 +53,7 @@ jest.mock('../GitRepositories/RepositoryDetailsPage', () => ({
   ),
 }));
 
-jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+jest.mock('@ansible/aap-common/permissions', () => ({
   executionEnvironmentsViewPermission: {
     type: 'basic',
     name: 'ee.view',

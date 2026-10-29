@@ -21,7 +21,7 @@ import {
   type FetchApi,
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { gitRepositoriesViewPermission } from '@ansible/aap-common/permissions';
 import { gitRepositoriesCatalogApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesCatalog';
 import { useApiHolder } from '@backstage/core-plugin-api';
 import {

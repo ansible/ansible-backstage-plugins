@@ -1,37 +1,16 @@
-import {
-  createPermission,
-  type BasicPermission,
-} from '@backstage/plugin-permission-common';
+import { createPermission } from '@backstage/plugin-permission-common';
 
-export const executionEnvironmentsViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.execution-environments.view',
-  attributes: {},
-};
-
-export const gitRepositoriesViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.git-repositories.view',
-  attributes: {},
-};
-
-export const collectionsViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.collections.view',
-  attributes: {},
-};
-
-export const templatesViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.templates.view',
-  attributes: {},
-};
-
-export const historyViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.history.view',
-  attributes: {},
-};
+/**
+ * Basic AAP permissions — re-exported from @ansible/aap-common.
+ */
+export {
+  executionEnvironmentsViewPermission,
+  gitRepositoriesViewPermission,
+  collectionsViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
+  ansiblePermissions,
+} from '@ansible/aap-common';
 
 /** Resource type for portal settings mutations scoped by capability area. */
 export const RESOURCE_TYPE_ANSIBLE_SETTINGS = 'ansible-settings';
@@ -66,11 +45,3 @@ export const ansibleSettingsEditPermission = createPermission({
   resourceType: RESOURCE_TYPE_ANSIBLE_SETTINGS,
   attributes: {},
 });
-
-export const ansiblePermissions = [
-  executionEnvironmentsViewPermission,
-  gitRepositoriesViewPermission,
-  collectionsViewPermission,
-  templatesViewPermission,
-  historyViewPermission,
-];

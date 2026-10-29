@@ -14,7 +14,7 @@ jest.mock('@backstage/plugin-permission-react', () => ({
   RequirePermission: (props: any) => props.children,
 }));
 
-jest.mock('@ansible/backstage-rhaap-common/permissions', () => ({
+jest.mock('@ansible/aap-common/permissions', () => ({
   gitRepositoriesViewPermission: {
     type: 'basic',
     name: 'git-repositories.view',

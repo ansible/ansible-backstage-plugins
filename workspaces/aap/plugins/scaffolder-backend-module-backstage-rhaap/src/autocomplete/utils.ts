@@ -3,10 +3,7 @@ import {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
-import type {
-  Collections,
-  SourceVersionDetail,
-} from '@ansible/backstage-rhaap-common';
+import type { Collections, SourceVersionDetail } from '@ansible/aap-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
 
