@@ -84,6 +84,9 @@ export const scaffolderModuleAnsible = createBackendModule({
         discovery,
       }) {
         return Promise.resolve().then(() => {
+          logger.warn(
+            'Deprecated scaffolder module loaded. Migrate to @ansible/plugin-scaffolder-backend-module-aap and @ansible/portal-scaffolder-backend-module; do not load both replacements with this shim.',
+          );
           const frontendUrl = config.getString('app.baseUrl');
           scaffolder.addActions(
             createAnsibleContentAction(config),
