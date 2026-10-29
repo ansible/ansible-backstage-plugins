@@ -11,7 +11,7 @@ import {
   ANNOTATION_ORIGIN_LOCATION,
 } from '@backstage/catalog-model';
 import { Organization, Team, User } from '@ansible/aap-common';
-import { IJobTemplate, ISurvey } from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey } from '@ansible/aap-common';
 import type { RepositoryInfo } from '@ansible/backstage-rhaap-common';
 import type {
   DiscoveredGalaxyFile,

@@ -1,6 +1,6 @@
 {
   "name": "@ansible/aap-common",
-  "description": "Shared AAP types and constants — isomorphic (browser + Node)",
+  "description": "Shared AAP types, permissions, and constants — isomorphic (browser + Node)",
   "version": "0.1.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -14,11 +14,15 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
     "./constants": "./src/constants.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
     "*": {
+      "permissions": [
+        "src/permissions.ts"
+      ],
       "constants": [
         "src/constants.ts"
       ]
@@ -37,7 +41,8 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
-    "@backstage/integration": "^2.0.0"
+    "@backstage/integration": "^2.0.0",
+    "@backstage/plugin-permission-common": "^0.9.7"
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.0",
