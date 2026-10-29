@@ -211,7 +211,12 @@ pages or make that full UI journey available without them.
 
 ## Acceptance boundaries
 
-- The packed `next-2.1` deployment uses mock AAP authentication. The source NFS
+- The profile-only native header adapter requires a fresh packed `next-2.1`
+  acceptance run to verify that Create is absent and exactly one Sign out item
+  completes the configured OIDC flow. Earlier header checks do not certify this
+  revised composition. Intermittent OAuth/revocation transport errors remain
+  separate from header wiring.
+- Earlier packed `next-2.1` content checks used mock AAP authentication. The source NFS
   app was verified with real AAP login and two completed standalone checks on
   the existing `my-ns-my-col` test repository. Persisted scan count increased
   from two to four, with one finding. APME refreshes its summary while a
@@ -390,8 +395,8 @@ through the host's `@deepVisibility frontend` schema.
 
 The source app registers native RBAC, user settings, and Search features. Its
 global header reuses the existing AAP/identity logout behavior through an
-app-owned root wrapper. Create is omitted when the installed Templates adapter
-is unavailable; it follows that adapter's effective route when present.
+app-owned root wrapper. The global header has no Create button or
+Create-contribution API. Workflow entry points remain in the installed pages.
 RHDH retains its own platform header instead of loading
 the source app wrapper. Guest users can see navigation but remain subject to
 page permissions; an RBAC 403 is not a missing route.
@@ -400,6 +405,87 @@ Restart the source dev server after changing configuration or schema visibility.
 Re-export and restart RHDH after changing dynamic plugins. The local development
 guide in automation-portal-local documents workspace/packed exports, the full
 navigation example, cache validators, and non-destructive refresh steps.
+
+## Profile menu contributions
+
+RHDH deployments install the optional `@ansible/portal-rhdh` native feature
+alongside the platform global-header feature. The adapter only renders profile
+items. To remove the stock Create button and use AAP Sign out, merge these entries
+into the existing `app.extensions` list:
+
+```yaml
+app:
+  extensions:
+    - gh-component:global-header/self-service-button: false
+    - gh-menu-item:global-header/logout: false
+    - app-profile-menu-item:app/aap-logout: true
+```
+
+The profile consumer `gh-menu-item:portal-rhdh/profile` is enabled by default.
+Enable the AAP item only when its separate auth module and backend provider are
+installed and configured. Otherwise keep stock logout. Preserve other auth and
+navigation entries. No replacement Create button is installed.
+
+`AppProfileMenuItemBlueprint` contributes navigation or lazy UI-action rows to
+the shared provider. `useNativeAppProfileMenuItems()` checks user identity,
+declared permissions, configuration, and owned page targets. The shared SDK
+`ProfileMenuItems` renders accepted rows, closes the menu before opening a new
+UI surface, prevents duplicate activation while pending, and contains failures.
+No action implementation loads just to decide visibility. Source and RHDH
+consumers use the same resolver; new plugin items require no adapter edits.
+
+The AAP auth module owns its disabled-by-default logout declaration and shared
+logout implementation. `portal-rhdh` has no AAP dependency or logout-specific
+extension. Enable `app-profile-menu-item:app/aap-logout` and keep the generic
+`gh-menu-item:portal-rhdh/profile` consumer enabled. Rebuild the provider, adapter,
+and AAP auth artifact together. The source NFS app explicitly installs
+`createAapProfileModule({ logoutDisabled: false })` from `aap-app-auth`, without
+replacing its existing sign-in composition.
+
+The AAP-owned handler clears Portal auth and redirects to AAP OIDC logout;
+legacy `global.header/profile` mount-point YAML is not its registration mechanism.
+This integration does not change OAuth token-exchange handling or resolve
+intermittent transport failures during initial sign-in.
+
+## AAP OIDC logout
+
+The existing logout component waits for identity sign-out before navigating to the
+AAP logout destination. This prevents the identity proxy's final redirect from
+overwriting the OIDC redirect. Transport failure during AAP token revocation
+is still reported by the auth backend; a visible logged-out browser does not
+prove successful server-side token revocation.
+
+The AAP deployment must advertise `/o/logout/` as its OIDC end-session endpoint.
+Set `auth.providers.rhaap.<environment>.clientId` to the public OAuth client ID.
+The selected environment comes from `auth.environment`, which defaults to
+`development`. The browser-facing AAP host comes from
+`auth.providers.rhaap.<environment>.host`, falling back to `ansible.rhaap.baseUrl`.
+Both the client ID and `app.baseUrl` are required whenever an AAP host resolves.
+
+Register the serialized value of `app.baseUrl` (`new URL(appBaseUrl).href`) in the
+OAuth application's **Post Logout Redirect URIs**. For example, configuring
+`http://localhost:3000` sends `http://localhost:3000/`, including the trailing
+slash. The registered URI must match exactly. The handler sends this serialized
+URL as `post_logout_redirect_uri`, together with
+the configured environment's public OAuth client ID. AAP validates the URL,
+presents its confirmation screen, and returns to Portal sign-in after confirmation.
+Cancelling leaves AAP's browser session active even though Portal auth is cleared.
+The public OAuth host/client ID are frontend-visible; client secrets remain
+backend-only. This does not bypass AAP validation or change gateway-wide settings.
+See [logout setup](../plugins/portal-rhdh.md) and the adapter README for the
+configuration and verification procedure.
+
+See the [profile authoring example](portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item)
+and [RHDH adapter reference](../plugins/portal-rhdh.md). Re-export the affected host,
+adapter, and contributors after shared header-contract changes. Header integration
+is verified on the agreed `next-2.1` baseline, not every RHDH version.
+
+Upgrade deployments that configure only `ansible.rhaap.baseUrl` by adding
+`auth.providers.rhaap.<environment>.clientId` and ensuring `app.baseUrl` is set.
+If a host resolves but the client ID or Portal URL is missing or invalid, logout
+reports "AAP browser logout is unavailable: check the OAuth client and Portal
+URLs" and still clears Portal auth. It does not redirect to AAP, so the AAP
+browser session remains active.
 
 ## Task history and RBAC
 

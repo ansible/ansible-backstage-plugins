@@ -273,7 +273,7 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-The 19 packages below include installable plugins/modules and shared libraries.
+The packages below include installable plugins/modules and shared libraries.
 A library does not create a page or sidebar item merely by being installed.
 
 ### Portal core and SDK
@@ -286,6 +286,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH adapter for contributed profile-menu items, including AAP Sign out.
 
 ### AAP integration
 
@@ -328,9 +329,10 @@ portal:
 `full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
 omits both. AAP authentication, host services, Administration, and Settings
 remain available. Without a configured installed landing page, `/` shows the
-neutral Portal fallback. The header omits Create when the Templates adapter is
-absent. Existing content browsing pages still belong to portal-scaffolder;
-removing that contributor also removes those pages.
+neutral Portal fallback. The global header has no Create shortcut. Use the
+installed pages and their page-level actions to start workflows. Existing content
+browsing pages still belong to portal-scaffolder; removing that contributor also
+removes those pages.
 
 These presets are development/test conveniences, not production configuration,
 authorization policy, or a list of supported plugins. The explicit legacy
@@ -546,7 +548,7 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-All 19 package references are linked in [Available Plugins](#available-plugins).
+Package references are linked in [Available Plugins](#available-plugins).
 The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
 APME, and Self-service ownership.
 
