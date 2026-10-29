@@ -890,7 +890,9 @@ describe('AAPClient', () => {
 
         const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
         expect(requestBody.extra_vars).toContain('flag: "no"');
-        expect(requestBody.extra_vars).toContain('account_id: 9007199254740993');
+        expect(requestBody.extra_vars).toContain(
+          'account_id: 9007199254740993',
+        );
       });
     });
 
