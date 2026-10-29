@@ -1628,6 +1628,8 @@ describe('createEEDefinition', () => {
         },
       },
     ]);
+    const source = collection.sources![0];
+    const version = collection.sourceVersions![source]![0]!;
     const action = makeAction(
       makeScmConfig({
         github: [{ name: 'github-public', host: 'github.com' }],
@@ -1640,8 +1642,8 @@ describe('createEEDefinition', () => {
       collections: [
         {
           name: collection.name,
-          source: collection.sources![0],
-          version: '1.0.0',
+          source,
+          version,
         },
       ],
     });

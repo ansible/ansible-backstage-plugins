@@ -107,8 +107,7 @@ describe('Phase 0 contract freeze: action IDs', () => {
   });
 });
 
-// Must stay in sync with `module.ts` `addTemplateFilters({ ... })` keys.
-const MODULE_REGISTERED_TEMPLATE_FILTERS = {
+const EXPORTED_TEMPLATE_FILTERS = {
   useCaseNameFilter,
   resourceFilter,
   multiResourceFilter,
@@ -116,15 +115,15 @@ const MODULE_REGISTERED_TEMPLATE_FILTERS = {
 };
 
 describe('Phase 0 contract freeze: template filters (target: scaffolder-backend-module-aap)', () => {
-  it('registers exactly the four template filters wired in module.ts', () => {
-    expect(Object.keys(MODULE_REGISTERED_TEMPLATE_FILTERS).sort()).toEqual([
+  it('exports exactly the four template filters', () => {
+    expect(Object.keys(EXPORTED_TEMPLATE_FILTERS).sort()).toEqual([
       'multiResourceFilter',
       'resourceFilter',
       'useCaseNameFilter',
       'uuidFilter',
     ]);
     expect(
-      Object.values(MODULE_REGISTERED_TEMPLATE_FILTERS).every(
+      Object.values(EXPORTED_TEMPLATE_FILTERS).every(
         filter => typeof filter === 'function',
       ),
     ).toBe(true);

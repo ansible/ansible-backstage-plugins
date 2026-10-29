@@ -36,6 +36,10 @@ jest.mock('@ansible/backstage-rhaap-common', () => ({
 
 // import mocks for assertions
 import {
+  createEEDefinitionAction,
+  prepareForPublishAction,
+} from './actions';
+import {
   multiResourceFilter,
   resourceFilter,
   useCaseNameFilter,
@@ -102,6 +106,15 @@ describe('scaffolderModuleAnsible', () => {
       'action7',
       'action9',
     ]);
+    expect(createEEDefinitionAction).toHaveBeenCalledWith({
+      frontendUrl: 'http://localhost:3000',
+      auth: fakeEnv.auth,
+      discovery: fakeEnv.discovery,
+      config: fakeEnv.config,
+    });
+    expect(prepareForPublishAction).toHaveBeenCalledWith({
+      rootConfig: fakeEnv.config,
+    });
 
     // --- Verify template filters ---
     expect(
