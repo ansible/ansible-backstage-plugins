@@ -1,5 +1,15 @@
 /** NFS adapters only. Importing this entry point never registers a plugin. */
 export {
+  AppProfileMenuItemBlueprint,
+  appProfileMenuItemDataRef,
+} from './nfs/AppProfileMenuItemBlueprint';
+export type {
+  AppProfileMenuAction,
+  AppProfileMenuItemParams,
+  AppProfileMenuItemDescriptor,
+  ResolvedAppProfileMenuItem,
+} from './nfs/AppProfileMenuItemBlueprint';
+export {
   CatalogTableColumnBlueprint,
   catalogTableColumnDataRef,
 } from './nfs/CatalogTableColumnBlueprint';

@@ -564,7 +564,9 @@ export const HomeComponent = () => {
           onSyncClick={ShowSyncConfirmationDialog}
           syncDisabled={isSyncInProgress}
           syncDisabledReason={
-            isSyncInProgress ? 'Sync in progress...' : undefined
+            isSyncInProgress && templateSyncProgress.length === 0
+              ? 'Sync in progress...'
+              : undefined
           }
           syncInProgress={isSyncInProgress}
           syncProgress={templateSyncProgress}

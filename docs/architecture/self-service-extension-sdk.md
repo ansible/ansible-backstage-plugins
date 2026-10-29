@@ -8,7 +8,7 @@
 > **Status:** Draft
 > **Author:** AI-assisted design session
 > **Scope:** Extract reusable components and create an extension SDK for the self-service plugin
-> **Jira:** [Portal Plugin Factory feature](https://redhat.atlassian.net/browse/ANSTRAT-2497) — Portal Plugin Factory: Plugin Development Guide and SDK
+> **Program:** Portal Plugin Factory — Plugin Development Guide and SDK
 
 > **Positioning:** This document proposes an initial extension layer for the broader Automation Portal Plugin Factory
 > SDK. It delivers the self-service plugin's extension surface:

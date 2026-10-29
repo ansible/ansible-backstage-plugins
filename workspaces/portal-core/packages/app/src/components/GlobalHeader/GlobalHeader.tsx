@@ -9,7 +9,6 @@ import {
   MenuItem,
 } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
-import AddIcon from '@material-ui/icons/Add';
 import AccountCircle from '@material-ui/icons/AccountCircle';
 import { makeStyles, alpha } from '@material-ui/core/styles';
 import { Link, useNavigate } from 'react-router-dom';
@@ -19,8 +18,10 @@ import {
   configApiRef,
   errorApiRef,
 } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef, performAapLogout } from '@ansible/aap-app-auth';
 import { useState } from 'react';
+import type { ResolvedAppProfileMenuItem } from '@ansible/portal-extension-api/alpha';
+import { ProfileMenuItems } from '@ansible/portal-plugin-sdk';
 
 const useStyles = makeStyles(theme => ({
   appBar: {
@@ -118,8 +119,10 @@ const useStyles = makeStyles(theme => ({
 }));
 
 export const GlobalHeader = ({
-  createPath,
-}: Readonly<{ createPath?: string }>) => {
+  profileItems,
+}: Readonly<{
+  profileItems?: readonly ResolvedAppProfileMenuItem[];
+}>) => {
   const classes = useStyles();
   const navigate = useNavigate();
   const identityApi = useApi(identityApiRef);
@@ -139,27 +142,12 @@ export const GlobalHeader = ({
 
   const handleLogout = async () => {
     handleMenuClose();
-
-    try {
-      // Revoke AAP OAuth token via backend /api/auth/rhaap/logout
-      await rhAapAuthApi.signOut();
-    } catch {
-      // Ignore if not logged into AAP
-    }
-
-    // Sign out from primary identity provider (e.g. GitHub / Gitlab)
-    // This clears the local Backstage session state
-    identityApi.signOut().catch(error => errorApi.post(error));
-
-    // Redirect to AAP logout to end the AAP browser session.
-    // This must be a top-level navigation so the browser sends the
-    // gateway_sessionid cookie (SameSite=Lax).
-    const aapHost = config
-      .getOptionalString('ansible.rhaap.baseUrl')
-      ?.replace(/\/$/, '');
-    if (aapHost) {
-      window.location.href = `${aapHost}/api/gateway/v1/logout/`;
-    }
+    await performAapLogout({
+      auth: rhAapAuthApi,
+      identity: identityApi,
+      config,
+      errors: errorApi,
+    });
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
@@ -200,16 +188,6 @@ export const GlobalHeader = ({
 
         <div className={classes.spacer} />
 
-        {createPath && (
-          <IconButton
-            className={classes.iconButton}
-            onClick={() => navigate(createPath)}
-            title="Create..."
-          >
-            <AddIcon />
-          </IconButton>
-        )}
-
         <IconButton
           edge="end"
           onClick={handleProfileMenuOpen}
@@ -243,9 +221,18 @@ export const GlobalHeader = ({
           >
             Settings
           </MenuItem>
-          <MenuItem onClick={handleLogout} className={classes.menuItem}>
-            Logout
-          </MenuItem>
+          <ProfileMenuItems
+            items={profileItems ?? []}
+            onClose={handleMenuClose}
+          />
+          {/* Keep source-app logout available when contribution resolution fails. */}
+          {!profileItems?.some(
+            item => item.id === 'app-profile-menu-item:app/aap-logout',
+          ) && (
+            <MenuItem onClick={handleLogout} className={classes.menuItem}>
+              Sign out
+            </MenuItem>
+          )}
         </Menu>
       </Toolbar>
     </AppBar>
