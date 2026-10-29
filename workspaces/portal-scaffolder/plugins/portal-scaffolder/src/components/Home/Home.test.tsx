@@ -796,9 +796,9 @@ describe('self-service', () => {
           expect(
             mockCatalogApi.queryEntities.mock.calls.length,
           ).toBeGreaterThan(queryCallsBeforeSync);
-          expect(screen.getByTestId('provider-job-template-ids')).toHaveTextContent(
-            '1,2',
-          );
+          expect(
+            screen.getByTestId('provider-job-template-ids'),
+          ).toHaveTextContent('1,2');
           expect(
             screen.getByTestId('provider-job-template-2-name'),
           ).toHaveTextContent('Renamed Template');
