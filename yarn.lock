@@ -235,6 +235,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-auth-backend-module-rhaap-provider@workspace:workspaces/aap/plugins/auth-backend-module-rhaap-provider"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-defaults": "npm:^0.16.0"
     "@backstage/backend-dynamic-feature-service": "npm:^0.8.0"
