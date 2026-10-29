@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
-import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
+import { fetchCatalogContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import { SyncStatusMap } from '../common';
 import { filterCollectionsByRepository, sortEntities } from './utils';
 import { PAGE_SIZE } from './constants';
@@ -254,31 +254,24 @@ export function usePaginatedCollections({
   const fetchSyncStatus = useCallback(async () => {
     try {
       const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const response = await fetchContentSyncStatus(fetchApi, baseUrl);
+      const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
 
-      if (!response.ok) {
+      if (!data?.content) {
         if (isMountedRef.current) {
           setHasConfiguredSources(false);
         }
         return;
       }
 
-      const data = await response.json();
       const statusMap: SyncStatusMap = {};
-      const providers = data.content?.providers || [];
+      const providers = data.content.providers || [];
 
-      providers.forEach(
-        (provider: {
-          sourceId: string;
-          lastSyncTime: string | null;
-          lastFailedSyncTime: string | null;
-        }) => {
-          statusMap[provider.sourceId] = {
-            lastSyncTime: provider.lastSyncTime,
-            lastFailedSyncTime: provider.lastFailedSyncTime,
-          };
-        },
-      );
+      providers.forEach(provider => {
+        statusMap[provider.sourceId] = {
+          lastSyncTime: provider.lastSyncTime,
+          lastFailedSyncTime: provider.lastFailedSyncTime ?? null,
+        };
+      });
 
       if (isMountedRef.current) {
         setSyncStatusMap(statusMap);
