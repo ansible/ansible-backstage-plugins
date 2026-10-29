@@ -1,4 +1,6 @@
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
+import type { ReactElement } from 'react';
+import { RequiresContentPermission } from '../common/RequiresContentPermission';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -27,7 +29,15 @@ import { CollectionMetadata } from './CollectionMetadata';
 import { CollectionEnvironmentsTable } from './CollectionEnvironmentsTable';
 
 /** Collection versions and artifact relationships, with shared ansible-doc rendering. */
-export function CollectionDetailsPage() {
+export function CollectionDetailsPage(): ReactElement {
+  return (
+    <RequiresContentPermission>
+      <CollectionDetailsContent />
+    </RequiresContentPermission>
+  );
+}
+
+function CollectionDetailsContent() {
   const { namespace = '', name = '' } = useParams<{
     namespace: string;
     name: string;

@@ -27,6 +27,7 @@
     "dist-scalprum"
   ],
   "dependencies": {
+    "@ansible/automation-content-common": "workspace:^",
     "@ansible/content-model": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
     "@backstage/core-compat-api": "0.5.14",
@@ -34,6 +35,7 @@
     "@backstage/core-plugin-api": "1.12.9",
     "@backstage/frontend-plugin-api": "0.18.0",
     "@backstage/plugin-catalog-react": "3.2.2",
+    "@backstage/plugin-permission-react": "0.5.4",
     "@backstage/theme": "0.7.3",
     "@backstage/ui": "^0.19.0",
     "@material-ui/icons": "^4.9.1",

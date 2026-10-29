@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import { RequiresContentPermission } from './common/RequiresContentPermission';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
@@ -295,10 +297,12 @@ function LandingContent() {
 }
 
 /** Registry health, inventory summary and admin-only sync with per-registry feedback. */
-export function ContentLandingPage() {
+export function ContentLandingPage(): ReactElement {
   return (
-    <NotificationProvider>
-      <LandingContent />
-    </NotificationProvider>
+    <RequiresContentPermission>
+      <NotificationProvider>
+        <LandingContent />
+      </NotificationProvider>
+    </RequiresContentPermission>
   );
 }

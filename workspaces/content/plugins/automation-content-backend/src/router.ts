@@ -4,15 +4,19 @@ import {
   AuthService,
   HttpAuthService,
   LoggerService,
+  PermissionsService,
   UserInfoService,
 } from '@backstage/backend-plugin-api';
 import { CatalogClient } from '@backstage/catalog-client';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { automationContentViewPermission } from '@ansible/automation-content-common/permissions';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
 
 export interface RouterOptions {
   index: ContentIndex;
   logger: LoggerService;
   httpAuth: HttpAuthService;
+  permissions: PermissionsService;
   auth: AuthService;
   userInfo: UserInfoService;
   catalogClient: CatalogClient;
@@ -125,9 +129,39 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger, httpAuth, auth, userInfo, catalogClient } = options;
+  const {
+    index,
+    logger,
+    httpAuth,
+    auth,
+    userInfo,
+    catalogClient,
+    permissions,
+  } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
+
+  // Reads are permission-gated; sync operations remain superuser-only.
+  const requireContentView = async (
+    req: unknown,
+    res: RouteResponse,
+    next: () => void,
+  ): Promise<void> => {
+    const credentials = await httpAuth.credentials(
+      req as Parameters<HttpAuthService['credentials']>[0],
+    );
+    const [decision] = await permissions.authorize(
+      [{ permission: automationContentViewPermission }],
+      { credentials },
+    );
+    if (decision.result === AuthorizeResult.ALLOW) {
+      next();
+    } else {
+      res
+        .status(403)
+        .json({ error: 'Forbidden: ansible.content.view permission required' });
+    }
+  };
 
   /**
    * Reuse the AAP backend's catalog annotation check; never trust UI gating.
@@ -169,9 +203,13 @@ export async function createRouter(
     res.json({ status: 'ok' });
   });
 
+  // Reads are permission-gated below, each route explicitly, so the OpenAPI
+  // contract stays a truthful list of real paths (a catch-all GET would show
+  // up in the spec as a bogus wildcard entry).
+
   // -- Registries ---------------------------------------------------------
 
-  router.get('/registries', (_req, res) => {
+  router.get('/registries', requireContentView, (_req, res) => {
     res.json({
       items: index.listRegistries().map(state => {
         const reconcile = index.reconcileStateFor(state.connection.name);
@@ -216,7 +254,7 @@ export async function createRouter(
   });
 
   /** Cheap drift check: does the registry still match the index? */
-  router.post('/registries/:name/poll', async (req, res) => {
+  router.post('/registries/:name/poll', requireSuperuser, async (req, res) => {
     const { name } = req.params;
     if (!index.getRegistry(name)) {
       res.status(404).json({
@@ -365,22 +403,26 @@ export async function createRouter(
     res.json(artifactView(index, artifact));
   };
 
-  router.get('/content', listContent);
-  router.get('/content/:ref(*)/contents', getContents);
-  router.get('/content/:ref(*)', getContent);
+  router.get('/content', requireContentView, listContent);
+  router.get('/content/:ref(*)/contents', requireContentView, getContents);
+  router.get('/content/:ref(*)', requireContentView, getContent);
 
   // Aliases retained so existing callers keep working. They are thin filters over the
   // type-agnostic handlers, not parallel implementations.
-  router.get('/execution-environments', (req, res) => {
+  router.get('/execution-environments', requireContentView, (req, res) => {
     req.query.type = EE_TYPE;
     listContent(req, res);
   });
-  router.get('/execution-environments/:ref(*)/contents', getContents);
-  router.get('/execution-environments/:ref(*)', getContent);
+  router.get(
+    '/execution-environments/:ref(*)/contents',
+    requireContentView,
+    getContents,
+  );
+  router.get('/execution-environments/:ref(*)', requireContentView, getContent);
 
   // -- Collections --------------------------------------------------------
 
-  router.get('/collections', (req, res) => {
+  router.get('/collections', requireContentView, (req, res) => {
     const q =
       typeof req.query.q === 'string' ? req.query.q.toLowerCase() : undefined;
     const items = index
@@ -410,38 +452,42 @@ export async function createRouter(
     res.json({ items });
   });
 
-  router.get('/collections/:namespace/:name', (req, res) => {
-    const fqcn = `${req.params.namespace}.${req.params.name}`;
-    const matches = index.listCollections().filter(c => c.fqcn === fqcn);
-    if (matches.length === 0) {
-      res.status(404).json({
-        error: `Collection not found: ${fqcn}`,
-        code: 'COLLECTION_NOT_FOUND',
+  router.get(
+    '/collections/:namespace/:name',
+    requireContentView,
+    (req, res) => {
+      const fqcn = `${req.params.namespace}.${req.params.name}`;
+      const matches = index.listCollections().filter(c => c.fqcn === fqcn);
+      if (matches.length === 0) {
+        res.status(404).json({
+          error: `Collection not found: ${fqcn}`,
+          code: 'COLLECTION_NOT_FOUND',
+        });
+        return;
+      }
+      const collection = matches[0];
+      res.json({
+        namespace: collection.namespace,
+        name: collection.name,
+        fqcn,
+        version: collection.version,
+        description: collection.description,
+        repository: collection.repository,
+        counts: {
+          plugins: collection.plugins.length,
+          roles: collection.roles.length,
+          playbooks: collection.playbooks.length,
+          edaPlugins: collection.edaPlugins.length,
+          rulebooks: collection.rulebooks.length,
+        },
+        versions: matches.map(m => ({
+          version: m.version,
+          providedBy: m.providedBy,
+        })),
+        providedBy: collection.providedBy,
       });
-      return;
-    }
-    const collection = matches[0];
-    res.json({
-      namespace: collection.namespace,
-      name: collection.name,
-      fqcn,
-      version: collection.version,
-      description: collection.description,
-      repository: collection.repository,
-      counts: {
-        plugins: collection.plugins.length,
-        roles: collection.roles.length,
-        playbooks: collection.playbooks.length,
-        edaPlugins: collection.edaPlugins.length,
-        rulebooks: collection.rulebooks.length,
-      },
-      versions: matches.map(m => ({
-        version: m.version,
-        providedBy: m.providedBy,
-      })),
-      providedBy: collection.providedBy,
-    });
-  });
+    },
+  );
 
   // -- Content items (Level B) --------------------------------------------
 
@@ -529,16 +575,16 @@ export async function createRouter(
     });
   };
 
-  router.get('/content-items', searchItems);
-  router.get('/content-items/:fqcn', getItem);
+  router.get('/content-items', requireContentView, searchItems);
+  router.get('/content-items/:fqcn', requireContentView, getItem);
 
   // Aliases: `plugins` is execution-environment vocabulary and does not generalise.
-  router.get('/plugins', searchItems);
-  router.get('/plugins/:fqcn', getItem);
+  router.get('/plugins', requireContentView, searchItems);
+  router.get('/plugins/:fqcn', requireContentView, getItem);
 
   // -- Resolution ---------------------------------------------------------
 
-  router.post('/resolve/requirements', (req, res) => {
+  router.post('/resolve/requirements', requireContentView, (req, res) => {
     // Validate at the boundary: a malformed body must read as a 400, not a 500
     // from a `.map` on a non-array or an entry with no name.
     const raw = req.body?.collections;
@@ -669,7 +715,7 @@ export async function createRouter(
 
   // -- Configuration as code ----------------------------------------------
 
-  router.get('/config/export', (req, res) => {
+  router.get('/config/export', requireContentView, (req, res) => {
     const config = {
       apiVersion: 'content.ansible.com/v1',
       kind: 'ContentConfiguration',
@@ -705,7 +751,7 @@ export async function createRouter(
     res.json(config);
   });
 
-  router.post('/config/validate', (req, res) => {
+  router.post('/config/validate', requireContentView, (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];
     const body = req.body ?? {};

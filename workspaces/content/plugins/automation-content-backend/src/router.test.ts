@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { ContentIndex } from './ContentIndex';
 import { createRouter } from './router';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 const logger = {
   info: () => {},
@@ -15,12 +16,20 @@ async function appWith(
   index: ContentIndex,
   httpAuth?: unknown,
   superuser = true,
+  allowed = true,
 ) {
   const app = express();
   app.use(
     await createRouter({
       index,
       logger,
+      permissions: {
+        authorize: jest
+          .fn()
+          .mockResolvedValue([
+            { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
+          ]),
+      } as never,
       userInfo: {
         getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
       } as never,
@@ -55,6 +64,19 @@ async function appWith(
   );
   return app;
 }
+
+it('denies content reads without ansible.content.view', async () => {
+  const app = await appWith(seed([]), undefined, true, false);
+  const response = await request(app).get('/collections').expect(403);
+  expect(response.body).toEqual({
+    error: 'Forbidden: ansible.content.view permission required',
+  });
+  await request(app)
+    .post('/resolve/requirements')
+    .send({ collections: [] })
+    .expect(403);
+  await request(app).get('/health').expect(200);
+});
 
 /**
  * Seed the index without touching a registry.

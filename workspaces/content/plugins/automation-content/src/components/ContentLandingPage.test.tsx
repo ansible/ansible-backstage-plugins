@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { TestApiProvider } from '@backstage/test-utils';
+import { TestApiProvider, mockApis } from '@backstage/test-utils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { automationContentApiRef } from '../api';
 import { ContentLandingPage } from './ContentLandingPage';
 
@@ -20,6 +21,7 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
 }));
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
+  useApp: () => ({}),
   useRouteRef: () => () => '/catalog',
 }));
 
@@ -30,6 +32,7 @@ it.each([true, false])(
     render(
       <TestApiProvider
         apis={[
+          [permissionApiRef, mockApis.permission()],
           [
             automationContentApiRef,
             {
@@ -78,6 +81,7 @@ it('renders a failed registry and reports each registry sync outcome', async () 
   render(
     <TestApiProvider
       apis={[
+        [permissionApiRef, mockApis.permission()],
         [
           automationContentApiRef,
           {
@@ -129,6 +133,7 @@ it('syncs the chosen registry without triggering sync all', async () => {
   render(
     <TestApiProvider
       apis={[
+        [permissionApiRef, mockApis.permission()],
         [
           automationContentApiRef,
           {

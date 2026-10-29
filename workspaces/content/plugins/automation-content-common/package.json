@@ -23,10 +23,16 @@
     "dist"
   ],
   "dependencies": {
-    "@ansible/content-model": "workspace:^"
+    "@ansible/content-model": "workspace:^",
+    "@backstage/plugin-permission-common": "^0.9.7"
   },
   "devDependencies": {
     "@backstage/cli": "0.36.5",
     "msw": "^2.11.4"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./package.json": "./package.json"
   }
 }

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { TestApiProvider } from '@backstage/test-utils';
+import { TestApiProvider, mockApis } from '@backstage/test-utils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { automationContentApiRef, type Collection } from '../../api';
 import { CollectionsCatalogPage } from './CollectionsCatalogPage';
@@ -7,6 +8,7 @@ import { CollectionDetailsPage } from './CollectionDetailsPage';
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
+  useApp: () => ({}),
   useRouteRef: () => () => '/automation-content/collections',
 }));
 jest.mock('../ContentItemDocumentation', () => ({
@@ -46,7 +48,12 @@ const api = {
 
 function mount(path: string) {
   return render(
-    <TestApiProvider apis={[[automationContentApiRef, api]]}>
+    <TestApiProvider
+      apis={[
+        [permissionApiRef, mockApis.permission()],
+        [automationContentApiRef, api],
+      ]}
+    >
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/" element={<CollectionsCatalogPage />} />
