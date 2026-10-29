@@ -70,6 +70,16 @@ describe('authenticator', () => {
         refreshToken: 'test-refresh',
       }),
     );
+    await authenticator.logout!(
+      { refreshToken: 'test-refresh' } as any,
+      context,
+    );
+    expect(mockAAPService.rhAAPRevokeToken).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        host: 'http://host.containers.internal:8099',
+        token: 'test-refresh',
+      }),
+    );
   });
   it('authenticator works', async () => {
     const aapAuthAuthenticator = createAuthenticator(mockAAPService as any);
@@ -142,6 +152,8 @@ describe('authenticator', () => {
     );
 
     expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      host: DEFAULT_HOST,
+      checkSSL: CHECK_SSL,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
       token: 'myRefreshToken',
@@ -176,6 +188,8 @@ describe('authenticator', () => {
     );
 
     expect(mockAAPService.rhAAPRevokeToken).toHaveBeenCalledWith({
+      host: DEFAULT_HOST,
+      checkSSL: CHECK_SSL,
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
       token: 'myAccessToken',

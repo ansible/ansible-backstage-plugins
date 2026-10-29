@@ -2,6 +2,7 @@ import { Config } from '@backstage/config';
 
 export type RhaapProviderConfig = {
   host: string;
+  tokenHost: string;
   clientId: string;
   clientSecret: string;
   callbackURL: string;
@@ -17,6 +18,9 @@ export function readRhaapProviderConfig(
 
   let host = providerConfig.getString('host');
   host = host.endsWith('/') ? host.slice(0, -1) : host;
+  const tokenHost = (
+    providerConfig.getOptionalString('tokenHost') ?? host
+  ).replace(/\/$/, '');
 
   const callbackURL =
     providerConfig.getOptionalString('callbackUrl') ??
@@ -24,6 +28,7 @@ export function readRhaapProviderConfig(
 
   return {
     host,
+    tokenHost,
     clientId: providerConfig.getString('clientId'),
     clientSecret: providerConfig.getString('clientSecret'),
     callbackURL,
