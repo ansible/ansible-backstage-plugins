@@ -798,6 +798,25 @@ describe('sub-path mounted registries', () => {
     // kept the page's path and only changed the query.
     expect(seen[2]).toBe(`${PREFIX}/v2/ansible/ee/tags/list?n=100&last=a`);
   });
+
+  it('refuses a client-built path that escapes the mount', async () => {
+    // Client-built paths are this client's own constants, so this branch is
+    // defense in depth: a `..` segment must not be able to leave the
+    // configured path while staying same-origin. The fetch is never issued.
+    const seen: string[] = [];
+    const fetchImpl = async (url: string) => {
+      seen.push(url);
+      return new Response('{}', { status: 200 });
+    };
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl as never,
+    });
+
+    await expect(client.request('/../escape')).rejects.toThrow(
+      'refusing request path that leaves the configured registry path',
+    );
+    expect(seen).toEqual([]);
+  });
 });
 
 describe('refusal messages carry no registry-controlled text', () => {

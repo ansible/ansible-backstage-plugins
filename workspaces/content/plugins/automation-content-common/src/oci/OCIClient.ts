@@ -303,7 +303,9 @@ export class OCIClient {
    *    prefix, and the URL parser cannot be trusted to do this on its own,
    *    because a path starting with `/` restarts from the host's root. The
    *    registry would then answer 404 and the portal would show an empty
-   *    catalog that looks legitimate.
+   *    catalog that looks legitimate. After parsing, client-built paths are
+   *    also required to land inside the mount — a `..` segment could
+   *    otherwise leave it while staying same-origin.
    *
    * 2. Pagination Link headers chosen by the registry, with `from` set to the
    *    URL of the page that carried them. These resolve the way the Link
@@ -337,11 +339,11 @@ export class OCIClient {
       );
     }
     let target: URL;
+    // Trim trailing slashes without a regex — same reasoning as the `base`
+    // getter above.
+    let basePath = base.pathname;
+    while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
     try {
-      // Trim trailing slashes without a regex — same reasoning as the `base`
-      // getter above.
-      let basePath = base.pathname;
-      while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
       if (path.startsWith('/')) {
         // Root-relative. Client-built API paths always need the mount
         // prefix. A registry-controlled link may already carry it (proxies
@@ -371,6 +373,24 @@ export class OCIClient {
         `[${this.connection.name}] refusing pagination link that points ` +
           `away from the configured registry`,
       );
+    }
+    // Client-built paths (no `from`) are this client's own constants, and
+    // they must land inside the configured mount — a `..` segment or a
+    // non-root-relative path could otherwise slip outside it while staying
+    // same-origin. Registry-controlled links keep the origin-only rule
+    // above: a same-origin link outside the mount is followed by design,
+    // since registries legitimately serve some endpoints elsewhere under
+    // the same host.
+    if (from === undefined && basePath !== '') {
+      const insideMount =
+        target.pathname === basePath ||
+        target.pathname.startsWith(`${basePath}/`);
+      if (!insideMount) {
+        throw new Error(
+          `[${this.connection.name}] refusing request path that leaves ` +
+            `the configured registry path`,
+        );
+      }
     }
     return target.toString();
   }
