@@ -5,7 +5,7 @@ import {
 import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
-import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
+import { ansiblePermissions } from '@ansible/aap-common/permissions';
 import { createRouter } from './router';
 import {
   catalogModelExtensionPoint,
