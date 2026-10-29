@@ -213,11 +213,12 @@ export const aapAuthAuthenticator = (aapService: IAAPService) =>
       return { ...result, fullProfile };
     },
 
-    async logout(input, { host, clientId, clientSecret }) {
+    async logout(input, { host, checkSSL, clientId, clientSecret }) {
       const token = input.refreshToken ?? input.accessToken;
       if (token) {
         await aapService.rhAAPRevokeToken({
           host,
+          checkSSL,
           clientId,
           clientSecret,
           token,

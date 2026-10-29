@@ -2,7 +2,7 @@ import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { AuthenticationError } from '@backstage/errors';
 import { AAPClient } from './AAPClient';
-import { fetch } from 'undici';
+import { Agent, fetch } from 'undici';
 import { AnsibleConfig } from '../types';
 import { TERMINAL_JOB_STATUSES } from '../constants';
 import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
@@ -3769,15 +3769,54 @@ describe('AAPClient', () => {
           code: 'test-code',
         });
 
-        const fetchUrl = mockFetch.mock.calls[0][0];
-        expect(fetchUrl).toBe('https://aap.example.com/api/o/token/');
-        expect(fetchUrl).not.toContain(
-          mockConfig.getOptionalString('ansible.rhaap.baseUrl'),
+        expect(mockFetch.mock.calls[0][0]).toBe(
+          'https://aap.example.com/api/o/token/',
+        );
+      });
+
+      it('should use options.checkSSL for the token exchange TLS agent', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ access_token: 'token' }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://aap.example.com/api',
+          checkSSL: false,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        const MockAgent = Agent as unknown as jest.Mock;
+        const agentIndex = MockAgent.mock.calls.findIndex(
+          ([opts]) => opts?.connect?.rejectUnauthorized === false,
+        );
+        expect(agentIndex).toBeGreaterThanOrEqual(0);
+        expect(mockFetch.mock.calls[0][1].dispatcher).toBe(
+          MockAgent.mock.instances[agentIndex],
         );
       });
     });
 
     describe('rhAAPRevokeToken', () => {
+      it('should fall back to baseUrl when host is empty', async () => {
+        mockFetch.mockResolvedValue({ ok: true });
+
+        await client.rhAAPRevokeToken({
+          host: '',
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          token: 'test-refresh-token',
+        });
+
+        expect(mockFetch.mock.calls[0][0]).toBe(
+          'https://test.example.com/o/revoke_token/',
+        );
+      });
+
       it('should revoke token successfully', async () => {
         const mockResponse = { ok: true };
         mockFetch.mockResolvedValue(mockResponse);

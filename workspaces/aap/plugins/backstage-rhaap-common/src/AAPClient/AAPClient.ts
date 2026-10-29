@@ -100,6 +100,7 @@ export class AAPClient implements IAAPService {
   private readonly ansibleConfig: AnsibleConfig;
   private readonly catalogConfig: CatalogConfig;
   private readonly proxyAgent: Agent;
+  private readonly oauthAgents = new Map<boolean, Agent>();
   private readonly pluginLogName: string;
   private logger: LoggerService;
 
@@ -134,16 +135,31 @@ export class AAPClient implements IAAPService {
     return this.ansibleConfig.rhaap?.baseUrl?.replace(/\/+$/, '') || ''; // NOSONAR — URL normalization, bounded input
   }
 
+  // OAuth endpoints may live on the auth provider host, which has its own
+  // checkSSL setting independent of ansible.rhaap.checkSSL.
+  private getAgent(checkSSL?: boolean): Agent {
+    if (checkSSL === undefined) {
+      return this.proxyAgent;
+    }
+    let agent = this.oauthAgents.get(checkSSL);
+    if (!agent) {
+      agent = new Agent({ connect: { rejectUnauthorized: checkSSL } });
+      this.oauthAgents.set(checkSSL, agent);
+    }
+    return agent;
+  }
+
   public async executePostRequest(
     endPoint: string,
     token?: string,
     data?: any,
     auth: boolean = false,
-    baseUrlOverride?: string,
+    target?: { baseUrl?: string; checkSSL?: boolean },
   ): Promise<any> {
     const normalizedEndPoint = endPoint.replace(/^\/+/, '');
-    const base = baseUrlOverride?.replace(/\/+$/, '') ?? this.getBaseUrl();
+    const base = target?.baseUrl?.replace(/\/+$/, '') || this.getBaseUrl(); // NOSONAR — URL normalization, bounded input
     const url = `${base}/${normalizedEndPoint}`;
+    const dispatcher = this.getAgent(target?.checkSSL);
     this.logger.info(
       `[${this.pluginLogName}]: Executing post request to ${url}.`,
     );
@@ -153,7 +169,7 @@ export class AAPClient implements IAAPService {
     if (auth && !token) {
       requestOptions = {
         method: 'POST',
-        dispatcher: this.proxyAgent,
+        dispatcher,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
@@ -162,7 +178,7 @@ export class AAPClient implements IAAPService {
     } else {
       requestOptions = {
         method: 'POST',
-        dispatcher: this.proxyAgent,
+        dispatcher,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -1012,9 +1028,8 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
     data.append('redirect_uri', options.callbackURL);
-    const authBaseUrl = options.host.replace(/\/+$/, '');
     this.logger.info(
-      `[${this.pluginLogName}]: Authenticating with RH AAP at ${authBaseUrl}/${endPoint}.`,
+      `[${this.pluginLogName}]: Authenticating with RH AAP at ${options.host}.`,
     );
 
     let response;
@@ -1024,7 +1039,10 @@ export class AAPClient implements IAAPService {
         undefined,
         data,
         true,
-        authBaseUrl,
+        {
+          baseUrl: options.host,
+          checkSSL: options.checkSSL,
+        },
       );
     } catch (error) {
       throw new AuthenticationError(
@@ -1051,12 +1069,15 @@ export class AAPClient implements IAAPService {
    * Revokes an OAuth token from the Red Hat Ansible Automation Platform (RH AAP).
    *
    * @param options - The revocation options.
+   * @param options.host - The RH AAP OAuth host URL (optional, defaults to ansible.rhaap.baseUrl).
+   * @param options.checkSSL - Whether to verify SSL certificates for host (optional, defaults to ansible.rhaap.checkSSL).
    * @param options.clientId - The OAuth client ID.
    * @param options.clientSecret - The OAuth client secret.
    * @param options.token - The token to revoke (access or refresh token).
    */
   public async rhAAPRevokeToken(options: {
     host?: string;
+    checkSSL?: boolean;
     clientId: string;
     clientSecret: string;
     token: string;
@@ -1067,9 +1088,8 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
 
-    const revokeBaseUrl = options.host?.replace(/\/+$/, '');
     this.logger.info(
-      `[${this.pluginLogName}]: Revoking token from RH AAP at ${revokeBaseUrl ?? this.getBaseUrl()}/${endPoint}.`,
+      `[${this.pluginLogName}]: Revoking token from RH AAP at ${options.host || this.getBaseUrl()}.`,
     );
 
     const response = await this.executePostRequest(
@@ -1077,7 +1097,10 @@ export class AAPClient implements IAAPService {
       undefined,
       data,
       true,
-      revokeBaseUrl,
+      {
+        baseUrl: options.host,
+        checkSSL: options.checkSSL,
+      },
     );
 
     if (!response.ok) {
