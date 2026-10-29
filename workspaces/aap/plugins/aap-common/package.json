@@ -1,6 +1,6 @@
 {
   "name": "@ansible/aap-common",
-  "description": "Shared AAP types, permissions, and constants — isomorphic (browser + Node)",
+  "description": "Shared AAP types, permissions, constants, and utilities — isomorphic (browser + Node)",
   "version": "0.1.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
