@@ -186,10 +186,10 @@ Capture a machine-readable inventory before changing anything.
 
 | Item                                                                               | Status |
 | ---------------------------------------------------------------------------------- | ------ |
-| Register all `ansible:*` and `rhaap:*` action IDs                                  | ❌     |
-| Register autocomplete resources (`collections`, `collection_sources`, …)           | ❌     |
-| Document provider migration from `aap-api-cloud` to `aap-api` and `portal-catalog` | ❌     |
-| Capture the picker↔action source-string format as an explicit contract (§1.4)     | ❌     |
+| Register all `ansible:*` and `rhaap:*` action IDs                                  | ✅     |
+| Register autocomplete resources (`collections`, `collection_sources`, …)           | ✅     |
+| Document provider migration from `aap-api-cloud` to `aap-api` and `portal-catalog` | ✅     |
+| Capture the picker↔action source-string format as an explicit contract (§1.4)     | ✅     |
 
 ### Phase 1 — Split the backend module and replace EE routes
 
