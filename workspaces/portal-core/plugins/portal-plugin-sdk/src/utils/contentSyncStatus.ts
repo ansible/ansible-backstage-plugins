@@ -6,10 +6,7 @@ const SPLIT_CONTENT_SYNC_STATUS_URL = '/ansible/sync/status/content';
 
 type ContentSyncStatusRoute = 'legacy' | 'split';
 
-const resolvedRouteByCatalogBaseUrl = new Map<
-  string,
-  ContentSyncStatusRoute
->();
+const resolvedRouteByCatalogBaseUrl = new Map<string, ContentSyncStatusRoute>();
 
 /** Clears cached route choice (for tests). */
 export function clearContentSyncStatusRouteCache(): void {
@@ -27,9 +24,7 @@ export async function fetchContentSyncStatus(
 ): Promise<Response> {
   const cached = resolvedRouteByCatalogBaseUrl.get(catalogBaseUrl);
   if (cached === 'split') {
-    return fetchApi.fetch(
-      `${catalogBaseUrl}${SPLIT_CONTENT_SYNC_STATUS_URL}`,
-    );
+    return fetchApi.fetch(`${catalogBaseUrl}${SPLIT_CONTENT_SYNC_STATUS_URL}`);
   }
   if (cached === 'legacy') {
     const response = await fetchApi.fetch(
