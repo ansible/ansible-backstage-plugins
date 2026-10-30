@@ -52,8 +52,6 @@ export const scaffolderModulePortalScaffolder = createBackendModule({
             createAnsibleContentAction(config),
             createEEDefinitionAction({
               frontendUrl: config.getString('app.baseUrl'),
-              auth,
-              discovery,
               eeLifecycle,
               config,
             }),
