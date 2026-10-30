@@ -1,1 +1,0 @@
---8<-- "workspaces/portal-scaffolder/plugins/portal-scaffolder/README.md"
