@@ -2,6 +2,8 @@
 
 **Scope:** Convert Tina's execution-environment (EE) definition catalog, EE image catalog/details, and Ansible Collections catalog/details into the `automation-content` new-frontend-system plugin. Preserve the prototype's content and task flows, but use `@backstage/ui` (BUI) 0.19.x for UI. This is the implementation contract for the UI lanes.
 
+**Conversion principle (2026-10-29, user direction):** the prototype is ready-made code to take, not a design reference to reinterpret. Port the actual component code from `portal-prototypes` and keep its structure, logic, hooks, conditional gating, and copy. The only intended changes are (a) MUI → BUI primitive swaps where BUI has an equivalent, per the mapping table below, and (b) data-wiring adaptations the plugin's backend requires. Where BUI has no equivalent, keep the original component rather than redesigning. Net-new views are out of scope.
+
 ## Page contract and information hierarchy
 
 The plugin is mounted with `noHeader: true`; the host portal's global header is already present. Do not add a second global/page shell or duplicate the portal header. Wrap each route's content in one BUI `Container` (or a full-width `Box` only where a table/card grid must use all available width); do not use legacy `Page`/`Content` or `PluginHeader` as a replacement page shell.

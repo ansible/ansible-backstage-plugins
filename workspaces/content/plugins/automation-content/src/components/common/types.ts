@@ -12,6 +12,8 @@ export interface EmptyStateProps {
 export interface PageHeaderSectionProps {
   title: string;
   description?: string;
+  /** Optional prototype-style help tooltip beside the page title. */
+  tooltip?: string;
   help?: string;
   actions?: ReactNode;
   status?: ReactNode;

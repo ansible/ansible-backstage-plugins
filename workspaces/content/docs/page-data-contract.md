@@ -76,8 +76,14 @@ Tina's `EEDetailsPage` tabs, artifact data:
 | Content items             | `searchContentItems({ in: ref, … })`; item row navigates to item documentation                                                                                                                                                                                           |
 | Item documentation        | `getContentItem(fqcn, inArtifact)` — description, notes, options tree, examples, returns. This must preserve the old `ContentItemView` capability (ansible-doc style rendering), including the `variants` fallback behaviour in `AutomationContentClient.getContentItem` |
 
-Readme-from-git, links cards, resources cards and build/edit actions are
-**deferred** — they model definition authoring, not artifacts.
+Readme-from-git, links cards, and resources cards remain
+**deferred** (no git readme exists for registry artifacts). Build/edit
+actions moved into scope — see the capability register below.
+
+**Scope decision (2026-10-29):** EE definition workflows are retained in
+this plugin. Tina's prototype is the authoritative design. A different
+team (or this one, later) populates the definition data; the views ship
+now.
 
 ### Collections catalog (`/automation-content/collections`)
 
@@ -105,12 +111,12 @@ Readme card is **deferred** (no git readme exists for registry artifacts).
 
 ## Deferred capability register
 
-| Capability                          | Reason                                                                        | Where it lives instead |
-| ----------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
-| Build EE image dialog               | Authoring flow, not discovery; exists in production                           | portal-scaffolder      |
-| SCM token handling                  | Only needed by the build flow — **this plugin must not handle tokens at all** | portal-scaffolder      |
-| Edit / unregister entity            | Definition authoring                                                          | portal-scaffolder      |
-| Readme / links / resources from git | No SCM metadata on artifacts                                                  | —                      |
+| Capability                          | Reason                                                                                                                                     | Where it lives instead |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Build EE image dialog               | **In scope** (2026-10-29): definition workflows live here, per Tina's prototype; backend execution lands when the owning team populates it | here                   |
+| SCM token handling                  | Only needed by the build flow — **this plugin must not handle tokens at all**                                                              | portal-scaffolder      |
+| Edit / unregister entity            | **In scope** (2026-10-29): rendered per the prototype's entity-annotation gating                                                           | here                   |
+| Readme / links / resources from git | No SCM metadata on artifacts                                                                                                               | —                      |
 
 ## Testing requirements
 

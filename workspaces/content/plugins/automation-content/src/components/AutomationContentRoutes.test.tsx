@@ -7,6 +7,7 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
   useApp: () => ({}),
+  useRouteRef: () => () => '/automation-content/execution-environments',
 }));
 
 jest.mock('./ContentLandingPage', () => ({
@@ -14,6 +15,13 @@ jest.mock('./ContentLandingPage', () => ({
 }));
 jest.mock('./ExecutionEnvironments/ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => <div>Image catalog</div>,
+}));
+jest.mock('./ExecutionEnvironments/EECatalogPage', () => ({
+  EECatalogPage: ({ view }: { view: 'images' | 'catalog' | 'create' }) => {
+    if (view === 'images') return <div>Image catalog</div>;
+    if (view === 'catalog') return <div>Definition files catalog</div>;
+    return <div>Create templates</div>;
+  },
 }));
 jest.mock('./ExecutionEnvironments/EEDetailsPage', () => ({
   EEDetailsPage: () => <div>Image details</div>,
@@ -28,6 +36,8 @@ jest.mock('./CollectionsCatalog/CollectionDetailsPage', () => ({
 it.each([
   ['', 'Content landing'],
   ['/execution-environments', 'Image catalog'],
+  ['/execution-environments/catalog', 'Definition files catalog'],
+  ['/execution-environments/create', 'Create templates'],
   ['/execution-environments/example', 'Image details'],
   ['/collections', 'Collection catalog'],
   ['/collections/example/demo', 'Collection details'],

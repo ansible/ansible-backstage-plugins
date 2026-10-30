@@ -1,10 +1,12 @@
-import { Flex, Text } from '@backstage/ui';
+import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
+import { Button, Flex, Text, Tooltip, TooltipTrigger } from '@backstage/ui';
 import type { PageHeaderSectionProps } from './types';
 
 /** Route title and optional actions; essential help/status remains visible. */
 export function PageHeaderSection({
   title,
   description,
+  tooltip,
   help,
   actions,
   status,
@@ -17,9 +19,21 @@ export function PageHeaderSection({
         align="start"
         gap="4"
       >
-        <Text variant="title-large" as="h1">
-          {title}
-        </Text>
+        <Flex align="center" gap="2">
+          <Text variant="title-large" as="h1">
+            {title}
+          </Text>
+          {tooltip && (
+            <TooltipTrigger>
+              <Button
+                variant="tertiary"
+                iconStart={<HelpOutlineIcon />}
+                aria-label={`About ${title}`}
+              />
+              <Tooltip>{tooltip}</Tooltip>
+            </TooltipTrigger>
+          )}
+        </Flex>
         {actions}
       </Flex>
       {description && <Text as="p">{description}</Text>}
