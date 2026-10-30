@@ -1,19 +1,23 @@
 // ─── Re-exports from @ansible/backstage-rhaap-react ──────────────────────────
 // UI components — single source of truth going forward.
 export {
-  EmptyState,
   EntityLinkButton,
-  PageHeaderSection,
   ScmIntegrationAuthError,
   SkeletonLoader,
   SyncDialog,
   SyncProgressPopover,
 } from '@ansible/portal-plugin-sdk';
 export type {
-  EmptyStateProps,
   PageHeaderSectionProps,
+  EmptyStateProps,
   SyncDialogProps,
 } from '@ansible/portal-plugin-sdk';
+
+export { CatalogSyncHeader } from './CatalogSyncHeader';
+export type { CatalogSyncHeaderProps } from './CatalogSyncHeader';
+
+export { CollectionsEmptyState } from './CollectionsEmptyState';
+export type { CollectionsEmptyStateProps } from './CollectionsEmptyState';
 
 // Icons
 export { GitLabIcon, RedHatIcon } from '@ansible/portal-plugin-sdk';

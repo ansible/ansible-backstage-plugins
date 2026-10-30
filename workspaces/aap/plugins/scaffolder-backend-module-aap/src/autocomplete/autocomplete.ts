@@ -25,6 +25,7 @@ export async function handleAutocompleteRequest({
   ansibleService,
   auth,
   discovery,
+  includeCollections = true,
 }: {
   resource: string;
   token: string;
@@ -34,6 +35,7 @@ export async function handleAutocompleteRequest({
   ansibleService: IAAPService;
   auth: AuthService;
   discovery: DiscoveryService;
+  includeCollections?: boolean;
 }): Promise<{ results: any[] }> {
   const ansibleConfig = getAnsibleConfig(config);
 
@@ -49,7 +51,7 @@ export async function handleAutocompleteRequest({
       results: [{ id: 1, name: ansibleConfig.rhaap?.baseUrl }],
     };
   }
-  if (resource === 'collections') {
+  if (includeCollections && resource === 'collections') {
     return getCollections({
       auth,
       discovery,

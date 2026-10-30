@@ -1,0 +1,6 @@
+{
+  "extends": "@backstage/cli/config/tsconfig.json",
+  "compilerOptions": { "jsx": "react-jsx" },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

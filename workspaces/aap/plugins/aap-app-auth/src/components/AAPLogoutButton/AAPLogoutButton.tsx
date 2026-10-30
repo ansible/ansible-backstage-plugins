@@ -11,6 +11,7 @@ import Divider from '@mui/material/Divider';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { performAapLogout } from '../../logout';
 
 class SafeBoundary extends Component<
   PropsWithChildren<{}>,
@@ -37,27 +38,13 @@ const AAPLogoutButtonInner = () => {
   const rhAapAuthApi = useApi(rhAapAuthApiRef);
   const config = useApi(configApiRef);
 
-  const handleLogout = async () => {
-    try {
-      await rhAapAuthApi.signOut();
-    } catch {
-      // Ignore if not logged into AAP
-    }
-
-    identityApi.signOut().catch(error => errorApi.post(error));
-
-    const aapHost = config
-      .getOptionalString('ansible.rhaap.baseUrl')
-      ?.replace(/\/$/, '');
-    if (aapHost) {
-      try {
-        const validatedUrl = new URL(aapHost);
-        globalThis.location.href = `${validatedUrl.origin}/api/gateway/v1/logout/`;
-      } catch {
-        globalThis.location.href = '/';
-      }
-    }
-  };
+  const handleLogout = () =>
+    performAapLogout({
+      auth: rhAapAuthApi,
+      identity: identityApi,
+      config,
+      errors: errorApi,
+    });
 
   return (
     <>
