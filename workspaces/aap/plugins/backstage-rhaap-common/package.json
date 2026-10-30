@@ -21,6 +21,7 @@
     "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts",
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
+    "./EEEntityLifecycle": "./src/EEEntityLifecycle.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -45,6 +46,9 @@
       ],
       "catalogEntity": [
         "src/catalogEntity.ts"
+      ],
+      "EEEntityLifecycle": [
+        "src/EEEntityLifecycle.ts"
       ]
     }
   },
