@@ -1,2 +1,2 @@
 export { AdditionalBuildStepsPickerFieldExtension } from './extensions';
-export { AdditionalBuildStepsPickerExtension } from './AdditionalBuildStepsPickerExtension';
+export { AdditionalBuildStepsPickerExtension } from '@ansible/portal-scaffolder-react';
