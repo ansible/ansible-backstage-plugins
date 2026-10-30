@@ -7,6 +7,7 @@ describe('public exports', () => {
     'useFieldValidation',
     'EEFileNamePickerExtension',
     'EETagsPickerExtension',
+    'ScmSelectorExtension',
   ])('exports %s for consuming hosts', name => {
     expect(scaffolderReact).toHaveProperty(name, expect.any(Function));
   });

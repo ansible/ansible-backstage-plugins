@@ -1,6 +1,12 @@
-import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react';
 import {
-  FieldExtensionComponentProps,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type ChangeEvent,
+} from 'react';
+import {
+  type FieldExtensionComponentProps,
   useTemplateSecrets,
 } from '@backstage/plugin-scaffolder-react';
 import { scmAuthApiRef } from '@backstage/integration-react';
@@ -21,7 +27,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { Alert } from '@material-ui/lab';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
-import { useFieldValidation } from '@ansible/portal-scaffolder-react';
+import { useFieldValidation } from '../../hooks/FieldValidationContext';
 
 type ProviderType = 'github' | 'gitlab';
 
@@ -500,7 +506,9 @@ export const ScmSelectorExtension = ({
         let response: Response;
         if (providerType === 'github') {
           response = await fetch(
-            `${apiBase}/repos/${encodeURIComponent(selectedOrg)}/${encodeURIComponent(trimmed)}`,
+            `${apiBase}/repos/${encodeURIComponent(
+              selectedOrg,
+            )}/${encodeURIComponent(trimmed)}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
