@@ -11,3 +11,4 @@ export { AdditionalBuildStepsPickerExtension } from './components/AdditionalBuil
 export type { BuildStep } from './components/AdditionalBuildStepsPicker/types';
 export { PackagesPickerExtension } from './components/PackagesPicker/PackagesPickerExtension';
 export { parseMarkdownLinks } from './utils/parseMarkdownLinks';
+export { MCPServersPickerExtension } from './components/MCPServersPicker/MCPServersPickerExtension';

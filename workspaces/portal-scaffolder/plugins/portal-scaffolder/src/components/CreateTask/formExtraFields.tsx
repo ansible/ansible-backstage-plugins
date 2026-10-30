@@ -7,10 +7,10 @@ import {
   EEFileNamePickerExtension,
   EETagsPickerExtension,
   FileUploadPickerExtension,
+  MCPServersPickerExtension,
   PackagesPickerExtension,
   ScmSelectorExtension,
 } from '@ansible/portal-scaffolder-react';
-import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import {
   EntityNamePicker,
   EntityPicker,
