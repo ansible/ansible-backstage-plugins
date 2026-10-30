@@ -45,6 +45,33 @@ describe('fetchContentSyncStatus', () => {
     );
   });
 
+  it('retries the split route when cached legacy returns 404 after redeploy', async () => {
+    const fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ status: 200, ok: true })
+      .mockResolvedValueOnce({ status: 404 })
+      .mockResolvedValueOnce({ status: 200, ok: true });
+
+    const baseUrl = 'http://localhost:7007/api/catalog';
+
+    await fetchContentSyncStatus({ fetch }, baseUrl);
+    const response = await fetchContentSyncStatus({ fetch }, baseUrl);
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      `${baseUrl}/ansible/sync/status?ansible_contents=true`,
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      `${baseUrl}/ansible/sync/status?ansible_contents=true`,
+    );
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      `${baseUrl}/ansible/sync/status/content`,
+    );
+    expect(response.status).toBe(200);
+  });
+
   it('uses the split route only on subsequent polls after fallback', async () => {
     const fetch = jest
       .fn()
