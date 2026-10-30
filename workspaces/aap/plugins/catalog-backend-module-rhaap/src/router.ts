@@ -29,6 +29,9 @@ import {
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/alpha';
+import { catalogEntityDeletePermission } from '@backstage/plugin-catalog-common/alpha';
+import { stringifyEntityRef } from '@backstage/catalog-model';
+import type { EEEntityProviderService } from '@ansible/backstage-rhaap-common';
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
@@ -74,12 +77,15 @@ function formatUnknownError(error: unknown): string {
   return 'Unknown error';
 }
 
+const EE_NAME = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
+
 export function createRouter(options: {
   logger: LoggerService;
   config: Config;
   scheduler: SchedulerService;
   aapEntityProvider: AAPEntityProvider;
   jobTemplateProvider: AAPJobTemplateProvider;
+  eeProvider: EEEntityProviderService;
   pahCollectionProviders: PAHCollectionProvider[];
   httpAuth: HttpAuthService;
   userInfo: UserInfoService;
@@ -95,6 +101,7 @@ export function createRouter(options: {
     scheduler,
     aapEntityProvider,
     jobTemplateProvider,
+    eeProvider,
     pahCollectionProviders,
     httpAuth,
     userInfo,
@@ -170,6 +177,91 @@ export function createRouter(options: {
       }
     };
   };
+
+  // Transitional compatibility for the deprecated scaffolder module.
+  router.post('/ansible/ee', express.json(), async (request, response) => {
+    await httpAuth.credentials(request as any, { allow: ['service'] });
+    const { entity } = request.body ?? {};
+    if (!entity) {
+      response.status(400).json({ error: 'Missing entity in request body.' });
+      return;
+    }
+    try {
+      await eeProvider.register(entity);
+      response.status(200).json({ success: true });
+    } catch (error) {
+      const message = formatUnknownError(error);
+      logger.error(`Failed to register Execution Environment: ${message}`);
+      response.status(500).json({ error: `Failed to register Execution Environment: ${message}` });
+    }
+  });
+
+  router.delete('/ansible/ee/:name', async (request, response) => {
+    const credentials = await httpAuth.credentials(request as any, {
+      allow: ['user', 'service'],
+    });
+    const name = decodeURIComponent(request.params.name).trim().toLowerCase();
+    if (!EE_NAME.test(name)) {
+      response.status(400).json({ error: 'Invalid execution environment name.' });
+      return;
+    }
+    const entityRef = stringifyEntityRef({ kind: 'Component', namespace: 'default', name });
+    const { token } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+    const catalogOpts = { token };
+    const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+    if (!entity) {
+      response.status(204).send();
+      return;
+    }
+    if (entity.kind !== 'Component' || entity.spec?.type !== 'execution-environment') {
+      response.status(400).json({ error: 'Refusing to delete non-execution-environment entity' });
+      return;
+    }
+    const [decision] = await permissions.authorize(
+      [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
+      { credentials },
+    );
+    if (decision.result !== AuthorizeResult.ALLOW) {
+      response.status(403).json({ error: 'Forbidden: insufficient permissions to delete entity' });
+      return;
+    }
+    try {
+      const location = await catalogClient.getLocationByEntity(entityRef, catalogOpts);
+      if (location?.id) {
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const serviceToken = await auth.getPluginRequestToken({
+          onBehalfOf: serviceCredentials,
+          targetPluginId: 'catalog',
+        });
+        const { items } = await catalogClient.getEntities(
+          {
+            filter: {
+              'metadata.annotations.backstage.io/managed-by-origin-location':
+                `${location.type}:${location.target}`,
+            },
+            fields: ['kind', 'metadata.name', 'metadata.namespace'],
+          },
+          { token: serviceToken.token },
+        );
+        if (items.length > 1) {
+          await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
+          response.status(200).json({ success: true, mode: 'entity-transient' });
+          return;
+        }
+        await catalogClient.removeLocationById(location.id, catalogOpts);
+        response.status(200).json({ success: true, mode: 'location' });
+        return;
+      }
+      await eeProvider.unregister(name);
+      if (entity.metadata?.uid) await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
+      response.status(200).json({ success: true, mode: 'provider' });
+    } catch (error) {
+      response.status(500).json({ error: formatUnknownError(error) });
+    }
+  });
 
   router.post(
     '/ansible/sync/from-aap/orgs_users_teams',
