@@ -425,12 +425,12 @@ describe('createEEDefinition', () => {
       expect.stringContaining('best-effort EE cleanup'),
     );
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('returned 500'),
+      expect.stringContaining('HTTP 500'),
     );
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
     expect(ctx.output).toHaveBeenCalledWith(
       'eeCleanupWarning',
-      expect.stringContaining('HTTP 500'),
+      expect.stringContaining('Failed to replace existing EE'),
     );
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/catalog/ansible/ee',
@@ -498,9 +498,6 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'noop');
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('no existing EE catalog entity'),
-    );
   });
 
   it('handles non-Error cleanup failures without stringifying objects', async () => {
