@@ -9,14 +9,8 @@ const mockUseIsSuperuser = jest.fn().mockReturnValue({
   error: null,
 });
 
-// TemplatesPageHeaderSection wraps PageHeaderSection from @ansible/backstage-rhaap-react
-// (via '../common'). That component calls useIsSuperuser from its own internal hooks,
-// so mocking '../../hooks' alone does not intercept it. Instead, mock '../common' and
-// provide a PageHeaderSection that reads from mockUseIsSuperuser directly.
-// TemplatesPageHeaderSection wraps PageHeaderSection from @ansible/backstage-rhaap-react
-// (via '../common'). That component imports useIsSuperuser from its own internal relative
-// path inside the workspace package. Mocking '../../hooks' alone does not intercept it.
-// Target the workspace package hooks directly so mockUseIsSuperuser controls all usages.
+// CatalogSyncHeader uses the SDK's public useIsSuperuser export.
+// Mock its underlying hooks module to control permission state through the barrel.
 jest.mock(
   '../../../../../../portal-core/plugins/portal-plugin-sdk/src/hooks',
   () => ({
@@ -99,7 +93,7 @@ describe('TemplatesPageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('does not render Sync Now when user is not superuser', () => {
@@ -138,4 +132,34 @@ describe('TemplatesPageHeaderSection', () => {
       screen.getByTitle(/template provides a guided experience/),
     ).toBeInTheDocument();
   });
+});
+
+it('preserves template guidance, extra actions, and last-sync information', async () => {
+  mockUseIsSuperuser.mockReturnValue({
+    isSuperuser: true,
+    loading: false,
+    error: null,
+  });
+  const onSyncClick = jest.fn();
+  render(
+    <TemplatesPageHeaderSection
+      onSyncClick={onSyncClick}
+      actions={<button>Import template</button>}
+      lastSyncTimes={[{ label: 'AAP', time: new Date().toISOString() }]}
+    />,
+  );
+
+  expect(screen.getByRole('heading', { name: 'Templates' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Learn more' })).toHaveAttribute(
+    'href',
+    'https://red.ht/self-service-launch-template',
+  );
+  expect(screen.getByRole('button', { name: 'Import template' })).toBeVisible();
+  const sync = screen.getByRole('button', { name: 'Sync Now' });
+  fireEvent.mouseOver(sync);
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent('Last synced');
+  expect(tooltip).toHaveTextContent('AAP');
+  fireEvent.click(sync);
+  expect(onSyncClick).toHaveBeenCalledTimes(1);
 });

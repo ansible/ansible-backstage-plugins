@@ -2,8 +2,7 @@ import {
   createBackendModule,
   coreServices,
 } from '@backstage/backend-plugin-api';
-import * as catalogNode from '@backstage/plugin-catalog-node';
-import { catalogProcessingExtensionPoint as alphaCatalogProcessing } from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 
 import {
   ansibleServiceRef,
@@ -11,11 +10,6 @@ import {
   IUserProvisionerConnectable,
 } from '@ansible/backstage-rhaap-common';
 import { UserProvisionerProvider } from './UserProvisionerProvider';
-
-// Backstage 1.48 promoted this contract; support both deployment baselines.
-const catalogProcessingExtensionPoint: typeof alphaCatalogProcessing =
-  Reflect.get(catalogNode, 'catalogProcessingExtensionPoint') ??
-  alphaCatalogProcessing;
 
 export const catalogModuleRhaapUserProvisioner = createBackendModule({
   pluginId: 'catalog',

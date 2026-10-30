@@ -4,6 +4,10 @@ import {
   configApiRef,
   discoveryApiRef,
   oauthRequestApiRef,
+  type ApiFactory,
+  type ConfigApi,
+  type DiscoveryApi,
+  type OAuthRequestApi,
   type BackstageIdentityApi,
   type OAuthApi,
   type OpenIdConnectApi,
@@ -23,7 +27,15 @@ export const rhAapAuthApiRef = createApiRef<AapAuthApiType>({
   id: 'ansible.auth.rhaap',
 });
 
-export const AapAuthApi = createApiFactory({
+export const AapAuthApi: ApiFactory<
+  AapAuthApiType,
+  AapAuthApiType,
+  {
+    discoveryApi: DiscoveryApi;
+    oauthRequestApi: OAuthRequestApi;
+    configApi: ConfigApi;
+  }
+> = createApiFactory({
   api: rhAapAuthApiRef,
   deps: {
     discoveryApi: discoveryApiRef,

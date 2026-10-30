@@ -1,11 +1,8 @@
-import {
-  PageHeaderSection as GenericPageHeaderSection,
-  PageHeaderSectionProps as GenericPageHeaderSectionProps,
-} from '../common';
+import { CatalogSyncHeader, CatalogSyncHeaderProps } from '../common';
 import { COLLECTION_TOOLTIP, COLLECTION_DESCRIPTION } from './constants';
 
 export type PageHeaderSectionProps = Omit<
-  GenericPageHeaderSectionProps,
+  CatalogSyncHeaderProps,
   'title' | 'tooltip' | 'description'
 >;
 
@@ -16,7 +13,7 @@ export const PageHeaderSection = ({
   syncInProgress = false,
   syncProgress,
 }: PageHeaderSectionProps) => (
-  <GenericPageHeaderSection
+  <CatalogSyncHeader
     title="Collections"
     tooltip={COLLECTION_TOOLTIP}
     description={COLLECTION_DESCRIPTION}
