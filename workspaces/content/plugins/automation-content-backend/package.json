@@ -31,10 +31,10 @@
     "@ansible/content-type-execution-environment": "workspace:^",
     "@ansible/plugin-catalog-backend-module-automation-content": "workspace:^",
     "@backstage/backend-plugin-api": "1.10.0",
+    "@backstage/catalog-client": "1.14.0",
+    "@backstage/plugin-permission-common": "^0.9.7",
     "express": "^4.21.0",
-    "express-promise-router": "^4.1.1",
-    "@backstage/catalog-client": "^1.14.0",
-    "@backstage/plugin-permission-common": "^0.9.7"
+    "express-promise-router": "^4.1.1"
   },
   "devDependencies": {
     "@backstage/cli": "0.36.5",
