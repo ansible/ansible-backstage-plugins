@@ -1,6 +1,6 @@
 import { scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { createScaffolderFieldExtension } from '@backstage/plugin-scaffolder-react';
-import { AdditionalBuildStepsPickerExtension } from './AdditionalBuildStepsPickerExtension';
+import { AdditionalBuildStepsPickerExtension } from '@ansible/portal-scaffolder-react';
 
 export const AdditionalBuildStepsPickerFieldExtension =
   scaffolderPlugin.provide(

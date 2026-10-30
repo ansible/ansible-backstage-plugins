@@ -8,6 +8,7 @@ describe('public exports', () => {
     'EEFileNamePickerExtension',
     'EETagsPickerExtension',
     'ScmSelectorExtension',
+    'AdditionalBuildStepsPickerExtension',
   ])('exports %s for consuming hosts', name => {
     expect(scaffolderReact).toHaveProperty(name, expect.any(Function));
   });
