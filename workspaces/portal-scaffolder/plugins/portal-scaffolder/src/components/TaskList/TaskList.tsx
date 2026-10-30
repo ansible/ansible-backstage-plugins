@@ -34,7 +34,7 @@ import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import AddCircleOutlineIcon from '@material-ui/icons/AddCircleOutline';
 import BlockIcon from '@material-ui/icons/Block';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { historyViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { historyViewPermission } from '@ansible/aap-common/permissions';
 import { rootRouteRef } from '../../routes';
 import { useAsync } from 'react-use';
 import { RunTask } from '../RunTask';

@@ -1,4 +1,4 @@
-import { Collection } from '@ansible/backstage-rhaap-common';
+import { Collection } from '@ansible/aap-common';
 import { pahCollectionParser } from '../entityParser';
 
 describe('pahCollectionParser', () => {
