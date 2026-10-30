@@ -134,7 +134,7 @@ export const CollectionsPickerExtension = ({
         const { results } = await scaffolderApi.autocomplete({
           token,
           resource: 'collections',
-          provider: 'portal-catalog',
+          provider: 'aap-api-cloud',
           context: {
             searchQuery: 'spec.type=ansible-collection',
           },
@@ -181,7 +181,7 @@ export const CollectionsPickerExtension = ({
             const { results } = await scaffolderApi.autocomplete({
               token,
               resource: 'collection_sources',
-              provider: 'portal-catalog',
+              provider: 'aap-api-cloud',
               context: { collection: collectionName },
             });
             setAvailableSources(results || []);
@@ -282,7 +282,7 @@ export const CollectionsPickerExtension = ({
             const { results } = await scaffolderApi.autocomplete({
               token,
               resource: 'collection_versions',
-              provider: 'portal-catalog',
+              provider: 'aap-api-cloud',
               context: { collection: collectionName, source: sourceId },
             });
             setAvailableVersions(

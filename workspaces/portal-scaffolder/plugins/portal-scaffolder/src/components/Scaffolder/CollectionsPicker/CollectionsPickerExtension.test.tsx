@@ -183,7 +183,7 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
           token: 'test-token',
           resource: 'collections',
-          provider: 'portal-catalog',
+          provider: 'aap-api-cloud',
           context: {
             searchQuery: 'spec.type=ansible-collection',
           },
