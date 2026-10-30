@@ -10,13 +10,11 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
 
 import { scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { createScaffolderFieldExtension } from '@backstage/plugin-scaffolder-react';
-import { EEFileNamePickerExtension } from './EEFileNamePickerExtension';
-import { createElement } from 'react';
+import { EEFileNamePickerExtension } from '@ansible/portal-scaffolder-react';
 import { EEFileNamePickerFieldExtension } from './extensions';
 
-jest.mock('./EEFileNamePickerExtension', () => ({
-  EEFileNamePickerExtension: () =>
-    createElement('div', null, 'EEFileNamePickerExtension'),
+jest.mock('@ansible/portal-scaffolder-react', () => ({
+  EEFileNamePickerExtension: jest.fn(),
 }));
 
 describe('EEFileNamePickerFieldExtension', () => {

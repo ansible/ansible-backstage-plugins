@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import {
   TextField,
   Typography,
@@ -9,9 +9,9 @@ import {
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
 import { useApi } from '@backstage/core-plugin-api';
-import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
+import { useFieldValidation } from '../../hooks/FieldValidationContext';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { Entity } from '@backstage/catalog-model';
+import type { Entity } from '@backstage/catalog-model';
 import WarningIcon from '@material-ui/icons/Warning';
 
 const useStyles = makeStyles(theme => ({
