@@ -11,7 +11,9 @@ import {
 export const SoftRefresh = () => {
   const { refresh, offset, setOffset } = useEntityList();
   const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   useEffect(() => {
     let pendingTimer: number | undefined;
