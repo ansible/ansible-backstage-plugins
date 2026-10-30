@@ -1,1 +1,2 @@
-export { createAnsibleContentAction } from './actions/ansible';
+export * from './actions';
+export { scaffolderModulePortalScaffolder as default } from './module';
