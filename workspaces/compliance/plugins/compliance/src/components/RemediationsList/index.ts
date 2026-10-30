@@ -1,0 +1,1 @@
+export { RemediationsList } from './RemediationsList';

@@ -19,6 +19,7 @@
     "@ansible/plugin-automation-content": "workspace:^",
     "@ansible/plugin-backstage-apme": "workspace:^",
     "@ansible/plugin-backstage-rhaap": "workspace:^",
+    "@ansible/plugin-compliance": "workspace:^",
     "@ansible/portal-core": "workspace:^",
     "@ansible/portal-extension-api": "workspace:^",
     "@ansible/portal-extension-host": "workspace:^",
