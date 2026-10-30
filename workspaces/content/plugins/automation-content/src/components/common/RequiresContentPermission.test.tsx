@@ -1,17 +1,15 @@
-import { render, screen } from '@testing-library/react';
-import { TestApiProvider, mockApis } from '@backstage/test-utils';
+import { screen } from '@testing-library/react';
+import {
+  renderInTestApp,
+  TestApiProvider,
+  mockApis,
+} from '@backstage/test-utils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { RequiresContentPermission } from './RequiresContentPermission';
 
-jest.mock('@backstage/core-plugin-api', () => ({
-  ...jest.requireActual('@backstage/core-plugin-api'),
-  useApp: () => ({
-    getComponents: () => ({ NotFoundErrorPage: () => <div>Not found</div> }),
-  }),
-}));
-
 it('explains denied access without rendering content or redirecting', async () => {
-  render(
+  // Supply real app context even when dependencies resolve their own API copy.
+  await renderInTestApp(
     <TestApiProvider
       apis={[[permissionApiRef, mockApis.permission({ authorize: 'DENY' })]]}
     >

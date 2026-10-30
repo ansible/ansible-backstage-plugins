@@ -1,12 +1,15 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { screen } from '@testing-library/react';
+import { Route, Routes } from 'react-router-dom';
 import { AutomationContentRoutes } from './AutomationContentRoutes';
-import { TestApiProvider, mockApis } from '@backstage/test-utils';
+import {
+  renderInTestApp,
+  TestApiProvider,
+  mockApis,
+} from '@backstage/test-utils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
-  useApp: () => ({}),
   useRouteRef: () => () => '/automation-content/execution-environments',
 }));
 
@@ -42,17 +45,16 @@ it.each([
   ['/collections', 'Collection catalog'],
   ['/collections/example/demo', 'Collection details'],
 ])('mounts %s in the legacy content route', async (path, title) => {
-  render(
+  await renderInTestApp(
     <TestApiProvider apis={[[permissionApiRef, mockApis.permission()]]}>
-      <MemoryRouter initialEntries={[`/automation-content${path}`]}>
-        <Routes>
-          <Route
-            path="/automation-content/*"
-            element={<AutomationContentRoutes />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <Routes>
+        <Route
+          path="/automation-content/*"
+          element={<AutomationContentRoutes />}
+        />
+      </Routes>
     </TestApiProvider>,
+    { routeEntries: [`/automation-content${path}`] },
   );
   expect(await screen.findByText(title)).toBeTruthy();
 });
