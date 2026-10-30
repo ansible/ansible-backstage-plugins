@@ -735,8 +735,7 @@ describe('self-service', () => {
       });
 
       // Let the initial-mount CATALOG_SETTLE_MS (750ms) effect fire and
-      // settle before capturing the baseline, so its own invalidate doesn't
-      // get mistaken for the sync-triggered one below.
+      // settle before sync, so its invalidate is not counted below.
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 1200));
       });
