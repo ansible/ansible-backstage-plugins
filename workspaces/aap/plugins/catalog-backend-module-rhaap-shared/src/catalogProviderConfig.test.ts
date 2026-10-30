@@ -2,7 +2,7 @@ import { ConfigReader } from '@backstage/config';
 
 import {
   CATALOG_PROVIDERS_AAP,
-  CATALOG_PROVIDERS_INTERIM_CONTENT,
+  CATALOG_PROVIDERS_CONTENT,
   CATALOG_PROVIDERS_RHAAP,
   catalogProvidersConfigRootForSlice,
   getResolvedCatalogProvidersConfig,
@@ -19,7 +19,7 @@ describe('catalogProviderConfig', () => {
       CATALOG_PROVIDERS_AAP,
     );
     expect(catalogProvidersConfigRootForSlice('content')).toBe(
-      CATALOG_PROVIDERS_INTERIM_CONTENT,
+      CATALOG_PROVIDERS_CONTENT,
     );
   });
 
@@ -75,7 +75,7 @@ describe('catalogProviderConfig', () => {
     });
   });
 
-  it('resolves interim-content root with rhaap fallback', () => {
+  it('resolves content root with rhaap fallback', () => {
     const config = new ConfigReader({
       catalog: {
         providers: {
@@ -86,7 +86,7 @@ describe('catalogProviderConfig', () => {
       },
     });
 
-    runWithCatalogProvidersConfigRoot(CATALOG_PROVIDERS_INTERIM_CONTENT, () => {
+    runWithCatalogProvidersConfigRoot(CATALOG_PROVIDERS_CONTENT, () => {
       expect(getResolvedCatalogProvidersConfig(config)?.keys()).toEqual([
         'production',
       ]);
