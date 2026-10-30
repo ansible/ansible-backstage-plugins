@@ -1,0 +1,1 @@
+export { InventoryDetail } from './InventoryDetail';

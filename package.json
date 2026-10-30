@@ -39,6 +39,8 @@
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
       "workspaces/content-management/plugins/*",
+      "workspaces/content/plugins/*",
+      "workspaces/compliance/plugins/*",
       "e2e-tests/*"
     ]
   },

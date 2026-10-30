@@ -1,0 +1,6 @@
+{
+  "name": "@ansible/compliance-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Compliance workspace — AAP compliance scanning, findings review, and selective remediation for Red Hat Developer Hub / Backstage"
+}
