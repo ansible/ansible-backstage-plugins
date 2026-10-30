@@ -32,9 +32,18 @@ export async function fetchContentSyncStatus(
     );
   }
   if (cached === 'legacy') {
-    return fetchApi.fetch(
+    const response = await fetchApi.fetch(
       `${catalogBaseUrl}${LEGACY_CONTENT_SYNC_STATUS_URL}`,
     );
+    if (response.status !== 404) {
+      return response;
+    }
+    resolvedRouteByCatalogBaseUrl.delete(catalogBaseUrl);
+    const splitResponse = await fetchApi.fetch(
+      `${catalogBaseUrl}${SPLIT_CONTENT_SYNC_STATUS_URL}`,
+    );
+    resolvedRouteByCatalogBaseUrl.set(catalogBaseUrl, 'split');
+    return splitResponse;
   }
 
   let response = await fetchApi.fetch(
