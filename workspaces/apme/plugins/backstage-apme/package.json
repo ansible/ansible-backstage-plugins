@@ -28,7 +28,7 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "start": "backstage-cli package start",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @apme/ui-workflow"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @apme/ui-workflow"
   },
   "dependencies": {
     "@ansible/backstage-apme-common": "workspace:^",

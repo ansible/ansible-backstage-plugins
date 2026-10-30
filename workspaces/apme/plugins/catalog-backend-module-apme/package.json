@@ -23,7 +23,7 @@
     "test": "backstage-cli package test",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-apme-common --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
   },
   "dependencies": {
     "@ansible/backstage-apme-common": "workspace:^",
