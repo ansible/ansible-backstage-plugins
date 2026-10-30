@@ -1014,7 +1014,7 @@ paths:
       summary: Get content catalog sync status (split module)
       description: |
         Returns the current synchronization status for PAH collection and
-        SCM git-content providers. Exposed by `catalog-backend-module-interim-content`.
+        SCM git-content providers. Exposed by `catalog-backend-module-content`.
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - Ansible Content Sync
@@ -1057,7 +1057,7 @@ paths:
       summary: Get self-service EE catalog sync status (split module)
       description: |
         Returns the current synchronization status for execution environment
-        (self-service EE) providers. Exposed by `catalog-backend-module-self-service-ee`.
+        (EE) providers. Exposed by `catalog-backend-module-ee`.
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - Ansible Content Sync

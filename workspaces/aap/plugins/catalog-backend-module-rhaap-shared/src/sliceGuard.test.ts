@@ -11,8 +11,8 @@ describe('sliceGuard', () => {
   it('allows split modules together', () => {
     expect(() => {
       assertCatalogModuleSliceAllowed('aap', 'aap');
-      assertCatalogModuleSliceAllowed('interim-content', 'content');
-      assertCatalogModuleSliceAllowed('self-service-ee', 'ee');
+      assertCatalogModuleSliceAllowed('content', 'content');
+      assertCatalogModuleSliceAllowed('ee', 'ee');
     }).not.toThrow();
   });
 

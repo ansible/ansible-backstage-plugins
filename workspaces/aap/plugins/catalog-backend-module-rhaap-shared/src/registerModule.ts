@@ -106,8 +106,8 @@ export function createCatalogModule(options: CreateCatalogModuleOptions) {
           if (deprecated) {
             logger.warn(
               '[catalog-backend-module-rhaap] This module is deprecated. ' +
-                'Migrate to catalog-backend-module-aap, catalog-backend-module-interim-content, ' +
-                'and the portal-scaffolder EE catalog module per AAP-98845.',
+                'Migrate to catalog-backend-module-aap, catalog-backend-module-content, ' +
+                'and catalog-backend-module-ee per AAP-98845.',
             );
           }
 
