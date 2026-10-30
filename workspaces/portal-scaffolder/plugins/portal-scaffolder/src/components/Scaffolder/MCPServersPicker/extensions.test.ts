@@ -10,13 +10,11 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
 
 import { scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { createScaffolderFieldExtension } from '@backstage/plugin-scaffolder-react';
-import { MCPServersPickerExtension } from './MCPServersPickerExtension';
-import { createElement } from 'react';
+import { MCPServersPickerExtension } from '@ansible/portal-scaffolder-react';
 import { MCPServersPickerFieldExtension } from './extensions';
 
-jest.mock('./MCPServersPickerExtension', () => ({
-  MCPServersPickerExtension: () =>
-    createElement('div', null, 'MCPServersPickerExtension'),
+jest.mock('@ansible/portal-scaffolder-react', () => ({
+  MCPServersPickerExtension: jest.fn(),
 }));
 
 describe('MCPServersPickerFieldExtension', () => {

@@ -1,2 +1,2 @@
 export { MCPServersPickerFieldExtension } from './extensions';
-export { MCPServersPickerExtension } from './MCPServersPickerExtension';
+export { MCPServersPickerExtension } from '@ansible/portal-scaffolder-react';
