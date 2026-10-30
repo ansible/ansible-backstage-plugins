@@ -11,7 +11,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import InfoIcon from '@material-ui/icons/Info';
-import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+import { parseMarkdownLinks } from '@ansible/portal-scaffolder-react';
 
 // This is the recommended base image value for EE builder templates
 // The recommended base image maybe updated in the future

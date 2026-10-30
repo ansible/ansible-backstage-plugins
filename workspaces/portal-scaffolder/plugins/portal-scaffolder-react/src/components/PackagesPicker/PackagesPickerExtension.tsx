@@ -1,5 +1,5 @@
 import { ChangeEvent, useState, useEffect } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import {
   Button,
   TextField,
@@ -15,7 +15,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
-import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+import { parseMarkdownLinks } from '../../utils/parseMarkdownLinks';
 
 const useStyles = makeStyles(theme => ({
   title: {
