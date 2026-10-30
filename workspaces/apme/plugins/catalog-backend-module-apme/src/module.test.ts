@@ -34,7 +34,8 @@ jest.mock('@ansible/backstage-apme-common', () => ({
   ApmeClient: class ApmeClient {},
 }));
 
-jest.mock('@backstage/plugin-catalog-node/alpha', () => ({
+jest.mock('@backstage/plugin-catalog-node', () => ({
+  ...jest.requireActual('@backstage/plugin-catalog-node'),
   catalogProcessingExtensionPoint: 'catalogProcessingExtensionPoint',
 }));
 

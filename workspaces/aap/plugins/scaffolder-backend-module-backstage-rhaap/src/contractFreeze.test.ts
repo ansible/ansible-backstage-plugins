@@ -152,7 +152,6 @@ describe('Phase 0 contract freeze: picker <-> createEEDefinition source-string f
         metadata: {
           annotations: {
             'ansible.io/scm-provider': 'github',
-            'ansible.io/scm-host': 'github.com',
             'ansible.io/scm-host-name': 'github-public',
             'ansible.io/scm-organization': 'org1',
             'ansible.io/scm-repository': 'repo1',
