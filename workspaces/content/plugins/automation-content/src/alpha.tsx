@@ -12,6 +12,7 @@ import { automationContentApiFactory } from './apis';
 import { Navigate } from 'react-router-dom';
 import LibraryBooksIcon from '@material-ui/icons/LibraryBooks';
 import BuildIcon from '@material-ui/icons/Build';
+import ExtensionIcon from '@material-ui/icons/Extension';
 import {
   rootRouteRef,
   eeRouteRef,
@@ -81,8 +82,11 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'collections',
       params: {
-        path: '/automation-content/collections',
+        // Provisional self-service mount per the 2026-10-30 sync decision,
+        // pending the Ganesh workspace-permissions consult.
+        path: '/self-service/collections',
         title: 'Collections',
+        icon: <ExtensionIcon />,
         noHeader: true,
         routeRef: convertLegacyRouteRef(collectionsRouteRef),
         loader: async () => {
@@ -94,9 +98,17 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       },
     }),
     PageBlueprint.make({
+      name: 'collections-redirect',
+      params: {
+        path: '/automation-content/collections',
+        loader: async () =>
+          compatWrapper(<Navigate to="/self-service/collections" replace />),
+      },
+    }),
+    PageBlueprint.make({
       name: 'collection-details',
       params: {
-        path: '/automation-content/collections/:namespace/:name',
+        path: '/self-service/collections/:namespace/:name',
         title: 'Collection details',
         noHeader: true,
         loader: async () => {

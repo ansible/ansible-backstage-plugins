@@ -9,7 +9,6 @@ import {
 } from '@backstage/core-plugin-api';
 import {
   executionEnvironmentsViewPermission,
-  collectionsViewPermission,
   gitRepositoriesViewPermission,
   templatesViewPermission,
   historyViewPermission,
@@ -25,8 +24,6 @@ import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
-import { CollectionsCatalogPage } from '../CollectionsCatalog';
-import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
 import { GitRepositoriesPage } from '../GitRepositories';
 import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
@@ -140,19 +137,11 @@ const RouteViewContent = () => {
         />
         <Route
           path="collections"
-          element={
-            <RequirePermission permission={collectionsViewPermission}>
-              <CollectionsCatalogPage />
-            </RequirePermission>
-          }
+          element={<Navigate to="/automation-content/collections" replace />}
         />
         <Route
           path="collections/:collectionName"
-          element={
-            <RequirePermission permission={collectionsViewPermission}>
-              <CollectionDetailsPage />
-            </RequirePermission>
-          }
+          element={<Navigate to="/automation-content/collections" replace />}
         />
         <Route
           path="repositories"

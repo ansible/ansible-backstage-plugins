@@ -20,8 +20,8 @@ import {
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
 import BuildIcon from '@material-ui/icons/Build';
-import HistoryIcon from '@material-ui/icons/History';
 import ExtensionIcon from '@material-ui/icons/Extension';
+import HistoryIcon from '@material-ui/icons/History';
 import GitHubIcon from '@material-ui/icons/GitHub';
 
 /** Native discovery and lifecycle around the existing Portal wizard. */

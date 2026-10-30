@@ -69,9 +69,6 @@ jest.mock('./components/Home', () => ({
 jest.mock('./components/TaskList', () => ({
   HistoryRoutesPage: () => <div>Portal task history</div>,
 }));
-jest.mock('./components/CollectionsCatalog', () => ({
-  CollectionsRoutesPage: () => <div>Native collections section</div>,
-}));
 jest.mock('./components/ExecutionEnvironments', () => ({
   EERoutesPage: () => <div>Native execution environments section</div>,
 }));
@@ -150,15 +147,17 @@ it('provides distinct native sidebar icons for the existing self-service section
     apis: [mockApis.permission()],
   });
   await screen.findByTestId('templates-content', {}, { timeout: 10000 });
-  const paths = ['Templates', 'History', 'Collections', 'Git repositories'].map(
-    name =>
-      screen
-        .getByRole('link', { name })
-        .querySelector('svg path')
-        ?.getAttribute('d'),
+  const paths = ['Templates', 'History', 'Git repositories'].map(name =>
+    screen
+      .getByRole('link', { name })
+      .querySelector('svg path')
+      ?.getAttribute('d'),
   );
   expect(paths.every(Boolean)).toBe(true);
-  expect(new Set(paths).size).toBe(4);
+  expect(new Set(paths).size).toBe(3);
+  expect(
+    screen.queryByRole('link', { name: 'Collections' }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole('link', { name: 'Execution Environments' }),
   ).not.toBeInTheDocument();
@@ -222,8 +221,6 @@ it('discovers native fields on the real Portal wizard route and keeps the existi
 });
 
 it.each([
-  ['/self-service/collections', 'Native collections section'],
-  ['/self-service/collections/example', 'Native collections section'],
   ['/self-service/repositories/catalog', 'Native repositories section'],
   ['/self-service/repositories/example', 'Native repositories section'],
   ['/self-service/repositories/ci-activity', 'Native repositories section'],

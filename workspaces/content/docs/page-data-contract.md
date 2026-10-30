@@ -90,7 +90,12 @@ this plugin. Tina's prototype is the authoritative design. A different
 team (or this one, later) populates the definition data; the views ship
 now.
 
-### Collections catalog (`/automation-content/collections`)
+### Collections catalog (`/self-service/collections`)
+
+Provisionally mounted at the self-service endpoint per the 2026-10-30 sync
+decision, pending the Ganesh workspace-permissions consult. The old native path
+`/automation-content/collections` redirects here; the legacy host continues to
+mount the catalog at that old path.
 
 Tina's `CollectionsListPage` / `CollectionsCatalogPage` layout, artifact data:
 
@@ -104,7 +109,7 @@ Tina's `CollectionsListPage` / `CollectionsCatalogPage` layout, artifact data:
 | Search             | `listCollections(query)` server-side where supported, plus client-side grouping                                                                       |
 | Row action         | navigate to collection details                                                                                                                        |
 
-### Collection details (`/automation-content/collections/…`)
+### Collection details (`/self-service/collections/…`)
 
 | Section  | Content                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------- |
