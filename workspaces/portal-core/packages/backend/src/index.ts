@@ -83,4 +83,7 @@ backend.add(import('@ansible/plugin-automation-content-backend'));
 backend.add(import('@ansible/portal-health-backend'));
 backend.add(import('@ansible/portal-operations-backend'));
 
+// Compliance — scanning, findings review, and selective remediation
+backend.add(import('@ansible/plugin-compliance-backend'));
+
 backend.start();

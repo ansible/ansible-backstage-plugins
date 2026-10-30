@@ -1,0 +1,1 @@
+export { ScanHistory } from './ScanHistory';

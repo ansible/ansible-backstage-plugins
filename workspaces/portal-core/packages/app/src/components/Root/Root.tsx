@@ -5,6 +5,7 @@ import ExtensionIcon from '@material-ui/icons/Extension';
 import LibraryBooks from '@material-ui/icons/LibraryBooks';
 import CreateComponentIcon from '@material-ui/icons/AddCircleOutline';
 import CategoryIcon from '@material-ui/icons/Category';
+import SecurityIcon from '@material-ui/icons/Security';
 import LogoFull from './LogoFull';
 import LogoIcon from './LogoIcon';
 import {
@@ -93,6 +94,11 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
           {/* Content discovery (execution environments, collections) from the
               configured OCI registries — /automation-content */}
           <AutomationContentSidebarItem />
+          <SidebarItem
+            icon={SecurityIcon}
+            to="/compliance"
+            text="Compliance"
+          />
           <SidebarItem
             icon={HomeIcon}
             to="/self-service/catalog"
