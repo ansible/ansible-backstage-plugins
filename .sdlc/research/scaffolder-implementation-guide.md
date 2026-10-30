@@ -80,7 +80,7 @@ workspaces/
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `moduleId: 'ansible'` (one module) | `moduleId: 'aap'` + `moduleId: 'portal-scaffolder'` (two modules, same `pluginId: 'scaffolder'`) |
 
-**Backward compatibility.** Action IDs and template filter names are stable across the split. Module IDs change (`ansible` → `aap` + `portal-scaffolder`), and operators must update their `dynamic-plugins.yaml` to reference the two new packages instead of the single monolithic one (see §5). The existing `aap-api-cloud` provider is replaced by `aap-api` for AAP resources and `portal-catalog` for collections; templates and picker configuration must migrate in Phase 1.
+**Breaking migration.** Action IDs and template filter names remain stable, but the monolithic package is removed. Operators must update `dynamic-plugins.yaml` to load the two replacement packages instead, and migrate `aap-api-cloud` references to `aap-api` for AAP resources or `portal-catalog` for collections. No compatibility shim is retained.
 
 ---
 
@@ -172,9 +172,9 @@ Located at `workspaces/portal-scaffolder/plugins/scaffolder-backend-module-porta
 - Config: `ansible.creatorService`, `ansible.devSpaces`
 - `moduleId: 'portal-scaffolder'`
 
-### 4.3 Deprecated `scaffolder-backend-module-backstage-rhaap`
+### 4.3 Breaking package migration
 
-The original `scaffolder-backend-module-backstage-rhaap` is retained as a deprecated shim that logs a migration warning until consumers switch to the split packages. The shim registers all actions (`rhaap:*` and `ansible:*`), all template filters, and the legacy `aap-api-cloud` autocomplete provider. Operators should load **either** the deprecated shim **or** the two replacement modules, never both, to avoid duplicate action registrations.
+`scaffolder-backend-module-backstage-rhaap` is removed as part of this migration. It is not retained as a compatibility shim. Consumers must install and configure both replacement packages before upgrading; this avoids maintaining two deployment paths and prevents duplicate registrations.
 
 ---
 
@@ -205,7 +205,7 @@ Two modules replace one. The EE lifecycle keeps existing registration and deleti
 | Migrate autocomplete-provider references                                        | Replace `aap-api-cloud` with `aap-api` for AAP resources and `portal-catalog` for collections, including the three `CollectionsPickerExtension.tsx` provider strings                                                                        |
 | Add the EE lifecycle service                                                    | The portal action calls it directly for registration and cleanup; preserve service registration, user-authorized deletion, SCM cleanup, provider unregistering, and the provider-managed entity skip                                      |
 | Remove both EE routes after parity coverage                                     | Delete `POST /ansible/ee` and `DELETE /ansible/ee/:name`, router wiring, and route-specific tests; do not add replacement HTTP endpoints                                                                                                    |
-| Deprecate original package                                                      | Retained as a shim with a deprecation log warning                                                                                                                                                                                           |
+| Remove original package                                                         | No compatibility shim; release migration notes cover the required package, dynamic-plugin, and provider-reference changes                                                                                                                   |
 | Split unit tests and shared `src/mock/` fixtures                                | Shared fixtures duplicated or extracted to a test-util                                                                                                                                                                                      |
 
 **Verification:** scaffolder module tests pass; smoke-test an EE template end-to-end in the dev app.
@@ -237,7 +237,6 @@ Two modules replace one. The EE lifecycle keeps existing registration and deleti
 | `scaffolder-backend-module-aap`                    | `rhaap:*` actions, template filters, `aap-api`                                                        | AAP scaffolder behaviour                        |
 | `scaffolder-backend-module-portal`                 | `ansible:content:create`, `ansible:create:ee-definition`, `ansible:prepare:publish`, `portal-catalog` | Portal-scaffolder actions and collection lookup |
 | EE lifecycle service                               | No HTTP routes                                                                                         | EE registration, user-authorized cleanup, and provider lifecycle |
-| `scaffolder-backend-module-backstage-rhaap` (shim) | All current actions, filters, and legacy `aap-api-cloud` during migration                             | Compatibility until consumers migrate           |
 
 ---
 
