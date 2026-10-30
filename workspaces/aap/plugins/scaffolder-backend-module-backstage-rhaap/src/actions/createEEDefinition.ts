@@ -16,6 +16,7 @@ import {
   LoggerService,
 } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
+import { eeDefinitionInputSchema } from '@ansible/portal-scaffolder-common';
 import { BackendServiceAPI } from './utils/api';
 import {
   getServiceUrlFromAnsibleConfig,
@@ -29,7 +30,6 @@ import {
 } from './types';
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
-import { eeDefinitionInputSchema } from './schemas/rhaapActionSchemas';
 import type { ZodType } from 'zod';
 
 const eeInputSchema: ZodType = eeDefinitionInputSchema;
