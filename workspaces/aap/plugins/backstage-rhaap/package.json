@@ -3,6 +3,11 @@
   "version": "2.2.10",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alpha": "./src/alpha.tsx",
+    "./package.json": "./package.json"
+  },
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public",
@@ -11,6 +16,9 @@
   },
   "backstage": {
     "role": "frontend-plugin",
+    "features": {
+      "./alpha": "@backstage/FrontendPlugin"
+    },
     "pluginId": "ansible",
     "pluginPackages": [
       "@ansible/plugin-backstage-rhaap"
@@ -31,8 +39,10 @@
   "dependencies": {
     "@backstage/catalog-model": "1.10.0",
     "@backstage/config": "1.3.8",
+    "@backstage/core-compat-api": "0.5.14",
     "@backstage/core-components": "0.18.13",
     "@backstage/core-plugin-api": "1.12.9",
+    "@backstage/frontend-plugin-api": "0.18.0",
     "@backstage/integration-react": "1.2.21",
     "@backstage/plugin-catalog-react": "3.2.2",
     "@backstage/plugin-home": "0.9.9",
@@ -55,6 +65,7 @@
     "@backstage/cli": "0.36.5",
     "@backstage/core-app-api": "1.20.4",
     "@backstage/dev-utils": "1.1.26",
+    "@backstage/frontend-test-utils": "0.6.3",
     "@backstage/test-utils": "1.7.21",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",

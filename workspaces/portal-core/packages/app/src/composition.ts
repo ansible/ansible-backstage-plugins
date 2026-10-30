@@ -29,7 +29,10 @@ export const optionalContributorLoader = createFrontendFeatureLoader({
         ? [import('@ansible/portal-scaffolder/alpha')]
         : []),
       ...(profile === 'full'
-        ? [import('@ansible/plugin-backstage-apme/alpha')]
+        ? [
+            import('@ansible/plugin-backstage-apme/alpha'),
+            import('@ansible/plugin-backstage-rhaap/alpha'),
+          ]
         : []),
     ];
   },
