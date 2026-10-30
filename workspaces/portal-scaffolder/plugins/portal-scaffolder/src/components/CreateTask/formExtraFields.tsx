@@ -8,7 +8,7 @@ import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPSer
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
 import { EEFileNamePickerExtension } from '@ansible/portal-scaffolder-react';
 import { EETagsPickerExtension } from '@ansible/portal-scaffolder-react';
-import { ScmSelectorExtension } from '../Scaffolder/ScmSelector/ScmSelectorExtension';
+import { ScmSelectorExtension } from '@ansible/portal-scaffolder-react';
 import {
   EntityNamePicker,
   EntityPicker,

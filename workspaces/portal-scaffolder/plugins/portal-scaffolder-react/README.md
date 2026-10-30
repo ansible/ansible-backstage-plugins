@@ -29,6 +29,15 @@ The EE filename field also requires a Backstage API context providing
 `catalogApiRef` from `@backstage/plugin-catalog-react` to check existing names.
 Field registration remains the consuming plugin's responsibility.
 
+### `ScmSelectorExtension`
+
+Selects the SCM provider, organization, and repository. The consuming host
+provides `scmAuthApiRef` from `@backstage/integration-react`, the scaffolder
+`SecretsContextProvider`, and the shared `FieldValidationProvider`. The
+existing `requestUserCredentials.secretsKey` UI option controls where
+credentials are stored in the scaffolder secrets channel. `ScmSelectorData`
+is exported for the field value; credentials are not included in that value.
+
 ## Peer dependencies
 
 Consumers provide React, React DOM, Backstage's scaffolder React package, and
