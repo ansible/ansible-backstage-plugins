@@ -424,7 +424,10 @@ async function bestEffortUnregisterExistingEE(options: {
   auth: AuthService;
   logger: LoggerService;
   getInitiatorCredentials: () => Promise<BackstageCredentials>;
-  output?: (name: string, value: any) => void;
+  output?: (
+    name: 'eeCleanupStatus' | 'eeCleanupWarning',
+    value: string,
+  ) => void;
 }): Promise<void> {
   const {
     name,

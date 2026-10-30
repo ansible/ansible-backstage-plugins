@@ -854,6 +854,46 @@ describe('AAPClient', () => {
           url: 'https://test.example.com/execution/templates/job-template/1/details',
         });
       });
+
+      it('preserves YAML 1.1 strings and large integers in the request', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ id: 1, name: 'test-template' }),
+        });
+
+        await client.createJobTemplate(
+          {
+            templateName: 'test-template',
+            organization: { id: 1, name: 'test-org' },
+            jobInventory: { id: 1, name: 'test-inventory' },
+            project: {
+              id: 1,
+              projectName: 'test-project',
+              organization: { id: 1, name: 'test-org' },
+              scmUrl: 'https://github.com/test/repo',
+              scmUpdateOnLaunch: true,
+              status: 'successful',
+            },
+            playbook: 'test.yml',
+            executionEnvironment: {
+              id: 1,
+              environmentName: 'test-ee',
+              organization: { id: 1, name: 'test-org' },
+              image: 'test-image',
+              pull: 'always',
+            },
+            extraVariables: 'flag: "no"\naccount_id: 9007199254740993',
+          },
+          false,
+          'test-token',
+        );
+
+        const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(requestBody.extra_vars).toContain('flag: "no"');
+        expect(requestBody.extra_vars).toContain(
+          'account_id: 9007199254740993',
+        );
+      });
     });
 
     describe('launchJobTemplate', () => {

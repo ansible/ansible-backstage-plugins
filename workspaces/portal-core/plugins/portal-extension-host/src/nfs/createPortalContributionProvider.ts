@@ -5,6 +5,7 @@ import {
 import { createApiFactory } from '@backstage/core-plugin-api';
 import {
   portalContributionsApiRef,
+  appProfileMenuItemDataRef,
   entityDetailTabDataRef,
   entityActionDataRef,
   entityOverviewCardDataRef,
@@ -15,6 +16,7 @@ import {
   catalogTableColumnDataRef,
   scaffolderFieldDataRef,
 } from '@ansible/portal-extension-api/alpha';
+import { collectAppProfileMenuItems } from './appProfileMenuItems';
 import { collectEntityTabs } from './validateEntityTab';
 import { collectCatalogTabs } from './catalogTabs';
 import { collectCatalogColumns } from './catalogColumns';
@@ -32,6 +34,7 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
   return ApiBlueprint.makeWithOverrides({
     name: 'contributions',
     inputs: {
+      appProfileMenuItems: createExtensionInput([appProfileMenuItemDataRef]),
       entityTabs: createExtensionInput([entityDetailTabDataRef]),
       entityActions: createExtensionInput([entityActionDataRef]),
       entityOverviewCards: createExtensionInput([entityOverviewCardDataRef]),
@@ -52,6 +55,15 @@ export function createPortalContributionProvider(hostApiVersion = '0.1.0') {
         ),
       );
       const contributions = Object.freeze({
+        appProfileMenuItems: Object.freeze(
+          collectAppProfileMenuItems(
+            inputs.appProfileMenuItems.map(input => ({
+              ...input.get(appProfileMenuItemDataRef),
+              id: input.node.spec.id,
+              ownerPlugin: input.node.spec.plugin.id,
+            })),
+          ),
+        ),
         scaffolderFields: Object.freeze(
           collectScaffolderFields(
             inputs.scaffolderFields.map(input => {

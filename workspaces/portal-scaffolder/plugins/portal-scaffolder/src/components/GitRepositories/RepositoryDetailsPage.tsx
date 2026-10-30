@@ -5,6 +5,8 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Box, Button, Typography, Tab, Tabs } from '@material-ui/core';
+import { EmptyStateView } from '@ansible/portal-plugin-sdk';
+import SearchIcon from '@material-ui/icons/Search';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import { Entity } from '@backstage/catalog-model';
@@ -47,7 +49,6 @@ import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
 import { buildRawReadmeFetchUrl } from './scmUtils';
 import {
-  EmptyState,
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
@@ -358,7 +359,11 @@ const RepositoryDetailsPageInner = () => {
           repositoryName={repositoryName ?? 'Unknown'}
           onNavigateToCatalog={handleNavigateToCatalog}
         />
-        <EmptyState />
+        <EmptyStateView
+          title="Repository not found"
+          description="The requested repository is not available in the catalog."
+          icon={<SearchIcon fontSize="inherit" />}
+        />
       </Box>
     );
   }
