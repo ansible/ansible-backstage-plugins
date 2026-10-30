@@ -44,6 +44,12 @@ Edits additional execution environment build steps while retaining their order
 and step types. The `BuildStep` value type is exported for consuming forms.
 Register it as `AdditionalBuildStepsPicker` in the host's field adapter.
 
+### `PackagesPickerExtension`
+
+Edits package lists using the existing field values and UI options. Its
+`parseMarkdownLinks` helper is also exported for shared field descriptions;
+the plugin-owned BaseImagePicker consumes this same helper.
+
 ## Peer dependencies
 
 Consumers provide React, React DOM, Backstage's scaffolder React package, and

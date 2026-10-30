@@ -1,1 +1,1 @@
-export { parseMarkdownLinks } from './parseMarkdownLinks';
+export { parseMarkdownLinks } from '@ansible/portal-scaffolder-react';
