@@ -2,14 +2,14 @@ import { SchedulerServiceTaskScheduleDefinitionConfig } from '@backstage/backend
 
 /**
  * Operator migration: copy PAH/Git sync sections from `catalog.providers.rhaap.<env>`
- * to `catalog.providers.interim-content.<env>`. Legacy `rhaap` keys remain supported
- * as fallback until interim-content is retired (content L2/L3).
+ * to `catalog.providers.content.<env>`. Legacy `rhaap` keys remain supported
+ * as fallback until content is retired (content L2/L3).
  */
 export interface Config {
   catalog?: {
     providers?: {
       /** @visibility frontend */
-      'interim-content'?: {
+      content?: {
         [authEnv: string]: {
           multiOrgEnabled?: boolean;
           orgs?: string | string[];
@@ -30,14 +30,14 @@ export interface Config {
           };
         };
       };
-      /** Legacy fallback — prefer `interim-content` for split deployments */
+      /** Legacy fallback — prefer `content` for split deployments */
       rhaap?: Record<string, unknown>;
     };
   };
-  ansible: {
-    rhaap: {
-      baseUrl: string;
-      token: string;
+  ansible?: {
+    rhaap?: {
+      baseUrl?: string;
+      token?: string;
       checkSSL?: boolean;
     };
   };

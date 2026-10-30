@@ -21,10 +21,8 @@ import type { CatalogModuleSlice } from './sliceGuard';
 
 export const CATALOG_PROVIDERS_RHAAP = 'catalog.providers.rhaap';
 export const CATALOG_PROVIDERS_AAP = 'catalog.providers.aap';
-export const CATALOG_PROVIDERS_INTERIM_CONTENT =
-  'catalog.providers.interim-content';
-export const CATALOG_PROVIDERS_SELF_SERVICE_EE =
-  'catalog.providers.self-service-ee';
+export const CATALOG_PROVIDERS_CONTENT = 'catalog.providers.content';
+export const CATALOG_PROVIDERS_EE = 'catalog.providers.ee';
 
 const catalogProvidersRootStorage = new AsyncLocalStorage<string>();
 
@@ -35,9 +33,9 @@ export function catalogProvidersConfigRootForSlice(
     case 'aap':
       return CATALOG_PROVIDERS_AAP;
     case 'content':
-      return CATALOG_PROVIDERS_INTERIM_CONTENT;
+      return CATALOG_PROVIDERS_CONTENT;
     case 'ee':
-      return CATALOG_PROVIDERS_SELF_SERVICE_EE;
+      return CATALOG_PROVIDERS_EE;
     case 'all':
     default:
       return CATALOG_PROVIDERS_RHAAP;
