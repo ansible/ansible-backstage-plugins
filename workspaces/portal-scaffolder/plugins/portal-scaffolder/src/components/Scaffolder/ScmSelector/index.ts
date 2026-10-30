@@ -1,2 +1,2 @@
-export { ScmSelectorExtension } from './ScmSelectorExtension';
+export { ScmSelectorExtension } from '@ansible/portal-scaffolder-react';
 export { ScmSelectorFieldExtension } from './extensions';
