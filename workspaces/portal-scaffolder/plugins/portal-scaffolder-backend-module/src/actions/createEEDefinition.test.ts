@@ -1424,6 +1424,32 @@ describe('createEEDefinition', () => {
     ]);
   });
 
+  it('prefers a stable release over a prerelease regardless of input order', async () => {
+    for (const collections of [
+      [
+        { name: 'community.general', version: '1.0.0-rc.1' },
+        { name: 'community.general', version: '1.0.0' },
+      ],
+      [
+        { name: 'community.general', version: '1.0.0' },
+        { name: 'community.general', version: '1.0.0-rc.1' },
+      ],
+    ]) {
+      const action = makeAction();
+      await action.handler(
+        makeCtx({
+          eeFileName: 'test-ee',
+          baseImage: 'img:latest',
+          publishToSCM: true,
+          collections,
+        }),
+      );
+      expect(mockDownloadEEScaffold.mock.calls.at(-1)?.[3].collections).toEqual([
+        { name: 'community.general', version: '1.0.0' },
+      ]);
+    }
+  });
+
   it('keeps existing versionless collection over versioned duplicate', async () => {
     const action = makeAction();
     const ctx = makeCtx({

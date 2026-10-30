@@ -506,8 +506,11 @@ function mergeCollections(collections: Collection[]): Collection[] {
       }
 
       // Rule 2: Compare semantic versions, keep higher
-      const currVersion = semver.valid(semver.coerce(curr.version));
-      const existingVersion = semver.valid(semver.coerce(existing.version));
+      const currVersion =
+        semver.valid(curr.version) ?? semver.valid(semver.coerce(curr.version));
+      const existingVersion =
+        semver.valid(existing.version) ??
+        semver.valid(semver.coerce(existing.version));
       if (
         currVersion &&
         existingVersion &&
