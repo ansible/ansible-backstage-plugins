@@ -299,7 +299,7 @@ A library does not create a page or sidebar item merely by being installed.
 
 ### Self-service
 
-- [`@ansible/portal-scaffolder`](./docs/plugins/self-service.md): templates, tasks/history,
+- [`@ansible/portal-scaffolder`](./docs/plugins/portal-scaffolder.md): templates, tasks/history,
   native fields, and current collection/EE/repository pages awaiting content extraction.
 
 ### APME integration
