@@ -67,7 +67,7 @@ export function createEEDefinitionAction(options: {
   config: Config;
 }) {
   const { frontendUrl, auth, discovery, config } = options;
-  // @ts-expect-error TS2589: complex ZodEffects schema triggers deep type recursion
+  // @ts-ignore TS2589: complex ZodEffects schema triggers deep type recursion (flaky: depends on checker instantiation depth, not always triggered)
   return createTemplateAction({
     id: 'ansible:create:ee-definition',
     description: 'Creates Ansible Execution Environment definition files',
@@ -347,7 +347,8 @@ export function createEEDefinitionAction(options: {
           auth,
           logger,
           getInitiatorCredentials: () => ctx.getInitiatorCredentials(),
-          output: (key, value) => ctx.output(key, value),
+          output: (key: string, value: any) =>
+            ctx.output(key as Parameters<typeof ctx.output>[0], value),
         });
 
         if (values.publishToSCM) {
