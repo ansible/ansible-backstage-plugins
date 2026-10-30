@@ -22,11 +22,8 @@ import { signalsServiceRef } from '@backstage/plugin-signals-node';
 import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
 import { ansiblePermissions } from '@ansible/backstage-rhaap-common/permissions';
 import { createRouter } from './router';
-import {
-  catalogModelExtensionPoint,
-  catalogProcessingExtensionPoint as alphaCatalogProcessing,
-} from '@backstage/plugin-catalog-node/alpha';
-import * as catalogNode from '@backstage/plugin-catalog-node';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
@@ -38,10 +35,6 @@ import {
   assertCatalogModuleSliceAllowed,
   type CatalogModuleSlice,
 } from './sliceGuard';
-
-const catalogProcessingExtensionPoint: typeof alphaCatalogProcessing =
-  Reflect.get(catalogNode, 'catalogProcessingExtensionPoint') ??
-  alphaCatalogProcessing;
 
 function includesAap(slice: CatalogModuleSlice): boolean {
   return slice === 'all' || slice === 'aap';
