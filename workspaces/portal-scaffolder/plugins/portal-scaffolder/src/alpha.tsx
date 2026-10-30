@@ -19,8 +19,6 @@ import {
   historyRouteRef,
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
-import BuildIcon from '@material-ui/icons/Build';
-import ExtensionIcon from '@material-ui/icons/Extension';
 import HistoryIcon from '@material-ui/icons/History';
 import GitHubIcon from '@material-ui/icons/GitHub';
 
@@ -42,38 +40,11 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'ee-build',
       params: define => define(EEBuildApis),
     }),
-    PageBlueprint.make({
-      name: 'collections',
-      params: {
-        path: portalScaffolderRoutePaths.collections,
-        title: 'Collections',
-        icon: <ExtensionIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(collectionsRouteRef),
-        loader: async () => {
-          const { CollectionsRoutesPage } = await import(
-            './components/CollectionsCatalog'
-          );
-          return compatWrapper(<CollectionsRoutesPage />);
-        },
-      },
-    }),
-    PageBlueprint.make({
-      name: 'ee',
-      params: {
-        path: portalScaffolderRoutePaths.executionEnvironments,
-        title: 'Execution Environments',
-        icon: <BuildIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(eeRouteRef),
-        loader: async () => {
-          const { EERoutesPage } = await import(
-            './components/ExecutionEnvironments'
-          );
-          return compatWrapper(<EERoutesPage />);
-        },
-      },
-    }),
+    // EE and Collections NFS pages are intentionally absent: the
+    // automation-content plugin serves both at these paths (provisional
+    // 2026-10-30 mounts, pending the workspace-ownership consult). Main's
+    // portal-scaffolder-common route paths claim the same URLs — that
+    // collision is tracked for the Ganesh/portal-team discussion.
     PageBlueprint.make({
       name: 'repositories',
       params: {
