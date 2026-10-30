@@ -808,6 +808,33 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/portal-scaffolder-react@workspace:^, @ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react"
+  dependencies:
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/plugin-scaffolder-react": "npm:^1.20.0"
+    "@material-ui/core": "npm:^4.9.13"
+    "@material-ui/icons": "npm:^4.9.1"
+    "@testing-library/dom": "npm:^10.4.0"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^16.0.0"
+    "@types/jest": "npm:^29.5.14"
+    "@types/react": "npm:^18.3.3"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    typescript: "npm:~5.8.0"
+  peerDependencies:
+    "@backstage/plugin-scaffolder-react": ^1.20.0
+    "@material-ui/core": ^4.9.13
+    "@material-ui/icons": ^4.9.1
+    react: ^18.3.1
+    react-dom: ^18.3.1
+    react-router: "*"
+    react-router-dom: ^6.30.5
+  languageName: unknown
+  linkType: soft
+
 "@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
@@ -815,6 +842,7 @@ __metadata:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
+    "@ansible/portal-scaffolder-react": "workspace:^"
     "@backstage/catalog-client": "npm:^1.14.0"
     "@backstage/catalog-model": "npm:^1.7.7"
     "@backstage/cli": "npm:^0.36.0"
