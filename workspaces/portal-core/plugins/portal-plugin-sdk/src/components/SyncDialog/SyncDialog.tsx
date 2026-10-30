@@ -37,7 +37,11 @@ import {
 } from '../../types';
 import { useSharedStyles } from '../../styles';
 import { GitLabIcon, RedHatIcon } from '../../icons';
-import { SYNC_FAILED_CATEGORY, SYNC_STARTED_CATEGORY, fetchContentSyncStatus } from '../../utils';
+import {
+  SYNC_FAILED_CATEGORY,
+  SYNC_STARTED_CATEGORY,
+  fetchContentSyncStatus,
+} from '../../utils';
 
 type AnsibleSyncPostResult = {
   status: string;
