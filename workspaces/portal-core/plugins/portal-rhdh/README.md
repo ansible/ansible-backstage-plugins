@@ -19,8 +19,8 @@ app renders its own header and does not need this package.
   backend provider, and frontend-visible AAP connection configuration.
 
 The adapter builds against global-header `3.2.1` and frontend-plugin-api
-`0.18.0`. The generic Portal Blueprint contracts remain on their existing
-platform dependency baseline. Verification targets RHDH `next-2.1`; this is not
+`0.18.0`. The generic Portal Blueprint contracts use the same frontend API
+baseline on Backstage `1.54.9`. Verification targets RHDH `next-2.1`; this is not
 a supported cross-version compatibility matrix.
 
 ## Installing the adapter
