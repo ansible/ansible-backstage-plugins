@@ -95,5 +95,5 @@ ansible:
 
 ## Related Documentation
 
-- [Self-Service Plugin Documentation](../plugins/self-service.md)
+- [Portal scaffolder plugin documentation](../plugins/portal-scaffolder.md)
 - [Backstage RHAAP Plugin Documentation](../plugins/backstage-frontend.md)

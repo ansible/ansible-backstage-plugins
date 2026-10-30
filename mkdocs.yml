@@ -87,8 +87,9 @@ nav:
           - backstage-apme-common: plugins/backstage-apme-common.md
           - catalog-backend-module-apme: plugins/catalog-apme.md
           - scaffolder-backend-module-apme: plugins/scaffolder-apme.md
-      - Self-service:
-          - portal-scaffolder: plugins/self-service.md
+      - Portal scaffolder:
+          - portal-scaffolder: plugins/portal-scaffolder.md
+          - portal-scaffolder-common: plugins/portal-scaffolder-common.md
   - Portal SDK:
       - SDK architecture: next/portal-sdk-architecture.md
       - Third-party plugin authors: next/portal-sdk-plugin-author-guide.md
