@@ -69,6 +69,9 @@ it('defaults to classified EEs and refetches everything when toggled', async () 
     </TestApiProvider>,
   );
   expect(await screen.findByRole('link', { name: 'repo' })).toBeTruthy();
+  expect(
+    screen.getByRole('heading', { name: 'Execution Environments images (1)' }),
+  ).toBeTruthy();
   expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
     allTypes: false,
   });
@@ -76,6 +79,31 @@ it('defaults to classified EEs and refetches everything when toggled', async () 
   expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
     allTypes: true,
   });
+});
+
+it('retains search controls when no images match and clears the filters', async () => {
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          { listExecutionEnvironments: async () => [base] },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <ImagesCatalogPage />
+    </TestApiProvider>,
+  );
+  expect(await screen.findByRole('link', { name: 'repo' })).toBeTruthy();
+  await userEvent.type(
+    screen.getByRole('searchbox', { name: 'Search images' }),
+    'absent',
+  );
+  expect(await screen.findByText('No images match your filters')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+  expect(await screen.findByRole('link', { name: 'repo' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /Sync|Build|Edit/ })).toBeNull();
 });
 
 it('labels partial counts and unknown contents without requiring catalog matches', async () => {

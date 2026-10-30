@@ -5,11 +5,14 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   Button,
+  Badge,
   Card,
   CardBody,
   CardHeader,
   Container,
   Flex,
+  Grid,
+  Link,
   Select,
   Skeleton,
   Tab,
@@ -24,7 +27,11 @@ import { EmptyState, PageHeaderSection } from '../common';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
 import { ContentItemsTable } from '../ExecutionEnvironments/ContentItemsTable';
 import { ContentItemDocumentation } from '../ContentItemDocumentation';
-import { collectionHref, groupCollections } from './collectionHelpers';
+import {
+  collectionHref,
+  collectionSourceHref,
+  groupCollections,
+} from './collectionHelpers';
 import { CollectionMetadata } from './CollectionMetadata';
 import { CollectionEnvironmentsTable } from './CollectionEnvironmentsTable';
 
@@ -109,8 +116,21 @@ function CollectionDetailsContent() {
             description="This collection is not present in the indexed registries."
           />
         )}
-        {group && version && (
+        {!result.loading && !result.error && group && version && (
           <>
+            <Flex gap="2" align="center">
+              <Badge>v{version.version}</Badge>
+              {version.repository && <Badge>{version.repository}</Badge>}
+              {collectionSourceHref(version.repository) && (
+                <Link
+                  href={collectionSourceHref(version.repository)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View Source
+                </Link>
+              )}
+            </Flex>
             <Select
               label="Collection version"
               value={version.version}
@@ -142,31 +162,48 @@ function CollectionDetailsContent() {
               }}
             >
               <TabList aria-label="Collection details">
-                <Tab id="about">About</Tab>
+                <Tab id="about">Overview</Tab>
                 <Tab id="content">Content</Tab>
                 <Tab id="environments">Execution Environments</Tab>
               </TabList>
               <TabPanel id="about">
-                <Card>
-                  <CardHeader>
-                    <Text as="h2" variant="title-medium">
-                      About this collection
-                    </Text>
-                  </CardHeader>
-                  <CardBody>
-                    <Flex direction="column" gap="3">
-                      <Text>
-                        {version.description || 'No description available.'}
+                <Grid.Root columns={{ initial: '1', lg: '2' }} gap="4">
+                  <Card>
+                    <CardHeader>
+                      <Text as="h2" variant="title-medium">
+                        About
                       </Text>
-                      <Text>Version {version.version}</Text>
+                    </CardHeader>
+                    <CardBody>
+                      <Flex direction="column" gap="3">
+                        <Text>
+                          {version.description || 'No description available.'}
+                        </Text>
+                        <Text>Version {version.version}</Text>
+                        {version.repository && (
+                          <Text>Source: {version.repository}</Text>
+                        )}
+                        <Button variant="secondary" onPress={result.retry}>
+                          Refresh
+                        </Button>
+                      </Flex>
+                    </CardBody>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <Text as="h2" variant="title-medium">
+                        Resources
+                      </Text>
+                    </CardHeader>
+                    <CardBody>
                       <CollectionMetadata
                         counts={version.counts}
                         providedBy={version.providedBy}
                         environmentBase={environmentBase}
                       />
-                    </Flex>
-                  </CardBody>
-                </Card>
+                    </CardBody>
+                  </Card>
+                </Grid.Root>
               </TabPanel>
               <TabPanel id="content">
                 <Text>
@@ -187,8 +224,9 @@ function CollectionDetailsContent() {
                 />
               </TabPanel>
               <TabPanel id="environments">
-                <Text as="h2" variant="title-medium">
-                  All versions and providing execution environments
+                <Text as="p">
+                  Execution environments that include this collection and make
+                  its modules and plugins available for automation.
                 </Text>
                 <CollectionEnvironmentsTable
                   versions={group.versions}

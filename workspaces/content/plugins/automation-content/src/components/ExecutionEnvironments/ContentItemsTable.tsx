@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi } from '@backstage/core-plugin-api';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@backstage/ui';
 import { automationContentApiRef, type ContentItemSummary } from '../../api';
 import { EmptyState } from '../common';
+import styles from './details.module.css';
 
 interface ItemRow extends ContentItemSummary {
   id: string;
@@ -27,7 +29,7 @@ export function ContentItemsTable({
   inArtifact?: string;
   collection?: string;
   itemHref: (item: ContentItemSummary) => string;
-}) {
+}): ReactElement {
   const api = useApi(automationContentApiRef);
   const [query, setQuery] = useState('');
   const result = useAsyncRetry(
@@ -58,15 +60,16 @@ export function ContentItemsTable({
       id: 'name',
       label: 'Name',
       isRowHeader: true,
-      cell: item => (
-        <CellText
-          title={item.fqcn}
-          description={item.shortDescription}
-          href={itemHref(item)}
-        />
-      ),
+      cell: item => <CellText title={item.fqcn} href={itemHref(item)} />,
     },
     { id: 'type', label: 'Type', cell: item => <CellText title={item.type} /> },
+    {
+      id: 'description',
+      label: 'Description',
+      cell: item => (
+        <CellText title={item.shortDescription ?? 'No description available'} />
+      ),
+    },
     {
       id: 'version',
       label: 'Collection version',
@@ -102,7 +105,7 @@ export function ContentItemsTable({
           Results are limited to 500 items. Refine your search to find more.
         </Text>
       )}
-      <div aria-busy={result.loading}>
+      <div aria-busy={result.loading} className={styles.table}>
         {!result.error && (
           <Table
             {...table.tableProps}

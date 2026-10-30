@@ -1,0 +1,14 @@
+.automation-content-empty-state {
+  max-width: 65ch;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.automation-content-breadcrumbs {
+  flex-wrap: wrap;
+}
+
+.automation-content-breadcrumb-item {
+  min-width: 0;
+  max-width: 100%;
+}

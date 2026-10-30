@@ -1,5 +1,13 @@
-import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
-import { Button, Flex, Text, Tooltip, TooltipTrigger } from '@backstage/ui';
+import {
+  Button,
+  ButtonIcon,
+  Flex,
+  Text,
+  Tooltip,
+  TooltipTrigger,
+} from '@backstage/ui';
+import type { ReactElement } from 'react';
+import { HelpIcon } from './icons';
 import type { PageHeaderSectionProps } from './types';
 
 /** Route title and optional actions; essential help/status remains visible. */
@@ -10,7 +18,12 @@ export function PageHeaderSection({
   help,
   actions,
   status,
-}: PageHeaderSectionProps) {
+  descriptionExtra,
+  onSyncClick,
+  syncDisabled = false,
+  syncDisabledReason,
+  syncInProgress = false,
+}: PageHeaderSectionProps): ReactElement {
   return (
     <Flex direction="column" gap="3">
       <Flex
@@ -25,24 +38,51 @@ export function PageHeaderSection({
           </Text>
           {tooltip && (
             <TooltipTrigger>
-              <Button
+              <ButtonIcon
                 variant="tertiary"
-                iconStart={<HelpOutlineIcon />}
+                icon={<HelpIcon />}
                 aria-label={`About ${title}`}
               />
               <Tooltip>{tooltip}</Tooltip>
             </TooltipTrigger>
           )}
         </Flex>
-        {actions}
+        <Flex align="center" gap="3">
+          {actions}
+          {onSyncClick && (
+            <Button
+              variant="secondary"
+              onPress={onSyncClick}
+              isDisabled={syncDisabled}
+              isPending={syncInProgress}
+            >
+              Sync Now
+            </Button>
+          )}
+        </Flex>
       </Flex>
-      {description && <Text as="p">{description}</Text>}
+      {(description || descriptionExtra) && (
+        <Text as="p">
+          {description}
+          {descriptionExtra && <> {descriptionExtra}</>}
+        </Text>
+      )}
       {help && (
         <Text as="p" color="secondary">
           {help}
         </Text>
       )}
       {status && <div role="status">{status}</div>}
+      {syncDisabled && syncDisabledReason && (
+        <Text as="p" color="secondary">
+          {syncDisabledReason}
+        </Text>
+      )}
+      {syncInProgress && !status && (
+        <Text as="p" role="status">
+          Sync in progress
+        </Text>
+      )}
     </Flex>
   );
 }

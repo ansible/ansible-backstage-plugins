@@ -2,3 +2,12 @@
   overflow-wrap: anywhere;
   min-width: 0;
 }
+
+.table {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.wrapFlex {
+  flex-wrap: wrap;
+}

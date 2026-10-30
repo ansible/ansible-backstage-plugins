@@ -46,6 +46,10 @@ const api = {
   searchContentItems: jest.fn(async () => ({ totalItems: 0, items: [] })),
 };
 
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
 function mount(path: string) {
   return render(
     <TestApiProvider
@@ -87,6 +91,41 @@ it('opens dotted collection details with version context and provider aggregatio
   expect(await screen.findByText('Version 1.9.0')).toBeTruthy();
   expect(screen.getByRole('link', { name: 'r/ee@sha256:one' })).toBeTruthy();
   expect(screen.getByRole('link', { name: 'r/ee@sha256:two' })).toBeTruthy();
+});
+
+it('shows all computed versions when latest-only is turned off', async () => {
+  mount('/');
+  await screen.findByText('Latest: 1.10.0');
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: 'Show latest version only' }),
+  );
+  expect(screen.getByText('v1.9.0')).toBeTruthy();
+  expect(screen.getByText('v1.10.0')).toBeTruthy();
+  expect(
+    screen
+      .getAllByRole('link', { name: 'View ns.name_with.dots details' })
+      .map(link => link.getAttribute('href')),
+  ).toEqual([
+    expect.stringContaining('version=1.10.0'),
+    expect.stringContaining('version=1.9.0'),
+  ]);
+});
+
+it('shows an error rather than an empty catalog when loading fails', async () => {
+  api.listCollections.mockRejectedValueOnce(new Error('Unavailable'));
+  mount('/');
+  expect((await screen.findByRole('alert')).textContent).toContain(
+    'Unable to load collections.',
+  );
+  expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+  expect(screen.queryByText('No collections found')).toBeNull();
+  expect(screen.queryByText('Latest: 1.10.0')).toBeNull();
+});
+
+it('distinguishes a missing collection from a failed detail request', async () => {
+  mount('/other/missing');
+  expect(await screen.findByText('Collection not found')).toBeTruthy();
+  expect(screen.queryByRole('tablist')).toBeNull();
 });
 
 it('searches contents using collection identity', async () => {

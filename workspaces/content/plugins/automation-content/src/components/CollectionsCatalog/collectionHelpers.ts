@@ -1,5 +1,16 @@
 import type { Collection, ContentCounts } from '../../api';
 
+/** Only expose navigable web sources; registry repository names remain labels. */
+export function collectionSourceHref(repository?: string): string | undefined {
+  if (!repository) return undefined;
+  try {
+    const url = new URL(repository);
+    return ['https:', 'http:'].includes(url.protocol) ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Grouped display identity retaining all versions and providers. */
 export interface CollectionGroup {
   fqcn: string;

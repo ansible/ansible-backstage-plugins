@@ -25,9 +25,11 @@ import { eeRouteRef } from '../../routes';
 import { EmptyState, PageHeaderSection, StarIcon } from '../common';
 import {
   environmentHref,
+  imageContentsSummary,
   matchesEnvironment,
   relativeTime,
 } from './catalogHelpers';
+import styles from './details.module.css';
 
 interface ImageRow extends ExecutionEnvironment {
   id: string;
@@ -114,19 +116,7 @@ export function ImagesCatalogPage({
     {
       id: 'contents',
       label: 'Contents',
-      cell: row => (
-        <CellText
-          title={
-            !row.contentsKnown
-              ? 'Contents unknown'
-              : `${
-                  row.enumeration.status !== 'complete' ? 'Approximate: ' : ''
-                }${row.counts?.collections ?? 'Unknown'} collections / ${
-                  row.counts?.plugins ?? 'Unknown'
-                } plugins`
-          }
-        />
-      ),
+      cell: row => <CellText title={imageContentsSummary(row)} />,
     },
     {
       id: 'fidelity',
@@ -193,17 +183,29 @@ export function ImagesCatalogPage({
           description="Discover immutable images from configured registries and inspect their Ansible content."
         />
       )}
-      <SearchField
-        label="Search images"
-        value={table.search.value}
-        onChange={table.search.onChange}
-      />
-      <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
-        Favorites only
-      </Checkbox>
-      <Checkbox isSelected={allTypes} onChange={setAllTypes}>
-        Show all images
-      </Checkbox>
+      <Flex
+        direction={{ initial: 'column', md: 'row' }}
+        justify="between"
+        gap="3"
+      >
+        <Text as="h2" variant="title-medium">
+          Execution Environments images
+          {images.value ? ` (${images.value.length})` : ''}
+        </Text>
+        <SearchField
+          label="Search images"
+          value={table.search.value}
+          onChange={table.search.onChange}
+        />
+      </Flex>
+      <Flex direction={{ initial: 'column', md: 'row' }} gap="4">
+        <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
+          Favorites only
+        </Checkbox>
+        <Checkbox isSelected={allTypes} onChange={setAllTypes}>
+          Show all images
+        </Checkbox>
+      </Flex>
       {images.error && (
         <div role="alert">
           Unable to load execution environments.{' '}
@@ -218,10 +220,7 @@ export function ImagesCatalogPage({
       {!images.loading && !images.error && images.value && (
         <Text aria-live="polite">{data?.length ?? 0} images loaded</Text>
       )}
-      <div
-        aria-busy={images.loading}
-        style={{ overflowX: 'auto', minWidth: 0 }}
-      >
+      <div aria-busy={images.loading} className={styles.table}>
         {!images.error && (
           <Table
             {...table.tableProps}
@@ -238,6 +237,19 @@ export function ImagesCatalogPage({
                   data?.length
                     ? 'Change your search or turn off Favorites only.'
                     : 'Images appear after configured registries are reconciled.'
+                }
+                action={
+                  data?.length ? (
+                    <Button
+                      variant="secondary"
+                      onPress={() => {
+                        table.search.onChange('');
+                        setStarredOnly(false);
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : undefined
                 }
               />
             }
