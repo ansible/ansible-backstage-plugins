@@ -26,6 +26,9 @@ portal:
   navigation:
     topOffset: 64
     items:
+      - id: ansible
+        page: page:ansible
+        title: Ansible
       - id: templates
         path: /self-service
         title: Templates
