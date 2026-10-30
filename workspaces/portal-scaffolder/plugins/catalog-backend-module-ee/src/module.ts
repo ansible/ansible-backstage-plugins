@@ -1,6 +1,6 @@
 import { createCatalogModule } from '@ansible/backstage-plugin-catalog-backend-module-rhaap-shared';
 
-export const catalogModuleSelfServiceEe = createCatalogModule({
-  moduleId: 'self-service-ee',
+export const catalogModuleEe = createCatalogModule({
+  moduleId: 'ee',
   slice: 'ee',
 });

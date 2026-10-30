@@ -295,9 +295,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/backstage-plugin-catalog-backend-module-interim-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-interim-content":
+"@ansible/backstage-plugin-catalog-backend-module-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-content":
   version: 0.0.0-use.local
-  resolution: "@ansible/backstage-plugin-catalog-backend-module-interim-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-interim-content"
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-content@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-content"
+  dependencies:
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:^1.8.0"
+    "@backstage/cli": "npm:^0.36.0"
+    "@backstage/plugin-catalog-backend": "npm:^3.6.1"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/backstage-plugin-catalog-backend-module-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-ee":
+  version: 0.0.0-use.local
+  resolution: "@ansible/backstage-plugin-catalog-backend-module-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-ee"
   dependencies:
     "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
@@ -391,18 +403,6 @@ __metadata:
     undici: "npm:^6.26.0"
     yaml: "npm:^2.4.5"
     zod: "npm:^3.25.76"
-  languageName: unknown
-  linkType: soft
-
-"@ansible/backstage-plugin-catalog-backend-module-self-service-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-self-service-ee":
-  version: 0.0.0-use.local
-  resolution: "@ansible/backstage-plugin-catalog-backend-module-self-service-ee@workspace:workspaces/portal-scaffolder/plugins/catalog-backend-module-self-service-ee"
-  dependencies:
-    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^"
-    "@ansible/backstage-rhaap-common": "workspace:^"
-    "@backstage/backend-plugin-api": "npm:^1.8.0"
-    "@backstage/cli": "npm:^0.36.0"
-    "@backstage/plugin-catalog-backend": "npm:^3.6.1"
   languageName: unknown
   linkType: soft
 

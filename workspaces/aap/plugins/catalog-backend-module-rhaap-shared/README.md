@@ -1,6 +1,6 @@
 # catalog-backend-module-rhaap-shared
 
-Shared provider library for the AAP catalog backend split. Houses all entity providers, the sync router, slice-guard, and `createCatalogModule()`. Consumed by `catalog-backend-module-aap`, `catalog-backend-module-interim-content`, `catalog-backend-module-self-service-ee`, and the legacy `catalog-backend-module-rhaap` shim.
+Shared provider library for the AAP catalog backend split. Houses all entity providers, the sync router, slice-guard, and `createCatalogModule()`. Consumed by `catalog-backend-module-aap`, `catalog-backend-module-content`, `catalog-backend-module-ee`, and the legacy `catalog-backend-module-rhaap` shim.
 
 ## Installation
 
@@ -21,7 +21,7 @@ Use token value as `AAP_TOKEN`
 
 ### RHDH
 
-Fragment for `app-config.local.yaml` when using the **split catalog modules** (`catalog-backend-module-aap`, `catalog-backend-module-interim-content`, etc.):
+Fragment for `app-config.local.yaml` when using the **split catalog modules** (`catalog-backend-module-aap`, `catalog-backend-module-content`, etc.):
 
 ```yaml
 catalog:

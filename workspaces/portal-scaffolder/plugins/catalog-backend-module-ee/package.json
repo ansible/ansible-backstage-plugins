@@ -1,5 +1,5 @@
 {
-  "name": "@ansible/backstage-plugin-catalog-backend-module-self-service-ee",
+  "name": "@ansible/backstage-plugin-catalog-backend-module-ee",
   "description": "Execution environment definition catalog surface for portal-scaffolder (pluginId catalog).",
   "version": "1.0.0",
   "main": "src/index.ts",
