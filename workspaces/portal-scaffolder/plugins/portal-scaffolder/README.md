@@ -1,11 +1,11 @@
-# self-service
+# `@ansible/portal-scaffolder`
 
-The self-service plugin is the frontend plugin for Red Hat Ansible Automation Platform.
-First page (catalog) is available at `/self-service/catalog`.
+The Portal scaffolder plugin is the frontend plugin for Red Hat Ansible Automation Platform.
+Its pages use the `/self-service` base path.
 
 To be fully functional, it requires other plugins for Red Hat Ansible Automation Platform:
 
-- auth--backend-module-rhaap-provider
+- auth-backend-module-rhaap-provider
 - catalog-backend-module-rhaap
 - scaffolder-backend-module-backstage-rhaap
 
@@ -15,12 +15,12 @@ Your plugin has been added to the example app in this repository, meaning you'll
 
 You can also serve the plugin in isolation by running `yarn start` in the plugin directory.
 This method of serving the plugin provides quicker iteration speed and a faster startup and hot reloads.
-It is only meant for local development, and the setup for it can be found inside the [/dev](https://github.com/ansible/ansible-backstage-plugins/tree/main/plugins/self-service/dev) directory.
+It is only meant for local development, and the setup for it can be found inside the [/dev](https://github.com/ansible/ansible-backstage-plugins/tree/main/workspaces/portal-scaffolder/plugins/portal-scaffolder/dev) directory.
 
 ## Installation
 
 Build plugin as a dynamic plugin.
-Then configure your Ansible Self-Service to load tar.gz with the plugin.
+Then configure Red Hat Developer Hub to load the plugin tar.gz.
 
 ### RHDH
 
@@ -29,7 +29,7 @@ Fragment for `app-config.local.yaml`:
 ```yaml
 dynamicPlugins:
   frontend:
-    ansible.plugin-backstage-self-service:
+    ansible.portal-scaffolder:
       dynamicRoutes:
         - importName: SelfServicePage
           path: /self-service/*
