@@ -36,6 +36,7 @@
     "@ansible/aap-app-auth": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
+    "@ansible/portal-scaffolder-react": "workspace:^",
     "@backstage/catalog-client": "^1.14.0",
     "@backstage/catalog-model": "^1.7.7",
     "@backstage/config": "^1.3.6",

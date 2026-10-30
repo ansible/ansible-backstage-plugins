@@ -1,2 +1,2 @@
 export { FileUploadPickerFieldExtension } from './extensions';
-export { FileUploadPickerExtension } from './FileUploadPickerExtension';
+export { FileUploadPickerExtension } from '@ansible/portal-scaffolder-react';
