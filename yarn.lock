@@ -808,6 +808,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common"
+  dependencies:
+    "@backstage/cli": "npm:0.36.5"
+    "@jest/globals": "npm:29.7.0"
+    typescript: "npm:5.8.3"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
@@ -815,6 +825,7 @@ __metadata:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
+    "@ansible/portal-scaffolder-common": "workspace:^"
     "@backstage/catalog-client": "npm:1.16.1"
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"
@@ -12786,7 +12797,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/globals@npm:^29.7.0":
+"@jest/globals@npm:29.7.0, @jest/globals@npm:^29.7.0":
   version: 29.7.0
   resolution: "@jest/globals@npm:29.7.0"
   dependencies:
