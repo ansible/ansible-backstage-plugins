@@ -94,6 +94,7 @@ nav:
       - Third-party plugin authors: next/portal-sdk-plugin-author-guide.md
       - Native NFS composition: next/portal-sdk-nfs-composition.md
       - Implementation guide: next/portal-plugin-factory-implementation-guide.md
+      - Backend authorization inventory: next/portal-backend-authorization-inventory.md
       - Content picker proposal: next/portal-content-picker-contract-proposal.md
       - Design tokens: next/portal-sdk-design-tokens.md
       - Quickstart (legacy compatibility): next/portal-sdk-quickstart.md
