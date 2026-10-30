@@ -136,6 +136,7 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
+            eeProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
             userInfo: userInfo,
