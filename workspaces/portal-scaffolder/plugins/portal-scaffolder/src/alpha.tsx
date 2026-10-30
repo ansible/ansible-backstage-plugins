@@ -9,6 +9,7 @@ import {
   convertLegacyRouteRef,
 } from '@backstage/core-compat-api';
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
+import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
 import {
   rootRouteRef,
@@ -44,7 +45,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'collections',
       params: {
-        path: '/self-service/collections',
+        path: portalScaffolderRoutePaths.collections,
         title: 'Collections',
         icon: <ExtensionIcon />,
         noHeader: true,
@@ -60,7 +61,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'ee',
       params: {
-        path: '/self-service/ee',
+        path: portalScaffolderRoutePaths.executionEnvironments,
         title: 'Execution Environments',
         icon: <BuildIcon />,
         noHeader: true,
@@ -76,7 +77,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'repositories',
       params: {
-        path: '/self-service/repositories',
+        path: portalScaffolderRoutePaths.gitRepositories,
         title: 'Git repositories',
         icon: <GitHubIcon />,
         noHeader: true,
@@ -90,7 +91,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
       },
     }),
     createPortalScaffolderPage({
-      path: '/self-service',
+      path: portalScaffolderRoutePaths.root,
       routeRef: convertLegacyRouteRef(rootRouteRef),
       loader: async fields => {
         const { NativeScaffolderPage } = await import(
@@ -102,7 +103,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'history',
       params: {
-        path: '/self-service/create/tasks',
+        path: portalScaffolderRoutePaths.history,
         title: 'History',
         icon: <HistoryIcon />,
         noHeader: true,

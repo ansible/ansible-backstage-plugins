@@ -1,4 +1,5 @@
 import { createRouteRef, createSubRouteRef } from '@backstage/core-plugin-api';
+import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 
 export const rootRouteRef = createRouteRef({
   id: 'self-service',
@@ -27,17 +28,17 @@ export const historyRouteRef = createRouteRef({
 export const catalogImportRouteRef = createSubRouteRef({
   id: 'self-service/catalog-import',
   parent: rootRouteRef,
-  path: '/catalog-import',
+  path: portalScaffolderRoutePaths.catalogImport,
 });
 
 export const selectedTemplateRouteRef = createSubRouteRef({
   id: 'self-service/selected-template',
   parent: rootRouteRef,
-  path: '/create/templates/:namespace/:templateName',
+  path: portalScaffolderRoutePaths.selectedTemplate,
 });
 
 export const createTaskRouteRef = createSubRouteRef({
   id: 'self-service/task',
   parent: rootRouteRef,
-  path: '/create/tasks/:taskId',
+  path: portalScaffolderRoutePaths.createTask,
 });
