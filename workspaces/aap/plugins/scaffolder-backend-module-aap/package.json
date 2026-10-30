@@ -29,7 +29,7 @@
   "devDependencies": {
     "@backstage/backend-test-utils": "1.11.1",
     "@backstage/cli": "0.36.2",
-    "@backstage/plugin-scaffolder-node-test-utils": "0.3.11",
+    "@backstage/plugin-scaffolder-node-test-utils": "0.3.16",
     "@types/jest": "29.5.14",
     "msw": "2.4.9"
   },

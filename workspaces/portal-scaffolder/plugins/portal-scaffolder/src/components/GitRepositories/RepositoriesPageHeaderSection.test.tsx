@@ -8,10 +8,8 @@ const mockUseIsSuperuser = jest.fn().mockReturnValue({
   error: null,
 });
 
-// RepositoriesPageHeaderSection wraps PageHeaderSection from @ansible/backstage-rhaap-react
-// (via '../common'). That component imports useIsSuperuser from its own internal relative
-// path inside the workspace package. Mocking '../../hooks' alone does not intercept it.
-// Target the workspace package hooks directly so mockUseIsSuperuser controls all usages.
+// CatalogSyncHeader uses the SDK's public useIsSuperuser export.
+// Mock its underlying hooks module to control permission state through the barrel.
 jest.mock(
   '../../../../../../portal-core/plugins/portal-plugin-sdk/src/hooks',
   () => ({
@@ -85,7 +83,7 @@ describe('RepositoriesPageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('renders help icon with tooltip', () => {
@@ -124,7 +122,7 @@ describe('RepositoriesPageHeaderSection', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
   });
 });
