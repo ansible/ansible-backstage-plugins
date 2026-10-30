@@ -47,6 +47,7 @@ import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
 import { AutomationContentPage } from '@ansible/plugin-automation-content';
 // Side-effect import: triggers registerManifest() + registerApmeExtensions() in plugin.ts
 import '@ansible/plugin-backstage-apme';
+import { CompliancePage } from '@ansible/plugin-compliance';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
 import {
   AAPTokenFieldExtension,
@@ -148,6 +149,7 @@ const routes = (
     <Route path="/ansible" element={<AnsiblePage />} />
     <Route path="/automation-content" element={<AutomationContentPage />} />
     <Route path="/self-service" element={<SelfServicePage />} />
+    <Route path="/compliance/*" element={<CompliancePage />} />
   </FlatRoutes>
 );
 

@@ -41,6 +41,9 @@ portal:
       - id: repositories
         path: /self-service/repositories
         title: Git repositories
+      - id: compliance
+        path: /compliance
+        title: Compliance
       - id: administration
         # For a direct link instead, remove children and set path: /rbac.
         title: Administration
@@ -83,8 +86,7 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection:
-      directory: ':memory:'
+    connection: ':memory:'
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:
@@ -261,6 +263,11 @@ ansible:
     port: '8000'
   feedback:
     enabled: false
+  compliance:
+    enabled: true
+    authMode: production
+    retentionDays: 90
+    ingestTokenTtlMinutes: 60
 kubernetes: null
 
 permission:
@@ -282,6 +289,7 @@ permission:
       - catalog
       - scaffolder
       - permission
+      - compliance
     # Multi-org RBAC examples (uncomment when configuring 2+ orgs):
     # Team groups use org-scoped namespaces; org groups stay in default.
     #   g, group:engineering/deploy-team, role:default/deployer

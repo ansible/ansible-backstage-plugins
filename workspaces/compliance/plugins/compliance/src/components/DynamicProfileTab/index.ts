@@ -1,0 +1,1 @@
+export { DynamicProfileTab } from './DynamicProfileTab';

@@ -1,0 +1,79 @@
+{
+  "name": "@ansible/plugin-compliance",
+  "description": "Frontend plugin for AAP compliance scanning, findings review, and selective remediation",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alpha": "./src/alpha.tsx",
+    "./package.json": "./package.json"
+  },
+  "configSchema": "config.d.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.esm.js",
+    "types": "dist/index.d.ts"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "compliance",
+    "pluginPackages": [
+      "@ansible/plugin-compliance"
+    ],
+    "features": {
+      "./alpha": "@backstage/FrontendPlugin"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@ansible/aap-app-auth": "workspace:^",
+    "@ansible/compliance-common": "workspace:^",
+    "@backstage/core-compat-api": "0.5.11",
+    "@backstage/core-components": "^0.18.9",
+    "@backstage/core-plugin-api": "^1.12.5",
+    "@backstage/frontend-plugin-api": "0.17.1",
+    "@backstage/plugin-catalog-common": "^1.1.8",
+    "@backstage/plugin-permission-react": "^0.5.0",
+    "@backstage/theme": "^0.7.3",
+    "@rjsf/core": "^5.24.0",
+    "@rjsf/material-ui": "^5.24.0",
+    "@rjsf/validator-ajv8": "^5.24.0",
+    "react-use": "^17.2.4",
+    "react-window": "^1.8.10",
+    "recharts": "^2.15.3"
+  },
+  "peerDependencies": {
+    "@material-ui/core": "^4.9.13",
+    "@material-ui/icons": "^4.9.1",
+    "@material-ui/lab": "^4.0.0-alpha.61",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.22.3"
+  },
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "npx rhdh-cli plugin export --embed-package @ansible/compliance-common"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.36.0",
+    "@backstage/dev-utils": "^1.1.22",
+    "@backstage/test-utils": "^1.7.17",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@types/react-window": "^1.8.8",
+    "typescript": "~5.8.0"
+  },
+  "files": [
+    "dist",
+    "dist-scalprum"
+  ]
+}
