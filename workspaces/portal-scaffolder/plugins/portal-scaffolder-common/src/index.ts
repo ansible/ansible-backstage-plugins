@@ -1,3 +1,5 @@
+export { eeDefinitionInputSchema } from './eeDefinitionInputSchema';
+
 export type {
   EEBuildRegistryType,
   EEBuildRequest,
