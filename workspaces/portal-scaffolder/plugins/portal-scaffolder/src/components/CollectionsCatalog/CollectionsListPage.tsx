@@ -34,7 +34,7 @@ import {
 import { Entity } from '@backstage/catalog-model';
 import { useNavigate } from 'react-router-dom';
 
-import { EmptyState } from '../common';
+import { CollectionsEmptyState } from '../common';
 import type { SyncProgressEntry, SyncStatusMap } from '../common';
 import { useCollectionsStyles } from './styles';
 import { PAGE_SIZE } from './constants';
@@ -77,7 +77,7 @@ const EmptyStateWrapper = ({
 }: EmptyStateWrapperProps) => {
   const classes = useCollectionsStyles();
   const emptyState = (
-    <EmptyState
+    <CollectionsEmptyState
       onSyncClick={onSyncClick}
       hasConfiguredSources={hasConfiguredSources}
       syncDisabled={syncDisabled}

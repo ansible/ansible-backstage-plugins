@@ -27,7 +27,7 @@ import { RepositoryBadge } from './RepositoryBadge';
 import { useCollectionsStyles } from './styles';
 import { rootRouteRef } from '../../routes';
 import {
-  EmptyState,
+  CollectionsEmptyState,
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
@@ -317,7 +317,7 @@ const CollectionDetailsPageInner = () => {
           collectionName={collectionName || 'Unknown'}
           onNavigateToCatalog={handleNavigateToCatalog}
         />
-        <EmptyState />
+        <CollectionsEmptyState />
       </Box>
     );
   }

@@ -258,6 +258,9 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('ansible-collection'),
       expect.any(Object),
     );
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should return collections with empty search query when searchQuery is not in context', async () => {
@@ -303,6 +306,9 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('ansible-collection'),
       expect.any(Object),
     );
+    expect(
+      mockAnsibleService.checkControllerAvailability,
+    ).not.toHaveBeenCalled();
   });
 
   it('should handle empty collections result', async () => {

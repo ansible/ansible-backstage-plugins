@@ -58,6 +58,9 @@ domain rules.
 - `portal-core`: installs app-scoped contribution/operation/entitlement APIs;
   its navigation module adapts discovered pages to configured navigation.
 - `portal-plugin-sdk`: reusable frontend components and utilities.
+- `portal-rhdh`: optional adapter to RHDH's public header Blueprint for
+  contributed profile-menu items. It has no AAP dependency;
+  AAP auth owns its opt-in Sign out contribution. Generic SDK contracts do not import it.
 - `portal-plugin-node`: injected backend services and helpers for operations,
   identity/context, audit, organization and health.
 - `portal-operations-backend`: authenticated operation transport and

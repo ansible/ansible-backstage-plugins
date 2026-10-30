@@ -29,6 +29,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => ({
 }));
 
 // import mocks for assertions
+import { createEEDefinitionAction, prepareForPublishAction } from './actions';
 import {
   multiResourceFilter,
   resourceFilter,

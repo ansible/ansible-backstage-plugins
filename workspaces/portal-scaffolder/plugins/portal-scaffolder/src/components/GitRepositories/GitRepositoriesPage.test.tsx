@@ -254,10 +254,10 @@ describe('GitRepositoriesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Set sources/i }));
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).not.toBeDisabled();
+    expect(syncButton).not.toHaveAttribute('aria-disabled', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /Set no sources/i }));
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByTitle('No content sources configured'),
     ).toBeInTheDocument();
@@ -288,6 +288,56 @@ describe('GitRepositoriesPage', () => {
     ]);
   });
 
+  it.each([
+    {
+      configured: true,
+      expected: 'Syncing',
+      excluded: 'No content sources configured',
+    },
+    {
+      configured: false,
+      expected: 'No content sources configured',
+      excluded: 'Hub',
+    },
+  ])(
+    'shows detailed progress unless sources are unavailable (configured: $configured)',
+    async ({ configured, expected, excluded }) => {
+      mockUseSyncStatusPolling.mockReturnValue({
+        isSyncInProgress: true,
+        syncProgress: [
+          { sourceId: 'hub', displayName: 'Hub', outcome: 'pending' },
+        ],
+        startTracking: mockStartTracking,
+      });
+      try {
+        await renderInTestApp(
+          <TestApiProvider apis={baseApis}>
+            <ThemeProvider theme={theme}>
+              <GitRepositoriesPage />
+            </ThemeProvider>
+          </TestApiProvider>,
+        );
+        fireEvent.click(
+          screen.getByRole('button', {
+            name: configured ? 'Set sources' : 'Set no sources',
+          }),
+        );
+        const sync = screen.getByRole('button', { name: 'Sync Now' });
+        expect(sync).toHaveAttribute('aria-disabled', 'true');
+        fireEvent.mouseOver(sync);
+        const tooltip = await screen.findByRole('tooltip');
+        expect(tooltip).toHaveTextContent(expected);
+        expect(tooltip).not.toHaveTextContent(excluded);
+        expect(tooltip.textContent?.includes('Hub')).toBe(configured);
+      } finally {
+        mockUseSyncStatusPolling.mockReturnValue({
+          isSyncInProgress: false,
+          startTracking: mockStartTracking,
+        });
+      }
+    },
+  );
+
   it('shows Sync in progress as sync disabled reason when polling reports in progress', async () => {
     mockUseSyncStatusPolling.mockReturnValue({
       isSyncInProgress: true,
@@ -303,7 +353,7 @@ describe('GitRepositoriesPage', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByTitle('Sync in progress')).toBeInTheDocument();
   });
 
@@ -335,7 +385,7 @@ describe('GitRepositoriesPage', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('handles sync status fetch throwing error', async () => {
@@ -351,7 +401,7 @@ describe('GitRepositoriesPage', () => {
 
     await waitFor(() => {
       const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-      expect(syncButton).toBeDisabled();
+      expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     });
   });
 
@@ -370,7 +420,7 @@ describe('GitRepositoriesPage', () => {
     );
 
     const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-    expect(syncButton).toBeDisabled();
+    expect(syncButton).toHaveAttribute('aria-disabled', 'true');
 
     expect(mockFetchApi.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/ansible/sync/status'),
@@ -435,7 +485,7 @@ describe('GitRepositoriesPage', () => {
 
     await waitFor(() => {
       const syncButton = screen.getByRole('button', { name: /Sync Now/i });
-      expect(syncButton).toBeDisabled();
+      expect(syncButton).toHaveAttribute('aria-disabled', 'true');
     });
   });
 
