@@ -741,37 +741,40 @@ describe('self-service', () => {
         await new Promise(resolve => setTimeout(resolve, 1200));
       });
 
-      const facetCallsBeforeSync =
-        mockCatalogApi.getEntityFacets.mock.calls.length;
-      const queryCallsBeforeSync =
-        mockCatalogApi.queryEntities.mock.calls.length;
+      for (const name of ['Renamed Template', 'Renamed Again']) {
+        const facetCallsBeforeSync =
+          mockCatalogApi.getEntityFacets.mock.calls.length;
+        const queryCallsBeforeSync =
+          mockCatalogApi.queryEntities.mock.calls.length;
+        const templateCallsBeforeSync =
+          mockAnsibleApi.getUserJobTemplates.mock.calls.length;
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Renamed Template' },
-        ],
-      });
+        mockAnsibleApi.getUserJobTemplates.mockResolvedValueOnce({
+          items: [
+            { id: 1, name: 'Template 1' },
+            { id: 2, name },
+          ],
+        });
 
-      await triggerTemplateSync();
+        await triggerTemplateSync();
 
-      await waitFor(() => {
-        expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
-
-      // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
-      });
+        // Same JT ids and immediately resolved responses must still refresh
+        // the mounted catalog provider on every successful sync.
+        await waitFor(async () => {
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(
+            templateCallsBeforeSync + 1,
+          );
+          expect(
+            mockCatalogApi.getEntityFacets.mock.calls.length,
+          ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(
+            mockCatalogApi.queryEntities.mock.calls.length,
+          ).toBeGreaterThan(queryCallsBeforeSync);
+          const items = await lastFetchedJobTemplates();
+          expect(items?.map(t => t.id)).toEqual([1, 2]);
+          expect(items?.[1]?.name).toBe(name);
+        });
+      }
     });
   });
 
@@ -962,10 +965,6 @@ describe('self-service', () => {
   });
 
   describe('job template fetch errors', () => {
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     const expectJobTemplateFetchError = async (message: string) => {
       await waitFor(() => {
         expect(
