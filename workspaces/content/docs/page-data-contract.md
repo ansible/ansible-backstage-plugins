@@ -49,7 +49,12 @@ Three data sources, in priority order:
 | Counts (EEs, collections, content items)                                               | `listExecutionEnvironments()`, `listCollections()`                     |
 | Sync action (admin)                                                                    | `syncAll()` with per-registry results surfaced as portal notifications |
 
-### EE catalog (`/automation-content/execution-environments`)
+### EE catalog (`/self-service/ee`)
+
+Provisionally mounted at the self-service endpoint per the 2026-10-30 sync
+decision, pending the workspace-permissions consult. The old native path
+`/automation-content/execution-environments` redirects here; the legacy host
+continues to mount the catalog at that old path.
 
 Tina's `ImagesCatalogPage` layout, artifact data:
 
@@ -65,7 +70,7 @@ Tina's `ImagesCatalogPage` layout, artifact data:
 | Favourites               | catalog stars (matching rules above)                                                                                           |
 | Row action               | navigate to EE details — **no** build, edit, or SCM actions                                                                    |
 
-### EE details (`/automation-content/execution-environments/…`)
+### EE details (`/self-service/ee/…`)
 
 Tina's `EEDetailsPage` tabs, artifact data:
 

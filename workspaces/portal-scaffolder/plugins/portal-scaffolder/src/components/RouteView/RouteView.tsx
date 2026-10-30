@@ -24,7 +24,6 @@ import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
-import { EETabs } from '../ExecutionEnvironments';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
 import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
@@ -126,18 +125,11 @@ const RouteViewContent = () => {
           />
         </Route>
         <Route
-          path="ee"
+          path="ee/*"
           element={
-            <RequirePermission permission={executionEnvironmentsViewPermission}>
-              <Outlet />
-            </RequirePermission>
+            <Navigate to="/automation-content/execution-environments" replace />
           }
-        >
-          <Route index element={<Navigate to="catalog" replace />} />
-          <Route path="catalog" element={<EETabs />} />
-          <Route path="create" element={<EETabs />} />
-          <Route path="*" element={<Navigate to="catalog" replace />} />
-        </Route>
+        />
         <Route
           path="catalog/:templateName"
           element={

@@ -20,7 +20,7 @@ jest.mock('@backstage/core-plugin-api', () => ({
     () => (params?: { namespace?: string; kind?: string; name?: string }) =>
       params
         ? `/catalog/${params.namespace}/${params.kind}/${params.name}`
-        : '/automation-content/execution-environments',
+        : '/self-service/ee',
 }));
 jest.mock('@backstage/plugin-catalog-react', () => ({
   ...jest.requireActual('@backstage/plugin-catalog-react'),

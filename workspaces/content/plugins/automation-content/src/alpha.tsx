@@ -9,6 +9,9 @@ import {
   convertLegacyRouteRef,
 } from '@backstage/core-compat-api';
 import { automationContentApiFactory } from './apis';
+import { Navigate } from 'react-router-dom';
+import LibraryBooksIcon from '@material-ui/icons/LibraryBooks';
+import BuildIcon from '@material-ui/icons/Build';
 import {
   rootRouteRef,
   eeRouteRef,
@@ -38,6 +41,7 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       params: {
         path: '/automation-content',
         title: 'Automation content',
+        icon: <LibraryBooksIcon />,
         noHeader: true,
         routeRef: convertLegacyRouteRef(rootRouteRef),
         loader: async () => {
@@ -51,8 +55,11 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
     PageBlueprint.make({
       name: 'ee',
       params: {
-        path: '/automation-content/execution-environments',
+        // Provisional self-service mount per the 2026-10-30 sync decision,
+        // pending the workspace-permissions consult.
+        path: '/self-service/ee',
         title: 'Execution Environments',
+        icon: <BuildIcon />,
         noHeader: true,
         routeRef: convertLegacyRouteRef(eeRouteRef),
         loader: async () => {
@@ -61,6 +68,14 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
           );
           return compatWrapper(<EERoutesPage />);
         },
+      },
+    }),
+    PageBlueprint.make({
+      name: 'ee-redirect',
+      params: {
+        path: '/automation-content/execution-environments',
+        loader: async () =>
+          compatWrapper(<Navigate to="/self-service/ee" replace />),
       },
     }),
     PageBlueprint.make({

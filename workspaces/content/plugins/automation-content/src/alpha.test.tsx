@@ -31,6 +31,7 @@ jest.mock('./components/CollectionsCatalog/CollectionDetailsPage', () => ({
 
 it.each([
   ['/automation-content', 'Automation content'],
+  ['/self-service/ee', 'Execution Environments'],
   ['/automation-content/execution-environments', 'Execution Environments'],
   ['/automation-content/collections', 'Collections'],
   ['/automation-content/collections/ns/name_with.dots', 'Collection details'],

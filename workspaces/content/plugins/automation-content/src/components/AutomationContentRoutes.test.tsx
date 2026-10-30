@@ -10,7 +10,7 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
-  useRouteRef: () => () => '/automation-content/execution-environments',
+  useRouteRef: () => () => '/self-service/ee',
 }));
 
 jest.mock('./ContentLandingPage', () => ({

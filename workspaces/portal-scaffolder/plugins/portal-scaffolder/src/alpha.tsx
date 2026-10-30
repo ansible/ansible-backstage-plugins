@@ -19,8 +19,8 @@ import {
   historyRouteRef,
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
-import HistoryIcon from '@material-ui/icons/History';
 import BuildIcon from '@material-ui/icons/Build';
+import HistoryIcon from '@material-ui/icons/History';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 

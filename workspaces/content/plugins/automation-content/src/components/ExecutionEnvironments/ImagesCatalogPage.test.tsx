@@ -7,7 +7,7 @@ import { ImagesCatalogPage } from './ImagesCatalogPage';
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
-  useRouteRef: () => () => '/automation-content/execution-environments',
+  useRouteRef: () => () => '/self-service/ee',
 }));
 jest.mock('@backstage/plugin-catalog-react', () => ({
   ...jest.requireActual('@backstage/plugin-catalog-react'),

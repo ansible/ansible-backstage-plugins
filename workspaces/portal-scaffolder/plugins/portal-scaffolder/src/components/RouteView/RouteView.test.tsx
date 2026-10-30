@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RouteView } from './RouteView';
 
 // Mock page components
@@ -211,11 +211,6 @@ describe('RouteView', () => {
         permissionName: 'history.view',
       },
       {
-        path: '/ee/catalog',
-        childTestId: 'ee-tabs',
-        permissionName: 'ee.view',
-      },
-      {
         path: '/catalog/my-ee',
         childTestId: 'ee-details',
         permissionName: 'ee.view',
@@ -268,7 +263,6 @@ describe('RouteView', () => {
     it.each([
       { path: '/catalog', childTestId: 'home' },
       { path: '/create/tasks', childTestId: 'task-list' },
-      { path: '/ee/catalog', childTestId: 'ee-tabs' },
       { path: '/collections', childTestId: 'collections-catalog' },
       { path: '/repositories/catalog', childTestId: 'git-repositories' },
     ])('blocks $childTestId at $path', ({ path, childTestId }) => {
@@ -283,6 +277,34 @@ describe('RouteView', () => {
       );
     });
   });
+
+  it.each([
+    '/self-service/ee',
+    '/self-service/ee/catalog',
+    '/self-service/ee/create',
+  ])(
+    'redirects %s to automation content without checking permissions',
+    path => {
+      mockRequirePermission.mockImplementation(() => (
+        <div data-testid="permission-denied" />
+      ));
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/self-service/*" element={<RouteView />} />
+            <Route
+              path="/automation-content/execution-environments"
+              element={<div>Automation content EE catalog</div>}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(
+        screen.getByText('Automation content EE catalog'),
+      ).toBeInTheDocument();
+      expect(mockRequirePermission).not.toHaveBeenCalled();
+    },
+  );
 
   it('redirects unknown routes to /self-service/catalog', () => {
     render(
