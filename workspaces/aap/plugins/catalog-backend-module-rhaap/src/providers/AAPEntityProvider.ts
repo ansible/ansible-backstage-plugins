@@ -13,12 +13,14 @@ import type { Config } from '@backstage/config';
 import { NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
-  IAAPService,
   RoleAssignments,
   User,
   Users,
   Team,
   Organization,
+} from '@ansible/aap-common';
+import {
+  IAAPService,
   findMissingConfiguredOrganizations,
   toOrgEntityName,
   toOrgGroupRef,

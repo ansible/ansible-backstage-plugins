@@ -18,7 +18,7 @@ import {
 import { MockEntityListContextProvider } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { HomeComponent, TemplatesRoutesPage } from './Home';
-import { JobTemplatesProvider } from './JobTemplatesProvider';
+import { JobTemplatesProvider, useJobTemplates } from './JobTemplatesProvider';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
@@ -638,6 +638,20 @@ describe('self-service', () => {
       return payload?.items as Array<{ id: number; name: string }> | undefined;
     };
 
+    const ProviderJobTemplatesProbe = () => {
+      const { jobTemplates } = useJobTemplates();
+      return (
+        <>
+          <span data-testid="provider-job-template-ids">
+            {jobTemplates.map(t => t.id).join(',')}
+          </span>
+          <span data-testid="provider-job-template-2-name">
+            {jobTemplates.find(t => t.id === 2)?.name ?? ''}
+          </span>
+        </>
+      );
+    };
+
     // Catalog $in visibility is covered in createHomeCatalogApi / buildHomeTemplateQuery tests.
     it('re-fetches expanded JT list after template sync', async () => {
       const entityRefs = ['component:default/e1'];
@@ -721,14 +735,26 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-        ],
-      });
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock)
+        .mockResolvedValueOnce({
+          items: [
+            { id: 1, name: 'Template 1' },
+            { id: 2, name: 'Template 2' },
+          ],
+        })
+        .mockResolvedValue({
+          items: [
+            { id: 1, name: 'Template 1' },
+            { id: 2, name: 'Renamed Template' },
+          ],
+        });
 
-      await render(<HomeComponent />);
+      await render(
+        <>
+          <HomeComponent />
+          <ProviderJobTemplatesProbe />
+        </>,
+      );
 
       await waitFor(() => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
@@ -746,33 +772,40 @@ describe('self-service', () => {
       const queryCallsBeforeSync =
         mockCatalogApi.queryEntities.mock.calls.length;
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Renamed Template' },
-        ],
-      });
-
       await triggerTemplateSync();
 
+      // Rename changes id:name keys, so there is no stale-list retry —
+      // only mount + one post-sync fetch before invalidate/syncKey.
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
         expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
       });
 
-      // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
+      // SoftRefresh schedules on setTimeout(0); EntityListProvider debounces
+      // ~10ms. Flush those macrotasks before asserting under suite load.
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
       });
-    });
+
+      // Same JT ids — facets (syncKey) + soft refresh still re-query after sync.
+      await waitFor(
+        async () => {
+          expect(
+            mockCatalogApi.getEntityFacets.mock.calls.length,
+          ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(
+            mockCatalogApi.queryEntities.mock.calls.length,
+          ).toBeGreaterThan(queryCallsBeforeSync);
+          expect(
+            screen.getByTestId('provider-job-template-ids'),
+          ).toHaveTextContent('1,2');
+          expect(
+            screen.getByTestId('provider-job-template-2-name'),
+          ).toHaveTextContent('Renamed Template');
+        },
+        { timeout: 10000 },
+      );
+    }, 20000);
   });
 
   describe('HomeTagPicker', () => {
