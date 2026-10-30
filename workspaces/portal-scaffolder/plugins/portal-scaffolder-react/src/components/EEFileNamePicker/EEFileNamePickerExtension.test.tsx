@@ -8,7 +8,7 @@ import {
 import { EEFileNamePickerExtension } from './EEFileNamePickerExtension';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { TestApiProvider } from '@backstage/test-utils';
-import { Entity } from '@backstage/catalog-model';
+import type { Entity } from '@backstage/catalog-model';
 
 jest.mock('@material-ui/core/styles', () => ({
   ...jest.requireActual('@material-ui/core/styles'),

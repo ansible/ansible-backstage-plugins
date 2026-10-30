@@ -46,7 +46,7 @@ import { ScaffolderForm } from './ScaffolderFormWrapper';
 import {
   FieldValidationProvider,
   useFieldValidation,
-} from './FieldValidationContext';
+} from '@ansible/portal-scaffolder-react';
 
 const SubmitButton = ({ disabled = false }: { disabled?: boolean }) => {
   const { hasErrors, notifySubmitAttempted } = useFieldValidation();

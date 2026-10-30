@@ -21,7 +21,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { Alert } from '@material-ui/lab';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
-import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
+import { useFieldValidation } from '@ansible/portal-scaffolder-react';
 
 type ProviderType = 'github' | 'gitlab';
 

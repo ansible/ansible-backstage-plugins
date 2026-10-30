@@ -6,8 +6,8 @@ import { FileUploadPickerExtension } from '@ansible/portal-scaffolder-react';
 import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPickerExtension';
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
-import { EEFileNamePickerExtension } from '../Scaffolder/EEFileNamePicker/EEFileNamePickerExtension';
-import { EETagsPickerExtension } from '../Scaffolder/EETagsPicker/EETagsPickerExtension';
+import { EEFileNamePickerExtension } from '@ansible/portal-scaffolder-react';
+import { EETagsPickerExtension } from '@ansible/portal-scaffolder-react';
 import { ScmSelectorExtension } from '../Scaffolder/ScmSelector/ScmSelectorExtension';
 import {
   EntityNamePicker,
