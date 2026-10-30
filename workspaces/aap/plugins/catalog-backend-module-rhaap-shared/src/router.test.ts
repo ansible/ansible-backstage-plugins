@@ -254,6 +254,7 @@ describe('createRouter', () => {
     } as unknown as jest.Mocked<PermissionsService>;
 
     const router = await createRouter({
+      slice: 'all',
       logger: mockLogger,
       config: mockConfig,
       scheduler: mockScheduler,
@@ -274,6 +275,65 @@ describe('createRouter', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('slice isolation', () => {
+    /** Helper to build a router with the given slice. */
+    async function buildSliceApp(slice: 'aap' | 'content' | 'ee') {
+      const router = await createRouter({
+        slice,
+        logger: mockLogger,
+        config: mockConfig,
+        scheduler: mockScheduler,
+        aapEntityProvider: mockAAPEntityProvider,
+        jobTemplateProvider: mockJobTemplateProvider,
+        eeEntityProvider: mockEEEntityProvider,
+        pahCollectionProviders: [mockPAHCollectionProvider],
+        httpAuth: mockHttpAuth,
+        userInfo: mockUserInfo,
+        auth: mockAuth,
+        catalogClient: mockCatalogClient,
+        permissions: mockPermissions,
+        ansibleGitContentsProviders: [],
+      });
+      return express().use(router);
+    }
+
+    it.each([
+      [
+        'aap',
+        '/ansible/sync/status/aap',
+        ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
+      ],
+      [
+        'content',
+        '/ansible/sync/status/content',
+        ['/ansible/sync/status/aap', '/ansible/sync/status/self-service'],
+      ],
+      [
+        'ee',
+        '/ansible/sync/status/self-service',
+        ['/ansible/sync/status/aap', '/ansible/sync/status/content'],
+      ],
+    ] as const)(
+      'slice %s mounts only its own status route',
+      async (slice, ownRoute, otherRoutes) => {
+        const sliceApp = await buildSliceApp(slice);
+
+        const ownResponse = await request(sliceApp).get(ownRoute);
+        expect(ownResponse.status).toBe(200);
+
+        for (const route of otherRoutes) {
+          const otherResponse = await request(sliceApp).get(route);
+          expect(otherResponse.status).toBe(404);
+        }
+
+        const legacyResponse = await request(sliceApp).get(
+          '/ansible/sync/status',
+        );
+        expect(legacyResponse.status).toBe(404);
+      },
+    );
   });
 
   describe('GET /health', () => {
@@ -371,6 +431,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockProvider as any,
@@ -433,6 +494,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockProvider as any,
@@ -470,6 +532,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockProvider as any,
@@ -513,6 +576,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockProvider as any,
@@ -564,6 +628,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockProvider as any,
@@ -635,6 +700,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider as any,
@@ -1134,6 +1200,7 @@ describe('createRouter', () => {
       testApp.use(
         '/',
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
@@ -1873,6 +1940,7 @@ describe('createRouter', () => {
     it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGitlab = new ConfigReader({});
       const routerNoGitlab = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configNoGitlab,
         aapEntityProvider: mockAAPEntityProvider,
@@ -1919,6 +1987,7 @@ describe('createRouter', () => {
     it('should return error in results when host is not declared in integrations.gitlab', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithoutToken,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2200,6 +2269,7 @@ describe('createRouter', () => {
       });
 
       const routerWithSkipTls = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithSkipTls,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2291,6 +2361,7 @@ describe('createRouter', () => {
       });
 
       const routerWithApiBase = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithApiBase,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2556,6 +2627,7 @@ describe('createRouter', () => {
     it('should return error in results when host is not allowed (SSRF mitigation)', async () => {
       const configNoGithub = new ConfigReader({});
       const routerNoGithub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configNoGithub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2592,6 +2664,7 @@ describe('createRouter', () => {
     it('should return error in results when token is missing', async () => {
       const configWithoutToken = new ConfigReader({});
       const routerWithoutToken = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithoutToken,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2634,6 +2707,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGitHub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2694,6 +2768,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGitHub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2754,6 +2829,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGitHub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2803,6 +2879,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGitHub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2855,6 +2932,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGitHub = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGitHub,
         aapEntityProvider: mockAAPEntityProvider,
@@ -2913,6 +2991,7 @@ describe('createRouter', () => {
       });
 
       const routerWithGHE = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: configWithGHE,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3265,6 +3344,7 @@ describe('createRouter', () => {
 
       const testApp = express().use(
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
@@ -3307,6 +3387,7 @@ describe('createRouter', () => {
 
       const testApp = express().use(
         await createRouter({
+          slice: 'all',
           logger: mockLogger,
           config: mockConfig,
           aapEntityProvider: mockAAPEntityProvider,
@@ -3336,6 +3417,7 @@ describe('createRouter', () => {
     providers: jest.Mocked<AnsibleGitContentsProvider>[],
   ): Promise<express.Express> {
     const router = await createRouter({
+      slice: 'all',
       logger: mockLogger,
       config: mockConfig,
       aapEntityProvider: mockAAPEntityProvider,
@@ -3559,6 +3641,7 @@ describe('createRouter', () => {
       }));
 
       const router = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3597,6 +3680,7 @@ describe('createRouter', () => {
       }));
 
       const router = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3638,6 +3722,7 @@ describe('createRouter', () => {
       }));
 
       const router = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3689,6 +3774,7 @@ describe('createRouter', () => {
         }),
       }));
       const router = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3851,6 +3937,7 @@ describe('createRouter', () => {
 
     it('should work when ansibleGitContentsProviders is omitted (defaults to empty array)', async () => {
       const opts = {
+        slice: 'all' as const,
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3866,9 +3953,7 @@ describe('createRouter', () => {
         ansibleGitContentsProviders: [] as AnsibleGitContentsProvider[],
       };
       const { ansibleGitContentsProviders: _omit, ...rest } = opts;
-      const router = await createRouter(
-        rest as Parameters<typeof createRouter>[0],
-      );
+      const router = await createRouter(rest);
       const testApp = express().use(router);
       const response = await request(testApp).get('/health');
       expect(response.status).toBe(200);
@@ -3879,6 +3964,7 @@ describe('createRouter', () => {
   describe('Error handling with invalid dependencies', () => {
     it('should handle error when logger is not provided', async () => {
       const routerWithInvalidLogger = await createRouter({
+        slice: 'all',
         logger: undefined as any,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3903,6 +3989,7 @@ describe('createRouter', () => {
 
     it('should handle error when aapEntityProvider is not provided', async () => {
       const routerWithInvalidProvider = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: undefined as any,
@@ -3920,15 +4007,15 @@ describe('createRouter', () => {
 
       const testApp = express().use(routerWithInvalidProvider);
 
-      // The sync endpoint should fail when aapEntityProvider is undefined
       const response = await request(testApp)
         .post('/ansible/sync/from-aap/orgs_users_teams')
         .send();
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(404);
     });
 
     it('should handle error when jobTemplateProvider is not provided', async () => {
       const routerWithInvalidProvider = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -3946,11 +4033,15 @@ describe('createRouter', () => {
 
       const testApp = express().use(routerWithInvalidProvider);
 
-      // The sync endpoint should fail when jobTemplateProvider is undefined
-      const response = await request(testApp)
+      const orgsResponse = await request(testApp)
+        .post('/ansible/sync/from-aap/orgs_users_teams')
+        .send();
+      expect(orgsResponse.status).toBe(202);
+
+      const jobTemplatesResponse = await request(testApp)
         .post('/ansible/sync/from-aap/job_templates')
         .send();
-      expect(response.status).toBe(500);
+      expect(jobTemplatesResponse.status).toBe(404);
     });
   });
 
@@ -4123,6 +4214,7 @@ describe('createRouter', () => {
 
     it('should return 400 when no providers are configured and request has no filters', async () => {
       const routerWithNoProviders = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
@@ -4219,6 +4311,7 @@ describe('createRouter', () => {
       } as unknown as jest.Mocked<PAHCollectionProvider>;
 
       const router = await createRouter({
+        slice: 'all',
         logger: mockLogger,
         config: mockConfig,
         aapEntityProvider: mockAAPEntityProvider,
