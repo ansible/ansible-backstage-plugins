@@ -11,7 +11,7 @@ import {
 import { SyncProgressPopover } from '../SyncProgressPopover';
 import { PageHeader } from '../PageHeader';
 import type { SyncProgressEntry } from '../../types';
-import { formatRelativeTime } from '../../utils';
+import { formatTimeAgo } from '../../utils';
 
 /** @deprecated Use PageHeaderProps for generic headers. Sync integrations belong to the consumer. */
 export interface PageHeaderSectionProps {
@@ -95,7 +95,7 @@ export const PageHeaderSection = ({
                   color="textSecondary"
                   style={{ fontSize: '0.78rem', fontWeight: 500 }}
                 >
-                  {formatRelativeTime(s.time).replace(/^Synced /i, '')}
+                  {formatTimeAgo(s.time)}
                 </Typography>
               </Box>
             ))}

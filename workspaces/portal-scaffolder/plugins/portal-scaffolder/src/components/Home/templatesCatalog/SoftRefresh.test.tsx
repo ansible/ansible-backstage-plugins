@@ -14,123 +14,39 @@ describe('SoftRefresh', () => {
     jest.useRealTimers();
   });
 
-  it('re-queries the current page on invalidation then restores offset', () => {
-    const setOffset = jest.fn();
-    const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 20, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
+  const invalidate = () => {
     act(() => {
       invalidateTemplatesCatalog();
       jest.runOnlyPendingTimers();
     });
+  };
 
-    expect(setOffset).toHaveBeenCalledWith(toRefreshOffset(20));
-
-    // EntityListProvider's debounced fetch starts (loading flips true) for
-    // the sentinel offset before it ever completes.
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: false,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    expect(setOffset).toHaveBeenCalledWith(20);
-  });
-
-  it('does not restore the offset before the debounced fetch has started', () => {
-    // Regression test: EntityListProvider debounces its fetch (~10ms), so the
-    // first render after applying the sentinel offset still has
-    // `loading: false`. Restoring immediately here would cancel the
-    // debounced fetch before it fires, silently dropping the soft refresh.
+  it('refreshes repeatedly even when no loading transition is rendered', () => {
+    const refresh = jest.fn();
     const setOffset = jest.fn();
-    const { rerender } = render(
+    window.history.replaceState(null, '', '/self-service/catalog?offset=20');
+    render(
       <MockEntityListContextProvider
-        value={{ offset: 20, setOffset, loading: false }}
+        value={{ offset: 20, setOffset, refresh, loading: false }}
       >
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
 
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-    expect(setOffset).toHaveBeenCalledWith(toRefreshOffset(20));
+    // Immediately resolved requests can batch loading true/false together.
+    // A later invalidation must still refresh, without moving the page or URL.
+    invalidate();
+    invalidate();
 
-    // Debounced fetch has not started yet — still on the sentinel offset,
-    // still loading: false.
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: false,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    // Must not restore yet — the sentinel fetch has not actually started.
-    expect(setOffset).toHaveBeenCalledTimes(1);
-
-    // Fetch starts, then completes.
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: false,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    expect(setOffset).toHaveBeenCalledWith(20);
-    expect(setOffset).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(setOffset).not.toHaveBeenCalled();
+    expect(window.location.search).toBe('?offset=20');
   });
 
   it('coalesces burst invalidations into one deferred refresh', () => {
-    const setOffset = jest.fn();
+    const refresh = jest.fn();
     render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
+      <MockEntityListContextProvider value={{ refresh }}>
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
@@ -138,348 +54,97 @@ describe('SoftRefresh', () => {
     act(() => {
       invalidateTemplatesCatalog();
       invalidateTemplatesCatalog();
+      expect(refresh).not.toHaveBeenCalled();
       jest.runOnlyPendingTimers();
     });
 
-    expect(setOffset).toHaveBeenCalledTimes(1);
-    expect(setOffset).toHaveBeenCalledWith(toRefreshOffset(0));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('re-queues a refresh that arrived while one is in flight', () => {
-    const setOffset = jest.fn();
+  it('requests fresh data when invalidated during an in-flight fetch', () => {
+    const refresh = jest.fn();
     const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
+      <MockEntityListContextProvider value={{ refresh, loading: false }}>
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-    expect(setOffset).toHaveBeenCalledTimes(1);
-    expect(setOffset).toHaveBeenLastCalledWith(toRefreshOffset(0));
-
-    // Still on sentinel offset + loading — restore not applied yet.
+    invalidate();
     rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(0),
-          setOffset,
-          loading: true,
-        }}
-      >
+      <MockEntityListContextProvider value={{ refresh, loading: true }}>
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
+    invalidate();
 
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-    // Dirty while in flight — do not start a second sentinel yet.
-    expect(setOffset).toHaveBeenCalledTimes(1);
-
-    // Restore completes.
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(0),
-          setOffset,
-          loading: false,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-    expect(setOffset).toHaveBeenCalledWith(0);
-
-    // Dirty flag schedules another soft refresh after restore.
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-    expect(setOffset).toHaveBeenLastCalledWith(toRefreshOffset(0));
-    expect(setOffset).toHaveBeenCalledTimes(3);
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 
-  it('rewrites the URL away from the sentinel offset while refreshing', () => {
-    const setOffset = jest.fn();
-    window.history.replaceState(null, '', '/self-service/catalog?offset=20');
-
+  it('uses the latest refresh callback when the deferred timer fires', () => {
+    const previousRefresh = jest.fn();
+    const refresh = jest.fn();
     const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 20, setOffset, loading: false }}
-      >
+      <MockEntityListContextProvider value={{ refresh: previousRefresh }}>
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-
-    // Simulate EntityListProvider syncing the sentinel offset into the URL.
-    window.history.replaceState(
-      null,
-      '',
-      `/self-service/catalog?offset=${toRefreshOffset(20)}`,
-    );
-
+    act(() => invalidateTemplatesCatalog());
     rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: true,
-        }}
-      >
+      <MockEntityListContextProvider value={{ refresh }}>
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
+    act(() => jest.runOnlyPendingTimers());
 
-    act(() => {
-      // SoftRefresh defers URL rewrite past EntityListProvider's replaceState.
-      jest.runOnlyPendingTimers();
-    });
-
-    expect(window.location.search).toBe('?offset=20');
+    expect(previousRefresh).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
-  it('normalizes a sentinel offset left in the URL on mount', () => {
+
+  it('clears pending work and unsubscribes on unmount', () => {
+    const refresh = jest.fn();
+    const { unmount } = render(
+      <MockEntityListContextProvider value={{ refresh }}>
+        <SoftRefresh />
+      </MockEntityListContextProvider>,
+    );
+    act(() => invalidateTemplatesCatalog());
+    unmount();
+    invalidate();
+
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('normalizes a sentinel offset left in a saved URL', () => {
     const setOffset = jest.fn();
     window.history.replaceState(
       null,
       '',
       `/self-service/catalog?offset=${toRefreshOffset(40)}`,
     );
-
     render(
       <MockEntityListContextProvider
-        value={{ offset: toRefreshOffset(40), setOffset, loading: false }}
+        value={{ offset: toRefreshOffset(40), setOffset }}
       >
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
 
     expect(setOffset).toHaveBeenCalledWith(40);
-  });
-  it('clears restore marker when offset leaves the refresh band without loading', () => {
-    const setOffset = jest.fn();
-    const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-
-    // Provider jumped back to a normal offset before restore effect ran.
-    rerender(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    expect(setOffset).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe('?offset=40');
   });
 
-  it('re-queues after dirty when offset leaves the refresh band early', () => {
-    const setOffset = jest.fn();
-    const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 20, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-
-    rerender(
+  it('tolerates contexts without optional refresh or pagination callbacks', () => {
+    render(
       <MockEntityListContextProvider
         value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-
-    // Provider left the sentinel band before restore; dirty still requeues.
-    rerender(
-      <MockEntityListContextProvider
-        value={{ offset: 20, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-
-    expect(setOffset).toHaveBeenLastCalledWith(toRefreshOffset(20));
-  });
-
-  it('skips applying a refresh when setOffset disappears before the timer', () => {
-    const setOffset = jest.fn();
-    const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-    });
-
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: 0,
+          refresh: undefined,
           setOffset: undefined,
-          loading: false,
+          offset: toRefreshOffset(40),
         }}
       >
         <SoftRefresh />
       </MockEntityListContextProvider>,
     );
 
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-
-    expect(setOffset).not.toHaveBeenCalled();
-  });
-
-  it('skips mount hydrate when setOffset is missing', () => {
-    expect(() =>
-      render(
-        <MockEntityListContextProvider
-          value={{
-            offset: toRefreshOffset(40),
-            setOffset: undefined,
-            loading: false,
-          }}
-        >
-          <SoftRefresh />
-        </MockEntityListContextProvider>,
-      ),
-    ).not.toThrow();
-  });
-
-  it('clears a pending URL rewrite when the sentinel offset changes', () => {
-    const setOffset = jest.fn();
-    const { rerender } = render(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(0),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    window.history.replaceState(
-      null,
-      '',
-      `/self-service/catalog?offset=${toRefreshOffset(20)}`,
-    );
-
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(20),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-
-    expect(window.location.search).toBe('?offset=20');
-  });
-
-  it('clears pending invalidate and URL rewrite timers on unmount', () => {
-    const setOffset = jest.fn();
-    const { rerender, unmount } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-      jest.runOnlyPendingTimers();
-    });
-
-    rerender(
-      <MockEntityListContextProvider
-        value={{
-          offset: toRefreshOffset(0),
-          setOffset,
-          loading: true,
-        }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    // URL rewrite timer is pending; unmount must clear it.
-    unmount();
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-    expect(setOffset).toHaveBeenCalledTimes(1);
-  });
-
-  it('clears a pending invalidate timer on unmount', () => {
-    const setOffset = jest.fn();
-    const { unmount } = render(
-      <MockEntityListContextProvider
-        value={{ offset: 0, setOffset, loading: false }}
-      >
-        <SoftRefresh />
-      </MockEntityListContextProvider>,
-    );
-
-    act(() => {
-      invalidateTemplatesCatalog();
-    });
-    unmount();
-    act(() => {
-      jest.runOnlyPendingTimers();
-    });
-    expect(setOffset).not.toHaveBeenCalled();
+    expect(invalidate).not.toThrow();
   });
 });

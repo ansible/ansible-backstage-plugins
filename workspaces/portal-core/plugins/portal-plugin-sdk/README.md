@@ -17,6 +17,16 @@ yarn workspace my-plugin add @ansible/portal-plugin-sdk
 
 ## Components
 
+### `ProfileMenuItems`
+
+Renders `ResolvedAppProfileMenuItem[]` from `useNativeAppProfileMenuItems()` as
+host-owned navigation or UI-action rows. Navigation uses the resolved route;
+action implementations load only after a deliberate click. The parent menu
+closes after loading and before the handler opens another UI surface. Pending
+actions cannot be submitted twice, and failures use the standard error API
+without disabling other items. An optional `onClose` connects the host menu
+lifecycle. Contributors use the Blueprint, not this host rendering component.
+
 ### `PageHeader`
 
 Shared page-heading layout with a title, optional description, optional help
@@ -49,19 +59,38 @@ Portal-scaffolder uses its local `CatalogSyncHeader` wrapper for the Sync Now
 button, superuser checks, progress, and last-sync timestamps. Other plugins must
 not depend on portal-scaffolder to reuse the generic header.
 
-### `EmptyState`
+### `EmptyStateView`
 
-Consistent empty-state illustration and messaging for list pages with no results:
+Shared empty-state presentation with a required title and optional description,
+decorative icon, and actions. It does not fetch data, resolve permissions, read
+configuration, or add sync controls. Consumers own messages, action eligibility,
+and handlers. Backend operations still enforce their own authorization.
 
 ```tsx
-import { EmptyState } from '@ansible/portal-plugin-sdk';
+import { EmptyStateView } from '@ansible/portal-plugin-sdk';
 
-<EmptyState
-  title="No items found"
-  description="Create your first item to get started."
-  action={<Button>Create</Button>}
+<EmptyStateView
+  title="No conversions yet"
+  description="Convert source content to Ansible."
+  actions={<Button onClick={startConversion}>Start conversion</Button>}
 />;
 ```
+
+The description and actions accept React content, including links, buttons, or
+an actions menu. Icons are decorative and hidden from assistive technology, so
+include essential information in the title or description. Only `title` is
+required, and the heading renders at level two.
+
+### `EmptyState` (deprecated compatibility export)
+
+The SDK's existing collection-specific `EmptyState` and `EmptyStateProps` remain
+available with their existing props, messages, permissions, and sync behavior.
+The optional `configDocsUrl` override is retained. New plugins should use
+`EmptyStateView` and compose their own behavior. No removal version is scheduled.
+
+Portal-scaffolder uses its local `CollectionsEmptyState` for collection guidance,
+configuration links, permission checks, and sync controls. Other plugins do not
+need to depend on portal-scaffolder to reuse the generic presentation.
 
 ### `SkeletonLoader`
 
@@ -253,6 +282,21 @@ import {
 ```
 
 ## Utils
+
+`formatTimeAgo(timestamp)` formats timestamps without synchronization wording:
+
+```ts
+import { formatTimeAgo } from '@ansible/portal-plugin-sdk';
+
+formatTimeAgo(new Date().toISOString()); // 'Just now'
+formatTimeAgo(null); // 'Never'
+formatTimeAgo('invalid'); // 'Invalid timestamp'
+```
+
+It uses the local calendar for `today` and `yesterday`, approximate durations for
+longer intervals, and treats future timestamps as `Just now`. Consumers own labels
+such as "Last updated" or "Last synced". The existing `formatRelativeTime()` export
+is deprecated and retains its exact sync-specific output for compatibility.
 
 Shared utility functions:
 

@@ -1,6 +1,6 @@
 # Portal core and SDK packages
 
-These eight packages separate shared contracts, frontend contribution authoring,
+These packages separate shared contracts, frontend contribution authoring,
 host rendering, reusable UI, and backend infrastructure. They support native NFS
 composition; they do not require a global contribution registry singleton.
 
@@ -20,6 +20,9 @@ composition; they do not require a global contribution registry singleton.
   It is not a Module Federation singleton registry provider.
 - **`portal-plugin-sdk`** — shared UI, notifications, caching, context hooks,
   polling integration, styles, icons and theme utilities.
+- **`portal-rhdh`** — optional public RHDH header adapter for contributed
+  profile-menu items; generic contracts remain platform-neutral.
+  AAP auth owns its opt-in Sign out contribution, without an adapter dependency on AAP.
 - **`portal-plugin-node`** — injected operation, entitlement, organization and
   health services; identity/context, audit and persistence helpers.
 - **`portal-operations-backend`** — operation HTTP transport and entitlement

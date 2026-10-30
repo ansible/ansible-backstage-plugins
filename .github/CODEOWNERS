@@ -1,1 +1,9 @@
-/.github/ @ansible/ansible-rhdh
+# Default owners for paths without a more specific rule below.
+* @ansible/automation-portal-engineers @ansible/automation-portal-admin
+
+# Workspace owners override the default owners for their respective paths.
+/workspaces/aap/ @shatakshiiii @abhikdps @Hrithik-Gavankar @sathyapramod @Jeevansuresh1
+/workspaces/apme/ @shatakshiiii @abhikdps @Hrithik-Gavankar @sathyapramod @cidrblock
+/workspaces/content/ @dragid10 @lucasc017 @hmleal
+/workspaces/portal-core/ @abhikdps @cidrblock @NilashishC
+/workspaces/portal-scaffolder/ @shatakshiiii @abhikdps @Hrithik-Gavankar @sathyapramod @Jeevansuresh1
