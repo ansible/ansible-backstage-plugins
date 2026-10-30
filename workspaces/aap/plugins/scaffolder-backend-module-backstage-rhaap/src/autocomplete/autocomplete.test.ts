@@ -58,7 +58,11 @@ describe('ansible-aap:autocomplete', () => {
     mockAnsibleService.checkControllerAvailability.mockResolvedValue(true);
   });
 
-  it('should return verbosity', async () => {
+  it('should return verbosity without calling the AAP Controller', async () => {
+    // 'verbosity' is a static, locally-computed resource (see
+    // getVerbosityLevels()); it must short-circuit before any Controller
+    // availability check or resource fetch, including when those mocks
+    // would otherwise resolve successfully.
     mockAnsibleService.getResourceData.mockResolvedValue({
       results: [
         { id: 0, name: '0 (Normal)' },
@@ -92,6 +96,7 @@ describe('ansible-aap:autocomplete', () => {
     expect(
       mockAnsibleService.checkControllerAvailability,
     ).not.toHaveBeenCalled();
+    expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
   });
 
   it('should return organizations', async () => {
@@ -116,7 +121,10 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual(mockOrganizations);
   });
 
-  it('should return aap hostname', async () => {
+  it('should return aap hostname without calling the AAP Controller', async () => {
+    // 'aaphostname' is read straight from config (ansible.rhaap.baseUrl); it
+    // must short-circuit before any Controller availability check or
+    // resource fetch.
     const response = await handleAutocompleteRequest({
       resource: 'aaphostname',
       token: 'token',
@@ -132,9 +140,10 @@ describe('ansible-aap:autocomplete', () => {
     expect(
       mockAnsibleService.checkControllerAvailability,
     ).not.toHaveBeenCalled();
+    expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
   });
 
-  it('should return collections with search query', async () => {
+  it('should return collections with search query via the catalog, without calling the AAP Controller', async () => {
     const catalogEntities = [
       {
         spec: {
@@ -201,9 +210,12 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('entities?filter='),
       expect.any(Object),
     );
+    // 'collections' is resolved via the catalog (getCollections), not the
+    // AAP Controller; it must never call either Controller-facing method.
     expect(
       mockAnsibleService.checkControllerAvailability,
     ).not.toHaveBeenCalled();
+    expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
   });
 
   it('should return collections with empty search query when context is not provided', async () => {
@@ -458,6 +470,7 @@ describe('ansible-aap:autocomplete', () => {
       expect(
         mockAnsibleService.checkControllerAvailability,
       ).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
     });
 
     it('should return resource data when controller is available', async () => {

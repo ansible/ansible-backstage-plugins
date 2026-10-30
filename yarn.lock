@@ -552,7 +552,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-scaffolder-backend-module-backstage-rhaap@workspace:^, @ansible/plugin-scaffolder-backend-module-backstage-rhaap@workspace:workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap":
+"@ansible/plugin-scaffolder-backend-module-backstage-rhaap@workspace:workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-backstage-rhaap@workspace:workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap"
   dependencies:
@@ -832,12 +832,11 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module":
+"@ansible/portal-scaffolder-backend-module@workspace:^, @ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module"
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
-    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.2"
     "@backstage/backend-plugin-api": "npm:1.8.0"
     "@backstage/backend-test-utils": "npm:1.11.1"
@@ -25185,10 +25184,11 @@ __metadata:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/plugin-automation-content-backend": "workspace:^"
     "@ansible/plugin-catalog-backend-module-automation-content": "workspace:^"
-    "@ansible/plugin-scaffolder-backend-module-backstage-rhaap": "workspace:^"
+    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
     "@ansible/portal-health-backend": "workspace:^"
     "@ansible/portal-operations-backend": "workspace:^"
     "@ansible/portal-plugin-node": "workspace:^"
+    "@ansible/portal-scaffolder-backend-module": "workspace:^"
     "@ansible/scaffolder-backend-module-apme": "workspace:^"
     "@backstage-community/plugin-rbac-backend": "npm:7.12.1"
     "@backstage/backend-defaults": "npm:0.17.8"

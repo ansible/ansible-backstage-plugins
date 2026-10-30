@@ -5,18 +5,12 @@
 import { scaffolderModuleAnsible } from './module';
 
 // --- Mock dependencies ---
-jest.mock('./actions', () => ({
-  createAnsibleContentAction: jest.fn(() => 'action1'),
-  createProjectAction: jest.fn(() => 'action2'),
-  createExecutionEnvironment: jest.fn(() => 'action3'),
-  createJobTemplate: jest.fn(() => 'action4'),
-  launchJobTemplate: jest.fn(() => 'action5'),
-  cleanUp: jest.fn(() => 'action6'),
-  createEEDefinitionAction: jest.fn(() => 'action7'),
-  createEETemplateAction: jest.fn(() => 'action8'),
-  prepareForPublishAction: jest.fn(() => 'action9'),
-  createEECatalogInfoAction: jest.fn(() => 'action10'),
-}));
+// NOTE: './actions' is intentionally left unmocked here. This test asserts
+// the registered action IDs by invoking the real action constructors (see
+// "Verify actions registered" below), so a drift in a real action's `id`
+// fails this test instead of being hidden behind a mock. See the Phase 0
+// contract-freeze test (contractFreeze.test.ts) and
+// .sdlc/research/scaffolder-implementation-guide.md §2.5/§6.
 
 jest.mock('./filters', () => ({
   multiResourceFilter: 'multiResourceFilterValue',
@@ -63,7 +57,12 @@ describe('scaffolderModuleAnsible', () => {
           return '';
         }),
       },
-      logger: { info: jest.fn(), debug: jest.fn(), error: jest.fn() },
+      logger: {
+        info: jest.fn(),
+        debug: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+      },
       ansibleService: { name: 'ansibleService' },
       auth: {
         getOwnServiceCredentials: jest.fn(),
@@ -83,35 +82,29 @@ describe('scaffolderModuleAnsible', () => {
       await reg.init.func(fakeEnv);
     }
 
+    expect(fakeEnv.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Deprecated scaffolder module loaded'),
+    );
+
     // --- Verify actions registered ---
+    // Real action constructors run here (see note above), so these IDs come
+    // from production code, not from a mock standing in for it. This is the
+    // full set of 8 actions the monolithic module registers today — 5
+    // `rhaap:*` (target: scaffolder-backend-module-aap) + 3 `ansible:*`
+    // (target: portal-scaffolder-backend-module).
     expect(fakeEnv.scaffolder.addActions).toHaveBeenCalledTimes(1);
     const actions = fakeEnv.scaffolder.addActions.mock.calls[0];
-    expect(actions).toContain('action1');
-    expect(actions).toContain('action2');
-    expect(actions).toContain('action3');
-    expect(actions).toContain('action4');
-    expect(actions).toContain('action5');
-    expect(actions).toContain('action6');
-    expect(actions).toHaveLength(8);
-    expect(actions).toEqual([
-      'action1',
-      'action2',
-      'action3',
-      'action4',
-      'action5',
-      'action6',
-      'action7',
-      'action9',
+    const actionIds = actions.map((action: any) => action.id);
+    expect(actionIds).toEqual([
+      'ansible:content:create',
+      'rhaap:create-project',
+      'rhaap:create-execution-environment',
+      'rhaap:create-job-template',
+      'rhaap:launch-job-template',
+      'rhaap:clean-up',
+      'ansible:create:ee-definition',
+      'ansible:prepare:publish',
     ]);
-    expect(createEEDefinitionAction).toHaveBeenCalledWith({
-      frontendUrl: 'http://localhost:3000',
-      auth: fakeEnv.auth,
-      discovery: fakeEnv.discovery,
-      config: fakeEnv.config,
-    });
-    expect(prepareForPublishAction).toHaveBeenCalledWith({
-      rootConfig: fakeEnv.config,
-    });
 
     // --- Verify template filters ---
     expect(
