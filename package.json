@@ -27,7 +27,7 @@
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new",
     "openapi:lint": "spectral lint api/openapi.yaml --ruleset api/.spectral.yaml",
-    "openapi:check-drift": "node api/scripts/check-drift.mjs"
+    "openapi:check-drift": "node --test api/scripts/check-drift.test.mjs && node api/scripts/check-drift.mjs"
   },
   "workspaces": {
     "packages": [

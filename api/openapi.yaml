@@ -833,25 +833,41 @@ paths:
           description: Request exceeds the 64 KiB payload limit
         '500':
           description: Handler or output validation failure
-  /health:
-    servers:
-      - url: /api/catalog
-        description: Catalog backend health
-      - url: /api/automation-content
-        description: Automation content liveness probe
+  /api/catalog/health:
     get:
       operationId: getHealth
-      summary: Plugin backend health
+      summary: Catalog backend health
       description: |
-        A liveness probe's answer: a bare status, nothing else. Both mounts are
-        unauthenticated and return the same shape; neither describes registries,
-        cache state, or failure causes.
+        Returns a bare status for the catalog backend. Requires a valid Backstage
+        user or service token under the catalog plugin's default authentication policy.
+      tags:
+        - Health
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Catalog backend is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogHealthResponse'
+        '401':
+          description: Missing or invalid Backstage credentials.
+
+  /api/automation-content/health:
+    get:
+      operationId: getAutomationContentHealth
+      summary: Automation content liveness probe
+      description: |
+        An unauthenticated liveness probe that returns a bare status. It does not
+        describe registries, cache state, or failure causes and does not contact
+        upstream registries.
       tags:
         - Health
       security: []
       responses:
         '200':
-          description: Plugin health response; both mounts answer a status-only body.
+          description: Automation content backend is running.
           content:
             application/json:
               schema:
