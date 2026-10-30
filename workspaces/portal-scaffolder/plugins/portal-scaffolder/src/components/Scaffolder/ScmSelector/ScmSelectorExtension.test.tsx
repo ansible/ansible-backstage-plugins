@@ -11,7 +11,7 @@ import { ScmSelectorExtension } from './ScmSelectorExtension';
 import {
   FieldValidationProvider,
   useFieldValidation,
-} from '../../CreateTask/FieldValidationContext';
+} from '@ansible/portal-scaffolder-react';
 
 const mockSetSecrets = jest.fn();
 jest.mock('@backstage/plugin-scaffolder-react', () => ({

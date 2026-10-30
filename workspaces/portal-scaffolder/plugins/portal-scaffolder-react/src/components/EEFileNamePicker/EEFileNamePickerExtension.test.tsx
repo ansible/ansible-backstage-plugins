@@ -8,7 +8,11 @@ import {
 import { EEFileNamePickerExtension } from './EEFileNamePickerExtension';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { TestApiProvider } from '@backstage/test-utils';
-import { Entity } from '@backstage/catalog-model';
+import type { Entity } from '@backstage/catalog-model';
+import {
+  FieldValidationProvider,
+  useFieldValidation,
+} from '../../hooks/FieldValidationContext';
 
 jest.mock('@material-ui/core/styles', () => ({
   ...jest.requireActual('@material-ui/core/styles'),
@@ -99,6 +103,21 @@ describe('EEFileNamePickerExtension', () => {
   };
 
   describe('Initial Rendering', () => {
+    it('uses the default label and error state when optional display props are omitted', () => {
+      renderWithProviders(
+        createMockProps({ schema: {}, rawErrors: undefined }),
+      );
+
+      expect(
+        screen.getByText('EE File Name', { selector: 'label' }),
+      ).toBeVisible();
+
+      expect(screen.getByRole('textbox')).toHaveAttribute(
+        'aria-invalid',
+        'false',
+      );
+    });
+
     it('renders the text field with default title', () => {
       const props = createMockProps();
       renderWithProviders(props);
@@ -785,6 +804,56 @@ describe('EEFileNamePickerExtension', () => {
   });
 
   describe('Format Validation', () => {
+    it('blocks form validation for an invalid filename and clears it when corrected', async () => {
+      const props = createMockProps();
+      const ValidationState = () => {
+        const { hasErrors } = useFieldValidation();
+        return (
+          <output aria-label="form validation">
+            {hasErrors ? 'invalid' : 'valid'}
+          </output>
+        );
+      };
+      const form = (name: string) => (
+        <TestApiProvider apis={[[catalogApiRef, mockCatalogApi]]}>
+          <FieldValidationProvider>
+            <EEFileNamePickerExtension {...props} formData={name} />
+            <ValidationState />
+          </FieldValidationProvider>
+        </TestApiProvider>
+      );
+      const { rerender } = render(form('-invalid'));
+
+      expect(screen.getByLabelText('form validation')).toHaveTextContent(
+        /^invalid$/,
+      );
+      expect(screen.getByRole('textbox')).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(mockCatalogApi.getEntityByRef).not.toHaveBeenCalled();
+
+      rerender(form('valid-ee'));
+
+      expect(screen.getByLabelText('form validation')).toHaveTextContent(
+        /^valid$/,
+      );
+      expect(screen.getByRole('textbox')).toHaveAttribute(
+        'aria-invalid',
+        'false',
+      );
+      await act(async () => {
+        jest.advanceTimersByTime(500);
+      });
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledTimes(1);
+      expect(mockCatalogApi.getEntityByRef).toHaveBeenCalledWith(
+        'Component:default/valid-ee',
+      );
+    });
+
     it.each(['.yaml', '.yml', '.YAML', '.YML'])(
       'shows error when name ends with %s',
       async ext => {
