@@ -347,12 +347,72 @@ components:
           items: { type: string }
           description: Human-readable observations from probing, including why a capability was not determined.
 
+    CatalogHealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+      additionalProperties: false
+
+    ContentCacheStats:
+      type: object
+      required: [hits, misses, entries, bytes, evictions]
+      properties:
+        hits: { type: integer }
+        misses: { type: integer }
+        entries: { type: integer }
+        bytes: { type: integer }
+        evictions: { type: integer }
+      additionalProperties: false
+
+    ContentSyncResponse:
+      type: object
+      required: [status, durationMs, registries, cache]
+      properties:
+        status: { type: string, enum: [completed, partial] }
+        durationMs: { type: integer }
+        refreshedAt:
+          type: string
+          format: date-time
+        cache:
+          $ref: '#/components/schemas/ContentCacheStats'
+        registries:
+          type: array
+          items:
+            type: object
+            required: [registry, ok, discovered]
+            properties:
+              registry: { type: string }
+              ok: { type: boolean }
+              discovered: { type: integer }
+              error:
+                type: string
+                description: |
+                  Detailed failure cause. The route sits behind the sign-in
+                  barrier, so every caller is a verified user or service.
+                  Absent on success.
+
     ContentRegistry:
       type: object
       required: [name, url]
       properties:
         name: { type: string }
         url: { type: string }
+        lastReconciledAt:
+          type: string
+          format: date-time
+          description: When the registry was last read, successfully or not.
+        lastReconcileOk: { type: boolean }
+        lastReconcileError:
+          type: string
+          description: |
+            Fixed failure summary. The listing stays conservative — the detailed
+            cause, which can quote internal hostnames from certificate
+            validation, is kept to backend logs and sync responses.
+        lastCheckedAt:
+          type: string
+          format: date-time
+          description: When the registry was last cheaply checked for changes.
         namespaces:
           type: array
           items: { type: string }
@@ -773,28 +833,45 @@ paths:
           description: Request exceeds the 64 KiB payload limit
         '500':
           description: Handler or output validation failure
-  /health:
+  /api/catalog/health:
     get:
       operationId: getHealth
-      summary: Health check
-      description: Returns the health status of the plugin backend.
+      summary: Catalog backend health
+      description: |
+        Returns a bare status for the catalog backend. Requires a valid Backstage
+        user or service token under the catalog plugin's default authentication policy.
       tags:
         - Health
+      security:
+        - JWT: []
       responses:
         '200':
-          description: Service is healthy
+          description: Catalog backend is running.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    enum:
-                      - ok
-                additionalProperties: false
+                $ref: '#/components/schemas/CatalogHealthResponse'
+        '401':
+          description: Missing or invalid Backstage credentials.
+
+  /api/automation-content/health:
+    get:
+      operationId: getAutomationContentHealth
+      summary: Automation content liveness probe
+      description: |
+        An unauthenticated liveness probe that returns a bare status. It does not
+        describe registries, cache state, or failure causes and does not contact
+        upstream registries.
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Automation content backend is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogHealthResponse'
 
   /ansible/sync/from-aap/orgs_users_teams:
     post:
@@ -2714,6 +2791,9 @@ paths:
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
+
+        Reconciliation failures are reported as a fixed summary; the detailed cause
+        is kept to backend logs and sync responses.
       responses:
         '401':
           description: Authentication required
@@ -2739,29 +2819,28 @@ paths:
       security:
         - JWT: []
       summary: Trigger discovery for all configured registries
-      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      description: |
+        Deliberate manual discovery for all registries, behind the platform's
+        sign-in barrier: anonymous callers are turned away before any discovery
+        starts, and every response carries the detailed failure cause. Detailed
+        diagnostics are also written to backend logs.
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
         '200':
-          description: Sync result per registry
+          description: All registries reconciled successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  durationMs: { type: integer }
-                  registries:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        registry: { type: string }
-                        ok: { type: boolean }
-                        discovered: { type: integer }
-                        error: { type: string }
+                $ref: '#/components/schemas/ContentSyncResponse'
+        '207':
+          description: At least one registry failed; responses carry the detailed failure cause.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentSyncResponse'
 
   /registries/{name}/poll:
     servers:
@@ -2819,6 +2898,9 @@ paths:
                 properties:
                   status: { type: string }
                   discovered: { type: integer }
+                  error:
+                    type: string
+                    description: Detailed failure cause; this route requires authentication.
         '404':
           description: No such registry
           content:

@@ -41,6 +41,9 @@ export const automationContentPlugin = createBackendPlugin({
         );
 
         httpRouter.use(await createRouter({ index, logger, httpAuth }));
+
+        // Every route requires a signed-in user or service token except the
+        // liveness probe (#977). GET /health answers a bare status only (#958).
         httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
 
         // Cheap drift check between full refreshes. Lists tags and HEADs each one —

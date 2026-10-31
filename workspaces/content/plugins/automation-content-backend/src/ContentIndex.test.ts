@@ -182,3 +182,138 @@ describe('digest cache', () => {
     expect(registry.countRequests('/blobs/')).toBe(0);
   });
 });
+
+describe('error cause traversal is bounded', () => {
+  /**
+   * A cause chain is untrusted input: a registry's transport can produce — or
+   * a hostile one can deliberately produce — a cycle or an arbitrarily deep
+   * chain. These tests drive reconciliation with such failures, so they prove
+   * the walk terminates as well as what it reports.
+   */
+  function indexFailingWith(error: unknown): ContentIndex {
+    const index = new ContentIndex(
+      [connection()],
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(error);
+    return index;
+  }
+
+  it('unwraps a wrapped chain to the real message', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+
+    const outcome = await indexFailingWith(wrapped).refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('fetch failed');
+    expect(outcome.error).toContain('unable to get local issuer certificate');
+    expect(outcome.error).not.toContain('truncated');
+  });
+
+  it('terminates on a self-referencing cause', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+
+    const outcome = await indexFailingWith(cyclic).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('loop');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('terminates on a two-object cause cycle', async () => {
+    const alpha: Error & { cause?: unknown } = new Error('alpha');
+    const beta: Error & { cause?: unknown } = new Error('beta');
+    alpha.cause = beta;
+    beta.cause = alpha;
+
+    const outcome = await indexFailingWith(alpha).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('alpha');
+    expect(outcome.error).toContain('beta');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('caps an excessively deep chain', async () => {
+    const head: Error & { cause?: unknown } = new Error('depth-0');
+    let tail = head;
+    for (let depth = 1; depth < 50; depth++) {
+      const next: Error & { cause?: unknown } = new Error(`depth-${depth}`);
+      tail.cause = next;
+      tail = next;
+    }
+
+    const outcome = await indexFailingWith(head).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('depth-0');
+    expect(outcome.error).toContain('truncated');
+    expect(outcome.error).not.toContain('depth-49');
+  });
+
+  it('describes a non-Error rejection value', async () => {
+    const failing = indexFailingWith('gateway gone');
+    const outcome = await failing.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('gateway gone');
+  });
+
+  it.each([
+    [{}, 'unknown error'],
+    [{ message: 42 }, 'unknown error'],
+    [new Error(''), 'unknown error'],
+    [null, 'null'],
+    [undefined, 'undefined'],
+    [42, '42'],
+    [false, 'false'],
+  ])(
+    'describes rejection %p without default object stringification',
+    async (error, message) => {
+      const outcome = await indexFailingWith(error).refreshRegistry('mock');
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).toBe(`capability probe failed: ${message}`);
+      expect(outcome.error).not.toContain('[object Object]');
+    },
+  );
+
+  it('reports the cause chain when a drift check fails', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+    const index = indexFailingWith(wrapped);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: fetch failed: unable to get local issuer certificate',
+    ]);
+    expect(index.driftStateFor('mock')).toEqual(drift);
+  });
+
+  it('describes non-Error drift-check failures', async () => {
+    const index = indexFailingWith('gateway gone');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual(['check failed: gateway gone']);
+  });
+
+  it('bounds cyclic drift-check failures', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+    const index = indexFailingWith(cyclic);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: loop: (cause chain truncated)',
+    ]);
+  });
+});

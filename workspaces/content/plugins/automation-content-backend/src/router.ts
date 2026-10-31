@@ -1,6 +1,7 @@
 import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
+import { ConfigReader } from '@backstage/config';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
 
 export interface RouterOptions {
@@ -29,6 +30,19 @@ type RouteResponse = {
 };
 
 const EE_TYPE = 'execution-environment';
+
+/**
+ * What GET /registries reports about a failed reconciliation.
+ *
+ * A reconcile error's detail can quote internal hostnames — a TLS rejection
+ * names the certificate's subject alternative names, for instance. Every
+ * route except GET /health requires sign-in (#977), and /health answers a
+ * bare status only; the registry listing stays conservative with this fixed
+ * summary, while the raw cause goes to the backend log and the sync
+ * responses, where the caller explicitly asked for a refresh.
+ */
+export const RECONCILE_FAILURE_SUMMARY =
+  'reconciliation failed — see backend logs, or an authenticated sync, for the cause';
 
 /**
  * Coerce a documentation field to an array.
@@ -121,6 +135,9 @@ export async function createRouter(
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
+    // A liveness probe's answer: nothing else. The route is unauthenticated
+    // (#977), so it must not describe registries, cache state, or failure
+    // causes — see RECONCILE_FAILURE_SUMMARY for where those live now.
     res.json({ status: 'ok' });
   });
 
@@ -138,7 +155,11 @@ export async function createRouter(
           capabilities: state.capabilities,
           lastReconciledAt: reconcile?.at,
           lastReconcileOk: reconcile?.ok,
-          lastReconcileError: reconcile?.error,
+          // Fixed summary only — the raw cause can quote internal hostnames;
+          // the log and the sync responses are where it belongs. See
+          // RECONCILE_FAILURE_SUMMARY.
+          lastReconcileError:
+            reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
           lastCheckedAt: index.driftStateFor(state.connection.name)?.at,
         };
       }),
@@ -152,6 +173,10 @@ export async function createRouter(
    * something changed and does not want to wait for the poll.
    */
   router.post('/sync', async (_req, res) => {
+    // This route sits behind the default sign-in barrier (#977), so every
+    // caller is a verified user or service principal — the detailed failure
+    // cause is the only view this handler produces. Anonymous callers are
+    // turned away before the router runs at all.
     const started = Date.now();
     const results = [];
     for (const state of index.listRegistries()) {
@@ -683,62 +708,92 @@ export async function createRouter(
       errors.push({ path: 'registries', message: 'Must be an array' });
     } else {
       const seen = new Set<string>();
-      body.registries.forEach(
-        (registry: Record<string, unknown>, i: number) => {
-          const at = `registries[${i}]`;
-          if (!registry.name)
-            errors.push({ path: `${at}.name`, message: 'Required' });
-          if (!registry.url)
-            errors.push({ path: `${at}.url`, message: 'Required' });
+      body.registries.forEach((entry: unknown, i: number) => {
+        const at = `registries[${i}]`;
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          errors.push({ path: at, message: 'Must be an object' });
+          return;
+        }
+        const registry = entry as Record<string, unknown>;
+        if (!registry.name)
+          errors.push({ path: `${at}.name`, message: 'Required' });
+        if (!registry.url)
+          errors.push({ path: `${at}.url`, message: 'Required' });
 
-          if (typeof registry.name === 'string') {
-            if (seen.has(registry.name)) {
-              errors.push({
-                path: `${at}.name`,
-                message: `Duplicate registry name: ${registry.name}`,
-              });
-            }
-            seen.add(registry.name);
-          }
-
-          const hasRepos =
-            Array.isArray(registry.repositories) &&
-            registry.repositories.length > 0;
-          const hasNamespaces =
-            Array.isArray(registry.namespaces) &&
-            registry.namespaces.length > 0;
-          if (!hasRepos && !hasNamespaces) {
-            warnings.push({
-              path: at,
-              message:
-                'Neither repositories nor namespaces set. Discovery will find nothing ' +
-                'unless the registry supports catalog enumeration.',
-            });
-          }
-          if (registry.insecure === true) {
-            warnings.push({
-              path: `${at}.insecure`,
-              message: 'Plain HTTP; local development only',
-            });
-          }
-          if (registry.rewriteAuthRealmHost === true) {
-            warnings.push({
-              path: `${at}.rewriteAuthRealmHost`,
-              message:
-                'Credentials will be sent to the configured host rather than the realm ' +
-                'the registry advertises. Intended for registries advertising an ' +
-                'unreachable token endpoint.',
-            });
-          }
-          const url = typeof registry.url === 'string' ? registry.url : '';
-          if (url && !/^https?:\/\//.test(url)) {
+        if (typeof registry.name === 'string') {
+          if (seen.has(registry.name)) {
             errors.push({
-              path: `${at}.url`,
-              message: 'Must include a scheme',
+              path: `${at}.name`,
+              message: `Duplicate registry name: ${registry.name}`,
             });
           }
-        },
-      );
+          seen.add(registry.name);
+        }
+
+        const hasRepos =
+          Array.isArray(registry.repositories) &&
+          registry.repositories.length > 0;
+        const hasNamespaces =
+          Array.isArray(registry.namespaces) && registry.namespaces.length > 0;
+        if (!hasRepos && !hasNamespaces) {
+          warnings.push({
+            path: at,
+            message:
+              'Neither repositories nor namespaces set. Discovery will find nothing ' +
+              'unless the registry supports catalog enumeration.',
+          });
+        }
+        let insecure: boolean | undefined;
+        try {
+          // Use the same coercion as readRegistryConfigs at startup, including
+          // Backstage's truthy/false-like strings and numeric 1/0.
+          const config = new ConfigReader(
+            registry as ConstructorParameters<typeof ConfigReader>[0],
+          );
+          insecure = config.getOptionalBoolean('insecure');
+        } catch {
+          errors.push({
+            path: `${at}.insecure`,
+            message:
+              'Must be a boolean or a Backstage-recognized boolean value',
+          });
+        }
+        if (insecure === true) {
+          warnings.push({
+            path: `${at}.insecure`,
+            message:
+              'Plain HTTP allowed and TLS certificate verification disabled — ' +
+              'local development only',
+          });
+          // The same refusal readRegistryConfigs makes at startup: a bundle
+          // to verify against and an opt-out of verification contradict
+          // each other, and CI should see it before the process does.
+          if (registry.caFile) {
+            errors.push({
+              path: `${at}.caFile`,
+              message:
+                'caFile cannot be combined with insecure: verify against ' +
+                'the bundle or opt out of verification, not both',
+            });
+          }
+        }
+        if (registry.rewriteAuthRealmHost === true) {
+          warnings.push({
+            path: `${at}.rewriteAuthRealmHost`,
+            message:
+              'Credentials will be sent to the configured host rather than the realm ' +
+              'the registry advertises. Intended for registries advertising an ' +
+              'unreachable token endpoint.',
+          });
+        }
+        const url = typeof registry.url === 'string' ? registry.url : '';
+        if (url && !/^https?:\/\//.test(url)) {
+          errors.push({
+            path: `${at}.url`,
+            message: 'Must include a scheme',
+          });
+        }
+      });
     }
 
     res.json({ valid: errors.length === 0, errors, warnings });

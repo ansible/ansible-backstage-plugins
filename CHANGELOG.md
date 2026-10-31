@@ -30,6 +30,12 @@ where versioned packages apply.
 
 ### Changed
 
+- **Automation content custom transports:** injected `FetchLike` implementations
+  now receive `redirect: 'manual'` and must return redirect responses without
+  following them. Update wrappers that automatically follow redirects to forward
+  this option to the underlying transport. `OCIClient` checks each redirect's
+  scheme and removes Authorization headers when crossing origins; redirects
+  followed inside a custom transport bypass those checks.
 - **Portal global header** removes the Create shortcut from both native and legacy source-app composition. Profile-menu access and logout remain available. No global Create-contribution API is introduced.
 
 - **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
@@ -65,6 +71,11 @@ where versioned packages apply.
 
 ### Upgrade notes
 
+1. **Automation content custom transport authors:** forward `TransportInit`,
+   including `redirect: 'manual'`, and return the original redirect status and
+   Location header to `OCIClient`. Remove automatic redirect loops from injected
+   `FetchLike` adapters. The client now owns redirect following and applies its
+   transport and credential policy to each hop.
 1. **AAP browser logout:** set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl`, using `auth.environment` to select the provider environment (default `development`). Set `auth.providers.rhaap.<environment>.host` or retain `ansible.rhaap.baseUrl` as the host fallback. Register the serialized value of `app.baseUrl` (`new URL(appBaseUrl).href`) in the matching OAuth application's Post Logout Redirect URIs. For example, `http://localhost:3000` serializes to `http://localhost:3000/`, and the registered URI must include that trailing slash. A host without the required client ID or valid Portal URL reports a configuration error and clears Portal auth without ending the AAP browser session.
 
 1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.

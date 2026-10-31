@@ -10,7 +10,7 @@ This directory contains the OpenAPI 3.1.0 specification for the Ansible Automati
 
 ```bash
 yarn openapi:lint         # Lint the spec with Spectral
-yarn openapi:check-drift  # Check for route drift between router files and the spec
+yarn openapi:check-drift  # Test the drift checker, then compare router files with the spec
 ```
 
 ## Testing APIs with Swagger UI
@@ -48,7 +48,7 @@ The backend will be available at http://localhost:7007.
 
 ### 3. Extract a Bearer token
 
-The backend requires Backstage authentication. To get a valid token:
+Most endpoints require Backstage authentication. The automation-content liveness probe allows anonymous access. To get a valid token:
 
 1. Open http://localhost:3000 in your browser.
 2. Log in with your configured auth provider (AAP OAuth, GitHub, or GitLab).
@@ -62,18 +62,31 @@ The backend requires Backstage authentication. To get a valid token:
 ### 4. Authorize in Swagger UI
 
 1. Go to http://localhost:8080.
-2. Verify the **Servers** dropdown shows `http://localhost:7007/api/catalog`.
+2. Check the operation's server URL. The health operations use `/` and include their full `/api/<plugin>/health` paths.
 3. Click the **Authorize** button (lock icon at the top right).
 4. In the **Value** field, paste the Bearer token you copied (without the `Bearer ` prefix -- Swagger UI adds it automatically).
 5. Click **Authorize**, then **Close**.
 
 ### 5. Execute requests
 
-1. Expand any endpoint (e.g. `GET /health`).
+1. Expand an endpoint (e.g. `GET /api/catalog/health`).
 2. Click **Try it out**.
 3. Fill in any required parameters.
 4. Click **Execute**.
 5. The response will appear below with status code and body.
+
+### Health endpoints
+
+The two health operations have different authentication requirements:
+
+| Endpoint                             | Authentication                  | Response                                   |
+| ------------------------------------ | ------------------------------- | ------------------------------------------ |
+| `GET /api/catalog/health`            | Backstage user or service token | `200` with credentials; `401` without them |
+| `GET /api/automation-content/health` | Anonymous access allowed        | `200` without credentials                  |
+
+Both return only `{ "status": "ok" }` on success. The automation-content probe does not contact upstream registries.
+
+With the backend running on port 7007, these URLs are `http://localhost:7007/api/catalog/health` and `http://localhost:7007/api/automation-content/health`.
 
 ### Notes
 
