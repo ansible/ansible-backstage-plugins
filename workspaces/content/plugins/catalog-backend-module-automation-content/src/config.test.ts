@@ -1,5 +1,5 @@
 import { ConfigReader } from '@backstage/config';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readRegistryConfigs } from './config';
@@ -10,6 +10,18 @@ import { readRegistryConfigs } from './config';
 import { generateTlsTestFixtures } from '@ansible/automation-content-common/src/testing/tlsCertificates';
 
 const FIXTURES = generateTlsTestFixtures();
+const directories: string[] = [];
+
+jest.mock('node:fs', () => ({
+  ...jest.requireActual('node:fs'),
+  readFileSync: jest.fn(jest.requireActual('node:fs').readFileSync),
+}));
+
+afterEach(() => {
+  directories
+    .splice(0)
+    .forEach(dir => rmSync(dir, { recursive: true, force: true }));
+});
 
 function read(registries: Array<Record<string, unknown>>) {
   return readRegistryConfigs(
@@ -25,6 +37,7 @@ function read(registries: Array<Record<string, unknown>>) {
  */
 function caBundleOnDisk(pem: string = FIXTURES.ca): string {
   const dir = mkdtempSync(join(tmpdir(), 'registry-ca-'));
+  directories.push(dir);
   const path = join(dir, 'ca.pem');
   writeFileSync(path, pem);
   return path;
@@ -116,6 +129,47 @@ describe('readRegistryConfigs: CA bundles', () => {
     const caFile = caBundleOnDisk();
     expect(() => read([{ ...registry, caFile, insecure: true }])).toThrow(
       /caFile.*insecure|insecure.*caFile/,
+    );
+  });
+
+  it('keeps verification enabled for a bundle with insecure explicitly false', () => {
+    const caFile = caBundleOnDisk();
+    expect(
+      read([{ ...registry, caFile, insecure: false }])[0].connection,
+    ).toMatchObject({
+      ca: FIXTURES.ca,
+      insecure: false,
+    });
+  });
+
+  it('rejects an unterminated PEM block', () => {
+    const caFile = caBundleOnDisk('-----BEGIN CERTIFICATE-----\ntruncated');
+    expect(() => read([{ ...registry, caFile }])).toThrow(
+      /no PEM certificate found/,
+    );
+  });
+
+  it('accepts a complete certificate followed by an unterminated fragment', () => {
+    const pem = `${FIXTURES.ca}\n-----BEGIN CERTIFICATE-----\ntruncated`;
+    const caFile = caBundleOnDisk(pem);
+    expect(read([{ ...registry, caFile }])[0].connection.ca).toBe(pem);
+  });
+
+  it('validates later certificates as well as the first block', () => {
+    const caFile = caBundleOnDisk(
+      `${FIXTURES.ca}\n-----BEGIN CERTIFICATE-----\ninvalid\n-----END CERTIFICATE-----`,
+    );
+    expect(() => read([{ ...registry, caFile }])).toThrow(
+      /invalid certificate in bundle/,
+    );
+  });
+
+  it('reports read failures that have no filesystem error code', () => {
+    jest.mocked(readFileSync).mockImplementationOnce(() => {
+      throw new Error('mount unavailable');
+    });
+    expect(() => read([{ ...registry, caFile: '/mounted/ca.pem' }])).toThrow(
+      /mock.*ca\.pem.*mount unavailable/,
     );
   });
 });

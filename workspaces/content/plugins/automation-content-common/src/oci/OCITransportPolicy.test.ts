@@ -649,6 +649,81 @@ describe('redirects cannot downgrade the transport', () => {
 });
 
 describe('the redirect policy covers injected transports too', () => {
+  it('refuses an unparseable initial URL without transport calls or echoed input', async () => {
+    const fetchImpl = jest.fn();
+    const client = new OCIClient(connection('not a URL?token=secret'), {
+      fetch: fetchImpl,
+    });
+    await expect(client.ping()).rejects.toThrow(
+      /refused unparseable request to \(unparseable URL\)/,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('returns a redirect without Location unchanged', async () => {
+    const response = new Response(null, { status: 302 });
+    const fetchImpl = jest.fn().mockResolvedValue(response);
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+    await expect(client.rawRequest('/v2/')).resolves.toBe(response);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes cancelling the redirect body before sending the next hop', async () => {
+    const response = new Response('redirect body', {
+      status: 302,
+      headers: { location: '/next' },
+    });
+    let finish!: () => void;
+    let started!: () => void;
+    const pending = new Promise<void>(resolve => {
+      finish = resolve;
+    });
+    const cancelling = new Promise<void>(resolve => {
+      started = resolve;
+    });
+    jest.spyOn(response.body!, 'cancel').mockImplementation(() => {
+      started();
+      return pending;
+    });
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(response)
+      .mockResolvedValueOnce(new Response('{}'));
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+    const result = client.ping();
+    await cancelling;
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    finish();
+    await expect(result).resolves.toMatchObject({ ok: true });
+    expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual([
+      'https://mock.registry/v2/',
+      'https://mock.registry/next',
+    ]);
+  });
+
+  it('continues following a redirect when body cancellation rejects', async () => {
+    const response = new Response('redirect body', {
+      status: 302,
+      headers: { location: '/next' },
+    });
+    jest
+      .spyOn(response.body!, 'cancel')
+      .mockRejectedValue(new Error('already closed'));
+    const fetchImpl = jest
+      .fn()
+      .mockResolvedValueOnce(response)
+      .mockResolvedValueOnce(new Response('{}'));
+    const client = new OCIClient(connection('https://mock.registry'), {
+      fetch: fetchImpl,
+    });
+    await expect(client.ping()).resolves.toMatchObject({ ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('refuses an HTTPS to HTTP redirect issued through an injected fetch', async () => {
     const fetched: string[] = [];
     const redirects: Array<string | undefined> = [];

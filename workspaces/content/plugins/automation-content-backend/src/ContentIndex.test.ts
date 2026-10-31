@@ -263,6 +263,24 @@ describe('error cause traversal is bounded', () => {
     expect(outcome.error).toContain('gateway gone');
   });
 
+  it.each([
+    [{}, 'unknown error'],
+    [{ message: 42 }, 'unknown error'],
+    [new Error(''), 'unknown error'],
+    [null, 'null'],
+    [undefined, 'undefined'],
+    [42, '42'],
+    [false, 'false'],
+  ])(
+    'describes rejection %p without default object stringification',
+    async (error, message) => {
+      const outcome = await indexFailingWith(error).refreshRegistry('mock');
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).toBe(`capability probe failed: ${message}`);
+      expect(outcome.error).not.toContain('[object Object]');
+    },
+  );
+
   it('reports the cause chain when a drift check fails', async () => {
     const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
     wrapped.cause = new Error('unable to get local issuer certificate');

@@ -124,7 +124,10 @@ function errorText(error: unknown): string {
     parts.push(link.message);
     current = link.cause;
   }
-  return parts.join(': ') || String(error);
+  const message = parts.join(': ');
+  if (message) return message;
+  if (error !== null && typeof error === 'object') return 'unknown error';
+  return String(error);
 }
 
 /** A chain step: an object carrying a string `message`, which errors are. */

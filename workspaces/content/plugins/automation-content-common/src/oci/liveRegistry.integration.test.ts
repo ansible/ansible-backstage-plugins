@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Live end-to-end verification against a real registry.
  *
  * Proves the consumer half of build-time content discovery: given only a registry,
@@ -44,6 +46,10 @@ describeLive('live registry end-to-end', () => {
   let client: OCIClient;
   beforeAll(() => {
     client = new OCIClient(connection);
+  });
+
+  afterAll(async () => {
+    await client.dispose();
   });
 
   it('probes registry capabilities', async () => {

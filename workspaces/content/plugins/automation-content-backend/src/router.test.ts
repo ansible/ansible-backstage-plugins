@@ -299,6 +299,31 @@ describe('diagnostics are summarised on the registry listing', () => {
 });
 
 describe('GET /registries', () => {
+  it.each([undefined, { at: '2026-10-31', ok: true, artifacts: 0 }])(
+    'omits failure diagnostics when reconciliation is %p',
+    async reconcile => {
+      const index = new ContentIndex(
+        [
+          {
+            name: 'mock',
+            url: 'https://mock.registry',
+            auth: { type: 'anonymous' },
+          },
+        ],
+        logger,
+      );
+      if (reconcile) {
+        (index as unknown as { reconcile: Map<string, unknown> }).reconcile.set(
+          'mock',
+          reconcile,
+        );
+      }
+      const res = await request(await appWith(index)).get('/registries');
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0]).not.toHaveProperty('lastReconcileError');
+      expect(res.body.items[0].lastReconcileOk).toBe(reconcile?.ok);
+    },
+  );
   it('returns empty items when none are configured', async () => {
     const index = seed([]);
     const res = await request(await appWith(index)).get('/registries');
@@ -351,6 +376,63 @@ describe('config validation', () => {
       ),
     ).toEqual([]);
   });
+
+  it('reports missing registry names and URLs at their field paths', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send(document([registry({ name: undefined, url: undefined })]));
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toEqual([
+      { path: 'registries[0].name', message: 'Required' },
+      { path: 'registries[0].url', message: 'Required' },
+    ]);
+  });
+
+  it('rejects duplicate registry names', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send(document([registry(), registry()]));
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toEqual([
+      { path: 'registries[1].name', message: 'Duplicate registry name: mock' },
+    ]);
+  });
+
+  it('warns that realm rewriting changes the credential destination', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send(document([registry({ rewriteAuthRealmHost: true })]));
+    expect(res.body.valid).toBe(true);
+    expect(res.body.warnings).toEqual([
+      {
+        path: 'registries[0].rewriteAuthRealmHost',
+        message: expect.stringContaining(
+          'Credentials will be sent to the configured host',
+        ),
+      },
+    ]);
+  });
+
+  it('rejects registry URLs without a scheme', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send(document([registry({ url: 'mock.registry' })]));
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toEqual([
+      { path: 'registries[0].url', message: 'Must include a scheme' },
+    ]);
+  });
+
+  it.each([{ namespaces: [] }, { namespaces: ['team'] }])(
+    'validates namespaces $namespaces without configured repositories',
+    async ({ namespaces }) => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send(document([registry({ repositories: [], namespaces })]));
+      expect(res.body.valid).toBe(true);
+      expect(res.body.warnings).toHaveLength(namespaces.length ? 0 : 1);
+    },
+  );
 
   it('rejects caFile combined with the insecure opt-out, at the caFile path', async () => {
     // The same refusal readRegistryConfigs makes at startup — CI must see it

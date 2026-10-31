@@ -38,7 +38,7 @@ function loadUndici(): Promise<typeof import('undici')> {
     // CommonJS `require` is available instead. Outside jest the dynamic import
     // above succeeds — or is compiled to `require` — so this never runs.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return Promise.resolve(require('undici') as typeof import('undici'));
+    return require('undici') as typeof import('undici');
   });
   return undiciModule;
 }
@@ -324,7 +324,8 @@ export class OCIClient {
       if (res.status < 300 || res.status > 399) return res;
       const location = res.headers.get('location');
       if (!location) return res;
-      await res.body?.cancel().catch(() => {});
+      // S9382: release this response before the next dependent redirect request.
+      await res.body?.cancel().catch(() => {}); // NOSONAR
 
       if (hop >= MAX_REDIRECT_HOPS) {
         throw new RegistryError(

@@ -102,17 +102,14 @@ function readCaBundle(registry: string, path: string): string {
         `(no PEM certificate found)`,
     );
   }
-  for (const block of blocks) {
-    try {
-      // Parse-and-discard: the point is that Node's certificate parser
-      // accepts the block, not the parsed value.
-      void new X509Certificate(block);
-    } catch {
-      throw new Error(
-        `cannot read CA bundle for registry "${registry}": ${path} ` +
-          `(invalid certificate in bundle)`,
-      );
-    }
+  try {
+    // Every block must be accepted by Node's certificate parser.
+    blocks.forEach(block => new X509Certificate(block));
+  } catch {
+    throw new Error(
+      `cannot read CA bundle for registry "${registry}": ${path} ` +
+        `(invalid certificate in bundle)`,
+    );
   }
   return pem;
 }

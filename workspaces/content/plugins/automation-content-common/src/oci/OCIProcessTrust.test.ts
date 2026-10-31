@@ -26,6 +26,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import type { CoverageMapData } from 'istanbul-lib-coverage';
+import {
+  subprocessCoveragePlugin,
+  SUBPROCESS_COVERAGE_BANNER,
+  mergeSubprocessCoverage,
+} from '../testing/subprocessCoverage';
 import { generateStandaloneCa } from '../testing/tlsCertificates';
 import type {
   TrustScenarioInput,
@@ -36,17 +42,19 @@ jest.setTimeout(120_000);
 
 const execFileAsync = promisify(execFile);
 
-// esbuild is toolchain infrastructure — a dependency of @backstage/cli — not
-// a dependency of this package; resolved from the workspace root. It bundles
-// the scenario entry (which imports the real OCIClient) into a script the
-// subprocess can run without a TypeScript toolchain.
-// eslint-disable-next-line @backstage/no-undeclared-imports, @typescript-eslint/no-require-imports
+// Import lazily so esbuild sees Node's globals rather than jsdom's.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const esbuild = require('esbuild') as typeof import('esbuild');
+
+const coverage = (
+  globalThis as typeof globalThis & { __coverage__?: CoverageMapData }
+).__coverage__;
 
 let workDir: string;
 let bundlePath: string;
 let inputPath: string;
 let extraCaFile: string;
+let scenarioInput: TrustScenarioInput;
 
 beforeAll(async () => {
   workDir = mkdtempSync(path.join(tmpdir(), 'oci-process-trust-'));
@@ -57,13 +65,13 @@ beforeAll(async () => {
   const processCa = generateStandaloneCa('process trust test CA');
   const elsewhere = generateStandaloneCa('unrelated test CA');
 
-  const input: TrustScenarioInput = {
+  scenarioInput = {
     bundle: { ca: bundle.ca, server: bundle.server },
     process: { ca: processCa.ca, server: processCa.server },
     elsewhere: { ca: elsewhere.ca, server: elsewhere.server },
   };
   inputPath = path.join(workDir, 'input.json');
-  writeFileSync(inputPath, JSON.stringify(input));
+  writeFileSync(inputPath, JSON.stringify(scenarioInput));
 
   // The CA the subprocess must treat as a process root. Node reads this file
   // at startup — which is exactly why the scenarios run in a subprocess.
@@ -71,13 +79,16 @@ beforeAll(async () => {
   writeFileSync(extraCaFile, processCa.ca);
 
   bundlePath = path.join(workDir, 'scenario.cjs');
+  const entry = path.resolve(__dirname, '../testing/trustScenario.ts');
   await esbuild.build({
-    entryPoints: [path.resolve(__dirname, '../testing/trustScenario')],
+    entryPoints: [entry],
     bundle: true,
     platform: 'node',
     format: 'cjs',
     outfile: bundlePath,
     logLevel: 'silent',
+    plugins: coverage ? [subprocessCoveragePlugin(entry)] : [],
+    banner: coverage ? { js: SUBPROCESS_COVERAGE_BANNER } : undefined,
   });
 });
 
@@ -92,18 +103,32 @@ afterAll(() => {
  * then recovered from stdout so the assertion names the scenario's own
  * reason rather than a bare exit code.
  */
-async function runScenario(name: string): Promise<TrustScenarioVerdict> {
+async function invokeScenario(args: string[]) {
+  const coveragePath = path.join(workDir, 'coverage.json');
   const spawn = () =>
-    execFileAsync(process.execPath, [bundlePath, name, inputPath], {
-      env: { ...process.env, NODE_EXTRA_CA_CERTS: extraCaFile },
+    execFileAsync(process.execPath, [bundlePath, ...args], {
+      env: {
+        ...process.env,
+        NODE_EXTRA_CA_CERTS: extraCaFile,
+        OCI_SCENARIO_COVERAGE: coveragePath,
+      },
       timeout: 60_000,
     });
-  const { stdout } = await spawn().catch(error => {
-    const out = (error as { stdout?: string }).stdout;
-    if (out) return { stdout: out };
-    throw error;
-  });
-  return JSON.parse(stdout) as TrustScenarioVerdict;
+  const { stdout, code } = await spawn()
+    .then(result => ({ stdout: result.stdout, code: 0 }))
+    .catch(error => {
+      const out = (error as { stdout?: string }).stdout;
+      if (out) return { stdout: out, code: (error as { code: number }).code };
+      throw error;
+    });
+  if (coverage) mergeSubprocessCoverage(coveragePath, coverage);
+  return { verdict: JSON.parse(stdout) as TrustScenarioVerdict, code };
+}
+
+async function runScenario(name: string): Promise<TrustScenarioVerdict> {
+  const { verdict, code } = await invokeScenario([name, inputPath]);
+  expect(code).toBe(0);
+  return verdict;
 }
 
 describe('the default trust store is the process\u2019s', () => {
@@ -147,5 +172,58 @@ describe('connection trust and process trust compose', () => {
 
     expect(verdict.ok).toBe(true);
     expect(verdict.evidence?.tokenRequests).toBeGreaterThan(0);
+  });
+});
+
+describe('scenario CLI failures', () => {
+  it.each([
+    { args: [] },
+    { args: ['unknown', 'input.json'] },
+    { args: ['process-trusted'] },
+  ])('rejects missing or unknown arguments $args', async ({ args }) => {
+    const { verdict, code } = await invokeScenario(args);
+    expect(code).toBe(1);
+    expect(verdict).toEqual({
+      ok: false,
+      error: expect.stringContaining('usage:'),
+    });
+  });
+
+  it('reports an unreadable fixture', async () => {
+    const { verdict, code } = await invokeScenario([
+      'process-trusted',
+      path.join(workDir, 'missing.json'),
+    ]);
+    expect(code).toBe(1);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.error).toContain('ENOENT');
+  });
+
+  it('reports malformed fixture JSON', async () => {
+    const invalid = path.join(workDir, 'invalid.json');
+    writeFileSync(invalid, '{');
+    const { verdict, code } = await invokeScenario([
+      'process-trusted',
+      invalid,
+    ]);
+    expect(code).toBe(1);
+    expect(verdict.error).toContain('SyntaxError');
+  });
+
+  it('fails if the supposedly untrusted certificate is accepted', async () => {
+    const invalid = path.join(workDir, 'trusted-elsewhere.json');
+    writeFileSync(
+      invalid,
+      JSON.stringify({
+        ...scenarioInput,
+        elsewhere: scenarioInput.process,
+      }),
+    );
+    const { verdict, code } = await invokeScenario([
+      'process-untrusted',
+      invalid,
+    ]);
+    expect(code).toBe(1);
+    expect(verdict.error).toContain('expected the request to fail');
   });
 });
