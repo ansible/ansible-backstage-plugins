@@ -29,6 +29,9 @@ jest.mock('@ansible/portal-scaffolder/alpha', () => {
 jest.mock('@ansible/plugin-backstage-apme/alpha', () => {
   throw new Error('Core profile must not evaluate APME');
 });
+jest.mock('@ansible/plugin-backstage-rhaap/alpha', () => {
+  throw new Error('Core profile must not evaluate the Ansible page');
+});
 
 const manifest: EntityDetailTabDescriptor['manifest'] = {
   id: 'discovered-example',

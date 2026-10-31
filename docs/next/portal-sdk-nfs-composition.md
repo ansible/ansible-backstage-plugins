@@ -31,7 +31,8 @@ not contributor-supplied URLs.
 ### Prerequisites
 
 - An NFS app with a host frontend plugin whose plugin ID is `portal`.
-- `@backstage/frontend-plugin-api` 0.17.1 and compatible platform packages.
+- `@backstage/frontend-plugin-api` 0.18.0 and compatible platform packages,
+  matching the repository's Backstage 1.54.9 baseline.
 - A host page that resolves the current entity and canonical content type.
 - A host entitlement resolver for declared entitlement requirements.
 
