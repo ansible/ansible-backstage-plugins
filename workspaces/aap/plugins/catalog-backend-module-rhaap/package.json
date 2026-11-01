@@ -58,7 +58,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/backend-test-utils": "1.11.8",
     "@backstage/cli": "0.36.5",
     "@backstage/plugin-permission-common": "0.9.10",
     "@types/express": "^5.0.3",

@@ -36,8 +36,8 @@
   },
   "devDependencies": {
     "@ansible/portal-extension-common": "workspace:^",
-    "@backstage/backend-plugin-api": "1.10.0",
-    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/backend-plugin-api": "1.11.0",
+    "@backstage/backend-test-utils": "1.11.8",
     "@backstage/cli": "0.36.5",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.14",
