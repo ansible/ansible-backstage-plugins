@@ -56,10 +56,10 @@
     "react": "^17.0.0 || ^18.0.0"
   },
   "devDependencies": {
-    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/backend-test-utils": "1.11.8",
     "@backstage/cli": "0.36.5",
     "@backstage/plugin-scaffolder-node-test-utils": "0.3.14",
-    "@backstage/test-utils": "1.7.21",
+    "@backstage/test-utils": "1.7.23",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.12",
     "@types/js-yaml": "^4",
@@ -67,7 +67,7 @@
     "@types/node-fetch": "2.6.11",
     "@types/semver": "^7",
     "dedent": "^1.7.0",
-    "msw": "2.4.9",
+    "msw": "2.15.0",
     "supertest": "^7.1.4"
   },
   "files": [
