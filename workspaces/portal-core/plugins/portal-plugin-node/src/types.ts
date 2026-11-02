@@ -88,9 +88,19 @@ export interface AuditEvent {
  * `portalContext` is `undefined` when the identity middleware is not present
  * on the route or when the request is unauthenticated (the middleware calls
  * `next()` rather than blocking unauthenticated requests).
+ *
+ * Must augment the global `Express.Request` namespace, not `declare module
+ * 'express'`: `@types/express`'s `Request` is defined in
+ * `express-serve-static-core` and merged into `express`'s module surface via
+ * `export =`, so a `declare module 'express' { interface Request {} }` block
+ * here would create an unrelated, unused `Request` interface scoped to this
+ * augmentation rather than merging with the real one.
  */
-declare module 'express' {
-  interface Request {
-    portalContext?: PortalContext;
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      portalContext?: PortalContext;
+    }
   }
 }

@@ -42,6 +42,31 @@ export type PermissionRequirement =
  */
 export type ContentPredicate = (entity: Entity) => boolean;
 
+<<<<<<< HEAD
+=======
+// ── Experience ────────────────────────────────────────────────────────────────
+
+/**
+ * A host-owned UX region. Plugins contribute capabilities *into* an experience;
+ * they do not create experiences. An `experienceId` that does not match a known
+ * `ExperienceDefinition` is rejected at registration.
+ *
+ * `portal-extension-host` declares the initial set:
+ * - `'content-quality-assessment'`
+ * - `'content-authoring'`
+ * - `'content-migration'`
+ * - `'compliance'` — AAP compliance scanning, findings, and remediation.
+ *   Not a content-type experience; subjects are AAP inventories/hosts.
+ */
+export interface ExperienceDefinition {
+  id: string;
+  displayName: string;
+  description: string;
+  /** Named layout zones inside this experience that capabilities may target. */
+  slots: string[];
+}
+
+>>>>>>> 26cf181 (feat(compliance): align with Content Experience Architecture and register operations)
 // ── Entry point shape ─────────────────────────────────────────────────────────
 
 /**

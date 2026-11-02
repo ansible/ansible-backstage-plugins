@@ -32,10 +32,17 @@ import {
   resolvePackagePath,
 } from '@backstage/backend-plugin-api';
 import { compliancePermissions } from '@ansible/compliance-common';
+import {
+  createPortalPlugin,
+  portalHealthServiceRef,
+  portalActiveOrganizationServiceRef,
+  portalOperationsServiceRef,
+} from '@ansible/portal-plugin-node';
 
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
 import { createRouter } from './router';
+import { registerComplianceOperations } from './operations';
 
 export const complianceBackendPlugin = createBackendPlugin({
   pluginId: 'compliance',
@@ -47,18 +54,52 @@ export const complianceBackendPlugin = createBackendPlugin({
         httpRouter: coreServices.httpRouter,
         database: coreServices.database,
         httpAuth: coreServices.httpAuth,
+        userInfo: coreServices.userInfo,
         permissions: coreServices.permissions,
         permissionsRegistry: coreServices.permissionsRegistry,
+        health: portalHealthServiceRef,
+        organizations: portalActiveOrganizationServiceRef,
+        operations: portalOperationsServiceRef,
       },
-      async init({ logger, config, httpRouter, database, httpAuth, permissions, permissionsRegistry }) {
+      async init({
+        logger,
+        config,
+        httpRouter,
+        database,
+        httpAuth,
+        userInfo,
+        permissions,
+        permissionsRegistry,
+        health,
+        organizations,
+        operations,
+      }) {
         logger.info('Initializing compliance backend plugin');
+
+        // Portal backend SDK instance (`@ansible/portal-plugin-node`).
+        // `health` ties into the cross-plugin `PortalHealthStatus`
+        // aggregator. (Audit emission now happens inside
+        // `PortalOperations.execute()` itself — see the Operations section
+        // below — so this plugin no longer needs `createMiddleware()`.)
+        const portalPlugin = createPortalPlugin({
+          pluginId: 'compliance',
+          health,
+        });
 
         permissionsRegistry.addPermissions(compliancePermissions);
 
         // ─── Enabled check (Plugin Factory requirement) ─────────
-        const enabled = config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
+        const enabled =
+          config.getOptionalBoolean('ansible.compliance.enabled') ?? false;
         if (!enabled) {
-          logger.info('Compliance plugin disabled (ansible.compliance.enabled is false or absent)');
+          logger.info(
+            'Compliance plugin disabled (ansible.compliance.enabled is false or absent)',
+          );
+          portalPlugin.pushHealthStatus({
+            state: 'UNKNOWN',
+            message:
+              'Compliance is disabled in config (ansible.compliance.enabled: false).',
+          });
           return;
         }
 
@@ -73,7 +114,9 @@ export const complianceBackendPlugin = createBackendPlugin({
         //   Controller job). Mutating endpoints are additionally gated by
         //   specific compliance permissions via the permissions service in
         //   the router (see `routes/permissions.ts`).
-        const authMode = config.getOptionalString('ansible.compliance.authMode') ?? 'production';
+        const authMode =
+          config.getOptionalString('ansible.compliance.authMode') ??
+          'production';
         logger.info(`Compliance auth mode: ${authMode}`);
 
         // ─── Database ───────────────────────────────────────────
@@ -95,7 +138,9 @@ export const complianceBackendPlugin = createBackendPlugin({
           '@ansible/plugin-compliance-backend',
           'migrations',
         );
-        const migrationsDir = fs.existsSync(tsMigrations) ? tsMigrations : jsMigrations;
+        const migrationsDir = fs.existsSync(tsMigrations)
+          ? tsMigrations
+          : jsMigrations;
 
         // SQLite ALTER TABLE recreates tables, which fails FK checks inside transactions.
         // Disable FK checks before migrations, re-enable after.
@@ -111,12 +156,17 @@ export const complianceBackendPlugin = createBackendPlugin({
         const complianceDb = new ComplianceDatabase(dbClient);
 
         // ─── Ingest token TTL (ADR-010 hardening) ──────────────
-        const ingestTokenTtlMinutes = config.getOptionalNumber('ansible.compliance.ingestTokenTtlMinutes') ?? 60;
+        const ingestTokenTtlMinutes =
+          config.getOptionalNumber(
+            'ansible.compliance.ingestTokenTtlMinutes',
+          ) ?? 60;
 
         // ─── Data retention cleanup ────────────────────────────
-        const retentionDays = config.getOptionalNumber('ansible.compliance.retentionDays') ?? 90;
+        const retentionDays =
+          config.getOptionalNumber('ansible.compliance.retentionDays') ?? 90;
         try {
-          const cleanedUp = await complianceDb.cleanupOldFindings(retentionDays);
+          const cleanedUp =
+            await complianceDb.cleanupOldFindings(retentionDays);
           if (cleanedUp > 0) {
             logger.info(
               `Data retention: cleaned up ${cleanedUp} findings older than ${retentionDays} days`,
@@ -134,25 +184,60 @@ export const complianceBackendPlugin = createBackendPlugin({
 
         logger.info('Compliance service ready');
 
+        // ─── Operations ─────────────────────────────────────────
+        //
+        // Registered unconditionally (regardless of authMode) — this only
+        // adds entries to the host's `PortalOperations` registry, the same
+        // as `permissionsRegistry.addPermissions()` above. The registry
+        // entry is only ever reached via `operations.execute()`, which the
+        // router's legacy transport adapters call solely in `production`
+        // auth mode (see `routes/types.ts`'s `RouterDependencies` doc
+        // comment for why `development` mode cannot use it).
+        registerComplianceOperations({
+          operations,
+          service,
+          database: complianceDb,
+          logger,
+        });
+
         // ─── Router ─────────────────────────────────────────────
         //
-        // In production mode, pass httpAuth and permissions to the
-        // router so it can enforce the compliance permissions (see
+        // In production mode, pass httpAuth, permissions, and operations to
+        // the router so it can enforce the compliance permissions (see
         // @ansible/compliance-common's permissions.ts) on mutating
-        // endpoints. In development mode, omit them so that the router
-        // skips permission checks entirely.
+        // endpoints and dispatch scan/remediation/profile writes through
+        // `PortalOperations.execute()`. In development mode, omit all
+        // three so the router falls back to calling the same handler
+        // functions directly, with permission checks skipped entirely —
+        // there is no real Backstage identity for `execute()` to
+        // authenticate against in the guest-auth dev shell.
+        //
+        // `userInfo`/`organizations` are passed in every auth mode —
+        // resolving them has no auth-bypass implications of its own; it's
+        // the conditional `httpAuth`/`permissions`/`operations` above that
+        // actually gates whether the adapters ever call
+        // `resolvePortalContext()`/`operations.execute()` with them.
         const router = await createRouter({
           logger,
           service,
           database: complianceDb,
           configRetentionDays: retentionDays,
           configIngestTokenTtlMinutes: ingestTokenTtlMinutes,
-          ...(authMode === 'production' ? { httpAuth, permissions } : {}),
+          ...(authMode === 'production'
+            ? { httpAuth, permissions, operations }
+            : {}),
+          userInfo,
+          organizations,
         });
 
         // Express Router (express-promise-router) vs Backstage's `use` param use incompatible Express generics; runtime value is valid.
         // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
         httpRouter.use(router);
+
+        portalPlugin.pushHealthStatus({
+          state: 'READY',
+          message: 'Compliance backend initialized. Routes registered.',
+        });
 
         // ─── Auth Policies ───────────────────────────────────────
 
@@ -161,35 +246,113 @@ export const complianceBackendPlugin = createBackendPlugin({
           // This is the standalone dev shell path (./bin/start.sh mock).
 
           // --- Read-only endpoints ---
-          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/scans', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/findings', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/compliance-profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/inventories', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/dashboard', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/posture', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-templates', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-status', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/workflow-nodes', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/job-events', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/job-status', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/controller', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/previous-findings', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/health',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/scans',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/findings',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/compliance-profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/inventories',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/dashboard',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/posture',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-templates',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-status',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/workflow-nodes',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/job-events',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/job-status',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/controller',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/previous-findings',
+            allow: 'unauthenticated',
+          });
 
           // --- Mutating endpoints ---
           httpRouter.addAuthPolicy({ path: '/scan', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediate', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-profiles', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-profiles/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-executions', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-executions/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/baseline-targets', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/baseline-targets/:id', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/remediation-error-details', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/settings', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/cleanup', allow: 'unauthenticated' });
-          httpRouter.addAuthPolicy({ path: '/findings/ingest', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/remediate',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-profiles',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-profiles/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-executions',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-executions/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/baseline-targets',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/baseline-targets/:id',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/remediation-error-details',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/settings',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/cleanup',
+            allow: 'unauthenticated',
+          });
+          httpRouter.addAuthPolicy({
+            path: '/findings/ingest',
+            allow: 'unauthenticated',
+          });
         } else {
           // Production mode: only /health is unauthenticated.
           //
@@ -208,7 +371,10 @@ export const complianceBackendPlugin = createBackendPlugin({
           // per-scan ingest token (ADR-010, scoping + TTL + scan-state
           // guard) are enforced inside the route handlers themselves — see
           // `routes/findings.ts` and `routes/artifacts.ts`.
-          httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
+          httpRouter.addAuthPolicy({
+            path: '/health',
+            allow: 'unauthenticated',
+          });
         }
       },
     });

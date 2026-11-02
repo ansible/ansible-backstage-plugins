@@ -1,16 +1,24 @@
 ---
-title: "ADR-027: Dynamic Tab System"
-description: "The compliance dashboard has a fixed set of tabs: Overview, New Scan, Results, Remediations, Inventories, and Settings"
+title: 'ADR-027: Dynamic Tab System'
+description: 'The compliance dashboard has a fixed set of tabs: Overview, New Scan, Results, Remediations, Inventories, and Settings'
 type: adr
-status: accepted
+status: superseded
 date: 2026-06-25
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-027: Dynamic Tab System
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-040: Retiring the Dynamic Tab System](./ADR-040-retiring-dynamic-tab-system.md)
 **Date:** 2026-06-25
 **Deciders:** M. Ferrari, architect review
+
+> **Superseded:** Tier 2 (custom JS bundle per profile) is retired — no
+> frontend code ever consumed it. Tier 1 (widget-based layout) is being
+> re-platformed onto the host's manifest/capability-contribution model
+> (`complianceManifest.ts`; see [ADR-040](./ADR-040-retiring-dynamic-tab-system.md)).
+> See ADR-040 for the full rationale. This document is retained for
+> historical context.
 
 ## Context
 

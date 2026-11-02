@@ -58,18 +58,17 @@ export interface TabWidgetAction {
   file_extension?: string;
 }
 
-/** Tier 2: custom React component bundled in the collection's backstage/ directory. */
-export interface CustomComponentRef {
-  bundle: string;
-  export: string;
-}
-
-/** Tab configuration — either Tier 1 (widget layout) or Tier 2 (custom component). */
+/**
+ * Tab configuration — Tier 1 widget layout.
+ *
+ * ADR-027 Tier 2 (`custom_component`: a profile-supplied JS bundle loaded
+ * via dynamic `import()`) is retired per ADR-040 in favor of the host's
+ * manifest/capability model — no frontend code ever consumed it.
+ */
 export interface TabConfig {
   label: string;
   icon?: string;
   layout?: TabWidget[];
-  custom_component?: CustomComponentRef;
 }
 
 /** Export format specification — profiles declare available export formats. */

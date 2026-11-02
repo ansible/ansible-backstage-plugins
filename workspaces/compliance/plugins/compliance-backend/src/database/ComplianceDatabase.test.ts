@@ -55,41 +55,42 @@ async function createTables(database: Knex): Promise<void> {
       table.text('selections_json').notNullable();
       table.string('status').notNullable().defaultTo('saved');
       table.string('created_by').nullable();
-      table
-        .timestamp('created_at')
-        .notNullable()
-        .defaultTo(database.fn.now());
-      table
-        .timestamp('updated_at')
-        .notNullable()
-        .defaultTo(database.fn.now());
+      table.timestamp('created_at').notNullable().defaultTo(database.fn.now());
+      table.timestamp('updated_at').notNullable().defaultTo(database.fn.now());
       table.unique(['name', 'profile_id', 'status']);
     },
   );
 
-  await database.schema.createTable('compliance_remediation_executions', table => {
-    table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
-    table.integer('inventory_id').notNullable();
-    table.string('informing_scan_id').nullable();
-    table.integer('primary_job_id').nullable();
-    table.text('all_job_ids').nullable();
-    table.string('status').notNullable().defaultTo('pending');
-    table.string('started_at').notNullable();
-    table.string('completed_at').nullable();
-    table.float('elapsed_seconds').nullable();
-    table.integer('rules_applied').nullable();
-    table.integer('rules_failed').nullable();
-    table.integer('hosts_targeted').nullable();
-    table.integer('hosts_succeeded').nullable();
-    table.integer('hosts_failed').nullable();
-    table.text('plan_summary').nullable();
-    table.string('verification_scan_id').nullable();
-    table.string('created_by').nullable();
-    table.index(['remediation_profile_id']);
-    table.index(['started_at']);
-  });
+  await database.schema.createTable(
+    'compliance_remediation_executions',
+    table => {
+      table.string('id').primary();
+      table
+        .string('remediation_profile_id')
+        .notNullable()
+        .references('id')
+        .inTable('compliance_remediation_profiles')
+        .onDelete('RESTRICT');
+      table.integer('inventory_id').notNullable();
+      table.string('informing_scan_id').nullable();
+      table.integer('primary_job_id').nullable();
+      table.text('all_job_ids').nullable();
+      table.string('status').notNullable().defaultTo('pending');
+      table.string('started_at').notNullable();
+      table.string('completed_at').nullable();
+      table.float('elapsed_seconds').nullable();
+      table.integer('rules_applied').nullable();
+      table.integer('rules_failed').nullable();
+      table.integer('hosts_targeted').nullable();
+      table.integer('hosts_succeeded').nullable();
+      table.integer('hosts_failed').nullable();
+      table.text('plan_summary').nullable();
+      table.string('verification_scan_id').nullable();
+      table.string('created_by').nullable();
+      table.index(['remediation_profile_id']);
+      table.index(['started_at']);
+    },
+  );
 
   await database.raw(`
     CREATE UNIQUE INDEX idx_one_active_per_inventory
@@ -99,8 +100,12 @@ async function createTables(database: Knex): Promise<void> {
 
   await database.schema.createTable('compliance_baseline_targets', table => {
     table.string('id').primary();
-    table.string('remediation_profile_id').notNullable()
-      .references('id').inTable('compliance_remediation_profiles').onDelete('RESTRICT');
+    table
+      .string('remediation_profile_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_remediation_profiles')
+      .onDelete('RESTRICT');
     table.string('compliance_profile_id').notNullable();
     table.integer('inventory_id').notNullable();
     table.string('pinned_at').notNullable();
@@ -108,24 +113,18 @@ async function createTables(database: Knex): Promise<void> {
     table.unique(['compliance_profile_id', 'inventory_id']);
   });
 
-  await database.schema.createTable(
-    'compliance_posture_snapshots',
-    table => {
-      table.string('id').primary();
-      table.string('profile_id').notNullable();
-      table.integer('inventory_id').nullable();
-      table.string('scan_id').nullable();
-      table
-        .timestamp('timestamp')
-        .notNullable()
-        .defaultTo(database.fn.now());
-      table.integer('total_hosts').notNullable().defaultTo(0);
-      table.integer('total_rules').notNullable().defaultTo(0);
-      table.integer('pass_count').notNullable().defaultTo(0);
-      table.integer('fail_count').notNullable().defaultTo(0);
-      table.float('compliance_pct').notNullable().defaultTo(0);
-    },
-  );
+  await database.schema.createTable('compliance_posture_snapshots', table => {
+    table.string('id').primary();
+    table.string('profile_id').notNullable();
+    table.integer('inventory_id').nullable();
+    table.string('scan_id').nullable();
+    table.timestamp('timestamp').notNullable().defaultTo(database.fn.now());
+    table.integer('total_hosts').notNullable().defaultTo(0);
+    table.integer('total_rules').notNullable().defaultTo(0);
+    table.integer('pass_count').notNullable().defaultTo(0);
+    table.integer('fail_count').notNullable().defaultTo(0);
+    table.float('compliance_pct').notNullable().defaultTo(0);
+  });
 
   await database.schema.createTable('compliance_rule_metadata', table => {
     table.string('rule_id').primary();
@@ -142,43 +141,34 @@ async function createTables(database: Knex): Promise<void> {
     table.timestamp('updated_at').notNullable().defaultTo(database.fn.now());
   });
 
-  await database.schema.createTable(
-    'compliance_profile_registry',
-    table => {
-      table.string('id').primary();
-      table.string('profile_slug', 128).nullable();
-      table.string('display_name').notNullable();
-      table.text('description').defaultTo('');
-      table.string('framework').notNullable();
-      table.string('version').defaultTo('');
-      table.string('platform').defaultTo('');
-      table.text('platform_spec').nullable();
-      table.integer('workflow_template_id').nullable();
-      table.integer('remediate_jt_id').nullable();
-      table.integer('ee_id').nullable();
-      table.text('remediation_playbook_path').defaultTo('');
-      table.string('scan_tags').defaultTo('');
-      table.text('certification').nullable();
-      table.integer('rule_count').nullable();
-      table.text('display_config').nullable();
-      table.string('connection_status').notNullable().defaultTo('connected');
-      table.text('bundle_data').nullable();
-      table.text('bundle_metadata').nullable();
-      table.timestamp('connected_at').nullable();
-      table.timestamp('disconnected_at').nullable();
-      table.string('disconnected_by').nullable();
-      table.string('profile_version').nullable();
-      table.text('version_history').nullable();
-      table
-        .timestamp('created_at')
-        .notNullable()
-        .defaultTo(database.fn.now());
-      table
-        .timestamp('updated_at')
-        .notNullable()
-        .defaultTo(database.fn.now());
-    },
-  );
+  await database.schema.createTable('compliance_profile_registry', table => {
+    table.string('id').primary();
+    table.string('profile_slug', 128).nullable();
+    table.string('display_name').notNullable();
+    table.text('description').defaultTo('');
+    table.string('framework').notNullable();
+    table.string('version').defaultTo('');
+    table.string('platform').defaultTo('');
+    table.text('platform_spec').nullable();
+    table.integer('workflow_template_id').nullable();
+    table.integer('remediate_jt_id').nullable();
+    table.integer('ee_id').nullable();
+    table.text('remediation_playbook_path').defaultTo('');
+    table.string('scan_tags').defaultTo('');
+    table.text('certification').nullable();
+    table.integer('rule_count').nullable();
+    table.text('display_config').nullable();
+    table.string('connection_status').notNullable().defaultTo('connected');
+    table.text('bundle_data').nullable();
+    table.text('bundle_metadata').nullable();
+    table.timestamp('connected_at').nullable();
+    table.timestamp('disconnected_at').nullable();
+    table.string('disconnected_by').nullable();
+    table.string('profile_version').nullable();
+    table.text('version_history').nullable();
+    table.timestamp('created_at').notNullable().defaultTo(database.fn.now());
+    table.timestamp('updated_at').notNullable().defaultTo(database.fn.now());
+  });
 }
 
 // ─── Lifecycle ───────────────────────────────────────────────────────
@@ -673,13 +663,19 @@ describe('ComplianceDatabase', () => {
         scanTags: '',
       });
 
-      const disconnected = await complianceDb.disconnectProfile(saved.id, 'admin@test.com');
+      const disconnected = await complianceDb.disconnectProfile(
+        saved.id,
+        'admin@test.com',
+      );
       expect(disconnected).toBe(true);
 
       const profile = await complianceDb.getProfile(saved.id);
       expect(profile!.connectionStatus).toBe('disconnected');
 
-      const reconnected = await complianceDb.connectProfile('DISA_STIG', 'V2R9');
+      const reconnected = await complianceDb.connectProfile(
+        'DISA_STIG',
+        'V2R9',
+      );
       expect(reconnected).not.toBeNull();
       expect(reconnected!.connectionStatus).toBe('connected');
     });
@@ -712,68 +708,13 @@ describe('ComplianceDatabase', () => {
     });
   });
 
-  // ─── Bundle storage ────────────────────────────────────────────
-
-  describe('saveProfileBundle + getProfileBundle + deleteProfileBundle', () => {
-    it('saves and retrieves a bundle', async () => {
-      const saved = await complianceDb.saveProfile({
-        displayName: 'Bundle Test',
-        description: '',
-        framework: 'SUPPLY_CHAIN',
-        version: '1.0',
-        platform: 'Linux',
-        workflowTemplateId: null,
-        eeId: null,
-        remediationPlaybookPath: '',
-        scanTags: '',
-      });
-
-      await complianceDb.saveProfileBundle(saved.id, 'export default function(){}', { size: 30 });
-
-      const bundle = await complianceDb.getProfileBundle(saved.id);
-      expect(bundle).not.toBeNull();
-      expect(bundle!.data).toBe('export default function(){}');
-      expect(bundle!.metadata.size).toBe(30);
-    });
-
-    it('returns null when no bundle exists', async () => {
-      const saved = await complianceDb.saveProfile({
-        displayName: 'No Bundle',
-        description: '',
-        framework: 'PQC_READINESS',
-        version: '1.0',
-        platform: 'Linux',
-        workflowTemplateId: null,
-        eeId: null,
-        remediationPlaybookPath: '',
-        scanTags: '',
-      });
-
-      const bundle = await complianceDb.getProfileBundle(saved.id);
-      expect(bundle).toBeNull();
-    });
-
-    it('deletes a bundle', async () => {
-      const saved = await complianceDb.saveProfile({
-        displayName: 'Delete Bundle Test',
-        description: '',
-        framework: 'CUSTOM',
-        version: '1.0',
-        platform: 'Linux',
-        workflowTemplateId: null,
-        eeId: null,
-        remediationPlaybookPath: '',
-        scanTags: '',
-      });
-
-      await complianceDb.saveProfileBundle(saved.id, 'code', { size: 4 });
-      const deleted = await complianceDb.deleteProfileBundle(saved.id);
-      expect(deleted).toBe(true);
-
-      const bundle = await complianceDb.getProfileBundle(saved.id);
-      expect(bundle).toBeNull();
-    });
-  });
+  // ─── Bundle storage: retired (ADR-040) ──────────────────────────
+  //
+  // `saveProfileBundle` / `getProfileBundle` / `deleteProfileBundle` were
+  // removed from `ComplianceDatabase` — ADR-027 Tier 2 (custom JS bundle
+  // per profile) is retired in favor of the host's manifest/capability
+  // model. The `bundle_data` / `bundle_metadata` columns remain in the
+  // schema (migrations are immutable) but are no longer exercised.
 
   // ─── Remediation profiles ────────────────────────────────────────
 
@@ -958,11 +899,15 @@ describe('ComplianceDatabase', () => {
       expect(deleted).toBe(2);
 
       // Old findings should be gone
-      const oldFindings = await complianceDb.getFindingsByScanId(oldResult.scanId);
+      const oldFindings = await complianceDb.getFindingsByScanId(
+        oldResult.scanId,
+      );
       expect(oldFindings).toHaveLength(0);
 
       // Recent findings should still exist
-      const recentFindings = await complianceDb.getFindingsByScanId(recentResult.scanId);
+      const recentFindings = await complianceDb.getFindingsByScanId(
+        recentResult.scanId,
+      );
       expect(recentFindings).toHaveLength(1);
       expect(recentFindings[0].ruleId).toBe('recent-rule');
 
@@ -1152,7 +1097,9 @@ describe('ComplianceDatabase', () => {
 
       expect(count).toBe(1);
 
-      const result = await complianceDb.getRuleMetadataBulk(['sshd_set_keepalive']);
+      const result = await complianceDb.getRuleMetadataBulk([
+        'sshd_set_keepalive',
+      ]);
       expect(result.size).toBe(1);
       const meta = result.get('sshd_set_keepalive')!;
       expect(meta.stigId).toBe('RHEL-09-255040');
@@ -1235,14 +1182,20 @@ describe('ComplianceDatabase', () => {
         },
       ]);
 
-      const result = await complianceDb.getRuleMetadataBulk(['rule_a', 'rule_b']);
+      const result = await complianceDb.getRuleMetadataBulk([
+        'rule_a',
+        'rule_b',
+      ]);
       expect(result.size).toBe(2);
       expect(result.get('rule_a')!.title).toBe('Rule A');
       expect(result.get('rule_b')!.title).toBe('Rule B');
     });
 
     it('returns empty map for non-existent rule_ids', async () => {
-      const result = await complianceDb.getRuleMetadataBulk(['nonexistent_rule', 'also_missing']);
+      const result = await complianceDb.getRuleMetadataBulk([
+        'nonexistent_rule',
+        'also_missing',
+      ]);
       expect(result.size).toBe(0);
     });
 
@@ -1316,17 +1269,23 @@ describe('ComplianceDatabase', () => {
 
     it('returns true for a matching, unexpired token', async () => {
       const scanId = await createScanWithToken('valid-token');
-      await expect(complianceDb.isIngestTokenValid(scanId, 'valid-token', 60)).resolves.toBe(true);
+      await expect(
+        complianceDb.isIngestTokenValid(scanId, 'valid-token', 60),
+      ).resolves.toBe(true);
     });
 
     it('returns false for a mismatched token', async () => {
       const scanId = await createScanWithToken('valid-token');
-      await expect(complianceDb.isIngestTokenValid(scanId, 'wrong-token', 60)).resolves.toBe(false);
+      await expect(
+        complianceDb.isIngestTokenValid(scanId, 'wrong-token', 60),
+      ).resolves.toBe(false);
     });
 
     it('returns false when no candidate token is provided', async () => {
       const scanId = await createScanWithToken('valid-token');
-      await expect(complianceDb.isIngestTokenValid(scanId, undefined, 60)).resolves.toBe(false);
+      await expect(
+        complianceDb.isIngestTokenValid(scanId, undefined, 60),
+      ).resolves.toBe(false);
     });
 
     it('returns false when no token has ever been stored (fail closed)', async () => {
@@ -1341,28 +1300,44 @@ describe('ComplianceDatabase', () => {
         completedAt: null,
         errorDetails: null,
       });
-      await expect(complianceDb.isIngestTokenValid(scan.id, 'anything', 60)).resolves.toBe(false);
+      await expect(
+        complianceDb.isIngestTokenValid(scan.id, 'anything', 60),
+      ).resolves.toBe(false);
     });
 
     it('returns false for a nonexistent scan', async () => {
-      await expect(complianceDb.isIngestTokenValid('nonexistent-scan-id', 'anything', 60)).resolves.toBe(false);
+      await expect(
+        complianceDb.isIngestTokenValid('nonexistent-scan-id', 'anything', 60),
+      ).resolves.toBe(false);
     });
 
     it('returns false once the token has expired past the TTL', async () => {
       const scanId = await createScanWithToken('valid-token');
       // Back-date the token's creation time beyond the TTL window.
-      await db('compliance_scans').where('id', scanId).update({
-        ingest_token_created_at: new Date(Date.now() - 120 * 60_000).toISOString(),
-      });
-      await expect(complianceDb.isIngestTokenValid(scanId, 'valid-token', 60)).resolves.toBe(false);
+      await db('compliance_scans')
+        .where('id', scanId)
+        .update({
+          ingest_token_created_at: new Date(
+            Date.now() - 120 * 60_000,
+          ).toISOString(),
+        });
+      await expect(
+        complianceDb.isIngestTokenValid(scanId, 'valid-token', 60),
+      ).resolves.toBe(false);
     });
 
     it('returns true when the token is within the TTL window', async () => {
       const scanId = await createScanWithToken('valid-token');
-      await db('compliance_scans').where('id', scanId).update({
-        ingest_token_created_at: new Date(Date.now() - 30 * 60_000).toISOString(),
-      });
-      await expect(complianceDb.isIngestTokenValid(scanId, 'valid-token', 60)).resolves.toBe(true);
+      await db('compliance_scans')
+        .where('id', scanId)
+        .update({
+          ingest_token_created_at: new Date(
+            Date.now() - 30 * 60_000,
+          ).toISOString(),
+        });
+      await expect(
+        complianceDb.isIngestTokenValid(scanId, 'valid-token', 60),
+      ).resolves.toBe(true);
     });
   });
 
@@ -1383,7 +1358,9 @@ describe('ComplianceDatabase', () => {
       await complianceDb.invalidateIngestToken(scan.id);
 
       await expect(complianceDb.getIngestToken(scan.id)).resolves.toBeNull();
-      await expect(complianceDb.isIngestTokenValid(scan.id, 'valid-token', 60)).resolves.toBe(false);
+      await expect(
+        complianceDb.isIngestTokenValid(scan.id, 'valid-token', 60),
+      ).resolves.toBe(false);
     });
 
     it('is a no-op for a scan with no stored token', async () => {
@@ -1463,7 +1440,10 @@ describe('ComplianceDatabase', () => {
       });
 
       await complianceDb.updateScanErrorDetails(scan.id, 'First error');
-      await complianceDb.updateScanErrorDetails(scan.id, 'Updated error details');
+      await complianceDb.updateScanErrorDetails(
+        scan.id,
+        'Updated error details',
+      );
 
       const retrieved = await complianceDb.getScanById(scan.id);
       expect(retrieved!.errorDetails).toBe('Updated error details');
@@ -1649,7 +1629,8 @@ describe('ComplianceDatabase', () => {
       expect(defaultList).toHaveLength(1);
       expect(defaultList[0].name).toBe('Active Profile');
 
-      const archivedList = await complianceDb.listRemediationProfiles('archived');
+      const archivedList =
+        await complianceDb.listRemediationProfiles('archived');
       expect(archivedList).toHaveLength(1);
       expect(archivedList[0].name).toBe('Old Profile');
     });
@@ -1696,7 +1677,9 @@ describe('ComplianceDatabase', () => {
         status: 'succeeded',
         completedAt: new Date().toISOString(),
       });
-      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('execution history');
+      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow(
+        'execution history',
+      );
     });
 
     it('rejects deleting profiles pinned as baseline', async () => {
@@ -1713,7 +1696,9 @@ describe('ComplianceDatabase', () => {
         inventoryId: 1,
         pinnedBy: 'test-user',
       });
-      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow('pinned as a baseline');
+      await expect(complianceDb.deleteRemediationProfile(id)).rejects.toThrow(
+        'pinned as a baseline',
+      );
     });
   });
 
@@ -1746,7 +1731,8 @@ describe('ComplianceDatabase', () => {
       expect(isPinned).toBe(true);
 
       await complianceDb.unpinBaselineTarget(target.id);
-      const isStillPinned = await complianceDb.isProfilePinnedAsBaseline(profileId);
+      const isStillPinned =
+        await complianceDb.isProfilePinnedAsBaseline(profileId);
       expect(isStillPinned).toBe(false);
     });
 
@@ -1778,7 +1764,8 @@ describe('ComplianceDatabase', () => {
       });
       expect(t1.id).not.toBe(t2.id);
 
-      const targets = await complianceDb.getBaselineTargetsForProfile('rhel9-stig');
+      const targets =
+        await complianceDb.getBaselineTargetsForProfile('rhel9-stig');
       expect(targets).toHaveLength(2);
     });
   });
@@ -1857,8 +1844,24 @@ describe('ComplianceDatabase', () => {
       return scan;
     }
 
-    function makeFinding(scanId: string, ruleId: string, host: string, status: string) {
-      return { scanId, ruleId, stigId: '', host, status, severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null };
+    function makeFinding(
+      scanId: string,
+      ruleId: string,
+      host: string,
+      status: string,
+    ) {
+      return {
+        scanId,
+        ruleId,
+        stigId: '',
+        host,
+        status,
+        severity: 'CAT_II',
+        actualValue: '',
+        expectedValue: '',
+        evidence: null,
+        findingState: null,
+      };
     }
 
     it('marks all failures as "new" when no previous scan exists', async () => {
@@ -1978,8 +1981,15 @@ describe('ComplianceDatabase', () => {
 
     it('does not cross-contaminate between inventories', async () => {
       const scan1 = await complianceDb.createScan({
-        profileId: PROFILE, inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-01T10:00:00Z', completedAt: '2026-06-01T10:00:00Z', errorDetails: null,
+        profileId: PROFILE,
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-01T10:00:00Z',
+        completedAt: '2026-06-01T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.saveFindingsForScan(scan1.id, [
         makeFinding(scan1.id, 'rule_a', 'host1', 'fail'),
@@ -1988,8 +1998,15 @@ describe('ComplianceDatabase', () => {
 
       // Different inventory — should have no previous scan context
       const scan2 = await complianceDb.createScan({
-        profileId: PROFILE, inventoryId: 2, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-02T10:00:00Z', completedAt: '2026-06-02T10:00:00Z', errorDetails: null,
+        profileId: PROFILE,
+        inventoryId: 2,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-02T10:00:00Z',
+        completedAt: '2026-06-02T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.saveFindingsForScan(scan2.id, [
         makeFinding(scan2.id, 'rule_a', 'host1', 'fail'),
@@ -2006,14 +2023,61 @@ describe('ComplianceDatabase', () => {
   describe('getBatchScanStatsAggregated state counts', () => {
     it('returns state counts alongside pass/fail', async () => {
       const scan = await complianceDb.createScan({
-        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-01T10:00:00Z', completedAt: '2026-06-01T10:00:00Z', errorDetails: null,
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-01T10:00:00Z',
+        completedAt: '2026-06-01T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.saveFindingsForScan(scan.id, [
-        { ruleId: 'r1', stigId: '', host: 'h1', status: 'fail', severity: 'CAT_I', actualValue: '', expectedValue: '', evidence: null, findingState: 'new' },
-        { ruleId: 'r2', stigId: '', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: 'resurfaced' },
-        { ruleId: 'r3', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: 'fixed' },
-        { ruleId: 'r4', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_III', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'r1',
+          stigId: '',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_I',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: 'new',
+        },
+        {
+          ruleId: 'r2',
+          stigId: '',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: 'resurfaced',
+        },
+        {
+          ruleId: 'r3',
+          stigId: '',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: 'fixed',
+        },
+        {
+          ruleId: 'r4',
+          stigId: '',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_III',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
 
       const stats = await complianceDb.getBatchScanStatsAggregated([scan.id]);
@@ -2028,13 +2092,50 @@ describe('ComplianceDatabase', () => {
 
     it('excludes not_applicable rows from rule/host counts and exposes naCount', async () => {
       const scan = await complianceDb.createScan({
-        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-02T10:00:00Z', completedAt: '2026-06-02T10:00:00Z', errorDetails: null,
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-02T10:00:00Z',
+        completedAt: '2026-06-02T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.saveFindingsForScan(scan.id, [
-        { ruleId: 'r-pass', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'r-na-1', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'r-na-2', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_III', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'r-pass',
+          stigId: '',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'r-na-1',
+          stigId: '',
+          host: 'h1',
+          status: 'not_applicable',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'r-na-2',
+          stigId: '',
+          host: 'h1',
+          status: 'not_applicable',
+          severity: 'CAT_III',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
 
       const stats = await complianceDb.getBatchScanStatsAggregated([scan.id]);
@@ -2052,17 +2153,77 @@ describe('ComplianceDatabase', () => {
   describe('getNotApplicableRules', () => {
     it('returns distinct N/A rules joined with rule metadata titles', async () => {
       const scan = await complianceDb.createScan({
-        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-03T10:00:00Z', completedAt: '2026-06-03T10:00:00Z', errorDetails: null,
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-03T10:00:00Z',
+        completedAt: '2026-06-03T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.upsertRuleMetadata([
-        { ruleId: 'rule-na-1', stigId: '', title: 'Disable USB Storage', description: '', checkText: '', fixText: '', category: '', disruption: 'low', aapImpact: 'safe', aapImpactReason: '', scanner: 'openscap', updatedAt: '2026-06-03T10:00:00Z' },
+        {
+          ruleId: 'rule-na-1',
+          stigId: '',
+          title: 'Disable USB Storage',
+          description: '',
+          checkText: '',
+          fixText: '',
+          category: '',
+          disruption: 'low',
+          aapImpact: 'safe',
+          aapImpactReason: '',
+          scanner: 'openscap',
+          updatedAt: '2026-06-03T10:00:00Z',
+        },
       ]);
       await complianceDb.saveFindingsForScan(scan.id, [
-        { ruleId: 'rule-na-1', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule-na-1', stigId: '', host: 'h2', status: 'not_applicable', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule-na-2', stigId: '', host: 'h1', status: 'not_applicable', severity: 'CAT_I', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule-pass', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'rule-na-1',
+          stigId: '',
+          host: 'h1',
+          status: 'not_applicable',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule-na-1',
+          stigId: '',
+          host: 'h2',
+          status: 'not_applicable',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule-na-2',
+          stigId: '',
+          host: 'h1',
+          status: 'not_applicable',
+          severity: 'CAT_I',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule-pass',
+          stigId: '',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
 
       const rules = await complianceDb.getNotApplicableRules(scan.id);
@@ -2076,11 +2237,28 @@ describe('ComplianceDatabase', () => {
 
     it('returns empty array when scan has no N/A findings', async () => {
       const scan = await complianceDb.createScan({
-        profileId: 'rhel9-stig', inventoryId: 1, scanner: 'oscap', scanType: 'assessment',
-        workflowJobId: null, status: 'completed', startedAt: '2026-06-04T10:00:00Z', completedAt: '2026-06-04T10:00:00Z', errorDetails: null,
+        profileId: 'rhel9-stig',
+        inventoryId: 1,
+        scanner: 'oscap',
+        scanType: 'assessment',
+        workflowJobId: null,
+        status: 'completed',
+        startedAt: '2026-06-04T10:00:00Z',
+        completedAt: '2026-06-04T10:00:00Z',
+        errorDetails: null,
       });
       await complianceDb.saveFindingsForScan(scan.id, [
-        { ruleId: 'r1', stigId: '', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'r1',
+          stigId: '',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
 
       const rules = await complianceDb.getNotApplicableRules(scan.id);
@@ -2090,28 +2268,134 @@ describe('ComplianceDatabase', () => {
 
   describe('getDeltaBetweenScans', () => {
     it('computes fixed/regressed/unchanged between two scans', async () => {
-      await db('compliance_scans').insert({ id: 'delta-s1', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'assessment', workflow_job_id: 100, status: 'completed', started_at: '2026-06-01T00:00:00Z', completed_at: '2026-06-01T00:01:00Z' });
-      await db('compliance_scans').insert({ id: 'delta-s2', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'verification', workflow_job_id: 101, status: 'completed', started_at: '2026-06-01T01:00:00Z', completed_at: '2026-06-01T01:01:00Z' });
+      await db('compliance_scans').insert({
+        id: 'delta-s1',
+        profile_id: 'p1',
+        inventory_id: 1,
+        scanner: 'oscap',
+        scan_type: 'assessment',
+        workflow_job_id: 100,
+        status: 'completed',
+        started_at: '2026-06-01T00:00:00Z',
+        completed_at: '2026-06-01T00:01:00Z',
+      });
+      await db('compliance_scans').insert({
+        id: 'delta-s2',
+        profile_id: 'p1',
+        inventory_id: 1,
+        scanner: 'oscap',
+        scan_type: 'verification',
+        workflow_job_id: 101,
+        status: 'completed',
+        started_at: '2026-06-01T01:00:00Z',
+        completed_at: '2026-06-01T01:01:00Z',
+      });
       await complianceDb.saveFindingsForScan('delta-s1', [
-        { ruleId: 'rule1', stigId: 'V-1', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule2', stigId: 'V-2', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule3', stigId: 'V-3', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'rule1',
+          stigId: 'V-1',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule2',
+          stigId: 'V-2',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule3',
+          stigId: 'V-3',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
       await complianceDb.saveFindingsForScan('delta-s2', [
-        { ruleId: 'rule1', stigId: 'V-1', host: 'h1', status: 'pass', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule2', stigId: 'V-2', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
-        { ruleId: 'rule3', stigId: 'V-3', host: 'h1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null, findingState: null },
+        {
+          ruleId: 'rule1',
+          stigId: 'V-1',
+          host: 'h1',
+          status: 'pass',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule2',
+          stigId: 'V-2',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
+        {
+          ruleId: 'rule3',
+          stigId: 'V-3',
+          host: 'h1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+          findingState: null,
+        },
       ]);
-      const delta = await complianceDb.getDeltaBetweenScans('delta-s1', 'delta-s2');
+      const delta = await complianceDb.getDeltaBetweenScans(
+        'delta-s1',
+        'delta-s2',
+      );
       expect(delta.fixed).toBe(1);
       expect(delta.regressed).toBe(1);
       expect(delta.unchanged).toBe(1);
     });
 
     it('returns zeros for scans with no common findings', async () => {
-      await db('compliance_scans').insert({ id: 'empty-s1', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'assessment', workflow_job_id: 200, status: 'completed', started_at: '2026-06-02T00:00:00Z', completed_at: '2026-06-02T00:01:00Z' });
-      await db('compliance_scans').insert({ id: 'empty-s2', profile_id: 'p1', inventory_id: 1, scanner: 'oscap', scan_type: 'verification', workflow_job_id: 201, status: 'completed', started_at: '2026-06-02T01:00:00Z', completed_at: '2026-06-02T01:01:00Z' });
-      const delta = await complianceDb.getDeltaBetweenScans('empty-s1', 'empty-s2');
+      await db('compliance_scans').insert({
+        id: 'empty-s1',
+        profile_id: 'p1',
+        inventory_id: 1,
+        scanner: 'oscap',
+        scan_type: 'assessment',
+        workflow_job_id: 200,
+        status: 'completed',
+        started_at: '2026-06-02T00:00:00Z',
+        completed_at: '2026-06-02T00:01:00Z',
+      });
+      await db('compliance_scans').insert({
+        id: 'empty-s2',
+        profile_id: 'p1',
+        inventory_id: 1,
+        scanner: 'oscap',
+        scan_type: 'verification',
+        workflow_job_id: 201,
+        status: 'completed',
+        started_at: '2026-06-02T01:00:00Z',
+        completed_at: '2026-06-02T01:01:00Z',
+      });
+      const delta = await complianceDb.getDeltaBetweenScans(
+        'empty-s1',
+        'empty-s2',
+      );
       expect(delta.fixed).toBe(0);
       expect(delta.regressed).toBe(0);
       expect(delta.unchanged).toBe(0);
@@ -2121,28 +2405,43 @@ describe('ComplianceDatabase', () => {
   describe('draft upsert', () => {
     it('updates existing draft with same name and profileId instead of inserting', async () => {
       const first = await complianceDb.saveRemediationProfile({
-        name: 'Upsert Test', description: '', profileId: 'rhel9-stig',
-        selections: [], status: 'draft',
+        name: 'Upsert Test',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
       });
       const second = await complianceDb.saveRemediationProfile({
-        name: 'Upsert Test', description: 'updated', profileId: 'rhel9-stig',
-        selections: [], status: 'draft',
+        name: 'Upsert Test',
+        description: 'updated',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
       });
       expect(second.id).toBe(first.id);
-      const rows = await db('compliance_remediation_profiles')
-        .where({ name: 'Upsert Test', profile_id: 'rhel9-stig', status: 'draft' });
+      const rows = await db('compliance_remediation_profiles').where({
+        name: 'Upsert Test',
+        profile_id: 'rhel9-stig',
+        status: 'draft',
+      });
       expect(rows).toHaveLength(1);
       expect(rows[0].description).toBe('updated');
     });
 
     it('inserts new row when saving as saved status', async () => {
       const draft = await complianceDb.saveRemediationProfile({
-        name: 'Status Test', description: '', profileId: 'rhel9-stig',
-        selections: [], status: 'draft',
+        name: 'Status Test',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'draft',
       });
       const saved = await complianceDb.saveRemediationProfile({
-        name: 'Status Test', description: '', profileId: 'rhel9-stig',
-        selections: [], status: 'saved',
+        name: 'Status Test',
+        description: '',
+        profileId: 'rhel9-stig',
+        selections: [],
+        status: 'saved',
       });
       expect(saved.id).not.toBe(draft.id);
     });

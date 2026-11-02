@@ -24,6 +24,38 @@ export const CONTENT_TYPES = {
 export type ContentTypeId = (typeof CONTENT_TYPES)[keyof typeof CONTENT_TYPES];
 
 /**
+<<<<<<< HEAD
+=======
+ * Named UX regions (experiences) that the host declares.
+ * Plugins contribute capabilities *into* an experience — they do not create
+ * experiences by registering. An unknown `experienceId` is rejected at load.
+ *
+ * These map to the experience IDs defined in the portal-extension-host package.
+ * They are provided here as constants for use in capability contributions.
+ */
+export const EXPERIENCE_IDS = {
+  /** Content quality scanning, drift detection, trust signals. APME and future scanners contribute here. */
+  CONTENT_QUALITY: 'content-quality-assessment',
+  /** EE definition authoring, collection catalog browsing, source editing. */
+  CONTENT_AUTHORING: 'content-authoring',
+  /** Migration tooling and guided content promotion workflows. */
+  CONTENT_MIGRATION: 'content-migration',
+  /**
+   * AAP compliance scanning, findings review, and selective remediation.
+   * Orthogonal to the content-type model: its subjects are AAP inventories
+   * and hosts, not collections/EEs/playbook-repositories, so contributions
+   * here typically use `appliesToContentTypes: '*'`.
+   */
+  COMPLIANCE: 'compliance',
+  // NOTE: 'self-service' is intentionally absent. portal-scaffolder is a plugin,
+  // not a host-owned experience. Templates, tasks, and history are capabilities
+  // that portal-scaffolder contributes — they do not constitute an experience.
+} as const;
+
+export type ExperienceId = (typeof EXPERIENCE_IDS)[keyof typeof EXPERIENCE_IDS];
+
+/**
+>>>>>>> 26cf181 (feat(compliance): align with Content Experience Architecture and register operations)
  * Extension point IDs for each page surface in the self-service plugin.
  *
  * These IDs indicate *where* a contribution appears (which page, which panel).

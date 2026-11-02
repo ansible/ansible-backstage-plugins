@@ -22,7 +22,6 @@ export type {
   SeverityMap,
   WidgetType,
   TabWidget,
-  CustomComponentRef,
   TabConfig,
   ExportFormatSpec,
   TabWidgetAction,

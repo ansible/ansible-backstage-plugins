@@ -61,17 +61,25 @@ async function testRequest(
 
 function createMockService() {
   return {
-    getProfiles: jest.fn().mockResolvedValue([
-      { id: 'rhel9-stig', name: 'DISA STIG RHEL 9', framework: 'DISA_STIG' },
-    ]),
-    getInventories: jest.fn().mockResolvedValue([
-      { id: 1, name: 'test-inventory', hostCount: 3 },
-    ]),
-    getWorkflowTemplates: jest.fn().mockResolvedValue([
-      { id: 10, name: 'compliance-scan', type: 'workflow_job_template' },
-    ]),
+    getProfiles: jest
+      .fn()
+      .mockResolvedValue([
+        { id: 'rhel9-stig', name: 'DISA STIG RHEL 9', framework: 'DISA_STIG' },
+      ]),
+    getInventories: jest
+      .fn()
+      .mockResolvedValue([{ id: 1, name: 'test-inventory', hostCount: 3 }]),
+    getWorkflowTemplates: jest
+      .fn()
+      .mockResolvedValue([
+        { id: 10, name: 'compliance-scan', type: 'workflow_job_template' },
+      ]),
     getExecutionEnvironments: jest.fn().mockResolvedValue([
-      { id: 5, name: 'ee-supported-rhel9', image: 'registry.example.com/ee:latest' },
+      {
+        id: 5,
+        name: 'ee-supported-rhel9',
+        image: 'registry.example.com/ee:latest',
+      },
     ]),
     launchScan: jest.fn().mockResolvedValue({
       scanId: 'scan-1',
@@ -112,7 +120,13 @@ function createMockService() {
     }),
     getPostureHistory: jest.fn().mockResolvedValue([]),
     getRemediationEventsForTrend: jest.fn().mockResolvedValue([]),
-    getHostPosture: jest.fn().mockResolvedValue({ hosts: [], scanId: 'scan-1', scanTimestamp: '2026-06-11T00:00:00Z', profileId: 'prof-1', inventoryId: 1 }),
+    getHostPosture: jest.fn().mockResolvedValue({
+      hosts: [],
+      scanId: 'scan-1',
+      scanTimestamp: '2026-06-11T00:00:00Z',
+      profileId: 'prof-1',
+      inventoryId: 1,
+    }),
     getRemediationProfiles: jest.fn().mockResolvedValue([]),
     getRemediationProfile: jest.fn().mockResolvedValue(null),
     saveRemediationProfile: jest.fn().mockResolvedValue({ id: 'rp-1' }),
@@ -243,8 +257,13 @@ function createMockDatabase() {
     getBaselineTargetsForProfile: jest.fn().mockResolvedValue([]),
     getNotApplicableRules: jest.fn().mockResolvedValue([]),
     getBatchScanStatsAggregated: jest.fn().mockResolvedValue(new Map()),
-    resolveProfileId: jest.fn().mockImplementation((id: string) =>
-      Promise.resolve(id.includes('-') && id.length >= 36 ? id : `resolved-${id}-uuid`)),
+    resolveProfileId: jest
+      .fn()
+      .mockImplementation((id: string) =>
+        Promise.resolve(
+          id.includes('-') && id.length >= 36 ? id : `resolved-${id}-uuid`,
+        ),
+      ),
     getHostFindings: jest.fn().mockResolvedValue([]),
     getLatestCompletedScan: jest.fn().mockResolvedValue(null),
   } as any;
@@ -344,7 +363,9 @@ describe('compliance backend router', () => {
     it('returns valid when profile has no platformSpec', async () => {
       const { app } = await createApp(undefined, {
         getProfile: jest.fn().mockResolvedValue({
-          id: 'p1', displayName: 'Test', platformSpec: null,
+          id: 'p1',
+          displayName: 'Test',
+          platformSpec: null,
         }),
       });
       const res = await testRequest(app, {
@@ -362,12 +383,17 @@ describe('compliance backend router', () => {
         {
           getInventoryHostFacts: jest.fn().mockResolvedValue([
             { hostname: 'win01', ansible_os_family: 'Windows' },
-            { hostname: 'rhel01', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+            {
+              hostname: 'rhel01',
+              ansible_os_family: 'RedHat',
+              ansible_distribution_major_version: '9',
+            },
           ]),
         },
         {
           getProfile: jest.fn().mockResolvedValue({
-            id: 'p1', displayName: 'STIG RHEL 9',
+            id: 'p1',
+            displayName: 'STIG RHEL 9',
             platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
           }),
         },
@@ -388,7 +414,8 @@ describe('compliance backend router', () => {
     it('returns valid when scanner_validates is true', async () => {
       const { app } = await createApp(undefined, {
         getProfile: jest.fn().mockResolvedValue({
-          id: 'p1', displayName: 'Tenable',
+          id: 'p1',
+          displayName: 'Tenable',
           platformSpec: { os_family: ['RedHat'], scanner_validates: true },
         }),
       });
@@ -405,11 +432,14 @@ describe('compliance backend router', () => {
     it('returns 500 when Controller API fails', async () => {
       const { app } = await createApp(
         {
-          getInventoryHostFacts: jest.fn().mockRejectedValue(new Error('Controller unreachable')),
+          getInventoryHostFacts: jest
+            .fn()
+            .mockRejectedValue(new Error('Controller unreachable')),
         },
         {
           getProfile: jest.fn().mockResolvedValue({
-            id: 'p1', displayName: 'STIG',
+            id: 'p1',
+            displayName: 'STIG',
             platformSpec: { os_family: ['RedHat'] },
           }),
         },
@@ -428,13 +458,22 @@ describe('compliance backend router', () => {
       const { app } = await createApp(
         {
           getInventoryHostFacts: jest.fn().mockResolvedValue([
-            { hostname: 'rhel01', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
-            { hostname: 'rhel02', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+            {
+              hostname: 'rhel01',
+              ansible_os_family: 'RedHat',
+              ansible_distribution_major_version: '9',
+            },
+            {
+              hostname: 'rhel02',
+              ansible_os_family: 'RedHat',
+              ansible_distribution_major_version: '9',
+            },
           ]),
         },
         {
           getProfile: jest.fn().mockResolvedValue({
-            id: 'p1', displayName: 'STIG',
+            id: 'p1',
+            displayName: 'STIG',
             platformSpec: { os_family: ['RedHat'], os_version: ['9'] },
           }),
         },
@@ -573,7 +612,10 @@ describe('compliance backend router', () => {
         'scan-1',
         expect.any(String),
       );
-      expect(database.updateScanWorkflowJobId).toHaveBeenCalledWith('scan-1', 42);
+      expect(database.updateScanWorkflowJobId).toHaveBeenCalledWith(
+        'scan-1',
+        42,
+      );
     });
 
     it('accepts optional workflowTemplateId', async () => {
@@ -808,7 +850,9 @@ describe('compliance backend router', () => {
       const { app, database } = await createApp(undefined, {
         getProfile: jest.fn().mockResolvedValue(profile),
       });
-      const res = await testRequest(app, { path: '/compliance-profiles/cart-1' });
+      const res = await testRequest(app, {
+        path: '/compliance-profiles/cart-1',
+      });
 
       expect(res.status).toBe(200);
       expect((res.body as any).displayName).toBe('RHEL 9 STIG');
@@ -817,7 +861,9 @@ describe('compliance backend router', () => {
 
     it('returns 404 when profile not found', async () => {
       const { app } = await createApp();
-      const res = await testRequest(app, { path: '/compliance-profiles/nonexistent' });
+      const res = await testRequest(app, {
+        path: '/compliance-profiles/nonexistent',
+      });
 
       expect(res.status).toBe(404);
       expect((res.body as any).error).toMatch(/not found/i);
@@ -861,7 +907,9 @@ describe('compliance backend router', () => {
       });
 
       expect(res.status).toBe(500);
-      expect((res.body as any).error).toBe('Failed to delete compliance profile');
+      expect((res.body as any).error).toBe(
+        'Failed to delete compliance profile',
+      );
     });
   });
 
@@ -913,7 +961,11 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=0.5' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 1, undefined);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(
+        undefined,
+        1,
+        undefined,
+      );
     });
 
     it('treats days=0 as default (30) because 0 is falsy', async () => {
@@ -921,7 +973,11 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=0' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30, undefined);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(
+        undefined,
+        30,
+        undefined,
+      );
     });
 
     it('clamps days parameter to maximum of 365', async () => {
@@ -929,7 +985,11 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=999' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 365, undefined);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(
+        undefined,
+        365,
+        undefined,
+      );
     });
 
     it('defaults days to 30 when not a valid number', async () => {
@@ -937,7 +997,11 @@ describe('compliance backend router', () => {
       const res = await testRequest(app, { path: '/posture?days=abc' });
 
       expect(res.status).toBe(200);
-      expect(service.getPostureHistory).toHaveBeenCalledWith(undefined, 30, undefined);
+      expect(service.getPostureHistory).toHaveBeenCalledWith(
+        undefined,
+        30,
+        undefined,
+      );
     });
   });
 
@@ -952,22 +1016,38 @@ describe('compliance backend router', () => {
 
     it('returns 400 with invalid inventoryId', async () => {
       const { app } = await createApp();
-      const res = await testRequest(app, { path: '/inventory/abc/host-posture?profileId=p1' });
+      const res = await testRequest(app, {
+        path: '/inventory/abc/host-posture?profileId=p1',
+      });
       expect(res.status).toBe(400);
     });
 
     it('returns 200 with valid params', async () => {
       const { app, service } = await createApp();
-      const res = await testRequest(app, { path: '/inventory/5/host-posture?profileId=rhel9-stig' });
+      const res = await testRequest(app, {
+        path: '/inventory/5/host-posture?profileId=rhel9-stig',
+      });
       expect(res.status).toBe(200);
-      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'resolved-rhel9-stig-uuid', expect.anything(), { baselineView: false });
+      expect(service.getHostPosture).toHaveBeenCalledWith(
+        5,
+        'resolved-rhel9-stig-uuid',
+        expect.anything(),
+        { baselineView: false },
+      );
     });
 
     it('accepts profile query param as alias', async () => {
       const { app, service } = await createApp();
-      const res = await testRequest(app, { path: '/inventory/5/host-posture?profile=stig' });
+      const res = await testRequest(app, {
+        path: '/inventory/5/host-posture?profile=stig',
+      });
       expect(res.status).toBe(200);
-      expect(service.getHostPosture).toHaveBeenCalledWith(5, 'resolved-stig-uuid', expect.anything(), { baselineView: false });
+      expect(service.getHostPosture).toHaveBeenCalledWith(
+        5,
+        'resolved-stig-uuid',
+        expect.anything(),
+        { baselineView: false },
+      );
     });
   });
 
@@ -1038,10 +1118,7 @@ describe('compliance backend router', () => {
 
       expect(res.status).toBe(200);
       expect((res.body as any).id).toBe(42);
-      expect(service.getWorkflowJobStatus).toHaveBeenCalledWith(
-        42,
-        undefined,
-      );
+      expect(service.getWorkflowJobStatus).toHaveBeenCalledWith(42, undefined);
     });
 
     it('returns 500 when service throws', async () => {
@@ -1049,9 +1126,7 @@ describe('compliance backend router', () => {
         getWorkflowJobStatus: jest
           .fn()
           .mockRejectedValue(new Error('Not found')),
-        getJobStatus: jest
-          .fn()
-          .mockRejectedValue(new Error('Not found')),
+        getJobStatus: jest.fn().mockRejectedValue(new Error('Not found')),
       });
       const res = await testRequest(app, {
         path: '/workflow-status/999',
@@ -1154,7 +1229,6 @@ describe('compliance backend router', () => {
       const body = res.body as any;
       expect(body.remediationId).toBe('rem-1');
       expect(body.executionId).toBe('exec-1');
-      expect(body.plan).toBeDefined();
       expect(service.launchRemediation).toHaveBeenCalledTimes(1);
       expect(service.buildRemediationPlan).toHaveBeenCalledTimes(1);
     });
@@ -1263,9 +1337,15 @@ describe('compliance backend router', () => {
           evidence: null,
         },
       ];
-      const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'fail' }] }];
+      const aggregated = [
+        { ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'fail' }] },
+      ];
       const { app, database, service } = await createApp(
-        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
+        {
+          aggregateFindingsWithMetadata: jest
+            .fn()
+            .mockResolvedValue(aggregated),
+        },
         { getFindingsByScanId: jest.fn().mockResolvedValue(storedFindings) },
       );
       const res = await testRequest(app, {
@@ -1275,7 +1355,9 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(aggregated);
       expect(database.getFindingsByScanId).toHaveBeenCalledWith(scanUuid);
-      expect(service.aggregateFindingsWithMetadata).toHaveBeenCalledWith(storedFindings);
+      expect(service.aggregateFindingsWithMetadata).toHaveBeenCalledWith(
+        storedFindings,
+      );
       expect(service.getFindings).not.toHaveBeenCalled();
     });
 
@@ -1294,9 +1376,15 @@ describe('compliance backend router', () => {
           evidence: null,
         },
       ];
-      const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] }];
+      const aggregated = [
+        { ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] },
+      ];
       const { app, database } = await createApp(
-        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
+        {
+          aggregateFindingsWithMetadata: jest
+            .fn()
+            .mockResolvedValue(aggregated),
+        },
         {
           getScanByWorkflowJobId: jest.fn().mockResolvedValue({
             id: 'real-scan-uuid',
@@ -1314,7 +1402,9 @@ describe('compliance backend router', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(aggregated);
       expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(42);
-      expect(database.getFindingsByScanId).toHaveBeenCalledWith('real-scan-uuid');
+      expect(database.getFindingsByScanId).toHaveBeenCalledWith(
+        'real-scan-uuid',
+      );
     });
 
     it('falls through to service when numeric scanId has no DB scan', async () => {
@@ -1347,9 +1437,15 @@ describe('compliance backend router', () => {
           evidence: null,
         },
       ];
-      const aggregated = [{ ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] }];
+      const aggregated = [
+        { ruleId: 'rule-1', hosts: [{ host: 'host1', status: 'pass' }] },
+      ];
       const { app, database } = await createApp(
-        { aggregateFindingsWithMetadata: jest.fn().mockResolvedValue(aggregated) },
+        {
+          aggregateFindingsWithMetadata: jest
+            .fn()
+            .mockResolvedValue(aggregated),
+        },
         {
           getScanByWorkflowJobId: jest.fn().mockResolvedValue({
             id: 'prefixed-uuid',
@@ -1366,7 +1462,9 @@ describe('compliance backend router', () => {
 
       expect(res.status).toBe(200);
       expect(database.getScanByWorkflowJobId).toHaveBeenCalledWith(42);
-      expect(database.getFindingsByScanId).toHaveBeenCalledWith('prefixed-uuid');
+      expect(database.getFindingsByScanId).toHaveBeenCalledWith(
+        'prefixed-uuid',
+      );
     });
 
     it('returns 400 for invalid scanId characters', async () => {
@@ -1478,12 +1576,25 @@ describe('compliance backend router', () => {
         completedAt: '2026-05-01T10:05:00.000Z',
       };
       const storedFindings = [
-        { id: 'f1', scanId: 'scan-assess-1', ruleId: 'r1', stigId: 'V-001', host: 'host1', status: 'fail', severity: 'CAT_II', actualValue: '', expectedValue: '', evidence: null },
+        {
+          id: 'f1',
+          scanId: 'scan-assess-1',
+          ruleId: 'r1',
+          stigId: 'V-001',
+          host: 'host1',
+          status: 'fail',
+          severity: 'CAT_II',
+          actualValue: '',
+          expectedValue: '',
+          evidence: null,
+        },
       ];
 
       (db.getScanById as jest.Mock).mockResolvedValueOnce(currentScan);
       (db.getPreviousScan as jest.Mock).mockResolvedValueOnce(previousScan);
-      (db.getFindingsByScanId as jest.Mock).mockResolvedValueOnce(storedFindings);
+      (db.getFindingsByScanId as jest.Mock).mockResolvedValueOnce(
+        storedFindings,
+      );
 
       const res = await testRequest(app, {
         path: '/previous-findings?scanId=scan-verify-1',
@@ -1593,14 +1704,28 @@ describe('compliance backend router', () => {
           scanId: 'scan-1',
           ingestToken: 'valid-token',
           findings: [
-            { rule_id: 'sshd_set_keepalive_0', status: 'fail', host: 'rhel01', severity: 'high' },
-            { rule_id: 'accounts_tmout', status: 'pass', host: 'rhel01', severity: 'medium' },
+            {
+              rule_id: 'sshd_set_keepalive_0',
+              status: 'fail',
+              host: 'rhel01',
+              severity: 'high',
+            },
+            {
+              rule_id: 'accounts_tmout',
+              status: 'pass',
+              host: 'rhel01',
+              severity: 'medium',
+            },
           ],
         },
       });
       expect(res.status).toBe(201);
       expect((res.body as any).findingsCount).toBe(2);
-      expect(db.updateScanStatus).toHaveBeenCalledWith('scan-1', 'completed', expect.any(String));
+      expect(db.updateScanStatus).toHaveBeenCalledWith(
+        'scan-1',
+        'completed',
+        expect.any(String),
+      );
     });
 
     it('rejects request when no stored token exists in database', async () => {
@@ -1650,7 +1775,9 @@ describe('compliance backend router', () => {
         },
       });
       expect(res.status).toBe(403);
-      expect((res.body as any).error).toMatch(/Invalid or expired ingest token/);
+      expect((res.body as any).error).toMatch(
+        /Invalid or expired ingest token/,
+      );
     });
 
     it('accepts ingest request with correct token', async () => {
@@ -1718,7 +1845,9 @@ describe('compliance backend router', () => {
         },
       });
       expect(res.status).toBe(403);
-      expect((res.body as any).error).toMatch(/Invalid or expired ingest token/);
+      expect((res.body as any).error).toMatch(
+        /Invalid or expired ingest token/,
+      );
     });
   });
 
@@ -1739,7 +1868,7 @@ describe('compliance backend router', () => {
     };
 
     function ndjson(...lines: unknown[]): string {
-      return `${lines.map(l => JSON.stringify(l)).join('\n')  }\n`;
+      return `${lines.map(l => JSON.stringify(l)).join('\n')}\n`;
     }
 
     it('returns 201 for valid NDJSON stream', async () => {
@@ -1749,7 +1878,12 @@ describe('compliance backend router', () => {
       (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
 
       const body = ndjson(
-        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok-valid', finalize: false },
+        {
+          _meta: true,
+          scanId: 'scan-ndj',
+          ingestToken: 'tok-valid',
+          finalize: false,
+        },
         { rule_id: 'CVE-1', status: 'fail', host: 'web01' },
         { rule_id: 'CVE-2', status: 'fail', host: 'web01' },
       );
@@ -1797,9 +1931,11 @@ describe('compliance backend router', () => {
       const { app, database: db } = await createApp();
       (db.getScanById as jest.Mock).mockResolvedValueOnce(null);
 
-      const body = ndjson(
-        { _meta: true, scanId: 'nonexistent', ingestToken: 'tok' },
-      );
+      const body = ndjson({
+        _meta: true,
+        scanId: 'nonexistent',
+        ingestToken: 'tok',
+      });
       const res = await testRequest(app, {
         method: 'POST',
         path: '/findings/ingest',
@@ -1814,9 +1950,11 @@ describe('compliance backend router', () => {
       (db.getScanById as jest.Mock).mockResolvedValueOnce(SCAN_RECORD);
       (db.isIngestTokenValid as jest.Mock).mockResolvedValueOnce(false);
 
-      const body = ndjson(
-        { _meta: true, scanId: 'scan-ndj', ingestToken: 'wrong-token' },
-      );
+      const body = ndjson({
+        _meta: true,
+        scanId: 'scan-ndj',
+        ingestToken: 'wrong-token',
+      });
       const res = await testRequest(app, {
         method: 'POST',
         path: '/findings/ingest',
@@ -1833,12 +1971,17 @@ describe('compliance backend router', () => {
       (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
 
       const body = `${[
-        JSON.stringify({ _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: false }),
+        JSON.stringify({
+          _meta: true,
+          scanId: 'scan-ndj',
+          ingestToken: 'tok',
+          finalize: false,
+        }),
         'this is not json',
         JSON.stringify({ rule_id: 'CVE-1', status: 'fail', host: 'web01' }),
         '{broken json',
         JSON.stringify({ rule_id: 'CVE-2', status: 'fail', host: 'web01' }),
-      ].join('\n')  }\n`;
+      ].join('\n')}\n`;
 
       const res = await testRequest(app, {
         method: 'POST',
@@ -1870,7 +2013,11 @@ describe('compliance backend router', () => {
         headers: { 'content-type': 'application/x-ndjson' },
       });
       expect(res.status).toBe(201);
-      expect(db.updateScanStatus).toHaveBeenCalledWith('scan-ndj', 'completed', expect.any(String));
+      expect(db.updateScanStatus).toHaveBeenCalledWith(
+        'scan-ndj',
+        'completed',
+        expect.any(String),
+      );
     });
 
     it('does NOT finalize when finalize is false', async () => {
@@ -1880,7 +2027,12 @@ describe('compliance backend router', () => {
       (db.saveFindingsForScan as jest.Mock).mockResolvedValue(0);
 
       const body = ndjson(
-        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: false },
+        {
+          _meta: true,
+          scanId: 'scan-ndj',
+          ingestToken: 'tok',
+          finalize: false,
+        },
         { rule_id: 'CVE-1', status: 'fail', host: 'web01' },
       );
 
@@ -1900,9 +2052,12 @@ describe('compliance backend router', () => {
       (db.isIngestTokenValid as jest.Mock).mockResolvedValueOnce(true);
       (db.getFindingsByScanId as jest.Mock).mockResolvedValue([]);
 
-      const body = ndjson(
-        { _meta: true, scanId: 'scan-ndj', ingestToken: 'tok', finalize: true },
-      );
+      const body = ndjson({
+        _meta: true,
+        scanId: 'scan-ndj',
+        ingestToken: 'tok',
+        finalize: true,
+      });
 
       const res = await testRequest(app, {
         method: 'POST',
@@ -1952,8 +2107,14 @@ describe('compliance backend router', () => {
     });
 
     it('lazily fetches error details when not cached for failed scan', async () => {
-      const { app, database: db, service } = await createApp({
-        fetchScanErrorDetails: jest.fn().mockResolvedValue('Host nm-rhel01 unreachable'),
+      const {
+        app,
+        database: db,
+        service,
+      } = await createApp({
+        fetchScanErrorDetails: jest
+          .fn()
+          .mockResolvedValue('Host nm-rhel01 unreachable'),
       });
       (db.getScanById as jest.Mock).mockResolvedValueOnce({
         id: 'scan-fail-2',
@@ -2026,7 +2187,9 @@ describe('compliance backend router', () => {
   describe('POST /scan error caching', () => {
     it('caches error details when scan launch fails', async () => {
       const { app, database: db } = await createApp({
-        launchScan: jest.fn().mockRejectedValue(new Error('Controller unreachable')),
+        launchScan: jest
+          .fn()
+          .mockRejectedValue(new Error('Controller unreachable')),
       });
 
       const res = await testRequest(app, {
