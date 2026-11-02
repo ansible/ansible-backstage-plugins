@@ -26,7 +26,7 @@
     "@ansible/content-model": "workspace:^"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.36.0",
+    "@backstage/cli": "0.36.5",
     "msw": "^2.11.4"
   }
 }

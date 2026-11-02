@@ -26,6 +26,9 @@ portal:
   navigation:
     topOffset: 64
     items:
+      - id: ansible
+        page: page:ansible
+        title: Ansible
       - id: templates
         path: /self-service
         title: Templates
@@ -83,8 +86,7 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection:
-      directory: ':memory:'
+    connection: ':memory:'
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:

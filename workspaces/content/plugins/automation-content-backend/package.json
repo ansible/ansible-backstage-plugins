@@ -19,7 +19,7 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
-    "export-dynamic": "rhdh-cli plugin export --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/plugin-catalog-backend-module-automation-content --embed-package @ansible/content-type-execution-environment"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/plugin-catalog-backend-module-automation-content --embed-package @ansible/content-type-execution-environment"
   },
   "files": [
     "dist",
@@ -30,12 +30,12 @@
     "@ansible/content-model": "workspace:^",
     "@ansible/content-type-execution-environment": "workspace:^",
     "@ansible/plugin-catalog-backend-module-automation-content": "workspace:^",
-    "@backstage/backend-plugin-api": "^1.10.0",
+    "@backstage/backend-plugin-api": "1.10.0",
     "express": "^4.21.0",
     "express-promise-router": "^4.1.1"
   },
   "devDependencies": {
-    "@backstage/cli": "^0.36.0",
+    "@backstage/cli": "0.36.5",
     "@red-hat-developer-hub/cli": "^1.10.2",
     "@types/express": "^4.17.21",
     "@types/supertest": "^6.0.2",
