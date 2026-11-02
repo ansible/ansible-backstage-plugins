@@ -93,6 +93,7 @@ function setupDefaultMocks() {
     json: () =>
       Promise.resolve({
         content: {
+          syncInProgress: false,
           providers: [
             {
               sourceId: 'src-1',
@@ -240,7 +241,7 @@ describe('usePaginatedCollections', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            content: { providers: [] },
+            content: { syncInProgress: false, providers: [] },
           }),
       });
 

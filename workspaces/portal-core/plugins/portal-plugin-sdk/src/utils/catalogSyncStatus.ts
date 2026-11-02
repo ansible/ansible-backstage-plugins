@@ -63,6 +63,11 @@ function hasAapPayload(data: unknown): data is CatalogAapSyncStatusResponse {
   );
 }
 
+/**
+ * Validates that the response contains a content sync status payload.
+ * Only requires `providers` to be an array — `syncInProgress` is optional
+ * because legacy and split routes may omit it at the top level.
+ */
 function hasContentPayload(
   data: unknown,
 ): data is CatalogContentSyncStatusResponse {
@@ -73,7 +78,6 @@ function hasContentPayload(
   return (
     typeof content === 'object' &&
     content !== null &&
-    'syncInProgress' in content &&
     'providers' in content &&
     Array.isArray(content.providers)
   );
@@ -97,6 +101,12 @@ async function fetchJsonIfOk(
  */
 const aapSplitOnly = new Set<string>();
 const contentSplitOnly = new Set<string>();
+
+/** @internal Reset the module-scoped 404 caches — test-only. */
+export function _resetSplitOnlyCache(): void {
+  aapSplitOnly.clear();
+  contentSplitOnly.clear();
+}
 
 /**
  * Loads AAP catalog sync status from the monolithic shim route when present,
