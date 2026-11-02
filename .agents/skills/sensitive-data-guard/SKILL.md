@@ -118,6 +118,18 @@ if [ -z "${BASE:-}" ]; then
 fi
 test -n "$BASE" || { echo "no base resolved; export BASE=<verified ref> and re-run"; exit 1; }
 git rev-parse --verify --quiet "$BASE" >/dev/null || { echo "base $BASE does not exist; fetch it first"; exit 1; }
+# PR_NUMBER overrides branch inference, so make sure HEAD is that PR's head:
+# otherwise the title and body describe one commit and the diff another.
+if [ -n "${PR_NUMBER:-}" ]; then
+  PR_HEAD=$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid) || {
+    echo "could not resolve the head of PR #$PR_NUMBER; aborting" >&2
+    exit 1
+  }
+  test "$(git rev-parse HEAD)" = "$PR_HEAD" || {
+    echo "HEAD is not the head of PR #$PR_NUMBER; check it out before reviewing" >&2
+    exit 1
+  }
+fi
 git diff --stat "$BASE"...HEAD
 git diff --name-status "$BASE"...HEAD
 git log "$BASE"..HEAD --format='--- %h%n%B'
