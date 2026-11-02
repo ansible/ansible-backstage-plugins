@@ -15,18 +15,20 @@ module.exports = async function upsertBuiDriftComment({
   report,
 }) {
   // The report comes from an unprivileged run, so treat it as untrusted data.
+  // Crucially it carries no routing fields: the target pull request comes from
+  // workflow_run metadata, which a fork cannot influence.
   const arrays = ['unlisted', 'growth', 'shrunk'];
-  if (
-    !report ||
-    !Number.isInteger(report.pullNumber) ||
-    arrays.some(key => !Array.isArray(report[key]))
-  ) {
+  if (!report || arrays.some(key => !Array.isArray(report[key]))) {
     console.log('Ignoring malformed drift report.');
     return;
   }
 
   const { owner, repo } = context.repo;
-  const issue_number = report.pullNumber;
+  const issue_number = context.payload.workflow_run?.pull_requests?.[0]?.number;
+  if (!Number.isInteger(issue_number)) {
+    console.log('No pull request associated with this run; skipping.');
+    return;
+  }
   const total = report.unlisted.length + report.growth.length;
 
   const comments = await github.paginate(github.rest.issues.listComments, {

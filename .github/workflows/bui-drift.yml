@@ -43,14 +43,14 @@ jobs:
           --base "${{ github.event.pull_request.base.sha }}"
           --format github
 
+      # The report is plain JSON with no routing fields: the consumer takes the
+      # pull request number from workflow_run metadata, never from here.
       - name: Collect findings
         continue-on-error: true
         run: >-
           node scripts/check-bui-drift.mjs
           --base "${{ github.event.pull_request.base.sha }}"
-          --format json |
-          jq --argjson n "${{ github.event.pull_request.number }}" '. + {pullNumber: $n}' \
-          > "$RUNNER_TEMP/bui-drift.json"
+          --format json > "$RUNNER_TEMP/bui-drift.json"
 
       - name: Upload report
         if: always()

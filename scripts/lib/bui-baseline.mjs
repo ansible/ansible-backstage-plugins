@@ -55,23 +55,46 @@ const isSourceFile = (root, p) =>
   !/\.(test|spec|stories)\.tsx?$/.test(p) &&
   relative(root, p).split(sep).includes('src');
 
+// Static imports, dynamic `import('...')` and `require('...')` all count: a
+// lazily loaded MUI bundle is still MUI.
 const importPattern = lib =>
   new RegExp(
-    `from\\s+['"]${lib.replace(/[/@.]/g, c => `\\${c}`)}(/[^'"]*)?['"]`,
+    `(?:from\\s+|import\\s*\\(\\s*|require\\s*\\(\\s*)['"]${lib.replace(
+      /[/@.]/g,
+      c => `\\${c}`,
+    )}(?:/[^'"]*)?['"]`,
   );
 
-const COMPONENT_PATTERNS = [
-  /export\s+(?:const|function|class)\s+([A-Z][A-Za-z0-9_]*)/g,
-  /export\s+default\s+(?:function|class)\s+([A-Z][A-Za-z0-9_]*)/g,
-];
+const DECLARED = /(?:const|let|var|function|class)\s+([A-Z][A-Za-z0-9_]*)/g;
+const DIRECT_EXPORT =
+  /export\s+(?:const|let|var|function|class)\s+([A-Z][A-Za-z0-9_]*)/g;
+const DEFAULT_EXPORT =
+  /export\s+default\s+(?:(?:function|class)\s+)?([A-Z][A-Za-z0-9_]*)\s*;?/g;
+const NAMED_EXPORT = /export\s*\{([^}]*)\}(?!\s*from)/g;
 
+// A component counts when it is both declared and exported from the same
+// file. `export { Foo } from './x'` is a re-export and deliberately skipped.
 export function exportedComponents(source) {
+  const declared = new Set();
+  for (const match of source.matchAll(DECLARED)) declared.add(match[1]);
+
   const names = new Set();
-  for (const pattern of COMPONENT_PATTERNS) {
-    for (const match of source.matchAll(pattern)) names.add(match[1]);
+  for (const match of source.matchAll(DIRECT_EXPORT)) names.add(match[1]);
+  for (const match of source.matchAll(DEFAULT_EXPORT)) names.add(match[1]);
+  for (const match of source.matchAll(NAMED_EXPORT)) {
+    for (const part of match[1].split(',')) {
+      const name = part
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        .trim();
+      if (/^[A-Z][A-Za-z0-9_]*$/.test(name)) names.add(name);
+    }
   }
+
   return [...names].filter(
     n =>
+      declared.has(n) &&
       !/^use[A-Z]/.test(n) && // hooks
       !/(Props|Type|Context)$/.test(n) && // type helpers
       !/^[A-Z0-9_]+$/.test(n), // constants such as FOO_PATH

@@ -124,6 +124,64 @@ test('a .ts helper importing a non-BUI kit is tracked without a component', () =
   }
 });
 
+test('counts dynamic imports and require()', () => {
+  const root = fixture({
+    'alpha.tsx':
+      "const load = () => import('@material-ui/core');\nexport const Loader = () => null;\n",
+    'legacy.ts':
+      "const mui = require('@material-ui/icons');\nexport const icon = mui;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.libraries.map(l => l.name),
+      ['@material-ui/core', '@material-ui/icons'],
+    );
+    assert.deepEqual(
+      model.components.map(c => c.name),
+      ['Loader'],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('counts components exported by name or as default', () => {
+  const root = fixture({
+    'Logo.tsx':
+      "import { makeStyles } from '@material-ui/core';\nconst LogoFull = () => null;\nexport default LogoFull;\n",
+    'Icon.tsx':
+      "import { makeStyles } from '@material-ui/core';\nfunction LogoIcon() {\n  return null;\n}\nexport { LogoIcon };\n",
+    'Modal.tsx':
+      "import { makeStyles } from '@material-ui/core';\nexport default function Modal() {\n  return null;\n}\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.components.map(c => c.name),
+      ['LogoIcon', 'LogoFull', 'Modal'],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('does not count a re-export of another module', () => {
+  const root = fixture({
+    'index.tsx':
+      "import { Box } from '@material-ui/core';\nexport { Thing } from './Thing';\nexport const Local = () => <Box />;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.components.map(c => c.name),
+      ['Local'],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('added() reports growth and removed() allows shrinkage', () => {
   const shrunk = { ...MODEL, components: [] };
   assert.deepEqual(added(MODEL, MODEL), []);

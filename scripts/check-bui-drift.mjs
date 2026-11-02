@@ -130,11 +130,15 @@ if (format === 'json') {
   );
 } else {
   const out = [];
-  out.push(
-    stale
+  // `stale` alone cannot decide this: regenerating the baseline to accept new
+  // drift makes committed and regenerated agree while growth still applies.
+  const heading =
+    findings.length || growth.length
       ? 'BUI drift check - ADVISORY (not blocking)\n'
-      : 'BUI drift check - clean\n',
-  );
+      : stale
+        ? 'BUI drift check - baseline out of date (shrinkage not committed)\n'
+        : 'BUI drift check - clean\n';
+  out.push(heading);
 
   const LIMIT = 20;
   const section = (title, rows, note) => {
