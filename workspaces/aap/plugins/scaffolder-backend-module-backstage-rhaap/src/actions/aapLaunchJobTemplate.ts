@@ -1,10 +1,8 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import {
-  IAAPService,
-  LaunchJobTemplate,
-  TERMINAL_JOB_STATUSES,
-} from '@ansible/backstage-rhaap-common';
+import { LaunchJobTemplate } from '@ansible/aap-common';
+import { TERMINAL_JOB_STATUSES } from '@ansible/aap-common/constants';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import {
   parseAapActionValues,
   rethrowPreservingInputError,
@@ -60,7 +58,9 @@ async function pollJobCompletion(
 
       if (pollCount >= MAX_POLLS) {
         const error = new Error(
-          `Job ${result.id} polling timeout after ${MAX_POLLS * (POLL_INTERVAL_MS / 1000)} seconds. Last status: ${currentStatus}`,
+          `Job ${result.id} polling timeout after ${
+            MAX_POLLS * (POLL_INTERVAL_MS / 1000)
+          } seconds. Last status: ${currentStatus}`,
         );
         logger.error(error.message);
         throw error;
@@ -90,7 +90,9 @@ async function pollJobCompletion(
 
   logger.info(`Job ${result.id} completed with status: ${currentStatus}`);
   logger.debug(
-    `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
+    `Polling completed after ${pollCount} polls (${
+      pollCount * (POLL_INTERVAL_MS / 1000)
+    }s)`,
   );
 
   try {
@@ -175,7 +177,9 @@ export const launchJobTemplate = (
             );
           }
           logger.debug(
-            `Polling job ${jobResult.id} with ${serviceToken ? 'service' : 'user'} token`,
+            `Polling job ${jobResult.id} with ${
+              serviceToken ? 'service' : 'user'
+            } token`,
           );
 
           jobResult = await pollJobCompletion(

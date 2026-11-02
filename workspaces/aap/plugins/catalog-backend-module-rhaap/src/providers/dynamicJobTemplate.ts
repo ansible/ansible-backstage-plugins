@@ -1,5 +1,5 @@
+import { getVerbosityObject } from '@ansible/aap-common/constants';
 import {
-  getVerbosityObject,
   IJobTemplate,
   ILabel,
   ISpec,
@@ -7,7 +7,7 @@ import {
   InstanceGroup,
   toOrgGroupRef,
   toTemplateEntityName,
-  type CatalogEntityIdentityOptions,
+  CatalogEntityIdentityOptions,
 } from '@ansible/backstage-rhaap-common';
 import {
   ANNOTATION_LOCATION,

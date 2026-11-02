@@ -10,9 +10,9 @@ import type {
   EntityProvider,
   EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
+import { User } from '@ansible/aap-common';
 import {
   IAAPService,
-  User,
   resolveActiveOrganizations,
   toUserEntityName,
   toUserEntityRef,
