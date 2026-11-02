@@ -1,7 +1,7 @@
 import { Box, Divider, Typography } from '@material-ui/core';
 import { useTheme } from '@material-ui/core/styles';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
-import { formatRelativeTime } from '@ansible/portal-plugin-sdk';
+import { formatTimeAgo } from '@ansible/portal-plugin-sdk';
 
 /** A catalog-owned summary of the successful synchronization timestamps. */
 export function LastSyncedTooltip({
@@ -44,7 +44,7 @@ export function LastSyncedTooltip({
               fontSize="0.78rem"
               color="text.secondary"
             >
-              {formatRelativeTime(time).replace(/^Synced /i, '')}
+              {formatTimeAgo(time)}
             </Box>
           </Box>
         ))}

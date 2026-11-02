@@ -283,6 +283,21 @@ import {
 
 ## Utils
 
+`formatTimeAgo(timestamp)` formats timestamps without synchronization wording:
+
+```ts
+import { formatTimeAgo } from '@ansible/portal-plugin-sdk';
+
+formatTimeAgo(new Date().toISOString()); // 'Just now'
+formatTimeAgo(null); // 'Never'
+formatTimeAgo('invalid'); // 'Invalid timestamp'
+```
+
+It uses the local calendar for `today` and `yesterday`, approximate durations for
+longer intervals, and treats future timestamps as `Just now`. Consumers own labels
+such as "Last updated" or "Last synced". The existing `formatRelativeTime()` export
+is deprecated and retains its exact sync-specific output for compatibility.
+
 Shared utility functions:
 
 ```ts

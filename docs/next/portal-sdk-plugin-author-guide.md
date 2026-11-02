@@ -346,7 +346,8 @@ session handling does not belong in the generic adapter.
 
 - A host app with the Portal contribution provider installed.
 - Compatible Portal packages and the branch's platform dependency set. The
-  current frontend declarations use `@backstage/frontend-plugin-api` 0.17.1.
+  current frontend declarations use `@backstage/frontend-plugin-api` 0.18.0
+  on the Backstage 1.54.9 baseline.
 - An entity detail page supplying canonical content type and entity context.
 - An agreed plugin ID, host experience, and configuration key.
 

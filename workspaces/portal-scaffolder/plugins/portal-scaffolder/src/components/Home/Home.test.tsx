@@ -735,19 +735,12 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock)
-        .mockResolvedValueOnce({
-          items: [
-            { id: 1, name: 'Template 1' },
-            { id: 2, name: 'Template 2' },
-          ],
-        })
-        .mockResolvedValue({
-          items: [
-            { id: 1, name: 'Template 1' },
-            { id: 2, name: 'Renamed Template' },
-          ],
-        });
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
+        items: [
+          { id: 1, name: 'Template 1' },
+          { id: 2, name: 'Template 2' },
+        ],
+      });
 
       await render(
         <>
@@ -767,44 +760,46 @@ describe('self-service', () => {
         await new Promise(resolve => setTimeout(resolve, 1200));
       });
 
-      const facetCallsBeforeSync =
-        mockCatalogApi.getEntityFacets.mock.calls.length;
-      const queryCallsBeforeSync =
-        mockCatalogApi.queryEntities.mock.calls.length;
+      for (const name of ['Renamed Template', 'Renamed Again']) {
+        const facetCallsBeforeSync =
+          mockCatalogApi.getEntityFacets.mock.calls.length;
+        const queryCallsBeforeSync =
+          mockCatalogApi.queryEntities.mock.calls.length;
+        const templateCallsBeforeSync =
+          mockAnsibleApi.getUserJobTemplates.mock.calls.length;
 
-      await triggerTemplateSync();
+        mockAnsibleApi.getUserJobTemplates.mockResolvedValueOnce({
+          items: [
+            { id: 1, name: 'Template 1' },
+            { id: 2, name },
+          ],
+        });
 
-      // Rename changes id:name keys, so there is no stale-list retry —
-      // only mount + one post-sync fetch before invalidate/syncKey.
-      await waitFor(() => {
-        expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
+        await triggerTemplateSync();
 
-      // SoftRefresh schedules on setTimeout(0); EntityListProvider debounces
-      // ~10ms. Flush those macrotasks before asserting under suite load.
-      await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      });
-
-      // Same JT ids — facets (syncKey) + soft refresh still re-query after sync.
-      await waitFor(
-        async () => {
-          expect(
-            mockCatalogApi.getEntityFacets.mock.calls.length,
-          ).toBeGreaterThan(facetCallsBeforeSync);
-          expect(
-            mockCatalogApi.queryEntities.mock.calls.length,
-          ).toBeGreaterThan(queryCallsBeforeSync);
-          expect(
-            screen.getByTestId('provider-job-template-ids'),
-          ).toHaveTextContent('1,2');
-          expect(
-            screen.getByTestId('provider-job-template-2-name'),
-          ).toHaveTextContent('Renamed Template');
-        },
-        { timeout: 10000 },
-      );
+        // Same JT ids and immediately resolved responses must still refresh
+        // the mounted catalog provider on every successful sync.
+        await waitFor(
+          async () => {
+            expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(
+              templateCallsBeforeSync + 1,
+            );
+            expect(
+              mockCatalogApi.getEntityFacets.mock.calls.length,
+            ).toBeGreaterThan(facetCallsBeforeSync);
+            expect(
+              mockCatalogApi.queryEntities.mock.calls.length,
+            ).toBeGreaterThan(queryCallsBeforeSync);
+            expect(
+              screen.getByTestId('provider-job-template-ids'),
+            ).toHaveTextContent('1,2');
+            expect(
+              screen.getByTestId('provider-job-template-2-name'),
+            ).toHaveTextContent(name);
+          },
+          { timeout: 10000 },
+        );
+      }
     }, 20000);
   });
 
@@ -995,10 +990,6 @@ describe('self-service', () => {
   });
 
   describe('job template fetch errors', () => {
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     const expectJobTemplateFetchError = async (message: string) => {
       await waitFor(() => {
         expect(
