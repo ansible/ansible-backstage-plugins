@@ -7,7 +7,7 @@
 # write token, so fork pull requests get comments without this job holding
 # one. No `yarn install` - the check has no dependencies.
 #
-# See .claude/skills/bui-baseline/SKILL.md for the regeneration workflow.
+# See .agents/skills/bui-baseline/SKILL.md for the regeneration workflow.
 name: bui-drift
 on:
   pull_request:
