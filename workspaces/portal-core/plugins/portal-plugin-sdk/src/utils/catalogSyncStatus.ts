@@ -46,6 +46,10 @@ export type CatalogContentSyncStatusResponse = {
   content: CatalogContentSyncStatus;
 };
 
+/**
+ * Type guard that validates a response contains a valid AAP sync status payload.
+ * Checks for the presence of `aap.orgsUsersTeams` and `aap.jobTemplates` objects.
+ */
 function hasAapPayload(data: unknown): data is CatalogAapSyncStatusResponse {
   if (typeof data !== 'object' || data === null || !('aap' in data)) {
     return false;
@@ -83,6 +87,10 @@ function hasContentPayload(
   );
 }
 
+/**
+ * Fetches a URL and returns the parsed JSON if the response is OK,
+ * otherwise returns the HTTP status code for error handling.
+ */
 async function fetchJsonIfOk(
   fetchApi: FetchApi,
   url: string,
