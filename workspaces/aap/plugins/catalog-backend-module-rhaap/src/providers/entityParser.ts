@@ -5,8 +5,10 @@ import {
   ANNOTATION_ORIGIN_LOCATION,
   Entity,
 } from '@backstage/catalog-model';
-import { Organization, Team, User } from '@ansible/aap-common';
 import {
+  Organization,
+  Team,
+  User,
   Collection,
   IJobTemplate,
   ISurvey,
