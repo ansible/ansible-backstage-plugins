@@ -117,7 +117,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : version ?? ref,
+        label: ref && version ? `${ref} / ${version}` : version || ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -176,10 +176,10 @@ export async function getCollections(options: {
   const { auth, discovery, logger, searchQuery } = options;
   const trimmed = searchQuery?.trim();
   const baseFilter = 'spec.type=ansible-collection';
-  const filter =
-    trimmed && trimmed.length > 0 && !trimmed.includes(baseFilter)
-      ? `${trimmed},${baseFilter}`
-      : trimmed || baseFilter;
+  const terms = trimmed ? trimmed.split(',').map(term => term.trim()) : [];
+  const filter = (
+    terms.includes(baseFilter) ? terms : [...terms, baseFilter]
+  ).join(',');
 
   if (
     collectionsCache?.filter === filter &&
@@ -189,7 +189,7 @@ export async function getCollections(options: {
   }
 
   if (inflightRequests.has(filter)) {
-    return inflightRequests.get(filter)!;
+    return await inflightRequests.get(filter)!;
   }
 
   const fetchPromise = (async () => {
@@ -217,7 +217,7 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };

@@ -17,7 +17,10 @@ export const createExecutionEnvironment = (ansibleServiceRef: IAAPService) => {
       input: {
         token: z => z.string({ description: 'Oauth2 token' }),
         deleteIfExist: z =>
-          z.boolean({ description: 'Delete project if exist' }),
+          z.boolean({
+            description:
+              'Delete an existing execution environment if it exists',
+          }),
         values: z => z.record(z.string(), z.unknown()),
       },
       output: {

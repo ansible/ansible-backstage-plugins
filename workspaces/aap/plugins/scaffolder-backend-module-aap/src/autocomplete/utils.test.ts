@@ -328,6 +328,22 @@ describe('autocomplete utils', () => {
       ]);
     });
 
+    it('uses ref as the label when collection_version is empty', () => {
+      const result = buildCollectionsFromCatalogEntities([
+        {
+          spec: {
+            collection_full_name: 'my.collection',
+            collection_version: '',
+          },
+          metadata: { annotations: { 'ansible.io/ref': 'main' } },
+        },
+      ]);
+
+      expect(result[0].versions).toEqual([
+        { ref: 'main', version: '', label: 'main' },
+      ]);
+    });
+
     it('returns multiple collections for different names', () => {
       const entities = [
         {
