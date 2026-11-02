@@ -53,6 +53,8 @@ export type ContentPredicate = (entity: Entity) => boolean;
  * - `'content-quality-assessment'`
  * - `'content-authoring'`
  * - `'content-migration'`
+ * - `'compliance'` — AAP compliance scanning, findings, and remediation.
+ *   Not a content-type experience; subjects are AAP inventories/hosts.
  */
 export interface ExperienceDefinition {
   id: string;

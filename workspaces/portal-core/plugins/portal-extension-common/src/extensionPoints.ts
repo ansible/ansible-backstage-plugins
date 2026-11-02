@@ -38,6 +38,13 @@ export const EXPERIENCE_IDS = {
   CONTENT_AUTHORING: 'content-authoring',
   /** Migration tooling and guided content promotion workflows. */
   CONTENT_MIGRATION: 'content-migration',
+  /**
+   * AAP compliance scanning, findings review, and selective remediation.
+   * Orthogonal to the content-type model: its subjects are AAP inventories
+   * and hosts, not collections/EEs/playbook-repositories, so contributions
+   * here typically use `appliesToContentTypes: '*'`.
+   */
+  COMPLIANCE: 'compliance',
   // NOTE: 'self-service' is intentionally absent. portal-scaffolder is a plugin,
   // not a host-owned experience. Templates, tasks, and history are capabilities
   // that portal-scaffolder contributes — they do not constitute an experience.
