@@ -36,6 +36,9 @@ built with a content manifest (generated inside the image by the image's own
 `ansible-core` at build time) report exact contents; anything derived by
 inspecting an image afterwards is approximate and labelled as such. Design
 decision records for the model live in [`docs/adrs/`](docs/adrs/).
+Registry connections verify TLS by default — see
+[`docs/guides/registry-tls.md`](docs/guides/registry-tls.md) for the opt-out
+and private-CA trust.
 
 The original standalone repository documents the full local end-to-end setup —
 building an execution environment with a content manifest, running a local Quay,
