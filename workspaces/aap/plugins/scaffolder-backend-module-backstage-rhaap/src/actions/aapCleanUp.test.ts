@@ -5,7 +5,7 @@ import {
   MOCK_PROJECT,
   MOCK_TOKEN,
 } from '../mock';
-import { CleanUp } from '@ansible/backstage-rhaap-common';
+import { CleanUp } from '@ansible/aap-common';
 import { mockAnsibleService } from './mockIAAPService';
 import { cleanUp } from './aapCleanUp';
 

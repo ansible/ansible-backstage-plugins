@@ -29,7 +29,7 @@ import {
 import CategoryOutlinedIcon from '@material-ui/icons/CategoryOutlined';
 import TimelineIcon from '@material-ui/icons/Timeline';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { gitRepositoriesViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { gitRepositoriesViewPermission } from '@ansible/aap-common/permissions';
 
 import {
   useApi,
