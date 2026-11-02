@@ -2,6 +2,7 @@ import type { FetchApi } from '@backstage/core-plugin-api';
 import {
   fetchCatalogAapSyncStatus,
   fetchCatalogContentSyncStatus,
+  _resetSplitOnlyCache,
 } from './catalogSyncStatus';
 
 function mockFetchApi(
@@ -27,6 +28,10 @@ function mockFetchApi(
     }),
   };
 }
+
+beforeEach(() => {
+  _resetSplitOnlyCache();
+});
 
 describe('fetchCatalogAapSyncStatus', () => {
   const base = 'http://catalog.test/api/catalog';

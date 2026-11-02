@@ -204,10 +204,7 @@ export class SyncPollingService {
 
     try {
       const baseUrl = await this.discoveryApi.getBaseUrl('catalog');
-      const data = await fetchCatalogContentSyncStatus(
-        baseUrl,
-        this.fetchApi,
-      );
+      const data = await fetchCatalogContentSyncStatus(baseUrl, this.fetchApi);
       if (!data?.content) {
         return null;
       }

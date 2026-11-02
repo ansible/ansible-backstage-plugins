@@ -4,6 +4,7 @@ import {
   EEBuildApiClient,
   ansibleApiRef,
 } from './apis.ts';
+import { _resetSplitOnlyCache } from '@ansible/portal-plugin-sdk';
 
 const mockRhaapAuthApi = {
   getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
@@ -21,6 +22,7 @@ const createAnsibleApiClient = (options: {
 
 describe('Ansible API module', () => {
   afterEach(() => {
+    _resetSplitOnlyCache();
     jest.restoreAllMocks();
     jest.clearAllMocks();
   });
@@ -201,7 +203,10 @@ describe('Ansible API module', () => {
     };
     const splitPayload = {
       aap: {
-        orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z', syncInProgress: false },
+        orgsUsersTeams: {
+          lastSync: '2024-02-01T10:00:00Z',
+          syncInProgress: false,
+        },
         jobTemplates: { lastSync: null, syncInProgress: true },
       },
     };
