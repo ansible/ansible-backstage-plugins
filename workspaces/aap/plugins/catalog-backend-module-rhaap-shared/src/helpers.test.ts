@@ -325,6 +325,7 @@ describe('helpers', () => {
         hostName: 'unknown',
         organization: 'unknown',
       });
+      // eslint-disable-next-line no-console
       expect(console.warn).toHaveBeenCalledWith(
         expect.stringContaining('Invalid sourceId format'),
       );
@@ -338,12 +339,14 @@ describe('helpers', () => {
         hostName: 'github.com',
         organization: 'org:with:colons',
       });
+      // eslint-disable-next-line no-console
       expect(console.warn).toHaveBeenCalled();
     });
 
     it('should handle empty sourceId', () => {
       const result = parseSourceId('');
       expect(result.env).toBe('unknown');
+      // eslint-disable-next-line no-console
       expect(console.warn).toHaveBeenCalled();
     });
 

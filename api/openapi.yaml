@@ -965,6 +965,140 @@ paths:
                     type: 'null'
                 additionalProperties: false
 
+  /ansible/sync/status/aap:
+    get:
+      operationId: getAapSyncStatus
+      summary: Get AAP catalog sync status (split module)
+      description: |
+        Returns the current synchronization status for AAP entity providers
+        (orgs/users/teams and job templates). Exposed by the split
+        `catalog-backend-module-aap` bundle; the combined shim exposes
+        `/ansible/sync/status` instead.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
+      tags:
+        - Ansible Content Sync
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: AAP sync status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - aap
+                properties:
+                  aap:
+                    type: object
+                    required:
+                      - orgsUsersTeams
+                      - jobTemplates
+                    properties:
+                      orgsUsersTeams:
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
+                      jobTemplates:
+                        $ref: '#/components/schemas/AAPProviderSyncStatus'
+                    additionalProperties: false
+                additionalProperties: false
+        '403':
+          description: Forbidden - caller lacks catalog entity read permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ansible/sync/status/content:
+    get:
+      operationId: getContentSyncStatus
+      summary: Get content catalog sync status (split module)
+      description: |
+        Returns the current synchronization status for PAH collection and
+        SCM git-content providers. Exposed by `catalog-backend-module-content`.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
+      tags:
+        - Ansible Content Sync
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Content sync status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - content
+                properties:
+                  content:
+                    type: object
+                    required:
+                      - syncInProgress
+                      - providers
+                    properties:
+                      syncInProgress:
+                        type: boolean
+                      providers:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProviderStatus'
+                    additionalProperties: false
+                additionalProperties: false
+        '403':
+          description: Forbidden - caller lacks catalog entity read permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ansible/sync/status/self-service:
+    get:
+      operationId: getSelfServiceSyncStatus
+      summary: Get self-service EE catalog sync status (split module)
+      description: |
+        Returns the current synchronization status for execution environment
+        (EE) providers. Exposed by `catalog-backend-module-ee`.
+        **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
+      tags:
+        - Ansible Content Sync
+      security:
+        - JWT: []
+      responses:
+        '200':
+          description: Self-service EE sync status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - selfService
+                properties:
+                  selfService:
+                    type: object
+                    required:
+                      - syncInProgress
+                      - lastSyncStatus
+                    properties:
+                      syncInProgress:
+                        type: boolean
+                      lastSyncStatus:
+                        type:
+                          - string
+                          - 'null'
+                        enum:
+                          - success
+                          - failure
+                          - idle
+                          - null
+                    additionalProperties: false
+                additionalProperties: false
+        '403':
+          description: Forbidden - caller lacks catalog entity read permission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /ansible/sync/from-aap/content:
     post:
       operationId: syncFromAapContent

@@ -31,9 +31,10 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "fix": "backstage-cli repo fix --publish",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/backstage-plugin-catalog-backend-module-rhaap-shared --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
   },
   "dependencies": {
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap-shared": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-defaults": "0.17.8",
