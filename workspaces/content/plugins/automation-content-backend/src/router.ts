@@ -30,6 +30,9 @@ type RouteResponse = {
 
 const EE_TYPE = 'execution-environment';
 
+// Default number of items per page
+const PAGE_SIZE = 10;
+
 /**
  * Coerce a documentation field to an array.
  *
@@ -222,8 +225,8 @@ export async function createRouter(
   // matter of registering an adapter, not of hand-writing another route — per-type
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
-  const listContent = (req: RouteRequest, res: RouteResponse) => {
-    const { type, registry, collection, contentsKnown } = req.query;
+  const filterArtifacts = (query: Record<string, unknown>) => {
+    const { type, registry, collection, contentsKnown } = query;
     let artifacts = index.listArtifacts(
       typeof type === 'string' ? type : undefined,
     );
@@ -243,7 +246,32 @@ export async function createRouter(
       artifacts = artifacts.filter(a => a.contentsKnown === want);
     }
 
-    res.json({ items: artifacts.map(a => artifactView(index, a)) });
+    return artifacts;
+  };
+
+  /** Paginated listing of artifacts, filtered by optional query params. */
+  const listContent = (req: RouteRequest, res: RouteResponse) => {
+    const artifacts = filterArtifacts(req.query);
+    const totalItems = artifacts.length;
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const start = (page - 1) * PAGE_SIZE;
+    const items = artifacts
+      .slice(start, start + PAGE_SIZE)
+      .map(a => artifactView(index, a));
+
+    let next: string | null = null;
+    if (page * PAGE_SIZE < totalItems) {
+      const params = new URLSearchParams();
+      for (const [key, val] of Object.entries(req.query)) {
+        if (key !== 'page' && typeof val === 'string') {
+          params.set(key, val);
+        }
+      }
+      params.set('page', String(page + 1));
+      next = `?${params.toString()}`;
+    }
+
+    res.json({ page, pageSize: PAGE_SIZE, totalItems, next, items });
   };
 
   /**
