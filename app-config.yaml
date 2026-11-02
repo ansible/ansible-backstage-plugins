@@ -26,6 +26,9 @@ portal:
   navigation:
     topOffset: 64
     items:
+      - id: ansible
+        page: page:ansible
+        title: Ansible
       - id: templates
         path: /self-service
         title: Templates
@@ -83,8 +86,7 @@ backend:
     credentials: true
   database:
     client: better-sqlite3
-    connection:
-      directory: ':memory:'
+    connection: ':memory:'
   # workingDirectory: /tmp # Use this to configure a working directory for the scaffolder, defaults to the OS temp-dir
   reading:
     allow:
@@ -232,6 +234,12 @@ catalog:
     #   registries:
     #     - name: local-registry
     #       url: https://registry.example.com
+    #       # Registry connections verify TLS by default and refuse plain HTTP.
+    #       # A plain-HTTP registry (a local Quay or registry:2) must opt out
+    #       # explicitly; that also disables certificate verification for this
+    #       # registry and is warned about at startup. A registry behind a
+    #       # private CA keeps verification on via caFile instead:
+    #       #   caFile: /path/to/ca-bundle.pem
     #       # Repositories are listed explicitly rather than enumerated. Many
     #       # registries disable the _catalog endpoint, so this is the path that
     #       # always works — the capability probe reports what the registry

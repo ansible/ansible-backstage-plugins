@@ -36,7 +36,7 @@
   "dependencies": {
     "@ansible/portal-extension-host": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
-    "@backstage/core-compat-api": "0.5.11",
+    "@backstage/core-compat-api": "0.5.14",
     "@backstage/frontend-plugin-api": "0.18.0",
     "@red-hat-developer-hub/backstage-plugin-global-header": "3.2.1"
   },
@@ -46,11 +46,11 @@
   },
   "devDependencies": {
     "@ansible/portal-extension-api": "workspace:^",
-    "@backstage/cli": "0.36.2",
-    "@backstage/core-plugin-api": "1.12.4",
-    "@backstage/frontend-test-utils": "0.5.2",
-    "@backstage/plugin-app-react": "0.2.8",
-    "@backstage/test-utils": "1.7.23",
+    "@backstage/cli": "0.36.5",
+    "@backstage/core-plugin-api": "1.12.9",
+    "@backstage/frontend-test-utils": "0.6.3",
+    "@backstage/plugin-app-react": "0.2.6",
+    "@backstage/test-utils": "1.7.21",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.3",
     "react": "18.3.1",

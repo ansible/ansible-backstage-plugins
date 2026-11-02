@@ -7,11 +7,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { AAPJobTemplateProvider } from './AAPJobTemplateProvider';
 import { mockAnsibleService } from '../mock/mockIAAPService';
-import {
-  IJobTemplate,
-  ISurvey,
-  InstanceGroup,
-} from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey, InstanceGroup } from '@ansible/aap-common';
 
 // Mock config for job template provider
 const MOCK_JOB_TEMPLATE_CONFIG = {
@@ -893,7 +889,6 @@ describe('AAPJobTemplateProvider', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },
@@ -916,7 +911,6 @@ describe('AAPJobTemplateProvider', () => {
           percent_capacity_remaining: 100.0,
           is_container_group: false,
           policy_instance_list: [],
-          results: [],
           summary_fields: {
             object_roles: {
               admin_role: { description: 'Admin', name: 'Admin', id: 1 },

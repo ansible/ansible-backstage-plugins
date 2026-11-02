@@ -4,6 +4,65 @@ The backstage-rhaap frontend plugin enables the Ansible sidebar option and provi
 
 _Note: This plugin was created through the Backstage CLI_
 
+## Installation with the new frontend system
+
+The native frontend plugin is the default export of
+`@ansible/plugin-backstage-rhaap/alpha`. It provides the `page:ansible` extension
+at `/ansible`, with Overview, My Items, Create, and Learn tabs. The existing
+package-root exports remain available for legacy applications.
+
+This repository's source NFS app loads the plugin in the `full` development
+profile and shows an Ansible sidebar link. The `core` and `scaffolder` profiles
+omit it.
+
+Add the package to your frontend app's dependencies and register the native
+plugin in the app's feature list:
+
+```tsx
+import { createApp } from '@backstage/frontend-defaults';
+import ansiblePlugin from '@ansible/plugin-backstage-rhaap/alpha';
+
+const app = createApp({
+  features: [ansiblePlugin],
+});
+
+export default app.createRoot();
+```
+
+Keep the host's existing catalog, scaffolder, search, authentication, and API features
+installed. The Ansible page reuses those services for catalog browsing and
+template launching. Installing this page does not install those host features.
+
+The plugin declares its route and page title, so native applications do not need
+a legacy `<Route>` registration. Hosts with custom navigation can link to
+`/ansible`. The page path can also be configured through `app.extensions`:
+
+```yaml
+app:
+  extensions:
+    - page:ansible:
+        config:
+          path: /ansible
+```
+
+### Dynamic installation in a native RHDH app
+
+From the repository root, export the plugin using the repository's RHDH CLI:
+
+```bash
+yarn workspace @ansible/plugin-backstage-rhaap export-dynamic --clean
+```
+
+The generated `dist-dynamic` package includes the native module-federation
+feature declared in `backstage.features`. Install that package through the
+host's dynamic-plugin installer. Native hosts discover its `/alpha` feature
+without the legacy `dynamicRoutes` and `appIcons` configuration shown below.
+The current CLI also generates legacy Scalprum assets for existing deployments.
+
+The legacy `AppThemeFixer` export remains available for hosts that use it.
+The native plugin leaves global theme styling to the host and does not register
+that legacy application listener.
+
 ## Installation - with upstream backstage
 
 The plugin is tested with backstage version '1.27.7'

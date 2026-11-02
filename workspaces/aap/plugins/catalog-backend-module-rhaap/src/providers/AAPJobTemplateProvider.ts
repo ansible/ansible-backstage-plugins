@@ -13,12 +13,8 @@ import type { Config } from '@backstage/config';
 import { readAapApiEntityConfigs } from './config';
 import { NotFoundError } from '@backstage/errors';
 import { AapConfig } from './types';
-import {
-  IAAPService,
-  IJobTemplate,
-  ISurvey,
-  InstanceGroup,
-} from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey, InstanceGroup } from '@ansible/aap-common';
+import { IAAPService } from '@ansible/backstage-rhaap-common';
 import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';

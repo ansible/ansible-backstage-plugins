@@ -16,7 +16,10 @@
     "workspaces/aap/plugins/*/migrations",
     "workspaces/apme/plugins/*/src",
     "workspaces/apme/plugins/*/dev",
-    "workspaces/apme/plugins/*/config.d.ts"
+    "workspaces/apme/plugins/*/config.d.ts",
+    "workspaces/content/plugins/*/src",
+    "workspaces/content/plugins/*/dev",
+    "workspaces/content/plugins/*/config.d.ts"
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {

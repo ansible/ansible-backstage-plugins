@@ -21,6 +21,7 @@ import {
 
 const mockScaffolderFactory = jest.fn();
 const mockApmeFactory = jest.fn();
+const mockAnsibleFactory = jest.fn();
 
 jest.mock('@ansible/portal-scaffolder/alpha', () => {
   mockScaffolderFactory();
@@ -38,6 +39,15 @@ jest.mock('@ansible/plugin-backstage-apme/alpha', () => {
     default: jest
       .requireActual('@backstage/frontend-plugin-api')
       .createFrontendPlugin({ pluginId: 'apme', extensions: [] }),
+  };
+});
+jest.mock('@ansible/plugin-backstage-rhaap/alpha', () => {
+  mockAnsibleFactory();
+  return {
+    __esModule: true,
+    default: jest
+      .requireActual('@backstage/frontend-plugin-api')
+      .createFrontendPlugin({ pluginId: 'ansible', extensions: [] }),
   };
 });
 
@@ -69,13 +79,13 @@ describe('development contributor selection', () => {
   );
 
   it.each([
-    [undefined, ['portal-scaffolder', 'apme'], 1, 1],
-    ['full', ['portal-scaffolder', 'apme'], 1, 1],
-    ['scaffolder', ['portal-scaffolder'], 1, 0],
-    ['core', [], 0, 0],
+    [undefined, ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
+    ['full', ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
+    ['scaffolder', ['portal-scaffolder'], 1, 0, 0],
+    ['core', [], 0, 0, 0],
   ] as const)(
     'loads only selected contributor modules for %s',
-    async (profile, expectedIds, scaffolderLoads, apmeLoads) => {
+    async (profile, expectedIds, scaffolderLoads, apmeLoads, ansibleLoads) => {
       await withFreshComposition(async ({ optionalContributorLoader }) => {
         const { features } = await resolveAsyncFeatures({
           config: new MockConfigApi(
@@ -92,6 +102,7 @@ describe('development contributor selection', () => {
         ).toEqual(expectedIds);
         expect(mockScaffolderFactory).toHaveBeenCalledTimes(scaffolderLoads);
         expect(mockApmeFactory).toHaveBeenCalledTimes(apmeLoads);
+        expect(mockAnsibleFactory).toHaveBeenCalledTimes(ansibleLoads);
       });
     },
   );
@@ -115,6 +126,7 @@ describe('development contributor selection', () => {
           ).rejects.toThrow(/portal.development.profile/);
           expect(mockScaffolderFactory).not.toHaveBeenCalled();
           expect(mockApmeFactory).not.toHaveBeenCalled();
+          expect(mockAnsibleFactory).not.toHaveBeenCalled();
         },
       );
     },
