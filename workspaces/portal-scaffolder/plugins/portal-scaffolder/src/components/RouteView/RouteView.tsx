@@ -13,7 +13,7 @@ import {
   gitRepositoriesViewPermission,
   templatesViewPermission,
   historyViewPermission,
-} from '@ansible/backstage-rhaap-common/permissions';
+} from '@ansible/aap-common/permissions';
 
 import { HomeComponent } from '../Home';
 import { JobTemplatesProvider } from '../Home/JobTemplatesProvider';

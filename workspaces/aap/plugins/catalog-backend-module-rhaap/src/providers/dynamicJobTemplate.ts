@@ -5,6 +5,8 @@ import {
   ISpec,
   ISurvey,
   InstanceGroup,
+} from '@ansible/aap-common';
+import {
   toOrgGroupRef,
   toTemplateEntityName,
   CatalogEntityIdentityOptions,

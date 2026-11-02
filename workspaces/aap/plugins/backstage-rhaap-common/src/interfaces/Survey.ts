@@ -1,18 +1,4 @@
-export interface ISurvey {
-  name: string;
-  description: string;
-  spec: ISpec[];
-}
-
-export interface ISpec {
-  question_name: string;
-  question_description: string;
-  required: boolean;
-  type: string;
-  variable: string;
-  min?: number;
-  max?: number;
-  default: string | number | string[];
-  choices: string[] | string;
-  new_question: boolean;
-}
+/**
+ * Re-exported from @ansible/aap-common after package extraction.
+ */
+export type { ISurvey, ISpec } from '@ansible/aap-common';

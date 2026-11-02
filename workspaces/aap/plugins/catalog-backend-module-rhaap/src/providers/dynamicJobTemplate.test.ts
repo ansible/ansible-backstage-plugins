@@ -16,7 +16,7 @@ import {
   getSurveyDetails,
   generateTemplate,
 } from './dynamicJobTemplate';
-import { IJobTemplate, ISurvey, ISpec } from '@ansible/backstage-rhaap-common';
+import { IJobTemplate, ISurvey, ISpec } from '@ansible/aap-common';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
