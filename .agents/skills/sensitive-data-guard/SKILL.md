@@ -87,17 +87,36 @@ Work through these steps in order. Do not skip to the verdict.
 Collect everything that will become public, not just the source diff:
 
 ```bash
-git fetch origin
+git fetch origin || { echo "could not fetch origin; review surface incomplete" >&2; exit 1; }
 # A shallow clone stops at its boundary, so the log below can miss commits that
-# were later removed. Deepen it before relying on history.
-git rev-parse --is-shallow-repository | grep -q true && git fetch --unshallow origin
-# Base: honour the ref the caller exported, otherwise take the PR's target branch
-# as a remote-tracking ref. gh pr view exits non-zero both when the branch has no
-# PR and when the call itself fails, so never read a failure as "no PR".
-if [ -z "${BASE:-}" ]; then
-  BASE=$(gh pr view --json baseRefName -q .baseRefName | sed 's|^|origin/|')
+# were later removed. Deepen it before relying on history, and stop if it is
+# still shallow: a partial log can hide content that was already published.
+if git rev-parse --is-shallow-repository | grep -q true; then
+  git fetch --unshallow origin || { echo "could not deepen the clone; review surface incomplete" >&2; exit 1; }
+  git rev-parse --is-shallow-repository | grep -q false || { echo "clone is still shallow; review surface incomplete" >&2; exit 1; }
 fi
-test -n "$BASE" || { echo "no base resolved; export BASE=origin/<branch> and re-run"; exit 1; }
+# Base: honour the ref the caller exported, otherwise resolve the PR's target
+# repository and branch from PR metadata. origin may be a contributor's fork,
+# so origin/<base> can point at a different branch than the one the PR targets.
+# On a detached checkout set PR_NUMBER: gh cannot infer a branch there.
+if [ -z "${BASE:-}" ]; then
+  PR_BASE=$(gh pr view ${PR_NUMBER:+"$PR_NUMBER"} --json url,baseRefName) || {
+    echo "no PR base resolved; export BASE=<verified ref> to review before a PR exists" >&2
+    exit 1
+  }
+  BASE_REPO=$(printf '%s\n' "$PR_BASE" | jq -er '.url | split("/") | .[3] + "/" + .[4]')
+  BASE_BRANCH=$(printf '%s\n' "$PR_BASE" | jq -er '.baseRefName')
+  case "$BASE_REPO" in
+    */*) ;;
+    *) echo "could not parse the base repository from the PR URL; export BASE=<verified ref>" >&2; exit 1 ;;
+  esac
+  BASE="refs/remotes/pr-base/${BASE_BRANCH}"
+  git fetch --no-tags "https://github.com/${BASE_REPO}.git" "+refs/heads/${BASE_BRANCH}:${BASE}" || {
+    echo "could not fetch ${BASE_BRANCH} from ${BASE_REPO}; review surface incomplete" >&2
+    exit 1
+  }
+fi
+test -n "$BASE" || { echo "no base resolved; export BASE=<verified ref> and re-run"; exit 1; }
 git rev-parse --verify --quiet "$BASE" >/dev/null || { echo "base $BASE does not exist; fetch it first"; exit 1; }
 git diff --stat "$BASE"...HEAD
 git diff --name-status "$BASE"...HEAD
@@ -109,7 +128,13 @@ git status --porcelain --untracked-files=all
 ```
 
 ```bash
-gh pr view --json title,body | jq -r '.title, .body'   # only once a PR exists
+# Only once a PR exists. A failed lookup leaves part of the review surface
+# unread, so abort instead of reviewing the code alone.
+PR_META=$(gh pr view ${PR_NUMBER:+"$PR_NUMBER"} --json title,body) || {
+  echo "could not read the PR title and body; aborting" >&2
+  exit 1
+}
+printf '%s\n' "$PR_META" | jq -r '.title, .body'
 ```
 
 Before a PR exists there is no stored body to read: pass the draft title and
@@ -122,7 +147,9 @@ in the branch history, while the final tree looks clean:
 
 ```bash
 git diff "$BASE"...HEAD -- .   # full patch, deletions included
-git log -p "$BASE"..HEAD       # intermediate commits
+# Intermediate commits, merge commits included: a merge resolution can publish
+# text that neither the final tree nor the plain log shows.
+git log --full-history --patch --diff-merges=separate "$BASE"..HEAD
 ```
 
 Squashing or rewriting before the branch is public removes that exposure; a
@@ -154,18 +181,19 @@ If the answer is "something only knowable internally", it is a finding.
 
 **Tier 1 — remove before publishing**
 
-| Category                 | Ask this                                                      | Action                                                     |
-| ------------------------ | ------------------------------------------------------------- | ---------------------------------------------------------- |
-| Credential / private key | Token, key block, password, connection string?                | Remove. Rotate if pushed.                                  |
-| Internal URL             | Points at an internal wiki, VPN-only host, or internal board? | Public equivalent, or `<internal-link>`                    |
-| Personal data            | Email, phone, employee name, customer contact?                | Remove; reference a role                                   |
-| Customer / partner names | Real account, org, or unapproved logo?                        | Replace with a role: "a large financial-services customer" |
+| Category                 | Ask this                                                | Action                                                     |
+| ------------------------ | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Credential / private key | Token, key block, password, connection string?          | Remove. Rotate if pushed.                                  |
+| Internal URL with data   | Does the URL itself carry a token, customer id, or PII? | Remove; rotate if it was exposed                           |
+| Personal data            | Email, phone, employee name, customer contact?          | Remove; reference a role                                   |
+| Customer / partner names | Real account, org, or unapproved logo?                  | Replace with a role: "a large financial-services customer" |
 
 **Tier 2 — decide deliberately, often trim**
 
 | Category            | Ask this                                                                            | Action                                                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Ticket provenance   | Does prose cite a ticket key, a tracker URL, or a link to an internal board?        | **Remove the key.** Keep the sentence's subject and drop the pointer. Publicly viewable is not a reason to keep it |
+| Internal URLs       | Points at an internal wiki, VPN-only host, or internal board?                       | Public equivalent, or `<internal-link>`                                                                            |
 | Internal meetings   | `**Meetings**:`, `**Deciders**: <forum + date>`, "weekly sync", attendees?          | **Cite the decision, not the forum.** Keep the conclusion; drop the who/when                                       |
 | Internal notes      | "internal notes", "not published", "internal only", pointer to a private doc?       | Remove the reference; if the material is needed, summarize it in place                                             |
 | Unreleased plans    | Dates, embargoes, launch/GTM plans, reorg or headcount?                             | Remove entirely. Paraphrase still leaks.                                                                           |
@@ -321,11 +349,13 @@ that exist in the target repo:
 | Reviewer PR check | **Not configured here.** `.coderabbit.yaml` has no docs-scoped check | Nothing until one is added            |
 | Human PR check    | One line in the PR template                                          | Whatever the author remembers         |
 
-**Placement caveat.** In `ansible-backstage-plugins`, ADR-007 puts agent skills
-in the Portal team's private process repository, not this one. A public guard for
-public contributors contradicts that ADR unless it is amended — decide the home
-deliberately (private repo, or amend ADR-007) rather than dropping a `SKILL.md`
-where no agent looks.
+**Placement.** ADR-007 keeps team process skills in the Portal team's private
+process repository and links them into each agent's directory locally. This
+guard is the contributor-facing exception: it has to run for anyone opening a
+PR here, including contributors with no access to that repository, so it lives
+at `.agents/skills/sensitive-data-guard/SKILL.md` — a vendor-neutral directory
+that every AGENTS.md-aware harness reads. ADR-007 names this exception; do not
+copy the skill into a per-vendor directory.
 
 ## If something is already merged
 
