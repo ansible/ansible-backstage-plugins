@@ -277,16 +277,12 @@ export function toTeamGroupRef(
  * @deprecated Prefer toSourceNamespace() for org-scoped namespaces.
  */
 export function sanitizeAapName(name: string): string {
+  // sanitizeAapNameBase validates non-empty input and guarantees the result
+  // contains at least one alphanumeric character, so truncation + trim can
+  // never produce an empty string.
   const sanitized = trimTrailingHyphen(
     sanitizeAapNameBase(name).slice(0, MAX_NAME_LENGTH),
   );
-
-  if (!sanitized) {
-    throw new Error(
-      `AAP name "${name}" contains no valid characters for Backstage entity conversion. ` +
-        `Names must contain at least one alphanumeric character.`,
-    );
-  }
 
   assertValidEntityName(sanitized, name);
   return sanitized;
