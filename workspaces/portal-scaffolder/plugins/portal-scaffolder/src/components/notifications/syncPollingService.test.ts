@@ -44,7 +44,10 @@ describe('syncPollingService', () => {
     mockFetchApi = {
       fetch: jest.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ content: { providers: [] } }),
+        json: () =>
+          Promise.resolve({
+            content: { syncInProgress: false, providers: [] },
+          }),
       }),
     };
   });
@@ -2051,7 +2054,10 @@ describe('syncPollingService', () => {
       mockFetchApi.fetch.mockImplementation(() =>
         fetchGate.then(() => ({
           ok: true,
-          json: () => Promise.resolve({ content: { providers: [] } }),
+          json: () =>
+            Promise.resolve({
+              content: { syncInProgress: false, providers: [] },
+            }),
         })),
       );
 
@@ -2188,7 +2194,10 @@ describe('syncPollingService', () => {
       mockFetchApi.fetch.mockImplementation(() => {
         return firstFetchPromise.then(() => ({
           ok: true,
-          json: () => Promise.resolve({ content: { providers: [] } }),
+          json: () =>
+            Promise.resolve({
+              content: { syncInProgress: false, providers: [] },
+            }),
         }));
       });
 

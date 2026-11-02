@@ -17,6 +17,7 @@ import {
 } from '@backstage/core-plugin-api';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { collectionsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { fetchCatalogContentSyncStatus } from '@ansible/portal-plugin-sdk';
 
 import { CollectionBreadcrumbs } from './CollectionBreadcrumbs';
 import { CollectionAboutCard } from './CollectionAboutCard';
@@ -31,7 +32,6 @@ import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
-import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import {
   useExtensionTabs,
   useExtensionCards,
@@ -141,10 +141,9 @@ const CollectionDetailsPageInner = () => {
     const fetchSyncStatus = async () => {
       try {
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetchContentSyncStatus(fetchApi, baseUrl);
-        if (response.ok) {
-          const data = await response.json();
-          const providers = data.content?.providers || [];
+        const data = await fetchCatalogContentSyncStatus(baseUrl, fetchApi);
+        if (data?.content) {
+          const providers = data.content.providers || [];
           const matchingSource = providers.find(
             (s: { sourceId: string }) => s.sourceId === sourceId,
           );

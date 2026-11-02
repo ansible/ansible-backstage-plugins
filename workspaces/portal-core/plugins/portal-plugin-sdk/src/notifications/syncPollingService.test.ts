@@ -7,7 +7,9 @@ describe('SDK sync polling recovery', () => {
   const fetchApi = {
     fetch: jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ content: { providers: [] } }),
+      json: async () => ({
+        content: { syncInProgress: false, providers: [] },
+      }),
     }),
   };
 
@@ -176,7 +178,9 @@ describe('SDK sync polling instances', () => {
       {
         fetch: jest.fn().mockResolvedValue({
           ok: true,
-          json: async () => ({ content: { providers: [] } }),
+          json: async () => ({
+            content: { syncInProgress: false, providers: [] },
+          }),
         }),
       },
     );
