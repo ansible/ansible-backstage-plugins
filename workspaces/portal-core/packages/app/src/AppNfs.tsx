@@ -11,7 +11,6 @@ import { SignInPage } from '@backstage/core-components';
 import { getThemes } from '@red-hat-developer-hub/backstage-plugin-theme';
 import portalPlugin from '@ansible/portal-core/alpha';
 import portalNavigation from '@ansible/portal-core/app-nav';
-import compliancePlugin from '@ansible/plugin-compliance/alpha';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
@@ -49,7 +48,6 @@ export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   createAapSettingsModule(),
   searchPlugin,
   portalPlugin,
-  compliancePlugin,
   createAapProfileModule({ logoutDisabled: false }),
   portalNavigation,
   createFrontendModule({

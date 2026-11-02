@@ -56,7 +56,6 @@ export type {
   SeverityMap,
   WidgetType,
   TabWidget,
-  CustomComponentRef,
   TabConfig,
   ProfileDisplayConfig,
   ScoreFormula,
@@ -79,3 +78,10 @@ export {
   compliancePermissions,
 } from './permissions';
 
+export {
+  complianceScanLaunchOperation,
+  complianceRemediationLaunchOperation,
+  complianceProfileSaveOperation,
+  complianceProfileDeleteOperation,
+  complianceOperations,
+} from './operations';

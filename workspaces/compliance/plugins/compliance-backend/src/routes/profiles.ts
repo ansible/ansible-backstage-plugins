@@ -1,15 +1,34 @@
 import type express from 'express';
 import type { RouterDependencies } from './types';
 import type { SaveProfileRequest } from '@ansible/compliance-common';
-import { profileManagePermission } from '@ansible/compliance-common';
+import {
+  profileManagePermission,
+  complianceProfileSaveOperation,
+  complianceProfileDeleteOperation,
+} from '@ansible/compliance-common';
+import { resolvePortalContext } from '@ansible/portal-plugin-node';
 import { requirePermission } from './permissions';
 import { isNonEmptyString, isPositiveInteger } from './validation';
+import {
+  COMPLIANCE_OPERATION_SUBJECT,
+  handleProfileDelete,
+  handleProfileSave,
+  sendOperationError,
+} from '../operations';
 
 export function registerProfileRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, database, httpAuth, permissions } = deps;
+  const {
+    logger,
+    database,
+    httpAuth,
+    permissions,
+    operations,
+    userInfo,
+    organizations,
+  } = deps;
 
   router.get('/compliance-profiles', async (req, res) => {
     const includeDisconnected = req.query.includeDisconnected === 'true';
@@ -33,27 +52,78 @@ export function registerProfileRoutes(
     }
   });
 
+  // Legacy transport adapters (Content Experience Architecture §9.2): the
+  // actual save/delete business logic lives in `handleProfileSave()` /
+  // `handleProfileDelete()` (`compliance-backend/src/operations.ts`),
+  // registered with the host's `PortalOperations` as
+  // `compliance.profile.save` / `compliance.profile.delete`. These routes
+  // only translate between Express and those operations — see
+  // `routes/scans.ts`'s `POST /scan` for the identical production/
+  // development branching they mirror.
   router.post('/compliance-profiles', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
-
     const body = req.body;
 
+    if (operations && httpAuth && permissions && userInfo && organizations) {
+      try {
+        // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+        // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
+        const credentials = await httpAuth.credentials(req, {
+          allow: ['user'],
+        });
+        const context = await resolvePortalContext({
+          credentials,
+          userInfo,
+          organizations,
+        });
+        const profile = await operations.execute(
+          complianceProfileSaveOperation.id,
+          {
+            subject: { entityRef: COMPLIANCE_OPERATION_SUBJECT },
+            input: body as Record<string, unknown>,
+          },
+          { ...context, credentials },
+          permissions,
+        );
+        res.status(201).json(profile);
+      } catch (error) {
+        sendOperationError(res, error, {
+          status: 500,
+          body: { error: 'Failed to save compliance profile' },
+        });
+      }
+      return;
+    }
+
     if (!isNonEmptyString(body.displayName)) {
-      res.status(400).json({ error: 'displayName is required and must be a non-empty string' });
+      res.status(400).json({
+        error: 'displayName is required and must be a non-empty string',
+      });
       return;
     }
     if (!isNonEmptyString(body.framework)) {
-      res.status(400).json({ error: 'framework is required and must be a non-empty string' });
+      res.status(400).json({
+        error: 'framework is required and must be a non-empty string',
+      });
       return;
     }
-    if (body.workflowTemplateId !== undefined && body.workflowTemplateId !== null && !isPositiveInteger(body.workflowTemplateId)) {
-      res.status(400).json({ error: 'workflowTemplateId must be a positive integer when provided' });
+    if (
+      body.workflowTemplateId !== undefined &&
+      body.workflowTemplateId !== null &&
+      !isPositiveInteger(body.workflowTemplateId)
+    ) {
+      res.status(400).json({
+        error: 'workflowTemplateId must be a positive integer when provided',
+      });
       return;
     }
-
     if (body.platformSpec !== undefined && body.platformSpec !== null) {
-      if (typeof body.platformSpec !== 'object' || Array.isArray(body.platformSpec)) {
-        res.status(400).json({ error: 'platformSpec must be an object when provided' });
+      if (
+        typeof body.platformSpec !== 'object' ||
+        Array.isArray(body.platformSpec)
+      ) {
+        res
+          .status(400)
+          .json({ error: 'platformSpec must be an object when provided' });
         return;
       }
     }
@@ -77,37 +147,77 @@ export function registerProfileRoutes(
     };
 
     try {
-      const profile = await database.saveProfile(saveRequest);
+      const profile = await handleProfileSave(saveRequest, {
+        database,
+        logger,
+      });
       res.status(201).json(profile);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to save compliance profile: ${msg}`);
-      res.status(500).json({ error: 'Failed to save compliance profile' });
+      sendOperationError(res, error, {
+        status: 500,
+        body: { error: 'Failed to save compliance profile' },
+      });
     }
   });
 
   router.delete('/compliance-profiles/:id', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
-
     const { id } = req.params;
-    try {
-      const deleted = await database.deleteProfile(id);
-      if (!deleted) {
-        res.status(404).json({ error: 'Compliance profile not found' });
-        return;
+
+    if (operations && httpAuth && permissions && userInfo && organizations) {
+      try {
+        // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+        // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
+        const credentials = await httpAuth.credentials(req, {
+          allow: ['user'],
+        });
+        const context = await resolvePortalContext({
+          credentials,
+          userInfo,
+          organizations,
+        });
+        await operations.execute(
+          complianceProfileDeleteOperation.id,
+          {
+            subject: { entityRef: COMPLIANCE_OPERATION_SUBJECT },
+            input: { id },
+          },
+          { ...context, credentials },
+          permissions,
+        );
+        res.status(204).send();
+      } catch (error) {
+        sendOperationError(res, error, {
+          status: 500,
+          body: { error: 'Failed to delete compliance profile' },
+        });
       }
+      return;
+    }
+
+    try {
+      await handleProfileDelete({ id }, { database, logger });
       res.status(204).send();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to delete compliance profile: ${msg}`);
-      res.status(500).json({ error: 'Failed to delete compliance profile' });
+      sendOperationError(res, error, {
+        status: 500,
+        body: { error: 'Failed to delete compliance profile' },
+      });
     }
   });
 
   // ─── Profile lifecycle ────────────────────────────────────────────
 
   router.post('/compliance-profiles/connect', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
+    if (
+      !(await requirePermission(
+        req,
+        res,
+        httpAuth,
+        permissions,
+        profileManagePermission,
+      ))
+    )
+      return;
 
     const { framework, version, displayName, slug } = req.body;
     if (!isNonEmptyString(framework)) {
@@ -115,9 +225,16 @@ export function registerProfileRoutes(
       return;
     }
     try {
-      const profile = await database.connectProfile(framework, version ?? '', displayName, slug);
+      const profile = await database.connectProfile(
+        framework,
+        version ?? '',
+        displayName,
+        slug,
+      );
       if (!profile) {
-        res.status(404).json({ error: `No profile with framework '${framework}' found to reconnect` });
+        res.status(404).json({
+          error: `No profile with framework '${framework}' found to reconnect`,
+        });
         return;
       }
       res.json(profile);
@@ -129,7 +246,16 @@ export function registerProfileRoutes(
   });
 
   router.post('/compliance-profiles/disconnect', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
+    if (
+      !(await requirePermission(
+        req,
+        res,
+        httpAuth,
+        permissions,
+        profileManagePermission,
+      ))
+    )
+      return;
 
     const { profileId, framework, slug } = req.body;
     try {
@@ -139,10 +265,14 @@ export function registerProfileRoutes(
       } else if (isNonEmptyString(slug)) {
         success = await database.disconnectProfileBySlug(slug);
       } else if (isNonEmptyString(framework)) {
-        logger.warn('disconnect-by-framework is deprecated — use profileId or slug');
+        logger.warn(
+          'disconnect-by-framework is deprecated — use profileId or slug',
+        );
         success = await database.disconnectProfileByFramework(framework);
       } else {
-        res.status(400).json({ error: 'profileId, slug, or framework is required' });
+        res
+          .status(400)
+          .json({ error: 'profileId, slug, or framework is required' });
         return;
       }
       if (!success) {
@@ -157,83 +287,13 @@ export function registerProfileRoutes(
     }
   });
 
-  // ─── Custom tab bundle ────────────────────────────────────────────
-
-  const MAX_BUNDLE_SIZE = 5 * 1024 * 1024; // 5 MB
-
-  router.put('/compliance-profiles/:id/bundle', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
-
-    const { id } = req.params;
-    const profile = await database.getProfile(id);
-    if (!profile) {
-      res.status(404).json({ error: 'Compliance profile not found' });
-      return;
-    }
-
-    try {
-      const contentType = req.headers['content-type'] ?? '';
-      const allowedTypes = ['application/javascript', 'text/javascript', 'application/json'];
-      if (!allowedTypes.some(t => contentType.includes(t))) {
-        res.status(415).json({ error: `Unsupported content type: ${contentType}. Use application/javascript or application/json.` });
-        return;
-      }
-
-      const bundleData = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      const size = Buffer.byteLength(bundleData, 'utf8');
-
-      if (size > MAX_BUNDLE_SIZE) {
-        res.status(413).json({ error: `Bundle exceeds maximum size of ${MAX_BUNDLE_SIZE / 1024 / 1024}MB` });
-        return;
-      }
-
-      const metadata = {
-        size,
-        uploadedAt: new Date().toISOString(),
-      };
-      await database.saveProfileBundle(id, bundleData, metadata);
-      res.status(201).json(metadata);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to upload bundle for profile ${id}: ${msg}`);
-      res.status(500).json({ error: 'Failed to upload bundle' });
-    }
-  });
-
-  router.get('/compliance-profiles/:id/bundle', async (req, res) => {
-    const { id } = req.params;
-    try {
-      const bundle = await database.getProfileBundle(id);
-      if (!bundle) {
-        res.status(404).json({ error: 'No bundle found for this profile' });
-        return;
-      }
-      res.set('Content-Type', 'application/javascript');
-      res.set('X-Content-Type-Options', 'nosniff');
-      res.set('Cache-Control', 'public, max-age=3600');
-      res.send(bundle.data);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to get bundle for profile ${id}: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve bundle' });
-    }
-  });
-
-  router.delete('/compliance-profiles/:id/bundle', async (req, res) => {
-    if (!await requirePermission(req, res, httpAuth, permissions, profileManagePermission)) return;
-
-    const { id } = req.params;
-    try {
-      const deleted = await database.deleteProfileBundle(id);
-      if (!deleted) {
-        res.status(404).json({ error: 'Profile or bundle not found' });
-        return;
-      }
-      res.status(204).send();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to delete bundle for profile ${id}: ${msg}`);
-      res.status(500).json({ error: 'Failed to delete bundle' });
-    }
-  });
+  // ─── Custom tab bundle: retired (ADR-040) ──────────────────────────
+  //
+  // `PUT/GET/DELETE /compliance-profiles/:id/bundle` (ADR-027 Tier 2)
+  // are removed. No frontend code ever loaded a bundle via dynamic
+  // `import()` — this plugin's capabilities are now declared once, in
+  // `complianceManifest.ts`, and validated by the host at registration
+  // time, rather than fetched per-profile from the backend at runtime.
+  // See ADR-040 for the full rationale and the compliance workspace's
+  // ADR-027 for the retired design.
 }

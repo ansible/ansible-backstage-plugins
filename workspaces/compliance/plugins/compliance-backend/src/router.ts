@@ -4,7 +4,12 @@ import type {
   HttpAuthService,
   LoggerService,
   PermissionsService,
+  UserInfoService,
 } from '@backstage/backend-plugin-api';
+import type {
+  ActiveOrganizationResolver,
+  PortalOperations,
+} from '@ansible/portal-plugin-node';
 
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
@@ -31,14 +36,40 @@ export interface RouterOptions {
   configIngestTokenTtlMinutes?: number;
   httpAuth?: HttpAuthService;
   permissions?: PermissionsService;
+  /**
+   * The host's operation registry (`@ansible/portal-plugin-node`). See
+   * `routes/types.ts`'s `RouterDependencies.operations` doc comment — like
+   * `httpAuth`/`permissions` above, omitted in `development` auth mode.
+   */
+  operations?: PortalOperations;
+  /**
+   * Portal identity resolvers (`@ansible/portal-plugin-node`), used by the
+   * legacy transport adapters' `resolvePortalContext()` call immediately
+   * before each `operations.execute()` (see `routes/types.ts`'s
+   * `RouterDependencies.operations` doc comment). Always available from
+   * `plugin.ts` regardless of auth mode — unlike `httpAuth`/`permissions`/
+   * `operations` above, resolving these has no auth-bypass implications of
+   * its own; it's the adapter's `httpAuth`/`permissions`/`operations`
+   * presence check that gates whether they're ever reached.
+   */
+  userInfo?: UserInfoService;
+  organizations?: ActiveOrganizationResolver;
 }
 
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
   const {
-    logger, service, database, httpAuth, permissions,
-    configRetentionDays, configIngestTokenTtlMinutes,
+    logger,
+    service,
+    database,
+    httpAuth,
+    permissions,
+    operations,
+    userInfo,
+    organizations,
+    configRetentionDays,
+    configIngestTokenTtlMinutes,
   } = options;
   const router = Router();
   router.use((req, res, next) => {
@@ -59,7 +90,15 @@ export async function createRouter(
   };
 
   const deps: RouterDependencies = {
-    logger, service, database, httpAuth, permissions, state,
+    logger,
+    service,
+    database,
+    httpAuth,
+    permissions,
+    operations,
+    state,
+    userInfo,
+    organizations,
   };
 
   registerHealthRoutes(router, deps);
