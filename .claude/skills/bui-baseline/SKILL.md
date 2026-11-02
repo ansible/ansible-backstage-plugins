@@ -65,7 +65,10 @@ If new non-BUI code is genuinely required (a kit gap, an upstream constraint):
 
 ## Scope
 
-Tracked: direct imports of `@backstage/core-components`, `@material-ui/*`,
-`@mui/*`, `@patternfly/react-*`, `@emotion/*` and `styled-components` in
-`.ts`/`.tsx` under `workspaces/**/src`, plus the components those files
-export. Not tracked yet: raw HTML elements and standalone CSS files.
+Tracked: imports of `@backstage/core-components`, `@material-ui/*`, `@mui/*`
+(including `@mui/x-*`), `@patternfly/react-*`, `@emotion/*` and
+`styled-components` in `.ts`/`.tsx` under `workspaces/**/src`, matched by
+package prefix so new packages in those families are caught on first use.
+Static, side-effect (`import 'x'`), dynamic `import()` and `require()` forms
+all count, as do the components those files export. Not tracked yet: raw HTML
+elements and standalone CSS files (#1041).

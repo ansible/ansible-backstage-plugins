@@ -7,6 +7,8 @@ import {
   added,
   buildBaseline,
   emitBaseline,
+  isNonBuiLibrary,
+  packageName,
   parseBaseline,
   removed,
 } from './lib/bui-baseline.mjs';
@@ -176,6 +178,48 @@ test('does not count a re-export of another module', () => {
     assert.deepEqual(
       model.components.map(c => c.name),
       ['Local'],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('matches packages by prefix rather than a fixed list', () => {
+  assert.equal(packageName('@mui/x-data-grid/foo'), '@mui/x-data-grid');
+  assert.equal(packageName('react-dom/client'), 'react-dom');
+  assert.ok(isNonBuiLibrary('@mui/x-data-grid'));
+  assert.ok(isNonBuiLibrary('@patternfly/react-table'));
+  assert.ok(isNonBuiLibrary('@material-ui/core'));
+  assert.ok(!isNonBuiLibrary('react'));
+  assert.ok(!isNonBuiLibrary('@backstage/ui'));
+});
+
+test('counts side-effect imports', () => {
+  const root = fixture({
+    'styles.ts':
+      "import '@patternfly/react-core/dist/styles/base.css';\nexport const theme = 1;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.libraries.map(l => l.name),
+      ['@patternfly/react-core'],
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('records the exported alias of a local component', () => {
+  const root = fixture({
+    'Button.tsx':
+      "import { Button } from '@mui/material';\nconst Internal = () => <Button />;\nexport { Internal as PublicButton };\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.components.map(c => c.name),
+      ['PublicButton'],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

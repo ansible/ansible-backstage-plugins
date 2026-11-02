@@ -12,22 +12,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-export const NON_BUI_LIBRARIES = [
-  '@backstage/core-components',
-  '@material-ui/core',
-  '@material-ui/icons',
-  '@material-ui/lab',
-  '@material-ui/styles',
-  '@mui/icons-material',
-  '@mui/material',
-  '@mui/utils',
-  '@patternfly/react-core',
-  '@patternfly/react-icons',
-  '@emotion/react',
-  '@emotion/styled',
-  'styled-components',
-];
-
 const SKIP_DIRS = new Set([
   'node_modules',
   'dist',
@@ -55,15 +39,43 @@ const isSourceFile = (root, p) =>
   !/\.(test|spec|stories)\.tsx?$/.test(p) &&
   relative(root, p).split(sep).includes('src');
 
-// Static imports, dynamic `import('...')` and `require('...')` all count: a
-// lazily loaded MUI bundle is still MUI.
-const importPattern = lib =>
-  new RegExp(
-    `(?:from\\s+|import\\s*\\(\\s*|require\\s*\\(\\s*)['"]${lib.replace(
-      /[/@.]/g,
-      c => `\\${c}`,
-    )}(?:/[^'"]*)?['"]`,
-  );
+// Non-BUI UI kits, matched as package prefixes so that packages this file
+// has never heard of (@mui/x-data-grid, @patternfly/react-table) are caught
+// the first time someone imports them.
+const NON_BUI_LIBRARY_MATCHERS = [
+  name => name === '@backstage/core-components',
+  name => name === 'styled-components',
+  name => name.startsWith('@material-ui/'),
+  name => name.startsWith('@mui/'),
+  name => name.startsWith('@patternfly/react-'),
+  name => name.startsWith('@emotion/'),
+];
+
+/** '@mui/x-data-grid/foo' -> '@mui/x-data-grid'; 'react-dom/client' -> 'react-dom'. */
+export function packageName(specifier) {
+  const parts = specifier.split('/');
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+}
+
+export function isNonBuiLibrary(name) {
+  return NON_BUI_LIBRARY_MATCHERS.some(matches => matches(name));
+}
+
+// Static imports, side-effect imports, dynamic import() and require() all
+// count: a lazily loaded MUI bundle is still MUI.
+const SPECIFIER =
+  /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s*)['"]([^'"]+)['"]/g;
+
+function importedPackages(source) {
+  const names = new Set();
+  for (const match of source.matchAll(SPECIFIER)) {
+    const name = packageName(match[1]);
+    if (isNonBuiLibrary(name)) names.add(name);
+  }
+  return names;
+}
+
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 const DECLARED = /(?:const|let|var|function|class)\s+([A-Z][A-Za-z0-9_]*)/g;
 const DIRECT_EXPORT =
@@ -72,65 +84,69 @@ const DEFAULT_EXPORT =
   /export\s+default\s+(?:(?:function|class)\s+)?([A-Z][A-Za-z0-9_]*)\s*;?/g;
 const NAMED_EXPORT = /export\s*\{([^}]*)\}(?!\s*from)/g;
 
-// A component counts when it is both declared and exported from the same
-// file. `export { Foo } from './x'` is a re-export and deliberately skipped.
+// A component counts when it is declared and exported from the same file.
+// `export { Foo } from './x'` is a re-export and deliberately skipped.
 export function exportedComponents(source) {
   const declared = new Set();
   for (const match of source.matchAll(DECLARED)) declared.add(match[1]);
 
   const names = new Set();
-  for (const match of source.matchAll(DIRECT_EXPORT)) names.add(match[1]);
-  for (const match of source.matchAll(DEFAULT_EXPORT)) names.add(match[1]);
+  const add = (name, local = name) => {
+    if (declared.has(local) && /^[A-Z][A-Za-z0-9_]*$/.test(name))
+      names.add(name);
+  };
+
+  for (const match of source.matchAll(DIRECT_EXPORT)) add(match[1]);
+  for (const match of source.matchAll(DEFAULT_EXPORT)) add(match[1]);
   for (const match of source.matchAll(NAMED_EXPORT)) {
     for (const part of match[1].split(',')) {
-      const name = part
+      // `Internal as PublicButton` exports the alias but declares the local name.
+      const [local, exported] = part
         .trim()
         .split(/\s+as\s+/)
-        .pop()
-        .trim();
-      if (/^[A-Z][A-Za-z0-9_]*$/.test(name)) names.add(name);
+        .map(s => s?.trim());
+      if (local) add(exported ?? local, local);
     }
   }
 
   return [...names].filter(
     n =>
-      declared.has(n) &&
       !/^use[A-Z]/.test(n) && // hooks
       !/(Props|Type|Context)$/.test(n) && // type helpers
       !/^[A-Z0-9_]+$/.test(n), // constants such as FOO_PATH
   );
 }
 
-/** Scans a checkout and returns the baseline model it implies. */
 export function buildBaseline(root) {
-  const files = walk(join(root, 'workspaces')).filter(p =>
-    isSourceFile(root, p),
+  const files = walk(join(root, 'workspaces')).filter(f =>
+    isSourceFile(root, f),
   );
-  const filesByLibrary = new Map(NON_BUI_LIBRARIES.map(lib => [lib, []]));
+  const filesByLibrary = new Map();
   const components = [];
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
     const rel = relative(root, file).split(sep).join('/');
-    const hits = NON_BUI_LIBRARIES.filter(lib =>
-      importPattern(lib).test(source),
-    );
+    const hits = [...importedPackages(source)];
     if (hits.length === 0) continue;
-    for (const lib of hits) filesByLibrary.get(lib).push(rel);
+    for (const lib of hits) {
+      if (!filesByLibrary.has(lib)) filesByLibrary.set(lib, []);
+      filesByLibrary.get(lib).push(rel);
+    }
     if (!rel.endsWith('.tsx')) continue;
     for (const name of exportedComponents(source))
       components.push({ path: rel, name });
   }
 
   components.sort(
-    (a, b) => a.path.localeCompare(b.path) || a.name.localeCompare(b.name),
+    (a, b) => byCodePoint(a.path, b.path) || byCodePoint(a.name, b.name),
   );
 
-  const libraries = NON_BUI_LIBRARIES.filter(
-    lib => filesByLibrary.get(lib).length > 0,
-  ).map(lib => {
+  const libraries = [...filesByLibrary.keys()].sort(byCodePoint).map(lib => {
     const users = filesByLibrary.get(lib);
-    const workspaces = [...new Set(users.map(u => u.split('/')[1]))].sort();
+    const workspaces = [...new Set(users.map(u => u.split('/')[1]))].sort(
+      byCodePoint,
+    );
     const count = users.length === 1 ? '1 file' : `${users.length} files`;
     const scope =
       workspaces.length === 1
@@ -139,7 +155,7 @@ export function buildBaseline(root) {
     return {
       name: lib,
       reason: `Pre-BUI design requirements; ${scope}`,
-      files: [...new Set(users)].sort(),
+      files: [...new Set(users)].sort(byCodePoint),
     };
   });
 
