@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import {
+  added,
+  buildBaseline,
+  emitBaseline,
+  parseBaseline,
+  removed,
+} from './lib/bui-baseline.mjs';
+
+const MODEL = {
+  libraries: [
+    {
+      name: '@patternfly/react-core',
+      reason: 'Pre-BUI design requirements; 1 file, confined to aap',
+      files: ['workspaces/aap/plugins/p/src/components/Button/Button.tsx'],
+    },
+  ],
+  components: [
+    {
+      path: 'workspaces/aap/plugins/p/src/components/Button/Button.tsx',
+      name: 'Button',
+    },
+  ],
+};
+
+function fixture(files) {
+  const root = mkdtempSync(join(tmpdir(), 'bui-baseline-test-'));
+  mkdirSync(join(root, 'workspaces', 'aap', 'plugins', 'p', 'src'), {
+    recursive: true,
+  });
+  for (const [name, contents] of Object.entries(files)) {
+    const target = join(root, 'workspaces', 'aap', 'plugins', 'p', 'src', name);
+    mkdirSync(join(target, '..'), { recursive: true });
+    writeFileSync(target, contents);
+  }
+  return root;
+}
+
+test('emitted YAML round-trips through the parser', () => {
+  assert.deepEqual(parseBaseline(emitBaseline(MODEL)), MODEL);
+});
+
+test('emitted YAML is stable across runs', () => {
+  assert.equal(emitBaseline(MODEL), emitBaseline(structuredClone(MODEL)));
+});
+
+test('parser rejects lines it does not understand', () => {
+  assert.throws(
+    () => parseBaseline('libraries:\n  - nope: x\n'),
+    /unexpected line/,
+  );
+});
+
+test('baseline counts a non-BUI component and its library', () => {
+  const root = fixture({
+    'Button.tsx':
+      "import { Button } from '@patternfly/react-core';\nexport const PfButton = () => <Button />;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.libraries.map(l => l.name),
+      ['@patternfly/react-core'],
+    );
+    assert.deepEqual(model.components, [
+      { path: 'workspaces/aap/plugins/p/src/Button.tsx', name: 'PfButton' },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('baseline ignores components written against BUI', () => {
+  const root = fixture({
+    'Card.tsx':
+      "import { Card } from '@backstage/ui';\nexport const BuiCard = () => <Card />;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(model, { libraries: [], components: [] });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('baseline ignores tests, stories and all-caps constants', () => {
+  const root = fixture({
+    'Button.test.tsx':
+      "import { Button } from '@patternfly/react-core';\nexport const T = () => <Button />;\n",
+    'Button.stories.tsx':
+      "import { Button } from '@patternfly/react-core';\nexport const S = () => <Button />;\n",
+    'Button.tsx':
+      "import { Button } from '@patternfly/react-core';\nexport const BUTTON_PATH = '/x';\nexport const Real = () => <Button />;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(
+      model.components.map(c => c.name),
+      ['Real'],
+    );
+    assert.equal(model.libraries[0].files.length, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a .ts helper importing a non-BUI kit is tracked without a component', () => {
+  const root = fixture({
+    'helpers.ts':
+      "import { Link } from '@material-ui/core';\nexport const url = () => Link;\n",
+  });
+  try {
+    const model = buildBaseline(root);
+    assert.deepEqual(model.components, []);
+    assert.deepEqual(model.libraries[0].files, [
+      'workspaces/aap/plugins/p/src/helpers.ts',
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('added() reports growth and removed() allows shrinkage', () => {
+  const shrunk = { ...MODEL, components: [] };
+  assert.deepEqual(added(MODEL, MODEL), []);
+  assert.deepEqual(removed(MODEL, MODEL), []);
+  assert.deepEqual(added(MODEL, shrunk), []);
+  assert.equal(removed(MODEL, shrunk).length, 1);
+  assert.equal(added(shrunk, MODEL).length, 1);
+});

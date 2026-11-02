@@ -1,0 +1,62 @@
+---
+# Advisory BUI drift check. Reports non-BUI UI usage that is not covered by
+# bui-baseline.yaml, but never blocks: the check exits 0 unless --strict.
+#
+# This workflow only annotates and uploads the report. The pull request
+# comment is posted by bui-drift-comment.yml, a workflow_run consumer with a
+# write token, so fork pull requests get comments without this job holding
+# one. No `yarn install` - the check has no dependencies.
+#
+# See .claude/skills/bui-baseline/SKILL.md for the regeneration workflow.
+name: bui-drift
+on:
+  pull_request:
+    branches:
+      - main
+      - devel
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: BUI drift (advisory)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # The base-branch baseline is read with `git show`.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 22
+
+      - name: Annotate non-BUI usage
+        continue-on-error: true
+        run: >-
+          node scripts/check-bui-drift.mjs
+          --base "${{ github.event.pull_request.base.sha }}"
+          --format github
+
+      - name: Collect findings
+        continue-on-error: true
+        run: >-
+          node scripts/check-bui-drift.mjs
+          --base "${{ github.event.pull_request.base.sha }}"
+          --format json |
+          jq --argjson n "${{ github.event.pull_request.number }}" '. + {pullNumber: $n}' \
+          > "$RUNNER_TEMP/bui-drift.json"
+
+      - name: Upload report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: bui-drift-report
+          path: ${{ runner.temp }}/bui-drift.json
+          retention-days: 7

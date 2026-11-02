@@ -1,0 +1,58 @@
+---
+# Posts the advisory BUI drift comment. Runs from the base repository with a
+# write token and never executes pull request code: the report is a JSON
+# artifact produced by bui-drift.yml. This is what makes fork pull requests
+# work without an approval label.
+name: bui-drift-comment
+on:
+  workflow_run:
+    workflows: [bui-drift]
+    types: [completed]
+
+concurrency:
+  group: bui-drift-comment-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-24.04
+    steps:
+      # Default branch only: this checkout is trusted code, unlike the run
+      # that produced the report.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Download report
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: >-
+          gh run download "$RUN_ID"
+          --repo "$GITHUB_REPOSITORY"
+          -n bui-drift-report
+          -D "$RUNNER_TEMP/report"
+
+      - name: Upsert comment
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = `${process.env.RUNNER_TEMP}/report/bui-drift.json`;
+            if (!fs.existsSync(path)) {
+              console.log('No report artifact; nothing to comment on.');
+              return;
+            }
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const upsert = require(
+              `${process.cwd()}/.github/scripts/bui-drift-comment.cjs`,
+            );
+            await upsert({ github, context, report });
