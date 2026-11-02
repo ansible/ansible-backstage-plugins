@@ -236,7 +236,6 @@ describe('sanitizeAapName', () => {
   });
 
   describe('consistency with existing Function 1 (helpers.formatNameSpace)', () => {
-    // These test cases ensure backward compatibility with existing org names
     it('matches Function 1 behavior for normal org names', () => {
       expect(sanitizeAapName('Default')).toBe('default');
       expect(sanitizeAapName('Engineering')).toBe('engineering');
@@ -253,12 +252,35 @@ describe('sanitizeAapName', () => {
 
   describe('regex validation edge case (coverage)', () => {
     it('validates output against Backstage name regex', () => {
-      // This test ensures line 82-87 (regex validation) is covered
-      // The sanitization logic should always produce valid output,
-      // but we test edge cases to ensure the validation works
       expect(sanitizeAapName('-a-')).toBe('a');
       expect(sanitizeAapName('---a---')).toBe('a');
       expect(sanitizeAapName('a-b-c')).toBe('a-b-c');
+    });
+
+    it('throws when sanitized output fails the Backstage name regex', () => {
+      const originalTest = RegExp.prototype.test;
+      function forceInvalidBackstageName(
+        this: RegExp,
+        value?: string,
+      ): boolean {
+        if (
+          typeof this.source === 'string' &&
+          this.source.startsWith('^[a-z0-9')
+        ) {
+          return false;
+        }
+        return originalTest.call(this, value as string);
+      }
+      const spy = jest
+        .spyOn(RegExp.prototype, 'test')
+        .mockImplementation(forceInvalidBackstageName);
+      try {
+        expect(() => sanitizeAapNameBase('Engineering')).toThrow(
+          /produced invalid Backstage identifier/,
+        );
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 });
@@ -308,6 +330,26 @@ describe('catalog entity names with AAP IDs', () => {
     );
   });
 
+  it('preserves identity.source when positional source is omitted', () => {
+    const options = { multiOrgEnabled: true, source: 'ao' as const };
+    expect(toOrgGroupRef('ao-12', 'Engineering', 12, undefined, options)).toBe(
+      'group:ao-12/ao-org-12',
+    );
+    expect(toTeamGroupRef('ao-12', 'QA', 101, undefined, options)).toBe(
+      'group:ao-12/ao-team-101',
+    );
+  });
+
+  it('lets an explicit positional source override identity.source on group refs', () => {
+    const options = { multiOrgEnabled: true, source: 'ao' as const };
+    expect(toOrgGroupRef('scm-12', 'Engineering', 12, 'scm', options)).toBe(
+      'group:scm-12/scm-org-12',
+    );
+    expect(toTeamGroupRef('scm-12', 'QA', 101, 'scm', options)).toBe(
+      'group:scm-12/scm-team-101',
+    );
+  });
+
   it('keeps assembled names within 63 characters', () => {
     const longName = `Org-${'a'.repeat(80)}`;
     const result = toOrgEntityName(longName, 5238394829);
@@ -336,6 +378,53 @@ describe('toSourceNamespace', () => {
         orgId: 42,
       }),
     ).toBe('aap-42');
+  });
+
+  it('falls back to identity.source when positional source is omitted', () => {
+    expect(
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 42,
+        source: 'ao',
+      }),
+    ).toBe('ao-42');
+  });
+
+  it('lets an explicit positional source override identity.source', () => {
+    expect(
+      toSourceNamespace('Engineering', 'scm', {
+        multiOrgEnabled: true,
+        orgId: 42,
+        source: 'ao',
+      }),
+    ).toBe('scm-42');
+  });
+
+  it('throws when multi-org is enabled without a stable org id', () => {
+    expect(() =>
+      toSourceNamespace('Engineering', undefined, { multiOrgEnabled: true }),
+    ).toThrow(/requires a stable numeric id/);
+    expect(() =>
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: -1,
+      }),
+    ).toThrow(/requires a stable numeric id/);
+    expect(() =>
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 1.5,
+      }),
+    ).toThrow(/requires a stable numeric id/);
+  });
+
+  it('defaults the catalog entity source when neither positional nor identity source is set', () => {
+    expect(
+      toSourceNamespace('Engineering', undefined, {
+        multiOrgEnabled: true,
+        orgId: 7,
+      }),
+    ).toBe('aap-7');
   });
 });
 
