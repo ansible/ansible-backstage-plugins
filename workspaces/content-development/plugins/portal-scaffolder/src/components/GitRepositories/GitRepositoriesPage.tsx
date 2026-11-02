@@ -225,7 +225,7 @@ export const GitRepositoriesPage = () => {
   let syncDisabledReason: string | undefined;
   if (hasConfiguredSources === false) {
     syncDisabledReason = 'No content sources configured';
-  } else if (isSyncInProgress) {
+  } else if (isSyncInProgress && !syncProgress?.length) {
     syncDisabledReason = 'Sync in progress';
   }
 
