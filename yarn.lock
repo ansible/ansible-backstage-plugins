@@ -28889,15 +28889,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-wrap-ansi@npm:^0.2.0":
-  version: 0.2.2
-  resolution: "fast-wrap-ansi@npm:0.2.2"
-  dependencies:
-    fast-string-width: "npm:^3.0.2"
-  checksum: 10c0/1aa7be4f7cb86f4bdb14691cb6bcc0b8df8b3b89df142ade3ae1602332dcf6f990cd750a923cd581ca0847808cb4ec1aa5afaafa7a72f849e87a2a62c98fa370
-  languageName: node
-  linkType: hard
-
 "fast-xml-builder@npm:^1.1.7":
   version: 1.1.9
   resolution: "fast-xml-builder@npm:1.1.9"
