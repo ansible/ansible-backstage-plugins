@@ -6,7 +6,7 @@ import {
   PassportOAuthDoneCallback,
   PassportProfile,
 } from '@backstage/plugin-auth-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import { AuthenticationError } from '@backstage/errors';
 
 const PKCE_COOKIE_NAME = 'rhaap-pkce';

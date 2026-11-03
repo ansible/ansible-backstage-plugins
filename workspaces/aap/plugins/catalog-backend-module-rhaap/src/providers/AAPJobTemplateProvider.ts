@@ -14,7 +14,7 @@ import { readAapApiEntityConfigs } from './config';
 import { NotFoundError } from '@backstage/errors';
 import { AapConfig } from './types';
 import { IJobTemplate, ISurvey, InstanceGroup } from '@ansible/aap-common';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';
