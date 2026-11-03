@@ -857,6 +857,7 @@ __metadata:
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"
     "@backstage/core-plugin-api": "npm:1.12.9"
+    "@backstage/integration-react": "npm:1.2.21"
     "@backstage/plugin-catalog-react": "npm:3.2.2"
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
     "@backstage/test-utils": "npm:1.7.21"
@@ -873,6 +874,7 @@ __metadata:
     typescript: "npm:~5.8.0"
   peerDependencies:
     "@backstage/core-plugin-api": ^1.12.9
+    "@backstage/integration-react": ^1.2.21
     "@backstage/plugin-catalog-react": ^3.2.2
     "@backstage/plugin-scaffolder-react": ^2.0.3
     "@material-ui/core": ^4.9.13

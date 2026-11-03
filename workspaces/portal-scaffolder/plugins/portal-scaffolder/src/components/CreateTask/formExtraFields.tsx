@@ -6,11 +6,11 @@ import {
   EEFileNamePickerExtension,
   EETagsPickerExtension,
   FileUploadPickerExtension,
+  ScmSelectorExtension,
 } from '@ansible/portal-scaffolder-react';
 import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPickerExtension';
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
-import { ScmSelectorExtension } from '../Scaffolder/ScmSelector/ScmSelectorExtension';
 import {
   EntityNamePicker,
   EntityPicker,
