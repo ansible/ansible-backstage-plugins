@@ -603,7 +603,20 @@ export class OCIClient {
    * write whatever it likes into the portal's logs.
    */
   private resolveUrl(path: string, from?: string): string {
-    const base = new URL(this.base);
+    let base: URL;
+    try {
+      base = new URL(this.base);
+    } catch {
+      // Unreachable through the config loader, which validates the URL at
+      // startup — but a direct caller still deserves a refusal that names
+      // the registry rather than a raw TypeError, and nothing from the URL
+      // itself may be echoed into the message.
+      throw new RegistryError(
+        'refused unparseable request to (unparseable URL)',
+        undefined,
+        this.connection.name,
+      );
+    }
     // A link starting with `//` swaps the host outright. Refuse it before
     // parsing rather than neutralising it, so the attempt shows up as the
     // refusal it is.

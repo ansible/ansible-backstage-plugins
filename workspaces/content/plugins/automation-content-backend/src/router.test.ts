@@ -481,7 +481,10 @@ describe('config validation', () => {
     expect(res.body.valid).toBe(false);
     expect(res.body.errors).toEqual([
       { path: 'registries[0].name', message: 'Required' },
-      { path: 'registries[0].url', message: 'Required' },
+      {
+        path: 'registries[0].url',
+        message: 'Required and must be a string',
+      },
     ]);
   });
 
@@ -516,7 +519,10 @@ describe('config validation', () => {
       .send(document([registry({ url: 'mock.registry' })]));
     expect(res.body.valid).toBe(false);
     expect(res.body.errors).toEqual([
-      { path: 'registries[0].url', message: 'Must include a scheme' },
+      {
+        path: 'registries[0].url',
+        message: 'Invalid: is not a valid absolute URL',
+      },
     ]);
   });
 
@@ -613,6 +619,8 @@ describe('config validation', () => {
       ]);
     },
   );
+});
+
 describe('configuration boundary', () => {
   /**
    * An index holding a real configured registry, so mutation attempts target a
