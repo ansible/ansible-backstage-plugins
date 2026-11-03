@@ -19,7 +19,9 @@ describe('scaffolderModulePortalScaffolder', () => {
       discovery: {},
       eeLifecycle: {
         registerExecutionEnvironment: jest.fn(),
-        unregisterExecutionEnvironment: jest.fn().mockResolvedValue({ mode: 'noop' }),
+        unregisterExecutionEnvironment: jest
+          .fn()
+          .mockResolvedValue({ mode: 'noop' }),
       },
       logger: { debug: jest.fn() },
     };
@@ -58,7 +60,9 @@ describe('scaffolderModulePortalScaffolder', () => {
       discovery: {},
       eeLifecycle: {
         registerExecutionEnvironment: jest.fn(),
-        unregisterExecutionEnvironment: jest.fn().mockResolvedValue({ mode: 'noop' }),
+        unregisterExecutionEnvironment: jest
+          .fn()
+          .mockResolvedValue({ mode: 'noop' }),
       },
       logger: { debug: jest.fn() },
     };
