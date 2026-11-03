@@ -1,7 +1,7 @@
 import { scaffolderPlugin } from '@backstage/plugin-scaffolder';
 import { createScaffolderFieldExtension } from '@backstage/plugin-scaffolder-react';
 
-import { EETagsPickerExtension } from './EETagsPickerExtension';
+import { EETagsPickerExtension } from '@ansible/portal-scaffolder-react';
 
 export const EETagsPickerFieldExtension = scaffolderPlugin.provide(
   createScaffolderFieldExtension({

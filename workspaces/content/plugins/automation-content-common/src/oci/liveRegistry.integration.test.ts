@@ -1,4 +1,6 @@
 /**
+ * @jest-environment node
+ *
  * Live end-to-end verification against a real registry.
  *
  * Proves the consumer half of build-time content discovery: given only a registry,
@@ -28,6 +30,9 @@ describeLive('live registry end-to-end', () => {
   const connection: RegistryConnection = {
     name: registry!,
     url: `http://${registry}`,
+    // The dev registry in the e2e pipeline is plain HTTP, so transport trust
+    // is explicitly opted out here — the very escape hatch the client ships.
+    insecure: true,
     auth: process.env.E2E_USERNAME
       ? {
           type: 'basic',
@@ -41,6 +46,10 @@ describeLive('live registry end-to-end', () => {
   let client: OCIClient;
   beforeAll(() => {
     client = new OCIClient(connection);
+  });
+
+  afterAll(async () => {
+    await client.dispose();
   });
 
   it('probes registry capabilities', async () => {

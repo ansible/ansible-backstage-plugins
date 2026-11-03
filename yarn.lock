@@ -209,7 +209,15 @@ __metadata:
   dependencies:
     "@ansible/content-model": "workspace:^"
     "@backstage/cli": "npm:0.36.5"
+    "@types/istanbul-lib-coverage": "npm:^2.0.6"
+    "@types/istanbul-lib-instrument": "npm:^1.7.8"
+    "@types/node-forge": "npm:1.3.13"
+    esbuild: "npm:0.25.8"
+    istanbul-lib-coverage: "npm:^3.2.2"
+    istanbul-lib-instrument: "npm:^6.0.3"
     msw: "npm:^2.11.4"
+    node-forge: "npm:1.4.0"
+    undici: "npm:6.29.1"
   languageName: unknown
   linkType: soft
 
@@ -408,7 +416,9 @@ __metadata:
     "@ansible/content-type-execution-environment": "workspace:^"
     "@ansible/plugin-catalog-backend-module-automation-content": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/cli": "npm:0.36.5"
+    "@backstage/config": "npm:1.3.8"
     "@red-hat-developer-hub/cli": "npm:^1.10.2"
     "@types/express": "npm:^4.17.21"
     "@types/supertest": "npm:^6.0.2"
@@ -840,6 +850,43 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/portal-scaffolder-react@workspace:^, @ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react"
+  dependencies:
+    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/cli": "npm:0.36.5"
+    "@backstage/core-plugin-api": "npm:1.12.9"
+    "@backstage/integration-react": "npm:1.2.21"
+    "@backstage/plugin-catalog-react": "npm:3.2.2"
+    "@backstage/plugin-scaffolder-react": "npm:2.0.3"
+    "@backstage/test-utils": "npm:1.7.21"
+    "@material-ui/core": "npm:4.12.4"
+    "@material-ui/icons": "npm:4.11.3"
+    "@material-ui/lab": "npm:4.0.0-alpha.61"
+    "@testing-library/dom": "npm:^10.4.0"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^16.0.0"
+    "@types/jest": "npm:^29.5.14"
+    "@types/react": "npm:^18.3.3"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    typescript: "npm:~5.8.0"
+  peerDependencies:
+    "@backstage/core-plugin-api": ^1.12.9
+    "@backstage/integration-react": ^1.2.21
+    "@backstage/plugin-catalog-react": ^3.2.2
+    "@backstage/plugin-scaffolder-react": ^2.0.3
+    "@material-ui/core": ^4.9.13
+    "@material-ui/icons": ^4.9.1
+    "@material-ui/lab": ^4.0.0-alpha.61
+    react: ^18.3.1
+    react-dom: ^18.3.1
+    react-router: "*"
+    react-router-dom: ^6.30.5
+  languageName: unknown
+  linkType: soft
+
 "@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
@@ -849,6 +896,7 @@ __metadata:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder-common": "workspace:^"
+    "@ansible/portal-scaffolder-react": "workspace:^"
     "@backstage/catalog-client": "npm:1.16.1"
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"
@@ -13684,7 +13732,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@material-ui/core@npm:^4.12.2, @material-ui/core@npm:^4.12.4, @material-ui/core@npm:^4.9.13":
+"@material-ui/core@npm:4.12.4, @material-ui/core@npm:^4.12.2, @material-ui/core@npm:^4.12.4, @material-ui/core@npm:^4.9.13":
   version: 4.12.4
   resolution: "@material-ui/core@npm:4.12.4"
   dependencies:
@@ -13711,7 +13759,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
+"@material-ui/icons@npm:4.11.3, @material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
   version: 4.11.3
   resolution: "@material-ui/icons@npm:4.11.3"
   dependencies:
@@ -21386,6 +21434,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/babel-generator@npm:*":
+  version: 6.25.8
+  resolution: "@types/babel-generator@npm:6.25.8"
+  dependencies:
+    "@types/babel-types": "npm:*"
+  checksum: 10c0/98fc6912831177d064e5229b35d954df726ae9c78fa380aef6ea46c861f3d96384692c0c86f9b370584e3d38352ab8f11db2ce5fe23b2a51f80534755c4f2dc0
+  languageName: node
+  linkType: hard
+
+"@types/babel-types@npm:*":
+  version: 7.0.16
+  resolution: "@types/babel-types@npm:7.0.16"
+  checksum: 10c0/76ed807d015acab692dca5b922418226e965f027cd054c3f8c0cc3a6931651f622cb978711b3fc71b033790b21af0aa925ba1ecb5836b45613864bdfbd90d3ae
+  languageName: node
+  linkType: hard
+
 "@types/babel__core@npm:^7.1.14":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
@@ -21795,6 +21859,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/istanbul-lib-instrument@npm:^1.7.8":
+  version: 1.7.8
+  resolution: "@types/istanbul-lib-instrument@npm:1.7.8"
+  dependencies:
+    "@types/babel-generator": "npm:*"
+    "@types/babel-types": "npm:*"
+    "@types/istanbul-lib-coverage": "npm:*"
+    source-map: "npm:^0.6.1"
+  checksum: 10c0/a4af526ce5d7dd6bf093c676e0b98671923964a38c64e4f4a8d14b6bb0354858ef4fc8b0436cfab6f30123b2632068f5d14ab085b950aa3844a6438d3ab77911
+  languageName: node
+  linkType: hard
+
 "@types/istanbul-lib-report@npm:*":
   version: 3.0.3
   resolution: "@types/istanbul-lib-report@npm:3.0.3"
@@ -22040,7 +22116,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node-forge@npm:^1.3.0":
+"@types/node-forge@npm:1.3.13, @types/node-forge@npm:^1.3.0":
   version: 1.3.13
   resolution: "@types/node-forge@npm:1.3.13"
   dependencies:
@@ -28672,7 +28748,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.25.0":
+"esbuild@npm:0.25.8, esbuild@npm:^0.25.0":
   version: 0.25.8
   resolution: "esbuild@npm:0.25.8"
   dependencies:
@@ -32979,7 +33055,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"istanbul-lib-coverage@npm:^3.0.0, istanbul-lib-coverage@npm:^3.2.0":
+"istanbul-lib-coverage@npm:^3.0.0, istanbul-lib-coverage@npm:^3.2.0, istanbul-lib-coverage@npm:^3.2.2":
   version: 3.2.2
   resolution: "istanbul-lib-coverage@npm:3.2.2"
   checksum: 10c0/6c7ff2106769e5f592ded1fb418f9f73b4411fd5a084387a5410538332b6567cd1763ff6b6cadca9b9eb2c443cce2f7ea7d7f1b8d315f9ce58539793b1e0922b
@@ -32999,7 +33075,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"istanbul-lib-instrument@npm:^6.0.0, istanbul-lib-instrument@npm:^6.0.2":
+"istanbul-lib-instrument@npm:^6.0.0, istanbul-lib-instrument@npm:^6.0.2, istanbul-lib-instrument@npm:^6.0.3":
   version: 6.0.3
   resolution: "istanbul-lib-instrument@npm:6.0.3"
   dependencies:
@@ -44512,10 +44588,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^6.29.0":
-  version: 6.29.0
-  resolution: "undici@npm:6.29.0"
-  checksum: 10c0/3fb2117985be977ba8b6bd6a242fec915e1b1d0f9681f5adb3f508fb1717352452d65bcfd3bed09e7c776cfda403a4e8edb24a318492f8b2d793439af2b8699b
+"undici@npm:6.29.1":
+  version: 6.29.1
+  resolution: "undici@npm:6.29.1"
+  checksum: 10c0/2d6970289fcbaca69a484e968fbb5e6fdadf7d9bff30bb5476f71b619d143ec76df1c75a309ac3cb3b3d78238793c613dcaad47dc9d92b63f9e8e73b86ffec23
   languageName: node
   linkType: hard
 

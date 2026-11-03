@@ -23,10 +23,18 @@
     "dist"
   ],
   "dependencies": {
-    "@ansible/content-model": "workspace:^"
+    "@ansible/content-model": "workspace:^",
+    "undici": "6.29.1"
   },
   "devDependencies": {
     "@backstage/cli": "0.36.5",
-    "msw": "^2.11.4"
+    "@types/istanbul-lib-coverage": "^2.0.6",
+    "@types/istanbul-lib-instrument": "^1.7.8",
+    "@types/node-forge": "1.3.13",
+    "esbuild": "0.25.8",
+    "istanbul-lib-coverage": "^3.2.2",
+    "istanbul-lib-instrument": "^6.0.3",
+    "msw": "^2.11.4",
+    "node-forge": "1.4.0"
   }
 }

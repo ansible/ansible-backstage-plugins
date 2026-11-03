@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import { useFieldValidation } from '../../CreateTask/FieldValidationContext';
+import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import { useFieldValidation } from '../../hooks/FieldValidationContext';
 import { TextField, Typography, Box, IconButton } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { makeStyles } from '@material-ui/core/styles';
