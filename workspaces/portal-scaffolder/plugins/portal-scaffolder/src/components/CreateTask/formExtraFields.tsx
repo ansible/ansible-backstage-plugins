@@ -3,6 +3,7 @@ import { AAPTokenField } from '../Scaffolder/AAPTokenField/AAPTokenFieldExtensio
 import { BaseImagePickerExtension } from '../Scaffolder/BaseImagePicker/BaseImagePickerExtension';
 import { CollectionsPickerExtension } from '../Scaffolder/CollectionsPicker/CollectionsPickerExtension';
 import {
+  AdditionalBuildStepsPickerExtension,
   EEFileNamePickerExtension,
   EETagsPickerExtension,
   FileUploadPickerExtension,
@@ -10,7 +11,6 @@ import {
 } from '@ansible/portal-scaffolder-react';
 import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPickerExtension';
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
-import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
 import {
   EntityNamePicker,
   EntityPicker,
