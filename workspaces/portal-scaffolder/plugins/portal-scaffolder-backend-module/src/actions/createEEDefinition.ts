@@ -339,14 +339,13 @@ export function createEEDefinitionAction(options: {
             credentials,
             { skipProviderManaged: !values.publishToSCM },
           );
-          ctx.output(
-            'eeCleanupStatus',
-            cleanup.mode === 'noop'
-              ? 'noop'
-              : cleanup.mode === 'provider'
-                ? 'skipped'
-                : 'ok',
-          );
+          const cleanupStatus = {
+            noop: 'noop',
+            location: 'ok',
+            'entity-transient': 'ok',
+            provider: 'skipped',
+          }[cleanup.mode];
+          ctx.output('eeCleanupStatus', cleanupStatus);
           if (cleanup.warning) ctx.output('eeCleanupWarning', cleanup.warning);
         } catch (error) {
           logger.warn(
