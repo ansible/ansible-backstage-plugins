@@ -38,6 +38,12 @@ existing `requestUserCredentials.secretsKey` UI option controls where
 credentials are stored in the scaffolder secrets channel. `ScmSelectorData`
 is exported for the field value; credentials are not included in that value.
 
+### `AdditionalBuildStepsPickerExtension`
+
+Edits additional execution environment build steps while retaining their order
+and step types. The `BuildStep` value type is exported for consuming forms.
+Register it as `AdditionalBuildStepsPicker` in the host's field adapter.
+
 ## Peer dependencies
 
 Consumers provide React, React DOM, Backstage's scaffolder React package, and
