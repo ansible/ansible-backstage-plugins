@@ -31,7 +31,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
-import { buildCollectionsFromCatalogEntities } from '../autocomplete/utils';
+import { buildCollectionsFromCatalogEntities } from '@ansible/plugin-scaffolder-backend-module-aap';
 
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;
@@ -88,7 +88,11 @@ describe('createEEDefinition', () => {
           );
           if (existing.ok) {
             const entity = await existing.json();
-            if (entity?.metadata?.annotations?.['ansible.io/download-experience'] === 'true') {
+            if (
+              entity?.metadata?.annotations?.[
+                'ansible.io/download-experience'
+              ] === 'true'
+            ) {
               return { mode: 'provider' as const };
             }
           }
@@ -106,7 +110,10 @@ describe('createEEDefinition', () => {
             body = undefined;
           }
           return {
-            mode: body?.mode === 'entity-transient' ? ('entity-transient' as const) : ('location' as const),
+            mode:
+              body?.mode === 'entity-transient'
+                ? ('entity-transient' as const)
+                : ('location' as const),
             warning: body?.warning,
           };
         }
@@ -425,12 +432,12 @@ describe('createEEDefinition', () => {
       expect.stringContaining('best-effort EE cleanup'),
     );
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('returned 500'),
+      expect.stringContaining('HTTP 500'),
     );
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'failed');
     expect(ctx.output).toHaveBeenCalledWith(
       'eeCleanupWarning',
-      expect.stringContaining('HTTP 500'),
+      expect.stringContaining('Creation continues'),
     );
     expect(mockFetch).toHaveBeenCalledWith(
       'http://localhost:7007/api/catalog/ansible/ee',
@@ -498,8 +505,9 @@ describe('createEEDefinition', () => {
     await action.handler(ctx);
 
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'noop');
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('no existing EE catalog entity'),
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:7007/api/catalog/ansible/ee/test-ee',
+      expect.objectContaining({ method: 'DELETE' }),
     );
   });
 
@@ -1444,9 +1452,9 @@ describe('createEEDefinition', () => {
           collections,
         }),
       );
-      expect(mockDownloadEEScaffold.mock.calls.at(-1)?.[3].collections).toEqual([
-        { name: 'community.general', version: '1.0.0' },
-      ]);
+      expect(mockDownloadEEScaffold.mock.calls.at(-1)?.[3].collections).toEqual(
+        [{ name: 'community.general', version: '1.0.0' }],
+      );
     }
   });
 
