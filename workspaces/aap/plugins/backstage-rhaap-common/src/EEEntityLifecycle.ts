@@ -20,7 +20,8 @@ export interface EEEntityLifecycleService {
   ): Promise<EELifecycleCleanupResult>;
 }
 
-export const eeEntityLifecycleServiceRef = createServiceRef<EEEntityLifecycleService>({
-  id: 'ansible.ee-entity-lifecycle',
-  scope: 'root',
-});
+export const eeEntityLifecycleServiceRef =
+  createServiceRef<EEEntityLifecycleService>({
+    id: 'ansible.ee-entity-lifecycle',
+    scope: 'root',
+  });

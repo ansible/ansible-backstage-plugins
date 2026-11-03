@@ -9,9 +9,7 @@ import {
   convertUploadToDataUrl,
   parseUploadedFileContent,
 } from './utils/utils';
-import {
-  LoggerService,
-} from '@backstage/backend-plugin-api';
+import { LoggerService } from '@backstage/backend-plugin-api';
 import type { EEEntityLifecycleService } from '@ansible/backstage-rhaap-common';
 import { Config } from '@backstage/config';
 import { BackendServiceAPI } from './utils/api';
