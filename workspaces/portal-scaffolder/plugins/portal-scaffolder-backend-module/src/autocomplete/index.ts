@@ -18,4 +18,3 @@ export function handleCollectionsAutocompleteRequest(options: {
     searchQuery: options.context?.searchQuery,
   });
 }
-
