@@ -31,6 +31,10 @@ type RouteResponse = {
 
 const EE_TYPE = 'execution-environment';
 
+// Default number of items per page
+const PAGE_SIZE = 10;
+const ALLOWED_PER_PAGE = [PAGE_SIZE, 20, 50] as const;
+
 /**
  * What GET /registries reports about a failed reconciliation.
  *
@@ -247,8 +251,8 @@ export async function createRouter(
   // matter of registering an adapter, not of hand-writing another route — per-type
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
-  const listContent = (req: RouteRequest, res: RouteResponse) => {
-    const { type, registry, collection, contentsKnown } = req.query;
+  const filterArtifacts = (query: Record<string, unknown>) => {
+    const { type, registry, collection, contentsKnown } = query;
     let artifacts = index.listArtifacts(
       typeof type === 'string' ? type : undefined,
     );
@@ -268,7 +272,48 @@ export async function createRouter(
       artifacts = artifacts.filter(a => a.contentsKnown === want);
     }
 
-    res.json({ items: artifacts.map(a => artifactView(index, a)) });
+    return artifacts;
+  };
+
+  /** Paginated listing of artifacts, filtered by optional query params. */
+  const listContent = (req: RouteRequest, res: RouteResponse) => {
+    const artifacts = filterArtifacts(req.query);
+    const requested = Number(req.query.per_page) || PAGE_SIZE;
+    const perPage = ALLOWED_PER_PAGE.includes(requested as any)
+      ? requested
+      : PAGE_SIZE;
+    const totalItems = artifacts.length;
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const start = (page - 1) * perPage;
+    const items = artifacts
+      .slice(start, start + perPage)
+      .map(a => artifactView(index, a));
+    const lastPage = Math.max(1, Math.ceil(totalItems / perPage));
+
+    const buildLink = (p: number): string => {
+      const params = new URLSearchParams();
+      for (const [key, val] of Object.entries(req.query)) {
+        if (key !== 'page' && typeof val === 'string') {
+          params.set(key, val);
+        }
+      }
+      params.set('page', String(p));
+      return `?${params.toString()}`;
+    };
+
+    const next = page * perPage < totalItems ? buildLink(page + 1) : null;
+    const previous = page > 1 ? buildLink(page - 1) : null;
+
+    res.json({
+      page,
+      pageSize: perPage,
+      totalItems,
+      next,
+      previous,
+      firstPage: buildLink(1),
+      lastPage: buildLink(lastPage),
+      items,
+    });
   };
 
   /**
