@@ -16,7 +16,7 @@ import {
   MOCK_CONFIG,
   TOKEN_RESPONSE,
 } from './mockData';
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/aap-node';
 import { createServiceFactory } from '@backstage/backend-plugin-api';
 import authBackend from '@backstage/plugin-auth-backend';
 

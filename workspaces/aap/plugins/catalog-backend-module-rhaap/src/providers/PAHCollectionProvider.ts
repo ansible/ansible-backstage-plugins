@@ -13,7 +13,7 @@ import type { Config } from '@backstage/config';
 import { readAapApiEntityConfigs } from './config';
 import { InputError, isError } from '@backstage/errors';
 import { AapConfig, type PAHRepositoryConfig } from './types';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import { pahCollectionParser } from './entityParser';
 import { Entity } from '@backstage/catalog-model';
 import { stampLatestVersionAnnotations } from './versionUtils';
