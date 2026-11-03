@@ -1,5 +1,5 @@
 import { ChangeEvent, useState, useEffect, useRef } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import { Button, Typography, Box, TextField } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import UploadIcon from '@material-ui/icons/CloudUpload';

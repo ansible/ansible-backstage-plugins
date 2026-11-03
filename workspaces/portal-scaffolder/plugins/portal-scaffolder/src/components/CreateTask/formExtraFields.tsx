@@ -2,13 +2,15 @@ import { AAPResourcePicker } from '../Scaffolder/AAResourcePicker/AAPResourcePic
 import { AAPTokenField } from '../Scaffolder/AAPTokenField/AAPTokenFieldExtension';
 import { BaseImagePickerExtension } from '../Scaffolder/BaseImagePicker/BaseImagePickerExtension';
 import { CollectionsPickerExtension } from '../Scaffolder/CollectionsPicker/CollectionsPickerExtension';
-import { FileUploadPickerExtension } from '../Scaffolder/FileUploadPicker/FileUploadPickerExtension';
+import {
+  EEFileNamePickerExtension,
+  EETagsPickerExtension,
+  FileUploadPickerExtension,
+  ScmSelectorExtension,
+} from '@ansible/portal-scaffolder-react';
 import { PackagesPickerExtension } from '../Scaffolder/PackagesPicker/PackagesPickerExtension';
 import { MCPServersPickerExtension } from '../Scaffolder/MCPServersPicker/MCPServersPickerExtension';
 import { AdditionalBuildStepsPickerExtension } from '../Scaffolder/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
-import { EEFileNamePickerExtension } from '../Scaffolder/EEFileNamePicker/EEFileNamePickerExtension';
-import { EETagsPickerExtension } from '../Scaffolder/EETagsPicker/EETagsPickerExtension';
-import { ScmSelectorExtension } from '../Scaffolder/ScmSelector/ScmSelectorExtension';
 import {
   EntityNamePicker,
   EntityPicker,

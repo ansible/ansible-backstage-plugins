@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { EETagsPickerExtension } from './EETagsPickerExtension';
 
@@ -45,6 +46,17 @@ const createMockProps = (overrides = {}) => ({
   registry: {} as any,
   ...overrides,
 });
+
+const ControlledTagsPicker = ({ initialTags }: { initialTags: string[] }) => {
+  const [tags, setTags] = useState(initialTags);
+  return (
+    <EETagsPickerExtension
+      {...createMockProps()}
+      formData={tags}
+      onChange={value => setTags(value ?? [])}
+    />
+  );
+};
 
 describe('EETagsPickerExtension', () => {
   beforeEach(() => {
@@ -477,36 +489,30 @@ describe('EETagsPickerExtension', () => {
       expect(removeButton).toBeDisabled();
     });
 
-    it('reindexes errors when tag is removed', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag2', 'tag3'],
-      });
-      const { rerender } = render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
-
-      // Simulate parent updating formData
-      rerender(
-        <EETagsPickerExtension
-          {...props}
-          formData={['tag1', 'INVALID', 'tag3']}
+    it('keeps validation errors attached to remaining tags after removal', () => {
+      render(
+        <ControlledTagsPicker
+          initialTags={['INVALID', '-broken', 'bad--tag']}
         />,
       );
+      screen.getAllByRole('textbox').forEach(input => fireEvent.blur(input));
+      expect(screen.getAllByRole('alert')).toHaveLength(3);
 
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Tag must consist of lowercase letters/i),
-          ).toBeInTheDocument();
-        },
-        { timeout: 2000 },
+      fireEvent.click(screen.getAllByLabelText('Remove tag')[1]);
+
+      expect(screen.getAllByRole('textbox')[0]).toHaveValue('INVALID');
+      expect(screen.getAllByRole('textbox')[1]).toHaveValue('bad--tag');
+      const errors = screen.getAllByRole('alert');
+      expect(errors).toHaveLength(2);
+      expect(errors[0]).toHaveTextContent(
+        'Tag must consist of lowercase letters',
       );
-
-      const removeButtons = screen.getAllByLabelText('Remove tag');
-      fireEvent.click(removeButtons[0]);
-
-      expect(props.onChange).toHaveBeenCalled();
+      expect(errors[1]).toHaveTextContent(
+        'Tag cannot contain consecutive hyphens',
+      );
+      expect(
+        screen.queryByText('Tag cannot start with a hyphen'),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -552,66 +558,36 @@ describe('EETagsPickerExtension', () => {
       expect(props.onChange).toHaveBeenCalledWith(['tag2', 'tag1']);
     });
 
-    it('reindexes errors when tags are moved up', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag2'],
-      });
-      const { rerender } = render(<EETagsPickerExtension {...props} />);
+    it.each([
+      { action: 'Move up', index: 1 },
+      { action: 'Move down', index: 0 },
+    ])(
+      'keeps validation errors attached to tags after $action',
+      ({ action, index }) => {
+        render(
+          <ControlledTagsPicker
+            initialTags={['INVALID', '-broken', 'bad--tag']}
+          />,
+        );
+        screen.getAllByRole('textbox').forEach(input => fireEvent.blur(input));
+        expect(screen.getAllByRole('alert')).toHaveLength(3);
 
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
+        fireEvent.click(screen.getAllByLabelText(action)[index]);
 
-      // Simulate parent updating formData
-      rerender(
-        <EETagsPickerExtension {...props} formData={['tag1', 'INVALID']} />,
-      );
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Tag must consist of lowercase letters/i),
-          ).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
-
-      const upButtons = screen.getAllByLabelText('Move up');
-      fireEvent.click(upButtons[1]);
-
-      expect(props.onChange).toHaveBeenCalled();
-    });
-
-    it('reindexes errors when tags are moved down', async () => {
-      const props = createMockProps({
-        formData: ['tag1', 'tag2', 'tag3'],
-      });
-      const { rerender } = render(<EETagsPickerExtension {...props} />);
-
-      const inputs = screen.getAllByRole('textbox');
-      fireEvent.change(inputs[1], { target: { value: 'INVALID' } });
-
-      // Simulate parent updating formData
-      rerender(
-        <EETagsPickerExtension
-          {...props}
-          formData={['tag1', 'INVALID', 'tag3']}
-        />,
-      );
-
-      await waitFor(
-        () => {
-          expect(
-            screen.getByText(/Tag must consist of lowercase letters/i),
-          ).toBeInTheDocument();
-        },
-        { timeout: 2000 },
-      );
-
-      const downButtons = screen.getAllByLabelText('Move down');
-      fireEvent.click(downButtons[1]);
-
-      expect(props.onChange).toHaveBeenCalled();
-    });
+        expect(screen.getAllByRole('textbox')[0]).toHaveValue('-broken');
+        expect(screen.getAllByRole('textbox')[1]).toHaveValue('INVALID');
+        expect(screen.getAllByRole('textbox')[2]).toHaveValue('bad--tag');
+        const errors = screen.getAllByRole('alert');
+        expect(errors).toHaveLength(3);
+        expect(errors[0]).toHaveTextContent('Tag cannot start with a hyphen');
+        expect(errors[1]).toHaveTextContent(
+          'Tag must consist of lowercase letters',
+        );
+        expect(errors[2]).toHaveTextContent(
+          'Tag cannot contain consecutive hyphens',
+        );
+      },
+    );
 
     it('does not move down when already at last position', () => {
       const props = createMockProps({
