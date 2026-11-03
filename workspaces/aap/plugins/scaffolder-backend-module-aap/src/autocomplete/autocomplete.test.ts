@@ -341,7 +341,7 @@ describe('ansible-aap:autocomplete', () => {
     ).rejects.toThrow('Failed to fetch collections');
   });
 
-  it('should log context when provided', async () => {
+  it('does not log caller context when it is provided', async () => {
     const mockOrganizations = {
       results: [
         { id: 1, name: 'Organization 1' },
@@ -367,8 +367,8 @@ describe('ansible-aap:autocomplete', () => {
       discovery: mockDiscoveryService,
     });
 
-    expect(logger.debug).toHaveBeenCalledWith(
-      'Autocomplete context for organizations:',
+    expect(logger.debug).not.toHaveBeenCalledWith(
+      expect.any(String),
       testContext,
     );
     expect(response).toEqual(mockOrganizations);
