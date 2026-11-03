@@ -21,6 +21,7 @@
     "@backstage/backend-plugin-api": "1.8.0",
     "@backstage/errors": "1.2.7",
     "@backstage/plugin-scaffolder-node": "0.13.2",
+    "@backstage/types": "1.2.2",
     "zod": "3.25.76"
   },
   "devDependencies": {
