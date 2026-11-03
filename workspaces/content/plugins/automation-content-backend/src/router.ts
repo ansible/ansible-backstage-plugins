@@ -32,6 +32,7 @@ const EE_TYPE = 'execution-environment';
 
 // Default number of items per page
 const PAGE_SIZE = 10;
+const ALLOWED_PER_PAGE = [PAGE_SIZE, 20, 50] as const;
 
 /**
  * Coerce a documentation field to an array.
@@ -252,26 +253,42 @@ export async function createRouter(
   /** Paginated listing of artifacts, filtered by optional query params. */
   const listContent = (req: RouteRequest, res: RouteResponse) => {
     const artifacts = filterArtifacts(req.query);
+    const requested = Number(req.query.per_page) || PAGE_SIZE;
+    const perPage = ALLOWED_PER_PAGE.includes(requested as any)
+      ? requested
+      : PAGE_SIZE;
     const totalItems = artifacts.length;
     const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
-    const start = (page - 1) * PAGE_SIZE;
+    const start = (page - 1) * perPage;
     const items = artifacts
-      .slice(start, start + PAGE_SIZE)
+      .slice(start, start + perPage)
       .map(a => artifactView(index, a));
+    const lastPage = Math.max(1, Math.ceil(totalItems / perPage));
 
-    let next: string | null = null;
-    if (page * PAGE_SIZE < totalItems) {
+    const buildLink = (p: number): string => {
       const params = new URLSearchParams();
       for (const [key, val] of Object.entries(req.query)) {
         if (key !== 'page' && typeof val === 'string') {
           params.set(key, val);
         }
       }
-      params.set('page', String(page + 1));
-      next = `?${params.toString()}`;
-    }
+      params.set('page', String(p));
+      return `?${params.toString()}`;
+    };
 
-    res.json({ page, pageSize: PAGE_SIZE, totalItems, next, items });
+    const next = page * perPage < totalItems ? buildLink(page + 1) : null;
+    const previous = page > 1 ? buildLink(page - 1) : null;
+
+    res.json({
+      page,
+      pageSize: perPage,
+      totalItems,
+      next,
+      previous,
+      firstPage: buildLink(1),
+      lastPage: buildLink(lastPage),
+      items,
+    });
   };
 
   /**

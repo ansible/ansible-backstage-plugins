@@ -110,7 +110,7 @@ function seedArtifacts(count: number): ContentIndex {
 }
 
 describe('GET /content pagination', () => {
-  it('returns paginated results with next link', async () => {
+  it('returns paginated results with all links', async () => {
     const index = seedArtifacts(15);
     const res = await request(await appWith(index)).get('/content');
 
@@ -120,9 +120,12 @@ describe('GET /content pagination', () => {
     expect(res.body.totalItems).toBe(15);
     expect(res.body.items).toHaveLength(10);
     expect(res.body.next).toBe('?page=2');
+    expect(res.body.previous).toBeNull();
+    expect(res.body.firstPage).toBe('?page=1');
+    expect(res.body.lastPage).toBe('?page=2');
   });
 
-  it('returns null next on the last page', async () => {
+  it('returns previous link and null next on the last page', async () => {
     const index = seedArtifacts(15);
     const res = await request(await appWith(index)).get('/content?page=2');
 
@@ -130,9 +133,29 @@ describe('GET /content pagination', () => {
     expect(res.body.page).toBe(2);
     expect(res.body.items).toHaveLength(5);
     expect(res.body.next).toBeNull();
+    expect(res.body.previous).toBe('?page=1');
   });
 
-  it('preserves filter params in the next link', async () => {
+  it.each([
+    { per_page: 10, expectedSize: 10 },
+    { per_page: 20, expectedSize: 20 },
+    { per_page: 50, expectedSize: 50 },
+    { per_page: 99, expectedSize: 10 },
+  ])(
+    'per_page=$per_page returns $expectedSize items',
+    async ({ per_page, expectedSize }) => {
+      const index = seedArtifacts(55);
+      const res = await request(await appWith(index)).get(
+        `/content?per_page=${per_page}`,
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.pageSize).toBe(expectedSize);
+      expect(res.body.items).toHaveLength(expectedSize);
+    },
+  );
+
+  it('preserves filter params in pagination links', async () => {
     const index = seedArtifacts(15);
     const res = await request(await appWith(index)).get(
       '/content?type=execution-environment',
@@ -142,7 +165,7 @@ describe('GET /content pagination', () => {
     expect(res.body.next).toContain('page=2');
   });
 
-  it('paginates the /execution-environments alias', async () => {
+  it('applies pagination to the /execution-environments alias', async () => {
     const index = seedArtifacts(15);
     const res = await request(await appWith(index)).get(
       '/execution-environments',
