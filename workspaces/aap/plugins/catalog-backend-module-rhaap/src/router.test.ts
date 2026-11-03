@@ -59,7 +59,7 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
 
 import express from 'express';
 import request from 'supertest';
-import { createRouter } from './router';
+import { createRouter as createRouterImpl } from './router';
 import { clearCIActivityCache } from './helpers';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
@@ -78,6 +78,25 @@ import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+
+type RouterOptions = Parameters<typeof createRouterImpl>[0];
+const mockEeProvider = {
+  getProviderName: () => 'EEEntityProvider',
+  connect: jest.fn(),
+  register: jest.fn(),
+  unregister: jest.fn(),
+};
+
+function createRouter(
+  options: Omit<RouterOptions, 'eeProvider'> & {
+    eeProvider?: RouterOptions['eeProvider'];
+  },
+) {
+  return createRouterImpl({
+    ...options,
+    eeProvider: options.eeProvider ?? mockEeProvider,
+  } as RouterOptions);
+}
 
 function createMockGitContentsProvider(
   overrides: {
@@ -173,7 +192,6 @@ describe('createRouter', () => {
       getIsSyncing: jest.fn().mockReturnValue(false),
       getTaskId: jest.fn().mockReturnValue('AAPJobTemplateProvider:test:run'),
     } as unknown as jest.Mocked<AAPJobTemplateProvider>;
-
 
     mockPAHCollectionProvider = {
       run: jest.fn(),

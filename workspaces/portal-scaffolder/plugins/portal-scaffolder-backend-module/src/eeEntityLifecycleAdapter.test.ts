@@ -4,7 +4,9 @@ import { EEEntityLifecycleAdapter } from './eeEntityLifecycleAdapter';
 describe('EEEntityLifecycleAdapter', () => {
   const credentials = {} as any;
   const auth = {
-    getPluginRequestToken: jest.fn().mockResolvedValue({ token: 'catalog-token' }),
+    getPluginRequestToken: jest
+      .fn()
+      .mockResolvedValue({ token: 'catalog-token' }),
     getOwnServiceCredentials: jest.fn(),
   } as any;
   const permissions = {
@@ -20,7 +22,13 @@ describe('EEEntityLifecycleAdapter', () => {
 
   it('registers with caller credentials and no service credential lookup', async () => {
     catalog.getEntityByRef.mockResolvedValue(undefined);
-    const adapter = new EEEntityLifecycleAdapter(provider, {} as any, auth, permissions, catalog);
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
 
     await adapter.registerExecutionEnvironment(
       { kind: 'Component', metadata: { name: 'my-ee' } },
@@ -43,8 +51,16 @@ describe('EEEntityLifecycleAdapter', () => {
     };
     catalog.getEntityByRef.mockResolvedValue(entity);
     catalog.getLocationByEntity.mockResolvedValue(undefined);
-    catalog.removeEntityByUid = jest.fn().mockRejectedValue(new Error('catalog failed'));
-    const adapter = new EEEntityLifecycleAdapter(provider, {} as any, auth, permissions, catalog);
+    catalog.removeEntityByUid = jest
+      .fn()
+      .mockRejectedValue(new Error('catalog failed'));
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
 
     await expect(
       adapter.unregisterExecutionEnvironment('my-ee', credentials),
