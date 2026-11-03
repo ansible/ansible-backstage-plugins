@@ -7,3 +7,5 @@ export {
 } from './hooks/FieldValidationContext';
 export { ScmSelectorExtension } from './components/ScmSelector/ScmSelectorExtension';
 export type { ScmSelectorData } from './components/ScmSelector/ScmSelectorExtension';
+export { AdditionalBuildStepsPickerExtension } from './components/AdditionalBuildStepsPicker/AdditionalBuildStepsPickerExtension';
+export type { BuildStep } from './components/AdditionalBuildStepsPicker/types';
