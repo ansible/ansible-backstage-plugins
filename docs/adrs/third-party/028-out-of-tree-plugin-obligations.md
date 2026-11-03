@@ -2,7 +2,7 @@
 
 **Audience:** `third-party` — see [ADR index](../index.md).
 
-**Status:** Proposed
+**Status:** Accepted (SDK publication, manifest schema, export pipeline and install contract pending — see Consequences → Follow-on work)
 **Date:** 2026-10-07
 **Deciders:** Portal team
 **Scope:** BU-approved third-party Automation Portal plugins whose source lives **outside** this repository.
