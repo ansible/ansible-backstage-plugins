@@ -13,18 +13,20 @@ import type { Config } from '@backstage/config';
 import { NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
-  IAAPService,
   RoleAssignments,
   User,
   Users,
   Team,
   Organization,
-  findMissingConfiguredOrganizations,
   toOrgEntityName,
   toOrgGroupRef,
   toTeamEntityName,
   toTeamGroupRef,
   toUserEntityRef,
+} from '@ansible/aap-common';
+import {
+  IAAPService,
+  findMissingConfiguredOrganizations,
 } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';

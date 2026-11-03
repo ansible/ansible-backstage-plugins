@@ -6,7 +6,7 @@ import {
   MOCK_PROJECT,
   MOCK_TOKEN,
 } from '../mock';
-import { JobTemplate } from '@ansible/backstage-rhaap-common';
+import { JobTemplate } from '@ansible/aap-common';
 import { createJobTemplate } from './aapCreateJobTemplate';
 import { MOCK_NEW_SCM_CREDENTIAL_DATA } from '../mock/mockScmCredential';
 import { mockAnsibleService } from './mockIAAPService';

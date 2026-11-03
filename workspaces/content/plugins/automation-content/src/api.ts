@@ -114,6 +114,7 @@ export interface Registry {
   /** When it was last cheaply checked for changes. */
   lastCheckedAt?: string;
   lastReconcileOk?: boolean;
+  /** Fixed failure summary — the public listing carries no detailed cause. */
   lastReconcileError?: string;
   namespaces?: string[];
   repositories?: string[];

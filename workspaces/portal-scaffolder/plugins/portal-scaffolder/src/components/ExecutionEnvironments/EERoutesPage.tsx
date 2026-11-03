@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { executionEnvironmentsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { executionEnvironmentsViewPermission } from '@ansible/aap-common/permissions';
 
 import { EENotificationBoundary } from './EENotificationBoundary';
 import { EETabs } from './TabviewPage';

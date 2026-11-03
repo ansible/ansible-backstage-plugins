@@ -36,6 +36,8 @@ import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
+} from '@ansible/aap-common/permissions';
+import {
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
 } from '@ansible/backstage-rhaap-common';
@@ -542,7 +544,11 @@ export function createRouter(options: {
             ));
           } catch (verifyError) {
             logger.warn(
-              `removeEntityByUid failed (${formatUnknownError(uidError)}) and verification also failed (${formatUnknownError(verifyError)})`,
+              `removeEntityByUid failed (${formatUnknownError(
+                uidError,
+              )}) and verification also failed (${formatUnknownError(
+                verifyError,
+              )})`,
             );
             response.status(500).json({
               error: 'Failed to unregister Execution Environment',

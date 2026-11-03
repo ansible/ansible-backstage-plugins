@@ -16,7 +16,7 @@ import {
   User,
   IJobTemplate,
   ISurvey,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/aap-common';
 import type { RepositoryInfo } from '@ansible/backstage-rhaap-common';
 import type {
   DiscoveredGalaxyFile,
