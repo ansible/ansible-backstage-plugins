@@ -217,7 +217,7 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : body?.items ?? [];
+    const entities = Array.isArray(body) ? body : (body?.items ?? []);
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
