@@ -128,7 +128,6 @@ export const scaffolderModuleAnsible = createBackendModule({
                 ansibleService,
                 auth,
                 discovery,
-                includeCollections: true,
               }),
           });
         });
