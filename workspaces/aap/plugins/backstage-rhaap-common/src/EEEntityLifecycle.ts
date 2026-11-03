@@ -26,12 +26,14 @@ export interface EEEntityLifecycleService {
   ): Promise<EELifecycleCleanupResult>;
 }
 
-export const eeEntityProviderServiceRef = createServiceRef<EEEntityProviderService>({
-  id: 'ansible.ee-entity-provider',
-  scope: 'root',
-});
+export const eeEntityProviderServiceRef =
+  createServiceRef<EEEntityProviderService>({
+    id: 'ansible.ee-entity-provider',
+    scope: 'root',
+  });
 
-export const eeEntityLifecycleServiceRef = createServiceRef<EEEntityLifecycleService>({
-  id: 'ansible.ee-entity-lifecycle',
-  scope: 'plugin',
-});
+export const eeEntityLifecycleServiceRef =
+  createServiceRef<EEEntityLifecycleService>({
+    id: 'ansible.ee-entity-lifecycle',
+    scope: 'plugin',
+  });
