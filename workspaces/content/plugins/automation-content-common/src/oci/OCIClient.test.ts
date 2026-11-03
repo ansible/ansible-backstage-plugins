@@ -636,9 +636,11 @@ describe('SSRF refusals', () => {
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('refusing auth realm with protocol'),
     );
-    expect(seen.every(r => r.url.startsWith('https://mock.registry'))).toBe(
-      true,
-    );
+    // Compare origins, not prefixes: a plain startsWith would also accept
+    // https://mock.registry.attacker.example as "staying on the mock host".
+    expect(
+      seen.every(r => new URL(r.url).origin === 'https://mock.registry'),
+    ).toBe(true);
   });
 
   it('refuses a plaintext auth realm for an HTTPS registry', async () => {
