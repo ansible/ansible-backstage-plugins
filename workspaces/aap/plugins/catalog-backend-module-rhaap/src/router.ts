@@ -192,7 +192,9 @@ export function createRouter(options: {
     } catch (error) {
       const message = formatUnknownError(error);
       logger.error(`Failed to register Execution Environment: ${message}`);
-      response.status(500).json({ error: `Failed to register Execution Environment: ${message}` });
+      response.status(500).json({
+        error: `Failed to register Execution Environment: ${message}`,
+      });
     }
   });
 
@@ -202,10 +204,16 @@ export function createRouter(options: {
     });
     const name = decodeURIComponent(request.params.name).trim().toLowerCase();
     if (!EE_NAME.test(name)) {
-      response.status(400).json({ error: 'Invalid execution environment name.' });
+      response
+        .status(400)
+        .json({ error: 'Invalid execution environment name.' });
       return;
     }
-    const entityRef = stringifyEntityRef({ kind: 'Component', namespace: 'default', name });
+    const entityRef = stringifyEntityRef({
+      kind: 'Component',
+      namespace: 'default',
+      name,
+    });
     const { token } = await auth.getPluginRequestToken({
       onBehalfOf: credentials,
       targetPluginId: 'catalog',
@@ -216,8 +224,13 @@ export function createRouter(options: {
       response.status(204).send();
       return;
     }
-    if (entity.kind !== 'Component' || entity.spec?.type !== 'execution-environment') {
-      response.status(400).json({ error: 'Refusing to delete non-execution-environment entity' });
+    if (
+      entity.kind !== 'Component' ||
+      entity.spec?.type !== 'execution-environment'
+    ) {
+      response
+        .status(400)
+        .json({ error: 'Refusing to delete non-execution-environment entity' });
       return;
     }
     const [decision] = await permissions.authorize(
@@ -225,11 +238,16 @@ export function createRouter(options: {
       { credentials },
     );
     if (decision.result !== AuthorizeResult.ALLOW) {
-      response.status(403).json({ error: 'Forbidden: insufficient permissions to delete entity' });
+      response.status(403).json({
+        error: 'Forbidden: insufficient permissions to delete entity',
+      });
       return;
     }
     try {
-      const location = await catalogClient.getLocationByEntity(entityRef, catalogOpts);
+      const location = await catalogClient.getLocationByEntity(
+        entityRef,
+        catalogOpts,
+      );
       if (location?.id) {
         const serviceCredentials = await auth.getOwnServiceCredentials();
         const serviceToken = await auth.getPluginRequestToken({
@@ -239,16 +257,27 @@ export function createRouter(options: {
         const { items } = await catalogClient.getEntities(
           {
             filter: {
-              'metadata.annotations.backstage.io/managed-by-origin-location':
-                `${location.type}:${location.target}`,
+              'metadata.annotations.backstage.io/managed-by-origin-location': `${location.type}:${location.target}`,
             },
             fields: ['kind', 'metadata.name', 'metadata.namespace'],
           },
           { token: serviceToken.token },
         );
         if (items.length > 1) {
-          await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
-          response.status(200).json({ success: true, mode: 'entity-transient' });
+          if (!entity.metadata?.uid) {
+            response.status(409).json({
+              error:
+                'Refusing to remove shared catalog location with colocated entities',
+            });
+            return;
+          }
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+          response
+            .status(200)
+            .json({ success: true, mode: 'entity-transient' });
           return;
         }
         await catalogClient.removeLocationById(location.id, catalogOpts);
@@ -256,7 +285,8 @@ export function createRouter(options: {
         return;
       }
       await eeProvider.unregister(name);
-      if (entity.metadata?.uid) await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
+      if (entity.metadata?.uid)
+        await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
       response.status(200).json({ success: true, mode: 'provider' });
     } catch (error) {
       response.status(500).json({ error: formatUnknownError(error) });
