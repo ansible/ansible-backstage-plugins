@@ -326,4 +326,4 @@ Look for:
 - [Job Template Synchronization](job-templates.md) — catalog import and entity shape
 - [Auth Provider](../plugins/auth.md) — RHAAP OAuth setup
 - [External Authentication](external-authentication.md) — full SSO configuration
-- [Self-Service Portal](../plugins/self-service.md) — plugin overview
+- [Portal scaffolder](../plugins/portal-scaffolder.md) — plugin overview

@@ -456,4 +456,4 @@ When upgrading from older versions:
 - [Catalog Backend Module](../plugins/catalog.md) - Main catalog synchronization
 - [Auth Provider](../plugins/auth.md) - AAP OAuth2 authentication setup
 - [Scaffolder Actions](../plugins/scaffolder.md) - Additional scaffolder actions
-- [Self-Service Portal](../plugins/self-service.md) - Enhanced UI for job templates
+- [Portal scaffolder](../plugins/portal-scaffolder.md) - Enhanced UI for job templates
