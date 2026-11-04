@@ -22,6 +22,8 @@ import type {
   ResolvedArtifact,
 } from '@ansible/automation-content-common';
 
+import { Knex } from 'knex';
+
 /** What the index concluded about an artifact, and why. */
 export interface IdentifiedType {
   type: string;
@@ -163,6 +165,27 @@ export function itemKey(artifactRef: string, fqcn: string): string {
  * In-memory is deliberate for the PoC: manifests are immutable by digest, so the index
  * is a pure function of what the registries hold and can always be rebuilt.
  */
+export class ContentIndexDB {
+  private readonly registries = new Map<string, RegistryState>();
+  private readonly clients = new Map<string, OCIClient>();
+  private db: Knex;
+
+  constructor(registries: RegistryConnection[], db: Knex) {
+    this.db = db;
+
+    for (const reg of registries) {
+      this.registries.set(reg.name, { connection: reg });
+      this.clients.set(reg.name, new OCIClient(reg));
+    }
+  }
+
+  listRegistries(): RegistryState[] {
+    return [...this.registries.values()];
+  }
+
+  // listArtifacts(): IndexedArtifact[] {}
+}
+
 export class ContentIndex {
   private readonly registries = new Map<string, RegistryState>();
   private readonly clients = new Map<string, OCIClient>();

@@ -2,13 +2,19 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
-import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
+import {
+  ContentIndex,
+  ContentIndexDB,
+  IndexedArtifact,
+  IndexedItem,
+} from './ContentIndex';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
   index: ContentIndex;
   logger: LoggerService;
   httpAuth: HttpAuthService;
+  db: ContentIndexDB;
 }
 
 /**
@@ -135,22 +141,19 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger } = options;
+  const { db, index, logger } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
-    // A liveness probe's answer: nothing else. The route is unauthenticated
-    // (#977), so it must not describe registries, cache state, or failure
-    // causes — see RECONCILE_FAILURE_SUMMARY for where those live now.
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', registries: db.listRegistries() });
   });
 
   // -- Registries ---------------------------------------------------------
 
   router.get('/registries', (_req, res) => {
     res.json({
-      items: index.listRegistries().map(state => {
+      items: db.listRegistries().map(state => {
         const reconcile = index.reconcileStateFor(state.connection.name);
         return {
           name: state.connection.name,

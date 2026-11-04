@@ -1,11 +1,17 @@
 import {
   coreServices,
   createBackendPlugin,
+  resolvePackagePath,
 } from '@backstage/backend-plugin-api';
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
-import { ContentIndex } from './ContentIndex';
+import { ContentIndex, ContentIndexDB } from './ContentIndex';
 import { createRouter } from './router';
+
+const migrationsDir = resolvePackagePath(
+  '@ansible/plugin-automation-content-backend',
+  'migrations',
+);
 
 /**
  * The automation content API.
@@ -20,12 +26,27 @@ export const automationContentPlugin = createBackendPlugin({
     env.registerInit({
       deps: {
         config: coreServices.rootConfig,
+        database: coreServices.database,
         logger: coreServices.logger,
         httpRouter: coreServices.httpRouter,
         httpAuth: coreServices.httpAuth,
         scheduler: coreServices.scheduler,
       },
-      async init({ config, logger, httpRouter, httpAuth, scheduler }) {
+      async init({
+        config,
+        database,
+        logger,
+        httpRouter,
+        httpAuth,
+        scheduler,
+      }) {
+        const knex = await database.getClient();
+
+        if (!database.migrations?.skip) {
+          await knex.migrate.latest({
+            directory: migrationsDir,
+          });
+        }
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
         const index = new ContentIndex(
@@ -39,8 +60,11 @@ export const automationContentPlugin = createBackendPlugin({
           // never disagree about what an artifact is.
           defaultContentTypes(),
         );
+        const indexDB = new ContentIndexDB(registries, knex);
 
-        httpRouter.use(await createRouter({ index, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({ index, db: indexDB, logger, httpAuth }),
+        );
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
