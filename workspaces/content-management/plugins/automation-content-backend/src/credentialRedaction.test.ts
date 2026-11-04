@@ -225,6 +225,23 @@ async function appWith(store: ContentStore, logs: string[] = []) {
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
       } as never,
+      // Reads are authorized and the user is a superuser, so every route
+      // under test is reachable; the gating itself has coverage in
+      // router.test.ts.
+      permissions: {
+        authorize: async () => [{ result: 'ALLOW' as const }],
+      } as never,
+      userInfo: {
+        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
+      } as never,
+      auth: {
+        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
+      } as never,
+      catalogClient: {
+        getEntityByRef: async () => ({
+          metadata: { annotations: { 'aap.platform/is_superuser': 'true' } },
+        }),
+      } as never,
     }),
   );
   return app;

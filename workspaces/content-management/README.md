@@ -4,7 +4,7 @@ Ansible automation content management for Red Hat Developer Hub / Backstage —
 discovery, governance, trust and lifecycle for execution environments,
 collections and future content types, over any OCI-compliant registry.
 
-Mounted in the Automation Portal at **`/automation-content`**.
+Mounted in the Automation Portal at **`/content`**.
 
 > **Status: proof of concept, under active development.** Interfaces, config
 > shape, API routes and entity shape all still move without notice. Nothing

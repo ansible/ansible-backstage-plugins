@@ -1,0 +1,35 @@
+# Local test record; no build, publication, signing, or producer association is asserted.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: networking-ee
+  namespace: default
+  title: Networking EE
+  description: Execution environment definition for network automation.
+  tags:
+    - ansible
+    - networking
+spec:
+  type: execution-environment
+  lifecycle: experimental
+  owner: group:default/guests
+  definition: |
+    version: 3
+    images:
+      base_image:
+        name: localhost:8445/demo/utopia-ee:latest
+    dependencies:
+      galaxy:
+        collections:
+          - name: ansible.netcommon
+          - name: ansible.utils
+  readme: |
+    # Networking EE
+
+    This definition uses the Utopia execution environment as its base and adds
+    collections for network automation:
+
+    - `ansible.netcommon`: shared network automation modules and plugins.
+    - `ansible.utils`: utilities for managing and validating network data.
+
+    The definition uses Ansible Builder version 3 syntax.

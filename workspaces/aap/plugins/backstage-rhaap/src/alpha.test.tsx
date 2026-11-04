@@ -21,6 +21,14 @@ jest.mock('./components/LearnContent', () => ({
   EntityLearnContent: () => <div>Ansible learn content</div>,
 }));
 
+// The page route's loader lazily imports this module. Compile it before the
+// tests run so the first render resolves from the module registry instead of
+// racing the default 1-second query deadline on cold caches, where jsdom must
+// still transform the (duplicated) @backstage/ui trees it pulls in.
+beforeAll(async () => {
+  await import('./components/AnsiblePage');
+}, 60_000);
+
 describe('native Ansible plugin', () => {
   it.each([
     ['/ansible', 'Ansible overview content', 'Overview'],
