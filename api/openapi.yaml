@@ -499,6 +499,13 @@ components:
           examples: ['local-registry/demo/network-ee@sha256:05abb921']
         registry: { type: string }
         repository: { type: string }
+        lastReconciledAt:
+          type: string
+          format: date-time
+          description: When the owning registry was last read, successfully or not.
+        lastReconcileOk:
+          type: boolean
+          description: Whether the owning registry's last read succeeded.
         digest:
           type: string
           description: Immutable content address. Governance and identity key on this, never on a tag.
@@ -2936,9 +2943,16 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [status, discovered, retainedPrevious]
                 properties:
-                  status: { type: string }
+                  status: { type: string, enum: [completed, failed] }
                   discovered: { type: integer }
+                  retainedPrevious:
+                    type: boolean
+                    description: Whether a failed sync retained the previous index.
+                  lastReconciledAt:
+                    type: string
+                    format: date-time
                   error:
                     type: string
                     description: Detailed failure cause; this route requires authentication.

@@ -1,40 +1,49 @@
 import {
-  configApiRef,
-  createApiFactory,
   createPlugin,
   createRoutableExtension,
-  discoveryApiRef,
-  fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { AutomationContentClient, automationContentApiRef } from './api';
-import { rootRouteRef } from './routes';
+import { automationContentApiFactory } from './apis';
+import { collectionsRouteRef, eeRouteRef, rootRouteRef } from './routes';
 
 export const automationContentPlugin = createPlugin({
   id: 'automation-content',
   routes: {
     root: rootRouteRef,
   },
-  apis: [
-    createApiFactory({
-      api: automationContentApiRef,
-      deps: {
-        discoveryApi: discoveryApiRef,
-        fetchApi: fetchApiRef,
-        configApi: configApiRef,
-      },
-      factory: ({ discoveryApi, fetchApi }) =>
-        new AutomationContentClient({ discoveryApi, fetchApi }),
-    }),
-  ],
+  apis: [automationContentApiFactory],
 });
+
+/** Legacy catalog mount point also registers execution environment navigation. */
+export const AutomationContentEEPage = automationContentPlugin.provide(
+  createRoutableExtension({
+    name: 'AutomationContentEEPage',
+    component: () =>
+      import('./components/ExecutionEnvironments/EERoutesPage').then(
+        m => m.EERoutesPage,
+      ),
+    mountPoint: eeRouteRef,
+  }),
+);
+
+/** Legacy catalog mount point also registers collection navigation. */
+export const AutomationContentCollectionsPage = automationContentPlugin.provide(
+  createRoutableExtension({
+    name: 'AutomationContentCollectionsPage',
+    component: () =>
+      import('./components/CollectionsCatalog/CollectionsRoutesPage').then(
+        m => m.CollectionsRoutesPage,
+      ),
+    mountPoint: collectionsRouteRef,
+  }),
+);
 
 /** Mounted by `dynamicRoutes` config — by default at /automation-content. */
 export const AutomationContentPage = automationContentPlugin.provide(
   createRoutableExtension({
     name: 'AutomationContentPage',
     component: () =>
-      import('./components/AutomationContentPage').then(
-        m => m.AutomationContentPage,
+      import('./components/AutomationContentRoutes').then(
+        m => m.AutomationContentRoutes,
       ),
     mountPoint: rootRouteRef,
   }),

@@ -22,11 +22,8 @@ import {
   type RegistryConnection,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
-// Test infrastructure, deliberately outside the barrel: the generator must
-// never reach a published bundle. The deep import resolves to the same
-// transformed source every other import of this package uses.
-// eslint-disable-next-line @backstage/no-forbidden-package-imports
-import { generateTlsTestFixtures } from '@ansible/automation-content-common/src/testing/tlsCertificates';
+// Test-only entry point, kept outside the package's runtime barrel.
+import { generateTlsTestFixtures } from '@ansible/automation-content-common/tlsCertificates';
 import { ContentIndex } from './ContentIndex';
 
 const EE_LABEL = 'ansible-execution-environment';

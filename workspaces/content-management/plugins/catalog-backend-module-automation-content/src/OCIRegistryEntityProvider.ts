@@ -18,6 +18,7 @@ import {
   Resolution,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
+  isHttpUrl,
   BackendCapabilities,
 } from '@ansible/automation-content-common';
 import {
@@ -609,7 +610,8 @@ export class OCIRegistryEntityProvider implements EntityProvider {
             ...(counts.edaPlugins ? ['eda'] : []),
             ...(counts.rulebooks ? ['rulebooks'] : []),
           ],
-          ...(collection.repository
+          // Registry-controlled metadata must not become an executable catalog link.
+          ...(isHttpUrl(collection.repository)
             ? { links: [{ url: collection.repository, title: 'Source' }] }
             : {}),
         },
