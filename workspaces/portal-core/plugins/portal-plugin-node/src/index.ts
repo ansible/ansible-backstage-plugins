@@ -64,3 +64,6 @@ export type {
 
 // Shared server-side SCM clients.
 export * from './ScmClient';
+
+// EE catalog lifecycle contracts shared with catalog providers.
+export * from './eeEntityLifecycle';
