@@ -13,10 +13,11 @@
     "build": "backstage-cli package build",
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-plugin-node"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/portal-plugin-node"
   },
   "dependencies": {
-    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/portal-plugin-node": "workspace:^",
+    "@ansible/portal-scaffolder-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-client": "1.16.1",

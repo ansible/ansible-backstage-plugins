@@ -6,7 +6,7 @@ import {
 import type {
   Collections,
   SourceVersionDetail,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/portal-scaffolder-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
 
