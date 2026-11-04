@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 import { mockServices } from '@backstage/backend-test-utils';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { Readable } from 'node:stream';
+import fetch from 'node-fetch';
 import { BackendServiceAPI } from './api';
 
 jest.mock('node-fetch');
@@ -23,6 +28,50 @@ describe('BackendServiceAPI', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('sets a request timeout for creator-service POSTs', async () => {
+    (fetch as unknown as jest.Mock).mockResolvedValue({ ok: true } as any);
+    const api = new BackendServiceAPI();
+
+    const controller = new AbortController();
+    await (api as any).sendPostRequest(
+      'http://localhost/creator',
+      {},
+      controller.signal,
+    );
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost/creator',
+      expect.objectContaining({
+        method: 'POST',
+        timeout: 60_000,
+        signal: controller.signal,
+      }),
+    );
+  });
+
+  it('does not follow an existing archive symlink when downloading', async () => {
+    const workspacePath = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'scaffolder-'),
+    );
+    const outsidePath = path.join(workspacePath, 'outside.txt');
+    const archivePath = path.join(workspacePath, 'archive.tar');
+    await fs.writeFile(outsidePath, 'original');
+    await fs.symlink(outsidePath, archivePath);
+
+    const api = new BackendServiceAPI();
+    await expect(
+      (api as any).downloadFile(
+        { body: Readable.from('replacement') },
+        mockLogger,
+        workspacePath,
+        'archive.tar',
+      ),
+    ).rejects.toThrow('Failed to download file');
+
+    expect(await fs.readFile(outsidePath, 'utf8')).toBe('original');
+    await fs.rm(workspacePath, { recursive: true, force: true });
   });
 
   it('tests playbook project call with V2 API success', async () => {

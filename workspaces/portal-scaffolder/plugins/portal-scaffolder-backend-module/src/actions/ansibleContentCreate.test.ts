@@ -77,6 +77,21 @@ describe('ansibleContentCreate', () => {
   });
 
   describe('ansibleCreatorRun', () => {
+    it('rejects unsupported application types before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          '/tmp/test-workspace',
+          'devcontainer',
+          logger,
+          '',
+          'namespace',
+          'collection',
+          'http://localhost:8000/',
+        ),
+      ).rejects.toThrow('Unsupported application type: devcontainer');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
+    });
+
     let mockBackendServiceAPI: jest.Mocked<BackendServiceAPI>;
 
     beforeEach(() => {
