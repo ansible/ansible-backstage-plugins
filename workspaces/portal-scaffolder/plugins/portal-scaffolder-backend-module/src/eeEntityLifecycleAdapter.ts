@@ -15,11 +15,11 @@ import type {
   EEEntityLifecycleService,
   EEEntityProviderService,
   EELifecycleCleanupResult,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/portal-plugin-node';
 import {
   eeEntityLifecycleServiceRef,
   eeEntityProviderServiceRef,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/portal-plugin-node';
 import {
   coreServices,
   createServiceFactory,

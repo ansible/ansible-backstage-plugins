@@ -214,8 +214,10 @@ Two modules replace one. The EE lifecycle keeps existing registration and deleti
 
 | Item                                                                | Notes                                    |
 | ------------------------------------------------------------------- | ---------------------------------------- |
-| Extract `ScmClientFactory` to a shared or portal-scaffolder package | Or duplicate if scope is small enough    |
-| Drop `backstage-rhaap-common` from portal-scaffolder `package.json` | Achieves full independence from AAP code |
+| Move `ScmClientFactory` and its SCM client implementation to `@ansible/portal-plugin-node` | Shared server-side SDK already used by portal backend modules |
+| Move EE lifecycle service refs and contracts to `@ansible/portal-plugin-node` | The Phase 1 implementation also depended on these contracts from `backstage-rhaap-common`; keep compatibility re-exports there for existing consumers |
+| Use Portal scaffolder common types for collection autocomplete | `Collections` and `SourceVersionDetail` are Portal-facing contracts, not AAP client APIs |
+| Drop `backstage-rhaap-common` from portal-scaffolder `package.json` | Achieves package-level independence from AAP common; `createEEDefinition.ts` still reads transitional AAP/catalog config as documented in §3.2 |
 
 ---
 

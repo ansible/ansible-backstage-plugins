@@ -10,7 +10,7 @@ import {
   parseUploadedFileContent,
 } from './utils/utils';
 import { LoggerService } from '@backstage/backend-plugin-api';
-import type { EEEntityLifecycleService } from '@ansible/backstage-rhaap-common';
+import type { EEEntityLifecycleService } from '@ansible/portal-plugin-node';
 import { Config } from '@backstage/config';
 import { BackendServiceAPI } from './utils/api';
 import {

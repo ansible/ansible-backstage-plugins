@@ -3,7 +3,7 @@ import {
   createBackendModule,
 } from '@backstage/backend-plugin-api';
 import type { ExtensionPoint } from '@backstage/backend-plugin-api';
-import { eeEntityLifecycleServiceRef } from '@ansible/backstage-rhaap-common';
+import { eeEntityLifecycleServiceRef } from '@ansible/portal-plugin-node';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';

@@ -18,7 +18,7 @@ jest.mock('node:crypto', () => ({
   randomBytes: jest.fn(),
 }));
 
-jest.mock('@ansible/backstage-rhaap-common', () => ({
+jest.mock('@ansible/portal-plugin-node', () => ({
   ScmClientFactory: jest.fn(),
 }));
 
@@ -26,7 +26,7 @@ import { randomBytes } from 'node:crypto';
 import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { prepareForPublishAction } from './prepareForPublish';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { ScmClientFactory } from '@ansible/portal-plugin-node';
 
 const mockRandomBytes = randomBytes as jest.MockedFunction<
   (size: number) => Buffer
