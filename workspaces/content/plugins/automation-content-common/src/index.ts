@@ -11,6 +11,7 @@
 
 export * from './oci/types';
 export { OCIClient, nextLink } from './oci/OCIClient';
+export { logSafeText } from './oci/logSafeText';
 export type {
   FetchLike,
   OCIClientOptions,

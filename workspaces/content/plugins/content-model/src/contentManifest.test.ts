@@ -2,6 +2,7 @@ import {
   AnsibleContentManifest,
   CONTENT_MANIFEST_ARTIFACT_TYPE,
   isContentManifest,
+  normaliseContentManifest,
   parseCollectionsLabel,
   summariseManifest,
 } from './contentManifest';
@@ -208,5 +209,54 @@ describe('artifact type', () => {
     expect(CONTENT_MANIFEST_ARTIFACT_TYPE).toBe(
       'application/vnd.ansible.content-manifest.v1+json',
     );
+  });
+});
+
+describe('normaliseContentManifest', () => {
+  /** The fixture's first collection, with the repository field under test. */
+  function collectionWithRepository(repository?: string) {
+    return { ...manifest().collections[0], repository };
+  }
+
+  it('keeps a repository that is an http(s) URL', () => {
+    const normalised = normaliseContentManifest({
+      ...manifest(),
+      collections: [
+        collectionWithRepository(
+          'https://github.com/ansible-cisco/ansible.network',
+        ),
+      ],
+    });
+    expect(normalised.collections[0].repository).toBe(
+      'https://github.com/ansible-cisco/ansible.network',
+    );
+  });
+
+  /**
+   * The repository string is chosen by whoever pushed the image, and it
+   * becomes a clickable "Source" link on the collection entity. Anything
+   * that is not an http(s) URL must be dropped at this read boundary,
+   * never trusted at the sinks.
+   */
+  it.each([
+    // The literal is the attack payload under test, not a script URL in
+    // production code; the lint rule exists for the latter.
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    'data:text/html,x',
+    '//evil.example/x',
+    'ftp://example.com/repo',
+    'not a url',
+  ])('drops a repository that is not an http(s) URL: %s', repository => {
+    const normalised = normaliseContentManifest({
+      ...manifest(),
+      collections: [collectionWithRepository(repository)],
+    });
+    expect(normalised.collections[0].repository).toBeUndefined();
+  });
+
+  it('leaves an absent repository absent', () => {
+    const normalised = normaliseContentManifest(manifest());
+    expect(normalised.collections[0].repository).toBeUndefined();
   });
 });

@@ -3,6 +3,7 @@ import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
+import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
   index: ContentIndex;
@@ -694,6 +695,22 @@ export async function createRouter(
 
   // -- Configuration as code ----------------------------------------------
 
+  /**
+   * Render an arbitrary request value for an error message without ever
+   * throwing on it. The whole point of this endpoint is to judge malformed
+   * documents, so the error paths must survive whatever a caller sends —
+   * an object whose `toString` is null would otherwise crash the handler.
+   */
+  function describeValue(value: unknown): string {
+    if (value === undefined || value === null) return 'nothing';
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value) ?? 'nothing';
+    } catch {
+      return 'an unprintable value';
+    }
+  }
+
   router.post('/config/validate', (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];
@@ -702,15 +719,17 @@ export async function createRouter(
     if (body.apiVersion !== 'content.ansible.com/v1') {
       errors.push({
         path: 'apiVersion',
-        message: `Expected content.ansible.com/v1, got ${
-          body.apiVersion ?? 'nothing'
-        }`,
+        message: `Expected content.ansible.com/v1, got ${describeValue(
+          body.apiVersion,
+        )}`,
       });
     }
     if (body.kind !== 'ContentConfiguration') {
       errors.push({
         path: 'kind',
-        message: `Expected ContentConfiguration, got ${body.kind ?? 'nothing'}`,
+        message: `Expected ContentConfiguration, got ${describeValue(
+          body.kind,
+        )}`,
       });
     }
     if (!Array.isArray(body.registries)) {
@@ -719,6 +738,11 @@ export async function createRouter(
       const seen = new Set<string>();
       body.registries.forEach((entry: unknown, i: number) => {
         const at = `registries[${i}]`;
+        // Each entry in `registries` should be a settings object like
+        // `{ name: ..., url: ... }`. If it is anything else — a bare
+        // string, a number, null — that is a mistake in the document being
+        // checked, and telling the user what is wrong is this endpoint's
+        // entire job. It must never crash on the input it exists to judge.
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
           errors.push({ path: at, message: 'Must be an object' });
           return;
@@ -726,8 +750,6 @@ export async function createRouter(
         const registry = entry as Record<string, unknown>;
         if (!registry.name)
           errors.push({ path: `${at}.name`, message: 'Required' });
-        if (!registry.url)
-          errors.push({ path: `${at}.url`, message: 'Required' });
 
         if (typeof registry.name === 'string') {
           if (seen.has(registry.name)) {
@@ -737,6 +759,26 @@ export async function createRouter(
             });
           }
           seen.add(registry.name);
+        }
+
+        // The URL must be text. A number or a nested object here is a
+        // mistake in the document, not a server error: report it and keep
+        // checking the rest of the entry.
+        if (typeof registry.url !== 'string' || registry.url === '') {
+          errors.push({
+            path: `${at}.url`,
+            message: 'Required and must be a string',
+          });
+        } else {
+          // The same registry-URL rule the loader enforces at startup: a
+          // registry URL this endpoint approves can never prevent the
+          // backend from starting. The guarantee covers registry URLs
+          // only; other fields get advisory warnings here and can still
+          // fail loading with a type error.
+          const reason = registryUrlError(registry.url);
+          if (reason) {
+            errors.push({ path: `${at}.url`, message: `Invalid: ${reason}` });
+          }
         }
 
         const hasRepos =
@@ -793,13 +835,6 @@ export async function createRouter(
               'Credentials will be sent to the configured host rather than the realm ' +
               'the registry advertises. Intended for registries advertising an ' +
               'unreachable token endpoint.',
-          });
-        }
-        const url = typeof registry.url === 'string' ? registry.url : '';
-        if (url && !/^https?:\/\//.test(url)) {
-          errors.push({
-            path: `${at}.url`,
-            message: 'Must include a scheme',
           });
         }
       });

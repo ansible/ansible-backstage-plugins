@@ -11,7 +11,13 @@ export interface Config {
         registries: Array<{
           /** Stable identifier, used in entity annotations. */
           name: string;
-          /** Base URL including scheme. */
+          /**
+           * Base endpoint URL. Must be an absolute http(s) URL with no embedded
+           * credentials, query, or fragment — anything else fails backend
+           * startup with an error naming this registry. Surrounding whitespace
+           * and scheme case are normalized to canonical form. Credentials go in
+           * the `auth` fields, never the URL.
+           */
           url: string;
           /** Namespaces to enumerate. Requires registry catalog-listing support. */
           namespaces?: string[];

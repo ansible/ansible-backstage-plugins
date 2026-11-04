@@ -915,7 +915,7 @@ describe('the policy covers every request the client issues', () => {
     const tags = client.listTags('demo/ee');
     expect((await tags.next()).value).toBe('a');
     expect(await failureOf(() => tags.next())).toMatch(
-      /not the configured registry/,
+      /away from the configured registry/,
     );
     expect(
       fetched.some(url => originOf(url) === 'http://attacker.example'),

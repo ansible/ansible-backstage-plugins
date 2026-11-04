@@ -397,7 +397,13 @@ components:
       required: [name, url]
       properties:
         name: { type: string }
-        url: { type: string }
+        url:
+          type: string
+          description: |
+            Absolute http(s) URL of the registry, with no embedded credentials,
+            query, or fragment. Validated at backend startup and by
+            POST /config/validate; valid URLs are stored in canonical form.
+            A registry may be mounted under a sub-path (https://host/prefix).
         lastReconciledAt:
           type: string
           format: date-time

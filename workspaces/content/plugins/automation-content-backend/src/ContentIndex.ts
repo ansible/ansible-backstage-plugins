@@ -9,6 +9,7 @@ import {
   DigestCacheStats,
   ImageManifest,
   MemoryDigestCache,
+  logSafeText,
   OCIClient,
   RegistryConnection,
   UNKNOWN_IMAGE_TYPE,
@@ -495,14 +496,17 @@ export class ContentIndex {
     const failures: string[] = [];
 
     for (const repository of repositories) {
+      // The repository name is registry-controlled; control characters are
+      // stripped so a hostile name cannot forge additional log lines.
+      const repo = logSafeText(repository);
       try {
-        this.logger.info(`[${name}] scanning ${repository}`);
+        this.logger.info(`[${name}] scanning ${repo}`);
         found.push(...(await this.scanRepository(name, repository, client)));
         this.logger.info(
-          `[${name}] scanned ${repository}: ${found.length} artifact(s)`,
+          `[${name}] scanned ${repo}: ${found.length} artifact(s)`,
         );
       } catch (error) {
-        failures.push(`${repository}: ${errorText(error)}`);
+        failures.push(`${repo}: ${errorText(error)}`);
         // A failed read keeps the previous view for that repository: a
         // transient 5xx, timeout or 429 must not read as "its artifacts are
         // gone". Total failure is handled below and keeps the whole registry.
@@ -511,7 +515,7 @@ export class ContentIndex {
         );
         found.push(...retained);
         this.logger.warn(
-          `[${name}] ${repository}: ${errorText(error)}${
+          `[${name}] ${repo}: ${errorText(error)}${
             retained.length
               ? `; keeping ${retained.length} previously known artifact(s)`
               : ''
@@ -639,7 +643,7 @@ export class ContentIndex {
       }
     } catch (error) {
       this.logger.debug(
-        `[${registry}] ${repository}@${digest}: ${String(error)}`,
+        `[${registry}] ${logSafeText(repository)}@${digest}: ${String(error)}`,
       );
     }
 

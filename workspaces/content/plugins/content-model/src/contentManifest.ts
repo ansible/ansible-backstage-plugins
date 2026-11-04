@@ -233,6 +233,22 @@ export function isContentManifest(
  * checks only the fields consumers branch on, so normalisation happens here
  * at the read boundary rather than as `?? []` in every consumer.
  */
+/**
+ * Only http(s) URLs may survive in link-valued fields. The manifest blob is
+ * publisher-controlled: whoever pushed the image chose these strings, and a
+ * `javascript:` or off-origin payload must not end up as a clickable link on
+ * a collection entity.
+ */
+function isHttpUrl(value: string | undefined): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function normaliseContentManifest(
   manifest: AnsibleContentManifest,
 ): AnsibleContentManifest {
@@ -245,6 +261,11 @@ export function normaliseContentManifest(
       playbooks: collection.playbooks ?? [],
       edaPlugins: collection.edaPlugins ?? [],
       rulebooks: collection.rulebooks ?? [],
+      // `repository` becomes a clickable "Source" link on collection
+      // entities and a URL in API responses. Anything that is not an
+      // http(s) URL is dropped here, at the read boundary every consumer
+      // passes through, rather than trusted at each sink.
+      ...(isHttpUrl(collection.repository) ? {} : { repository: undefined }),
     })),
   };
 }
