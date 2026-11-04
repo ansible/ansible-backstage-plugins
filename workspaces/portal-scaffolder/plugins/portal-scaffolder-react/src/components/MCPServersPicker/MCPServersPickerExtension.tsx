@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
 import { Typography, Box, Paper, Grid } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
 import InfoIcon from '@material-ui/icons/Info';

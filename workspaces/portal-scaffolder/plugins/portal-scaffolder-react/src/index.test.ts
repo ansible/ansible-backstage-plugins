@@ -10,6 +10,7 @@ describe('public exports', () => {
     'ScmSelectorExtension',
     'AdditionalBuildStepsPickerExtension',
     'PackagesPickerExtension',
+    'MCPServersPickerExtension',
     'parseMarkdownLinks',
   ])('exports %s for consuming hosts', name => {
     expect(scaffolderReact).toHaveProperty(name, expect.any(Function));
