@@ -73,7 +73,7 @@ workspaces/
     └── scaffolder-backend-module-content-development/   # creator CLI / ADT actions + content autocomplete
 ```
 
-**Workspace note.** The meeting separates content management from content development and moves creator CLI / ADT authoring workflows into content development. “Scaffolder” remains the Backstage term for template creation; it does not define the workspace that owns every action. The backend module follows functional ownership, so creator-dependent actions live with content development.
+**Workspace note.** The `content management` from `content development` and moves creator CLI / ADT authoring workflows into content development. “Scaffolder” remains the Backstage term for template creation; it does not define the workspace that owns every action. The backend module follows functional ownership, so creator-dependent actions live with content development.
 
 ### Module identity
 
