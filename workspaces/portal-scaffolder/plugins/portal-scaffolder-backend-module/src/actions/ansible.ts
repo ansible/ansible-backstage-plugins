@@ -76,7 +76,7 @@ export function createAnsibleContentAction(config: Config) {
             })
             .optional(),
         applicationType: z =>
-          z.string({ description: 'The Application type.' }).optional(),
+          z.string({ description: 'The Application type.' }),
       },
       output: {
         devSpacesBaseUrl: z => z.string().optional(),
@@ -94,6 +94,13 @@ export function createAnsibleContentAction(config: Config) {
         collectionName = '',
       } = input;
       const applicationType = input.applicationType ?? '';
+      if (
+        applicationType !== appType.PLAYBOOK &&
+        applicationType !== appType.COLLECTION &&
+        applicationType !== appType.DEVFILE
+      ) {
+        throw new Error(`Unsupported application type: ${applicationType}`);
+      }
 
       const log = new ScaffolderLogger(BackendServiceAPI.pluginLogName, logger);
       try {
@@ -113,6 +120,7 @@ export function createAnsibleContentAction(config: Config) {
           collectionGroup,
           collectionName,
           getServiceUrlFromAnsibleConfig(config),
+          ...(ctx.signal ? [ctx.signal] : []),
         );
         log.info(`ansibleCreatorRun completed successfully`);
         if (applicationType !== appType.DEVFILE) {
