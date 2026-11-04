@@ -35,6 +35,39 @@ export const ANNOTATION_PREFIX = 'ansible.com';
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
 /**
+ * Build the "Registry" link shown on a catalog entity, or `undefined` when
+ * the repository name cannot be turned into a safe link.
+ *
+ * The repository name is registry-controlled: on any registry that allows
+ * pushes, whoever pushed the repository chose that name. It is therefore
+ * treated as path data, never as a URL reference — a relative reference can
+ * be an absolute URL of any scheme (`javascript:alert(1)`) or swap the host
+ * (`//evil.example/x`), and either would end up as a clickable link on the
+ * entity. Splitting the name into segments, dropping the empty, `.`, and
+ * `..` ones, and percent-encoding the rest leaves no room for any of that:
+ * the result can only ever be a path under the configured registry.
+ *
+ * `registryUrl` is the canonical, validated URL from configuration (see
+ * `registryUrlError`), so it always carries a scheme.
+ */
+export function registryLinkUrl(
+  registryUrl: string,
+  repository: string,
+): string | undefined {
+  const segments = repository
+    .split('/')
+    .filter(segment => segment !== '' && segment !== '.' && segment !== '..');
+  if (segments.length === 0) return undefined;
+  const path = segments.map(encodeURIComponent).join('/');
+  const base = new URL(registryUrl);
+  // Trim trailing slashes by hand rather than with a regex — the same
+  // discipline the OCI client follows for URLs.
+  let basePath = base.pathname;
+  while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
+  return `${base.origin}${basePath}/${path}`;
+}
+
+/**
  * Whether the adapter that claimed this artifact reads a build-time content manifest.
  *
  * The provider renders rich sub-entities — a component per collection — only for such
@@ -463,6 +496,11 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       digest.slice(7, 19),
     ]);
 
+    // A repository name that cannot be turned into a safe link (empty, or
+    // nothing but traversal segments) yields no link at all rather than a
+    // broken or unsafe one.
+    const registryLink = registryLinkUrl(registry.url, repository);
+
     return {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -472,19 +510,9 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         description,
         annotations,
         tags: [classification.type, ...(summary ? [] : ['contents-unknown'])],
-        links: [
-          {
-            // Keep the scheme the registry was configured with — forcing
-            // `http://` downgrades HTTPS registries. Default to https when
-            // the configured URL carries no scheme.
-            url: `${
-              registry.url.startsWith('http')
-                ? registry.url
-                : `https://${registry.url}`
-            }/${repository}`,
-            title: 'Registry',
-          },
-        ],
+        ...(registryLink
+          ? { links: [{ url: registryLink, title: 'Registry' }] }
+          : {}),
       },
       spec: {
         type: classification.type,

@@ -75,6 +75,103 @@ function seed(items: Array<Record<string, unknown>>): ContentIndex {
   return index;
 }
 
+function seedArtifacts(count: number): ContentIndex {
+  const index = new ContentIndex([], {
+    info: () => {},
+    warn: () => {},
+    debug: () => {},
+  });
+  const artifacts = Array.from({ length: count }, (_, i) => ({
+    ref: `reg/repo-${i}@sha256:${i}`,
+    type: 'execution-environment',
+    registry: 'reg',
+    repository: `repo-${i}`,
+    digest: `sha256:${i}`,
+    tags: ['latest'],
+    pullReference: `reg/repo-${i}@sha256:${i}`,
+    contentsKnown: true,
+    classification: {
+      type: 'execution-environment',
+      signals: [],
+      readsContentManifest: true,
+    },
+    manifest: { collections: [], generatedBy: {}, complete: true },
+  }));
+  (index as unknown as { artifacts: unknown[] }).artifacts = artifacts;
+  (index as unknown as { items: Map<string, unknown> }).items = new Map();
+  return index;
+}
+
+describe('GET /content pagination', () => {
+  it('returns paginated results with all links', async () => {
+    const index = seedArtifacts(15);
+    const res = await request(await appWith(index)).get('/content');
+
+    expect(res.status).toBe(200);
+    expect(res.body.page).toBe(1);
+    expect(res.body.pageSize).toBe(10);
+    expect(res.body.totalItems).toBe(15);
+    expect(res.body.items).toHaveLength(10);
+    expect(res.body.next).toBe('?page=2');
+    expect(res.body.previous).toBeNull();
+    expect(res.body.firstPage).toBe('?page=1');
+    expect(res.body.lastPage).toBe('?page=2');
+  });
+
+  it('returns previous link and null next on the last page', async () => {
+    const index = seedArtifacts(15);
+    const res = await request(await appWith(index)).get('/content?page=2');
+
+    expect(res.status).toBe(200);
+    expect(res.body.page).toBe(2);
+    expect(res.body.items).toHaveLength(5);
+    expect(res.body.next).toBeNull();
+    expect(res.body.previous).toBe('?page=1');
+  });
+
+  it.each([
+    { per_page: 10, expectedSize: 10 },
+    { per_page: 20, expectedSize: 20 },
+    { per_page: 50, expectedSize: 50 },
+    { per_page: 99, expectedSize: 10 },
+  ])(
+    'per_page=$per_page returns $expectedSize items',
+    async ({ per_page, expectedSize }) => {
+      const index = seedArtifacts(55);
+      const res = await request(await appWith(index)).get(
+        `/content?per_page=${per_page}`,
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.pageSize).toBe(expectedSize);
+      expect(res.body.items).toHaveLength(expectedSize);
+    },
+  );
+
+  it('preserves filter params in pagination links', async () => {
+    const index = seedArtifacts(15);
+    const res = await request(await appWith(index)).get(
+      '/content?type=execution-environment',
+    );
+
+    expect(res.body.next).toContain('type=execution-environment');
+    expect(res.body.next).toContain('page=2');
+  });
+
+  it('applies pagination to the /execution-environments alias', async () => {
+    const index = seedArtifacts(15);
+    const res = await request(await appWith(index)).get(
+      '/execution-environments',
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.page).toBe(1);
+    expect(res.body.items).toHaveLength(10);
+    expect(res.body.totalItems).toBe(15);
+    expect(res.body.next).toContain('page=2');
+  });
+});
+
 describe('documentation field normalisation', () => {
   /**
    * ansible-doc emits `description`, `author` and `notes` as either a scalar or a list
@@ -384,7 +481,10 @@ describe('config validation', () => {
     expect(res.body.valid).toBe(false);
     expect(res.body.errors).toEqual([
       { path: 'registries[0].name', message: 'Required' },
-      { path: 'registries[0].url', message: 'Required' },
+      {
+        path: 'registries[0].url',
+        message: 'Required and must be a string',
+      },
     ]);
   });
 
@@ -419,8 +519,34 @@ describe('config validation', () => {
       .send(document([registry({ url: 'mock.registry' })]));
     expect(res.body.valid).toBe(false);
     expect(res.body.errors).toEqual([
-      { path: 'registries[0].url', message: 'Must include a scheme' },
+      {
+        path: 'registries[0].url',
+        message: 'Invalid: is not a valid absolute URL',
+      },
     ]);
+  });
+
+  it('survives hostile non-string apiVersion and kind values', async () => {
+    // This endpoint exists to judge malformed documents, so its error
+    // paths must survive whatever a caller sends. An object whose
+    // `toString` is null would otherwise crash the handler with a 500
+    // instead of a validation result.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: { toString: null },
+        kind: { toString: null },
+        registries: [],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'apiVersion' }),
+    );
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'kind' }),
+    );
   });
 
   it.each([{ namespaces: [] }, { namespaces: ['team'] }])(
@@ -516,4 +642,283 @@ describe('config validation', () => {
       ]);
     },
   );
+});
+
+describe('configuration boundary', () => {
+  /**
+   * An index holding a real configured registry, so mutation attempts target a
+   * name that exists. Against an empty index, a future edit implementation
+   * could answer 404 ("no such registry") and satisfy a weaker test.
+   */
+  function seedWithRegistry(): ContentIndex {
+    return new ContentIndex(
+      [
+        {
+          name: 'reg',
+          url: 'https://reg.example',
+          auth: { type: 'anonymous' },
+        },
+      ],
+      { info: () => {}, warn: () => {}, debug: () => {} },
+    );
+  }
+
+  /**
+   * Registry endpoints are install-time configuration, and that is the SSRF trust
+   * boundary: the API may inspect and re-read them, but must offer no way to create
+   * or edit one. If a mutating route ever appears here, this test failing is the
+   * reminder that it widens the boundary the security review approved.
+   */
+  it('offers no route that creates or edits a registry at runtime', async () => {
+    const app = await appWith(seedWithRegistry());
+
+    // The target registry exists — the assertions below cannot be satisfied
+    // by a "no such registry" 404 from a future edit implementation.
+    const before = await request(app).get('/registries');
+    expect(before.body.items).toEqual([
+      expect.objectContaining({ name: 'reg', url: 'https://reg.example' }),
+    ]);
+
+    const hostile = { name: 'evil', url: 'https://evil.example' };
+    const created = await request(app).post('/registries').send(hostile);
+    const replaced = await request(app).put('/registries/reg').send(hostile);
+    const patched = await request(app).patch('/registries/reg').send(hostile);
+
+    expect(created.status).toBe(404);
+    expect(replaced.status).toBe(404);
+    expect(patched.status).toBe(404);
+
+    // Nothing changed: no new registry appeared, and the existing one kept its
+    // configured endpoint.
+    const after = await request(app).get('/registries');
+    expect(after.body).toEqual(before.body);
+  });
+
+  it('flags a registry URL with a non-HTTP scheme', async () => {
+    // A URL like ftp://quay.io is a real URL — just not one this plugin can
+    // talk to. It has to be rejected up front, before any request is sent.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 'ftp://quay.io' }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].url',
+        message: expect.stringContaining('must start with http:// or https://'),
+      }),
+    );
+  });
+
+  it('flags a registry URL with no scheme at all', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 'quay.io' }],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].url',
+        message: expect.stringContaining('is not a valid absolute URL'),
+      }),
+    );
+  });
+
+  /**
+   * Parity with the loader: these strings previously sailed through this
+   * endpoint as `valid: true` while preventing startup, because the two
+   * boundaries used different rules.
+   */
+  it.each([
+    'https://',
+    'https://quay.io:99999',
+    // A double slash inside the path: request building would read the joined
+    // `//` as a host swap, so the client would refuse its own registry.
+    'https://quay.io//v2',
+  ])('rejects %s, which the loader also rejects at startup', async badUrl => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: badUrl }],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'registries[0].url' }),
+    );
+  });
+
+  /**
+   * A URL ending in a bare `?` or `#` is a query or fragment someone never
+   * finished typing. The shared rule rejects it, so this endpoint must too.
+   */
+  it.each(['https://quay.io?', 'https://quay.io#'])(
+    'rejects %s — an unfinished query or fragment — like the loader',
+    async badUrl => {
+      const res = await request(await appWith(seed([])))
+        .post('/config/validate')
+        .send({
+          apiVersion: 'content.ansible.com/v1',
+          kind: 'ContentConfiguration',
+          registries: [{ name: 'quay', url: badUrl }],
+        });
+
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors).toContainEqual(
+        expect.objectContaining({
+          path: 'registries[0].url',
+          message: expect.stringContaining(
+            'must not include a query or fragment',
+          ),
+        }),
+      );
+    },
+  );
+
+  it('accepts an uppercase scheme, matching the loader (which canonicalizes it)', async () => {
+    // The startup code accepts this URL and cleans it up — it lowercases the
+    // HTTPS:// prefix — instead of rejecting it. This endpoint has to reach
+    // the same verdict, or it would tell users their working configuration
+    // is broken.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 'HTTPS://QUAY.IO' }],
+      });
+
+    expect(res.body.valid).toBe(true);
+    expect(res.body.errors).toEqual([]);
+  });
+
+  it('flags embedded credentials and query suffixes, like the loader', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [
+          { name: 'a', url: 'https://user:pass@quay.io' },
+          { name: 'b', url: 'https://quay.io?junk=true' },
+        ],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].url',
+        message: expect.stringContaining('must not embed credentials'),
+      }),
+    );
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[1].url',
+        message: expect.stringContaining(
+          'must not include a query or fragment',
+        ),
+      }),
+    );
+  });
+
+  it('reports a non-object registry entry as a validation error, not a crash', async () => {
+    // Before this fix, a registry entry that wasn't a proper settings object
+    // crashed the endpoint with a server error (500). Now it comes back as an
+    // ordinary "this is wrong with your configuration" report.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [null],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0]',
+        message: 'Must be an object',
+      }),
+    );
+  });
+
+  it('reports a non-string URL as a validation error, not a crash', async () => {
+    // Same idea as the test above: `url: 123` is a mistake in the document,
+    // and the endpoint's job is to say so, not to fail.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [{ name: 'quay', url: 123 }],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].url',
+        message: 'Required and must be a string',
+      }),
+    );
+  });
+
+  it('reports duplicate registry names, which would be ambiguous endpoints', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [
+          { name: 'quay', url: 'https://quay.io' },
+          { name: 'quay', url: 'https://quay.example' },
+        ],
+      });
+
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[1].name',
+        message: expect.stringContaining('Duplicate'),
+      }),
+    );
+  });
+
+  it('accepts a well-formed configuration and only warns about insecure registries', async () => {
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: 'content.ansible.com/v1',
+        kind: 'ContentConfiguration',
+        registries: [
+          { name: 'local', url: 'http://localhost:5000', insecure: true },
+          {
+            name: 'quay',
+            url: 'https://quay.io',
+            repositories: ['ansible/ee'],
+          },
+        ],
+      });
+
+    expect(res.body.valid).toBe(true);
+    expect(res.body.errors).toEqual([]);
+    expect(res.body.warnings).toContainEqual(
+      expect.objectContaining({
+        path: 'registries[0].insecure',
+        message: expect.stringContaining('Plain HTTP'),
+      }),
+    );
+  });
 });

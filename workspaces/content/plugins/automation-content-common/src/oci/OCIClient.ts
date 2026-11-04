@@ -1,6 +1,7 @@
 import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
 import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
+import { logSafeText } from './logSafeText';
 import {
   ArtifactRef,
   Descriptor,
@@ -16,6 +17,14 @@ import {
 
 /** Ceiling on followed redirects — a registry redirecting more than this is a loop. */
 const MAX_REDIRECT_HOPS = 5;
+
+/**
+ * Ceiling on cached bearer tokens. The cache is keyed by the registry-controlled
+ * challenge scope, so it must stay bounded however creatively a registry issues
+ * scopes. Well-behaved registries use a handful; a thousand covers pathological
+ * ones without meaningful memory.
+ */
+const TOKEN_CACHE_MAX_ENTRIES = 1_000;
 
 /**
  * undici is loaded lazily, and only by the default transport. This package also
@@ -496,6 +505,15 @@ export class OCIClient {
 
     // Renew a little early to avoid racing expiry mid-sync.
     const ttl = (body.expires_in ?? 300) * 1000;
+    // Bound the cache before inserting: the key is the registry-controlled
+    // challenge scope, so a registry returning a unique scope per response
+    // could otherwise grow it without limit. Oldest entries go first, the
+    // same eviction order MemoryDigestCache uses.
+    while (this.tokenCache.size >= TOKEN_CACHE_MAX_ENTRIES) {
+      const oldest = this.tokenCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.tokenCache.delete(oldest);
+    }
     this.tokenCache.set(cacheKey, {
       token,
       expiresAt: Date.now() + ttl - 10_000,
@@ -567,32 +585,120 @@ export class OCIClient {
   }
 
   /**
-   * Resolve a request path to a URL, refusing absolute URLs that point away
-   * from the configured registry.
+   * Turn a request path or pagination link into the full URL to fetch,
+   * refusing anything that points away from the configured registry.
    *
-   * Pagination `Link` headers are registry controlled; without this check a
-   * hostile registry could direct a credential-bearing request at any host.
-   * The auth realm is exempt — it is fetched separately, by design, since
-   * registries legitimately use separate auth hosts.
+   * Two kinds of strings arrive here, trusted differently:
+   *
+   * 1. API paths the client itself builds (`/v2/...`). These are joined onto
+   *    the configured base path by hand: a registry mounted under a sub-path
+   *    (for example https://host.example.com/harbor-proxy) must keep that
+   *    prefix, and the URL parser cannot be trusted to do this on its own,
+   *    because a path starting with `/` restarts from the host's root. The
+   *    registry would then answer 404 and the portal would show an empty
+   *    catalog that looks legitimate. After parsing, client-built paths are
+   *    also required to land inside the mount — a `..` segment could
+   *    otherwise leave it while staying same-origin.
+   *
+   * 2. Pagination Link headers chosen by the registry, with `from` set to the
+   *    URL of the page that carried them. These resolve the way the Link
+   *    header specification requires: against that page. Registries behind
+   *    sub-path proxies emit two legitimate root-relative shapes — the
+   *    external prefix already included, or left off — so a root-relative
+   *    link is used as-is when it already starts with the configured base
+   *    path, and prefixed when it does not. Query-only links (`?last=...`)
+   *    and page-relative ones resolve against the current page.
+   *
+   * A hostile registry controls the Link text, so anything that resolves to
+   * a different origin than the configured registry is refused, and links
+   * that try to swap the host outright (`//host/...`) are refused before they
+   * are even parsed. The auth realm is the one exemption — it is fetched
+   * separately, by design, since registries legitimately use separate auth
+   * hosts.
+   *
+   * Refusals use fixed wording and name only the registry. The link text is
+   * chosen by the registry, so echoing any of it would let a hostile registry
+   * write whatever it likes into the portal's logs.
    */
-  private resolveUrl(path: string): string {
-    if (!path.startsWith('http')) return `${this.base}${path}`;
+  private resolveUrl(path: string, from?: string): string {
+    let base: URL;
     try {
-      const target = new URL(path);
-      const origin = new URL(this.base);
-      if (target.origin !== origin.origin) {
+      base = new URL(this.base);
+    } catch {
+      // Unreachable through the config loader, which validates the URL at
+      // startup — but a direct caller still deserves a refusal that names
+      // the registry rather than a raw TypeError, and nothing from the URL
+      // itself may be echoed into the message.
+      throw new RegistryError(
+        'refused unparseable request to (unparseable URL)',
+        undefined,
+        this.connection.name,
+      );
+    }
+    // A link starting with `//` swaps the host outright. Refuse it before
+    // parsing rather than neutralising it, so the attempt shows up as the
+    // refusal it is.
+    if (path.startsWith('//')) {
+      throw new Error(
+        `[${this.connection.name}] refusing pagination link that points ` +
+          `away from the configured registry`,
+      );
+    }
+    let target: URL;
+    // Trim trailing slashes without a regex — same reasoning as the `base`
+    // getter above.
+    let basePath = base.pathname;
+    while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
+    try {
+      if (path.startsWith('/')) {
+        // Root-relative. Client-built API paths always need the mount
+        // prefix. A registry-controlled link may already carry it (proxies
+        // that emit the external path), so when `from` is set the prefix is
+        // only added when missing — doubling it would request a path the
+        // registry answers with 404, which reads as a short result list.
+        const carriesPrefix =
+          from !== undefined && path.startsWith(`${basePath}/`);
+        const reference = carriesPrefix ? path : `${basePath}${path}`;
+        target = new URL(reference, base);
+      } else {
+        // Everything else — query-only, page-relative, or an absolute URL —
+        // resolves against the page that carried the link (or the mount
+        // root; client-built paths are always root-relative). An absolute
+        // URL parses to itself, whatever scheme it names, and the origin
+        // check below refuses the foreign ones.
+        const referenceBase = from ?? `${base.origin}${basePath}/`;
+        target = new URL(path, referenceBase);
+      }
+    } catch {
+      throw new Error(
+        `[${this.connection.name}] refusing to follow malformed pagination link`,
+      );
+    }
+    if (target.origin !== base.origin) {
+      throw new Error(
+        `[${this.connection.name}] refusing pagination link that points ` +
+          `away from the configured registry`,
+      );
+    }
+    // Client-built paths (no `from`) are this client's own constants, and
+    // they must land inside the configured mount — a `..` segment or a
+    // non-root-relative path could otherwise slip outside it while staying
+    // same-origin. Registry-controlled links keep the origin-only rule
+    // above: a same-origin link outside the mount is followed by design,
+    // since registries legitimately serve some endpoints elsewhere under
+    // the same host.
+    if (from === undefined && basePath !== '') {
+      const insideMount =
+        target.pathname === basePath ||
+        target.pathname.startsWith(`${basePath}/`);
+      if (!insideMount) {
         throw new Error(
-          `absolute URL ${target.origin} is not the configured registry ` +
-            `${origin.origin}`,
+          `[${this.connection.name}] refusing request path that leaves ` +
+            `the configured registry path`,
         );
       }
-    } catch (error) {
-      if (error instanceof TypeError) {
-        throw new Error(`invalid absolute URL: ${path}`);
-      }
-      throw error;
     }
-    return path;
+    return target.toString();
   }
 
   /**
@@ -603,9 +709,27 @@ export class OCIClient {
    */
   async request(
     path: string,
-    init: { method?: string; headers?: Record<string, string> } = {},
+    init: {
+      method?: string;
+      headers?: Record<string, string>;
+      /** The page a pagination Link was taken from, if `path` is one. */
+      from?: string;
+    } = {},
   ): Promise<Response> {
-    const url = this.resolveUrl(path);
+    const { from, ...rest } = init;
+    return this.requestUrl(this.resolveUrl(path, from), rest);
+  }
+
+  /**
+   * Issue a request against an already-resolved URL. The pagination loops
+   * resolve each page's URL themselves — so the next Link can be resolved
+   * against it — and come here directly; everything else goes through
+   * `request`.
+   */
+  private async requestUrl(
+    url: string,
+    init: { method?: string; headers?: Record<string, string> },
+  ): Promise<Response> {
     const headers: Record<string, string> = { ...(init.headers ?? {}) };
 
     await this.primeAuth();
@@ -736,11 +860,16 @@ export class OCIClient {
    * repository list.
    */
   async *listRepositories(pageSize = 100): AsyncGenerator<string> {
+    // The URL of the page just fetched. The next pagination Link resolves
+    // against it, the way the Link header specification requires.
+    let pageUrl: string | undefined;
     let path: string | undefined = `/v2/_catalog?n=${pageSize}`;
     while (path) {
-      const res: Response = await this.request(path, {
+      const url = this.resolveUrl(path, pageUrl);
+      const res: Response = await this.requestUrl(url, {
         headers: { Accept: 'application/json' },
       });
+      pageUrl = url;
       if (!res.ok) {
         if (res.status === 404 || res.status === 401 || res.status === 403)
           return;
@@ -758,15 +887,20 @@ export class OCIClient {
 
   /** `GET /v2/{name}/tags/list`, following Link-header pagination. */
   async *listTags(repository: string, pageSize = 100): AsyncGenerator<string> {
+    // Same pattern as listRepositories: each Link resolves against the page
+    // that carried it.
+    let pageUrl: string | undefined;
     let path: string | undefined = `/v2/${repository}/tags/list?n=${pageSize}`;
     while (path) {
-      const res: Response = await this.request(path, {
+      const url = this.resolveUrl(path, pageUrl);
+      const res: Response = await this.requestUrl(url, {
         headers: { Accept: 'application/json' },
       });
+      pageUrl = url;
       if (!res.ok) {
         if (res.status === 404) return;
         throw new RegistryError(
-          `tag listing failed for ${repository}: ${res.status}`,
+          `tag listing failed for ${logSafeText(repository)}: ${res.status}`,
           res.status,
           this.connection.name,
         );
