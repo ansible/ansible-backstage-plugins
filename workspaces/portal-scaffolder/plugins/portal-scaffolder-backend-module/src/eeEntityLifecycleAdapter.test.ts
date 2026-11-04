@@ -16,6 +16,7 @@ describe('EEEntityLifecycleAdapter', () => {
   const catalog = {
     getEntityByRef: jest.fn(),
     getLocationByEntity: jest.fn(),
+    removeEntityByUid: jest.fn(),
   } as any;
 
   beforeEach(() => jest.clearAllMocks());
@@ -41,6 +42,34 @@ describe('EEEntityLifecycleAdapter', () => {
     });
     expect(auth.getOwnServiceCredentials).not.toHaveBeenCalled();
     expect(provider.register).toHaveBeenCalled();
+  });
+
+  it('skips provider cleanup for provider-managed entities when requested', async () => {
+    catalog.getEntityByRef.mockResolvedValue({
+      kind: 'Component',
+      spec: { type: 'execution-environment' },
+      metadata: {
+        name: 'my-ee',
+        uid: 'uid',
+        annotations: { 'ansible.io/download-experience': 'true' },
+      },
+    });
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials, {
+        skipProviderManaged: true,
+      }),
+    ).resolves.toEqual({ mode: 'provider' });
+
+    expect(provider.unregister).not.toHaveBeenCalled();
+    expect(catalog.removeEntityByUid).not.toHaveBeenCalled();
   });
 
   it('does not suppress a failed entity removal when the entity remains', async () => {
