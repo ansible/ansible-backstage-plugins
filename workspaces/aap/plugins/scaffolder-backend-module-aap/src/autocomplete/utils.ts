@@ -217,7 +217,7 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
@@ -232,7 +232,8 @@ export async function getCollections(options: {
   try {
     return await fetchPromise;
   } finally {
-    if (inflightRequests.get(filter) === fetchPromise) {
+    const currentInflight = inflightRequests.get(filter);
+    if (currentInflight === fetchPromise) {
       inflightRequests.delete(filter);
     }
   }
