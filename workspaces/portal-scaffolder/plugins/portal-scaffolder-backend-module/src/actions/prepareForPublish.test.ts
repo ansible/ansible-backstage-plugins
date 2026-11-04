@@ -65,7 +65,7 @@ describe('prepareForPublish', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        } as any),
+        }) as any,
     );
   });
 
