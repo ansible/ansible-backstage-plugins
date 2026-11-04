@@ -1,6 +1,17 @@
-export * from './types';
-export * from './ScmClient';
-export * from './GithubClient';
-export * from './GitlabClient';
-export * from './ScmClientFactory';
-export * from './resolveGithubToken';
+export {
+  BaseScmClient,
+  createGithubClientForWorkflowDispatch,
+  GithubClient,
+  GitlabClient,
+  resolveGithubToken,
+  ScmClientFactory,
+} from '@ansible/portal-plugin-node';
+export type {
+  CreateScmClientOptions,
+  DirectoryEntry,
+  ScmClient,
+  ScmClientConfig,
+  ScmClientOptions,
+  ScmProvider,
+  UrlBuildOptions,
+} from '@ansible/portal-plugin-node';

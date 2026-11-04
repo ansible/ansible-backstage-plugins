@@ -19,9 +19,9 @@ jest.mock('node:crypto', () => ({
 }));
 
 import { randomBytes } from 'node:crypto';
-import { ScmClientFactory } from '@ansible/content-development-common';
+import { ScmClientFactory } from '@ansible/portal-plugin-node';
 
-jest.mock('@ansible/content-development-common', () => ({
+jest.mock('@ansible/portal-plugin-node', () => ({
   ScmClientFactory: jest.fn(),
 }));
 

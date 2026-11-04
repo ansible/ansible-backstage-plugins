@@ -8,7 +8,7 @@
     "directory": "workspaces/portal-core/plugins/portal-plugin-node"
   },
   "private": true,
-  "description": "Server-side SDK for Ansible portal backend plugins — identity middleware, audit event emitter, health push, and org-keyed DB helpers",
+  "description": "Server-side SDK for Ansible portal backend plugins, including SCM clients, shared service contracts, identity, audit, health, and organization helpers",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "publishConfig": {
@@ -23,8 +23,10 @@
   "dependencies": {
     "@backstage/config": "1.3.8",
     "@backstage/errors": "1.3.1",
+    "@backstage/integration": "2.1.1",
     "@backstage/plugin-permission-common": "0.9.10",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "undici": "6.29.1"
   },
   "scripts": {
     "build": "backstage-cli package build",
