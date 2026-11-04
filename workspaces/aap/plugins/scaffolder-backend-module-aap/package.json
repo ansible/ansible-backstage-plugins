@@ -40,6 +40,7 @@
     "dist-dynamic/dist/**",
     "dist-dynamic/alpha/*",
     "build",
+    "config.d.ts",
     "src/**/*.d.ts"
   ]
 }
