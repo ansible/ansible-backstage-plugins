@@ -285,8 +285,23 @@ export function createRouter(options: {
         return;
       }
       await eeProvider.unregister(name);
-      if (entity.metadata?.uid)
-        await catalogClient.removeEntityByUid(entity.metadata.uid, catalogOpts);
+      if (entity.metadata?.uid) {
+        try {
+          await catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+        } catch (error) {
+          const remaining = await catalogClient.getEntityByRef(
+            entityRef,
+            catalogOpts,
+          );
+          if (remaining) throw error;
+          logger.debug(
+            `EE entity was already removed by provider delta: ${String(error)}`,
+          );
+        }
+      }
       response.status(200).json({ success: true, mode: 'provider' });
     } catch (error) {
       response.status(500).json({ error: formatUnknownError(error) });
