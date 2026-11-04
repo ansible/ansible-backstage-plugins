@@ -7,7 +7,8 @@ To be fully functional, it requires other plugins for Red Hat Ansible Automation
 
 - auth--backend-module-rhaap-provider
 - catalog-backend-module-rhaap
-- scaffolder-backend-module-backstage-rhaap
+- portal-scaffolder-backend-module
+- scaffolder-backend-module-aap
 
 ## Getting started
 

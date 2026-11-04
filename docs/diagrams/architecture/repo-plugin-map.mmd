@@ -16,14 +16,16 @@ flowchart TD
 
   subgraph BackendModules["Backend modules"]
     CatalogMod["catalog-backend-module-rhaap<br/>Entity providers"]
-    ScaffolderMod["scaffolder-backend-module-backstage-rhaap<br/>Scaffolder actions"]
+    AapScaffolderMod["scaffolder-backend-module-aap<br/>AAP actions and autocomplete"]
+    PortalScaffolderMod["portal-scaffolder-backend-module<br/>Creator and EE actions"]
     AuthMod["auth-backend-module-rhaap-provider<br/>AAP OAuth"]
   end
 
   AAP[("Ansible Automation<br/>Platform (AAP)")]
 
   Backend --> CatalogMod
-  Backend --> ScaffolderMod
+  Backend --> AapScaffolderMod
+  Backend --> PortalScaffolderMod
   Backend --> AuthMod
 
   RhaapFE -. proxy/API routes .-> Backend
@@ -32,7 +34,8 @@ flowchart TD
   Frontend --> SelfService
 
   CatalogMod --> Common1
-  ScaffolderMod --> Common1
+  AapScaffolderMod --> Common1
+  PortalScaffolderMod --> Common1
   AuthMod --> Common1
 
   Common1 -->|HTTP| AAP
