@@ -695,6 +695,22 @@ export async function createRouter(
 
   // -- Configuration as code ----------------------------------------------
 
+  /**
+   * Render an arbitrary request value for an error message without ever
+   * throwing on it. The whole point of this endpoint is to judge malformed
+   * documents, so the error paths must survive whatever a caller sends —
+   * an object whose `toString` is null would otherwise crash the handler.
+   */
+  function describeValue(value: unknown): string {
+    if (value === undefined || value === null) return 'nothing';
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value) ?? 'nothing';
+    } catch {
+      return 'an unprintable value';
+    }
+  }
+
   router.post('/config/validate', (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];
@@ -703,15 +719,17 @@ export async function createRouter(
     if (body.apiVersion !== 'content.ansible.com/v1') {
       errors.push({
         path: 'apiVersion',
-        message: `Expected content.ansible.com/v1, got ${
-          body.apiVersion ?? 'nothing'
-        }`,
+        message: `Expected content.ansible.com/v1, got ${describeValue(
+          body.apiVersion,
+        )}`,
       });
     }
     if (body.kind !== 'ContentConfiguration') {
       errors.push({
         path: 'kind',
-        message: `Expected ContentConfiguration, got ${body.kind ?? 'nothing'}`,
+        message: `Expected ContentConfiguration, got ${describeValue(
+          body.kind,
+        )}`,
       });
     }
     if (!Array.isArray(body.registries)) {

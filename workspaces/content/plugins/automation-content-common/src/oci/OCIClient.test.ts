@@ -942,6 +942,33 @@ describe('sub-path mounted registries', () => {
     );
     expect(seen).toEqual([]);
   });
+
+  it('keeps the prefix on non-paginated requests too', async () => {
+    // Manifest and referrer requests go through the same resolver as the
+    // paginated listings; this pins the guarantee for their path shape.
+    const seen: string[] = [];
+    const fetchImpl = async (url: string) => {
+      const full = new URL(url);
+      seen.push(full.pathname);
+      if (full.pathname === `${PREFIX}/v2/`)
+        return new Response('{}', { status: 200 });
+      if (full.pathname === `${PREFIX}/v2/ansible/ee/manifests/sha256:abc`) {
+        return new Response(null, {
+          status: 200,
+          headers: { 'docker-content-digest': 'sha256:abc' },
+        });
+      }
+      return new Response('{}', { status: 404 });
+    };
+    const client = new OCIClient(connection({ url: PREFIXED_URL }), {
+      fetch: fetchImpl as never,
+    });
+
+    const res = await client.headManifest('ansible/ee', 'sha256:abc');
+
+    expect(res.status).toBe(200);
+    expect(seen).toContain(`${PREFIX}/v2/ansible/ee/manifests/sha256:abc`);
+  });
 });
 
 describe('refusal messages carry no registry-controlled text', () => {
@@ -1082,5 +1109,86 @@ describe('auth failure logs carry no registry-controlled text', () => {
       true,
     );
     expect(messages.some(m => m.includes(secret))).toBe(false);
+  });
+});
+
+describe('the token cache stays bounded', () => {
+  /**
+   * The cache is keyed by the registry-controlled challenge scope, so a
+   * registry issuing a unique scope per response could otherwise grow it
+   * without limit. After the ceiling is passed, the oldest entries are
+   * evicted — observable as a fresh token exchange for a scope that was
+   * cached earlier.
+   */
+  it('evicts the oldest entries once the registry has issued many scopes', async () => {
+    const tokenHits: Record<string, number> = {};
+    const fetchImpl = async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      const target = new URL(url);
+      if (target.pathname === '/token') {
+        const scope = target.searchParams.get('scope') ?? '<none>';
+        tokenHits[scope] = (tokenHits[scope] ?? 0) + 1;
+        return new Response(
+          JSON.stringify({ token: `t-${scope}`, expires_in: 300 }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (target.pathname === '/v2/')
+        return new Response('{}', { status: 200 });
+      const repository = target.pathname
+        .replace(/^\/v2\//, '')
+        .replace(/\/tags\/list$/, '');
+      const scope = `repository:${repository}:pull`;
+      const challenge = {
+        'www-authenticate': `Bearer realm="https://mock.registry/token",service="mock",scope="${scope}"`,
+      };
+      // A token scoped to another repository is rejected, as real registries
+      // do — which is what makes an evicted cache entry observable.
+      if (init?.headers?.Authorization !== `Bearer t-${scope}`) {
+        return new Response('{}', { status: 401, headers: challenge });
+      }
+      return new Response(JSON.stringify({ name: repository, tags: ['a'] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    const client = new OCIClient(connection(), { fetch: fetchImpl as never });
+
+    // One scope per repository: enough distinct scopes to pass the ceiling.
+    for (let i = 0; i < 1_002; i++) {
+      for await (const tag of client.listTags(`flood/${i}`)) void tag;
+    }
+    const before = tokenHits['repository:flood/0:pull'] ?? 0;
+
+    // flood/0 was cached first, so it is the first out. Listing it again
+    // must exchange a fresh token rather than use a stale cache entry.
+    for await (const tag of client.listTags('flood/0')) void tag;
+
+    expect(tokenHits['repository:flood/0:pull']).toBe(before + 1);
+  });
+});
+
+describe('registry-controlled names cannot forge log lines', () => {
+  it('keeps a hostile repository name on one line in error messages', async () => {
+    const fetchImpl = async (url: string) => {
+      const path = new URL(url).pathname;
+      if (path === '/v2/') return new Response('{}', { status: 200 });
+      return new Response('{}', { status: 500 });
+    };
+    const client = new OCIClient(connection(), { fetch: fetchImpl as never });
+
+    let thrown: unknown;
+    try {
+      for await (const _tag of client.listTags('evil\n[ERROR] forged line')) {
+        // drain
+      }
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toContain('evil');
+    expect((thrown as Error).message).not.toContain('\n');
   });
 });

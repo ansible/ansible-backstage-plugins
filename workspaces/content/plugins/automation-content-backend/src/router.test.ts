@@ -526,6 +526,29 @@ describe('config validation', () => {
     ]);
   });
 
+  it('survives hostile non-string apiVersion and kind values', async () => {
+    // This endpoint exists to judge malformed documents, so its error
+    // paths must survive whatever a caller sends. An object whose
+    // `toString` is null would otherwise crash the handler with a 500
+    // instead of a validation result.
+    const res = await request(await appWith(seed([])))
+      .post('/config/validate')
+      .send({
+        apiVersion: { toString: null },
+        kind: { toString: null },
+        registries: [],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'apiVersion' }),
+    );
+    expect(res.body.errors).toContainEqual(
+      expect.objectContaining({ path: 'kind' }),
+    );
+  });
+
   it.each([{ namespaces: [] }, { namespaces: ['team'] }])(
     'validates namespaces $namespaces without configured repositories',
     async ({ namespaces }) => {

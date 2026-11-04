@@ -1,6 +1,7 @@
 import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
 import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
+import { logSafeText } from './logSafeText';
 import {
   ArtifactRef,
   Descriptor,
@@ -16,6 +17,14 @@ import {
 
 /** Ceiling on followed redirects — a registry redirecting more than this is a loop. */
 const MAX_REDIRECT_HOPS = 5;
+
+/**
+ * Ceiling on cached bearer tokens. The cache is keyed by the registry-controlled
+ * challenge scope, so it must stay bounded however creatively a registry issues
+ * scopes. Well-behaved registries use a handful; a thousand covers pathological
+ * ones without meaningful memory.
+ */
+const TOKEN_CACHE_MAX_ENTRIES = 1_000;
 
 /**
  * undici is loaded lazily, and only by the default transport. This package also
@@ -496,6 +505,15 @@ export class OCIClient {
 
     // Renew a little early to avoid racing expiry mid-sync.
     const ttl = (body.expires_in ?? 300) * 1000;
+    // Bound the cache before inserting: the key is the registry-controlled
+    // challenge scope, so a registry returning a unique scope per response
+    // could otherwise grow it without limit. Oldest entries go first, the
+    // same eviction order MemoryDigestCache uses.
+    while (this.tokenCache.size >= TOKEN_CACHE_MAX_ENTRIES) {
+      const oldest = this.tokenCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.tokenCache.delete(oldest);
+    }
     this.tokenCache.set(cacheKey, {
       token,
       expiresAt: Date.now() + ttl - 10_000,
@@ -882,7 +900,7 @@ export class OCIClient {
       if (!res.ok) {
         if (res.status === 404) return;
         throw new RegistryError(
-          `tag listing failed for ${repository}: ${res.status}`,
+          `tag listing failed for ${logSafeText(repository)}: ${res.status}`,
           res.status,
           this.connection.name,
         );
