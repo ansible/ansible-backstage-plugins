@@ -27,6 +27,7 @@ import {
   getDevspacesUrlFromAnsibleConfig,
   generateRepoUrl,
   getServiceUrlFromAnsibleConfig,
+  validateAnsibleConfig,
 } from './utils/config';
 import { ConfigReader } from '@backstage/config';
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
@@ -104,14 +105,14 @@ describe('ansible:content:create', () => {
 
   it('uses empty string defaults when optional input fields are omitted', async () => {
     const ctxMinimal = createMockActionContext({
-      input: {},
+      input: { applicationType: appType.PLAYBOOK },
     });
     // @ts-ignore
     await action.handler(ctxMinimal);
 
     expect(ansibleCreatorRun).toHaveBeenCalledWith(
       ctxMinimal.workspacePath,
-      '',
+      appType.PLAYBOOK,
       ctxMinimal.logger,
       '',
       '',
@@ -124,24 +125,44 @@ describe('ansible:content:create', () => {
     );
   });
 
-  it('treats null applicationType as empty string', async () => {
+  it('rejects an omitted applicationType before invoking the creator', async () => {
     const ctxNullType = createMockActionContext({
-      input: {
-        applicationType: null as any,
-      },
+      input: { applicationType: null as any },
     });
-    // @ts-ignore
-    await action.handler(ctxNullType);
 
-    expect(ansibleCreatorRun).toHaveBeenCalledWith(
-      ctxNullType.workspacePath,
-      '',
-      ctxNullType.logger,
-      '',
-      '',
-      '',
-      getServiceUrlFromAnsibleConfig(config),
+    await expect(action.handler(ctxNullType as any)).rejects.toThrow(
+      'Unsupported application type',
     );
+    expect(ansibleCreatorRun).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported applicationType values', async () => {
+    const ctx = createMockActionContext({
+      input: { applicationType: 'devcontainer' },
+    });
+
+    await expect(action.handler(ctx as any)).rejects.toThrow(
+      'Unsupported application type: devcontainer',
+    );
+    expect(ansibleCreatorRun).not.toHaveBeenCalled();
+  });
+
+  it.each(['abc', '0', '65536', '1.5', '-1'])(
+    'rejects invalid creator service port %s',
+    port => {
+      const invalidConfig = new ConfigReader({
+        ansible: { creatorService: { baseUrl: 'localhost', port } },
+      });
+      expect(() => validateAnsibleConfig(invalidConfig)).toThrow(
+        'ansible.creatorService.port must be an integer from 1 to 65535',
+      );
+    },
+  );
+
+  it('encodes repository query parameters', () => {
+    expect(
+      generateRepoUrl('github.com', 'org&owner=other', 'repo?name=x'),
+    ).toBe('github.com?owner=org%26owner%3Dother&repo=repo%3Fname%3Dx');
   });
 
   it('logs and rethrows when ansibleCreatorRun fails', async () => {

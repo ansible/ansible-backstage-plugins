@@ -27,7 +27,15 @@ export async function ansibleCreatorRun(
   collectionGroup: string,
   collectionName: string,
   creatorServiceUrl: string,
+  signal?: AbortSignal,
 ) {
+  if (
+    applicationType !== appType.PLAYBOOK &&
+    applicationType !== appType.COLLECTION &&
+    applicationType !== appType.DEVFILE
+  ) {
+    throw new Error(`Unsupported application type: ${applicationType}`);
+  }
   const fileDownloader = new BackendServiceAPI();
   logger.info(
     `[${BackendServiceAPI.pluginLogName}] Running plugin operation for ${collectionGroup}.${collectionName}`,
@@ -60,6 +68,7 @@ export async function ansibleCreatorRun(
         collectionGroup,
         collectionName,
         tarName,
+        ...(signal ? [signal] : []),
       );
     } else if (applicationType === appType.COLLECTION) {
       await fileDownloader.downloadCollectionProject(
@@ -69,6 +78,7 @@ export async function ansibleCreatorRun(
         collectionGroup,
         collectionName,
         tarName,
+        ...(signal ? [signal] : []),
       );
     } else if (applicationType === appType.DEVFILE) {
       await fileDownloader.downloadDevfileProject(
@@ -76,6 +86,7 @@ export async function ansibleCreatorRun(
         logger,
         creatorServiceUrl,
         tarName,
+        ...(signal ? [signal] : []),
       );
     }
     logger.info(

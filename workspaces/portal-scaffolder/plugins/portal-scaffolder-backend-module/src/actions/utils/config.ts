@@ -40,7 +40,8 @@ export function generateRepoUrl(
   repoOwner: string,
   repoName: string,
 ): string {
-  return `${sourceControl}?owner=${repoOwner}&repo=${repoName}`;
+  const query = new URLSearchParams({ owner: repoOwner, repo: repoName });
+  return `${sourceControl}?${query.toString()}`;
 }
 
 export const getAnsibleConfig = (config: Config): AnsibleDetails => {
@@ -94,6 +95,13 @@ export const validateAnsibleConfig = (config: Config) => {
   if (!config.has('ansible.creatorService.port')) {
     throw new Error(
       'Missing required configuration: ansible.creatorService.port',
+    );
+  }
+
+  const port = config.getString('ansible.creatorService.port');
+  if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+    throw new Error(
+      `Invalid configuration: ansible.creatorService.port must be an integer from 1 to 65535, got \"${port}\"`,
     );
   }
 };
