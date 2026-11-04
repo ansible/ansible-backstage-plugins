@@ -84,7 +84,9 @@ describe('createEEDefinition', () => {
         const baseUrl = await discovery.getBaseUrl('catalog');
         if (options?.skipProviderManaged) {
           const existing = await mockFetch(
-            `${baseUrl}/entities/by-name/component/default/${encodeURIComponent(name)}`,
+            `${baseUrl}/entities/by-name/component/default/${encodeURIComponent(
+              name,
+            )}`,
           );
           if (existing.ok) {
             const entity = await existing.json();
@@ -716,6 +718,7 @@ describe('createEEDefinition', () => {
       eeFileName: 'test-ee',
       baseImage: 'img:latest',
       publishToSCM: true,
+      galaxyTlsVerify: false,
     });
 
     // Return empty for most reads, but ansible.cfg content for the config path
@@ -732,6 +735,28 @@ describe('createEEDefinition', () => {
       '/tmp/test-workspace/test-ee/ansible.cfg',
       expect.stringContaining('ignore_certs = true'),
     );
+  });
+
+  it('keeps Galaxy certificate verification enabled by default', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+    mockReadFile.mockImplementation(async (filePath: any) => {
+      if (filePath.toString().endsWith('ansible.cfg')) {
+        return '[galaxy]\nserver_list = my_hub\n' as any;
+      }
+      return '' as any;
+    });
+
+    await action.handler(ctx);
+
+    const cfgWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('ansible.cfg'),
+    );
+    expect(cfgWriteCall).toBeUndefined();
   });
 
   it('patches ee-build.yml workflow ee_dir default', async () => {
@@ -2118,8 +2143,7 @@ describe('createEEDefinition', () => {
     const cfgWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
       call[0].toString().endsWith('ansible.cfg'),
     );
-    const cfgContent = cfgWriteCall![1] as string;
-    expect(cfgContent).not.toContain('ignore_certs');
+    expect(cfgWriteCall).toBeUndefined();
   });
 
   it('defaults scmProvider to "github" and passes it to downloadEEScaffold', async () => {

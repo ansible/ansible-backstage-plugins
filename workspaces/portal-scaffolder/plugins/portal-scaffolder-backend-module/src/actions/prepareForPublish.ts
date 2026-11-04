@@ -75,6 +75,14 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
       let createNewRepo = false;
 
       try {
+        const repoPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        if (
+          !repositoryOwner.split('/').every(part => repoPart.test(part)) ||
+          !repoPart.test(repositoryName)
+        ) {
+          throw new Error('Invalid repository owner or name');
+        }
+
         const scmClientFactory = new ScmClientFactory({
           rootConfig,
           logger,
@@ -130,7 +138,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         }
 
         const host = scmClient.getHost();
-        const generatedRepoUrl = `${host}?repo=${repositoryName}&owner=${repositoryOwner}`;
+        const query = new URLSearchParams({
+          repo: repositoryName,
+          owner: repositoryOwner,
+        });
+        const generatedRepoUrl = `${host}?${query.toString()}`;
         logger.info(`Generated repository URL: ${generatedRepoUrl}`);
         ctx.output('generatedRepoUrl', generatedRepoUrl);
 

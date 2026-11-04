@@ -102,6 +102,7 @@ export function createEEDefinitionAction(options: {
       const buildRegistry = values.buildRegistry || '';
       const buildImageName = values.buildImageName?.trim() || '';
       const registryTlsVerify = values.registryTlsVerify ?? true;
+      const galaxyTlsVerify = values.galaxyTlsVerify ?? true;
       const scmProvider = values.scmProvider || 'github';
 
       ctx.output('owner', owner);
@@ -220,6 +221,7 @@ export function createEEDefinitionAction(options: {
           eeConfig,
           tarName,
           scmProvider,
+          ...(ctx.signal ? [ctx.signal] : []),
         );
         await executeShellCommand({
           command: 'tar',
@@ -302,7 +304,7 @@ export function createEEDefinitionAction(options: {
 
         // This is a temporary patch until https://github.com/ansible/ansible/issues/86694
         // is resolved and backported to downstream ansible-core versions.
-        if (ansibleConfigContent) {
+        if (ansibleConfigContent && !galaxyTlsVerify) {
           ansibleConfigContent =
             patchAnsibleCfgGalaxyIgnoreCerts(ansibleConfigContent);
           await fs.writeFile(ansibleConfigPath, ansibleConfigContent);
@@ -349,7 +351,9 @@ export function createEEDefinitionAction(options: {
           if (cleanup.warning) ctx.output('eeCleanupWarning', cleanup.warning);
         } catch (error) {
           logger.warn(
-            `[ansible:create:ee-definition] best-effort EE cleanup for "${eeFileName}" failed: ${formatUnknownError(error)}`,
+            `[ansible:create:ee-definition] best-effort EE cleanup for "${eeFileName}" failed: ${formatUnknownError(
+              error,
+            )}`,
           );
           ctx.output('eeCleanupStatus', 'failed');
           ctx.output(
@@ -1273,7 +1277,7 @@ async function patchGitLabCiEeDir(
  * If the `[galaxy]` section is not present the content is returned unchanged.
  *
  * @param content - Raw `ansible.cfg` file content.
- * @returns The patched content with `ignore_certs = true` inserted.
+ * @returns The content with `ignore_certs = true` inserted.
  */
 function patchAnsibleCfgGalaxyIgnoreCerts(content: string): string {
   return content.replace(/^(\[galaxy\]\s*$)/m, '$1\nignore_certs = true');

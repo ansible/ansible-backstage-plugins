@@ -65,8 +65,32 @@ describe('prepareForPublish', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        }) as any,
+        } as any),
     );
+  });
+
+  describe('repository input validation', () => {
+    it('rejects query delimiters before creating an SCM client', async () => {
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Github',
+          repositoryOwner: 'org',
+          repositoryName: 'repo&owner=other',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await expect(action.handler(ctx)).rejects.toThrow(
+        'Invalid repository owner or name',
+      );
+      expect(MockScmClientFactory).not.toHaveBeenCalled();
+    });
   });
 
   describe('repository existence check functionality', () => {
