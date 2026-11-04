@@ -57,7 +57,7 @@ const mountedHealthPaths = new Map([
     '/api/catalog/health',
   ],
   [
-    'workspaces/content/plugins/automation-content-backend/src/router.ts',
+    'workspaces/content-management/plugins/automation-content-backend/src/router.ts',
     '/api/automation-content/health',
   ],
 ]);
