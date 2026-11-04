@@ -61,3 +61,6 @@ export type {
   AuditEvent,
   AuditOutcome,
 } from './types';
+
+// Shared server-side SCM clients.
+export * from './ScmClient';
