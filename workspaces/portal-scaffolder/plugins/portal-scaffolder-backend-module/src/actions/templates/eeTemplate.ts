@@ -327,6 +327,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                         - properties:
                                             buildRegistry:
                                               const: 'Custom Registry'
@@ -349,6 +355,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                           required:
                                             - customRegistryUrl
                                 - properties:
@@ -405,6 +417,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                         - properties:
                                             buildRegistry:
                                               const: 'Custom Registry'
@@ -427,6 +445,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                           required:
                                             - customRegistryUrl
                                 - properties:
@@ -462,6 +486,7 @@ spec:
           buildImageName: \${{ parameters.publishAndBuild.buildImageName or '' }}
           buildImageTag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
           registryTlsVerify: \${{ parameters.publishAndBuild.registryTlsVerify }}
+          galaxyTlsVerify: \${{ parameters.publishAndBuild.galaxyTlsVerify }}
           scmProvider: \${{ parameters.publishAndBuild.sourceControlProvider.provider or 'github' }}
 
     # Step 3: Validate the SCM repository (optional)

@@ -53,6 +53,7 @@ export const eeDefinitionInputSchema = z
     buildImageName: z.string().optional(),
     buildImageTag: z.string().optional(),
     registryTlsVerify: z.boolean().optional(),
+    galaxyTlsVerify: z.boolean().optional(),
     owner: z.string().optional(),
     scmProvider: z.enum(['github', 'gitlab']).optional(),
   })
