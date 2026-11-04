@@ -371,6 +371,45 @@ describe('createRouter', () => {
     });
   });
 
+  describe('DELETE /ansible/ee/:name provider cleanup race', () => {
+    const eeEntity = {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: { name: 'test-ee', namespace: 'default', uid: 'entity-uid' },
+      spec: { type: 'execution-environment' },
+    };
+
+    it('succeeds if the provider delta already removed the entity', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any)
+        .mockResolvedValueOnce(undefined);
+      mockEeProvider.unregister.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
+        new Error('Entity not found'),
+      );
+
+      const response = await request(app).delete('/ansible/ee/test-ee');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, mode: 'provider' });
+    });
+
+    it('returns an error if the entity remains after UID deletion fails', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(eeEntity as any)
+        .mockResolvedValueOnce(eeEntity as any);
+      mockEeProvider.unregister.mockResolvedValueOnce(undefined);
+      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
+        new Error('catalog unavailable'),
+      );
+
+      const response = await request(app).delete('/ansible/ee/test-ee');
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('catalog unavailable');
+    });
+  });
+
   describe('POST /ansible/ee/build', () => {
     const validBuildBody = {
       entityRef: 'component:default/my-ee',
