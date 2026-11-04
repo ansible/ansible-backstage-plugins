@@ -80,22 +80,8 @@ import { ConfigReader } from '@backstage/config';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
 
 type RouterOptions = Parameters<typeof createRouterImpl>[0];
-const mockEeProvider = {
-  getProviderName: () => 'EEEntityProvider',
-  connect: jest.fn(),
-  register: jest.fn(),
-  unregister: jest.fn(),
-};
-
-function createRouter(
-  options: Omit<RouterOptions, 'eeProvider'> & {
-    eeProvider?: RouterOptions['eeProvider'];
-  },
-) {
-  return createRouterImpl({
-    ...options,
-    eeProvider: options.eeProvider ?? mockEeProvider,
-  } as RouterOptions);
+function createRouter(options: RouterOptions) {
+  return createRouterImpl(options);
 }
 
 function createMockGitContentsProvider(
@@ -371,42 +357,15 @@ describe('createRouter', () => {
     });
   });
 
-  describe('DELETE /ansible/ee/:name provider cleanup race', () => {
-    const eeEntity = {
-      apiVersion: 'backstage.io/v1alpha1',
-      kind: 'Component',
-      metadata: { name: 'test-ee', namespace: 'default', uid: 'entity-uid' },
-      spec: { type: 'execution-environment' },
-    };
+  describe('legacy EE routes', () => {
+    it('does not register the removed EE registration or cleanup endpoints', async () => {
+      const registration = await request(app)
+        .post('/ansible/ee')
+        .send({ entity: {} });
+      expect(registration.status).toBe(404);
 
-    it('succeeds if the provider delta already removed the entity', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any)
-        .mockResolvedValueOnce(undefined);
-      mockEeProvider.unregister.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
-        new Error('Entity not found'),
-      );
-
-      const response = await request(app).delete('/ansible/ee/test-ee');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, mode: 'provider' });
-    });
-
-    it('returns an error if the entity remains after UID deletion fails', async () => {
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(eeEntity as any)
-        .mockResolvedValueOnce(eeEntity as any);
-      mockEeProvider.unregister.mockResolvedValueOnce(undefined);
-      mockCatalogClient.removeEntityByUid.mockRejectedValueOnce(
-        new Error('catalog unavailable'),
-      );
-
-      const response = await request(app).delete('/ansible/ee/test-ee');
-
-      expect(response.status).toBe(500);
-      expect(response.body.error).toContain('catalog unavailable');
+      const cleanup = await request(app).delete('/ansible/ee/test-ee');
+      expect(cleanup.status).toBe(404);
     });
   });
 
