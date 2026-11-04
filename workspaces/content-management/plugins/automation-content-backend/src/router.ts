@@ -1,15 +1,28 @@
 import express from 'express';
 import Router from 'express-promise-router';
-import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
 import { publicUrl } from '@ansible/automation-content-common';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
+import {
+  AuthService,
+  HttpAuthService,
+  LoggerService,
+  PermissionsService,
+  UserInfoService,
+} from '@backstage/backend-plugin-api';
+import { CatalogClient } from '@backstage/catalog-client';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { automationContentViewPermission } from '@ansible/automation-content-common/permissions';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
   logger: LoggerService;
   httpAuth: HttpAuthService;
   db: ContentStore;
+  permissions: PermissionsService;
+  auth: AuthService;
+  userInfo: UserInfoService;
+  catalogClient: CatalogClient;
 }
 
 /**
@@ -122,7 +135,11 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     contentsKnown: artifact.contentsKnown,
     classification: artifact.classification,
     enumeration: enumerationOf(artifact),
+    // When the registry was last successfully read, and whether that read
+    // succeeded. The catalog is a cache over state the registry owns, so how
+    // fresh it is matters; the ok flag drives the row's sync state.
     lastReconciledAt: db.reconcileStateFor(artifact.registry)?.at,
+    lastReconcileOk: db.reconcileStateFor(artifact.registry)?.ok,
     counts: db.countsFor(artifact),
     collections: (artifact.manifest?.collections ?? []).map(c => ({
       namespace: c.namespace,
@@ -136,7 +153,8 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { db, logger } = options;
+  const { db, logger, httpAuth, auth, userInfo, catalogClient, permissions } =
+    options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
@@ -150,13 +168,75 @@ export async function createRouter(
     next();
   });
 
+  // Reads are permission-gated; sync operations remain superuser-only.
+  const requireContentView = async (
+    req: unknown,
+    res: RouteResponse,
+    next: () => void,
+  ): Promise<void> => {
+    const credentials = await httpAuth.credentials(
+      req as Parameters<HttpAuthService['credentials']>[0],
+    );
+    const [decision] = await permissions.authorize(
+      [{ permission: automationContentViewPermission }],
+      { credentials },
+    );
+    if (decision.result === AuthorizeResult.ALLOW) {
+      next();
+    } else {
+      res
+        .status(403)
+        .json({ error: 'Forbidden: ansible.content.view permission required' });
+    }
+  };
+
+  /**
+   * Reuse the AAP backend's catalog annotation check; never trust UI gating.
+   * Typed structurally (req: unknown) for the same @types/express identity
+   * reasons as RouteRequest above; cast only at the httpAuth boundary, the
+   * same pattern as workspaces/apme .../router.ts `ensureUser`.
+   */
+  const requireSuperuser = async (
+    req: unknown,
+    res: RouteResponse,
+    next: () => void,
+  ) => {
+    try {
+      const credentials = await httpAuth.credentials(
+        req as Parameters<HttpAuthService['credentials']>[0],
+      );
+      const { userEntityRef } = await userInfo.getUserInfo(credentials);
+      const { token } = await auth.getPluginRequestToken({
+        onBehalfOf: credentials,
+        targetPluginId: 'catalog',
+      });
+      const entity = await catalogClient.getEntityByRef(userEntityRef, {
+        token,
+      });
+      if (
+        entity?.metadata.annotations?.['aap.platform/is_superuser'] === 'true'
+      ) {
+        next();
+        return;
+      }
+    } catch {
+      // Missing identities and failed catalog lookups fail closed without leaking details.
+      logger.warn('Unable to authorize content registry sync');
+    }
+    res.status(403).json({ error: 'Forbidden: superuser access required' });
+  };
+
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
+  // Reads are permission-gated below, each route explicitly, so the OpenAPI
+  // contract stays a truthful list of real paths (a catch-all GET would show
+  // up in the spec as a bogus wildcard entry).
+
   // -- Registries ---------------------------------------------------------
 
-  router.get('/registries', (_req, res) => {
+  router.get('/registries', requireContentView, (_req, res) => {
     res.json({
       items: db.listRegistries().map(state => {
         const reconcile = db.reconcileStateFor(state.connection.name);
@@ -182,7 +262,7 @@ export async function createRouter(
    * Backs the manual refresh control in the UI: a full re-read, for when a user knows
    * something changed and does not want to wait for the poll.
    */
-  router.post('/sync', async (_req, res) => {
+  router.post('/sync', requireSuperuser, async (_req, res) => {
     const started = Date.now();
     const results = [];
     for (const state of db.listRegistries()) {
@@ -206,7 +286,7 @@ export async function createRouter(
   });
 
   /** Cheap drift check: does the registry still match the index? */
-  router.post('/registries/:name/poll', async (req, res) => {
+  router.post('/registries/:name/poll', requireSuperuser, async (req, res) => {
     const { name } = req.params;
     if (!db.getRegistry(name)) {
       res.status(404).json({
@@ -226,7 +306,7 @@ export async function createRouter(
    * Full re-read of one registry: the single-registry counterpart of POST /sync,
    * backing the per-registry refresh control in the UI.
    */
-  router.post('/registries/:name/sync', async (req, res) => {
+  router.post('/registries/:name/sync', requireSuperuser, async (req, res) => {
     const { name } = req.params;
     if (!db.getRegistry(name)) {
       res.status(404).json({
@@ -407,22 +487,26 @@ export async function createRouter(
     res.json(artifactView(db, artifact));
   };
 
-  router.get('/content', listContent);
-  router.get('/content/:ref(*)/contents', getContents);
-  router.get('/content/:ref(*)', getContent);
+  router.get('/content', requireContentView, listContent);
+  router.get('/content/:ref(*)/contents', requireContentView, getContents);
+  router.get('/content/:ref(*)', requireContentView, getContent);
 
   // Aliases retained so existing callers keep working. They are thin filters over the
   // type-agnostic handlers, not parallel implementations.
-  router.get('/execution-environments', (req, res) => {
+  router.get('/execution-environments', requireContentView, (req, res) => {
     req.query.type = EE_TYPE;
     listContent(req, res);
   });
-  router.get('/execution-environments/:ref(*)/contents', getContents);
-  router.get('/execution-environments/:ref(*)', getContent);
+  router.get(
+    '/execution-environments/:ref(*)/contents',
+    requireContentView,
+    getContents,
+  );
+  router.get('/execution-environments/:ref(*)', requireContentView, getContent);
 
   // -- Collections --------------------------------------------------------
 
-  router.get('/collections', async (req, res) => {
+  router.get('/collections', requireContentView, async (req, res) => {
     const q =
       typeof req.query.q === 'string' ? req.query.q.toLowerCase() : undefined;
     const all = await db.listCollections();
@@ -452,39 +536,44 @@ export async function createRouter(
     res.json({ items });
   });
 
-  router.get('/collections/:namespace/:name', async (req, res) => {
-    const fqcn = `${req.params.namespace}.${req.params.name}`;
-    const all = await db.listCollections();
-    const matches = all.filter(c => c.fqcn === fqcn);
-    if (matches.length === 0) {
-      res.status(404).json({
-        error: `Collection not found: ${fqcn}`,
-        code: 'COLLECTION_NOT_FOUND',
+  router.get(
+    '/collections/:namespace/:name',
+    requireContentView,
+    async (req, res) => {
+      const fqcn = `${req.params.namespace}.${req.params.name}`;
+      const matches = (await db.listCollections()).filter(
+        c => c.fqcn === fqcn,
+      );
+      if (matches.length === 0) {
+        res.status(404).json({
+          error: `Collection not found: ${fqcn}`,
+          code: 'COLLECTION_NOT_FOUND',
+        });
+        return;
+      }
+      const collection = matches[0];
+      res.json({
+        namespace: collection.namespace,
+        name: collection.name,
+        fqcn,
+        version: collection.version,
+        description: collection.description,
+        repository: collection.repository,
+        counts: {
+          plugins: collection.plugins.length,
+          roles: collection.roles.length,
+          playbooks: collection.playbooks.length,
+          edaPlugins: collection.edaPlugins.length,
+          rulebooks: collection.rulebooks.length,
+        },
+        versions: matches.map(m => ({
+          version: m.version,
+          providedBy: m.providedBy,
+        })),
+        providedBy: collection.providedBy,
       });
-      return;
-    }
-    const collection = matches[0];
-    res.json({
-      namespace: collection.namespace,
-      name: collection.name,
-      fqcn,
-      version: collection.version,
-      description: collection.description,
-      repository: collection.repository,
-      counts: {
-        plugins: collection.plugins.length,
-        roles: collection.roles.length,
-        playbooks: collection.playbooks.length,
-        edaPlugins: collection.edaPlugins.length,
-        rulebooks: collection.rulebooks.length,
-      },
-      versions: matches.map(m => ({
-        version: m.version,
-        providedBy: m.providedBy,
-      })),
-      providedBy: collection.providedBy,
-    });
-  });
+    },
+  );
 
   // -- Content items (Level B) --------------------------------------------
 
@@ -562,16 +651,18 @@ export async function createRouter(
     });
   };
 
-  router.get('/content-items', searchItems);
-  router.get('/content-items/:fqcn', getItem);
+  router.get('/content-items', requireContentView, searchItems);
+  router.get('/content-items/:fqcn', requireContentView, getItem);
 
   // Aliases: `plugins` is execution-environment vocabulary and does not generalise.
-  router.get('/plugins', searchItems);
-  router.get('/plugins/:fqcn', getItem);
+  router.get('/plugins', requireContentView, searchItems);
+  router.get('/plugins/:fqcn', requireContentView, getItem);
 
   // -- Resolution ---------------------------------------------------------
 
-  router.post('/resolve/requirements', async (req, res) => {
+  router.post('/resolve/requirements', requireContentView, async (req, res) => {
+    // Validate at the boundary: a malformed body must read as a 400, not a 500
+    // from a `.map` on a non-array or an entry with no name.
     const raw = req.body?.collections;
     if (!Array.isArray(raw)) {
       res
@@ -715,7 +806,7 @@ export async function createRouter(
     }
   }
 
-  router.post('/config/validate', (req, res) => {
+  router.post('/config/validate', requireContentView, (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];
     const body = req.body ?? {};

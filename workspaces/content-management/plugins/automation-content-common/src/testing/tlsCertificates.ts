@@ -8,12 +8,11 @@
  * would (rightly) refuse them — so the fixtures are generated when the first
  * test asks for them and cached for the rest of the run.
  *
- * Test infrastructure only: deliberately not exported from the package barrel,
- * so it can never reach a published bundle.
+ * Test infrastructure only: available through a separate entry point and not
+ * imported by the package's runtime barrel.
  */
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
-// Test infrastructure, deliberately kept out of `dependencies`: this module is
-// not exported from the barrel, so node-forge never reaches a published bundle.
+// The separate test entry point uses this development-only dependency.
 // eslint-disable-next-line @backstage/no-undeclared-imports
 import * as forge from 'node-forge';
 
