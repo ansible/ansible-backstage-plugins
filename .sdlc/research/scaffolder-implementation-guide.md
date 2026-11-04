@@ -12,7 +12,7 @@
 
 ## 1. Current State: What Lives in the Monolith Today
 
-The scaffolder backend module today is a single package that registers AAP Controller actions, EE definition authoring actions, publish actions, template filters, and an autocomplete provider — all under one `moduleId: 'ansible'`. These concerns belong to different domains and should be independently deployable. The meeting decision adds a functional boundary: creator CLI / ADT workflows belong with content development, while AAP Controller workflows belong with AAP.
+The scaffolder backend module today is a single package that registers AAP Controller actions, EE definition authoring actions, publish actions, template filters, and an autocomplete provider — all under one `moduleId: 'ansible'`. These concerns belong to different domains and should be independently deployable. 
 
 ### 1.1 Repository layout (main branch)
 
