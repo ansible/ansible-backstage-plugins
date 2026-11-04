@@ -14,6 +14,19 @@ The discovery pass identified 73 HTTP route declarations, nine scaffolder action
 
 The proposals are open for maintainer and community review. Review should cover the affected catalog providers, scaffolder actions, authentication integration, APME integration and content backend. Existing organization resolution, entitlement checks and resource guards remain part of the baseline. Package restructuring is outside the scope of this document.
 
+### Ownership and implementation scope
+
+Ownership guidance was updated on 2026-11-04. The source evidence still describes the 2026-10-29 baseline above. It has not been revalidated against subsequent restructuring. A recorded gap is a review input, not a claim that the current implementation still has that gap.
+
+This inventory spans several independently maintained integrations. It is not a single Portal SDK implementation backlog:
+
+- **Portal SDK maintainers** own the shared dispatcher, trusted execution context and reusable authorization contracts. Plugin-specific permissions, resource checks and downstream credential policies belong to the affected plugin maintainers. A plugin finding does not by itself require a new SDK API.
+- **AAP and EE integration maintainers** review F-02, F-03 and F-06, and the AAP/catalog/scaffolder portions of F-04 and F-05. If an EE or content component moves to another workspace, implementation follows that component's ownership.
+- **APME maintainers** own F-01 and the APME portions of F-04 and F-05, including project registration, branch validation, scans and gateway configuration replication. These are separate integration follow-ups, not work assigned to Portal SDK maintainers. Moving APME out of this repository does not establish that its findings are resolved.
+- **Content integration maintainers** review F-07 and any credential-backed reads or automatic work transferred to their components. Changes to shared Portal contracts require joint review.
+
+Before choosing an implementation slice, locate the current handler after package moves, recheck its guards and consumers, and agree the responsible maintainers and intended policy. APME findings can be handed to its maintainers without blocking unrelated Portal/AAP changes. Completion of this inventory does not require Portal maintainers to implement every proposal across all integrations.
+
 ## Reading the inventory
 
 This document uses AAP for Ansible Automation Platform, EE for execution environment, and SCM for source control management. APME refers to the integration implemented in `workspaces/apme`. A principal is an authenticated user or service identity. A guard is a backend check that permits or rejects an action. An entitlement determines whether a capability is available within its declared scope.
@@ -219,7 +232,7 @@ The [content backend][content-plugin] schedules `automation-content-drift-poll` 
 
 ## Proposed service execution policy
 
-This section proposes a service execution policy for public review. It does not describe an implemented SDK API.
+This section proposes a service execution policy for public review. It does not describe an implemented SDK API. Each integration's maintainers must agree its credential, resource and revocation policy before implementation. A generic service-grant API is not a prerequisite unless a reviewed use case requires it.
 
 Interactive work must retain the authenticated initiator, enforce effect permission and resource access before resolving privileged downstream credentials, and pass through the same guard on every transport. A registered operation can supply shared guarantees. Legacy routes can temporarily use equivalent explicit guards. Documentation saying “internal only” is insufficient if the installed route still accepts broader credentials.
 
@@ -237,13 +250,15 @@ Policy questions to resolve before implementation:
 4. Can a user-initiated job switch to service credentials for polling, stdout or cancellation, and how is that authority bound to the launched job?
 5. What is the revocation boundary for queued work, an in-flight scan and an already running external job?
 
-## Prioritized follow-up proposals and acceptance examples
+## Ownership-scoped follow-up proposals and acceptance examples
 
-The following proposals are independently reviewable changes. The suggested order prioritizes direct mutations and work launches. It is not an exploit severity rating or a release commitment. Each proposal requires tests for alternate transports and verification that denied requests cause no downstream effects or privileged credential resolution.
+The following proposals are independently reviewable changes. Their identifiers are stable cross-references, not an implementation order, exploit severity rating or release commitment. Select work within the affected maintainers' scope after revalidating the baseline. Each accepted proposal requires tests for alternate transports and verification that denied requests cause no downstream effects or privileged credential resolution.
 
 ### F-01: Guard legacy APME project and suppression paths
 
-**Order:** 1. **Affected components:** APME project routes and catalog resource checks. **Evidence:** I-05 and I-06.
+**Ownership:** APME integration maintainers. **Affected components:** APME project routes and catalog resource checks. **Evidence:** I-05 and I-06.
+
+Hand this proposal to APME maintainers for review and implementation in the repository that owns the integration. Retain the evidence here for traceability.
 
 Define distinct project mutation/read, destructive gateway lifecycle and global suppression administration authority. Resolve project/activity/suppression IDs to an approved resource before forwarding. Apply scanning entitlement only where the agreed effect requires it. Either route through registered operations or share explicit guards across raw routes. Remove unused routes only after checking consumers, with an enforceable absence test.
 
@@ -253,7 +268,7 @@ Define distinct project mutation/read, destructive gateway lifecycle and global 
 
 ### F-02: Preserve user authority through EE create and replace
 
-**Order:** 2. **Affected components:** EE scaffolder action and catalog provider. **Evidence:** I-08 and I-04.
+**Ownership:** Maintainers of the EE action and provider, following any workspace moves. **Affected components:** EE scaffolder action and catalog provider. **Evidence:** I-08 and I-04.
 
 Introduce a create/replace guard using initiator credentials and trusted target resolution. Preserve DELETE resource checks. Restrict or remove the raw service POST, or require a narrowly defined service grant for genuinely automatic creation. Replacement permission must be checked even when best-effort cleanup is skipped or fails.
 
@@ -263,7 +278,7 @@ Introduce a create/replace guard using initiator credentials and trusted target 
 
 ### F-03: Separate build, sync and external-service authority
 
-**Order:** 3. **Affected components:** AAP catalog routes and Portal operation contracts. **Evidence:** I-04 and I-07.
+**Ownership:** AAP/EE integration maintainers, with Portal SDK review if shared contracts change. **Affected components:** AAP catalog routes and Portal operation contracts. **Evidence:** I-04 and I-07.
 
 Define mutation permission for EE build rather than deriving it from view permission. Retain entity visibility and user SCM token checks. Define endpoint-specific service subjects/grants for sync and build, with an explicit empty-allowlist policy. Existing external-access configuration must not silently grant every external subject every catalog effect.
 
@@ -273,7 +288,9 @@ Define mutation permission for EE build rather than deriving it from view permis
 
 ### F-04: Bind credential-backed reads to authorized resources
 
-**Order:** 4. **Affected components:** Catalog, scaffolder and SCM credential handling. **Evidence:** I-02 registration credential choice, I-09, I-10 autocomplete and prepare-for-publish, I-06 branch validation.
+**Ownership:** Maintainers of each catalog, scaffolder or SCM consumer. **Affected components:** Catalog, scaffolder and SCM credential handling. **Evidence:** I-02 registration credential choice, I-09, I-10 autocomplete and prepare-for-publish, I-06 branch validation.
+
+Split implementation by consumer. I-09 and I-10 are AAP/catalog/scaffolder follow-ups at the reviewed baseline. I-02 and I-06 are APME follow-ups and remain with APME maintainers. Reassign moved components to their current maintainers before implementation.
 
 Apply catalog resource conditions to each requested target before integration credential use and before shared cache access. Use initiator-bound catalog credentials for collection autocomplete, or define a deliberately shared data contract with explicit permission. Confirm whether repository registration/existence checks intentionally allow integration-backed access and document the grant. Personal SCM access must not be claimed when the backend credential was used.
 
@@ -283,17 +300,17 @@ Apply catalog resource conditions to each requested target before integration cr
 
 ### F-05: Define and enforce automatic-work service grants
 
-**Order:** 5, with policy review started alongside F-01. **Affected components:** Catalog providers, APME scheduling and authentication bootstrap. **Evidence:** B-01 through B-05.
+**Ownership:** Maintainers of each provider, scheduler and authentication integration, with Portal SDK review for shared contracts. **Affected components:** Catalog providers, APME scheduling and authentication bootstrap. **Evidence:** B-01 through B-05.
 
-Implement the reviewed service policy incrementally, starting with automatic gateway project creation/scan. Preserve configured ingestion scopes and existing identity membership validation. Separate metadata publication, credential replication and work launch grants. Do not route service execution through a fake Portal user. Record policy decisions and grant revocation semantics before extending the operation contract.
+Review configured ingestion and identity bootstrap separately from APME project creation, scans and gateway configuration replication. APME maintainers own those gateway effects. Implement each accepted policy independently, preserving configured ingestion scopes and existing identity membership validation. Separate metadata publication, credential replication and work launch grants. Do not route service execution through a fake Portal user. Record policy decisions and grant revocation semantics before extending the operation contract.
 
-**Allow:** An enabled service grant for a selected repository permits the configured scan. Approved ingestion and identity bootstrap continue without an interactive session.
+**Allow:** Approved ingestion and identity bootstrap continue without an interactive session. For the APME-owned scan proposal, an enabled service grant for a selected repository permits the configured scan.
 
-**Deny:** Disabled/missing grant, excluded source, stopped tracking or revoked applicable entitlement prevents the next scan submission, including delayed work. No forged user namespace or SCM organization can satisfy AAP membership. Test initial startup runs as well as recurring tasks. Do not assert cancellation of jobs already accepted downstream.
+**Deny:** Work outside an approved ingestion scope is not submitted. No forged user namespace or SCM organization can satisfy AAP membership. For the APME-owned scan proposal, a disabled/missing grant, excluded source, stopped tracking or revoked applicable entitlement prevents the next scan submission, including delayed work. Test initial startup runs as well as recurring tasks. Do not assert cancellation of jobs already accepted downstream.
 
 ### F-06: Authorize AAP scaffolder effects and service polling
 
-**Order:** 6. **Affected components:** AAP scaffolder actions and Portal operation contracts. **Evidence:** I-10.
+**Ownership:** AAP scaffolder maintainers, with Portal SDK review if shared contracts change. **Affected components:** AAP scaffolder actions and Portal operation contracts. **Evidence:** I-10.
 
 Choose per-action Portal guards or an explicit supported downstream-token boundary. Obtain initiator credentials where Portal policy applies and keep checks independent of frontend field visibility. Bind any service polling/stdout/cancel capability to the authorized launched job. Preserve task abort behavior and downstream AAP authorization.
 
@@ -303,7 +320,7 @@ Choose per-action Portal guards or an explicit supported downstream-token bounda
 
 ### F-07: Authorize content refresh and clarify shared index visibility
 
-**Order:** 7. **Affected components:** Content indexing and Portal authorization. **Evidence:** I-11 and B-06.
+**Ownership:** Content integration maintainers, with Portal SDK review if shared contracts change. **Affected components:** Content indexing and Portal authorization. **Evidence:** I-11 and B-06.
 
 Define refresh authority for users and permitted services, and a separate automatic-indexing grant over configured registries. Retain fixed configured targets and placeholder-only credential export. Confirm whether discovery reads are globally shared or filtered. Avoid duplicating registry model/package work.
 
@@ -317,12 +334,13 @@ Define refresh authority for users and permitted services, and a separate automa
 
 - Identify the affected backend packages and their current maintainers.
 - Recheck source references after rebasing or related package moves.
+- Split mixed-ownership proposals into independently scoped follow-ups. Record APME handoffs separately from Portal/AAP implementation work.
 
 ### Procedure
 
 1. Review the relevant source paths and identify omitted entry points, transports or effects. Include maintainers of affected packages in the public review.
 2. Record decisions, unresolved policy questions and the source baseline in the pull request discussion or a linked public design proposal. The proposals in this document have not yet been accepted.
-3. Agree the service policy and scope of each change. Link accepted follow-up work through public issues or pull requests, and explain dependencies on changes to package structure or operation contracts.
+3. Agree the policy, responsible maintainers and scope of each change. Link accepted follow-up work through public issues or pull requests, and explain dependencies on changes to package structure or operation contracts. Require service-policy changes only where the reviewed execution path needs them.
 4. Add positive and denied tests to each implementation PR, including raw routes, scaffolder and scheduled/startup paths. Verify zero effect after denial.
 
 ### Verification
