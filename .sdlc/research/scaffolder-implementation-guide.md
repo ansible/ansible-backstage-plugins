@@ -70,7 +70,8 @@ workspaces/
 │   └── scaffolder-backend-module-aap/                   # AAP actions + AAP autocomplete
 │
 └── content-development/plugins/
-    ├── content-development-common/                      # shared creator and EE lifecycle contracts
+    ├── content-development-common/                      # content types and compatibility re-exports
+    ├── portal-scaffolder-common/                         # Portal scaffolder schemas, routes, and shared types
     ├── catalog-backend-module-content-development/     # content-owned EE catalog provider
     └── scaffolder-backend-module-content-development/  # creator CLI / ADT actions + autocomplete
 ```
@@ -106,11 +107,11 @@ workspaces/
 
 **Autocomplete providers** follow the data source: AAP Controller lookups use `id: 'aap-api'` in the AAP module; collection and other content/catalog lookups use `id: 'portal-catalog'` in the content-development module. Keep each provider implementation beside the backend that owns the queried system. Keep provider IDs and request/response types as explicit contracts for picker and template consumers; extract shared types only if a second package needs them.
 
-### 3.2 `backstage-rhaap-common` dependency edge and config reads
+### 3.2 SDK ownership and config reads
 
-The content-development scaffolder module imports creator/SCM clients and EE lifecycle contracts from `@ansible/content-development-common`. The AAP common package retains a compatibility re-export for existing consumers, but the content-development packages do not depend on `@ansible/backstage-rhaap-common`.
+The content-development scaffolder module uses SCM and EE lifecycle contracts from `@ansible/portal-plugin-node`, and collection autocomplete types from `@ansible/portal-scaffolder-common`. `@ansible/content-development-common` and `@ansible/backstage-rhaap-common` retain compatibility re-exports for existing consumers; the content-development packages do not depend on `@ansible/backstage-rhaap-common`.
 
-**Phase 1 ownership:** `@ansible/content-development-common` owns the creator/SCM client and EE lifecycle contracts/service refs. The content-development scaffolder module owns the lifecycle adapter. `@ansible/catalog-backend-module-content-development` owns the EE provider and its factory/registration. AAP clients, AAP services, and AAP catalog providers remain in AAP packages.
+**Current ownership:** `@ansible/portal-plugin-node` owns shared SCM clients and EE lifecycle contracts/service refs. `@ansible/content-development-common` retains content-development types and compatibility re-exports. The content-development scaffolder module owns the lifecycle adapter. `@ansible/catalog-backend-module-content-development` owns the EE provider and its factory/registration. AAP clients, AAP services, and AAP catalog providers remain in AAP packages.
 
 `createEEDefinition.ts` is ~1240 lines containing PAH repo identifiers, SCM provider/host/org/repo parsing, galaxy server config, and semver-based collection merging. It depends on creator-service / ADT configuration and now lives in content development. Its remaining AAP/catalog configuration reads are transitional and should be extracted behind a content-side contract in a follow-up.
 
@@ -179,7 +180,7 @@ Proposed package: `@ansible/plugin-scaffolder-backend-module-content-development
 - Config: `ansible.creatorService`, `ansible.devSpaces`
 - `moduleId: 'content-development'` (`pluginId: 'scaffolder'`)
 
-The target also includes `@ansible/content-development-common` for the creator client and EE lifecycle contracts/service refs, plus `@ansible/catalog-backend-module-content-development` (`pluginId: 'catalog'`) for the EE entity provider and its root-scoped provider service. The scaffolder module owns the lifecycle adapter and consumes those contracts. This keeps all three packages in content-development without making the AAP workspace a package dependency.
+The target includes `@ansible/content-development-common` for content-development types and compatibility re-exports, `@ansible/portal-plugin-node` for SCM and EE lifecycle contracts, and `@ansible/portal-scaffolder-common` for Portal scaffolder contracts. `@ansible/catalog-backend-module-content-development` (`pluginId: 'catalog'`) owns the EE entity provider and its root-scoped provider service. The scaffolder module owns the lifecycle adapter and consumes the shared SDK contracts. This keeps the backend packages in content-development without making the AAP workspace a package dependency.
 
 ### 4.3 Breaking package migration
 
@@ -218,7 +219,20 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 
 **Verification:** service and scaffolder tests cover authorization and cleanup; compose the catalog provider and scaffolder module in the dev app and run an EE template end-to-end.
 
-### Phase 2 — Replace transitional AAP/catalog configuration reads
+### Phase 2 PR series — Move shared contracts into Portal SDK
+
+The three stacked PRs move shared backend contracts to the owning SDK and remove the content-development scaffolder module's dependency on `@ansible/content-development-common`.
+
+| Item | Notes |
+| ---- | ----- |
+| Move SCM clients and factory to `@ansible/portal-plugin-node` | Keep compatibility re-exports in `@ansible/content-development-common` and `@ansible/backstage-rhaap-common`; update dynamic plugin embeddings. |
+| Move EE lifecycle contracts and service refs to `@ansible/portal-plugin-node` | Keep `@ansible/content-development-common` compatibility exports so the catalog provider and existing consumers share the same service refs. |
+| Use Portal scaffolder types | Move collection autocomplete types to `@ansible/portal-scaffolder-common`. |
+| Decouple the content-development scaffolder module | Remove `@ansible/content-development-common` from its dependencies; use the Portal SDK and Portal scaffolder common package directly. |
+
+**Verification:** preserve the merged Phase 1 authorization, validation, workflow, and autocomplete behavior; validate package dependencies and dynamic-plugin embeddings.
+
+### Phase 3 — Replace transitional AAP/catalog configuration reads
 
 | Item                                          | Notes                                                                                                                                                                                             |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,13 +240,13 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 | Validate config ownership                     | Keep `ansible.creatorService` and `ansible.devSpaces` under content development; remove transitional `ansible.rhaap` and `catalog.providers.rhaap` reads after the content-side API is available. |
 | Preserve picker and EE behavior               | Retain the `portal-catalog` provider ID and EE source round-trip while switching to the content-side contract.                                                                                    |
 
-### Phase 3 — Validate workspace boundaries and deployment
+### Phase 4 — Validate workspace boundaries and deployment
 
 | Item                          | Notes                                                                                                                                                                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Verify package boundaries     | Content-development packages import `@ansible/content-development-common` and have no direct `@ansible/backstage-rhaap-common` dependency. AAP common keeps a compatibility re-export for existing consumers. |
+| Verify package boundaries     | Content-development packages use `@ansible/portal-plugin-node` for shared backend contracts and have no direct `@ansible/backstage-rhaap-common` dependency. AAP common keeps a compatibility re-export for existing consumers. |
 | Verify deployment composition | Install the AAP scaffolder module and both content-development backend modules; confirm EE provider registration and lifecycle service resolution.                                                            |
-| Verify dynamic exports        | Confirm each module embeds the shared content-development contracts and installs once without duplicate action or provider IDs.                                                                               |
+| Verify dynamic exports        | Confirm each module embeds its required Portal SDK dependencies and installs once without duplicate action or provider IDs.                                                                               |
 | Update operator guidance      | Document the Phase 1 package ownership and required dynamic-plugin installation.                                                                                                                              |
 
 ---
@@ -253,7 +267,9 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 | Package                                                         | Registers                                                          | Owns                                                                 |
 | --------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `@ansible/plugin-scaffolder-backend-module-aap`                 | `rhaap:*` actions, template filters, `aap-api`                     | AAP actions and AAP Controller autocomplete                          |
-| `@ansible/content-development-common`                           | Creator client and EE lifecycle interfaces/service refs            | Content-development contracts shared by its backend modules          |
+| `@ansible/content-development-common`                           | Content-development types and compatibility re-exports             | Compatibility bridge for existing consumers                           |
+| `@ansible/portal-plugin-node`                                    | SCM clients and EE lifecycle interfaces/service refs               | Shared backend SDK contracts                                          |
+| `@ansible/portal-scaffolder-common`                              | Portal scaffolder schemas, routes, and autocomplete types          | Portal-facing scaffolder contracts                                    |
 | `@ansible/catalog-backend-module-content-development`           | Catalog EE provider and root-scoped provider service               | Content-owned EE entity registration and provider lifecycle          |
 | `@ansible/plugin-scaffolder-backend-module-content-development` | Content actions, `portal-catalog`, plugin-scoped lifecycle adapter | Creator CLI / ADT actions, autocomplete, and authorized EE lifecycle |
 
@@ -264,7 +280,7 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 | Question                                                                                                                          | Blocking          |
 | --------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | Should plugin manifests require an `experience` field? This remains a separate decision; this guide does not propose removing it. | Separate decision |
-| Which AAP/catalog reads in `createEEDefinition.ts` should become a content-side API? (§3.2)                                       | Phase 2           |
+| Which AAP/catalog reads in `createEEDefinition.ts` should become a content-side API? (§3.2)                                       | Phase 3           |
 
 ---
 
@@ -283,6 +299,6 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 | EE definition schema  | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapActionSchemas.ts` (partial)                     | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/actions/schemas/eeDefinitionSchema.ts`   |
 | Config                | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/config.d.ts`                                                             | Split per module                                                                                                                   |
 | Backend wiring        | `workspaces/portal-core/packages/backend/src/index.ts`                                                                                     | Register the AAP catalog and scaffolder modules plus the content-development catalog and scaffolder modules                        |
-| EE lifecycle contract | `workspaces/aap/plugins/backstage-rhaap-common/src/EEEntityLifecycle.ts`                                                                   | `workspaces/content-development/plugins/content-development-common/src/EEEntityLifecycle.ts`                                       |
+| EE lifecycle contract | `workspaces/aap/plugins/backstage-rhaap-common/src/EEEntityLifecycle.ts`                                                                   | `workspaces/portal-core/plugins/portal-plugin-node/src/eeEntityLifecycle.ts`                                                        |
 | EE lifecycle adapter  | Phase 1 PR #999 intermediate path: `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/eeEntityLifecycleAdapter.ts` | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/eeEntityLifecycleAdapter.ts`             |
 | EE catalog provider   | `workspaces/aap/plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts` and `src/eeEntityLifecycleService.ts`              | `workspaces/content-development/plugins/catalog-backend-module-content-development/`; register through the catalog extension point |

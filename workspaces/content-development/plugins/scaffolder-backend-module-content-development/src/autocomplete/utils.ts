@@ -8,7 +8,7 @@ import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 import type {
   Collections,
   SourceVersionDetail,
-} from '@ansible/content-development-common';
+} from '@ansible/portal-scaffolder-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
 const COLLECTIONS_CACHE_MAX_ENTRIES = 100;
