@@ -32,6 +32,8 @@ where versioned packages apply.
 
 ### Changed
 
+- **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
+
 - **Automation content custom transports:** injected `FetchLike` implementations
   now receive `redirect: 'manual'` and must return redirect responses without
   following them. Update wrappers that automatically follow redirects to forward

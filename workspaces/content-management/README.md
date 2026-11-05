@@ -1,4 +1,4 @@
-# Content workspace
+# Content management workspace
 
 Ansible automation content management for Red Hat Developer Hub / Backstage —
 discovery, governance, trust and lifecycle for execution environments,

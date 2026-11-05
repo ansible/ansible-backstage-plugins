@@ -226,7 +226,7 @@ catalog:
                   timeout: { minutes: 15 }
 
     # Automation content discovery from OCI-compliant registries
-    # (workspaces/content — catalog-backend-module-automation-content).
+    # (workspaces/content-management — catalog-backend-module-automation-content).
     # Presence of a registries list enables the provider; there is no separate
     # `enabled` flag. Uncomment and fill in to activate.
     # automationContent:
