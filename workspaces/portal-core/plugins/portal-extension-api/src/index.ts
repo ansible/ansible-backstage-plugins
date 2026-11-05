@@ -24,9 +24,8 @@ export type {
   OperationLaunch,
 } from './types';
 
-// ── Manifest-level types (experience + capability + entry point model) ─────────
-// These are the production types from §6.3 of the Content Experience
-// Architecture. They supersede the PoC registry model for new plugins.
+// ── Manifest-level types (capability + entry point model) ──────────────────────
+// Shared public contract for Portal contributors and hosts.
 export type {
   PermissionRequirement,
   ContentPredicate,

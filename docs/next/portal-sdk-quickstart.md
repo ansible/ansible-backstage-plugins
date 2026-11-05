@@ -104,27 +104,36 @@ export function TrustSignalsTab({ entity }: ActionContext) {
 ```ts
 // src/manifest.ts
 import type { PluginManifest } from '@ansible/portal-extension-api';
+import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 
 export const myPluginManifest: PluginManifest = {
-  pluginId: 'my-plugin',
+  id: 'my-plugin',
   version: '1.0.0',
+  apiVersion: '0.1.0',
   capabilities: [
     {
-      capabilityId: 'my-plugin.trust-signals',
+      id: 'my-plugin.trust-signals',
+      ownerPlugin: 'my-plugin',
       displayName: 'Trust Signals',
       description: 'Supply chain trust scores for Ansible content.',
+      minimumHostApiVersion: '0.1.0',
+      appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
       entryPoints: [
         {
-          surface: 'tab',
-          launch: {
+          id: 'my-plugin.trust-signals.tab',
+          kind: 'entity-tab',
+          surface: 'entity-page',
+          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
+          launches: {
             type: 'slot',
-            slotId: 'git-repo-detail.tab.my-plugin.trust-signals',
+            targetSlot: 'entity.detail.tabs',
           },
           label: 'Trust Signals',
         },
       ],
     },
   ],
+  entitlements: [],
 };
 ```
 
