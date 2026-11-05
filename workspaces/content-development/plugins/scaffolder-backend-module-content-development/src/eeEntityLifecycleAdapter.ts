@@ -49,9 +49,13 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       throw new Error('Forbidden: insufficient permissions to create entity');
     }
     const token = await this.getCatalogToken(credentials);
-    const existing = await this.catalogClient.getEntityByRef(entityRef, {
-      token,
-    });
+    const existingForCaller = await this.catalogClient.getEntityByRef(
+      entityRef,
+      { token },
+    );
+    const existing =
+      existingForCaller ??
+      (await this.getEntityWithServiceCredentials(entityRef));
     if (existing) {
       const [deleteDecision] = await this.permissions.authorize(
         [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
@@ -84,7 +88,16 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       entityRef,
       catalogOpts,
     );
-    if (!entity) return { mode: 'noop' };
+    if (!entity) {
+      const hiddenEntity =
+        await this.getEntityWithServiceCredentials(entityRef);
+      if (hiddenEntity) {
+        throw new Error(
+          'Insufficient permissions to read existing execution environment.',
+        );
+      }
+      return { mode: 'noop' };
+    }
     if (
       entity.kind !== 'Component' ||
       entity.spec?.type !== 'execution-environment'
@@ -168,6 +181,12 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       targetPluginId: 'catalog',
     });
     return token;
+  }
+
+  private async getEntityWithServiceCredentials(entityRef: string) {
+    const serviceCredentials = await this.auth.getOwnServiceCredentials();
+    const token = await this.getCatalogToken(serviceCredentials);
+    return this.catalogClient.getEntityByRef(entityRef, { token });
   }
 }
 
