@@ -17,8 +17,8 @@ export function generateEETemplate(values: EEDefinitionInput): string {
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: ${values.eeFileName}
-  title: ${values.eeFileName}
+  name: ${quoteYamlScalar(values.eeFileName)}
+  title: ${quoteYamlScalar(values.eeFileName)}
   description: ${yaml.dump(values.eeDescription || 'Saved Ansible Execution Environment Definition template', { quotingType: '"', forceQuotes: true }).trim()}
   annotations:
     ansible.io/saved-template: 'true'

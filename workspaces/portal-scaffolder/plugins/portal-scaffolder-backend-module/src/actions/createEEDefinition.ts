@@ -585,10 +585,15 @@ function partitionCollectionsBySourceType(collections: Collection[]): {
   const nonScmCollections: Collection[] = [];
 
   for (const c of collections) {
+    const sourceSegments = c.source
+      ?.split('/')
+      .map(segment => segment.trim())
+      .filter(Boolean);
     if (
       c.source &&
+      !c.source.includes('://') &&
       !c.source.startsWith(PAH_SOURCE_PREFIX) &&
-      c.source.split('/').length >= SCM_SOURCE_SEGMENT_COUNT
+      (sourceSegments?.length ?? 0) >= SCM_SOURCE_SEGMENT_COUNT
     ) {
       scmCollections.push(c);
     } else {

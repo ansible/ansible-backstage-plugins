@@ -17,6 +17,7 @@ describe('generateReadme', () => {
       expect(readme).not.toContain('podman login');
       expect(readme).not.toContain('podman pull');
       expect(readme).not.toContain('Private Automation Hub (PAH)/');
+      expect(readme).not.toContain('**Image registry:** ``');
     }
   });
 });
