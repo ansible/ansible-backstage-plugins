@@ -147,7 +147,6 @@ const manifest: EntityDetailTabDescriptor['manifest'] = {
     {
       id: 'independent.quality',
       ownerPlugin: 'independent',
-      experienceId: 'content-quality-assessment',
       displayName: 'Independent quality',
       description: 'A contribution with no Templates dependency',
       minimumHostApiVersion: '0.1.0',

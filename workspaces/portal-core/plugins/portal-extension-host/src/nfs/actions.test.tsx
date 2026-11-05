@@ -18,6 +18,7 @@ import {
   type EntityActionDescriptor,
   type EntityDetailTabDescriptor,
   type EntityContributionContext,
+  type CatalogItemActionDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalEntityPage } from './createPortalEntityPage';
 import {
@@ -25,7 +26,9 @@ import {
   PortalOperationAction,
 } from './PortalEntityActions';
 import { collectEntityActions } from './validateEntityAction';
+import { collectCatalogItemActions } from './validateCatalogItemAction';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { PortalCatalogItemActions } from './PortalCatalogItemActions';
 
 const context: EntityContributionContext = {
   entity: {
@@ -59,7 +62,6 @@ function descriptor(): EntityActionDescriptor {
         {
           id: 'scanner.quality',
           ownerPlugin: 'scanner',
-          experienceId: 'content-quality-assessment',
           displayName: 'Quality',
           description: 'Quality',
           minimumHostApiVersion: '0.1.0',
@@ -108,6 +110,81 @@ function descriptor(): EntityActionDescriptor {
     enabledByConfig: 'scanner.enabled',
   };
 }
+
+describe('catalog item actions', () => {
+  async function renderCatalogActions(denied: boolean) {
+    const base = descriptor();
+    delete base.followOnEntryPointId;
+    const action: CatalogItemActionDescriptor = {
+      ...base,
+      attachment: 'catalog.item.actions',
+    };
+    action.manifest.capabilities[0].entryPoints[2].kind = 'catalog-item-action';
+    action.manifest.capabilities[0].entryPoints[2].surface = 'catalog-item';
+    action.manifest.capabilities[0].entryPoints[2].launches = {
+      type: 'operation',
+      operationId: 'scanner.scan',
+    };
+    const actions = collectCatalogItemActions([action]);
+    expect(actions).toEqual([action]);
+    const checkEntitlement = jest.fn().mockResolvedValue(true);
+    const execute = jest.fn().mockResolvedValue({ result: {} });
+    const page = createPortalEntityPage({
+      path: '/catalog',
+      loader: async () =>
+        compatWrapper(
+          <PortalCatalogItemActions
+            actions={actions}
+            context={context}
+            checkEntitlement={checkEntitlement}
+            presentation="menu-item"
+          />,
+        ),
+    });
+    const authorize = jest
+      .fn()
+      .mockReturnValue(denied ? AuthorizeResult.DENY : AuthorizeResult.ALLOW);
+    await renderTestApp({
+      features: [
+        createFrontendPlugin({
+          pluginId: 'portal',
+          extensions: [createPortalContributionProvider(), page],
+        }),
+      ],
+      apis: [
+        [portalOperationsApiRef, { execute }],
+        mockApis.permission({ authorize }),
+      ],
+      config: { scanner: { enabled: true } },
+      initialRouteEntries: ['/catalog'],
+    });
+    await screen.findByRole('group', { name: 'Actions for repo' });
+    await waitFor(() => expect(authorize).toHaveBeenCalled());
+    return { action, checkEntitlement, execute };
+  }
+
+  it('executes an eligible row action with the selected entity reference', async () => {
+    const { action, checkEntitlement, execute } =
+      await renderCatalogActions(false);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Scan' }));
+    await waitFor(() =>
+      expect(execute).toHaveBeenCalledWith('scanner.scan', {
+        subject: { entityRef: 'component:default/repo' },
+      }),
+    );
+    expect(checkEntitlement).toHaveBeenCalledWith(
+      action.manifest.entitlements[0],
+      context,
+    );
+  });
+
+  it('hides a permission-denied row action without checking entitlement or executing it', async () => {
+    const { checkEntitlement, execute } = await renderCatalogActions(true);
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(checkEntitlement).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
 
 describe('confirmed subject removal', () => {
   it('keeps pending catalog cleanup visible and checks again without resubmitting removal', async () => {
@@ -265,7 +342,6 @@ describe('native entity actions', () => {
       sourceKinds?: string[];
       enabled?: boolean;
       deny?: boolean;
-      experiences?: string[];
       missingResolver?: boolean;
       missingResults?: boolean;
       hiddenResults?: boolean;
@@ -303,7 +379,6 @@ describe('native entity actions', () => {
               tabs={collectedTabs}
               actions={actions}
               context={current}
-              availableExperiences={options.experiences}
               checkEntitlement={options.missingResolver ? undefined : check}
             />
           </>,
@@ -428,7 +503,6 @@ describe('native entity actions', () => {
     { contentType: CONTENT_TYPES.COLLECTION },
     { enabled: false },
     { deny: true },
-    { experiences: [] },
     { missingResolver: true },
   ])('filters before activation: %j', async options => {
     await compose(options);
