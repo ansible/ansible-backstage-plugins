@@ -8,7 +8,7 @@ import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 import { Navigate } from 'react-router-dom';
 import { resolveLandingDestination } from './landingDestination';
-import portalIcon from './assets/automation-portal.svg';
+import ansibleLogo from './assets/ansible-logo.png';
 
 /** Root routing is host-owned; contributor pages retain their own access checks. */
 export function PortalLandingPage() {
@@ -26,12 +26,7 @@ export function PortalLandingPage() {
       <InfoCard
         title={
           <Box display="flex" alignItems="center" gridGap={16}>
-            <img
-              src={portalIcon}
-              alt="Automation Portal"
-              width={48}
-              height={48}
-            />
+            <img src={ansibleLogo} alt="Ansible" width={48} height={48} />
             <span>Welcome to Automation Portal</span>
           </Box>
         }

@@ -203,9 +203,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/automation-content-common@workspace:^, @ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common":
+"@ansible/automation-content-common@workspace:^, @ansible/automation-content-common@workspace:workspaces/content-management/plugins/automation-content-common":
   version: 0.0.0-use.local
-  resolution: "@ansible/automation-content-common@workspace:workspaces/content/plugins/automation-content-common"
+  resolution: "@ansible/automation-content-common@workspace:workspaces/content-management/plugins/automation-content-common"
   dependencies:
     "@ansible/content-model": "workspace:^"
     "@backstage/cli": "npm:0.36.5"
@@ -389,17 +389,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/content-model@workspace:^, @ansible/content-model@workspace:workspaces/content/plugins/content-model":
+"@ansible/content-model@workspace:^, @ansible/content-model@workspace:workspaces/content-management/plugins/content-model":
   version: 0.0.0-use.local
-  resolution: "@ansible/content-model@workspace:workspaces/content/plugins/content-model"
+  resolution: "@ansible/content-model@workspace:workspaces/content-management/plugins/content-model"
   dependencies:
     "@backstage/cli": "npm:0.36.5"
   languageName: unknown
   linkType: soft
 
-"@ansible/content-type-execution-environment@workspace:^, @ansible/content-type-execution-environment@workspace:workspaces/content/plugins/content-type-execution-environment":
+"@ansible/content-type-execution-environment@workspace:^, @ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment":
   version: 0.0.0-use.local
-  resolution: "@ansible/content-type-execution-environment@workspace:workspaces/content/plugins/content-type-execution-environment"
+  resolution: "@ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment"
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
@@ -407,9 +407,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-automation-content-backend@workspace:^, @ansible/plugin-automation-content-backend@workspace:workspaces/content/plugins/automation-content-backend":
+"@ansible/plugin-automation-content-backend@workspace:^, @ansible/plugin-automation-content-backend@workspace:workspaces/content-management/plugins/automation-content-backend":
   version: 0.0.0-use.local
-  resolution: "@ansible/plugin-automation-content-backend@workspace:workspaces/content/plugins/automation-content-backend"
+  resolution: "@ansible/plugin-automation-content-backend@workspace:workspaces/content-management/plugins/automation-content-backend"
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
@@ -428,9 +428,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-automation-content@workspace:^, @ansible/plugin-automation-content@workspace:workspaces/content/plugins/automation-content":
+"@ansible/plugin-automation-content@workspace:^, @ansible/plugin-automation-content@workspace:workspaces/content-management/plugins/automation-content":
   version: 0.0.0-use.local
-  resolution: "@ansible/plugin-automation-content@workspace:workspaces/content/plugins/automation-content"
+  resolution: "@ansible/plugin-automation-content@workspace:workspaces/content-management/plugins/automation-content"
   dependencies:
     "@ansible/content-model": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
@@ -542,9 +542,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-catalog-backend-module-automation-content@workspace:^, @ansible/plugin-catalog-backend-module-automation-content@workspace:workspaces/content/plugins/catalog-backend-module-automation-content":
+"@ansible/plugin-catalog-backend-module-automation-content@workspace:^, @ansible/plugin-catalog-backend-module-automation-content@workspace:workspaces/content-management/plugins/catalog-backend-module-automation-content":
   version: 0.0.0-use.local
-  resolution: "@ansible/plugin-catalog-backend-module-automation-content@workspace:workspaces/content/plugins/catalog-backend-module-automation-content"
+  resolution: "@ansible/plugin-catalog-backend-module-automation-content@workspace:workspaces/content-management/plugins/catalog-backend-module-automation-content"
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
@@ -839,9 +839,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
+"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/content-development/plugins/portal-scaffolder-common":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common"
+  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/content-development/plugins/portal-scaffolder-common"
   dependencies:
     "@backstage/cli": "npm:0.36.5"
     "@jest/globals": "npm:29.7.0"
@@ -850,15 +850,53 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
+"@ansible/portal-scaffolder-react@workspace:^, @ansible/portal-scaffolder-react@workspace:workspaces/content-development/plugins/portal-scaffolder-react":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
+  resolution: "@ansible/portal-scaffolder-react@workspace:workspaces/content-development/plugins/portal-scaffolder-react"
+  dependencies:
+    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/cli": "npm:0.36.5"
+    "@backstage/core-plugin-api": "npm:1.12.9"
+    "@backstage/integration-react": "npm:1.2.21"
+    "@backstage/plugin-catalog-react": "npm:3.2.2"
+    "@backstage/plugin-scaffolder-react": "npm:2.0.3"
+    "@backstage/test-utils": "npm:1.7.21"
+    "@material-ui/core": "npm:4.12.4"
+    "@material-ui/icons": "npm:4.11.3"
+    "@material-ui/lab": "npm:4.0.0-alpha.61"
+    "@testing-library/dom": "npm:^10.4.0"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^16.0.0"
+    "@types/jest": "npm:^29.5.14"
+    "@types/react": "npm:^18.3.3"
+    react: "npm:^18.3.1"
+    react-dom: "npm:^18.3.1"
+    typescript: "npm:~5.8.0"
+  peerDependencies:
+    "@backstage/core-plugin-api": ^1.12.9
+    "@backstage/integration-react": ^1.2.21
+    "@backstage/plugin-catalog-react": ^3.2.2
+    "@backstage/plugin-scaffolder-react": ^2.0.3
+    "@material-ui/core": ^4.9.13
+    "@material-ui/icons": ^4.9.1
+    "@material-ui/lab": ^4.0.0-alpha.61
+    react: ^18.3.1
+    react-dom: ^18.3.1
+    react-router: "*"
+    react-router-dom: ^6.30.5
+  languageName: unknown
+  linkType: soft
+
+"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/content-development/plugins/portal-scaffolder":
+  version: 0.0.0-use.local
+  resolution: "@ansible/portal-scaffolder@workspace:workspaces/content-development/plugins/portal-scaffolder"
   dependencies:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder-common": "workspace:^"
+    "@ansible/portal-scaffolder-react": "workspace:^"
     "@backstage/catalog-client": "npm:1.16.1"
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"
@@ -13694,7 +13732,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@material-ui/core@npm:^4.12.2, @material-ui/core@npm:^4.12.4, @material-ui/core@npm:^4.9.13":
+"@material-ui/core@npm:4.12.4, @material-ui/core@npm:^4.12.2, @material-ui/core@npm:^4.12.4, @material-ui/core@npm:^4.9.13":
   version: 4.12.4
   resolution: "@material-ui/core@npm:4.12.4"
   dependencies:
@@ -13721,7 +13759,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
+"@material-ui/icons@npm:4.11.3, @material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
   version: 4.11.3
   resolution: "@material-ui/icons@npm:4.11.3"
   dependencies:

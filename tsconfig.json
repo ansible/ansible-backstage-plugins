@@ -7,9 +7,9 @@
     "workspaces/portal-core/plugins/*/dev",
     "workspaces/portal-core/plugins/*/config.d.ts",
     "workspaces/portal-core/plugins/*/migrations",
-    "workspaces/portal-scaffolder/plugins/*/src",
-    "workspaces/portal-scaffolder/plugins/*/dev",
-    "workspaces/portal-scaffolder/plugins/*/config.d.ts",
+    "workspaces/content-development/plugins/*/src",
+    "workspaces/content-development/plugins/*/dev",
+    "workspaces/content-development/plugins/*/config.d.ts",
     "workspaces/aap/plugins/*/src",
     "workspaces/aap/plugins/*/dev",
     "workspaces/aap/plugins/*/config.d.ts",
@@ -17,9 +17,9 @@
     "workspaces/apme/plugins/*/src",
     "workspaces/apme/plugins/*/dev",
     "workspaces/apme/plugins/*/config.d.ts",
-    "workspaces/content/plugins/*/src",
-    "workspaces/content/plugins/*/dev",
-    "workspaces/content/plugins/*/config.d.ts"
+    "workspaces/content-management/plugins/*/src",
+    "workspaces/content-management/plugins/*/dev",
+    "workspaces/content-management/plugins/*/config.d.ts"
   ],
   "exclude": ["node_modules"],
   "compilerOptions": {

@@ -20,6 +20,8 @@ where versioned packages apply.
 
 - **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header has no Create shortcut.
 
+- **Automation content registry endpoint validation** (AAP-96689): configured OCI registry URLs under `catalog.providers.automationContent.registries` are validated at backend startup — they must be absolute `http`/`https` URLs with no embedded credentials, query, or fragment, and are normalized to canonical form. A malformed endpoint now fails startup with an error naming the registry (a _missing_ `url` already did). `POST /automation-content/config/validate` enforces the same rule as the loader, so a preflight-approved registry URL can no longer prevent startup; it also reports non-object registry entries and non-string URLs as validation errors instead of crashing. The SSRF refusal branches in the OCI client (non-HTTP(S) auth realms, plaintext realms for HTTPS registries, and pagination `Link` targets pointing away from the configured registry) are now covered by tests, and the origin check now authorizes the **parsed** target of any Link form — including hostname-suffixed and scheme-relative links, which previously concatenated onto the configured host and could redirect credential-bearing requests to an attacker-controlled origin.
+
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
 
 - **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
@@ -29,6 +31,10 @@ where versioned packages apply.
 - Self-service **Create Task** flow: clearer **review** display for nested objects; **sessionStorage** may retain bounded **`data:`** URLs across OAuth redirect so typical file uploads are not cleared (very large payloads may still be dropped to respect storage limits; **`blob:`** URLs remain cleared on reload).
 
 ### Changed
+
+- **Content development workspace** renames `workspaces/portal-scaffolder` to `workspaces/content-development` and its workspace manifest to `@ansible/content-development-workspace`, with matching configuration, CI, lockfile, ownership, and documentation paths. Plugin directories, package names, and runtime identifiers remain unchanged.
+
+- **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
 
 - **Automation content custom transports:** injected `FetchLike` implementations
   now receive `redirect: 'manual'` and must return redirect responses without
@@ -53,6 +59,8 @@ where versioned packages apply.
 - **Launch credential normalization:** `credential_type` is only set when the type can be resolved from the credential or its `summary_fields`; it is no longer defaulted to `0`, avoiding spurious duplicate-type detection when metadata is missing.
 
 ### Fixed
+
+- **Job template catalog sync** requests `/api/controller/v2/job_templates/` with a trailing slash. AAP redirects the slash-less list URL with 301, and that redirect returns 503 once the organization filter query is large (reproduced at 137 organizations, about 6 KB). The slash-terminated URL returns 200 for the same filter. There is no configuration workaround; other job-template list calls already used the slash.
 
 - **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema, while client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`. Deployments configured only with `ansible.rhaap.baseUrl` must also set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl` as described in the upgrade notes. This does not bypass redirect validation or fix token-revocation transport errors.
 

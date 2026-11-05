@@ -34,10 +34,10 @@
     "packages": [
       "workspaces/portal-core/packages/*",
       "workspaces/portal-core/plugins/*",
-      "workspaces/portal-scaffolder/plugins/*",
+      "workspaces/content-development/plugins/*",
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
-      "workspaces/content/plugins/*",
+      "workspaces/content-management/plugins/*",
       "e2e-tests/*"
     ]
   },

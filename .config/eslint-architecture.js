@@ -108,7 +108,7 @@ function mergeRestrictedSyntax(config, selectors) {
  *   files keep the freedom to seed a subprocess with `{ ...process.env }`
  *
  * The operator guide for the boundary is
- * workspaces/content/docs/guides/registry-credentials.md.
+ * workspaces/content-management/docs/guides/registry-credentials.md.
  */
 
 /**
@@ -167,10 +167,10 @@ const ENV_COMPUTED = [
 ];
 
 const clusterClientMessage =
-  'Automation content must not load Kubernetes/OpenShift clients: registry credentials arrive through Backstage configuration, and the plugin needs no cluster API access. See workspaces/content/docs/guides/registry-credentials.md (AAP-96687).';
+  'Automation content must not load Kubernetes/OpenShift clients: registry credentials arrive through Backstage configuration, and the plugin needs no cluster API access. See workspaces/content-management/docs/guides/registry-credentials.md (AAP-96687).';
 
 const envObjectMessage =
-  'Production code must not take the whole process.env object as a value: read named variables (process.env.NAME) or receive configuration through Backstage config. Tests may spread it to seed a subprocess. See workspaces/content/docs/guides/registry-credentials.md (AAP-96687).';
+  'Production code must not take the whole process.env object as a value: read named variables (process.env.NAME) or receive configuration through Backstage config. Tests may spread it to seed a subprocess. See workspaces/content-management/docs/guides/registry-credentials.md (AAP-96687).';
 
 const envComputedMessage =
   "Computed process.env access hides which variable is read: use a literal name (process.env.NAME or process.env['NAME']).";

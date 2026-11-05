@@ -226,7 +226,7 @@ catalog:
                   timeout: { minutes: 15 }
 
     # Automation content discovery from OCI-compliant registries
-    # (workspaces/content — catalog-backend-module-automation-content).
+    # (workspaces/content-management — catalog-backend-module-automation-content).
     # Presence of a registries list enables the provider; there is no separate
     # `enabled` flag. Uncomment and fill in to activate.
     # automationContent:
@@ -248,7 +248,7 @@ catalog:
     #         - demo/network-ee
     #       # Credentials come from the environment, never from this file:
     #       # an OpenShift Secret → container env → ${VAR} substitution here.
-    #       # See workspaces/content/docs/guides/registry-credentials.md for
+    #       # See workspaces/content-management/docs/guides/registry-credentials.md for
     #       # delivery, rotation and the RBAC boundary. For a registry that
     #       # needs none — a local zot or registry:2 — use `type: anonymous`
     #       # and drop the three lines below. A pre-issued registry token is

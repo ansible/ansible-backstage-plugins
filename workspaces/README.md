@@ -9,10 +9,10 @@ workspaces/
 │   ├── packages/app/           Native development app and legacy fallback
 │   ├── packages/backend/       Development backend composition
 │   └── plugins/                Contracts, host, SDKs, operations, health
-├── portal-scaffolder/plugins/  Portal scaffolder and current content pages
+├── content-development/plugins/  Portal scaffolder and current content pages
 ├── aap/plugins/                AAP clients, auth, catalog, provisioning, actions
 ├── apme/plugins/               Third-party contribution example and backend modules
-└── content/plugins/            Automation content over OCI registries (PoC)
+└── content-management/plugins/ Automation content over OCI registries (PoC)
 ```
 
 ## Workspace relationships
@@ -97,7 +97,7 @@ catalog module, authentication provider, user-provisioning module and scaffolder
 module. Backend code uses AAP clients/services; frontend surfaces communicate
 through platform APIs rather than directly contacting AAP.
 
-### Content
+### Content management
 
 - `automation-content`: `@ansible/plugin-automation-content` frontend mounted
   at `/automation-content`; a drill-down content browser (execution
@@ -114,7 +114,8 @@ through platform APIs rather than directly contacting AAP.
   adapter.
 
 Proof-of-concept status: interfaces, config shape, API routes and entity shape
-still move without notice. See `content/README.md` and `content/docs/adrs/`.
+still move without notice. See `content-management/README.md` and
+`content-management/docs/adrs/`.
 
 ## Current boundaries
 

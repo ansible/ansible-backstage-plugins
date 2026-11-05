@@ -1434,7 +1434,7 @@ export class AAPClient implements IAAPService {
       instanceGroup: InstanceGroup[];
     }[]
   > {
-    const endPoint = '/api/controller/v2/job_templates';
+    const endPoint = '/api/controller/v2/job_templates/';
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('page_size', '100');
     if (this.catalogConfig.organizations.length === 1) {

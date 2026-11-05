@@ -19,9 +19,9 @@ const repoRoot = path.resolve(__dirname, '..');
 
 /** The packages the credential boundary protects. */
 const PACKAGES = [
-  'workspaces/content/plugins/automation-content-common',
-  'workspaces/content/plugins/automation-content-backend',
-  'workspaces/content/plugins/catalog-backend-module-automation-content',
+  'workspaces/content-management/plugins/automation-content-common',
+  'workspaces/content-management/plugins/automation-content-backend',
+  'workspaces/content-management/plugins/catalog-backend-module-automation-content',
 ].map(dir => path.join(repoRoot, dir));
 
 // One shared engine. Config resolution happens through the real .eslintrc.js

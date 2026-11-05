@@ -1,0 +1,903 @@
+import express from 'express';
+import Router from 'express-promise-router';
+import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
+import { ConfigReader } from '@backstage/config';
+import { publicUrl } from '@ansible/automation-content-common';
+import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
+import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
+
+export interface RouterOptions {
+  index: ContentIndex;
+  logger: LoggerService;
+  httpAuth: HttpAuthService;
+}
+
+/**
+ * Structural request/response shapes for route handlers.
+ *
+ * The monorepo hosts several `@types/express` majors (backend plugins on express 4,
+ * portal-plugin-node and newer modules on express 5); annotating handlers with a
+ * named express type ties them to one identity and clashes with the router's.
+ * Structural types sidestep that — same pattern and rationale as
+ * `workspaces/apme/plugins/catalog-backend-module-apme/src/router.ts`.
+ */
+type RouteRequest = {
+  params: Record<string, string>;
+  query: Record<string, unknown>;
+};
+
+type RouteResponse = {
+  status: (code: number) => RouteResponse;
+  json: (body: unknown) => unknown;
+};
+
+/** Structural shape the response-boundary middleware needs — see RouteRequest. */
+type JsonCapableResponse = {
+  json: (body: unknown) => unknown;
+};
+
+const EE_TYPE = 'execution-environment';
+
+// Default number of items per page
+const PAGE_SIZE = 10;
+const ALLOWED_PER_PAGE = [PAGE_SIZE, 20, 50] as const;
+
+/**
+ * How deep the response boundary copies before replacing the rest.
+ *
+ * The redactor's default cap is sized for hostile diagnostics. Documentation
+ * payloads — argument specifications, nested collection metadata — legitimately
+ * nest deeper, so responses get a more generous ceiling while keeping the
+ * cycle guard and the stack bound.
+ */
+const RESPONSE_MAX_DEPTH = 64;
+
+/**
+ * What GET /registries reports about a failed reconciliation.
+ *
+ * A reconcile error's detail can quote internal hostnames — a TLS rejection
+ * names the certificate's subject alternative names, for instance. Every
+ * route except GET /health requires sign-in (#977), and /health answers a
+ * bare status only; the registry listing stays conservative with this fixed
+ * summary, while the raw cause goes to the backend log and the sync
+ * responses, where the caller explicitly asked for a refresh.
+ */
+export const RECONCILE_FAILURE_SUMMARY =
+  'reconciliation failed — see backend logs, or an authenticated sync, for the cause';
+
+/**
+ * Coerce a documentation field to an array.
+ *
+ * `ansible-doc` returns `description`, `author` and `notes` as either a scalar or a
+ * list, depending purely on how each collection author wrote the YAML — in this
+ * environment 33 items use a string for `description` and 121 for `author`. The API
+ * contract says array, so it is normalised once here rather than every consumer
+ * guessing. A consumer that assumes the declared type should not be punished for it.
+ */
+function asArray(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) return value.map(String);
+  return [String(value)];
+}
+
+/** Normalise the documentation fields whose shape varies across collections. */
+function normaliseDoc(
+  detail: Record<string, unknown>,
+): Record<string, unknown> {
+  const out = { ...detail };
+  for (const field of ['description', 'author', 'notes', 'requirements']) {
+    if (field in out) {
+      const coerced = asArray(out[field]);
+      if (coerced === undefined) delete out[field];
+      else out[field] = coerced;
+    }
+  }
+  return out;
+}
+
+/** Summary view — deliberately small, so list responses stay cheap. */
+function itemSummary(item: IndexedItem) {
+  return {
+    fqcn: item.fqcn,
+    name: item.name,
+    type: item.type,
+    collection: item.collection,
+    collectionVersion: item.collectionVersion,
+    shortDescription: item.shortDescription,
+    versionAdded: item.versionAdded,
+    ...(item.deprecated ? { deprecated: true } : {}),
+    in: item.artifactRef,
+  };
+}
+
+function enumerationOf(artifact: IndexedArtifact) {
+  const manifest = artifact.manifest;
+  return manifest
+    ? {
+        status: manifest.complete ? 'complete' : 'partial',
+        source: 'build-time-manifest',
+        ansibleCore: manifest.generatedBy.ansibleCore,
+        extractedAt: manifest.generatedAt,
+      }
+    : { status: 'unknown', source: 'external-introspection' };
+}
+
+function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
+  return {
+    ref: artifact.ref,
+    type: artifact.type,
+    registry: artifact.registry,
+    repository: artifact.repository,
+    digest: artifact.digest,
+    tags: artifact.tags,
+    pullReference: artifact.pullReference,
+    contentsKnown: artifact.contentsKnown,
+    // Why this was or was not recognised, so an operator never has to guess.
+    classification: artifact.classification,
+    enumeration: enumerationOf(artifact),
+    // When the registry was last successfully read. The catalog is a cache over state
+    // the registry owns, so how fresh it is matters.
+    lastReconciledAt: index.reconcileStateFor(artifact.registry)?.at,
+    counts: index.countsFor(artifact),
+    collections: (artifact.manifest?.collections ?? []).map(c => ({
+      namespace: c.namespace,
+      name: c.name,
+      version: c.version,
+      fqcn: `${c.namespace}.${c.name}`,
+    })),
+  };
+}
+
+export async function createRouter(
+  options: RouterOptions,
+): Promise<express.Router> {
+  const { index, logger } = options;
+  const router = Router();
+  router.use(express.json({ limit: '5mb' }));
+
+  // Every response passes one redaction boundary. A credential that reaches
+  // an unexpected field — a classification signal, an echoed request value,
+  // a registry-supplied documentation string — cannot leave the API. Applied
+  // by wrapping `res.json` once here rather than at every call site, so
+  // routes yet to be written inherit the boundary instead of remembering it.
+  // The index's redactor is live: bearer tokens exchanged at runtime are
+  // recognised the moment they exist.
+  const redactor = index.redactor;
+  router.use((_req: unknown, res: JsonCapableResponse, next: () => void) => {
+    const original = res.json.bind(res);
+    res.json = (body: unknown) =>
+      original(redactor.redactValue(body, { maxDepth: RESPONSE_MAX_DEPTH }));
+    next();
+  });
+
+  router.get('/health', (_req, res) => {
+    // A liveness probe's answer: nothing else. The route is unauthenticated
+    // (#977), so it must not describe registries, cache state, or failure
+    // causes — see RECONCILE_FAILURE_SUMMARY for where those live now.
+    res.json({ status: 'ok' });
+  });
+
+  // -- Registries ---------------------------------------------------------
+
+  router.get('/registries', (_req, res) => {
+    res.json({
+      items: index.listRegistries().map(state => {
+        const reconcile = index.reconcileStateFor(state.connection.name);
+        return {
+          name: state.connection.name,
+          // The configured URL can carry embedded credentials; the served one
+          // cannot. Same origin, same path, no userinfo, query or fragment.
+          url: publicUrl(state.connection.url),
+          namespaces: state.connection.namespaces,
+          repositories: state.connection.repositories,
+          capabilities: state.capabilities,
+          lastReconciledAt: reconcile?.at,
+          lastReconcileOk: reconcile?.ok,
+          // Fixed summary only — the raw cause can quote internal hostnames;
+          // the log and the sync responses are where it belongs. See
+          // RECONCILE_FAILURE_SUMMARY.
+          lastReconcileError:
+            reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
+          lastCheckedAt: index.driftStateFor(state.connection.name)?.at,
+        };
+      }),
+    });
+  });
+
+  /**
+   * Refresh every registry.
+   *
+   * Backs the manual refresh control in the UI: a full re-read, for when a user knows
+   * something changed and does not want to wait for the poll.
+   */
+  router.post('/sync', async (_req, res) => {
+    // This route sits behind the default sign-in barrier (#977), so every
+    // caller is a verified user or service principal — the detailed failure
+    // cause is the only view this handler produces. Anonymous callers are
+    // turned away before the router runs at all.
+    const started = Date.now();
+    const results = [];
+    for (const state of index.listRegistries()) {
+      const name = state.connection.name;
+      const outcome = await index.refreshRegistry(name);
+      results.push({ registry: name, ...outcome });
+    }
+    const ok = results.every(r => r.ok);
+    logger.info(
+      redactor.redact(
+        `manual sync of ${results.length} registr(ies), ok=${ok}`,
+      ),
+    );
+    res.status(ok ? 200 : 207).json({
+      status: ok ? 'completed' : 'partial',
+      durationMs: Date.now() - started,
+      registries: results,
+      refreshedAt: index.refreshedAt,
+      cache: index.cacheStats,
+    });
+  });
+
+  /** Cheap drift check: does the registry still match the index? */
+  router.post('/registries/:name/poll', async (req, res) => {
+    const { name } = req.params;
+    if (!index.getRegistry(name)) {
+      res.status(404).json({
+        error: `No such registry: ${name}`,
+        code: 'REGISTRY_NOT_FOUND',
+      });
+      return;
+    }
+    const result = await index.pollRegistry(name);
+    res.json({
+      ...result,
+      lastReconciledAt: index.reconcileStateFor(name)?.at,
+    });
+  });
+
+  /**
+   * Full re-read of one registry: the single-registry counterpart of POST /sync,
+   * backing the per-registry refresh control in the UI.
+   */
+  router.post('/registries/:name/sync', async (req, res) => {
+    const { name } = req.params;
+    if (!index.getRegistry(name)) {
+      res.status(404).json({
+        error: `No such registry: ${name}`,
+        code: 'REGISTRY_NOT_FOUND',
+      });
+      return;
+    }
+    const result = await index.refreshRegistry(name);
+    logger.info(
+      redactor.redact(
+        `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
+          result.error ? ` (${result.error})` : ''
+        }`,
+      ),
+    );
+    res.status(202).json({
+      status: result.ok ? 'completed' : 'failed',
+      discovered: result.discovered,
+      // A failed sync leaves the previous index in place rather than emptying it.
+      retainedPrevious: !result.ok,
+      error: result.error,
+      lastReconciledAt: index.reconcileStateFor(name)?.at,
+    });
+  });
+
+  // -- Content: type-agnostic ---------------------------------------------
+  //
+  // One endpoint for every content type. Adding skills or node types later must be a
+  // matter of registering an adapter, not of hand-writing another route — per-type
+  // endpoints are exactly the bespoke engineering this design exists to avoid.
+
+  const filterArtifacts = (query: Record<string, unknown>) => {
+    const { type, registry, collection, contentsKnown } = query;
+    let artifacts = index.listArtifacts(
+      typeof type === 'string' ? type : undefined,
+    );
+
+    if (typeof registry === 'string') {
+      artifacts = artifacts.filter(a => a.registry === registry);
+    }
+    if (typeof collection === 'string') {
+      artifacts = artifacts.filter(a =>
+        (a.manifest?.collections ?? []).some(
+          c => `${c.namespace}.${c.name}` === collection,
+        ),
+      );
+    }
+    if (contentsKnown !== undefined) {
+      const want = contentsKnown === 'true';
+      artifacts = artifacts.filter(a => a.contentsKnown === want);
+    }
+
+    return artifacts;
+  };
+
+  /** Paginated listing of artifacts, filtered by optional query params. */
+  const listContent = (req: RouteRequest, res: RouteResponse) => {
+    const artifacts = filterArtifacts(req.query);
+    const requested = Number(req.query.per_page) || PAGE_SIZE;
+    const perPage = ALLOWED_PER_PAGE.includes(requested as any)
+      ? requested
+      : PAGE_SIZE;
+    const totalItems = artifacts.length;
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const start = (page - 1) * perPage;
+    const items = artifacts
+      .slice(start, start + perPage)
+      .map(a => artifactView(index, a));
+    const lastPage = Math.max(1, Math.ceil(totalItems / perPage));
+
+    const buildLink = (p: number): string => {
+      const params = new URLSearchParams();
+      for (const [key, val] of Object.entries(req.query)) {
+        if (key !== 'page' && typeof val === 'string') {
+          params.set(key, val);
+        }
+      }
+      params.set('page', String(p));
+      return `?${params.toString()}`;
+    };
+
+    const next = page * perPage < totalItems ? buildLink(page + 1) : null;
+    const previous = page > 1 ? buildLink(page - 1) : null;
+
+    res.json({
+      page,
+      pageSize: perPage,
+      totalItems,
+      next,
+      previous,
+      firstPage: buildLink(1),
+      lastPage: buildLink(lastPage),
+      items,
+    });
+  };
+
+  /**
+   * Contents of one artifact.
+   *
+   * `depth=direct` returns the artifacts it contains — for an execution environment,
+   * its collections. `depth=flat` returns the content items themselves. Both are
+   * useful: the first is how a user browses, the second is how an agent searches.
+   */
+  const getContents = (req: RouteRequest, res: RouteResponse) => {
+    const artifact = index.getArtifact(req.params.ref);
+    if (!artifact) {
+      res
+        .status(404)
+        .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
+      return;
+    }
+
+    const enumeration = enumerationOf(artifact);
+
+    if (!artifact.manifest) {
+      // An empty list would assert the artifact is empty. It is not known to be.
+      res.json({
+        enumeration,
+        classification: artifact.classification,
+        collections: [],
+        items: [],
+      });
+      return;
+    }
+
+    const depth = req.query.depth === 'flat' ? 'flat' : 'direct';
+    const typeFilter =
+      typeof req.query.type === 'string' ? req.query.type : undefined;
+
+    const collections = artifact.manifest.collections.map(c => ({
+      namespace: c.namespace,
+      name: c.name,
+      version: c.version,
+      fqcn: `${c.namespace}.${c.name}`,
+      counts: {
+        plugins: c.plugins.length,
+        roles: c.roles.length,
+        playbooks: c.playbooks.length,
+        edaPlugins: c.edaPlugins.length,
+        rulebooks: c.rulebooks.length,
+      },
+    }));
+
+    const items =
+      depth === 'flat' || typeFilter
+        ? index
+            .itemsIn(artifact.ref)
+            .filter(i => !typeFilter || i.type === typeFilter)
+            .map(itemSummary)
+        : [];
+
+    res.json({
+      enumeration,
+      classification: artifact.classification,
+      collections,
+      items,
+    });
+  };
+
+  const getContent = (req: RouteRequest, res: RouteResponse) => {
+    const artifact = index.getArtifact(req.params.ref);
+    if (!artifact) {
+      res
+        .status(404)
+        .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
+      return;
+    }
+    res.json(artifactView(index, artifact));
+  };
+
+  router.get('/content', listContent);
+  router.get('/content/:ref(*)/contents', getContents);
+  router.get('/content/:ref(*)', getContent);
+
+  // Aliases retained so existing callers keep working. They are thin filters over the
+  // type-agnostic handlers, not parallel implementations.
+  router.get('/execution-environments', (req, res) => {
+    req.query.type = EE_TYPE;
+    listContent(req, res);
+  });
+  router.get('/execution-environments/:ref(*)/contents', getContents);
+  router.get('/execution-environments/:ref(*)', getContent);
+
+  // -- Collections --------------------------------------------------------
+
+  router.get('/collections', (req, res) => {
+    const q =
+      typeof req.query.q === 'string' ? req.query.q.toLowerCase() : undefined;
+    const items = index
+      .listCollections()
+      .filter(
+        c =>
+          !q ||
+          c.fqcn.toLowerCase().includes(q) ||
+          (c.description ?? '').toLowerCase().includes(q),
+      )
+      .map(c => ({
+        namespace: c.namespace,
+        name: c.name,
+        fqcn: c.fqcn,
+        version: c.version,
+        description: c.description,
+        repository: c.repository,
+        counts: {
+          plugins: c.plugins.length,
+          roles: c.roles.length,
+          playbooks: c.playbooks.length,
+          edaPlugins: c.edaPlugins.length,
+          rulebooks: c.rulebooks.length,
+        },
+        providedBy: c.providedBy,
+      }));
+    res.json({ items });
+  });
+
+  router.get('/collections/:namespace/:name', (req, res) => {
+    const fqcn = `${req.params.namespace}.${req.params.name}`;
+    const matches = index.listCollections().filter(c => c.fqcn === fqcn);
+    if (matches.length === 0) {
+      res.status(404).json({
+        error: `Collection not found: ${fqcn}`,
+        code: 'COLLECTION_NOT_FOUND',
+      });
+      return;
+    }
+    const collection = matches[0];
+    res.json({
+      namespace: collection.namespace,
+      name: collection.name,
+      fqcn,
+      version: collection.version,
+      description: collection.description,
+      repository: collection.repository,
+      counts: {
+        plugins: collection.plugins.length,
+        roles: collection.roles.length,
+        playbooks: collection.playbooks.length,
+        edaPlugins: collection.edaPlugins.length,
+        rulebooks: collection.rulebooks.length,
+      },
+      versions: matches.map(m => ({
+        version: m.version,
+        providedBy: m.providedBy,
+      })),
+      providedBy: collection.providedBy,
+    });
+  });
+
+  // -- Content items (Level B) --------------------------------------------
+
+  const searchItems = (req: RouteRequest, res: RouteResponse) => {
+    const { q, type, collection } = req.query;
+    const scope =
+      (typeof req.query.in === 'string' && req.query.in) ||
+      (typeof req.query.executionEnvironment === 'string' &&
+        req.query.executionEnvironment) ||
+      undefined;
+    const limit = Math.min(Number(req.query.limit ?? 50) || 50, 500);
+    const needle = typeof q === 'string' ? q.toLowerCase() : undefined;
+
+    const matched = index.listItems().filter(item => {
+      if (type && item.type !== type) return false;
+      if (collection && item.collection !== collection) return false;
+      if (scope && item.artifactRef !== scope) return false;
+      if (!needle) return true;
+      return (
+        item.fqcn.toLowerCase().includes(needle) ||
+        (item.shortDescription ?? '').toLowerCase().includes(needle)
+      );
+    });
+
+    res.json({
+      totalItems: matched.length,
+      items: matched.slice(0, limit).map(itemSummary),
+    });
+  };
+
+  /**
+   * One content item.
+   *
+   * Scope with `?in=<artifact ref>` to get the variant from a specific environment.
+   * Unscoped, every variant is returned, because two environments may ship different
+   * versions of the same collection and silently picking one would give an answer that
+   * looks authoritative and may be wrong.
+   */
+  const getItem = (req: RouteRequest, res: RouteResponse) => {
+    const fqcn = req.params.fqcn;
+    const scope =
+      (typeof req.query.in === 'string' && req.query.in) ||
+      (typeof req.query.executionEnvironment === 'string' &&
+        req.query.executionEnvironment) ||
+      undefined;
+
+    const variants = index.findItems(fqcn, scope);
+    if (variants.length === 0) {
+      res.status(404).json({
+        error: scope
+          ? `${fqcn} not found in ${scope}`
+          : `Not found in any known content: ${fqcn}`,
+        code: 'ITEM_NOT_FOUND',
+      });
+      return;
+    }
+
+    // Every artifact shipping this name, so a caller can see where else it is
+    // available without issuing a second search.
+    const providedBy = index.findItems(fqcn).map(v => v.artifactRef);
+
+    const render = (item: IndexedItem) => {
+      const artifact = index.getArtifact(item.artifactRef);
+      return {
+        ...itemSummary(item),
+        ...normaliseDoc(item.detail ?? {}),
+        in: item.artifactRef,
+        providedBy,
+        enumeration: artifact
+          ? enumerationOf(artifact)
+          : { status: 'unknown', source: 'external-introspection' },
+      };
+    };
+
+    if (variants.length === 1) {
+      res.json(render(variants[0]));
+      return;
+    }
+
+    res.json({
+      fqcn,
+      variantCount: variants.length,
+      // Differing collection versions is the reason variants exist; surface it first.
+      variants: variants.map(render),
+    });
+  };
+
+  router.get('/content-items', searchItems);
+  router.get('/content-items/:fqcn', getItem);
+
+  // Aliases: `plugins` is execution-environment vocabulary and does not generalise.
+  router.get('/plugins', searchItems);
+  router.get('/plugins/:fqcn', getItem);
+
+  // -- Resolution ---------------------------------------------------------
+
+  router.post('/resolve/requirements', (req, res) => {
+    // Validate at the boundary: a malformed body must read as a 400, not a 500
+    // from a `.map` on a non-array or an entry with no name.
+    const raw = req.body?.collections;
+    if (!Array.isArray(raw)) {
+      res
+        .status(400)
+        .json({ error: 'collections must be an array', code: 'BAD_REQUEST' });
+      return;
+    }
+    for (const entry of raw) {
+      const ok =
+        typeof entry === 'string'
+          ? entry.length > 0
+          : typeof entry === 'object' &&
+            entry !== null &&
+            typeof (entry as { name?: unknown }).name === 'string' &&
+            (entry as { name: string }).name.length > 0 &&
+            ((entry as { version?: unknown }).version === undefined ||
+              typeof (entry as { version?: unknown }).version === 'string');
+      if (!ok) {
+        res.status(400).json({
+          error:
+            'each collection must be a non-empty string or { name: string, version?: string }',
+          code: 'BAD_REQUEST',
+        });
+        return;
+      }
+    }
+    const required = (
+      raw as Array<string | { name: string; version?: string }>
+    ).map(entry =>
+      typeof entry === 'string'
+        ? { name: entry, version: '*' }
+        : { version: '*', ...entry },
+    );
+
+    const environments = index.listArtifacts(EE_TYPE);
+    const satisfiedBy: Array<{
+      ref: string;
+      pullReference: string;
+      matched: Array<{
+        namespace: string;
+        name: string;
+        version: string;
+        fqcn: string;
+      }>;
+    }> = [];
+
+    for (const environment of environments) {
+      if (!environment.manifest) continue;
+      const available = environment.manifest.collections;
+      const matched = [];
+      let satisfiesAll = true;
+
+      for (const requirement of required) {
+        const found = available.find(
+          c =>
+            `${c.namespace}.${c.name}` === requirement.name &&
+            (requirement.version === '*' || c.version === requirement.version),
+        );
+        if (!found) {
+          satisfiesAll = false;
+          break;
+        }
+        matched.push({
+          namespace: found.namespace,
+          name: found.name,
+          version: found.version,
+          fqcn: `${found.namespace}.${found.name}`,
+        });
+      }
+
+      if (satisfiesAll && required.length > 0) {
+        satisfiedBy.push({
+          ref: environment.ref,
+          pullReference: environment.pullReference,
+          matched,
+        });
+      }
+    }
+
+    const unsatisfied = required
+      .filter(
+        requirement =>
+          !environments.some(e =>
+            (e.manifest?.collections ?? []).some(
+              c =>
+                `${c.namespace}.${c.name}` === requirement.name &&
+                (requirement.version === '*' ||
+                  c.version === requirement.version),
+            ),
+          ),
+      )
+      .map(requirement => {
+        const anyVersion = index
+          .listCollections()
+          .filter(c => c.fqcn === requirement.name)
+          .map(c => c.version);
+        return {
+          name: requirement.name,
+          version: requirement.version,
+          reason: anyVersion.length
+            ? `Available versions: ${anyVersion.join(', ')}`
+            : 'Not present in any known execution environment',
+        };
+      });
+
+    const notes: string[] = [];
+    const unknown = environments.filter(e => !e.contentsKnown).length;
+    if (unknown > 0) {
+      notes.push(
+        `${unknown} execution environment(s) have undetermined contents and were not ` +
+          `considered; they may also satisfy these requirements.`,
+      );
+    }
+    const unclassified = index
+      .listArtifacts()
+      .filter(a => a.type !== EE_TYPE).length;
+    if (unclassified > 0) {
+      notes.push(
+        `${unclassified} image(s) were not recognised as execution environments and ` +
+          `were excluded.`,
+      );
+    }
+
+    res.json({ satisfiedBy, unsatisfied, notes });
+  });
+
+  // -- Configuration as code ----------------------------------------------
+
+  /**
+   * Render an arbitrary request value for an error message without ever
+   * throwing on it. The whole point of this endpoint is to judge malformed
+   * documents, so the error paths must survive whatever a caller sends —
+   * an object whose `toString` is null would otherwise crash the handler.
+   */
+  function describeValue(value: unknown): string {
+    if (value === undefined || value === null) return 'nothing';
+    if (typeof value === 'string') return value;
+    try {
+      return JSON.stringify(value) ?? 'nothing';
+    } catch {
+      return 'an unprintable value';
+    }
+  }
+
+  router.post('/config/validate', (req, res) => {
+    const errors: Array<{ path: string; message: string }> = [];
+    const warnings: Array<{ path: string; message: string }> = [];
+    const body = req.body ?? {};
+
+    if (body.apiVersion !== 'content.ansible.com/v1') {
+      errors.push({
+        path: 'apiVersion',
+        message: `Expected content.ansible.com/v1, got ${describeValue(
+          body.apiVersion,
+        )}`,
+      });
+    }
+    if (body.kind !== 'ContentConfiguration') {
+      errors.push({
+        path: 'kind',
+        message: `Expected ContentConfiguration, got ${describeValue(
+          body.kind,
+        )}`,
+      });
+    }
+    if (!Array.isArray(body.registries)) {
+      errors.push({ path: 'registries', message: 'Must be an array' });
+    } else {
+      const seen = new Set<string>();
+      body.registries.forEach((entry: unknown, i: number) => {
+        const at = `registries[${i}]`;
+        // Each entry in `registries` should be a settings object like
+        // `{ name: ..., url: ... }`. If it is anything else — a bare
+        // string, a number, null — that is a mistake in the document being
+        // checked, and telling the user what is wrong is this endpoint's
+        // entire job. It must never crash on the input it exists to judge.
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          errors.push({ path: at, message: 'Must be an object' });
+          return;
+        }
+        const registry = entry as Record<string, unknown>;
+        if (!registry.name)
+          errors.push({ path: `${at}.name`, message: 'Required' });
+
+        if (typeof registry.name === 'string') {
+          if (seen.has(registry.name)) {
+            errors.push({
+              path: `${at}.name`,
+              message: `Duplicate registry name: ${registry.name}`,
+            });
+          }
+          seen.add(registry.name);
+        }
+
+        // The URL must be text. A number or a nested object here is a
+        // mistake in the document, not a server error: report it and keep
+        // checking the rest of the entry.
+        if (typeof registry.url !== 'string' || registry.url === '') {
+          errors.push({
+            path: `${at}.url`,
+            message: 'Required and must be a string',
+          });
+        } else {
+          // The same registry-URL rule the loader enforces at startup: a
+          // registry URL this endpoint approves can never prevent the
+          // backend from starting. The guarantee covers registry URLs
+          // only; other fields get advisory warnings here and can still
+          // fail loading with a type error.
+          const reason = registryUrlError(registry.url);
+          if (reason) {
+            errors.push({ path: `${at}.url`, message: `Invalid: ${reason}` });
+          }
+        }
+
+        const hasRepos =
+          Array.isArray(registry.repositories) &&
+          registry.repositories.length > 0;
+        const hasNamespaces =
+          Array.isArray(registry.namespaces) && registry.namespaces.length > 0;
+        if (!hasRepos && !hasNamespaces) {
+          warnings.push({
+            path: at,
+            message:
+              'Neither repositories nor namespaces set. Discovery will find nothing ' +
+              'unless the registry supports catalog enumeration.',
+          });
+        }
+        let insecure: boolean | undefined;
+        try {
+          // Use the same coercion as readRegistryConfigs at startup, including
+          // Backstage's truthy/false-like strings and numeric 1/0.
+          const config = new ConfigReader(
+            registry as ConstructorParameters<typeof ConfigReader>[0],
+          );
+          insecure = config.getOptionalBoolean('insecure');
+        } catch {
+          errors.push({
+            path: `${at}.insecure`,
+            message:
+              'Must be a boolean or a Backstage-recognized boolean value',
+          });
+        }
+        if (insecure === true) {
+          warnings.push({
+            path: `${at}.insecure`,
+            message:
+              'Plain HTTP allowed and TLS certificate verification disabled — ' +
+              'local development only',
+          });
+          // The same refusal readRegistryConfigs makes at startup: a bundle
+          // to verify against and an opt-out of verification contradict
+          // each other, and CI should see it before the process does.
+          if (registry.caFile) {
+            errors.push({
+              path: `${at}.caFile`,
+              message:
+                'caFile cannot be combined with insecure: verify against ' +
+                'the bundle or opt out of verification, not both',
+            });
+          }
+        }
+        if (registry.rewriteAuthRealmHost === true) {
+          warnings.push({
+            path: `${at}.rewriteAuthRealmHost`,
+            message:
+              'Credentials will be sent to the configured host rather than the realm ' +
+              'the registry advertises. Intended for registries advertising an ' +
+              'unreachable token endpoint.',
+          });
+        }
+      });
+    }
+
+    res.json({ valid: errors.length === 0, errors, warnings });
+  });
+
+  // An error that escapes a handler is formatted by the platform's error
+  // middleware, which knows nothing of our credentials. Redact the original
+  // in place before handing it on: the object the platform formats is the
+  // object that was just cleaned.
+  router.use(
+    (
+      err: Error,
+      _req: unknown,
+      _res: unknown,
+      next: (err?: unknown) => void,
+    ) => {
+      redactor.redactErrorInPlace(err);
+      next(err);
+    },
+  );
+
+  // Cast across `@types/express` identity boundaries (see RouteRequest note above).
+  return router as unknown as express.Router;
+}

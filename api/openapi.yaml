@@ -401,9 +401,12 @@ components:
         url:
           type: string
           description: |
-            Public form: any userinfo, query or fragment the configured URL
-            carried is stripped before serving, so a credential embedded in
-            the URL cannot reach an API response.
+            Absolute http(s) URL of the registry, with no embedded credentials,
+            query, or fragment. Validated at backend startup and by
+            POST /config/validate; valid URLs are stored in canonical form.
+            A registry may be mounted under a sub-path (https://host/prefix).
+            The public form strips any userinfo, query or fragment the
+            configured URL carried, so credentials cannot reach an API response.
         lastReconciledAt:
           type: string
           format: date-time
@@ -658,6 +661,42 @@ components:
         registries:
           type: array
           items: { $ref: '#/components/schemas/ContentRegistry' }
+
+    PaginatedContentResponse:
+      type: object
+      required: [page, pageSize, totalItems, next, previous, firstPage, lastPage, items]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number (1-indexed).
+        pageSize:
+          type: integer
+          enum: [10, 20, 50]
+          description: Number of items per page.
+        totalItems:
+          type: integer
+          minimum: 0
+          description: Total number of items matching the filters.
+        next:
+          type: [string, 'null']
+          description: Relative query string for the next page, or null on the last page.
+          examples: ['?page=2']
+        previous:
+          type: [string, 'null']
+          description: Relative query string for the previous page, or null on the first page.
+          examples: ['?page=1']
+        firstPage:
+          type: string
+          description: Relative query string for the first page.
+          examples: ['?page=1']
+        lastPage:
+          type: string
+          description: Relative query string for the last page.
+          examples: ['?page=5']
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExecutionEnvironment' }
 
     ValidationResult:
       type: object
@@ -2942,21 +2981,25 @@ paths:
         - name: contentsKnown
           in: query
           schema: { type: boolean }
+        - name: page
+          in: query
+          description: Page number (1-indexed, defaults to 1).
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Items per page. Only 10, 20, or 50 are accepted; invalid values fall back to 10.
+          schema: { type: integer, enum: [10, 20, 50], default: 10 }
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
         '200':
-          description: Matching artifacts
+          description: Paginated matching artifacts
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+                $ref: '#/components/schemas/PaginatedContentResponse'
 
   /content/{ref}(*):
     servers:
@@ -3064,21 +3107,25 @@ paths:
           in: query
           description: Filter by whether the contents could be determined.
           schema: { type: boolean }
+        - name: page
+          in: query
+          description: Page number (1-indexed, defaults to 1).
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Items per page. Only 10, 20, or 50 are accepted; invalid values fall back to 10.
+          schema: { type: integer, enum: [10, 20, 50], default: 10 }
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
         '200':
-          description: Matching environments
+          description: Paginated matching environments
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+                $ref: '#/components/schemas/PaginatedContentResponse'
 
   /execution-environments/{ref}(*):
     servers:

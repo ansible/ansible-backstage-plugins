@@ -172,8 +172,11 @@ describe('AAP client boundary and lifecycle behavior', () => {
     await expect(
       client.syncJobTemplates(undefined, ['team', 'production'], ['private']),
     ).resolves.toEqual([]);
-    const query = new URL(`https://aap.example.com${get.mock.calls[0][0]}`)
-      .searchParams;
+    const requestUrl = new URL(
+      `https://aap.example.com${get.mock.calls[0][0]}`,
+    );
+    expect(requestUrl.pathname).toBe('/api/controller/v2/job_templates/');
+    const query = requestUrl.searchParams;
     expect(query.getAll('or__organization__name__iexact')).toEqual([
       'engineering',
       'finance',
