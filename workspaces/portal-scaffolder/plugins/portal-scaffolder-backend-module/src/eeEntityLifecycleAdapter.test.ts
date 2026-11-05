@@ -21,8 +21,13 @@ describe('EEEntityLifecycleAdapter', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('registers with caller credentials and no service credential lookup', async () => {
-    catalog.getEntityByRef.mockResolvedValue(undefined);
+  it('uses service credentials only to confirm a caller-visible absence during registration', async () => {
+    catalog.getEntityByRef
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
     const adapter = new EEEntityLifecycleAdapter(
       provider,
       {} as any,
@@ -40,8 +45,86 @@ describe('EEEntityLifecycleAdapter', () => {
       onBehalfOf: credentials,
       targetPluginId: 'catalog',
     });
-    expect(auth.getOwnServiceCredentials).not.toHaveBeenCalled();
+    expect(auth.getOwnServiceCredentials).toHaveBeenCalledTimes(1);
+    expect(auth.getPluginRequestToken).toHaveBeenCalledWith({
+      onBehalfOf: { principal: { type: 'service', subject: 'catalog' } },
+      targetPluginId: 'catalog',
+    });
     expect(provider.register).toHaveBeenCalled();
+  });
+
+  it('requires caller delete permission before replacing an entity hidden from that caller', async () => {
+    catalog.getEntityByRef
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        kind: 'Component',
+        spec: { type: 'execution-environment' },
+        metadata: { name: 'my-ee' },
+      });
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+    permissions.authorize
+      .mockResolvedValueOnce([{ result: AuthorizeResult.ALLOW }])
+      .mockResolvedValueOnce([{ result: AuthorizeResult.DENY }]);
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.registerExecutionEnvironment(
+        { kind: 'Component', metadata: { name: 'my-ee' } },
+        credentials,
+      ),
+    ).rejects.toThrow(
+      'Forbidden: insufficient permissions to replace existing entity',
+    );
+
+    expect(permissions.authorize).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          permission: expect.objectContaining({
+            name: 'catalog.entity.delete',
+          }),
+          resourceRef: 'component:default/my-ee',
+        }),
+      ],
+      { credentials },
+    );
+    expect(provider.register).not.toHaveBeenCalled();
+  });
+
+  it('does not report noop when cleanup cannot read an existing entity', async () => {
+    catalog.getEntityByRef
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        kind: 'Component',
+        spec: { type: 'execution-environment' },
+        metadata: { name: 'my-ee' },
+      });
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials),
+    ).rejects.toThrow(
+      'Insufficient permissions to read existing execution environment.',
+    );
+    expect(permissions.authorize).not.toHaveBeenCalled();
+    expect(provider.unregister).not.toHaveBeenCalled();
   });
 
   it('skips provider cleanup for provider-managed entities when requested', async () => {
