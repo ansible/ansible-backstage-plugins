@@ -1,36 +1,106 @@
 import express from 'express';
+import { inspect } from 'node:util';
 import request from 'supertest';
 import { ContentIndex } from './ContentIndex';
-import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
+import {
+  createRouter,
+  RECONCILE_FAILURE_SUMMARY,
+  RouterOptions,
+} from './router';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
+const warn = jest.fn();
 const logger = {
   info: () => {},
-  warn: () => {},
+  warn,
   debug: () => {},
   error: () => {},
   child: () => logger,
 } as never;
 
-async function appWith(index: ContentIndex) {
+async function appWith(
+  index: ContentIndex,
+  httpAuth?: unknown,
+  superuser = true,
+  allowed = true,
+  dependencies: {
+    userInfo?: Pick<RouterOptions['userInfo'], 'getUserInfo'>;
+    auth?: Pick<RouterOptions['auth'], 'getPluginRequestToken'>;
+    catalogClient?: Pick<RouterOptions['catalogClient'], 'getEntityByRef'>;
+  } = {},
+) {
   const app = express();
   app.use(
     await createRouter({
       index,
       logger,
-      // The router no longer reads credentials: every route except
-      // GET /health sits behind the plugin's sign-in barrier (#977), which
-      // these router-level tests bypass on purpose — plugin.test.ts covers
-      // the barrier itself. This stub only satisfies RouterOptions.
-      httpAuth: {
+      permissions: {
+        authorize: jest
+          .fn()
+          .mockResolvedValue([
+            { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
+          ]),
+      } as never,
+      userInfo: {
+        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
+        ...dependencies.userInfo,
+      } as never,
+      auth: {
+        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
+        ...dependencies.auth,
+      } as never,
+      catalogClient: {
+        getEntityByRef: async () => ({
+          metadata: {
+            annotations: { 'aap.platform/is_superuser': String(superuser) },
+          },
+        }),
+        ...dependencies.catalogClient,
+      } as never,
+      httpAuth: (httpAuth ?? {
+        // The plugin sign-in barrier is covered in plugin.test.ts; provide
+        // signed-in credentials here for the router's superuser checks.
         credentials: () =>
           Promise.resolve({
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
-      } as never,
+      }) as never,
     }),
   );
   return app;
 }
+
+it.each([
+  '/registries',
+  '/content',
+  '/content/reg/repo@sha256:abc/contents',
+  '/content/reg/repo@sha256:abc',
+  '/execution-environments',
+  '/execution-environments/reg/repo@sha256:abc/contents',
+  '/execution-environments/reg/repo@sha256:abc',
+  '/collections',
+  '/collections/cisco/ios',
+  '/content-items',
+  '/content-items/cisco.ios.ios_acls',
+  '/plugins',
+  '/plugins/cisco.ios.ios_acls',
+])('denies reads on %s without ansible.content.view', async path => {
+  const app = await appWith(seed([]), undefined, true, false);
+  const response = await request(app).get(path).expect(403);
+  expect(response.body).toEqual({
+    error: 'Forbidden: ansible.content.view permission required',
+  });
+});
+
+it('denies resolution and validation without ansible.content.view', async () => {
+  const app = await appWith(seed([]), undefined, true, false);
+  await request(app)
+    .post('/resolve/requirements')
+    .send({ collections: [] })
+    .expect(403);
+  await request(app).post('/config/validate').send({}).expect(403);
+  await request(app).get('/health').expect(200);
+});
 
 /**
  * Seed the index without touching a registry.
@@ -169,6 +239,93 @@ describe('GET /content pagination', () => {
     expect(res.body.items).toHaveLength(10);
     expect(res.body.totalItems).toBe(15);
     expect(res.body.next).toContain('page=2');
+  });
+});
+
+describe('sync authorization', () => {
+  const sensitiveMarker = 'https://user:secret-auth-marker@internal.example';
+  const fail = async (): Promise<never> => {
+    throw new Error(sensitiveMarker);
+  };
+
+  describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
+    '%s fails closed',
+    path => {
+      it.each([
+        {
+          name: 'service identity',
+          dependencies: { userInfo: { getUserInfo: fail } },
+          warns: true,
+        },
+        {
+          name: 'token failure',
+          dependencies: { auth: { getPluginRequestToken: fail } },
+          warns: true,
+        },
+        {
+          name: 'catalog failure',
+          dependencies: { catalogClient: { getEntityByRef: fail } },
+          warns: true,
+        },
+        {
+          name: 'missing entity',
+          dependencies: {
+            catalogClient: { getEntityByRef: async () => undefined },
+          },
+          warns: false,
+        },
+        {
+          name: 'missing annotation',
+          dependencies: {
+            catalogClient: {
+              getEntityByRef: async () => ({
+                apiVersion: 'backstage.io/v1alpha1',
+                kind: 'User',
+                metadata: { name: 'test' },
+              }),
+            },
+          },
+          warns: false,
+        },
+      ])(
+        'denies $name without logging sensitive details',
+        async ({ dependencies, warns }) => {
+          warn.mockClear();
+          const index = seed([]);
+          const refresh = jest.spyOn(index, 'refreshRegistry');
+          const poll = jest.spyOn(index, 'pollRegistry');
+          const app = await appWith(index, undefined, true, true, dependencies);
+          const response = await request(app).post(path).expect(403);
+          expect(response.body).toEqual({
+            error: 'Forbidden: superuser access required',
+          });
+          expect(refresh).not.toHaveBeenCalled();
+          expect(poll).not.toHaveBeenCalled();
+          expect(warn.mock.calls).toEqual(
+            warns ? [['Unable to authorize content registry sync']] : [],
+          );
+          expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
+        },
+      );
+    },
+  );
+
+  it.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
+    'denies non-superusers on %s',
+    async path => {
+      const index = seed([]);
+      const refresh = jest.spyOn(index, 'refreshRegistry');
+      const poll = jest.spyOn(index, 'pollRegistry');
+      const app = await appWith(index, undefined, false);
+      await request(app).post(path).expect(403);
+      expect(refresh).not.toHaveBeenCalled();
+      expect(poll).not.toHaveBeenCalled();
+    },
+  );
+
+  it('allows superusers to sync', async () => {
+    const app = await appWith(seed([]));
+    await request(app).post('/sync').expect(200);
   });
 });
 

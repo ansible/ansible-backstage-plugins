@@ -1,0 +1,106 @@
+/* BUI's documented theming path: class names + CSS variables. Delete this when Badge grows a status prop. */
+:global(.bui-Badge).success,
+:global(.bui-Badge).info,
+:global(.bui-Badge).danger,
+:global(.bui-Badge).warning,
+:global(.bui-Badge).neutral {
+  /* Keep the native BUI badge shape instead of turning metadata into pills. */
+  border-radius: var(--bui-radius-2);
+}
+
+:global(.bui-Badge).neutral {
+  /* Neutral keeps source metadata on BUI's theme-native surface. */
+  background-color: var(--bui-bg-neutral-1);
+  color: var(--bui-fg-primary);
+  border: 1px solid var(--bui-border-2);
+}
+
+:global(.bui-Badge).withIcon :global(.bui-BadgeIcon) svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+/* Status badges carry an icon; keep their pill shape distinct from metadata badges. */
+:global(.bui-Badge).withIcon {
+  border-radius: var(--bui-radius-full);
+}
+
+:global(.bui-Badge).success {
+  background-color: var(--bui-bg-success);
+  color: var(--bui-fg-success-on-bg);
+  border: 1px solid var(--bui-border-success);
+}
+
+:global(.bui-Badge).info {
+  background-color: var(--bui-bg-info);
+  color: var(--bui-fg-info-on-bg);
+  border: 1px solid var(--bui-border-info);
+}
+
+:global(.bui-Badge).danger {
+  background-color: var(--bui-bg-danger);
+  color: var(--bui-fg-danger-on-bg);
+  border: 1px solid var(--bui-border-danger);
+}
+
+:global(.bui-Badge).warning {
+  background-color: var(--bui-bg-warning);
+  color: var(--bui-fg-warning-on-bg);
+  border: 1px solid var(--bui-border-warning);
+}
+
+/* Compact outlined treatment for quieter, high-signal statuses. */
+:global(.bui-Badge).outline {
+  font-size: var(--bui-font-size-2);
+  background-color: transparent;
+  color: var(--bui-fg-primary);
+}
+
+:global(.bui-Badge).outline.success {
+  --status-accent: color-mix(
+    in srgb,
+    var(--bui-fg-success) 70%,
+    var(--bui-fg-primary)
+  );
+}
+
+:global(.bui-Badge).outline.info {
+  --status-accent: color-mix(
+    in srgb,
+    var(--bui-fg-info) 70%,
+    var(--bui-fg-primary)
+  );
+}
+
+:global(.bui-Badge).outline.danger {
+  --status-accent: color-mix(
+    in srgb,
+    var(--bui-fg-danger) 70%,
+    var(--bui-fg-primary)
+  );
+}
+
+:global(.bui-Badge).outline.warning {
+  --status-accent: color-mix(
+    in srgb,
+    var(--bui-fg-warning) 70%,
+    var(--bui-fg-primary)
+  );
+}
+
+:global(.bui-Badge).outline.success :global(.bui-BadgeIcon),
+:global(.bui-Badge).outline.info :global(.bui-BadgeIcon),
+:global(.bui-Badge).outline.danger :global(.bui-BadgeIcon),
+:global(.bui-Badge).outline.warning :global(.bui-BadgeIcon) {
+  color: var(--status-accent);
+}
+
+/* Tone selectors outrank the filled rules without !important. */
+:global(.bui-Badge).outline.success,
+:global(.bui-Badge).outline.info,
+:global(.bui-Badge).outline.danger,
+:global(.bui-Badge).outline.warning {
+  background-color: transparent;
+  color: var(--bui-fg-primary);
+  border: 1px solid var(--status-accent);
+}

@@ -22,6 +22,27 @@ import {
 import { MockRegistry } from '@ansible/automation-content-common';
 import { automationContentPlugin } from './plugin';
 
+// The sync routes are superuser-gated (#7fc94276-era hardening): the check
+// reads the caller's catalog entity for `aap.platform/is_superuser`. This
+// test backend has no catalog plugin, so the plugin's own CatalogClient is
+// mocked to answer with a superuser entity — the sign-in barrier and the
+// end-to-end sync are what these tests prove, not the RBAC lookup.
+jest.mock('@backstage/catalog-client', () => ({
+  CatalogClient: jest.fn().mockImplementation(
+    () =>
+      ({
+        getEntityByRef: async () => ({
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'User',
+          metadata: {
+            name: 'user',
+            annotations: { 'aap.platform/is_superuser': 'true' },
+          },
+        }),
+      }) as never,
+  ),
+}));
+
 /** Servers and backends started by a test, closed even when the test fails. */
 const teardown: Array<() => Promise<void>> = [];
 
@@ -127,7 +148,7 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(served.registry.requests.length).toBe(0);
   });
 
-  it('lets a signed-in caller run the global sync', async () => {
+  it('lets a superuser run the global sync once signed in', async () => {
     const served = await serveRegistry();
     const backend = await startBackend(served.url);
 

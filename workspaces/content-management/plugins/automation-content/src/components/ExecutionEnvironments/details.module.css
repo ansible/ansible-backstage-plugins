@@ -1,0 +1,118 @@
+.wrap {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.table {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.wrapFlex {
+  flex-wrap: wrap;
+}
+
+.detailContainer {
+  padding: var(--bui-space-6);
+}
+
+.detailHeader {
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.detailSurface {
+  margin-top: var(--bui-space-6);
+  border: 1px solid var(--bui-border-2);
+}
+
+.detailSurfaceBody {
+  padding: var(--bui-space-6);
+}
+
+.metadataGrid {
+  display: grid;
+  grid-template-columns: minmax(10rem, 13.75rem) minmax(0, 1fr);
+  gap: var(--bui-space-3);
+  margin: 0;
+}
+
+.metadataValue {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  margin: 0;
+}
+
+.pullReferenceSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-2);
+  margin-top: var(--bui-space-6);
+}
+
+.pullReference > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.pullReferenceCode {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: var(--bui-font-monospace);
+}
+
+@media (max-width: 64rem) {
+  .metadataGrid {
+    grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 40rem) {
+  .detailContainer {
+    padding: var(--bui-space-4);
+  }
+
+  .detailSurfaceBody {
+    padding: var(--bui-space-4);
+  }
+
+  .metadataGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--bui-space-1);
+  }
+}
+
+.searchToolbar {
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.searchToolbar > :first-child {
+  flex: 1;
+  min-width: min(100%, 18rem);
+}
+
+/*
+ * The legacy MUI theme injects unlayered `a { color: inherit;
+ * text-decoration: none }`, which overrides BUI's layered link styles and
+ * erases the link affordance. This unlayered rule outranks it and restores
+ * BUI's info color and underline, using BUI's own tokens and metrics.
+ * Delete when the portal's theming no longer resets anchors.
+ */
+.infoLink {
+  color: var(--bui-fg-info);
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-thickness: min(2px, max(1px, 0.05em));
+  text-underline-offset: calc(0.025em + 2px);
+  text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.infoLink:hover,
+.infoLink:visited {
+  color: var(--bui-fg-info);
+}

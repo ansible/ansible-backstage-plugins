@@ -100,7 +100,7 @@ through platform APIs rather than directly contacting AAP.
 ### Content management
 
 - `automation-content`: `@ansible/plugin-automation-content` frontend mounted
-  at `/automation-content`; a drill-down content browser (execution
+  at `/content`; a drill-down content browser (execution
   environment → collection → content item → documentation) built on the Portal
   SDK.
 - `automation-content-backend`: content API — discovery, documentation and

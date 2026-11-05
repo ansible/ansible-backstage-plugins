@@ -6,6 +6,7 @@ import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-auto
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentIndex } from './ContentIndex';
 import { createRouter } from './router';
+import { CatalogClient } from '@backstage/catalog-client';
 
 /**
  * The automation content API.
@@ -23,9 +24,23 @@ export const automationContentPlugin = createBackendPlugin({
         logger: coreServices.logger,
         httpRouter: coreServices.httpRouter,
         httpAuth: coreServices.httpAuth,
+        permissions: coreServices.permissions,
         scheduler: coreServices.scheduler,
+        auth: coreServices.auth,
+        userInfo: coreServices.userInfo,
+        discovery: coreServices.discovery,
       },
-      async init({ config, logger, httpRouter, httpAuth, scheduler }) {
+      async init({
+        config,
+        logger,
+        httpRouter,
+        httpAuth,
+        permissions,
+        scheduler,
+        auth,
+        userInfo,
+        discovery,
+      }) {
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
         const index = new ContentIndex(
@@ -40,7 +55,17 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ index, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({
+            index,
+            logger,
+            httpAuth,
+            permissions,
+            auth,
+            userInfo,
+            catalogClient: new CatalogClient({ discoveryApi: discovery }),
+          }),
+        );
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).

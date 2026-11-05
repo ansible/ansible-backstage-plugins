@@ -30,6 +30,17 @@ const frontendBoundarySelectors = [
     message:
       'Frontend plugins must not namespace-import the common package barrel. Use /permissions, /constants, or `import type`.',
   },
+  {
+    // The automation-content-common barrel re-exports the OCI registry
+    // client, which uses Node built-ins. Any non-type import of the bare
+    // package from a frontend plugin pulls that graph into the browser
+    // bundle and fails the rspack build with "Unhandled scheme: node:".
+    // Browser-safe values live behind subpaths (/permissions, /url).
+    selector:
+      "ImportDeclaration[source.value='@ansible/automation-content-common']:not([importKind='type'])",
+    message:
+      'Frontend plugins must not import the automation-content-common barrel: it re-exports Node-only code. Import from a subpath (/permissions, /url) or use `import type`.',
+  },
 ];
 
 /** @type {Record<string, unknown>} */
