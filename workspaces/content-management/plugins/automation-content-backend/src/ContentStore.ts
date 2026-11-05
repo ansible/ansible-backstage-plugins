@@ -602,31 +602,16 @@ export class ContentStore {
           `[${name}] scanned ${repo}: ${found.length} artifact(s)`,
         );
       } catch (error) {
-<<<<<<<< HEAD:workspaces/content-management/plugins/automation-content-backend/src/ContentIndex.ts
         failures.push(`${repo}: ${errorText(error)}`);
-        // A failed read keeps the previous view for that repository: a
-        // transient 5xx, timeout or 429 must not read as "its artifacts are
-        // gone". Total failure is handled below and keeps the whole registry.
-        const retained = this.artifacts.filter(
-          a => a.registry === name && a.repository === repository,
-        );
-        found.push(...retained);
-        this.logger.warn(
-          `[${name}] ${repo}: ${errorText(error)}${
-            retained.length
-              ? `; keeping ${retained.length} previously known artifact(s)`
-========
-        failures.push(`${repository}: ${errorText(error)}`);
         const retained = await this.db('artifacts')
           .where({ registry: name, repository })
           .select('*');
         const retainedArtifacts = retained.map(row => this.rowToArtifact(row));
         found.push(...retainedArtifacts);
         this.logger.warn(
-          `[${name}] ${repository}: ${errorText(error)}${
+          `[${name}] ${repo}: ${errorText(error)}${
             retainedArtifacts.length
               ? `; keeping ${retainedArtifacts.length} previously known artifact(s)`
->>>>>>>> 1ad900b (chore(content): finish content database implementation):workspaces/content-management/plugins/automation-content-backend/src/ContentStore.ts
               : ''
           }`,
         );

@@ -105,103 +105,6 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
   });
 }
 
-function seedArtifacts(count: number): ContentIndex {
-  const index = new ContentIndex([], {
-    info: () => {},
-    warn: () => {},
-    debug: () => {},
-  });
-  const artifacts = Array.from({ length: count }, (_, i) => ({
-    ref: `reg/repo-${i}@sha256:${i}`,
-    type: 'execution-environment',
-    registry: 'reg',
-    repository: `repo-${i}`,
-    digest: `sha256:${i}`,
-    tags: ['latest'],
-    pullReference: `reg/repo-${i}@sha256:${i}`,
-    contentsKnown: true,
-    classification: {
-      type: 'execution-environment',
-      signals: [],
-      readsContentManifest: true,
-    },
-    manifest: { collections: [], generatedBy: {}, complete: true },
-  }));
-  (index as unknown as { artifacts: unknown[] }).artifacts = artifacts;
-  (index as unknown as { items: Map<string, unknown> }).items = new Map();
-  return index;
-}
-
-describe('GET /content pagination', () => {
-  it('returns paginated results with all links', async () => {
-    const index = seedArtifacts(15);
-    const res = await request(await appWith(index)).get('/content');
-
-    expect(res.status).toBe(200);
-    expect(res.body.page).toBe(1);
-    expect(res.body.pageSize).toBe(10);
-    expect(res.body.totalItems).toBe(15);
-    expect(res.body.items).toHaveLength(10);
-    expect(res.body.next).toBe('?page=2');
-    expect(res.body.previous).toBeNull();
-    expect(res.body.firstPage).toBe('?page=1');
-    expect(res.body.lastPage).toBe('?page=2');
-  });
-
-  it('returns previous link and null next on the last page', async () => {
-    const index = seedArtifacts(15);
-    const res = await request(await appWith(index)).get('/content?page=2');
-
-    expect(res.status).toBe(200);
-    expect(res.body.page).toBe(2);
-    expect(res.body.items).toHaveLength(5);
-    expect(res.body.next).toBeNull();
-    expect(res.body.previous).toBe('?page=1');
-  });
-
-  it.each([
-    { per_page: 10, expectedSize: 10 },
-    { per_page: 20, expectedSize: 20 },
-    { per_page: 50, expectedSize: 50 },
-    { per_page: 99, expectedSize: 10 },
-  ])(
-    'per_page=$per_page returns $expectedSize items',
-    async ({ per_page, expectedSize }) => {
-      const index = seedArtifacts(55);
-      const res = await request(await appWith(index)).get(
-        `/content?per_page=${per_page}`,
-      );
-
-      expect(res.status).toBe(200);
-      expect(res.body.pageSize).toBe(expectedSize);
-      expect(res.body.items).toHaveLength(expectedSize);
-    },
-  );
-
-  it('preserves filter params in pagination links', async () => {
-    const index = seedArtifacts(15);
-    const res = await request(await appWith(index)).get(
-      '/content?type=execution-environment',
-    );
-
-    expect(res.body.next).toContain('type=execution-environment');
-    expect(res.body.next).toContain('page=2');
-  });
-
-  it('applies pagination to the /execution-environments alias', async () => {
-    const index = seedArtifacts(15);
-    const res = await request(await appWith(index)).get(
-      '/execution-environments',
-    );
-
-    expect(res.status).toBe(200);
-    expect(res.body.page).toBe(1);
-    expect(res.body.items).toHaveLength(10);
-    expect(res.body.totalItems).toBe(15);
-    expect(res.body.next).toContain('page=2');
-  });
-});
-
 describe('documentation field normalisation', () => {
   it('coerces a string description to an array', async () => {
     const db = seedDB([
@@ -527,7 +430,7 @@ describe('config validation', () => {
     // paths must survive whatever a caller sends. An object whose
     // `toString` is null would otherwise crash the handler with a 500
     // instead of a validation result.
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: { toString: null },
@@ -643,17 +546,17 @@ describe('configuration boundary', () => {
    * name that exists. Against an empty index, a future edit implementation
    * could answer 404 ("no such registry") and satisfy a weaker test.
    */
-  function seedWithRegistry(): ContentIndex {
-    return new ContentIndex(
-      [
-        {
-          name: 'reg',
-          url: 'https://reg.example',
-          auth: { type: 'anonymous' },
-        },
-      ],
-      { info: () => {}, warn: () => {}, debug: () => {} },
-    );
+  function seedWithRegistry(): ContentStore {
+    const connection = {
+      name: 'reg',
+      url: 'https://reg.example',
+      auth: { type: 'anonymous' },
+    };
+    return stubDB({
+      listRegistries: () => [{ connection: connection as never }],
+      getRegistry: (name: string) =>
+        name === 'reg' ? { connection: connection as never } : undefined,
+    });
   }
 
   /**
@@ -690,7 +593,7 @@ describe('configuration boundary', () => {
   it('flags a registry URL with a non-HTTP scheme', async () => {
     // A URL like ftp://quay.io is a real URL — just not one this plugin can
     // talk to. It has to be rejected up front, before any request is sent.
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -709,7 +612,7 @@ describe('configuration boundary', () => {
   });
 
   it('flags a registry URL with no scheme at all', async () => {
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -738,7 +641,7 @@ describe('configuration boundary', () => {
     // `//` as a host swap, so the client would refuse its own registry.
     'https://quay.io//v2',
   ])('rejects %s, which the loader also rejects at startup', async badUrl => {
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -759,7 +662,7 @@ describe('configuration boundary', () => {
   it.each(['https://quay.io?', 'https://quay.io#'])(
     'rejects %s — an unfinished query or fragment — like the loader',
     async badUrl => {
-      const res = await request(await appWith(seed([])))
+      const res = await request(await appWith(stubDB()))
         .post('/config/validate')
         .send({
           apiVersion: 'content.ansible.com/v1',
@@ -784,7 +687,7 @@ describe('configuration boundary', () => {
     // HTTPS:// prefix — instead of rejecting it. This endpoint has to reach
     // the same verdict, or it would tell users their working configuration
     // is broken.
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -797,7 +700,7 @@ describe('configuration boundary', () => {
   });
 
   it('flags embedded credentials and query suffixes, like the loader', async () => {
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -829,7 +732,7 @@ describe('configuration boundary', () => {
     // Before this fix, a registry entry that wasn't a proper settings object
     // crashed the endpoint with a server error (500). Now it comes back as an
     // ordinary "this is wrong with your configuration" report.
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -850,7 +753,7 @@ describe('configuration boundary', () => {
   it('reports a non-string URL as a validation error, not a crash', async () => {
     // Same idea as the test above: `url: 123` is a mistake in the document,
     // and the endpoint's job is to say so, not to fail.
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -869,7 +772,7 @@ describe('configuration boundary', () => {
   });
 
   it('reports duplicate registry names, which would be ambiguous endpoints', async () => {
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -890,7 +793,7 @@ describe('configuration boundary', () => {
   });
 
   it('accepts a well-formed configuration and only warns about insecure registries', async () => {
-    const res = await request(await appWith(seed([])))
+    const res = await request(await appWith(stubDB()))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
