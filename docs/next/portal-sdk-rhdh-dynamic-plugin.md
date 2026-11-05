@@ -229,7 +229,8 @@ The package is listed as a peer dependency but is not in `sharedPackages`. Add i
 Check the browser console for `[DynamicExtensionDiscovery]` error messages. The most common causes:
 
 - `capabilityId` contains spaces or uppercase
-- `experienceId` references an ID not in `EXPERIENCE_IDS`
+- The manifest `apiVersion` is incompatible with the host
+- A capability requires a newer `minimumHostApiVersion`
 - `launch.type` is misspelled
 
 Run `validateManifest` in a test to catch these before deployment:

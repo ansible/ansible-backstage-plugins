@@ -31,7 +31,6 @@ export function resolveEntityContribution(contribution: ScopedContribution) {
 export function useEligibleContributions<T extends ScopedContribution>(
   declarations: readonly T[],
   context: EntityContributionContext,
-  experiences: readonly string[],
   checkEntitlement?: EntitlementCheck,
 ) {
   const holder = useApiHolder();
@@ -40,7 +39,6 @@ export function useEligibleContributions<T extends ScopedContribution>(
   const [state, setState] = useState<{
     context: EntityContributionContext;
     declarations: readonly T[];
-    experiences: readonly string[];
     checkEntitlement?: EntitlementCheck;
     eligible: T[];
   }>();
@@ -56,7 +54,6 @@ export function useEligibleContributions<T extends ScopedContribution>(
               !capability ||
               !entry ||
               !entry.appliesToContentTypes.includes(context.contentType) ||
-              !experiences.includes(capability.experienceId) ||
               (contribution.appliesToSourceKinds &&
                 !contribution.appliesToSourceKinds.some(source =>
                   context.sourceKinds?.includes(source),
@@ -106,7 +103,6 @@ export function useEligibleContributions<T extends ScopedContribution>(
         setState({
           context,
           declarations,
-          experiences,
           checkEntitlement,
           eligible: matches
             .filter((item): item is { contribution: T } => Boolean(item))
@@ -117,17 +113,9 @@ export function useEligibleContributions<T extends ScopedContribution>(
     return () => {
       cancelled = true;
     };
-  }, [
-    declarations,
-    context,
-    experiences,
-    checkEntitlement,
-    config,
-    permissions,
-  ]);
+  }, [declarations, context, checkEntitlement, config, permissions]);
   return state?.context === context &&
     state.declarations === declarations &&
-    state.experiences === experiences &&
     state.checkEntitlement === checkEntitlement
     ? state.eligible
     : undefined;

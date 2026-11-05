@@ -25,10 +25,7 @@ import {
   useEligibleContributions,
   type EntitlementCheck,
 } from './useEligibleContributions';
-import {
-  DEFAULT_EXPERIENCES,
-  PortalEntityTabContent,
-} from './PortalEntityTabs';
+import { PortalEntityTabContent } from './PortalEntityTabs';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { ContributionWrapper } from '../ContributionWrapper';
 import { PortalEntityOverviewCards } from './PortalEntityOverviewCards';
@@ -242,7 +239,6 @@ export function PortalEntitySurface({
   actions,
   cards = EMPTY_CARDS,
   context,
-  availableExperiences = DEFAULT_EXPERIENCES,
   checkEntitlement,
   onSubjectRemoved,
 }: Readonly<{
@@ -250,27 +246,23 @@ export function PortalEntitySurface({
   actions: readonly EntityActionDescriptor[];
   cards?: readonly EntityOverviewCardDescriptor[];
   context: EntityContributionContext;
-  availableExperiences?: readonly string[];
   checkEntitlement?: EntitlementCheck;
   onSubjectRemoved?: () => void;
 }>) {
   const eligibleTabs = useEligibleContributions(
     tabs,
     context,
-    availableExperiences,
     checkEntitlement,
   );
   const eligibleActions = useEligibleContributions(
     actions,
     context,
-    availableExperiences,
     checkEntitlement,
   );
   const [selectedId, setSelectedId] = useState<string>();
   const eligibleCards = useEligibleContributions(
     cards,
     context,
-    availableExperiences,
     checkEntitlement,
   );
   const [resultsRevision, setResultsRevision] = useState(0);

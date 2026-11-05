@@ -59,7 +59,6 @@ function descriptor(): EntityActionDescriptor {
         {
           id: 'scanner.quality',
           ownerPlugin: 'scanner',
-          experienceId: 'content-quality-assessment',
           displayName: 'Quality',
           description: 'Quality',
           minimumHostApiVersion: '0.1.0',
@@ -265,7 +264,6 @@ describe('native entity actions', () => {
       sourceKinds?: string[];
       enabled?: boolean;
       deny?: boolean;
-      experiences?: string[];
       missingResolver?: boolean;
       missingResults?: boolean;
       hiddenResults?: boolean;
@@ -303,7 +301,6 @@ describe('native entity actions', () => {
               tabs={collectedTabs}
               actions={actions}
               context={current}
-              availableExperiences={options.experiences}
               checkEntitlement={options.missingResolver ? undefined : check}
             />
           </>,
@@ -428,7 +425,6 @@ describe('native entity actions', () => {
     { contentType: CONTENT_TYPES.COLLECTION },
     { enabled: false },
     { deny: true },
-    { experiences: [] },
     { missingResolver: true },
   ])('filters before activation: %j', async options => {
     await compose(options);

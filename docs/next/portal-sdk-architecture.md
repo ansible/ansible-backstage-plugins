@@ -208,9 +208,10 @@ deployment intentionally does not install a health dashboard or indicator.
   registered operations; remaining legacy mutation paths still need migration.
 - Common metadata must remain serializable. New native predicates belong on
   executable frontend descriptors, even though legacy contract fields remain.
-- The current manifest requires `experienceId`. The proposed advisory
-  recommendation and richer host composition preview/activation/rollback model
-  are not implemented by the generic attachments alone.
+- Capability manifests do not assign host experiences or recommend placement.
+  Plugins declare supported attachments and content applicability. The host owns
+  layout and navigation. Richer host composition preview/activation/rollback
+  remains separate work.
 
 ## Delivered scope and remaining work
 

@@ -79,7 +79,6 @@ function descriptor(
         {
           id: `${owner}.authoring`,
           ownerPlugin: owner,
-          experienceId: 'content-authoring',
           displayName: 'Authoring',
           description: 'Authoring',
           minimumHostApiVersion: '0.1.0',
@@ -120,7 +119,6 @@ describe('native scaffolder field discovery', () => {
       enabled?: boolean;
       deny?: boolean;
       reserved?: string[];
-      experiences?: string[];
       mountWidget?: boolean;
       templatesHost?: boolean;
       templatesPluginId?: string;
@@ -138,7 +136,6 @@ describe('native scaffolder field discovery', () => {
           <NativeScaffolderFields
             declarations={declarations}
             reservedNames={options.reserved}
-            availableExperiences={options.experiences}
           >
             {fields => (
               <>
@@ -374,7 +371,7 @@ describe('native scaffolder field discovery', () => {
     ).toBeInTheDocument();
     expect(loader).toHaveBeenCalledTimes(1);
   });
-  it.each(['config', 'permission', 'experience', 'owner', 'reserved'] as const)(
+  it.each(['config', 'permission', 'owner', 'reserved'] as const)(
     'filters %s before importing the widget',
     async gate => {
       await compose({
@@ -382,7 +379,6 @@ describe('native scaffolder field discovery', () => {
         deny: gate === 'permission',
         owner: gate === 'owner' ? 'other' : undefined,
         reserved: gate === 'reserved' ? ['RepositoryInput'] : undefined,
-        experiences: gate === 'experience' ? [] : undefined,
       });
       await screen.findByText('Wizard ready');
       expect(loader).not.toHaveBeenCalled();
