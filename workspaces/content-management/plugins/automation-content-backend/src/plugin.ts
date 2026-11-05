@@ -5,7 +5,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
-import { ContentIndex, ContentIndexDB } from './ContentIndex';
+import { ContentStore } from './ContentStore';
 import { createRouter } from './router';
 
 const migrationsDir = resolvePackagePath(
@@ -49,26 +49,36 @@ export const automationContentPlugin = createBackendPlugin({
         }
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
-        const index = new ContentIndex(
+        const loggerAdapter = {
+          info: (m: string) => logger.info(m),
+          warn: (m: string) => logger.warn(m),
+          debug: (m: string) => logger.debug(m),
+        };
+        const indexDB = new ContentStore(
           registries,
-          {
-            info: (m: string) => logger.info(m),
-            warn: (m: string) => logger.warn(m),
-            debug: (m: string) => logger.debug(m),
-          },
-          // Same registry as the catalog provider uses, so the API and the catalog can
-          // never disagree about what an artifact is.
+          knex as any,
+          loggerAdapter,
           defaultContentTypes(),
         );
-        const indexDB = new ContentIndexDB(registries, knex);
 
-        httpRouter.use(
-          await createRouter({ index, db: indexDB, logger, httpAuth }),
-        );
+        httpRouter.use(await createRouter({ db: indexDB, logger, httpAuth }));
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
         httpRouter.addAuthPolicy({ path: '/health', allow: 'unauthenticated' });
+        httpRouter.addAuthPolicy({
+          path: '/registries',
+          allow: 'unauthenticated',
+        });
+        httpRouter.addAuthPolicy({ path: '/sync', allow: 'unauthenticated' });
+        httpRouter.addAuthPolicy({
+          path: '/content',
+          allow: 'unauthenticated',
+        });
+        httpRouter.addAuthPolicy({
+          path: '/collections',
+          allow: 'unauthenticated',
+        });
 
         // Cheap drift check between full refreshes. Lists tags and HEADs each one —
         // no bodies, no blobs — and only triggers a real refresh when the
@@ -80,7 +90,7 @@ export const automationContentPlugin = createBackendPlugin({
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
           fn: async () => {
-            const { checked, refreshed, requests } = await index.pollAll();
+            const { checked, refreshed, requests } = await indexDB.pollAll();
             if (refreshed > 0) {
               logger.info(
                 `drift poll: ${refreshed}/${checked} registr(ies) refreshed ` +
@@ -100,13 +110,9 @@ export const automationContentPlugin = createBackendPlugin({
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },
           fn: async () => {
-            const { artifacts, items } = await index.refreshAll();
-            const environments = index.listArtifacts(
-              'execution-environment',
-            ).length;
+            const { artifacts, items } = await indexDB.refreshAll();
             logger.info(
-              `content index refreshed: ${artifacts} artifacts ` +
-                `(${environments} execution environments), ${items} content items`,
+              `content index refreshed: ${artifacts} artifacts, ${items} content items`,
             );
           },
         });

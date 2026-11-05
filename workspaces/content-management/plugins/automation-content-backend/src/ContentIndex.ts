@@ -149,6 +149,66 @@ export function itemKey(artifactRef: string, fqcn: string): string {
   return `${artifactRef}::${fqcn}`;
 }
 
+/** Flatten an artifact's manifest into content items. */
+function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
+  const items: IndexedItem[] = [];
+  for (const collection of artifact.manifest?.collections ?? []) {
+    const collectionFqcn = `${collection.namespace}.${collection.name}`;
+    const base = {
+      artifactRef: artifact.ref,
+      collection: collectionFqcn,
+      collectionVersion: collection.version,
+    };
+
+    for (const plugin of collection.plugins) {
+      items.push({
+        ...base,
+        key: itemKey(artifact.ref, plugin.fqcn),
+        fqcn: plugin.fqcn,
+        name: plugin.name,
+        type: plugin.type,
+        shortDescription: plugin.shortDescription,
+        versionAdded: plugin.versionAdded,
+        deprecated: plugin.deprecated,
+        detail: plugin as unknown as Record<string, unknown>,
+      });
+    }
+    for (const role of collection.roles) {
+      items.push({
+        ...base,
+        key: itemKey(artifact.ref, role.fqcn),
+        fqcn: role.fqcn,
+        name: role.name,
+        type: 'role',
+        shortDescription: role.description,
+        detail: role as unknown as Record<string, unknown>,
+      });
+    }
+    for (const playbook of collection.playbooks) {
+      items.push({
+        ...base,
+        key: itemKey(artifact.ref, playbook.fqcn),
+        fqcn: playbook.fqcn,
+        name: playbook.name,
+        type: 'playbook',
+        detail: playbook as unknown as Record<string, unknown>,
+      });
+    }
+    for (const eda of collection.edaPlugins) {
+      items.push({
+        ...base,
+        key: itemKey(artifact.ref, eda.fqcn),
+        fqcn: eda.fqcn,
+        name: eda.name,
+        type: eda.type,
+        shortDescription: eda.shortDescription,
+        detail: eda as unknown as Record<string, unknown>,
+      });
+    }
+  }
+  return items;
+}
+
 /**
  * An in-memory index of discovered content.
  *
@@ -162,46 +222,23 @@ export function itemKey(artifactRef: string, fqcn: string): string {
  * module is available in both — the precise failure the provenance fields exist to
  * prevent.
  *
- * In-memory is deliberate for the PoC: manifests are immutable by digest, so the index
- * is a pure function of what the registries hold and can always be rebuilt.
+ * Database-backed content store.
+ *
+ * Artifacts and items are persisted in SQLite (dev) or PostgreSQL (production)
+ * so the index survives backend restarts.
  */
-export class ContentIndexDB {
+export class ContentStore {
   private readonly registries = new Map<string, RegistryState>();
   private readonly clients = new Map<string, OCIClient>();
-  private db: Knex;
-
-  constructor(registries: RegistryConnection[], db: Knex) {
-    this.db = db;
-
-    for (const reg of registries) {
-      this.registries.set(reg.name, { connection: reg });
-      this.clients.set(reg.name, new OCIClient(reg));
-    }
-  }
-
-  listRegistries(): RegistryState[] {
-    return [...this.registries.values()];
-  }
-
-  // listArtifacts(): IndexedArtifact[] {}
-}
-
-export class ContentIndex {
-  private readonly registries = new Map<string, RegistryState>();
-  private readonly clients = new Map<string, OCIClient>();
-  private artifacts: IndexedArtifact[] = [];
-  private items = new Map<string, IndexedItem>();
-  private lastRefreshed?: string;
   private readonly reconcile = new Map<string, ReconcileState>();
   private readonly drift = new Map<string, DriftState>();
-  /**
-   * Shared across every registry client. Digest-addressed content is immutable, so a
-   * hit is permanently valid — this is what makes frequent drift polling affordable.
-   */
   private readonly cache = new MemoryDigestCache();
+  private lastRefreshed?: string;
+  private db: Knex;
 
   constructor(
     connections: RegistryConnection[],
+    db: Knex,
     private readonly logger: {
       info(m: string): void;
       warn(m: string): void;
@@ -209,6 +246,8 @@ export class ContentIndex {
     },
     private readonly contentTypes?: ContentTypeRegistry,
   ) {
+    this.db = db;
+
     for (const connection of connections) {
       this.registries.set(connection.name, { connection });
       this.clients.set(
@@ -229,37 +268,6 @@ export class ContentIndex {
     return this.registries.get(name);
   }
 
-  /** All artifacts, optionally filtered by content type. */
-  listArtifacts(type?: string): IndexedArtifact[] {
-    return type ? this.artifacts.filter(a => a.type === type) : this.artifacts;
-  }
-
-  getArtifact(ref: string): IndexedArtifact | undefined {
-    return this.artifacts.find(a => a.ref === ref);
-  }
-
-  listItems(): IndexedItem[] {
-    return [...this.items.values()];
-  }
-
-  /** Items within one artifact. */
-  itemsIn(artifactRef: string): IndexedItem[] {
-    return this.listItems().filter(i => i.artifactRef === artifactRef);
-  }
-
-  /** Every variant of an FQCN across artifacts. More than one is normal and meaningful. */
-  findItems(fqcn: string, artifactRef?: string): IndexedItem[] {
-    if (artifactRef) {
-      const found = this.items.get(itemKey(artifactRef, fqcn));
-      return found ? [found] : [];
-    }
-    return this.listItems().filter(i => i.fqcn === fqcn);
-  }
-
-  get refreshedAt(): string | undefined {
-    return this.lastRefreshed;
-  }
-
   reconcileStateFor(registry: string): ReconcileState | undefined {
     return this.reconcile.get(registry);
   }
@@ -268,20 +276,161 @@ export class ContentIndex {
     return this.drift.get(registry);
   }
 
+  get refreshedAt(): string | undefined {
+    return this.lastRefreshed;
+  }
+
   get cacheStats(): DigestCacheStats {
     return this.cache.stats;
   }
 
-  /**
-   * Cheaply check whether a registry still matches what the index holds.
-   *
-   * Lists tags and HEADs each one — no manifest bodies, no blobs. The comparison is on
-   * the tag-to-digest map, which catches every observable change: a tag moved to new
-   * content, a tag added, a tag removed.
-   *
-   * A full refresh is only triggered when this reports a difference, and because
-   * unchanged digests hit the cache, that refresh re-downloads almost nothing.
-   */
+  async listArtifacts(type?: string): Promise<IndexedArtifact[]> {
+    const query = this.db('artifacts');
+    if (type) query.where('type', type);
+    const rows = await query.select('*');
+    return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
+  async getArtifact(ref: string): Promise<IndexedArtifact | undefined> {
+    const row = await this.db('artifacts').where('ref', ref).first();
+    return row ? this.rowToArtifact(row) : undefined;
+  }
+
+  async listItems(): Promise<IndexedItem[]> {
+    const rows = await this.db('items').select('*');
+    return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
+  }
+
+  async itemsIn(artifactRef: string): Promise<IndexedItem[]> {
+    const rows = await this.db('items')
+      .where('artifact_ref', artifactRef)
+      .select('*');
+    return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
+  }
+
+  async findItems(fqcn: string, artifactRef?: string): Promise<IndexedItem[]> {
+    const query = this.db('items').where('fqcn', fqcn);
+    if (artifactRef) query.where('artifact_ref', artifactRef);
+    const rows = await query.select('*');
+    return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
+  }
+
+  async listCollections(): Promise<
+    Array<ManifestCollectionEntry & { fqcn: string; providedBy: string[] }>
+  > {
+    const artifacts = await this.listArtifacts();
+    const byKey = new Map<
+      string,
+      ManifestCollectionEntry & { fqcn: string; providedBy: string[] }
+    >();
+    for (const artifact of artifacts) {
+      for (const collection of artifact.manifest?.collections ?? []) {
+        const fqcn = `${collection.namespace}.${collection.name}`;
+        const key = `${fqcn}@${collection.version}`;
+        const existing = byKey.get(key);
+        if (existing) {
+          existing.providedBy.push(artifact.ref);
+        } else {
+          byKey.set(key, { ...collection, fqcn, providedBy: [artifact.ref] });
+        }
+      }
+    }
+    return [...byKey.values()];
+  }
+
+  countsFor(artifact: IndexedArtifact) {
+    return artifact.manifest ? summariseManifest(artifact.manifest) : undefined;
+  }
+
+  async refreshAll(): Promise<{ artifacts: number; items: number }> {
+    for (const name of this.registries.keys()) {
+      await this.refreshRegistry(name);
+    }
+    const artifactCount = await this.db('artifacts')
+      .count('* as count')
+      .first();
+    const itemCount = await this.db('items').count('* as count').first();
+    return {
+      artifacts: Number(artifactCount?.count ?? 0),
+      items: Number(itemCount?.count ?? 0),
+    };
+  }
+
+  async refreshRegistry(
+    name: string,
+  ): Promise<{ discovered: number; ok: boolean; error?: string }> {
+    const outcome = await this.discoverRegistry(name);
+    const at = new Date().toISOString();
+
+    if (!outcome.ok) {
+      const retained = await this.db('artifacts')
+        .where('registry', name)
+        .count('* as count')
+        .first();
+      const retainedCount = Number(retained?.count ?? 0);
+      this.reconcile.set(name, {
+        at,
+        ok: false,
+        error: outcome.error,
+        artifacts: retainedCount,
+      });
+      this.logger.warn(
+        `[${name}] discovery failed (${outcome.error}); keeping ${retainedCount} previously known artifact(s)`,
+      );
+      return { discovered: retainedCount, ok: false, error: outcome.error };
+    }
+
+    await this.db.transaction(async trx => {
+      await trx('artifacts').where('registry', name).del();
+      let totalItems = 0;
+      for (const a of outcome.artifacts) {
+        await trx('artifacts').insert({
+          ref: a.ref,
+          type: a.type,
+          registry: a.registry,
+          repository: a.repository,
+          digest: a.digest,
+          tags: JSON.stringify(a.tags),
+          pull_reference: a.pullReference,
+          contents_known: a.contentsKnown,
+          classification: JSON.stringify(a.classification),
+          manifest: a.manifest ? JSON.stringify(a.manifest) : null,
+        });
+        const items = flattenItems(a);
+        totalItems += items.length;
+        for (const item of items) {
+          await trx('items').insert({
+            key: item.key,
+            fqcn: item.fqcn,
+            name: item.name,
+            type: item.type,
+            collection: item.collection,
+            collection_version: item.collectionVersion,
+            short_description: item.shortDescription ?? null,
+            version_added: item.versionAdded ?? null,
+            deprecated: item.deprecated ?? false,
+            artifact_ref: item.artifactRef,
+            detail: item.detail ? JSON.stringify(item.detail) : null,
+          });
+        }
+      }
+      this.logger.info(
+        `[${name}] persisted ${outcome.artifacts.length} artifact(s), ${totalItems} item(s)` +
+          ` (contentsKnown: ${
+            outcome.artifacts.filter(a => a.contentsKnown).length
+          })`,
+      );
+    });
+
+    this.lastRefreshed = at;
+    this.reconcile.set(name, {
+      at,
+      ok: true,
+      artifacts: outcome.artifacts.length,
+    });
+    return { discovered: outcome.artifacts.length, ok: true };
+  }
+
   async detectDrift(name: string): Promise<DriftState> {
     const state = this.registries.get(name);
     const client = this.clients.get(name);
@@ -308,11 +457,12 @@ export class ContentIndex {
           if (head.digest) observed.set(tag, head.digest);
         }
 
+        const rows = await this.db('artifacts')
+          .where({ registry: name, repository })
+          .select('digest', 'tags');
         const known = new Map<string, string>();
-        for (const artifact of this.artifacts) {
-          if (artifact.registry !== name || artifact.repository !== repository)
-            continue;
-          for (const tag of artifact.tags) known.set(tag, artifact.digest);
+        for (const row of rows) {
+          for (const tag of JSON.parse(row.tags)) known.set(tag, row.digest);
         }
 
         for (const [tag, digest] of observed) {
@@ -333,8 +483,6 @@ export class ContentIndex {
         }
       }
     } catch (error) {
-      // A failed check is not a change. Reporting drift here would trigger a pointless
-      // full refresh that is also going to fail.
       const failure: DriftState = {
         at,
         changed: false,
@@ -355,7 +503,6 @@ export class ContentIndex {
     return result;
   }
 
-  /** Check for drift, and refresh only if something actually changed. */
   async pollRegistry(name: string): Promise<{
     changed: boolean;
     refreshed: boolean;
@@ -394,80 +541,6 @@ export class ContentIndex {
       if (result.refreshed) refreshed += 1;
     }
     return { checked: this.registries.size, refreshed, requests };
-  }
-
-  /** Collections across all artifacts, deduplicated by namespace.name@version. */
-  listCollections(): Array<
-    ManifestCollectionEntry & { fqcn: string; providedBy: string[] }
-  > {
-    const byKey = new Map<
-      string,
-      ManifestCollectionEntry & { fqcn: string; providedBy: string[] }
-    >();
-
-    for (const artifact of this.artifacts) {
-      for (const collection of artifact.manifest?.collections ?? []) {
-        const fqcn = `${collection.namespace}.${collection.name}`;
-        const key = `${fqcn}@${collection.version}`;
-        const existing = byKey.get(key);
-        if (existing) {
-          existing.providedBy.push(artifact.ref);
-        } else {
-          byKey.set(key, { ...collection, fqcn, providedBy: [artifact.ref] });
-        }
-      }
-    }
-    return [...byKey.values()];
-  }
-
-  async refreshAll(): Promise<{ artifacts: number; items: number }> {
-    for (const name of this.registries.keys()) {
-      await this.refreshRegistry(name);
-    }
-    return { artifacts: this.artifacts.length, items: this.items.size };
-  }
-
-  /**
-   * Re-read one registry.
-   *
-   * A failed read leaves the previous view in place. Replacing it with nothing would
-   * mean a transient registry outage silently empties the catalog — the content did not
-   * disappear, only our ability to see it did, and those are different facts. The
-   * failure is recorded so staleness stays visible instead of being presented as truth.
-   */
-  async refreshRegistry(
-    name: string,
-  ): Promise<{ discovered: number; ok: boolean; error?: string }> {
-    const outcome = await this.discoverRegistry(name);
-    const at = new Date().toISOString();
-
-    if (!outcome.ok) {
-      const retained = this.artifacts.filter(a => a.registry === name).length;
-      this.reconcile.set(name, {
-        at,
-        ok: false,
-        error: outcome.error,
-        artifacts: retained,
-      });
-      this.logger.warn(
-        `[${name}] discovery failed (${outcome.error}); keeping ${retained} previously ` +
-          `known artifact(s)`,
-      );
-      return { discovered: retained, ok: false, error: outcome.error };
-    }
-
-    this.artifacts = [
-      ...this.artifacts.filter(a => a.registry !== name),
-      ...outcome.artifacts,
-    ];
-    this.rebuildItemIndex();
-    this.lastRefreshed = at;
-    this.reconcile.set(name, {
-      at,
-      ok: true,
-      artifacts: outcome.artifacts.length,
-    });
-    return { discovered: outcome.artifacts.length, ok: true };
   }
 
   private async discoverRegistry(name: string): Promise<{
@@ -529,6 +602,7 @@ export class ContentIndex {
           `[${name}] scanned ${repo}: ${found.length} artifact(s)`,
         );
       } catch (error) {
+<<<<<<<< HEAD:workspaces/content-management/plugins/automation-content-backend/src/ContentIndex.ts
         failures.push(`${repo}: ${errorText(error)}`);
         // A failed read keeps the previous view for that repository: a
         // transient 5xx, timeout or 429 must not read as "its artifacts are
@@ -541,14 +615,24 @@ export class ContentIndex {
           `[${name}] ${repo}: ${errorText(error)}${
             retained.length
               ? `; keeping ${retained.length} previously known artifact(s)`
+========
+        failures.push(`${repository}: ${errorText(error)}`);
+        const retained = await this.db('artifacts')
+          .where({ registry: name, repository })
+          .select('*');
+        const retainedArtifacts = retained.map(row => this.rowToArtifact(row));
+        found.push(...retainedArtifacts);
+        this.logger.warn(
+          `[${name}] ${repository}: ${errorText(error)}${
+            retainedArtifacts.length
+              ? `; keeping ${retainedArtifacts.length} previously known artifact(s)`
+>>>>>>>> 1ad900b (chore(content): finish content database implementation):workspaces/content-management/plugins/automation-content-backend/src/ContentStore.ts
               : ''
           }`,
         );
       }
     }
 
-    // Partial failure still yields a usable result; total failure does not, and must
-    // not be mistaken for an empty registry.
     if (repositories.length > 0 && failures.length === repositories.length) {
       return {
         ok: false,
@@ -557,6 +641,37 @@ export class ContentIndex {
       };
     }
     return { ok: true, artifacts: found };
+  }
+
+  private rowToArtifact(row: Record<string, unknown>): IndexedArtifact {
+    return {
+      ref: row.ref as string,
+      type: row.type as string,
+      registry: row.registry as string,
+      repository: row.repository as string,
+      digest: row.digest as string,
+      tags: JSON.parse(row.tags as string),
+      pullReference: row.pull_reference as string,
+      contentsKnown: Boolean(row.contents_known),
+      classification: JSON.parse(row.classification as string),
+      manifest: row.manifest ? JSON.parse(row.manifest as string) : undefined,
+    };
+  }
+
+  private rowToItem(row: Record<string, unknown>): IndexedItem {
+    return {
+      key: row.key as string,
+      fqcn: row.fqcn as string,
+      name: row.name as string,
+      type: row.type as string,
+      collection: row.collection as string,
+      collectionVersion: row.collection_version as string,
+      shortDescription: (row.short_description as string) ?? undefined,
+      versionAdded: (row.version_added as string) ?? undefined,
+      deprecated: Boolean(row.deprecated),
+      artifactRef: row.artifact_ref as string,
+      detail: row.detail ? JSON.parse(row.detail as string) : undefined,
+    };
   }
 
   private async resolveRepositories(
@@ -598,9 +713,6 @@ export class ContentIndex {
       if (REFERRER_TAG.test(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
-        // Throwing makes this a failed repository rather than a successful
-        // partial scan, so the previous view is kept instead of the remaining
-        // tags being read as absent.
         throw new Error(
           `rate-limited by registry while scanning ${repository}:${tag}`,
         );
@@ -623,12 +735,6 @@ export class ContentIndex {
     return found;
   }
 
-  /**
-   * Identify one image and, if it is an execution environment, read its contents.
-   *
-   * Classification runs before enumeration so that an unrecognised image is never
-   * reported as an environment with nothing in it.
-   */
   private async inspect(
     registry: string,
     repository: string,
@@ -653,8 +759,6 @@ export class ContentIndex {
       .getReferrers(repository, digest)
       .catch(() => ({ referrers: [], via: 'none' as const }));
 
-    // Labels live in the config blob, which enumeration reads anyway — so classifying
-    // by label costs nothing extra.
     let labels: Record<string, string> | undefined;
     let resolved: ResolvedArtifact | undefined;
     try {
@@ -672,10 +776,6 @@ export class ContentIndex {
 
     const classification = this.identify(resolved, { labels, referrers });
 
-    // Only a type that publishes a build-time content manifest is read further. Gated
-    // on the declared media type rather than on a type name, so this stays a statement
-    // about capability: a future content type publishing the same manifest is read the
-    // same way, with no change here.
     if (!classification.readsContentManifest) {
       this.logger.debug(
         `[${registry}] ${repository}:${tags.join(',')} classified as ` +
@@ -702,13 +802,6 @@ export class ContentIndex {
     };
   }
 
-  /**
-   * Ask the registered content types which one owns this artifact.
-   *
-   * The index knows no content type of its own. With an empty registry every artifact
-   * is reported as unidentified — honestly, with each adapter's reason — rather than
-   * silently dropped.
-   */
   private identify(
     artifact: ResolvedArtifact | undefined,
     signalsFrom: { labels?: Record<string, string>; referrers?: Descriptor[] },
@@ -746,85 +839,6 @@ export class ContentIndex {
         CONTENT_MANIFEST_ARTIFACT_TYPE,
       ),
     };
-  }
-
-  /**
-   * Flatten content items, keyed per artifact.
-   *
-   * No cross-artifact deduplication: the same FQCN in two environments may carry
-   * different documentation, and merging them would mean serving one environment's
-   * answer for a question asked about another.
-   */
-  private rebuildItemIndex(): void {
-    const items = new Map<string, IndexedItem>();
-
-    const add = (
-      artifact: IndexedArtifact,
-      collection: ManifestCollectionEntry,
-      partial: Pick<IndexedItem, 'fqcn' | 'name' | 'type'> &
-        Partial<
-          Pick<
-            IndexedItem,
-            'shortDescription' | 'versionAdded' | 'deprecated' | 'detail'
-          >
-        >,
-    ) => {
-      const key = itemKey(artifact.ref, partial.fqcn);
-      items.set(key, {
-        ...partial,
-        key,
-        artifactRef: artifact.ref,
-        collection: `${collection.namespace}.${collection.name}`,
-        collectionVersion: collection.version,
-      });
-    };
-
-    for (const artifact of this.artifacts) {
-      for (const collection of artifact.manifest?.collections ?? []) {
-        for (const plugin of collection.plugins) {
-          add(artifact, collection, {
-            fqcn: plugin.fqcn,
-            name: plugin.name,
-            type: plugin.type,
-            shortDescription: plugin.shortDescription,
-            versionAdded: plugin.versionAdded,
-            deprecated: plugin.deprecated,
-            detail: plugin as unknown as Record<string, unknown>,
-          });
-        }
-        for (const role of collection.roles) {
-          add(artifact, collection, {
-            fqcn: role.fqcn,
-            name: role.name,
-            type: 'role',
-            shortDescription: role.description,
-            detail: role as unknown as Record<string, unknown>,
-          });
-        }
-        for (const playbook of collection.playbooks) {
-          add(artifact, collection, {
-            fqcn: playbook.fqcn,
-            name: playbook.name,
-            type: 'playbook',
-            detail: playbook as unknown as Record<string, unknown>,
-          });
-        }
-        for (const eda of collection.edaPlugins) {
-          add(artifact, collection, {
-            fqcn: eda.fqcn,
-            name: eda.name,
-            type: eda.type,
-            shortDescription: eda.shortDescription,
-            detail: eda as unknown as Record<string, unknown>,
-          });
-        }
-      }
-    }
-    this.items = items;
-  }
-
-  countsFor(artifact: IndexedArtifact) {
-    return artifact.manifest ? summariseManifest(artifact.manifest) : undefined;
   }
 }
 
