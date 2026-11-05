@@ -34,6 +34,8 @@ where versioned packages apply.
 
 - **Content development workspace** renames `workspaces/portal-scaffolder` to `workspaces/content-development` and its workspace manifest to `@ansible/content-development-workspace`, with matching configuration, CI, lockfile, ownership, and documentation paths. Plugin directories, package names, and runtime identifiers remain unchanged.
 
+- **Backend authentication configuration** removes deprecated `backend.auth.keys` and its unused `BACKEND_SECRET` setup. Plugin-to-plugin authentication uses Backstage's built-in auth services. Existing local overrides must also remove `backend.auth.keys`; external caller credentials remain configured separately under `backend.auth.externalAccess`.
+
 - **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
 
 - **Automation content custom transports:** injected `FetchLike` implementations

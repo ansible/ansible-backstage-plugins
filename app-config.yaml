@@ -60,8 +60,6 @@ organization:
   name: Automation Portal
 backend:
   auth:
-    keys:
-      - secret: ${BACKEND_SECRET}
     sessions:
       # Persistent signing key prevents JWT token invalidation on backend restarts
       # This is essential for dynamic RBAC automation and service-to-service authentication
