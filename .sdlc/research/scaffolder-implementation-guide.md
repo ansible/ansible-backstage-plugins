@@ -2,10 +2,11 @@
 
 > **Architecture reference:** [Content Experience Architecture](https://github.com/ansible/ansible-rhdh-plugins/blob/portal-plugin-research/.sdlc/research/plugin-factory/Content%20Experience%20Architecture.md) (private repo — §2.2 covers workspace layout, §7.3–§7.4 covers backend boundary)
 >
-> **Scope:** Split the monolithic `scaffolder-backend-module-backstage-rhaap` into two
-> backend modules — one for AAP integration, one for portal-scaffolder — with no behaviour
-> change apart from the documented autocomplete-provider migration and the replacement of
-> the EE HTTP routes with an in-process lifecycle service in Phase 1.
+> **Scope:** Split the monolithic `scaffolder-backend-module-backstage-rhaap` by functional
+> ownership. AAP actions belong to an AAP workspace plugin; actions tied to the creator CLI /
+> ADT belong to a content-development workspace plugin. Autocomplete providers follow the
+> system they query. Phase 1 PRs implement the initial split; this guide records the intended
+> content-development placement and follow-up migration.
 
 ---
 
@@ -16,22 +17,22 @@ The scaffolder backend module today is a single package that registers AAP Contr
 ### 1.1 Repository layout (main branch)
 
 ```
-plugins/
-├── backstage-rhaap/                          # AAP frontend plugin
-├── backstage-rhaap-common/                   # Shared: ansibleServiceRef, AAPClient, ScmClientFactory
-├── catalog-backend-module-rhaap/             # Catalog providers (PAH, git, AAP, EE)
-├── auth-backend-module-rhaap-provider/       # AAP auth
-├── scaffolder-backend-module-backstage-rhaap/ # ← monolithic, being split
-└── self-service/                             # Frontend plugin
-packages/
-└── backend/src/index.ts                      # Backend wiring
+workspaces/
+├── aap/plugins/
+│   ├── backstage-rhaap/                          # AAP frontend plugin
+│   ├── backstage-rhaap-common/                   # AAP and shared backend contracts
+│   ├── catalog-backend-module-rhaap/             # Catalog providers (PAH, git, AAP, EE)
+│   ├── auth-backend-module-rhaap-provider/       # AAP auth
+│   └── scaffolder-backend-module-backstage-rhaap/ # Monolithic scaffolder backend module
+├── portal-scaffolder/plugins/portal-scaffolder/ # Frontend plugin
+└── portal-core/packages/backend/                 # Backend wiring
 ```
 
 ### 1.2 Module registration and backend wiring
 
-`plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts` — a single `createBackendModule({ pluginId: 'scaffolder', moduleId: 'ansible' })` that registers everything.
+`workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts` — a single `createBackendModule({ pluginId: 'scaffolder', moduleId: 'ansible' })` that registers everything.
 
-`packages/backend/src/index.ts` has one entry:
+`workspaces/portal-core/packages/backend/src/index.ts` has one entry:
 
 ```ts
 backend.add(
@@ -41,12 +42,12 @@ backend.add(
 
 ### 1.3 Config schema (single `config.d.ts`)
 
-| Config path               | Belongs to               |
-| ------------------------- | ------------------------ |
-| `ansible.rhaap`           | AAP module               |
-| `ansible.creatorService`  | Portal-scaffolder module |
-| `ansible.devSpaces`       | Portal-scaffolder module |
-| `catalog.providers.rhaap` | AAP module               |
+| Config path               | Belongs to                 |
+| ------------------------- | -------------------------- |
+| `ansible.rhaap`           | AAP module                 |
+| `ansible.creatorService`  | Content-development module |
+| `ansible.devSpaces`       | Content-development module |
+| `catalog.providers.rhaap` | AAP module                 |
 
 Backstage validates against the union of installed schemas — a mismatch is a startup failure.
 
@@ -58,7 +59,7 @@ Backstage validates against the union of installed schemas — a mismatch is a s
 
 ## 2. Target State
 
-Per the Content Experience Architecture §2.2, the target is one workspace per experience:
+Workspaces group packages by functional ownership; they do not map one-to-one to UI experiences. The target separates AAP integrations from content-development authoring functions so the portal can compose those capabilities into experiences independently:
 
 ```
 workspaces/
@@ -66,21 +67,23 @@ workspaces/
 │   ├── aap-common/  aap-node/  aap/  aap-backend/     # renamed from backstage-rhaap-*
 │   ├── auth-backend-module-aap-provider/
 │   ├── catalog-backend-module-aap/
-│   └── scaffolder-backend-module-aap/                   # NEW — AAP scaffolder actions
+│   └── scaffolder-backend-module-aap/                   # AAP actions + AAP autocomplete
 │
 └── content-development/plugins/
-    └── scaffolder-backend-module-portal/                 # NEW — portal-scaffolder actions
+    ├── content-development-common/                      # shared creator and EE lifecycle contracts
+    ├── catalog-backend-module-content-development/     # content-owned EE catalog provider
+    └── scaffolder-backend-module-content-development/  # creator CLI / ADT actions + autocomplete
 ```
 
-**Naming note.** CEA §2.2 names this workspace/module `self-service` / `scaffolder-backend-module-self-service`. This guide uses `portal-scaffolder` / `scaffolder-backend-module-portal` instead, per a team naming decision communicated after CEA was written — that rename is not yet reflected in CEA or any other written architecture doc. Where this guide says `portal-scaffolder`, read CEA's `self-service`.
+**Workspace note.** The team distinguishes content management from content development and moves creator CLI / ADT authoring workflows into content development. “Scaffolder” remains the Backstage term for template creation; it does not define the workspace that owns every action. The backend module follows functional ownership, so creator-dependent actions live with content development. Whether manifests must declare an `experience` remains a separate open decision; this guide assumes no change to that requirement.
 
 ### Module identity
 
-| Before                             | After                                                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `moduleId: 'ansible'` (one module) | `moduleId: 'aap'` + `moduleId: 'portal-scaffolder'` (two modules, same `pluginId: 'scaffolder'`) |
+| Before                             | After                                                                                              |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `moduleId: 'ansible'` (one module) | `moduleId: 'aap'` + `moduleId: 'content-development'` (two modules, same `pluginId: 'scaffolder'`) |
 
-**Breaking migration.** Action IDs and template filter names remain stable, but the monolithic package is removed. Operators must update `dynamic-plugins.yaml` to load the two replacement packages instead, and migrate `aap-api-cloud` references to `aap-api` for AAP resources or `portal-catalog` for collections. No compatibility shim is retained.
+**Breaking migration.** Action IDs and template filter names remain stable, but the monolithic package is removed. Operators must load the AAP scaffolder module and both content-development backend modules (catalog provider and scaffolder actions), and migrate `aap-api-cloud` references to `aap-api` for AAP resources or `portal-catalog` for collections. No compatibility shim is retained.
 
 ---
 
@@ -88,26 +91,28 @@ workspaces/
 
 ### 3.1 Actions, filters, and autocomplete
 
-| Action ID                            | File                              | Target module     |
-| ------------------------------------ | --------------------------------- | ----------------- |
-| `ansible:content:create`             | `actions/ansible.ts`              | portal-scaffolder |
-| `ansible:create:ee-definition`       | `actions/createEEDefinition.ts`   | portal-scaffolder |
-| `ansible:prepare:publish`            | `actions/prepareForPublish.ts`    | portal-scaffolder |
-| `rhaap:create-project`               | `actions/aapCreateProject.ts`     | aap               |
-| `rhaap:create-execution-environment` | `actions/aapCreateEEEnv.ts`       | aap               |
-| `rhaap:create-job-template`          | `actions/aapCreateJobTemplate.ts` | aap               |
-| `rhaap:launch-job-template`          | `actions/aapLaunchJobTemplate.ts` | aap               |
-| `rhaap:clean-up`                     | `actions/aapCleanUp.ts`           | aap               |
+| Action ID                            | File                              | Target module       |
+| ------------------------------------ | --------------------------------- | ------------------- |
+| `ansible:content:create`             | `actions/ansible.ts`              | content-development |
+| `ansible:create:ee-definition`       | `actions/createEEDefinition.ts`   | content-development |
+| `ansible:prepare:publish`            | `actions/prepareForPublish.ts`    | content-development |
+| `rhaap:create-project`               | `actions/aapCreateProject.ts`     | aap                 |
+| `rhaap:create-execution-environment` | `actions/aapCreateEEEnv.ts`       | aap                 |
+| `rhaap:create-job-template`          | `actions/aapCreateJobTemplate.ts` | aap                 |
+| `rhaap:launch-job-template`          | `actions/aapLaunchJobTemplate.ts` | aap                 |
+| `rhaap:clean-up`                     | `actions/aapCleanUp.ts`           | aap                 |
 
 **Template filters** → aap: `useCaseNameFilter`, `resourceFilter`, `multiResourceFilter`, `uuidFilter`
 
-**Autocomplete providers** → aap: `id: 'aap-api'` for AAP resources; portal-scaffolder: `id: 'portal-catalog'` for `collections`
+**Autocomplete providers** follow the data source: AAP Controller lookups use `id: 'aap-api'` in the AAP module; collection and other content/catalog lookups use `id: 'portal-catalog'` in the content-development module. Keep each provider implementation beside the backend that owns the queried system. Keep provider IDs and request/response types as explicit contracts for picker and template consumers; extract shared types only if a second package needs them.
 
 ### 3.2 `backstage-rhaap-common` dependency edge and config reads
 
-`ansible:prepare:publish` imports `ScmClientFactory` from `@ansible/backstage-rhaap-common`. That barrel also exports `AAPClient`, `AAPService`, and `permissions`. The portal-scaffolder module therefore still has a transitive dependency on AAP code. Full independence requires splitting `backstage-rhaap-common` itself (SCM client → shared package; AAP client/service → `aap-common`/`aap-node` per §2.2). This is a known limitation for Phase 1.
+The Phase 1 portal-scaffolder module and `eeEntityLifecycleAdapter.ts` import `ScmClientFactory`, `EEEntityLifecycleService`, `EEEntityProviderService`, and both service refs from `@ansible/backstage-rhaap-common`. That package also exports AAP clients and services, so moving only `ScmClientFactory` would leave a package dependency on AAP internals.
 
-`createEEDefinition.ts` is ~1240 lines containing PAH repo identifiers, SCM provider/host/org/repo parsing, galaxy server config, and semver-based collection merging. For Phase 1, it moves as-is with no behaviour change.
+**Target ownership:** move the creator/SCM client and EE lifecycle contracts (`EEEntityLifecycleService`, `EEEntityProviderService`, and their service refs) into a content-development shared package, proposed as `@ansible/content-development-common`. Move the lifecycle adapter with the content-development scaffolder backend module. Move the EE catalog provider and its factory/registration out of `catalog-backend-module-rhaap` into a content-development-owned catalog module, proposed as `@ansible/catalog-backend-module-content-development`. Keep AAP clients, AAP services, and AAP catalog providers in AAP packages. These target package names are proposals for the follow-up migration.
+
+`createEEDefinition.ts` is ~1240 lines containing PAH repo identifiers, SCM provider/host/org/repo parsing, galaxy server config, and semver-based collection merging. It depends on creator-service / ADT configuration and belongs in content development. Move it without behavior changes first; extract its AAP/catalog reads behind a content-side contract as follow-up work.
 
 **Its config dependency is wider than `ansible.creatorService` + `ansible.devSpaces`.** The file also reads:
 
@@ -115,39 +120,42 @@ workspaces/
 - `catalog.providers.rhaap.<envId>.sync.pahCollections.repositories` — PAH repository identifiers
 - `catalog.providers.rhaap.<envId>.sync.ansibleGitContents.providers.<provider>` — SCM canonical-source resolution
 
-These are AAP/catalog config keys, not portal-scaffolder's own. Moving the action into `scaffolder-backend-module-portal` as-is (Phase 1, no behaviour change) means that module's `config.d.ts` must also declare `ansible.rhaap` and `catalog.providers.rhaap` as read dependencies — not because portal-scaffolder owns that config, but because it still needs to read it until the PAH/SCM resolution logic inside this file is extracted to a content-side contract. §1.3's config table should be read as **ownership**, not as the complete list of config portal-scaffolder reads during Phase 1. Track this as a transitional read dependency; closing it is future work, not a Phase 1–3 deliverable.
+These are AAP/catalog config keys, not content-development's own. During the initial split, `createEEDefinition` still reads them from the portal-scaffolder module. After moving the action to content development, its `config.d.ts` must continue to declare those read dependencies until the PAH/SCM resolution logic is extracted behind a content-side contract. §1.3's config table describes ownership, not every transitional read. Track this as follow-up work.
 
 ### 3.3 EE entity registration
 
-Replace both EE HTTP routes in Phase 1 with a root-scoped, in-process EE lifecycle service. `createEEDefinition.ts` calls this service directly; it does not call the catalog router or expose replacement HTTP endpoints.
+PR #999 replaces the action's EE HTTP calls with lifecycle-service calls, while the catalog router retains both HTTP routes as compatibility paths. The lifecycle-service implementation uses two service references with different scopes:
 
-The service has two operations: register an EE entity through `EEEntityProvider`, and remove an existing EE entity before re-registration. Its implementation owns the catalog interaction and provider cleanup, rather than having the portal action call raw catalog APIs.
+- `eeEntityProviderServiceRef` is root-scoped. In Phase 1, `catalog-backend-module-rhaap` provides it by wrapping and registering `EEEntityProvider` with the catalog.
+- `eeEntityLifecycleServiceRef` is plugin-scoped. The portal scaffolder backend module provides it through `EEEntityLifecycleAdapter`, which coordinates catalog permission checks, catalog operations, and the provider service.
 
-**The migration unit is both routes together.** `createEEDefinition.ts` currently calls `DELETE /ansible/ee/:name` to clean up an existing catalog entity before re-registering it (`router.ts` line 404), and the two routes have different credential flows:
+`createEEDefinition.ts` obtains initiator credentials once and passes them to both unregister and register operations. Registration requires catalog create permission; replacement also requires delete permission for the existing entity. Unregister requires delete permission. The adapter uses those credentials for catalog requests, and skips provider-managed entity cleanup only after authorization. The action and adapter are in the portal scaffolder backend module in Phase 1; the follow-up moves them into content development.
 
-| Route                      | Credentials used in `createEEDefinition.ts`                                       | Router `allow`        | Effective RBAC                                       |
-| -------------------------- | --------------------------------------------------------------------------------- | --------------------- | ---------------------------------------------------- |
-| `POST /ansible/ee`         | `auth.getOwnServiceCredentials()` — pure service-to-service                       | `['service']`         | No per-user check; scaffolder's own service identity |
-| `DELETE /ansible/ee/:name` | `getInitiatorCredentials()` forwarded via `onBehalfOf` — the calling user's token | `['user', 'service']` | Catalog's own delete-permission RBAC, per user       |
+Pinned implementation references at PR #999 head [`af7a46a`](https://github.com/ansible/ansible-backstage-plugins/commit/af7a46a9a5532423048c58012a360c3f73c605f0): [`EEEntityLifecycle.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/aap/plugins/backstage-rhaap-common/src/EEEntityLifecycle.ts), [`eeEntityLifecycleAdapter.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/eeEntityLifecycleAdapter.ts), [`createEEDefinition.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/actions/createEEDefinition.ts), and [`catalog-backend-module-rhaap/src/module.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/aap/plugins/catalog-backend-module-rhaap/src/module.ts).
 
-The lifecycle service must preserve those flows: registration keeps the existing service-credentialed behavior; removal receives the initiator credentials and continues to enforce catalog delete permission for that user. It must also retain the provider-ownership branch: cleanup is skipped entirely for non-SCM, provider-managed entities (detected via the `ansible.io/download-experience` annotation), since those upsert in place rather than needing a delete-then-recreate.
+**Catalog HTTP routes retained after PR #999.** The action no longer calls these routes, but the catalog router keeps them for compatibility:
 
-Once direct lifecycle-service calls have parity coverage, remove `POST /ansible/ee` and `DELETE /ansible/ee/:name`, their router wiring, service-token/discovery use for registration, and the route-specific tests. Add service-level coverage for registration, user-authorized deletion, SCM cleanup, provider unregistering, and provider-managed entity handling.
+| Route                      | Current route behavior                                                                                                                                      | Authorization                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /ansible/ee`         | Accepts service credentials and calls `EEEntityProvider.registerExecutionEnvironment` directly. This compatibility path does not use the lifecycle adapter. | Service-only (`allow: ['service']`); bypasses the adapter's initiator-based create and delete permission checks. |
+| `DELETE /ansible/ee/:name` | Performs catalog/location cleanup and provider unregister for the named EE.                                                                                 | Allows user or service credentials; checks catalog delete permission using the caller's credentials.             |
 
-This follows the direct-registration pattern proposed in [PR #189](https://github.com/ansible/ansible-backstage-plugins/pull/189), extended to cover the deletion lifecycle rather than only `POST /ansible/ee`.
+The lifecycle-service authorization described above applies to the lifecycle-service path used by the action; it does not apply to the retained service-only POST compatibility route.
 
-### 3.4 `collections` uses a separate portal autocomplete provider
+### 3.4 Autocomplete providers follow the queried system
 
 `handleAutocompleteRequest` currently branches on `resource === 'collections'` _before_ any Controller call — it queries the Backstage catalog via `getCollections()`, not AAP's Controller API. Portal's `CollectionsPicker` field currently reaches this branch through the same `aap-api-cloud` provider used by every other AAP resource.
 
-The split gives collections its own provider rather than retaining that coupling:
+The provider implementations belong beside the system they query:
 
 - `scaffolder-backend-module-aap` registers `aap-api` for Controller-backed AAP resources.
-- `scaffolder-backend-module-portal` registers `portal-catalog` for `collections`.
-- `getCollections()` and `buildCollectionsFromCatalogEntities()` move with the portal provider. They use auth, discovery, and logger, but do not call the Controller.
-- `CollectionsPickerExtension.tsx` updates its three provider strings from `aap-api-cloud` to `portal-catalog`; AAP picker and template references move from `aap-api-cloud` to `aap-api`.
+- `scaffolder-backend-module-content-development` registers `portal-catalog` for `collections` and other content/catalog lookups used by creator workflows.
+- `getCollections()` and `buildCollectionsFromCatalogEntities()` move with the content provider. They use auth, discovery, and logger, but do not call the Controller.
+- `CollectionsPickerExtension.tsx` uses `portal-catalog`; AAP picker and template references use `aap-api`.
 
-CEA §7.5 still describes the longer-term design: a registered content operation with a declared schema and permission (e.g. `content.collections.list`), called through a typed client rather than a direct provider lookup, served by a dedicated `scaffolder-backend-module-content-operations` module (CEA §2.2). The separate `portal-catalog` provider is the Phase 1 step before that work.
+Keep provider registration and query implementation in the owning backend plugin. Keep picker UI in the workspace that owns the authoring workflow. Treat provider IDs and schemas as the API boundary; avoid making content development depend on AAP merely to access an autocomplete implementation.
+
+CEA §7.5 still describes a longer-term option: a registered content operation with a declared schema and permission (e.g. `content.collections.list`), called through a typed client rather than a direct provider lookup. Keep that as a future architecture decision; the immediate split places the catalog-backed provider in content development and AAP-backed providers in AAP.
 
 ---
 
@@ -157,24 +165,30 @@ CEA §7.5 still describes the longer-term design: a registered content operation
 
 Located at `workspaces/aap/plugins/scaffolder-backend-module-aap/`.
 
+Package: `@ansible/plugin-scaffolder-backend-module-aap`.
+
 - Actions: `rhaap:create-project`, `rhaap:create-execution-environment`, `rhaap:create-job-template`, `rhaap:launch-job-template`, `rhaap:clean-up`
 - Autocomplete: `aap-api` for AAP resources
 - Filters: `useCaseNameFilter`, `resourceFilter`, `multiResourceFilter`, `uuidFilter`
 - Config: `ansible.rhaap`, `catalog.providers.rhaap`
 - `moduleId: 'aap'`
 
-### 4.2 `scaffolder-backend-module-portal`
+### 4.2 `scaffolder-backend-module-content-development`
 
-Located at `workspaces/content-development/plugins/scaffolder-backend-module-portal/`.
+Located at `workspaces/content-development/plugins/scaffolder-backend-module-content-development/`.
+
+Proposed package: `@ansible/plugin-scaffolder-backend-module-content-development`.
 
 - Actions: `ansible:content:create`, `ansible:create:ee-definition`, `ansible:prepare:publish`
-- Autocomplete: `portal-catalog` for `collections`
+- Autocomplete: `portal-catalog` for collection and content/catalog lookups
 - Config: `ansible.creatorService`, `ansible.devSpaces`
-- `moduleId: 'portal-scaffolder'`
+- `moduleId: 'content-development'` (`pluginId: 'scaffolder'`)
+
+The target also includes `@ansible/content-development-common` for the creator client and EE lifecycle contracts/service refs, plus `@ansible/catalog-backend-module-content-development` (`pluginId: 'catalog'`) for the EE entity provider and its root-scoped provider service. The scaffolder module owns the lifecycle adapter and consumes those contracts. This keeps all three packages in content-development without making the AAP workspace a package dependency.
 
 ### 4.3 Breaking package migration
 
-`scaffolder-backend-module-backstage-rhaap` is removed as part of this migration. It is not retained as a compatibility shim. Consumers must install and configure both replacement packages before upgrading; this avoids maintaining two deployment paths and prevents duplicate registrations.
+`scaffolder-backend-module-backstage-rhaap` is removed as part of this migration. It is not retained as a compatibility shim. The Phase 1 PR series adds the AAP and portal-scaffolder packages; the follow-up replaces the transitional portal-scaffolder backend package with the content-development packages. Consumers of the final split install the AAP scaffolder module, the content-development catalog provider module, and the content-development scaffolder module. Keep the old and replacement packages from registering the same actions or autocomplete provider at the same time.
 
 ---
 
@@ -191,31 +205,43 @@ Capture a machine-readable inventory before changing anything.
 | Document provider migration from `aap-api-cloud` to `aap-api` and `portal-catalog` | ✅     |
 | Capture the picker↔action source-string format as an explicit contract (§1.4)     | ✅     |
 
-### Phase 1 — Split the backend module and replace EE routes
+### Phase 1 PR series — Initial split and EE lifecycle replacement (#992–#999)
 
-Two modules replace one. The EE lifecycle keeps existing registration and deletion behavior while replacing route-based calls with direct service calls; all existing tests and lifecycle-parity tests must pass.
+The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and wires the portal/content actions, and switches the backend harness to the split modules. The initial implementation placed creator-dependent actions and the catalog autocomplete provider in the portal-scaffolder backend module. Treat that as the migration starting point; the target below moves those responsibilities into content development per the workspace decision.
 
-| Item                                                                              | Notes                                                                                                                                                                                                                                       |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Create `workspaces/aap/plugins/scaffolder-backend-module-aap/`                    | `aap*.ts`, autocomplete, filters, `ansibleService` deps. `moduleId: 'aap'`                                                                                                                                                                  |
-| Create `workspaces/content-development/plugins/scaffolder-backend-module-portal/` | `createEEDefinition`, `prepareForPublish`, `ansible.ts`, and the `portal-catalog` collections provider. `moduleId: 'portal-scaffolder'`                                                                                                     |
-| Split `config.d.ts` per module                                                    | AAP owns `ansible.rhaap` + `catalog.providers.rhaap`; portal-scaffolder owns `ansible.creatorService` + `ansible.devSpaces`, but must also declare `ansible.rhaap` + `catalog.providers.rhaap` as transitional read dependencies — see §3.2 |
-| Each module gets its own `src/dynamic/index.ts`                                   | One dynamic plugin installer per shippable module                                                                                                                                                                                           |
-| Update backend wiring                                                             | Two `backend.add(import(...))` replacing one                                                                                                                                                                                                |
-| Migrate autocomplete-provider references                                          | Replace `aap-api-cloud` with `aap-api` for AAP resources and `portal-catalog` for collections, including the three `CollectionsPickerExtension.tsx` provider strings                                                                        |
-| Add the EE lifecycle service                                                      | The portal action calls it directly for registration and cleanup; preserve service registration, user-authorized deletion, SCM cleanup, provider unregistering, and the provider-managed entity skip                                        |
-| Remove both EE routes after parity coverage                                       | Delete `POST /ansible/ee` and `DELETE /ansible/ee/:name`, router wiring, and route-specific tests; do not add replacement HTTP endpoints                                                                                                    |
-| Remove original package                                                           | No compatibility shim; release migration notes cover the required package, dynamic-plugin, and provider-reference changes                                                                                                                   |
-| Split unit tests and shared `src/mock/` fixtures                                  | Shared fixtures duplicated or extracted to a test-util                                                                                                                                                                                      |
+| Item                                                                                      | Notes                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Create `workspaces/aap/plugins/scaffolder-backend-module-aap/`                            | `aap*.ts`, autocomplete, filters, `ansibleService` deps. `moduleId: 'aap'`                                                                                                                                                                                                           |
+| Initial package: `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/` | Phase 1 package for `createEEDefinition`, `prepareForPublish`, `ansible.ts`, and `portal-catalog`; follow-up moves creator-dependent actions and provider to content development.                                                                                                    |
+| Split `config.d.ts` per module                                                            | AAP owns `ansible.rhaap` + `catalog.providers.rhaap`; the initial portal-scaffolder package reads creator config, while the target content-development package owns `ansible.creatorService` + `ansible.devSpaces` and temporarily declares AAP/catalog read dependencies — see §3.2 |
+| Each module gets its own `src/dynamic/index.ts`                                           | One dynamic plugin installer per shippable module                                                                                                                                                                                                                                    |
+| Update backend wiring                                                                     | Two `backend.add(import(...))` replacing one                                                                                                                                                                                                                                         |
+| Migrate autocomplete-provider references                                                  | Use `aap-api` for AAP resources and `portal-catalog` for collections; follow-up moves the content provider implementation to content development while preserving its ID                                                                                                             |
+| Replace EE HTTP calls with lifecycle services                                             | PR #999 replaces the action's calls with lifecycle-service calls but retains both catalog routes. The POST compatibility route is service-only, calls the provider directly, and bypasses adapter initiator checks; DELETE keeps caller-based delete-permission checks. See §3.3.    |
+| Remove original package                                                                   | No compatibility shim; release migration notes cover the required package, dynamic-plugin, and provider-reference changes                                                                                                                                                            |
+| Split unit tests and shared `src/mock/` fixtures                                          | Shared fixtures duplicated or extracted to a test-util                                                                                                                                                                                                                               |
 
-**Verification:** scaffolder module tests pass; smoke-test an EE template end-to-end in the dev app.
+**Verification:** service and scaffolder tests cover authorization and cleanup; compose the catalog provider and scaffolder module in the dev app and run an EE template end-to-end.
 
-### Phase 2 — Drop `backstage-rhaap-common` dependency from portal-scaffolder
+### Phase 2 — Move creator-dependent actions into content development
 
-| Item                                                                | Notes                                    |
-| ------------------------------------------------------------------- | ---------------------------------------- |
-| Extract `ScmClientFactory` to a shared or portal-scaffolder package | Or duplicate if scope is small enough    |
-| Drop `backstage-rhaap-common` from portal-scaffolder `package.json` | Achieves full independence from AAP code |
+| Item                                                                                           | Notes                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create `workspaces/content-development/plugins/scaffolder-backend-module-content-development/` | Register actions that use the creator CLI / ADT, including content creation, EE definition, and publish preparation. Confirm each action’s actual runtime dependencies before moving it.       |
+| Move catalog/content autocomplete implementation                                               | Move `portal-catalog` and collection lookup helpers beside content-development actions; retain the provider ID and picker contract.                                                            |
+| Update backend registration and dynamic-plugin configuration                                   | Register the content-development module and remove migrated registrations from the transitional portal-scaffolder module without duplicate action or provider IDs.                             |
+| Move lifecycle contracts and provider ownership                                                | Put lifecycle types and refs in `@ansible/content-development-common`; move the EE provider service/factory and catalog registration to `@ansible/catalog-backend-module-content-development`. |
+| Move the lifecycle adapter                                                                     | Keep `EEEntityLifecycleAdapter` in the content-development scaffolder module; update its imports to use content-development contracts.                                                         |
+| Preserve creator and EE behavior                                                               | Keep configuration, authorization, and lifecycle behavior stable; update tests and operator documentation for package ownership.                                                               |
+
+### Phase 3 — Remove the AAP dependency from content development
+
+| Item                                                                               | Notes                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Move `ScmClientFactory` and EE lifecycle contracts out of `backstage-rhaap-common` | Keep SCM and EE content contracts out of AAP-only packages                                                                                                                                                                                                                     |
+| Replace transitional AAP/catalog config reads with a content-side contract         | `createEEDefinition` should not own AAP configuration just to resolve content sources                                                                                                                                                                                          |
+| Update backend/dynamic-plugin installation                                         | Register and install the content-development catalog provider and scaffolder module together; remove their `backstage-rhaap-common` imports and dependency                                                                                                                     |
+| Add composition and dependency checks                                              | Compose both modules in the backend harness; verify the catalog module registers the EE provider, the scaffolder module resolves both refs, and missing provider registration fails startup. Assert content-development packages no longer depend on `backstage-rhaap-common`. |
 
 ---
 
@@ -224,7 +250,7 @@ Two modules replace one. The EE lifecycle keeps existing registration and deleti
 | Consumer         | Contract                                                                                                                  | Provided by                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | Template authors | Action IDs and template filter names unchanged; autocomplete provider references migrate to `aap-api` or `portal-catalog` | Changelog entry and migration note |
-| RHDH / operator  | Two backend dynamic plugin entries instead of one                                                                         | Updated `dynamic-plugins.yaml`     |
+| RHDH / operator  | AAP scaffolder module plus content-development catalog and scaffolder modules                                             | Updated `dynamic-plugins.yaml`     |
 
 **Semver:** internal packaging change — minor bump on affected packages as long as action IDs stay stable.
 
@@ -232,36 +258,41 @@ Two modules replace one. The EE lifecycle keeps existing registration and deleti
 
 ## 7. Post-Split Backend Surface
 
-| Package                            | Registers                                                                                             | Owns                                                             |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `scaffolder-backend-module-aap`    | `rhaap:*` actions, template filters, `aap-api`                                                        | AAP scaffolder behaviour                                         |
-| `scaffolder-backend-module-portal` | `ansible:content:create`, `ansible:create:ee-definition`, `ansible:prepare:publish`, `portal-catalog` | Portal-scaffolder actions and collection lookup                  |
-| EE lifecycle service               | No HTTP routes                                                                                        | EE registration, user-authorized cleanup, and provider lifecycle |
+| Package                                                         | Registers                                                          | Owns                                                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `@ansible/plugin-scaffolder-backend-module-aap`                 | `rhaap:*` actions, template filters, `aap-api`                     | AAP actions and AAP Controller autocomplete                          |
+| `@ansible/content-development-common`                           | Creator client and EE lifecycle interfaces/service refs            | Content-development contracts shared by its backend modules          |
+| `@ansible/catalog-backend-module-content-development`           | Catalog EE provider and root-scoped provider service               | Content-owned EE entity registration and provider lifecycle          |
+| `@ansible/plugin-scaffolder-backend-module-content-development` | Content actions, `portal-catalog`, plugin-scoped lifecycle adapter | Creator CLI / ADT actions, autocomplete, and authorized EE lifecycle |
 
 ---
 
 ## 8. Open Questions
 
-| Question                                                                                                                                                                                                   | Blocking                 |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Should `backstage-rhaap-common` be split so portal-scaffolder drops the AAP edge? (§3.2)                                                                                                                   | Phase 2                  |
-| Does `createEEDefinition.ts`'s read of `ansible.rhaap` / `catalog.providers.rhaap` get replaced by a content-side contract, or does portal-scaffolder keep reading AAP/catalog config indefinitely? (§3.2) | Phase 1 config ownership |
+| Question                                                                                                                            | Blocking          |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| Does each action listed for content development actually depend on the creator CLI / ADT, or should the ownership list be narrower? | Phase 2           |
+| Should plugin manifests require an `experience` field? This remains a separate decision; this guide does not propose removing it.   | Separate decision |
+| Should the proposed content-development common and catalog packages use these names and boundaries? (§3.2, §4.2)                    | Phase 2           |
+| Which AAP/catalog reads in `createEEDefinition.ts` should become a content-side API? (§3.2)                                         | Phase 3           |
 
 ---
 
 ## Appendix A: Source File Map
 
-| Concern               | Current path                                                                                                                               | Target                                                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Module registration   | `plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts`                                                                          | Split into `scaffolder-backend-module-aap/src/module.ts` + `scaffolder-backend-module-portal/src/module.ts`                                                                                         |
-| AAP actions           | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/aap*.ts`                                                                    | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/actions/`                                                                                                                                 |
-| EE definition action  | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/createEEDefinition.ts`                                                      | `workspaces/content-development/plugins/scaffolder-backend-module-portal/src/actions/`                                                                                                              |
-| Publish action        | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/prepareForPublish.ts`                                                       | `workspaces/content-development/plugins/scaffolder-backend-module-portal/src/actions/`                                                                                                              |
-| Content create action | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/ansible.ts`                                                                 | `workspaces/content-development/plugins/scaffolder-backend-module-portal/src/actions/`                                                                                                              |
-| Autocomplete          | `plugins/scaffolder-backend-module-backstage-rhaap/src/autocomplete/`                                                                      | AAP resources → `workspaces/aap/plugins/scaffolder-backend-module-aap/src/autocomplete/`; collections → `workspaces/content-development/plugins/scaffolder-backend-module-portal/src/autocomplete/` |
-| Template filters      | `plugins/scaffolder-backend-module-backstage-rhaap/src/filters/`                                                                           | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/filters/`                                                                                                                                 |
-| AAP schemas           | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapAction*.ts`                                                    | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/actions/schemas/`                                                                                                                         |
-| EE definition schema  | `plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapActionSchemas.ts` (partial)                                    | `workspaces/content-development/plugins/scaffolder-backend-module-portal/src/actions/schemas/eeDefinitionSchema.ts`                                                                                 |
-| Config                | `plugins/scaffolder-backend-module-backstage-rhaap/config.d.ts`                                                                            | Split per module                                                                                                                                                                                    |
-| Backend wiring        | `packages/backend/src/index.ts`                                                                                                            | Two `backend.add()` calls                                                                                                                                                                           |
-| EE push registration  | `plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts`, `src/router.ts` (`POST /ansible/ee`, `DELETE /ansible/ee/:name`) | EE lifecycle service; both routes and their router wiring are removed after service-parity coverage — see §3.3 for credential and cleanup requirements                                              |
+| Concern               | Current path                                                                                                                           | Target                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Module registration   | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/module.ts`                                                       | AAP scaffolder module + content-development catalog and scaffolder modules                                                         |
+| AAP actions           | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/aap*.ts`                                                 | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/actions/`                                                                |
+| EE definition action  | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/createEEDefinition.ts`                                   | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/actions/`                                |
+| Publish action        | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/prepareForPublish.ts`                                    | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/actions/`                                |
+| Content create action | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/ansible.ts`                                              | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/actions/`                                |
+| Autocomplete          | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/autocomplete/`                                                   | AAP lookups → AAP module; collection/content lookups → content-development module; preserve `aap-api` / `portal-catalog` IDs       |
+| Template filters      | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/filters/`                                                        | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/filters/`                                                                |
+| AAP schemas           | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapAction*.ts`                                 | `workspaces/aap/plugins/scaffolder-backend-module-aap/src/actions/schemas/`                                                        |
+| EE definition schema  | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/src/actions/schemas/rhaapActionSchemas.ts` (partial)                 | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/actions/schemas/eeDefinitionSchema.ts`   |
+| Config                | `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap/config.d.ts`                                                         | Split per module                                                                                                                   |
+| Backend wiring        | `workspaces/portal-core/packages/backend/src/index.ts`                                                                                 | Register the AAP catalog and scaffolder modules plus the content-development catalog and scaffolder modules                        |
+| EE lifecycle contract | Phase 1: `workspaces/aap/plugins/backstage-rhaap-common/src/EEEntityLifecycle.ts`                                                      | `workspaces/content-development/plugins/content-development-common/src/EEEntityLifecycle.ts`                                       |
+| EE lifecycle adapter  | Phase 1: `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/eeEntityLifecycleAdapter.ts`                       | `workspaces/content-development/plugins/scaffolder-backend-module-content-development/src/eeEntityLifecycleAdapter.ts`             |
+| EE catalog provider   | Phase 1: `workspaces/aap/plugins/catalog-backend-module-rhaap/src/providers/EEEntityProvider.ts` and `src/eeEntityLifecycleService.ts` | `workspaces/content-development/plugins/catalog-backend-module-content-development/`; register through the catalog extension point |
