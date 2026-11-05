@@ -7,7 +7,7 @@
 ## Context
 
 The Portal scaffolder re-architecture introduces a `common-library` package in
-the existing `workspaces/portal-scaffolder` workspace. Shared types and
+the existing `workspaces/content-development` workspace. Shared types and
 validation schemas should be usable by frontend and backend packages without
 importing the frontend plugin, React, database code, or implementation-specific
 clients. Keeping these contracts in the frontend plugin would make reuse
@@ -23,7 +23,7 @@ are no separate Portal scaffolder permission definitions to move.
 ## Decision
 
 Create `@ansible/portal-scaffolder-common` under
-`workspaces/portal-scaffolder/plugins/` with the Backstage role
+`workspaces/content-development/plugins/` with the Backstage role
 `common-library`. The package root exports shared contracts and validation
 schemas. It may depend on framework-independent libraries such as Zod, but it
 must not contain UI, frontend-plugin implementation, backend services, or

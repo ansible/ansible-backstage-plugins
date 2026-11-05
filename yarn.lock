@@ -839,9 +839,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common":
+"@ansible/portal-scaffolder-common@workspace:^, @ansible/portal-scaffolder-common@workspace:workspaces/content-development/plugins/portal-scaffolder-common":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-common"
+  resolution: "@ansible/portal-scaffolder-common@workspace:workspaces/content-development/plugins/portal-scaffolder-common"
   dependencies:
     "@backstage/cli": "npm:0.36.5"
     "@jest/globals": "npm:29.7.0"
@@ -850,9 +850,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder-react@workspace:^, @ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react":
+"@ansible/portal-scaffolder-react@workspace:^, @ansible/portal-scaffolder-react@workspace:workspaces/content-development/plugins/portal-scaffolder-react":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder-react@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-react"
+  resolution: "@ansible/portal-scaffolder-react@workspace:workspaces/content-development/plugins/portal-scaffolder-react"
   dependencies:
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"
@@ -887,9 +887,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder":
+"@ansible/portal-scaffolder@workspace:^, @ansible/portal-scaffolder@workspace:workspaces/content-development/plugins/portal-scaffolder":
   version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder"
+  resolution: "@ansible/portal-scaffolder@workspace:workspaces/content-development/plugins/portal-scaffolder"
   dependencies:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/aap-common": "workspace:^"
