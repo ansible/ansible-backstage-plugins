@@ -17,7 +17,7 @@
 /**
  * Phase 0 — contract freeze.
  *
- * Locks down the public contract of this monolithic module *before* it is
+ * Locks down the public contract of this monolithic module across the Phase 1
  * split into `scaffolder-backend-module-aap` and
  * `portal-scaffolder-backend-module`
  * (see `.sdlc/research/scaffolder-implementation-guide.md`).
@@ -27,7 +27,8 @@
  * change slipped in, not just a file move — action ids, filter names, the
  * autocomplete provider id, and the picker<->createEEDefinition source
  * string format are all contracts that template authors and frontend
- * pickers depend on (see guide §2.5 and §6).
+ * pickers depend on. See guide §1.4 for the source-string contract and §3.1
+ * for final action ownership.
  *
  * Every assertion in this file calls real production code (never a local
  * string literal standing in for it). Two contracts that are easier to
@@ -82,7 +83,7 @@ describe('Phase 0 contract freeze: action IDs', () => {
     ]);
   });
 
-  it('keeps the ansible:* action IDs stable (target ownership: portal-scaffolder-backend-module)', () => {
+  it('keeps ansible:* action IDs stable (Phase 1 owner: portal-scaffolder-backend-module; target owner: content-development)', () => {
     const ids = [
       createAnsibleContentAction(fakeConfig).id,
       createEEDefinitionAction({
