@@ -124,7 +124,7 @@ These are AAP/catalog config keys, not content-development's own. During the ini
 
 ### 3.3 EE entity registration
 
-PR #999 replaces the EE HTTP calls with a lifecycle service. The current implementation uses two service references with different scopes:
+PR #999 replaces the action's EE HTTP calls with lifecycle-service calls, while the catalog router retains both HTTP routes as compatibility paths. The lifecycle-service implementation uses two service references with different scopes:
 
 - `eeEntityProviderServiceRef` is root-scoped. In Phase 1, `catalog-backend-module-rhaap` provides it by wrapping and registering `EEEntityProvider` with the catalog.
 - `eeEntityLifecycleServiceRef` is plugin-scoped. The portal scaffolder backend module provides it through `EEEntityLifecycleAdapter`, which coordinates catalog permission checks, catalog operations, and the provider service.
@@ -133,14 +133,14 @@ PR #999 replaces the EE HTTP calls with a lifecycle service. The current impleme
 
 Pinned implementation references at PR #999 head [`af7a46a`](https://github.com/ansible/ansible-backstage-plugins/commit/af7a46a9a5532423048c58012a360c3f73c605f0): [`EEEntityLifecycle.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/aap/plugins/backstage-rhaap-common/src/EEEntityLifecycle.ts), [`eeEntityLifecycleAdapter.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/eeEntityLifecycleAdapter.ts), [`createEEDefinition.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/actions/createEEDefinition.ts), and [`catalog-backend-module-rhaap/src/module.ts`](https://github.com/ansible/ansible-backstage-plugins/blob/af7a46a9a5532423048c58012a360c3f73c605f0/workspaces/aap/plugins/catalog-backend-module-rhaap/src/module.ts).
 
-**Historical HTTP design, before PR #999.** The earlier route implementation used different credential flows:
+**Catalog HTTP routes retained after PR #999.** The action no longer calls these routes, but the catalog router keeps them for compatibility:
 
-| Route                      | Credentials used in `createEEDefinition.ts`                                       | Router `allow`        | Effective RBAC                                       |
-| -------------------------- | --------------------------------------------------------------------------------- | --------------------- | ---------------------------------------------------- |
-| `POST /ansible/ee`         | `auth.getOwnServiceCredentials()` — pure service-to-service                       | `['service']`         | No per-user check; scaffolder's own service identity |
-| `DELETE /ansible/ee/:name` | `getInitiatorCredentials()` forwarded via `onBehalfOf` — the calling user's token | `['user', 'service']` | Catalog's own delete-permission RBAC, per user       |
+| Route                      | Current route behavior                                                                                                                                      | Authorization                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /ansible/ee`         | Accepts service credentials and calls `EEEntityProvider.registerExecutionEnvironment` directly. This compatibility path does not use the lifecycle adapter. | Service-only (`allow: ['service']`); bypasses the adapter's initiator-based create and delete permission checks. |
+| `DELETE /ansible/ee/:name` | Performs catalog/location cleanup and provider unregister for the named EE.                                                                                 | Allows user or service credentials; checks catalog delete permission using the caller's credentials.             |
 
-PR #999 removes both routes and their route-specific tests. The service-level tests now cover create/replace/delete authorization and provider cleanup, rather than preserving the historical service-only POST flow.
+The lifecycle-service authorization described above applies to the lifecycle-service path used by the action; it does not apply to the retained service-only POST compatibility route.
 
 ### 3.4 Autocomplete providers follow the queried system
 
@@ -217,7 +217,7 @@ The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and
 | Each module gets its own `src/dynamic/index.ts`                                           | One dynamic plugin installer per shippable module                                                                                                                                                                                                                                    |
 | Update backend wiring                                                                     | Two `backend.add(import(...))` replacing one                                                                                                                                                                                                                                         |
 | Migrate autocomplete-provider references                                                  | Use `aap-api` for AAP resources and `portal-catalog` for collections; follow-up moves the content provider implementation to content development while preserving its ID                                                                                                             |
-| Replace EE HTTP routes with lifecycle services                                            | PR #999 removes both routes. The root-scoped provider ref is supplied by the catalog provider; the plugin-scoped lifecycle ref is implemented by the adapter. Create, replacement, and delete operations use initiator credentials and permission checks (§3.3).                     |
+| Replace EE HTTP calls with lifecycle services                                             | PR #999 replaces the action's calls with lifecycle-service calls but retains both catalog routes. The POST compatibility route is service-only, calls the provider directly, and bypasses adapter initiator checks; DELETE keeps caller-based delete-permission checks. See §3.3.    |
 | Remove original package                                                                   | No compatibility shim; release migration notes cover the required package, dynamic-plugin, and provider-reference changes                                                                                                                                                            |
 | Split unit tests and shared `src/mock/` fixtures                                          | Shared fixtures duplicated or extracted to a test-util                                                                                                                                                                                                                               |
 
