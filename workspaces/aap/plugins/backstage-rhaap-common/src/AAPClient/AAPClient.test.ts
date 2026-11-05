@@ -3345,7 +3345,7 @@ describe('AAPClient', () => {
           .mockRejectedValueOnce(new Error('API Error'));
 
         await expect(client.syncJobTemplates(false, [])).rejects.toThrow(
-          'Error retrieving job templates from /api/controller/v2/job_templates.',
+          'Error retrieving job templates from /api/controller/v2/job_templates/.',
         );
       });
 
