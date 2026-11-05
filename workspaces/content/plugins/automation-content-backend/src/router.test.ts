@@ -38,8 +38,11 @@ async function appWith(index: ContentIndex) {
  * The private fields are written directly because the point of these tests is the HTTP
  * contract, not discovery — which has its own coverage.
  */
-function seed(items: Array<Record<string, unknown>>): ContentIndex {
-  const index = new ContentIndex([], {
+function seed(
+  items: Array<Record<string, unknown>>,
+  connections: Array<Record<string, unknown>> = [],
+): ContentIndex {
+  const index = new ContentIndex(connections as never, {
     info: () => {},
     warn: () => {},
     debug: () => {},
@@ -516,4 +519,113 @@ describe('config validation', () => {
       ]);
     },
   );
+});
+
+describe('credential redaction at the HTTP boundary', () => {
+  const SECRET = 'hunter2';
+  const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
+    'base64',
+  );
+
+  function secretConnection() {
+    return {
+      name: 'mock',
+      url: `https://ci:${SECRET}@mock.registry`,
+      auth: { type: 'basic', username: 'ci', password: SECRET },
+    };
+  }
+
+  function seeded(
+    items: Array<Record<string, unknown>>,
+    connections: Array<Record<string, unknown>> = [secretConnection()],
+  ) {
+    return seed(items, connections);
+  }
+
+  it('serves registry URLs without their credentials', async () => {
+    const res = await request(await appWith(seeded([]))).get('/registries');
+
+    expect(res.status).toBe(200);
+    expect(res.body.items[0].url).toBe('https://mock.registry');
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain(SECRET);
+    expect(body).not.toContain(BASIC_WIRE_FORM);
+  });
+
+  it('redacts secrets that reach item details in responses', async () => {
+    const index = seeded([
+      {
+        fqcn: 'cisco.ios.ios_vlans',
+        name: 'ios_vlans',
+        type: 'module',
+        detail: {
+          description: `documentation mentioning ${SECRET}`,
+          author: [],
+        },
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios_vlans',
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.description).toEqual([
+      'documentation mentioning [REDACTED]',
+    ]);
+    expect(JSON.stringify(res.body)).not.toContain(SECRET);
+  });
+
+  it('preserves deeply nested documentation while redacting it', async () => {
+    // Documentation nests deeper than the redactor's hostile-input default;
+    // the response boundary raises the cap so a real schema survives intact.
+    let deep: Record<string, unknown> = { leaf: 'plain-leaf' };
+    for (let i = 0; i < 15; i++) {
+      deep = { level: deep };
+    }
+    const index = seeded([
+      {
+        fqcn: 'cisco.ios.ios_acls',
+        name: 'ios_acls',
+        type: 'module',
+        detail: deep,
+      },
+    ]);
+    const res = await request(await appWith(index)).get(
+      '/content-items/cisco.ios.ios_acls',
+    );
+
+    expect(res.status).toBe(200);
+    const body = JSON.stringify(res.body);
+    expect(body).toContain('plain-leaf');
+    expect(body).not.toContain('[truncated]');
+  });
+
+  it('redacts sync failure detail served to the caller', async () => {
+    const index = seeded([]);
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(new Error(`fetch failed: password=${SECRET} rejected`));
+
+    const res = await request(await appWith(index)).post(
+      '/registries/mock/sync',
+    );
+
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toContain('[REDACTED]');
+    expect(res.body.error).not.toContain(SECRET);
+  });
+
+  it('redacts echoed request values that quote a credential', async () => {
+    // A caller who types the credential into a path parameter must not have
+    // it echoed back verbatim: the response boundary is the last defence.
+    const res = await request(await appWith(seeded([]))).post(
+      `/registries/${SECRET}/poll`,
+    );
+
+    expect(res.status).toBe(404);
+    expect(JSON.stringify(res.body)).not.toContain(SECRET);
+  });
 });

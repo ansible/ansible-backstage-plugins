@@ -86,6 +86,9 @@ jobs:
       - name: Run Lint
         run: yarn lint:all
 
+      - name: Check credential-boundary lint guards
+        run: yarn test:credential-guards
+
       - name: Run tests
         id: tests
         run: yarn run test:all

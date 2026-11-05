@@ -38,7 +38,10 @@ inspecting an image afterwards is approximate and labelled as such. Design
 decision records for the model live in [`docs/adrs/`](docs/adrs/).
 Registry connections verify TLS by default — see
 [`docs/guides/registry-tls.md`](docs/guides/registry-tls.md) for the opt-out
-and private-CA trust.
+and private-CA trust. Registry credentials arrive through the container
+environment and are redacted from every log, error and API response — see
+[`docs/guides/registry-credentials.md`](docs/guides/registry-credentials.md)
+for Secret delivery, rotation and the RBAC boundary.
 
 The original standalone repository documents the full local end-to-end setup —
 building an execution environment with a content manifest, running a local Quay,

@@ -6,6 +6,7 @@ import {
 import {
   BackendCapabilities,
   CapabilityProbe,
+  CredentialRedactor,
   DigestCacheStats,
   ImageManifest,
   MemoryDigestCache,
@@ -13,6 +14,7 @@ import {
   RegistryConnection,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
+  redactorForConnections,
 } from '@ansible/automation-content-common';
 import type {
   ContentTypeRegistry,
@@ -93,54 +95,6 @@ export interface ReconcileState {
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
-/**
- * The deepest message an error chain carries, within fixed bounds.
- *
- * Transport failures arrive wrapped — undici reports a TLS rejection as
- * `fetch failed` with the real reason on `cause` — and a sync that fails with
- * "fetch failed" tells an operator nothing. The chain is walked so the error
- * that reaches the API names the actual problem.
- *
- * The walk is bounded in two dimensions because the chain is untrusted
- * input: a `cause` cycle would loop forever, and a pathological chain would
- * grow the message without limit. A chain stopped early — by a cycle or by
- * the depth cap — says so, so the truncation is visible rather than mistaken
- * for the whole story.
- */
-const MAX_CAUSE_DEPTH = 10;
-
-function errorText(error: unknown): string {
-  const parts: string[] = [];
-  const visited = new Set<unknown>();
-  let current: unknown = error;
-  for (;;) {
-    const link = chainLink(current);
-    if (!link) break;
-    if (visited.has(current) || parts.length >= MAX_CAUSE_DEPTH) {
-      parts.push('(cause chain truncated)');
-      break;
-    }
-    visited.add(current);
-    parts.push(link.message);
-    current = link.cause;
-  }
-  const message = parts.join(': ');
-  if (message) return message;
-  if (error !== null && typeof error === 'object') return 'unknown error';
-  return String(error);
-}
-
-/** A chain step: an object carrying a string `message`, which errors are. */
-function chainLink(
-  value: unknown,
-): { message: string; cause?: unknown } | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const { message } = value as { message?: unknown };
-  return typeof message === 'string'
-    ? (value as { message: string; cause?: unknown })
-    : undefined;
-}
-
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
   return `${artifactRef}::${fqcn}`;
@@ -175,23 +129,45 @@ export class ContentIndex {
    * hit is permanently valid — this is what makes frequent drift polling affordable.
    */
   private readonly cache = new MemoryDigestCache();
+  /**
+   * Knows every credential these registries can produce — including bearer
+   * tokens the clients exchange at runtime, because they share this instance.
+   * Every log line, every stored diagnostic and every API response passes
+   * through it (the router reads this field for its response boundary).
+   */
+  readonly redactor: CredentialRedactor;
+  private readonly logger: {
+    info(m: string): void;
+    warn(m: string): void;
+    debug(m: string): void;
+  };
 
   constructor(
     connections: RegistryConnection[],
-    private readonly logger: {
+    logger: {
       info(m: string): void;
       warn(m: string): void;
       debug(m: string): void;
     },
     private readonly contentTypes?: ContentTypeRegistry,
   ) {
+    this.redactor = redactorForConnections(connections);
+    this.logger = {
+      info: m => logger.info(this.redactor.redact(m)),
+      warn: m => logger.warn(this.redactor.redact(m)),
+      debug: m => logger.debug(this.redactor.redact(m)),
+    };
     for (const connection of connections) {
       this.registries.set(connection.name, { connection });
       this.clients.set(
         connection.name,
         new OCIClient(connection, {
-          logger: { debug: m => logger.debug(m), warn: m => logger.warn(m) },
+          logger: {
+            debug: m => this.logger.debug(m),
+            warn: m => this.logger.warn(m),
+          },
           cache: this.cache,
+          redactor: this.redactor,
         }),
       );
     }
@@ -314,7 +290,7 @@ export class ContentIndex {
       const failure: DriftState = {
         at,
         changed: false,
-        details: [`check failed: ${errorText(error)}`],
+        details: [`check failed: ${this.redactor.redactErrorText(error)}`],
         requests,
       };
       this.drift.set(name, failure);
@@ -466,12 +442,15 @@ export class ContentIndex {
             debug: m => this.logger.debug(m),
             warn: m => this.logger.warn(m),
           },
+          redactor: this.redactor,
         }).probe();
         this.logger.info(`[${name}] capability probe complete`);
       } catch (error) {
         return {
           ok: false,
-          error: `capability probe failed: ${errorText(error)}`,
+          error: `capability probe failed: ${this.redactor.redactErrorText(
+            error,
+          )}`,
           artifacts: [],
         };
       }
@@ -486,7 +465,9 @@ export class ContentIndex {
     } catch (error) {
       return {
         ok: false,
-        error: `repository listing failed: ${errorText(error)}`,
+        error: `repository listing failed: ${this.redactor.redactErrorText(
+          error,
+        )}`,
         artifacts: [],
       };
     }
@@ -502,7 +483,7 @@ export class ContentIndex {
           `[${name}] scanned ${repository}: ${found.length} artifact(s)`,
         );
       } catch (error) {
-        failures.push(`${repository}: ${errorText(error)}`);
+        failures.push(`${repository}: ${this.redactor.redactErrorText(error)}`);
         // A failed read keeps the previous view for that repository: a
         // transient 5xx, timeout or 429 must not read as "its artifacts are
         // gone". Total failure is handled below and keeps the whole registry.
@@ -511,7 +492,7 @@ export class ContentIndex {
         );
         found.push(...retained);
         this.logger.warn(
-          `[${name}] ${repository}: ${errorText(error)}${
+          `[${name}] ${repository}: ${this.redactor.redactErrorText(error)}${
             retained.length
               ? `; keeping ${retained.length} previously known artifact(s)`
               : ''
@@ -639,7 +620,9 @@ export class ContentIndex {
       }
     } catch (error) {
       this.logger.debug(
-        `[${registry}] ${repository}@${digest}: ${String(error)}`,
+        `[${registry}] ${repository}@${digest}: ${this.redactor.redactErrorText(
+          error,
+        )}`,
       );
     }
 

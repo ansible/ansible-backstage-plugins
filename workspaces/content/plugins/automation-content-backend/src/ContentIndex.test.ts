@@ -317,3 +317,89 @@ describe('error cause traversal is bounded', () => {
     ]);
   });
 });
+
+describe('credential redaction', () => {
+  const SECRET = 'hunter2';
+  const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
+    'base64',
+  );
+
+  function secretConnection(): RegistryConnection {
+    return {
+      name: 'mock',
+      url: `https://ci:${SECRET}@mock.registry`,
+      auth: { type: 'basic', username: 'ci', password: SECRET },
+      repositories: ['ansible/ee'],
+    };
+  }
+
+  function secretIndexFailingWith(error: unknown): ContentIndex {
+    const index = new ContentIndex(
+      [secretConnection()],
+      { info: () => {}, warn: () => {}, debug: () => {} },
+      defaultContentTypes(),
+    );
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(error);
+    return index;
+  }
+
+  it('redacts credentials from reconcile errors and logs', async () => {
+    const logs: string[] = [];
+    const index = new ContentIndex(
+      [secretConnection()],
+      { info: () => {}, warn: m => logs.push(m), debug: m => logs.push(m) },
+      defaultContentTypes(),
+    );
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(
+        new Error(`fetch failed: authorization rejected for ${SECRET}`),
+      );
+
+    const outcome = await index.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('[REDACTED]');
+    expect(outcome.error).not.toContain(SECRET);
+    expect(logs.join('\n')).not.toContain(SECRET);
+  });
+
+  it('redacts the base64 basic-auth form from errors', async () => {
+    const outcome = await secretIndexFailingWith(
+      new Error(`Authorization Basic ${BASIC_WIRE_FORM} rejected`),
+    ).refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).not.toContain(BASIC_WIRE_FORM);
+    expect(outcome.error).toContain('[REDACTED]');
+  });
+
+  it('redacts credentials from drift-check details', async () => {
+    const index = secretIndexFailingWith(
+      new Error(`fetch failed: ${SECRET} in the URL userinfo`),
+    );
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details.join()).toContain('[REDACTED]');
+    expect(drift.details.join()).not.toContain(SECRET);
+  });
+
+  it('exposes a live redactor covering its registries', () => {
+    const index = new ContentIndex([secretConnection()], {
+      info: () => {},
+      warn: () => {},
+      debug: () => {},
+    });
+
+    expect(index.redactor.redact(`pw=${SECRET}`)).toBe('pw=[REDACTED]');
+    expect(index.redactor.redact(BASIC_WIRE_FORM)).toBe('[REDACTED]');
+  });
+});

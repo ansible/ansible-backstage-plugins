@@ -390,14 +390,20 @@ components:
                 description: |
                   Detailed failure cause. The route sits behind the sign-in
                   barrier, so every caller is a verified user or service.
-                  Absent on success.
+                  Credential values are redacted ([REDACTED]) before the cause
+                  is reported. Absent on success.
 
     ContentRegistry:
       type: object
       required: [name, url]
       properties:
         name: { type: string }
-        url: { type: string }
+        url:
+          type: string
+          description: |
+            Public form: any userinfo, query or fragment the configured URL
+            carried is stripped before serving, so a credential embedded in
+            the URL cannot reach an API response.
         lastReconciledAt:
           type: string
           format: date-time
@@ -408,7 +414,9 @@ components:
           description: |
             Fixed failure summary. The listing stays conservative — the detailed
             cause, which can quote internal hostnames from certificate
-            validation, is kept to backend logs and sync responses.
+            validation, is kept to backend logs and sync responses. Credentials
+            never appear in either: they are redacted ([REDACTED]) from every
+            log line, error and response.
         lastCheckedAt:
           type: string
           format: date-time
@@ -2821,8 +2829,9 @@ paths:
       description: |
         Deliberate manual discovery for all registries, behind the platform's
         sign-in barrier: anonymous callers are turned away before any discovery
-        starts, and every response carries the detailed failure cause. Detailed
-        diagnostics are also written to backend logs.
+        starts, and every response carries the detailed failure cause.
+        Credential values are redacted ([REDACTED]) from every diagnostic path.
+        Detailed diagnostics are also written to backend logs.
       responses:
         '401':
           description: Authentication required
@@ -2899,7 +2908,7 @@ paths:
                   discovered: { type: integer }
                   error:
                     type: string
-                    description: Detailed failure cause; this route requires authentication.
+                    description: Detailed failure cause, credentials redacted; this route requires authentication.
         '404':
           description: No such registry
           content:

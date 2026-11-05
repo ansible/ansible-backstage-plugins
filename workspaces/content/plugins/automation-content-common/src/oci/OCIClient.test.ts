@@ -1,4 +1,5 @@
 import { OCIClient, nextLink } from './OCIClient';
+import { CredentialRedactor } from '../security/CredentialRedactor';
 import { ImageManifest, MediaTypes, RegistryConnection } from './types';
 import {
   MockRegistry,
@@ -570,5 +571,107 @@ describe('auth realm rewriting (rewriteAuthRealmHost)', () => {
 
     expect(res.status).toBe(200);
     expect(seen.filter(r => r.url.includes('/v2/auth'))).toHaveLength(1);
+  });
+});
+
+describe('credential redaction', () => {
+  const basic = { type: 'basic' as const, username: 'u', password: 'hunter2' };
+
+  /** A bearer-only registry, as in the priming tests, issuing one token. */
+  function bearerOnlyRegistry() {
+    const fetchImpl = async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      const auth = init?.headers?.Authorization;
+      const path = new URL(url).pathname;
+      if (path.startsWith('/v2/auth')) {
+        return auth?.startsWith('Basic ')
+          ? new Response(JSON.stringify({ token: 'issued-token' }), {
+              status: 200,
+            })
+          : new Response(JSON.stringify({ error: 'auth required' }), {
+              status: 401,
+            });
+      }
+      if (!auth) {
+        return new Response('{}', {
+          status: 401,
+          headers: {
+            'www-authenticate':
+              'Bearer realm="https://mock.registry/v2/auth",service="quay"',
+          },
+        });
+      }
+      if (!auth.startsWith('Bearer ')) {
+        return new Response(JSON.stringify({ error: 'bad format' }), {
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ name: 'demo/ee', tags: ['dev'] }), {
+        status: 200,
+      });
+    };
+    return fetchImpl as never;
+  }
+
+  it('registers an exchanged token with the redactor the moment it arrives', async () => {
+    const redactor = new CredentialRedactor();
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: bearerOnlyRegistry(),
+      redactor,
+    });
+
+    await client.request('/v2/demo/ee/tags/list');
+
+    // The token is a credential the process now holds; anything that quotes
+    // it later — a log line, an error — must have it recognised.
+    expect(redactor.redact('Authorization: Bearer issued-token')).toBe(
+      'Authorization: Bearer [REDACTED]',
+    );
+  });
+
+  it('redacts its own log lines, including priming failures', async () => {
+    const lines: string[] = [];
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: () =>
+        Promise.reject(new Error('fetch failed: socket hung up after hunter2')),
+      logger: {
+        debug: m => lines.push(m),
+        warn: m => lines.push(m),
+      },
+    });
+
+    await client.request('/v2/demo/ee/tags/list').catch(() => {});
+
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.join('\n')).not.toContain('hunter2');
+    expect(lines.join('\n')).toContain('[REDACTED]');
+  });
+
+  it('redacts the messages of errors it throws', async () => {
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: async () => new Response('boom', { status: 500 }),
+    });
+
+    // A repository name quoting the credential: registry-controlled input,
+    // exactly the channel through which a secret could reach an error.
+    await expect(client.getManifest('hunter2/ee', 'latest')).rejects.toThrow(
+      /manifest fetch failed for \[REDACTED\]\/ee/,
+    );
+  });
+
+  it('strips credentials embedded in the registry URL from pull references', () => {
+    const client = new OCIClient(
+      connection({ url: 'https://ci:hunter2@mock.registry' }),
+    );
+
+    expect(
+      client.pullReference({
+        registry: 'mock',
+        repository: 'ansible/ee',
+        reference: 'latest',
+      }),
+    ).toBe('mock.registry/ansible/ee:latest');
   });
 });

@@ -3,6 +3,7 @@ import {
   createBackendModule,
 } from '@backstage/backend-plugin-api';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
+import { redactorForConnections } from '@ansible/automation-content-common';
 import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { readRegistryConfigs } from './config';
 import { defaultContentTypes } from './contentTypes';
@@ -34,6 +35,13 @@ export const catalogModuleAutomationContent = createBackendModule({
 
         const contentTypes = defaultContentTypes();
 
+        // One redactor across every provider: any provider's client can mint
+        // a bearer token at runtime, and every provider's logs, errors and
+        // entities must recognise it.
+        const redactor = redactorForConnections(
+          registries.map(registry => registry.connection),
+        );
+
         for (const { connection, schedule, owner, system } of registries) {
           const provider = new OCIRegistryEntityProvider({
             connection,
@@ -42,6 +50,7 @@ export const catalogModuleAutomationContent = createBackendModule({
             owner,
             system,
             taskRunner: scheduler.createScheduledTaskRunner(schedule),
+            redactor,
           });
           catalog.addEntityProvider(provider);
           logger.info(

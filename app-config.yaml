@@ -246,9 +246,14 @@ catalog:
     #       # supports and the provider degrades to this list rather than failing.
     #       repositories:
     #         - demo/network-ee
-    #       # Credentials come from the environment, never from this file. For a
-    #       # registry that needs none — a local zot or registry:2 — use
-    #       # `type: anonymous` and drop the three lines below.
+    #       # Credentials come from the environment, never from this file:
+    #       # an OpenShift Secret → container env → ${VAR} substitution here.
+    #       # See workspaces/content/docs/guides/registry-credentials.md for
+    #       # delivery, rotation and the RBAC boundary. For a registry that
+    #       # needs none — a local zot or registry:2 — use `type: anonymous`
+    #       # and drop the three lines below. A pre-issued registry token is
+    #       # `type: bearer` with a single `token: ${CONTENT_REGISTRY_TOKEN}`
+    #       # line in place of username/password.
     #       auth:
     #         type: basic
     #         username: ${CONTENT_REGISTRY_USERNAME}

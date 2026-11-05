@@ -2,6 +2,7 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
+import { publicUrl } from '@ansible/automation-content-common';
 import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
 
 export interface RouterOptions {
@@ -29,7 +30,22 @@ type RouteResponse = {
   json: (body: unknown) => unknown;
 };
 
+/** Structural shape the response-boundary middleware needs — see RouteRequest. */
+type JsonCapableResponse = {
+  json: (body: unknown) => unknown;
+};
+
 const EE_TYPE = 'execution-environment';
+
+/**
+ * How deep the response boundary copies before replacing the rest.
+ *
+ * The redactor's default cap is sized for hostile diagnostics. Documentation
+ * payloads — argument specifications, nested collection metadata — legitimately
+ * nest deeper, so responses get a more generous ceiling while keeping the
+ * cycle guard and the stack bound.
+ */
+const RESPONSE_MAX_DEPTH = 64;
 
 /**
  * What GET /registries reports about a failed reconciliation.
@@ -134,6 +150,21 @@ export async function createRouter(
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
+  // Every response passes one redaction boundary. A credential that reaches
+  // an unexpected field — a classification signal, an echoed request value,
+  // a registry-supplied documentation string — cannot leave the API. Applied
+  // by wrapping `res.json` once here rather than at every call site, so
+  // routes yet to be written inherit the boundary instead of remembering it.
+  // The index's redactor is live: bearer tokens exchanged at runtime are
+  // recognised the moment they exist.
+  const redactor = index.redactor;
+  router.use((_req: unknown, res: JsonCapableResponse, next: () => void) => {
+    const original = res.json.bind(res);
+    res.json = (body: unknown) =>
+      original(redactor.redactValue(body, { maxDepth: RESPONSE_MAX_DEPTH }));
+    next();
+  });
+
   router.get('/health', (_req, res) => {
     // A liveness probe's answer: nothing else. The route is unauthenticated
     // (#977), so it must not describe registries, cache state, or failure
@@ -149,7 +180,9 @@ export async function createRouter(
         const reconcile = index.reconcileStateFor(state.connection.name);
         return {
           name: state.connection.name,
-          url: state.connection.url,
+          // The configured URL can carry embedded credentials; the served one
+          // cannot. Same origin, same path, no userinfo, query or fragment.
+          url: publicUrl(state.connection.url),
           namespaces: state.connection.namespaces,
           repositories: state.connection.repositories,
           capabilities: state.capabilities,
@@ -185,7 +218,11 @@ export async function createRouter(
       results.push({ registry: name, ...outcome });
     }
     const ok = results.every(r => r.ok);
-    logger.info(`manual sync of ${results.length} registr(ies), ok=${ok}`);
+    logger.info(
+      redactor.redact(
+        `manual sync of ${results.length} registr(ies), ok=${ok}`,
+      ),
+    );
     res.status(ok ? 200 : 207).json({
       status: ok ? 'completed' : 'partial',
       durationMs: Date.now() - started,
@@ -227,9 +264,11 @@ export async function createRouter(
     }
     const result = await index.refreshRegistry(name);
     logger.info(
-      `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
-        result.error ? ` (${result.error})` : ''
-      }`,
+      redactor.redact(
+        `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
+          result.error ? ` (${result.error})` : ''
+        }`,
+      ),
     );
     res.status(202).json({
       status: result.ok ? 'completed' : 'failed',
@@ -762,6 +801,22 @@ export async function createRouter(
 
     res.json({ valid: errors.length === 0, errors, warnings });
   });
+
+  // An error that escapes a handler is formatted by the platform's error
+  // middleware, which knows nothing of our credentials. Redact the original
+  // in place before handing it on: the object the platform formats is the
+  // object that was just cleaned.
+  router.use(
+    (
+      err: Error,
+      _req: unknown,
+      _res: unknown,
+      next: (err?: unknown) => void,
+    ) => {
+      redactor.redactErrorInPlace(err);
+      next(err);
+    },
+  );
 
   // Cast across `@types/express` identity boundaries (see RouteRequest note above).
   return router as unknown as express.Router;

@@ -2,6 +2,10 @@ import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
 import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
 import {
+  CredentialRedactor,
+  redactorForConnections,
+} from '../security/CredentialRedactor';
+import {
   ArtifactRef,
   Descriptor,
   ImageConfig,
@@ -75,6 +79,13 @@ export interface OCIClientOptions {
   /** Per-request timeout. */
   timeoutMs?: number;
   logger?: { debug(msg: string): void; warn(msg: string): void };
+  /**
+   * Where this client's credentials are redacted. When omitted, one is built
+   * from the connection itself, so a standalone client still protects its own
+   * logs. Composition roots that need runtime-minted tokens recognised
+   * elsewhere — an index serving API responses — pass their shared instance.
+   */
+  redactor?: CredentialRedactor;
   /**
    * Cache for digest-addressed reads only. Tag lookups are never cached — a tag is a
    * mutable pointer, and caching one is how a catalog starts lying about an image.
@@ -159,6 +170,12 @@ export class OCIClient {
   private readonly timeoutMs: number;
   private readonly logger?: OCIClientOptions['logger'];
   private readonly cache?: DigestCache;
+  /**
+   * Knows every credential this connection can produce, including tokens it
+   * exchanges at runtime. Every log line and every thrown message passes
+   * through it.
+   */
+  private readonly redactor: CredentialRedactor;
   /** Whether this connection explicitly opted out of transport trust. */
   private readonly allowInsecure: boolean;
   /** Built lazily by verified connections — see the class docblock. */
@@ -177,6 +194,7 @@ export class OCIClient {
     private readonly connection: RegistryConnection,
     options: OCIClientOptions = {},
   ) {
+    this.redactor = options.redactor ?? redactorForConnections([connection]);
     if (connection.insecure === true && connection.ca) {
       // The same refusal the config layer makes at startup, enforced here so a
       // programmatically constructed connection cannot combine them either: a
@@ -192,8 +210,19 @@ export class OCIClient {
     }
     this.allowInsecure = connection.insecure === true;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.logger = options.logger;
     this.cache = options.cache;
+
+    // The client is where credentials turn into text: authorization headers
+    // in error messages, token endpoints in priming failures, statuses beside
+    // repository names. Whatever logger is injected, its lines leave redacted.
+    const injectedLogger = options.logger;
+    this.logger = injectedLogger
+      ? {
+          debug: (msg: string) =>
+            injectedLogger.debug(this.redactor.redact(msg)),
+          warn: (msg: string) => injectedLogger.warn(this.redactor.redact(msg)),
+        }
+      : undefined;
 
     const injected = options.fetch;
     const transport: FetchLike = async (url, init) => {
@@ -258,9 +287,13 @@ export class OCIClient {
     const protocol = transportProtocol(url);
     if (protocol !== 'https:') {
       throw new RegistryError(
-        `refused ${protocol ?? 'unparseable'} request to ${redactUrl(url)}: ` +
-          `registry connections verify TLS by default; set insecure: true on ` +
-          `registry "${this.connection.name}" to allow this (local development only)`,
+        this.redactor.redact(
+          `refused ${protocol ?? 'unparseable'} request to ${redactUrl(
+            url,
+          )}: ` +
+            `registry connections verify TLS by default; set insecure: true on ` +
+            `registry "${this.connection.name}" to allow this (local development only)`,
+        ),
         undefined,
         this.connection.name,
       );
@@ -329,9 +362,11 @@ export class OCIClient {
 
       if (hop >= MAX_REDIRECT_HOPS) {
         throw new RegistryError(
-          `too many redirects following ${redactUrl(url)}: registry ` +
-            `"${this.connection.name}" redirected more than ` +
-            `${MAX_REDIRECT_HOPS} times`,
+          this.redactor.redact(
+            `too many redirects following ${redactUrl(url)}: registry ` +
+              `"${this.connection.name}" redirected more than ` +
+              `${MAX_REDIRECT_HOPS} times`,
+          ),
           undefined,
           this.connection.name,
         );
@@ -494,6 +529,10 @@ export class OCIClient {
     const token = body.token ?? body.access_token;
     if (!token) return undefined;
 
+    // Registered the moment it exists: the token is a credential this process
+    // holds, and every later log line or error message must recognise it.
+    this.redactor.addSecret(token);
+
     // Renew a little early to avoid racing expiry mid-sync.
     const ttl = (body.expires_in ?? 300) * 1000;
     this.tokenCache.set(cacheKey, {
@@ -582,13 +621,17 @@ export class OCIClient {
       const origin = new URL(this.base);
       if (target.origin !== origin.origin) {
         throw new Error(
-          `absolute URL ${target.origin} is not the configured registry ` +
-            `${origin.origin}`,
+          this.redactor.redact(
+            `absolute URL ${target.origin} is not the configured registry ` +
+              `${origin.origin}`,
+          ),
         );
       }
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(`invalid absolute URL: ${path}`);
+        // The path is registry-controlled (a Link header, usually): its query
+        // can carry a signed token, so it is reduced to a safe URL form.
+        throw new Error(`invalid absolute URL: ${redactUrl(path)}`);
       }
       throw error;
     }
@@ -745,7 +788,7 @@ export class OCIClient {
         if (res.status === 404 || res.status === 401 || res.status === 403)
           return;
         throw new RegistryError(
-          `catalog listing failed: ${res.status}`,
+          this.redactor.redact(`catalog listing failed: ${res.status}`),
           res.status,
           this.connection.name,
         );
@@ -766,7 +809,9 @@ export class OCIClient {
       if (!res.ok) {
         if (res.status === 404) return;
         throw new RegistryError(
-          `tag listing failed for ${repository}: ${res.status}`,
+          this.redactor.redact(
+            `tag listing failed for ${repository}: ${res.status}`,
+          ),
           res.status,
           this.connection.name,
         );
@@ -822,7 +867,9 @@ export class OCIClient {
     });
     if (!res.ok) {
       throw new RegistryError(
-        `manifest fetch failed for ${repository}:${reference}: ${res.status}`,
+        this.redactor.redact(
+          `manifest fetch failed for ${repository}:${reference}: ${res.status}`,
+        ),
         res.status,
         this.connection.name,
       );
@@ -1004,9 +1051,27 @@ export class OCIClient {
 
   /** Build a pull reference a user can hand to podman. Portal never proxies this. */
   pullReference(ref: ArtifactRef): string {
-    const host = this.base.replace(/^https?:\/\//, '');
+    const host = this.pullHost();
     const sep = ref.reference.startsWith('sha256:') ? '@' : ':';
     return `${host}/${ref.repository}${sep}${ref.reference}`;
+  }
+
+  /**
+   * Host and path of the configured registry, credentials removed.
+   *
+   * A pull reference is published — into API responses and catalog
+   * annotations — so userinfo embedded in the configured URL must not
+   * survive into it.
+   */
+  private pullHost(): string {
+    try {
+      const parsed = new URL(this.base);
+      const pathname =
+        parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+      return `${parsed.host}${pathname}`;
+    } catch {
+      return this.base.replace(/^https?:\/\//, '');
+    }
   }
 }
 

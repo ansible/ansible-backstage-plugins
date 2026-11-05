@@ -18,6 +18,11 @@ export type {
 } from './oci/OCIClient';
 export { CapabilityProbe, probeRegistry } from './oci/CapabilityProbe';
 export type { ProbeOptions } from './oci/CapabilityProbe';
+export {
+  CredentialRedactor,
+  redactorForConnections,
+  publicUrl,
+} from './security/CredentialRedactor';
 
 export type {
   BackendAdapter,
