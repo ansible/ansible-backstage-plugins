@@ -44,7 +44,7 @@ export function createUserJobTemplatesRouter(options: {
 
       try {
         const authResult = await ansibleService.rhAAPAuthenticate({
-          host: providerConfig.host,
+          host: providerConfig.tokenHost,
           checkSSL: providerConfig.checkSSL,
           clientId: providerConfig.clientId,
           clientSecret: providerConfig.clientSecret,

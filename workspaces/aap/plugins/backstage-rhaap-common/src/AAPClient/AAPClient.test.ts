@@ -2,7 +2,7 @@ import { Config } from '@backstage/config';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { AuthenticationError } from '@backstage/errors';
 import { AAPClient } from './AAPClient';
-import { fetch } from 'undici';
+import { Agent, fetch } from 'undici';
 import { AnsibleConfig } from '../types';
 import { TERMINAL_JOB_STATUSES } from '../constants';
 import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
@@ -3746,21 +3746,90 @@ describe('AAPClient', () => {
           }),
         ).rejects.toThrow(AuthenticationError);
       });
+
+      it('should use options.host for token exchange URL, not baseUrl', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            access_token: 'test-access-token',
+            token_type: 'Bearer',
+            scope: 'read write',
+            expires_in: 3600,
+            refresh_token: 'test-refresh-token',
+          }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://aap.example.com/api',
+          checkSSL: true,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        expect(mockFetch.mock.calls[0][0]).toBe(
+          'https://aap.example.com/api/o/token/',
+        );
+      });
+
+      it('should use options.checkSSL for the token exchange TLS agent', async () => {
+        const mockResponse = {
+          ok: true,
+          json: jest.fn().mockResolvedValue({ access_token: 'token' }),
+        };
+        mockFetch.mockResolvedValue(mockResponse);
+
+        await client.rhAAPAuthenticate({
+          host: 'https://aap.example.com/api',
+          checkSSL: false,
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          callbackURL: 'https://callback.example.com',
+          code: 'test-code',
+        });
+
+        const MockAgent = Agent as unknown as jest.Mock;
+        const agentIndex = MockAgent.mock.calls.findIndex(
+          ([opts]) => opts?.connect?.rejectUnauthorized === false,
+        );
+        expect(agentIndex).toBeGreaterThanOrEqual(0);
+        expect(mockFetch.mock.calls[0][1].dispatcher).toBe(
+          MockAgent.mock.instances[agentIndex],
+        );
+      });
     });
 
     describe('rhAAPRevokeToken', () => {
+      it('should fall back to baseUrl when host is empty', async () => {
+        mockFetch.mockResolvedValue({ ok: true });
+
+        await client.rhAAPRevokeToken({
+          host: '',
+          clientId: 'test-client-id',
+          clientSecret: 'test-client-secret',
+          token: 'test-refresh-token',
+        });
+
+        expect(mockFetch.mock.calls[0][0]).toBe(
+          'https://test.example.com/o/revoke_token/',
+        );
+      });
+
       it('should revoke token successfully', async () => {
         const mockResponse = { ok: true };
         mockFetch.mockResolvedValue(mockResponse);
 
         await client.rhAAPRevokeToken({
+          host: 'https://aap.example.com/api',
           clientId: 'test-client-id',
           clientSecret: 'test-client-secret',
           token: 'test-refresh-token',
         });
 
         expect(mockFetch).toHaveBeenCalledWith(
-          expect.stringContaining('o/revoke_token/'),
+          'https://aap.example.com/api/o/revoke_token/',
           expect.objectContaining({
             method: 'POST',
           }),
