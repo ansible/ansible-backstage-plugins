@@ -18,6 +18,7 @@ import {
   type EntityActionDescriptor,
   type EntityDetailTabDescriptor,
   type EntityContributionContext,
+  type CatalogItemActionDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalEntityPage } from './createPortalEntityPage';
 import {
@@ -26,6 +27,7 @@ import {
 } from './PortalEntityActions';
 import { collectEntityActions } from './validateEntityAction';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { PortalCatalogItemActions } from './PortalCatalogItemActions';
 
 const context: EntityContributionContext = {
   entity: {
@@ -107,6 +109,76 @@ function descriptor(): EntityActionDescriptor {
     enabledByConfig: 'scanner.enabled',
   };
 }
+
+describe('catalog item actions', () => {
+  async function renderCatalogActions(denied: boolean) {
+    const action: CatalogItemActionDescriptor = {
+      ...descriptor(),
+      attachment: 'catalog.item.actions',
+    };
+    action.manifest.capabilities[0].entryPoints[2].surface = 'catalog-item';
+    action.manifest.capabilities[0].entryPoints[2].launches = {
+      type: 'operation',
+      operationId: 'scanner.scan',
+    };
+    const checkEntitlement = jest.fn().mockResolvedValue(true);
+    const execute = jest.fn().mockResolvedValue({ result: {} });
+    const page = createPortalEntityPage({
+      path: '/catalog',
+      loader: async () =>
+        compatWrapper(
+          <PortalCatalogItemActions
+            actions={[action]}
+            context={context}
+            checkEntitlement={checkEntitlement}
+            presentation="menu-item"
+          />,
+        ),
+    });
+    const authorize = jest
+      .fn()
+      .mockReturnValue(denied ? AuthorizeResult.DENY : AuthorizeResult.ALLOW);
+    await renderTestApp({
+      features: [
+        createFrontendPlugin({
+          pluginId: 'portal',
+          extensions: [createPortalContributionProvider(), page],
+        }),
+      ],
+      apis: [
+        [portalOperationsApiRef, { execute }],
+        mockApis.permission({ authorize }),
+      ],
+      config: { scanner: { enabled: true } },
+      initialRouteEntries: ['/catalog'],
+    });
+    await screen.findByRole('group', { name: 'Actions for repo' });
+    await waitFor(() => expect(authorize).toHaveBeenCalled());
+    return { action, checkEntitlement, execute };
+  }
+
+  it('executes an eligible row action with the selected entity reference', async () => {
+    const { action, checkEntitlement, execute } =
+      await renderCatalogActions(false);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Scan' }));
+    await waitFor(() =>
+      expect(execute).toHaveBeenCalledWith('scanner.scan', {
+        subject: { entityRef: 'component:default/repo' },
+      }),
+    );
+    expect(checkEntitlement).toHaveBeenCalledWith(
+      action.manifest.entitlements[0],
+      context,
+    );
+  });
+
+  it('hides a permission-denied row action without checking entitlement or executing it', async () => {
+    const { checkEntitlement, execute } = await renderCatalogActions(true);
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
+    expect(checkEntitlement).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
 
 describe('confirmed subject removal', () => {
   it('keeps pending catalog cleanup visible and checks again without resubmitting removal', async () => {
