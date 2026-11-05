@@ -97,7 +97,7 @@ Run from the repository root after installing workspace dependencies. Run
 ```bash
 NODE_OPTIONS="${NODE_OPTIONS:-} --experimental-vm-modules" yarn workspace @ansible/portal-scaffolder-react test --watch=false
 yarn workspace @ansible/portal-scaffolder-react lint
-npx tsc --noEmit -p workspaces/portal-scaffolder/plugins/portal-scaffolder-react
+npx tsc --noEmit -p workspaces/content-development/plugins/portal-scaffolder-react
 yarn tsc
 yarn workspace @ansible/portal-scaffolder-react build
 ```
