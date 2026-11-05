@@ -26,6 +26,7 @@ import {
   PortalOperationAction,
 } from './PortalEntityActions';
 import { collectEntityActions } from './validateEntityAction';
+import { collectCatalogItemActions } from './validateCatalogItemAction';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { PortalCatalogItemActions } from './PortalCatalogItemActions';
 
@@ -112,15 +113,20 @@ function descriptor(): EntityActionDescriptor {
 
 describe('catalog item actions', () => {
   async function renderCatalogActions(denied: boolean) {
+    const base = descriptor();
+    delete base.followOnEntryPointId;
     const action: CatalogItemActionDescriptor = {
-      ...descriptor(),
+      ...base,
       attachment: 'catalog.item.actions',
     };
+    action.manifest.capabilities[0].entryPoints[2].kind = 'catalog-item-action';
     action.manifest.capabilities[0].entryPoints[2].surface = 'catalog-item';
     action.manifest.capabilities[0].entryPoints[2].launches = {
       type: 'operation',
       operationId: 'scanner.scan',
     };
+    const actions = collectCatalogItemActions([action]);
+    expect(actions).toEqual([action]);
     const checkEntitlement = jest.fn().mockResolvedValue(true);
     const execute = jest.fn().mockResolvedValue({ result: {} });
     const page = createPortalEntityPage({
@@ -128,7 +134,7 @@ describe('catalog item actions', () => {
       loader: async () =>
         compatWrapper(
           <PortalCatalogItemActions
-            actions={[action]}
+            actions={actions}
             context={context}
             checkEntitlement={checkEntitlement}
             presentation="menu-item"
