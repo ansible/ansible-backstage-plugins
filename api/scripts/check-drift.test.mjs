@@ -9,7 +9,7 @@ const healthRoutes = [
     path: '/api/catalog/health',
   },
   {
-    file: 'workspaces/content/plugins/automation-content-backend/src/router.ts',
+    file: 'workspaces/content-management/plugins/automation-content-backend/src/router.ts',
     path: '/api/automation-content/health',
   },
 ];

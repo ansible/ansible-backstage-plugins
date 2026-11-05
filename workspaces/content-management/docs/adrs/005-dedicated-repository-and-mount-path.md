@@ -18,6 +18,13 @@
 > its own packages), and the mount path remains configuration, not source.
 > The original decision text is kept for context.
 
+> **Update, 2026-11: workspace renamed to `content-management`.**
+>
+> The plugin set now lives in `workspaces/content-management`. This is a
+> directory rename only. Package names, plugin IDs, configuration keys and the
+> configured mount path remain unchanged. The October import note above records
+> the previous directory name.
+
 ## Context
 
 Content management could have been prototyped inside `ansible-backstage-plugins`, which
