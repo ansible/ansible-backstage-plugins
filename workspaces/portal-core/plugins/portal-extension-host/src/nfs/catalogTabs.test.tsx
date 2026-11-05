@@ -34,7 +34,6 @@ const descriptor: CatalogTabDescriptor = {
       {
         id: 'scanner.settings',
         ownerPlugin: 'scanner',
-        experienceId: 'content-quality-assessment',
         displayName: 'Settings',
         description: 'Settings',
         minimumHostApiVersion: '0.1.0',

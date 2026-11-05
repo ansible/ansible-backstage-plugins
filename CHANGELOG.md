@@ -34,6 +34,8 @@ where versioned packages apply.
 
 - **Content development workspace** renames `workspaces/portal-scaffolder` to `workspaces/content-development` and its workspace manifest to `@ansible/content-development-workspace`, with matching configuration, CI, lockfile, ownership, and documentation paths. Plugin directories, package names, and runtime identifiers remain unchanged.
 
+- **Portal capability placement** no longer requires `experienceId` or a fixed host experience taxonomy. The host selects supported surfaces using contribution attachments and applicability. Removed experience constants/types and the `availableExperiences` renderer prop, without adding recommendation metadata. Existing serialized experience fields are ignored, while source consumers must remove the obsolete fields/imports/props and rebuild with the updated SDK. Permission, entitlement, ownership and configuration checks remain independent.
+
 - **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
 
 - **Automation content custom transports:** injected `FetchLike` implementations

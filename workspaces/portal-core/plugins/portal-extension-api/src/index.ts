@@ -30,7 +30,6 @@ export type {
 export type {
   PermissionRequirement,
   ContentPredicate,
-  ExperienceDefinition,
   ContributionKind,
   EntrySurface,
   CapabilityEntryPoint,
@@ -41,17 +40,9 @@ export type {
   PluginManifest,
 } from './manifest';
 
-// ── Extension point IDs, experience IDs, content type IDs ────────────────────
-export {
-  EXTENSION_POINTS,
-  EXPERIENCE_IDS,
-  CONTENT_TYPES,
-} from './extensionPoints';
-export type {
-  ExtensionPointId,
-  ExperienceId,
-  ContentTypeId,
-} from './extensionPoints';
+// ── Extension point IDs and content type IDs ────────────────────────────────
+export { EXTENSION_POINTS, CONTENT_TYPES } from './extensionPoints';
+export type { ExtensionPointId, ContentTypeId } from './extensionPoints';
 
 // ── Registry singleton + type ─────────────────────────────────────────────────
 export { contributionRegistry } from './registry';

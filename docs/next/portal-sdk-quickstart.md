@@ -116,7 +116,6 @@ export const myPluginManifest: PluginManifest = {
       entryPoints: [
         {
           surface: 'tab',
-          experienceId: 'git-repo-detail',
           launch: {
             type: 'slot',
             slotId: 'git-repo-detail.tab.my-plugin.trust-signals',
