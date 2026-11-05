@@ -1,5 +1,6 @@
 import { createServiceRef } from '@backstage/backend-plugin-api';
 import type { BackstageCredentials } from '@backstage/backend-plugin-api';
+import type { Entity } from '@backstage/catalog-model';
 
 export type EELifecycleCleanupResult = {
   mode: 'noop' | 'location' | 'entity-transient' | 'provider';
@@ -10,7 +11,7 @@ export interface EEEntityLifecycleService {
   getProviderName(): string;
   connect(connection: any): Promise<void>;
   registerExecutionEnvironment(
-    entity: any,
+    entity: Entity,
     credentials: BackstageCredentials,
   ): Promise<void>;
   unregisterExecutionEnvironment(
