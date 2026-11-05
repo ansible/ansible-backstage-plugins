@@ -1,6 +1,7 @@
-import { Knex } from 'knex';
-
-export async function up(knex: Knex): Promise<void> {
+/**
+ * @param {import('knex').Knex} knex
+ */
+exports.up = async function up(knex) {
   await knex.schema.createTable('artifacts', table => {
     table.string('ref').primary();
     table.string('type').notNullable();
@@ -23,7 +24,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('type').notNullable();
     table.string('collection').notNullable();
     table.string('collection_version').notNullable();
-    table.string('short_description');
+    table.text('short_description');
     table.string('version_added');
     table.boolean('deprecated').notNullable().defaultTo(false);
     table
@@ -36,9 +37,12 @@ export async function up(knex: Knex): Promise<void> {
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
   });
-}
+};
 
-export async function down(knex: Knex): Promise<void> {
+/**
+ * @param {import('knex').Knex} knex
+ */
+exports.down = async function down(knex) {
   await knex.schema.dropTableIfExists('items');
   await knex.schema.dropTableIfExists('artifacts');
-}
+};

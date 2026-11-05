@@ -16,6 +16,7 @@
 import { createServer as createHttpsServer } from 'node:https';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { resolve as resolvePath } from 'node:path';
 import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
@@ -47,39 +48,8 @@ async function createTestDB() {
     connection: { filename: ':memory:' },
     useNullAsDefault: true,
   });
-  await db.schema.createTable('artifacts', table => {
-    table.string('ref').primary();
-    table.string('type').notNullable();
-    table.string('registry').notNullable().index();
-    table.string('repository').notNullable();
-    table.string('digest').notNullable();
-    table.text('tags').notNullable().defaultTo('[]');
-    table.string('pull_reference').notNullable();
-    table.boolean('contents_known').notNullable().defaultTo(false);
-    table.text('classification').notNullable().defaultTo('{}');
-    table.text('manifest');
-    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
-  });
-  await db.schema.createTable('items', table => {
-    table.string('key').primary();
-    table.string('fqcn').notNullable().index();
-    table.string('name').notNullable();
-    table.string('type').notNullable();
-    table.string('collection').notNullable();
-    table.string('collection_version').notNullable();
-    table.string('short_description');
-    table.string('version_added');
-    table.boolean('deprecated').notNullable().defaultTo(false);
-    table
-      .string('artifact_ref')
-      .notNullable()
-      .references('ref')
-      .inTable('artifacts')
-      .onDelete('CASCADE');
-    table.text('detail');
-    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+  await db.migrate.latest({
+    directory: resolvePath(__dirname, '..', 'migrations'),
   });
   return db;
 }
