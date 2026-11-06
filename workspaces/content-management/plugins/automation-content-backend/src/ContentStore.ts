@@ -342,10 +342,30 @@ export class ContentStore {
     return artifact.manifest ? summariseManifest(artifact.manifest) : undefined;
   }
 
+  async pruneRemovedRegistries(): Promise<string[]> {
+    const configuredNames = [...this.registries.keys()];
+    const dbRegistries = await this.db('artifacts')
+      .distinct('registry')
+      .pluck('registry');
+    const removed = dbRegistries.filter(
+      (r: string) => !configuredNames.includes(r),
+    );
+    if (removed.length > 0) {
+      await this.db('artifacts').whereIn('registry', removed).del();
+      this.logger.info(
+        `pruned records for removed registr(ies): ${removed.join(', ')}`,
+      );
+    }
+    return removed;
+  }
+
   async refreshAll(): Promise<{ artifacts: number; items: number }> {
     for (const name of this.registries.keys()) {
       await this.refreshRegistry(name);
     }
+
+    await this.pruneRemovedRegistries();
+
     const artifactCount = await this.db('artifacts')
       .count('* as count')
       .first();
