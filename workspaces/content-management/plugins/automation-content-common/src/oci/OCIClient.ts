@@ -1197,8 +1197,8 @@ export class OCIClient {
   private pullHost(): string {
     try {
       const parsed = new URL(this.base);
-      const pathname =
-        parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+      let pathname = parsed.pathname === '/' ? '' : parsed.pathname;
+      while (pathname.endsWith('/')) pathname = pathname.slice(0, -1);
       return `${parsed.host}${pathname}`;
     } catch {
       return '(unparseable URL)';

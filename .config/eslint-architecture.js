@@ -154,10 +154,13 @@ const ENV_VALUE_PARENTS = [
   'TemplateLiteral',
   'TSAsExpression',
   'TSNonNullExpression',
+  'TSSatisfiesExpression',
   'TSTypeAssertion',
   'UnaryExpression',
   'VariableDeclarator',
   'YieldExpression',
+  'ExportDefaultDeclaration',
+  'ThrowStatement',
 ];
 
 /** Computed lookups — `process.env[name]` — in both env spellings. */

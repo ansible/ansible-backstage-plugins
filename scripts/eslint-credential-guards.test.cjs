@@ -116,6 +116,7 @@ const WHOLE_ENV_VALUES = [
   '({ env } = process);',
   'const { ["env"]: computed } = process;',
   "const { ['env']: singleQuoted } = process;",
+  'const checked = process.env satisfies Record<string, string | undefined>;',
 ];
 
 /** Reading the environment through a computed key. */

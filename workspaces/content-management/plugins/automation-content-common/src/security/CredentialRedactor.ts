@@ -30,6 +30,9 @@ const MIN_RUNTIME_SECRET_LENGTH = 8;
 /** Keep runtime tokens for a grace period after their registry-side expiry. */
 const RUNTIME_SECRET_GRACE_MS = 60 * 60 * 1000;
 
+/** Prevent a registry-provided lifetime from disabling expiry pruning. */
+const MAX_RUNTIME_SECRET_TTL_MS = 24 * 60 * 60 * 1000;
+
 /** Match the per-client OCI token-cache capacity. */
 const MAX_RUNTIME_SECRETS_PER_OWNER = 1_000;
 
@@ -99,7 +102,10 @@ export class CredentialRedactor {
     const ownerSecrets =
       this.runtimeSecrets.get(owner) ?? new Map<string, number>();
     ownerSecrets.delete(value);
-    const expiresAt = now + Math.max(0, ttlMs) + RUNTIME_SECRET_GRACE_MS;
+    const safeTtl = Number.isFinite(ttlMs)
+      ? Math.min(Math.max(0, ttlMs), MAX_RUNTIME_SECRET_TTL_MS)
+      : MAX_RUNTIME_SECRET_TTL_MS;
+    const expiresAt = now + safeTtl + RUNTIME_SECRET_GRACE_MS;
     ownerSecrets.set(value, expiresAt);
     this.runtimeSecrets.set(owner, ownerSecrets);
     const owners = this.runtimeSecretOwners.get(value) ?? new Set<string>();
