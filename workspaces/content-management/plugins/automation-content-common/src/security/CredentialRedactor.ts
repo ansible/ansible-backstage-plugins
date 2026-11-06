@@ -58,6 +58,9 @@ export class CredentialRedactor {
   /** O(1) membership index; the array remains sorted for redaction order. */
   private readonly secretIndex = new Set<string>();
 
+  /** Cached literal matcher; invalidated whenever the secret set changes. */
+  private matcher?: RegExp;
+
   /** Secrets supplied by configuration and therefore retained for process life. */
   private readonly persistentSecrets = new Set<string>();
 
@@ -116,12 +119,16 @@ export class CredentialRedactor {
       this.nextRuntimePruneAt || Number.POSITIVE_INFINITY,
       expiresAt,
     );
-    this.pruneRuntimeSecrets(now);
+    this.pruneRuntimeSecrets(
+      now,
+      ownerSecrets.size > MAX_RUNTIME_SECRETS_PER_OWNER,
+    );
   }
 
   private insertSecret(value: string): void {
     if (this.secretIndex.has(value)) return;
     this.secretIndex.add(value);
+    this.matcher = undefined;
 
     let low = 0;
     let high = this.secrets.length;
@@ -133,12 +140,12 @@ export class CredentialRedactor {
     this.secrets.splice(low, 0, value);
   }
 
-  private pruneRuntimeSecrets(now: number): void {
+  private pruneRuntimeSecrets(now: number, force = false): void {
     if (
-      now < this.nextRuntimePruneAt &&
-      [...this.runtimeSecrets.values()].every(
-        secrets => secrets.size <= MAX_RUNTIME_SECRETS_PER_OWNER,
-      )
+      !force &&
+      (this.runtimeSecrets.size === 0 ||
+        this.nextRuntimePruneAt === 0 ||
+        now < this.nextRuntimePruneAt)
     )
       return;
 
@@ -177,25 +184,33 @@ export class CredentialRedactor {
     const index = this.secrets.indexOf(secret);
     if (index >= 0) this.secrets.splice(index, 1);
     this.secretIndex.delete(secret);
+    this.matcher = undefined;
   }
 
   /**
    * Replace every occurrence of every registered secret in `text`.
    *
-   * The replacement is literal string splitting, not a regular expression:
-   * credentials come from operator configuration and routinely contain regex
-   * metacharacters, and escaping those correctly is exactly the bug a
-   * redactor cannot afford. Text with no match comes back unchanged, by
-   * reference, so hot logging paths pay nothing when there is nothing to do.
+   * The matcher escapes every credential literally and orders alternatives
+   * longest-first, so a credential containing another credential is replaced
+   * whole. Text with no match comes back unchanged.
    */
   redact(text: string): string {
     this.pruneRuntimeSecrets(Date.now());
-    let redacted = text;
-    for (const secret of this.secrets) {
-      if (!redacted.includes(secret)) continue;
-      redacted = redacted.split(secret).join(REDACTED);
-    }
+    if (this.secrets.length === 0) return text;
+    this.matcher ??= new RegExp(
+      this.secrets.map(secret => this.escapeRegExp(secret)).join('|'),
+      'g',
+    );
+    this.matcher.lastIndex = 0;
+    const redacted = this.matcher.test(text)
+      ? text.replace(this.matcher, REDACTED)
+      : text;
+    this.matcher.lastIndex = 0;
     return redacted;
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   /**

@@ -117,6 +117,8 @@ const WHOLE_ENV_VALUES = [
   'const { ["env"]: computed } = process;',
   "const { ['env']: singleQuoted } = process;",
   'const checked = process.env satisfies Record<string, string | undefined>;',
+  'Object.keys(globalThis.process.env);',
+  "Object.keys(require('node:process').env);",
 ];
 
 /** Reading the environment through a computed key. */
@@ -130,6 +132,7 @@ const COMPUTED_ENV_READS = [
 const PROCESS_MODULE_IMPORTS = [
   "import { env as environment } from 'node:process';",
   "import * as nodeProcess from 'process';",
+  "import process from 'node:process'; Object.keys(process.env);",
 ];
 
 /** Named reads the boundary exists to allow. */

@@ -163,6 +163,12 @@ const ENV_VALUE_PARENTS = [
   'ThrowStatement',
 ];
 
+/** Whole-environment member expressions that bypass a bare `process` node. */
+const ENV_ALIAS_OBJECTS = [
+  "MemberExpression[property.name='env'][computed=false][object.type='MemberExpression'][object.object.name=/^(globalThis|global)$/][object.property.name='process']",
+  "MemberExpression[property.name='env'][computed=false][object.type='CallExpression'][object.callee.name='require'][object.arguments.0.value=/^(node:)?process$/]",
+];
+
 /** Computed lookups — `process.env[name]` — in both env spellings. */
 const ENV_COMPUTED = [
   "MemberExpression[computed=true][property.type!='Literal'][object.object.name='process'][object.property.name='env']",
@@ -249,6 +255,15 @@ const contentCredentialBoundary = {
         'ImportDeclaration[source.value=/^(node:)?process$/] ImportNamespaceSpecifier',
       message: envImportMessage,
     },
+    {
+      selector:
+        'ImportDeclaration[source.value=/^(node:)?process$/] ImportDefaultSpecifier',
+      message: envImportMessage,
+    },
+    ...ENV_ALIAS_OBJECTS.map(selector => ({
+      selector,
+      message: envObjectMessage,
+    })),
   ],
 };
 
