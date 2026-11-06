@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
 import {
   catalogApiRef,
   useStarredEntities,
@@ -37,10 +38,10 @@ import {
   type ArtifactContents,
   type ContentCounts,
 } from '../../api';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { collectionsRouteRef, eeRouteRef } from '../../routes';
 import { EmptyState, StatusBadge, syncStatusIcon } from '../common';
 import type { StatusBadgeTone } from '../common';
-import { useIsSuperuser } from '@ansible/portal-plugin-sdk';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import FileCopyIcon from '@material-ui/icons/FileCopy';
@@ -197,8 +198,11 @@ function MetadataRow({
 export function EEDetailsPage(): ReactElement {
   const { ref = '' } = useParams<{ ref: string }>();
   const api = useApi(automationContentApiRef);
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const catalog = useApi(catalogApiRef);
+  const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const base = useRouteRef(eeRouteRef)();
   const collectionsBase = useRouteRef(collectionsRouteRef)();
@@ -308,7 +312,7 @@ export function EEDetailsPage(): ReactElement {
       ),
     },
   ];
-  const value = image.value;
+  const value = image.value?.ref === ref ? image.value : undefined;
   const status = syncStateLabel(
     value?.lastReconciledAt,
     value?.lastReconcileOk,
@@ -330,28 +334,39 @@ export function EEDetailsPage(): ReactElement {
   );
   const itemFqcn = params.get('item');
   const syncImage = async (): Promise<void> => {
-    if (!value || syncing) return;
+    if (!canSync || !value || syncing) return;
     setSyncing(true);
     setSyncStatus('');
     try {
-      const result = await api.syncRegistry(value.registry);
-      if (result.status === 'completed') {
-        setSyncStatus('Sync completed.');
-      } else if (result.retainedPrevious) {
+      const result = await api.syncArtifact(value.ref);
+      if (result.status === 'failed') {
         setSyncStatus(
-          'Sync failed. Previously indexed content is still shown.',
+          result.retainedPrevious
+            ? 'Sync failed. Previously indexed content is still shown.'
+            : 'Unable to sync this image.',
         );
-      } else {
-        setSyncStatus('Unable to sync this registry.');
+        return;
       }
+      if (result.ref !== value.ref) {
+        setSyncStatus(
+          'Sync completed. The latest image changed; showing the updated image.',
+        );
+        navigate(environmentHref(base, result.ref), { replace: true });
+        return;
+      }
+      setSyncStatus('Sync completed.');
       image.retry();
       contents.retry();
     } catch (error) {
-      setSyncStatus(
-        error instanceof ContentApiError && error.status === 403
-          ? 'Sync access needed for this registry.'
-          : 'Unable to sync this registry.',
-      );
+      if (error instanceof ContentApiError && error.status === 403) {
+        setSyncStatus('Sync access needed for this image.');
+      } else if (error instanceof ContentApiError && error.status === 404) {
+        setSyncStatus(
+          'Latest image not found. This repository may not have a latest tag.',
+        );
+      } else {
+        setSyncStatus('Unable to sync this image.');
+      }
     } finally {
       setSyncing(false);
     }
@@ -439,7 +454,7 @@ export function EEDetailsPage(): ReactElement {
                   >
                     Use in Controller
                   </MenuItem>
-                  {isSuperuser && (
+                  {canSync && (
                     <MenuItem
                       isDisabled={syncing}
                       onAction={() => void syncImage()}

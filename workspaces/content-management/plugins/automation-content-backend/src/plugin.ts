@@ -6,7 +6,6 @@ import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-auto
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentIndex } from './ContentIndex';
 import { createRouter } from './router';
-import { CatalogClient } from '@backstage/catalog-client';
 
 /**
  * The automation content API.
@@ -26,9 +25,6 @@ export const automationContentPlugin = createBackendPlugin({
         httpAuth: coreServices.httpAuth,
         permissions: coreServices.permissions,
         scheduler: coreServices.scheduler,
-        auth: coreServices.auth,
-        userInfo: coreServices.userInfo,
-        discovery: coreServices.discovery,
       },
       async init({
         config,
@@ -37,9 +33,6 @@ export const automationContentPlugin = createBackendPlugin({
         httpAuth,
         permissions,
         scheduler,
-        auth,
-        userInfo,
-        discovery,
       }) {
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
@@ -61,9 +54,6 @@ export const automationContentPlugin = createBackendPlugin({
             logger,
             httpAuth,
             permissions,
-            auth,
-            userInfo,
-            catalogClient: new CatalogClient({ discoveryApi: discovery }),
           }),
         );
 

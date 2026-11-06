@@ -2,11 +2,14 @@ import express from 'express';
 import { inspect } from 'node:util';
 import request from 'supertest';
 import { ContentIndex } from './ContentIndex';
+import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
+import { ArtifactSyncNotFoundError } from './ContentIndex';
 import {
-  createRouter,
-  RECONCILE_FAILURE_SUMMARY,
-  RouterOptions,
-} from './router';
+  mockCredentials,
+  mockServices,
+  mockErrorHandler,
+} from '@backstage/backend-test-utils';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 const warn = jest.fn();
@@ -20,53 +23,24 @@ const logger = {
 
 async function appWith(
   index: ContentIndex,
-  httpAuth?: unknown,
-  superuser = true,
+  httpAuth = mockServices.httpAuth(),
   allowed = true,
-  dependencies: {
-    userInfo?: Pick<RouterOptions['userInfo'], 'getUserInfo'>;
-    auth?: Pick<RouterOptions['auth'], 'getPluginRequestToken'>;
-    catalogClient?: Pick<RouterOptions['catalogClient'], 'getEntityByRef'>;
-  } = {},
+  authorize = jest
+    .fn()
+    .mockResolvedValue([
+      { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
+    ]),
 ) {
   const app = express();
   app.use(
     await createRouter({
       index,
       logger,
-      permissions: {
-        authorize: jest
-          .fn()
-          .mockResolvedValue([
-            { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
-          ]),
-      } as never,
-      userInfo: {
-        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
-        ...dependencies.userInfo,
-      } as never,
-      auth: {
-        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
-        ...dependencies.auth,
-      } as never,
-      catalogClient: {
-        getEntityByRef: async () => ({
-          metadata: {
-            annotations: { 'aap.platform/is_superuser': String(superuser) },
-          },
-        }),
-        ...dependencies.catalogClient,
-      } as never,
-      httpAuth: (httpAuth ?? {
-        // The plugin sign-in barrier is covered in plugin.test.ts; provide
-        // signed-in credentials here for the router's superuser checks.
-        credentials: () =>
-          Promise.resolve({
-            principal: { type: 'user', userEntityRef: 'user:default/test' },
-          }),
-      }) as never,
+      permissions: mockServices.permissions.mock({ authorize }),
+      httpAuth,
     }),
   );
+  app.use(mockErrorHandler());
   return app;
 }
 
@@ -85,7 +59,7 @@ it.each([
   '/plugins',
   '/plugins/cisco.ios.ios_acls',
 ])('denies reads on %s without ansible.content.view', async path => {
-  const app = await appWith(seed([]), undefined, true, false);
+  const app = await appWith(seed([]), undefined, false);
   const response = await request(app).get(path).expect(403);
   expect(response.body).toEqual({
     error: 'Forbidden: ansible.content.view permission required',
@@ -93,7 +67,7 @@ it.each([
 });
 
 it('denies resolution and validation without ansible.content.view', async () => {
-  const app = await appWith(seed([]), undefined, true, false);
+  const app = await appWith(seed([]), undefined, false);
   await request(app)
     .post('/resolve/requirements')
     .send({ collections: [] })
@@ -242,91 +216,210 @@ describe('GET /content pagination', () => {
   });
 });
 
-describe('sync authorization', () => {
-  const sensitiveMarker = 'https://user:secret-auth-marker@internal.example';
-  const fail = async (): Promise<never> => {
-    throw new Error(sensitiveMarker);
-  };
-
-  describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
-    '%s fails closed',
-    path => {
-      it.each([
-        {
-          name: 'service identity',
-          dependencies: { userInfo: { getUserInfo: fail } },
-          warns: true,
-        },
-        {
-          name: 'token failure',
-          dependencies: { auth: { getPluginRequestToken: fail } },
-          warns: true,
-        },
-        {
-          name: 'catalog failure',
-          dependencies: { catalogClient: { getEntityByRef: fail } },
-          warns: true,
-        },
-        {
-          name: 'missing entity',
-          dependencies: {
-            catalogClient: { getEntityByRef: async () => undefined },
+describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
+  'sync authorization on %s',
+  path => {
+    function syncIndex() {
+      const index = new ContentIndex(
+        [
+          {
+            name: 'reg',
+            url: 'https://registry.example',
+            auth: { type: 'anonymous' },
           },
-          warns: false,
-        },
-        {
-          name: 'missing annotation',
-          dependencies: {
-            catalogClient: {
-              getEntityByRef: async () => ({
-                apiVersion: 'backstage.io/v1alpha1',
-                kind: 'User',
-                metadata: { name: 'test' },
-              }),
-            },
-          },
-          warns: false,
-        },
-      ])(
-        'denies $name without logging sensitive details',
-        async ({ dependencies, warns }) => {
-          warn.mockClear();
-          const index = seed([]);
-          const refresh = jest.spyOn(index, 'refreshRegistry');
-          const poll = jest.spyOn(index, 'pollRegistry');
-          const app = await appWith(index, undefined, true, true, dependencies);
-          const response = await request(app).post(path).expect(403);
-          expect(response.body).toEqual({
-            error: 'Forbidden: superuser access required',
-          });
-          expect(refresh).not.toHaveBeenCalled();
-          expect(poll).not.toHaveBeenCalled();
-          expect(warn.mock.calls).toEqual(
-            warns ? [['Unable to authorize content registry sync']] : [],
-          );
-          expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
-        },
+        ],
+        logger,
       );
+      const refresh = jest
+        .spyOn(index, 'refreshRegistry')
+        .mockResolvedValue({ ok: true, discovered: 0 });
+      const poll = jest.spyOn(index, 'pollRegistry').mockResolvedValue({
+        changed: false,
+        refreshed: false,
+        details: [],
+        requests: 0,
+      });
+      return { index, refresh, poll };
+    }
+
+    it.each(['user:default/no-catalog-entity', 'user:default/guest'])(
+      'allows permitted user %s without any catalog lookup or annotation',
+      async userEntityRef => {
+        const { index, refresh, poll } = syncIndex();
+        const credentials = mockCredentials.user(userEntityRef);
+        const httpAuth = mockServices.httpAuth({
+          defaultCredentials: credentials,
+        });
+        jest.spyOn(httpAuth, 'credentials');
+        const authorize = jest
+          .fn()
+          .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]);
+        const response = await request(
+          await appWith(index, httpAuth, true, authorize),
+        ).post(path);
+        expect(response.status).toBe(
+          path === '/registries/reg/sync' ? 202 : 200,
+        );
+        expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+          allow: ['user'],
+        });
+        expect(authorize).toHaveBeenCalledWith(
+          [{ permission: automationContentSyncPermission }],
+          { credentials },
+        );
+        expect(refresh.mock.calls.length + poll.mock.calls.length).toBe(1);
+      },
+    );
+
+    it.each([
+      {
+        name: 'denied permission',
+        decisions: [{ result: AuthorizeResult.DENY }],
+        throws: false,
+      },
+      {
+        name: 'conditional permission',
+        decisions: [{ result: AuthorizeResult.CONDITIONAL }],
+        throws: false,
+      },
+      { name: 'missing decision', decisions: [], throws: false },
+      { name: 'unavailable permission service', decisions: [], throws: true },
+    ])(
+      'denies $name without privileged side effects or sensitive logging',
+      async ({ decisions, throws }) => {
+        warn.mockClear();
+        const sensitiveMarker =
+          'https://user:secret-auth-marker@internal.example';
+        const authorize = jest.fn().mockImplementation(async () => {
+          if (throws) throw new Error(sensitiveMarker);
+          return decisions;
+        });
+        const { index, refresh, poll } = syncIndex();
+        const response = await request(
+          await appWith(index, undefined, true, authorize),
+        )
+          .post(path)
+          .expect(403);
+        expect(response.body).toEqual({
+          error: 'Forbidden: ansible.content.sync permission required',
+        });
+        expect(refresh).not.toHaveBeenCalled();
+        expect(poll).not.toHaveBeenCalled();
+        expect(warn.mock.calls).toEqual(
+          throws ? [['Unable to authorize content registry sync']] : [],
+        );
+        expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
+        expect(inspect(response.body)).not.toContain(sensitiveMarker);
+      },
+    );
+
+    it.each([
+      { name: 'service', credentials: mockCredentials.service(), status: 403 },
+      { name: 'anonymous', credentials: mockCredentials.none(), status: 401 },
+    ])(
+      'rejects $name credentials before permission evaluation',
+      async ({ credentials, status }) => {
+        const { index, refresh, poll } = syncIndex();
+        const httpAuth = mockServices.httpAuth({
+          defaultCredentials: credentials,
+        });
+        jest.spyOn(httpAuth, 'credentials');
+        const authorize = jest
+          .fn()
+          .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]);
+        const response = await request(
+          await appWith(index, httpAuth, true, authorize),
+        ).post(path);
+        expect(response.status).toBe(status);
+        expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+          allow: ['user'],
+        });
+        expect(authorize).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
+        expect(poll).not.toHaveBeenCalled();
+      },
+    );
+  },
+);
+
+describe('POST /artifacts/:ref/sync', () => {
+  const ref = 'reg/team/repo@sha256:abc';
+  const path = `/artifacts/${encodeURIComponent(ref)}/sync`;
+
+  it.each(['completed', 'failed'] as const)(
+    'returns the typed %s outcome with 202 and decodes the row ref',
+    async status => {
+      const index = seed([]);
+      const result = {
+        status,
+        ref: status === 'completed' ? 'reg/team/repo@sha256:new' : ref,
+        tag: 'latest' as const,
+        retainedPrevious: status === 'failed',
+      };
+      const sync = jest.spyOn(index, 'syncArtifact').mockResolvedValue(result);
+      const refresh = jest.spyOn(index, 'refreshRegistry');
+      const response = await request(await appWith(index))
+        .post(path)
+        .expect(202);
+      expect(response.body).toEqual(result);
+      expect(sync).toHaveBeenCalledWith(ref);
+      expect(refresh).not.toHaveBeenCalled();
     },
   );
 
-  it.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
-    'denies non-superusers on %s',
-    async path => {
+  it.each(['ARTIFACT_NOT_FOUND', 'LATEST_TAG_NOT_FOUND'] as const)(
+    'returns safe 404 code %s',
+    async code => {
       const index = seed([]);
+      jest
+        .spyOn(index, 'syncArtifact')
+        .mockRejectedValue(new ArtifactSyncNotFoundError(code));
+      const response = await request(await appWith(index))
+        .post(path)
+        .expect(404);
+      expect(response.body.code).toBe(code);
+    },
+  );
+
+  it.each([
+    {
+      name: 'denied user',
+      credentials: mockCredentials.user(),
+      allowed: false,
+      status: 403,
+    },
+    {
+      name: 'service principal',
+      credentials: mockCredentials.service(),
+      allowed: true,
+      status: 403,
+    },
+    {
+      name: 'anonymous',
+      credentials: mockCredentials.none(),
+      allowed: true,
+      status: 401,
+    },
+  ])(
+    'rejects $name without index mutation',
+    async ({ credentials, allowed, status }) => {
+      const index = seed([]);
+      const sync = jest.spyOn(index, 'syncArtifact');
       const refresh = jest.spyOn(index, 'refreshRegistry');
       const poll = jest.spyOn(index, 'pollRegistry');
-      const app = await appWith(index, undefined, false);
-      await request(app).post(path).expect(403);
+      const response = await request(
+        await appWith(
+          index,
+          mockServices.httpAuth({ defaultCredentials: credentials }),
+          allowed,
+        ),
+      ).post(path);
+      expect(response.status).toBe(status);
+      expect(sync).not.toHaveBeenCalled();
       expect(refresh).not.toHaveBeenCalled();
       expect(poll).not.toHaveBeenCalled();
     },
   );
-
-  it('allows superusers to sync', async () => {
-    const app = await appWith(seed([]));
-    await request(app).post('/sync').expect(200);
-  });
 });
 
 describe('documentation field normalisation', () => {

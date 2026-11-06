@@ -8,10 +8,12 @@ import {
   CapabilityProbe,
   DigestCacheStats,
   ImageManifest,
+  ImageConfig,
   MemoryDigestCache,
   logSafeText,
   OCIClient,
   RegistryConnection,
+  RegistryError,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
 } from '@ansible/automation-content-common';
@@ -89,6 +91,26 @@ export interface ReconcileState {
   ok: boolean;
   error?: string;
   artifacts: number;
+}
+
+/** Outcome of reconciling only one indexed row's repository latest tag. */
+export interface ArtifactSyncResult {
+  status: 'completed' | 'failed';
+  ref: string;
+  tag: 'latest';
+  retainedPrevious: boolean;
+  lastReconciledAt?: string;
+  error?: string;
+}
+
+export class ArtifactSyncNotFoundError extends Error {
+  constructor(readonly code: 'ARTIFACT_NOT_FOUND' | 'LATEST_TAG_NOT_FOUND') {
+    super(
+      code === 'LATEST_TAG_NOT_FOUND'
+        ? 'Latest tag not found.'
+        : 'Indexed artifact not found.',
+    );
+  }
 }
 
 /** Referrer fallback tags address artifacts about an image, not images. */
@@ -170,6 +192,7 @@ export class ContentIndex {
   private items = new Map<string, IndexedItem>();
   private lastRefreshed?: string;
   private readonly reconcile = new Map<string, ReconcileState>();
+  private readonly artifactReconcile = new Map<string, ReconcileState>();
   private readonly drift = new Map<string, DriftState>();
   /**
    * Shared across every registry client. Digest-addressed content is immutable, so a
@@ -239,6 +262,136 @@ export class ContentIndex {
 
   reconcileStateFor(registry: string): ReconcileState | undefined {
     return this.reconcile.get(registry);
+  }
+
+  /** A partial read never advances sibling rows or registry freshness. */
+  reconcileStateForArtifact(ref: string): ReconcileState | undefined {
+    const artifact = this.getArtifact(ref);
+    if (!artifact) return undefined;
+    const full = this.reconcile.get(artifact.registry);
+    const partial = this.artifactReconcile.get(ref);
+    return partial && (!full || partial.at >= full.at) ? partial : full;
+  }
+
+  /** Resolve only latest for an indexed row; never enumerate repositories or tags. */
+  async syncArtifact(ref: string): Promise<ArtifactSyncResult> {
+    const original = this.getArtifact(ref);
+    const state = original && this.registries.get(original.registry);
+    const client = original && this.clients.get(original.registry);
+    const repository = original?.repository;
+    const connection = state?.connection;
+    const inScope =
+      connection &&
+      repository &&
+      (connection.repositories?.length
+        ? connection.repositories.includes(repository)
+        : !connection.namespaces?.length ||
+          connection.namespaces.some(ns => repository.startsWith(`${ns}/`)));
+    if (!original || !client || !inScope)
+      throw new ArtifactSyncNotFoundError('ARTIFACT_NOT_FOUND');
+
+    try {
+      // Mutable tag lookups are never digest-cached by OCIClient.
+      let latest: ResolvedArtifact;
+      try {
+        latest = await client.getManifest(original.repository, 'latest');
+      } catch (error) {
+        if (error instanceof RegistryError && error.status === 404)
+          throw new ArtifactSyncNotFoundError('LATEST_TAG_NOT_FOUND');
+        throw error;
+      }
+      const manifest = latest.manifest;
+      if (
+        !latest.digest ||
+        !manifest ||
+        manifest.schemaVersion !== 2 ||
+        (!('manifests' in manifest && Array.isArray(manifest.manifests)) &&
+          !(
+            'config' in manifest &&
+            manifest.config?.digest &&
+            Array.isArray(manifest.layers)
+          ))
+      ) {
+        throw new Error('Latest manifest is invalid');
+      }
+      let config: ImageConfig | undefined;
+      if ('config' in manifest) {
+        config = await client.getConfigBlob(
+          original.repository,
+          manifest.config,
+        );
+        if (
+          !config ||
+          typeof config !== 'object' ||
+          Array.isArray(config) ||
+          (config.config !== undefined &&
+            (!config.config ||
+              typeof config.config !== 'object' ||
+              Array.isArray(config.config)))
+        ) {
+          throw new Error('Image config could not be read');
+        }
+      }
+      const target = await this.inspect(
+        original.registry,
+        original.repository,
+        latest.digest,
+        ['latest'],
+        client,
+        { artifact: latest, config },
+      );
+      const existing = this.getArtifact(target.ref);
+      target.tags = [...new Set([...(existing?.tags ?? []), 'latest'])];
+      if (!target.manifest && existing?.manifest) {
+        target.manifest = existing.manifest;
+        target.contentsKnown = existing.contentsKnown;
+      }
+      // Commit after core reads succeed, using current rows rather than a
+      // pre-await snapshot. Older digests keep their data and non-latest aliases.
+      this.artifacts = this.artifacts.flatMap(artifact => {
+        if (artifact.ref === target.ref) return [];
+        if (
+          artifact.registry !== original.registry ||
+          artifact.repository !== original.repository ||
+          !artifact.tags.includes('latest')
+        )
+          return [artifact];
+        const tags = artifact.tags.filter(tag => tag !== 'latest');
+        return tags.length ? [{ ...artifact, tags }] : [];
+      });
+      this.artifacts.push(target);
+      for (const knownRef of this.artifactReconcile.keys()) {
+        if (!this.getArtifact(knownRef))
+          this.artifactReconcile.delete(knownRef);
+      }
+      this.rebuildItemIndex();
+      const at = new Date().toISOString();
+      this.artifactReconcile.set(target.ref, { at, ok: true, artifacts: 1 });
+      return {
+        status: 'completed',
+        ref: target.ref,
+        tag: 'latest',
+        retainedPrevious: false,
+        lastReconciledAt: at,
+      };
+    } catch (error) {
+      const at = new Date().toISOString();
+      this.artifactReconcile.set(ref, { at, ok: false, artifacts: 1 });
+      if (error instanceof ArtifactSyncNotFoundError) throw error;
+      this.logger.warn(
+        `[${original.registry}] artifact sync failed: ${logSafeText(
+          errorText(error),
+        )}`,
+      );
+      return {
+        status: 'failed',
+        ref,
+        tag: 'latest',
+        retainedPrevious: true,
+        lastReconciledAt: at,
+        error: 'Artifact reconciliation failed.',
+      };
+    }
   }
 
   driftStateFor(registry: string): DriftState | undefined {
@@ -417,6 +570,12 @@ export class ContentIndex {
   ): Promise<{ discovered: number; ok: boolean; error?: string }> {
     const outcome = await this.discoverRegistry(name);
     const at = new Date().toISOString();
+    // A later full attempt supersedes row attempts, including same-millisecond
+    // timestamps; partial attempts after this point may advance only their row.
+    for (const artifact of this.artifacts) {
+      if (artifact.registry === name)
+        this.artifactReconcile.delete(artifact.ref);
+    }
 
     if (!outcome.ok) {
       const retained = this.artifacts.filter(a => a.registry === name).length;
@@ -612,6 +771,7 @@ export class ContentIndex {
     digest: string,
     tags: string[],
     client: OCIClient,
+    verified?: { artifact: ResolvedArtifact; config?: ImageConfig },
   ): Promise<IndexedArtifact> {
     const base = {
       ref: `${registry}/${repository}@${digest}`,
@@ -635,10 +795,13 @@ export class ContentIndex {
     let labels: Record<string, string> | undefined;
     let resolved: ResolvedArtifact | undefined;
     try {
-      resolved = await client.getManifest(repository, digest);
+      resolved =
+        verified?.artifact ?? (await client.getManifest(repository, digest));
       const config = (resolved.manifest as ImageManifest).config;
       if (config) {
-        const blob = await client.getConfigBlob(repository, config);
+        const blob = verified
+          ? verified.config
+          : await client.getConfigBlob(repository, config);
         labels = blob?.config?.Labels;
       }
     } catch (error) {

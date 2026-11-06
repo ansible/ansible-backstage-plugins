@@ -1,15 +1,22 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
-import { useIsSuperuser, useNotifications } from '@ansible/portal-plugin-sdk';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { useNotifications } from '@ansible/portal-plugin-sdk';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { automationContentApiRef } from '../../api';
 import { RegistrySyncButton } from './RegistrySyncButton';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(),
+}));
+
 jest.mock('@ansible/portal-plugin-sdk', () => ({
-  useIsSuperuser: jest.fn(),
   useNotifications: jest.fn(),
 }));
 
+const mockUsePermission = jest.mocked(usePermission);
 const syncAll = jest.fn();
 const showNotification = jest.fn();
 const onStatus = jest.fn();
@@ -25,17 +32,28 @@ function renderButton() {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (useIsSuperuser as jest.Mock).mockReturnValue({ isSuperuser: true });
+  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
   (useNotifications as jest.Mock).mockReturnValue({ showNotification });
   syncAll.mockResolvedValue({
     registries: [{ registry: 'primary', ok: true, discovered: 3 }],
   });
 });
 
-it('hides sync from non-superusers', () => {
-  (useIsSuperuser as jest.Mock).mockReturnValue({ isSuperuser: false });
+it('hides sync and makes no API call when permission is denied', () => {
+  mockUsePermission.mockReturnValue({ allowed: false, loading: false });
   renderButton();
   expect(screen.queryByRole('button', { name: 'Sync' })).toBeNull();
+  expect(mockUsePermission).toHaveBeenCalledWith({
+    permission: automationContentSyncPermission,
+  });
+  expect(syncAll).not.toHaveBeenCalled();
+});
+
+it('keeps sync hidden while permission is loading', () => {
+  mockUsePermission.mockReturnValue({ allowed: false, loading: true });
+  renderButton();
+  expect(screen.queryByRole('button', { name: 'Sync' })).toBeNull();
+  expect(syncAll).not.toHaveBeenCalled();
 });
 
 it('syncs all registries and reports progress and per-registry results', async () => {

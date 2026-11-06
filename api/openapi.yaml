@@ -2869,9 +2869,9 @@ paths:
       summary: Trigger discovery for all configured registries
       description: |
         Deliberate manual discovery for all registries, behind the platform's
-        sign-in barrier: anonymous callers are turned away before any discovery
-        starts, and every response carries the detailed failure cause. Detailed
-        diagnostics are also written to backend logs.
+        sign-in barrier. Requires a user identity and ansible.content.sync;
+        anonymous and service-only callers cannot start discovery. Responses
+        carry detailed failure causes, which are also written to backend logs.
       responses:
         '401':
           description: Authentication required
@@ -2899,7 +2899,9 @@ paths:
       security:
         - JWT: []
       summary: Poll one registry for changes detected by digest comparison
-      description: For registries that cannot push change events; drift is detected by comparing digests.
+      description: |
+        For registries that cannot push change events; drift is detected by
+        comparing digests. Requires a user identity and ansible.content.sync.
       parameters:
         - name: name
           in: path
@@ -2926,7 +2928,9 @@ paths:
       security:
         - JWT: []
       summary: Trigger discovery for one registry
-      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      description: |
+        Deliberate manual discovery requiring a user identity and
+        ansible.content.sync. Anonymous and service-only callers cannot sync.
       parameters:
         - name: name
           in: path
@@ -3092,6 +3096,58 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
+
+  /artifacts/{ref}/sync:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: syncArtifact
+      tags: [Automation Content Registries]
+      security:
+        - JWT: []
+      summary: Sync the latest image for one indexed artifact's repository
+      description: |
+        Requires a user identity and ansible.content.sync. The indexed reference
+        identifies the configured registry and repository. Only its current
+        latest tag is resolved and inspected; other repositories and sibling
+        image contents are not scanned. Registry-wide freshness is unchanged.
+        A moved latest tag returns its new digest reference. Core manifest/config
+        failures retain the previous indexed content. Optional inventory can be
+        unknown; a missing latest tag is reported explicitly.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          description: URL-encoded indexed artifact reference.
+          schema: { type: string }
+      responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: User credentials and ansible.content.sync are required.
+        '404':
+          description: The indexed artifact or its repository's latest tag was not found.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '202':
+          description: Targeted reconciliation completed or failed, as indicated by status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, ref, tag, retainedPrevious]
+                properties:
+                  status: { type: string, enum: [completed, failed] }
+                  ref:
+                    type: string
+                    description: Resolved latest digest reference on success; original reference on failure.
+                  tag: { type: string, enum: [latest] }
+                  retainedPrevious: { type: boolean }
+                  lastReconciledAt: { type: string, format: date-time }
+                  error:
+                    type: string
+                    description: Failure detail for the authenticated caller; UI messages use fixed copy.
 
   /execution-environments:
     servers:

@@ -1,28 +1,34 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
 import userEvent from '@testing-library/user-event';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import {
   automationContentApiRef,
+  type ArtifactSyncResult,
   ContentApiError,
   type ArtifactContents,
   type AutomationContentApi,
   type Enumeration,
   type ExecutionEnvironment,
-  type RegistrySyncResult,
 } from '../../api';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 import detailStyles from './details.module.css';
 import { EEDetailsPage } from './EEDetailsPage';
 
-const superuserState = { isSuperuser: true };
-
-jest.mock('@ansible/portal-plugin-sdk', () => ({
-  ...jest.requireActual('@ansible/portal-plugin-sdk'),
-  useIsSuperuser: () => superuserState,
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(),
 }));
+
+const mockUsePermission = jest.mocked(usePermission);
+
+beforeEach(() => {
+  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
+});
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),
@@ -65,18 +71,23 @@ const image: ExecutionEnvironment = {
 function renderSyncDetails(
   initialContents: ArtifactContents,
   refreshedContents: ArtifactContents,
-  reconcile: () => Promise<RegistrySyncResult>,
+  reconcile: () => Promise<ArtifactSyncResult>,
 ) {
   let reconciled = false;
+  let latestRef = image.ref;
   const getContents = jest.fn(
     async (_ref: string): Promise<ArtifactContents> =>
       reconciled ? refreshedContents : initialContents,
   );
   const getExecutionEnvironment = jest.fn(
-    async (_ref: string): Promise<ExecutionEnvironment> => {
+    async (requestedRef: string): Promise<ExecutionEnvironment> => {
+      if (requestedRef !== image.ref && requestedRef !== latestRef) {
+        throw new ContentApiError(404, 'Not found');
+      }
       const inventory = reconciled ? refreshedContents : initialContents;
       return {
         ...image,
+        ref: requestedRef,
         contentsKnown: inventory.enumeration.status !== 'unknown',
         enumeration: inventory.enumeration,
         counts: { collections: inventory.collections.length },
@@ -84,18 +95,21 @@ function renderSyncDetails(
       };
     },
   );
-  const syncRegistry = jest.fn(async (_registry: string) => {
+  const syncArtifact = jest.fn(async (_ref: string) => {
     const result = await reconcile();
-    reconciled = true;
+    if (result.status === 'completed') {
+      reconciled = true;
+      latestRef = result.ref;
+    }
     return result;
   });
   const api = {
     getExecutionEnvironment,
     getContents,
-    syncRegistry,
+    syncArtifact,
   } satisfies Pick<
     AutomationContentApi,
-    'getExecutionEnvironment' | 'getContents' | 'syncRegistry'
+    'getExecutionEnvironment' | 'getContents' | 'syncArtifact'
   >;
   render(
     <TestApiProvider
@@ -105,15 +119,28 @@ function renderSyncDetails(
       ]}
     >
       <MemoryRouter
-        initialEntries={[`/${encodeURIComponent(image.ref)}?tab=collections`]}
+        initialEntries={[
+          `/content/${encodeURIComponent(image.ref)}?tab=collections`,
+        ]}
       >
         <Routes>
-          <Route path=":ref" element={<EEDetailsPage />} />
+          <Route path="/content/:ref" element={<EEDetailsPage />} />
         </Routes>
+        <CurrentLocation />
       </MemoryRouter>
     </TestApiProvider>,
   );
-  return { getContents, getExecutionEnvironment, syncRegistry };
+  return { getContents, getExecutionEnvironment, syncArtifact };
+}
+
+function CurrentLocation() {
+  const location = useLocation();
+  return (
+    <output data-testid="current-location">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
 }
 
 const syncedContents: ArtifactContents = {
@@ -130,10 +157,14 @@ const syncedContents: ArtifactContents = {
   items: [],
 };
 
-it('hides the details Sync action from non-superusers', async () => {
-  superuserState.isSuperuser = false;
-  try {
-    renderSyncDetails(
+it.each([
+  ['denied', { allowed: false, loading: false }],
+  ['loading', { allowed: false, loading: true }],
+] as const)(
+  'hides the details Sync action and makes no API call while permission is %s',
+  async (_state, permission) => {
+    mockUsePermission.mockReturnValue(permission);
+    const { syncArtifact } = renderSyncDetails(
       {
         enumeration: { status: 'unknown', source: 'external-introspection' },
         collections: [],
@@ -142,7 +173,8 @@ it('hides the details Sync action from non-superusers', async () => {
       syncedContents,
       async () => ({
         status: 'completed',
-        discovered: 0,
+        ref: image.ref,
+        tag: 'latest',
         retainedPrevious: false,
       }),
     );
@@ -151,10 +183,12 @@ it('hides the details Sync action from non-superusers', async () => {
       screen.getByRole('button', { name: 'Actions for repo' }),
     );
     expect(screen.queryByRole('menuitem', { name: 'Sync' })).toBeNull();
-  } finally {
-    superuserState.isSuperuser = true;
-  }
-});
+    expect(syncArtifact).not.toHaveBeenCalled();
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: automationContentSyncPermission,
+    });
+  },
+);
 
 it.each(['unknown', 'populated'] as const)(
   'refreshes metadata and collections after syncing an initially %s inventory',
@@ -180,7 +214,8 @@ it.each(['unknown', 'populated'] as const)(
       syncedContents,
       async () => ({
         status: 'completed',
-        discovered: 1,
+        ref: image.ref,
+        tag: 'latest',
         retainedPrevious: false,
       }),
     );
@@ -201,15 +236,47 @@ it.each(['unknown', 'populated'] as const)(
       expect(api.getExecutionEnvironment).toHaveBeenCalledTimes(2);
     });
     expect(api.getContents).toHaveBeenLastCalledWith(image.ref);
-    expect(api.syncRegistry).toHaveBeenCalledWith(image.registry);
+    expect(api.syncArtifact).toHaveBeenCalledWith(image.ref);
     expect(screen.queryByText('1.0.0')).toBeNull();
   },
 );
 
-it('reports a resolved failed sync and refreshes the retained inventory without exposing backend errors', async () => {
+it('opens the new latest image overview when sync changes the artifact digest', async () => {
+  const latestRef = 'registry/repo@sha256:two';
+  const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
+    status: 'completed',
+    ref: latestRef,
+    tag: 'latest',
+    retainedPrevious: false,
+  }));
+  await screen.findByRole('link', { name: 'ansible.posix' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+
+  expect(
+    await screen.findByText(
+      'Sync completed. The latest image changed; showing the updated image.',
+    ),
+  ).toBeTruthy();
+  expect(screen.getByTestId('current-location').textContent).toBe(
+    `/content/${encodeURIComponent(latestRef)}`,
+  );
+  expect(
+    screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected'),
+  ).toBe('true');
+  expect(api.syncArtifact).toHaveBeenCalledWith(image.ref);
+  await waitFor(() =>
+    expect(api.getExecutionEnvironment).toHaveBeenLastCalledWith(latestRef),
+  );
+});
+
+it('keeps the current detail after a failed latest image sync without exposing backend errors', async () => {
   const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
     status: 'failed',
-    discovered: 1,
+    ref: image.ref,
+    tag: 'latest',
     retainedPrevious: true,
     error: 'https://user:secret@registry.invalid',
   }));
@@ -223,7 +290,10 @@ it('reports a resolved failed sync and refreshes the retained inventory without 
       'Sync failed. Previously indexed content is still shown.',
     ),
   ).toBeTruthy();
-  await waitFor(() => expect(api.getContents).toHaveBeenCalledTimes(2));
+  expect(api.getContents).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId('current-location').textContent).toBe(
+    `/content/${encodeURIComponent(image.ref)}?tab=collections`,
+  );
   expect(
     await screen.findByRole('link', { name: 'ansible.posix' }),
   ).toBeTruthy();
@@ -233,8 +303,9 @@ it('reports a resolved failed sync and refreshes the retained inventory without 
 });
 
 it.each([
-  [403, 'Sync access needed for this registry.'],
-  [500, 'Unable to sync this registry.'],
+  [403, 'Sync access needed for this image.'],
+  [404, 'Latest image not found. This repository may not have a latest tag.'],
+  [500, 'Unable to sync this image.'],
 ] as const)(
   'keeps HTTP %s feedback separate from a completed sync',
   async (status, copy) => {
@@ -247,6 +318,9 @@ it.each([
     );
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
     expect(await screen.findByText(copy)).toBeTruthy();
+    expect(screen.getByTestId('current-location').textContent).toBe(
+      `/content/${encodeURIComponent(image.ref)}?tab=collections`,
+    );
     expect(api.getContents).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('Sync completed.')).toBeNull();
     expect(screen.queryByText(/secret/)).toBeNull();

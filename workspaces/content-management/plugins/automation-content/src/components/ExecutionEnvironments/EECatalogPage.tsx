@@ -8,14 +8,15 @@ import {
 import SyncIcon from '@material-ui/icons/Sync';
 import { Box, Button, Flex, Tab, TabList, TabPanel, Tabs } from '@backstage/ui';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 import { useNativeCatalogTabs } from '@ansible/portal-extension-host/alpha';
 import {
   NotificationProvider,
   NotificationStack,
   useNotifications,
-  useIsSuperuser,
 } from '@ansible/portal-plugin-sdk';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { ImageSyncDialog } from './catalog/ImageSyncDialog';
 import { RegistrySyncButton } from './RegistrySyncButton';
 import { useRouteRef } from '@backstage/core-plugin-api';
@@ -90,7 +91,9 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
       ? requestedTab
       : view;
   const { notifications, removeNotification } = useNotifications();
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState('');
   const [syncVersion, setSyncVersion] = useState(0);
@@ -129,7 +132,7 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
                     onSynced={() => setSyncVersion(version => version + 1)}
                   />
                 )}
-                {view !== 'images' && isSuperuser && (
+                {view !== 'images' && canSync && (
                   <Flex align="center" gap="2">
                     <Button
                       variant="secondary"
