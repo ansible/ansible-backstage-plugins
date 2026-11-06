@@ -341,57 +341,48 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
-  it('summarises capability-probe causes before serving /registries', async () => {
-    const index = indexWithFailedReconcile();
-    const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-    ).clients;
-    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+  it.each([
+    ['flat message', () => new Error('TLS failure at secret-host.internal')],
+    [
+      'cause chain',
       () =>
-        Promise.reject(
-          new Error('fetch failed', {
-            cause: new Error('DNS lookup failed for secret-host.internal'),
-          }),
-        );
+        new Error('fetch failed', {
+          cause: new Error('DNS lookup failed for secret-host.internal'),
+        }),
+    ],
+  ])(
+    'records and summarises a capability-probe failure from a clean index (%s)',
+    async (_shape, makeError) => {
+      const connection = {
+        name: 'probe-failure',
+        url: 'https://registry.corp.example.com',
+        auth: { type: 'anonymous' },
+      };
+      const index = new ContentIndex([connection as never], {
+        info: () => {},
+        warn: () => {},
+        debug: () => {},
+      });
+      const clients = (
+        index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+      ).clients;
+      (
+        clients.get('probe-failure') as unknown as { fetchImpl: unknown }
+      ).fetchImpl = () => Promise.reject(makeError());
 
-    await index.refreshRegistry('corporate');
-    const res = await request(await appWith(index)).get('/registries');
+      const outcome = await index.refreshRegistry('probe-failure');
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).toContain('secret-host.internal');
 
-    expect(res.status).toBe(200);
-    expect(JSON.stringify(res.body)).not.toContain('secret-host.internal');
-    expect(res.body.items[0].lastReconcileError).toBe(
-      RECONCILE_FAILURE_SUMMARY,
-    );
-  });
+      const res = await request(await appWith(index)).get('/registries');
 
-  it('summarises capability-probe failures before serving /registries', async () => {
-    const connection = {
-      name: 'probe-failure',
-      url: 'https://registry.corp.example.com',
-      auth: { type: 'anonymous' },
-    };
-    const index = new ContentIndex([connection as never], {
-      info: () => {},
-      warn: () => {},
-      debug: () => {},
-    });
-    const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-    ).clients;
-    (
-      clients.get('probe-failure') as unknown as { fetchImpl: unknown }
-    ).fetchImpl = () =>
-      Promise.reject(new Error('TLS failure at secret-host.internal'));
-
-    await index.refreshRegistry('probe-failure');
-    const res = await request(await appWith(index)).get('/registries');
-
-    expect(res.status).toBe(200);
-    expect(JSON.stringify(res.body)).not.toContain('secret-host.internal');
-    expect(res.body.items[0].lastReconcileError).toBe(
-      RECONCILE_FAILURE_SUMMARY,
-    );
-  });
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toContain('secret-host.internal');
+      expect(res.body.items[0].lastReconcileError).toBe(
+        RECONCILE_FAILURE_SUMMARY,
+      );
+    },
+  );
 
   it('keeps the detailed cause on the per-registry sync response', async () => {
     const index = indexWithFailedReconcile();
