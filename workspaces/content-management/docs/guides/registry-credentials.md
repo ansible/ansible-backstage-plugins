@@ -99,7 +99,7 @@ Create an `Opaque` Secret in the same namespace as the portal workload:
 
 Create the password file without a trailing newline:
 
-```shell
+```bash
 IFS= read -r -s CONTENT_REGISTRY_PASSWORD
 printf '%s' "$CONTENT_REGISTRY_PASSWORD" > /path/to/protected/registry-password
 ```
