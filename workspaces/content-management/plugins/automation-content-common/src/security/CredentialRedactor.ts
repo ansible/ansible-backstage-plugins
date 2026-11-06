@@ -33,6 +33,9 @@ const RUNTIME_SECRET_GRACE_MS = 60 * 60 * 1000;
 /** Prevent a registry-provided lifetime from disabling expiry pruning. */
 export const MAX_RUNTIME_SECRET_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** Fixed prefix size used to narrow literal secret candidates while scanning. */
+const SECRET_PREFIX_LENGTH = 8;
+
 /** Match the per-client OCI token-cache capacity. */
 const MAX_RUNTIME_SECRETS_PER_OWNER = 1_000;
 
@@ -58,8 +61,8 @@ export class CredentialRedactor {
   /** O(1) membership index; the array remains sorted for redaction order. */
   private readonly secretIndex = new Set<string>();
 
-  /** Cached literal matcher; invalidated whenever the secret set changes. */
-  private matcher?: RegExp;
+  /** Prefix index for the single-pass literal redaction scanner. */
+  private readonly secretBuckets = new Map<string, string[]>();
 
   /** Secrets supplied by configuration and therefore retained for process life. */
   private readonly persistentSecrets = new Set<string>();
@@ -128,7 +131,10 @@ export class CredentialRedactor {
   private insertSecret(value: string): void {
     if (this.secretIndex.has(value)) return;
     this.secretIndex.add(value);
-    this.matcher = undefined;
+    const prefix = value.slice(0, SECRET_PREFIX_LENGTH);
+    const bucket = this.secretBuckets.get(prefix) ?? [];
+    bucket.push(value);
+    this.secretBuckets.set(prefix, bucket);
 
     let low = 0;
     let high = this.secrets.length;
@@ -184,33 +190,61 @@ export class CredentialRedactor {
     const index = this.secrets.indexOf(secret);
     if (index >= 0) this.secrets.splice(index, 1);
     this.secretIndex.delete(secret);
-    this.matcher = undefined;
+    const prefix = secret.slice(0, SECRET_PREFIX_LENGTH);
+    const bucket = this.secretBuckets.get(prefix);
+    if (bucket) {
+      const bucketIndex = bucket.indexOf(secret);
+      if (bucketIndex >= 0) bucket.splice(bucketIndex, 1);
+      if (bucket.length === 0) this.secretBuckets.delete(prefix);
+    }
   }
 
   /**
    * Replace every occurrence of every registered secret in `text`.
    *
-   * The matcher escapes every credential literally and orders alternatives
-   * longest-first, so a credential containing another credential is replaced
-   * whole. Text with no match comes back unchanged.
+   * A prefix index narrows candidates while scanning the text once. The
+   * longest matching candidate wins, so a credential containing another
+   * credential is replaced whole. Text with no match comes back unchanged.
    */
   redact(text: string): string {
     this.pruneRuntimeSecrets(Date.now());
-    if (this.secrets.length === 0) return text;
-    this.matcher ??= new RegExp(
-      this.secrets.map(secret => this.escapeRegExp(secret)).join('|'),
-      'g',
-    );
-    this.matcher.lastIndex = 0;
-    const redacted = this.matcher.test(text)
-      ? text.replace(this.matcher, REDACTED)
-      : text;
-    this.matcher.lastIndex = 0;
-    return redacted;
+    if (this.secretBuckets.size === 0) return text;
+
+    let result: string | undefined;
+    let lastCopied = 0;
+    let index = 0;
+    while (index < text.length) {
+      const match = this.secretAt(text, index);
+      if (!match) {
+        index += 1;
+        continue;
+      }
+      result ??= '';
+      result += text.slice(lastCopied, index) + REDACTED;
+      index += match.length;
+      lastCopied = index;
+    }
+    return result === undefined ? text : result + text.slice(lastCopied);
   }
 
-  private escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  private secretAt(text: string, index: number): string | undefined {
+    let best: string | undefined;
+    const maxPrefix = Math.min(SECRET_PREFIX_LENGTH, text.length - index);
+    for (let prefixLength = 2; prefixLength <= maxPrefix; prefixLength++) {
+      const bucket = this.secretBuckets.get(
+        text.slice(index, index + prefixLength),
+      );
+      if (!bucket) continue;
+      for (const secret of bucket) {
+        if (
+          (!best || secret.length > best.length) &&
+          text.startsWith(secret, index)
+        ) {
+          best = secret;
+        }
+      }
+    }
+    return best;
   }
 
   /**

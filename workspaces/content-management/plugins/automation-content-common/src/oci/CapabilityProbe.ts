@@ -46,7 +46,7 @@ export class CapabilityProbe {
     private readonly client: OCIClient,
     private readonly options: ProbeOptions = {},
   ) {
-    this.redactor = options.redactor ?? new CredentialRedactor();
+    this.redactor = options.redactor ?? client.credentialRedactor;
     const injected = options.logger;
     this.logger = injected
       ? {

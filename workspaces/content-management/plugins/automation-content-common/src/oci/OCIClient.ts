@@ -275,6 +275,10 @@ export class OCIClient {
     return this.connection.name;
   }
 
+  get credentialRedactor(): CredentialRedactor {
+    return this.redactor;
+  }
+
   private get base(): string {
     // Trim trailing slashes without a regex — the URL is configuration data, and
     // `replace(/\/+$/, '')` is a polynomial-time pattern on hostile input.

@@ -896,6 +896,13 @@ async function handle(registry, req, res) {
     } catch {
       return sendJson(res, 400, { error: 'invalid JSON' });
     }
+    if (
+      parsed === null ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed)
+    ) {
+      return sendJson(res, 400, { error: 'JSON object required' });
+    }
     const target = registries.find(r => r.name === parsed.registry);
     if (!target) {
       return sendJson(res, 404, {
@@ -945,7 +952,15 @@ for (const registry of registries) {
   const server = http.createServer((req, res) => {
     logLine(registry, req, res);
     handle(registry, req, res).catch(error => {
-      console.error(redactFixtureLog(`${registry.name} handler error`));
+      console.error(
+        redactFixtureLog(
+          `${registry.name} handler error: ${
+            error instanceof Error
+              ? (error.stack ?? error.message)
+              : String(error)
+          }`,
+        ),
+      );
       if (!res.headersSent)
         sendJson(res, 500, { errors: [{ code: 'INTERNAL' }] });
     });
