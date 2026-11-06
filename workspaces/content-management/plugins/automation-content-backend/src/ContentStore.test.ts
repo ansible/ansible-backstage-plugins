@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
   MockRegistry,
@@ -6,9 +10,52 @@ import {
   makeImage,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
-import { ContentIndex } from './ContentIndex';
+import { ContentStore } from './ContentStore';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
+
+async function createTestDB() {
+  const db = knexFactory({
+    client: 'better-sqlite3',
+    connection: { filename: ':memory:' },
+    useNullAsDefault: true,
+  });
+  await db.schema.createTable('artifacts', table => {
+    table.string('ref').primary();
+    table.string('type').notNullable();
+    table.string('registry').notNullable().index();
+    table.string('repository').notNullable();
+    table.string('digest').notNullable();
+    table.text('tags').notNullable().defaultTo('[]');
+    table.string('pull_reference').notNullable();
+    table.boolean('contents_known').notNullable().defaultTo(false);
+    table.text('classification').notNullable().defaultTo('{}');
+    table.text('manifest');
+    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+  });
+  await db.schema.createTable('items', table => {
+    table.string('key').primary();
+    table.string('fqcn').notNullable().index();
+    table.string('name').notNullable();
+    table.string('type').notNullable();
+    table.string('collection').notNullable();
+    table.string('collection_version').notNullable();
+    table.string('short_description');
+    table.string('version_added');
+    table.boolean('deprecated').notNullable().defaultTo(false);
+    table
+      .string('artifact_ref')
+      .notNullable()
+      .references('ref')
+      .inTable('artifacts')
+      .onDelete('CASCADE');
+    table.text('detail');
+    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+  });
+  return db;
+}
 
 function connection(): RegistryConnection {
   return {
@@ -19,37 +66,35 @@ function connection(): RegistryConnection {
   };
 }
 
-/**
- * Point the index's client at a mock registry.
- *
- * The index builds its own clients from config, so the fetch implementation is swapped
- * in afterwards. Slightly invasive, but it keeps discovery under test without a live
- * registry — and drift behaviour is exactly the thing that is painful to test against
- * one, because tag propagation is eventually consistent.
- */
-function indexOver(registry: MockRegistry): ContentIndex {
-  const index = new ContentIndex([connection()], silent, defaultContentTypes());
+async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+  const db = await createTestDB();
+  const store = new ContentStore(
+    [connection()],
+    db as never,
+    silent,
+    defaultContentTypes(),
+  );
   const clients = (
-    index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
   ).clients;
   const client = clients.get('mock')!;
   (client as unknown as { fetchImpl: unknown }).fetchImpl = registry.fetch;
-  return index;
+  return store;
 }
 
 const EE_LABEL = 'ansible-execution-environment';
 
 describe('drift detection', () => {
-  it('reports no change when the registry matches the index', async () => {
+  it('reports no change when the registry matches the store', async () => {
     const registry = new MockRegistry({
       repositories: {
         'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
       },
     });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(false);
     expect(drift.details).toEqual([]);
@@ -59,13 +104,13 @@ describe('drift detection', () => {
     const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const repositories = { 'ansible/ee': [v1] };
     const registry = new MockRegistry({ repositories });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
     repositories['ansible/ee'].push(
       makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
     );
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(true);
     expect(drift.details.join()).toContain('ansible/ee:v2 added');
@@ -75,15 +120,14 @@ describe('drift detection', () => {
     const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const repositories = { 'ansible/ee': [v1] };
     const registry = new MockRegistry({ repositories });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
-    // Same tag, different digest — the case that makes tag-keyed caching unsafe.
     const moved = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     moved.digest = `sha256:${'moved'.padEnd(64, '9')}`;
     repositories['ansible/ee'] = [moved];
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(true);
     expect(drift.details.join()).toMatch(/ansible\/ee:v1 moved/);
@@ -97,11 +141,11 @@ describe('drift detection', () => {
       ],
     };
     const registry = new MockRegistry({ repositories });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
     repositories['ansible/ee'] = [repositories['ansible/ee'][0]];
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(true);
     expect(drift.details.join()).toContain('ansible/ee:v2 removed');
@@ -113,10 +157,10 @@ describe('drift detection', () => {
       repositories: { 'ansible/ee': [image] },
       referrersMode: 'tag-fallback',
     });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
     expect(drift.details.join()).not.toContain('sha256-');
   });
 
@@ -126,16 +170,15 @@ describe('drift detection', () => {
         'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
       },
     });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
-    // Break the transport the way an outage would.
-    const clients = (index as unknown as { clients: Map<string, unknown> })
+    const clients = (store as unknown as { clients: Map<string, unknown> })
       .clients;
     (clients.get('mock') as { fetchImpl: unknown }).fetchImpl = () =>
       Promise.reject(new Error('connection refused'));
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(false);
     expect(drift.details.join()).toMatch(/check failed/);
@@ -146,19 +189,18 @@ describe('drift detection', () => {
       'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
     };
     const registry = new MockRegistry({ repositories });
-    const index = indexOver(registry);
-    await index.refreshRegistry('mock');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
 
-    const quiet = await index.pollRegistry('mock');
+    const quiet = await store.pollRegistry('mock');
     expect(quiet.refreshed).toBe(false);
 
     repositories['ansible/ee'].push(makeImage({ tag: 'v2' }));
-    const noisy = await index.pollRegistry('mock');
+    const noisy = await store.pollRegistry('mock');
 
     expect(noisy.changed).toBe(true);
     expect(noisy.refreshed).toBe(true);
-    // The new image carries no EE label, so it is catalogued as a plain image.
-    expect(index.listArtifacts('oci-image')).toHaveLength(1);
+    expect(await store.listArtifacts('oci-image')).toHaveLength(1);
   });
 });
 
@@ -169,47 +211,44 @@ describe('digest cache', () => {
         'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
       },
     });
-    const index = indexOver(registry);
+    const store = await storeOver(registry);
 
-    await index.refreshRegistry('mock');
-    const afterFirst = index.cacheStats.misses;
+    await store.refreshRegistry('mock');
+    const afterFirst = store.cacheStats.misses;
 
     registry.reset();
-    await index.refreshRegistry('mock');
+    await store.refreshRegistry('mock');
 
-    expect(index.cacheStats.hits).toBeGreaterThan(0);
-    // No new misses: everything digest-addressed was already cached.
-    expect(index.cacheStats.misses).toBe(afterFirst);
+    expect(store.cacheStats.hits).toBeGreaterThan(0);
+    expect(store.cacheStats.misses).toBe(afterFirst);
     expect(registry.countRequests('/blobs/')).toBe(0);
   });
 });
 
 describe('error cause traversal is bounded', () => {
-  /**
-   * A cause chain is untrusted input: a registry's transport can produce — or
-   * a hostile one can deliberately produce — a cycle or an arbitrarily deep
-   * chain. These tests drive reconciliation with such failures, so they prove
-   * the walk terminates as well as what it reports.
-   */
-  function indexFailingWith(error: unknown): ContentIndex {
-    const index = new ContentIndex(
+  async function storeFailingWith(error: unknown): Promise<ContentStore> {
+    const db = await createTestDB();
+    const store = new ContentStore(
       [connection()],
+      db as never,
       silent,
       defaultContentTypes(),
     );
     const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
     ).clients;
     (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
       Promise.reject(error);
-    return index;
+    return store;
   }
 
   it('unwraps a wrapped chain to the real message', async () => {
     const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
     wrapped.cause = new Error('unable to get local issuer certificate');
 
-    const outcome = await indexFailingWith(wrapped).refreshRegistry('mock');
+    const outcome = await (
+      await storeFailingWith(wrapped)
+    ).refreshRegistry('mock');
 
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toContain('fetch failed');
@@ -221,7 +260,9 @@ describe('error cause traversal is bounded', () => {
     const cyclic: Error & { cause?: unknown } = new Error('loop');
     cyclic.cause = cyclic;
 
-    const outcome = await indexFailingWith(cyclic).refreshRegistry('mock');
+    const outcome = await (
+      await storeFailingWith(cyclic)
+    ).refreshRegistry('mock');
 
     expect(outcome.error).toContain('loop');
     expect(outcome.error).toContain('truncated');
@@ -233,7 +274,9 @@ describe('error cause traversal is bounded', () => {
     alpha.cause = beta;
     beta.cause = alpha;
 
-    const outcome = await indexFailingWith(alpha).refreshRegistry('mock');
+    const outcome = await (
+      await storeFailingWith(alpha)
+    ).refreshRegistry('mock');
 
     expect(outcome.error).toContain('alpha');
     expect(outcome.error).toContain('beta');
@@ -249,7 +292,9 @@ describe('error cause traversal is bounded', () => {
       tail = next;
     }
 
-    const outcome = await indexFailingWith(head).refreshRegistry('mock');
+    const outcome = await (
+      await storeFailingWith(head)
+    ).refreshRegistry('mock');
 
     expect(outcome.error).toContain('depth-0');
     expect(outcome.error).toContain('truncated');
@@ -257,8 +302,8 @@ describe('error cause traversal is bounded', () => {
   });
 
   it('describes a non-Error rejection value', async () => {
-    const failing = indexFailingWith('gateway gone');
-    const outcome = await failing.refreshRegistry('mock');
+    const store = await storeFailingWith('gateway gone');
+    const outcome = await store.refreshRegistry('mock');
 
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toContain('gateway gone');
@@ -275,7 +320,9 @@ describe('error cause traversal is bounded', () => {
   ])(
     'describes rejection %p without default object stringification',
     async (error, message) => {
-      const outcome = await indexFailingWith(error).refreshRegistry('mock');
+      const outcome = await (
+        await storeFailingWith(error)
+      ).refreshRegistry('mock');
       expect(outcome.ok).toBe(false);
       expect(outcome.error).toBe(`capability probe failed: ${message}`);
       expect(outcome.error).not.toContain('[object Object]');
@@ -285,21 +332,21 @@ describe('error cause traversal is bounded', () => {
   it('reports the cause chain when a drift check fails', async () => {
     const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
     wrapped.cause = new Error('unable to get local issuer certificate');
-    const index = indexFailingWith(wrapped);
+    const store = await storeFailingWith(wrapped);
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(false);
     expect(drift.details).toEqual([
       'check failed: fetch failed: unable to get local issuer certificate',
     ]);
-    expect(index.driftStateFor('mock')).toEqual(drift);
+    expect(store.driftStateFor('mock')).toEqual(drift);
   });
 
   it('describes non-Error drift-check failures', async () => {
-    const index = indexFailingWith('gateway gone');
+    const store = await storeFailingWith('gateway gone');
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(false);
     expect(drift.details).toEqual(['check failed: gateway gone']);
@@ -308,9 +355,9 @@ describe('error cause traversal is bounded', () => {
   it('bounds cyclic drift-check failures', async () => {
     const cyclic: Error & { cause?: unknown } = new Error('loop');
     cyclic.cause = cyclic;
-    const index = indexFailingWith(cyclic);
+    const store = await storeFailingWith(cyclic);
 
-    const drift = await index.detectDrift('mock');
+    const drift = await store.detectDrift('mock');
 
     expect(drift.changed).toBe(false);
     expect(drift.details).toEqual([
@@ -334,34 +381,35 @@ describe('credential redaction', () => {
     };
   }
 
-  function secretIndexFailingWith(error: unknown): ContentIndex {
-    const index = new ContentIndex(
+  async function secretStoreFailingWith(
+    error: unknown,
+    logs: string[] = [],
+  ): Promise<ContentStore> {
+    const db = await createTestDB();
+    const store = new ContentStore(
       [secretConnection()],
-      { info: () => {}, warn: () => {}, debug: () => {} },
+      db as never,
+      {
+        info: message => logs.push(message),
+        warn: message => logs.push(message),
+        debug: message => logs.push(message),
+      },
       defaultContentTypes(),
     );
     const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
     ).clients;
     (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
       Promise.reject(error);
-    return index;
+    return store;
   }
 
   it('redacts credentials from reconcile errors and logs', async () => {
     const logs: string[] = [];
-    const index = new ContentIndex(
-      [secretConnection()],
-      { info: () => {}, warn: m => logs.push(m), debug: m => logs.push(m) },
-      defaultContentTypes(),
+    const index = await secretStoreFailingWith(
+      new Error(`fetch failed: authorization rejected for ${SECRET}`),
+      logs,
     );
-    const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-    ).clients;
-    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
-      Promise.reject(
-        new Error(`fetch failed: authorization rejected for ${SECRET}`),
-      );
 
     const outcome = await index.refreshRegistry('mock');
 
@@ -372,9 +420,10 @@ describe('credential redaction', () => {
   });
 
   it('redacts the base64 basic-auth form from errors', async () => {
-    const outcome = await secretIndexFailingWith(
+    const store = await secretStoreFailingWith(
       new Error(`Authorization Basic ${BASIC_WIRE_FORM} rejected`),
-    ).refreshRegistry('mock');
+    );
+    const outcome = await store.refreshRegistry('mock');
 
     expect(outcome.ok).toBe(false);
     expect(outcome.error).not.toContain(BASIC_WIRE_FORM);
@@ -382,7 +431,7 @@ describe('credential redaction', () => {
   });
 
   it('redacts credentials from drift-check details', async () => {
-    const index = secretIndexFailingWith(
+    const index = await secretStoreFailingWith(
       new Error(`fetch failed: ${SECRET} in the URL userinfo`),
     );
 
@@ -393,12 +442,14 @@ describe('credential redaction', () => {
     expect(drift.details.join()).not.toContain(SECRET);
   });
 
-  it('exposes a live redactor covering its registries', () => {
-    const index = new ContentIndex([secretConnection()], {
-      info: () => {},
-      warn: () => {},
-      debug: () => {},
-    });
+  it('exposes a live redactor covering its registries', async () => {
+    const db = await createTestDB();
+    const index = new ContentStore(
+      [secretConnection()],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
 
     expect(index.redactor.redact(`pw=${SECRET}`)).toBe('pw=[REDACTED]');
     expect(index.redactor.redact(BASIC_WIRE_FORM)).toBe('[REDACTED]');

@@ -19,13 +19,11 @@ import express from 'express';
 import request from 'supertest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ContentIndex } from './ContentIndex';
+import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { createRouter } from './router';
-import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
-  MockRegistry,
   fakeRegistryCredentials,
-  makeLabelledImage,
+  redactorForConnections,
 } from '@ansible/automation-content-common';
 
 const EE_LABEL = 'ansible-execution-environment';
@@ -79,22 +77,11 @@ function connections() {
 
 const REF = 'basic-reg/demo/ee@sha256:abc';
 
-/**
- * An index whose every artefact of discovery — classification signals,
- * collection descriptions, documentation — quotes a credential, and whose
- * every transport fails quoting one. That is the shape of a hostile or
- * misbehaving registry, which is the threat the boundary exists for.
- *
- * Private fields are written directly, as in router.test.ts: the point
- * here is the HTTP contract, not discovery.
- */
-function seededIndex(logs: string[] = []) {
-  const index = new ContentIndex(connections() as never, {
-    info: m => logs.push(m),
-    warn: m => logs.push(m),
-    debug: m => logs.push(m),
-  });
-  const artifact = {
+/** Seed a ContentStore-shaped database boundary entirely in memory. */
+function seededStore(_logs: string[] = []): ContentStore {
+  const registryConnections = connections();
+  const redactor = redactorForConnections(registryConnections);
+  const artifact: IndexedArtifact = {
     ref: REF,
     type: EE_TYPE,
     registry: 'basic-reg',
@@ -107,8 +94,10 @@ function seededIndex(logs: string[] = []) {
       type: EE_TYPE,
       confidence: 'certain',
       signals: [`label ${EE_LABEL}=true`, `config blob mentions ${SECRET}`],
+      readsContentManifest: true,
     },
     manifest: {
+      schemaVersion: '1.0.0',
       collections: [
         {
           namespace: 'demo',
@@ -130,44 +119,92 @@ function seededIndex(logs: string[] = []) {
       generatedAt: '2026-01-01T00:00:00Z',
       complete: true,
     },
+  } as IndexedArtifact;
+  const items = new Map<string, IndexedItem>([
+    [
+      `${REF}::demo.net.vlans`,
+      {
+        key: `${REF}::demo.net.vlans`,
+        artifactRef: REF,
+        fqcn: 'demo.net.vlans',
+        name: 'vlans',
+        type: 'module',
+        collection: 'demo.net',
+        collectionVersion: '1.0.0',
+        detail: {
+          description: `documentation mentioning ${SECRET}`,
+          author: [],
+        },
+      },
+    ],
+  ]);
+  const states = registryConnections.map(connection => ({ connection }));
+  const failureFor = (name: string) => {
+    if (name === 'basic-reg')
+      return `fetch failed: authorization rejected for ${SECRET}`;
+    if (name === 'token-reg') return `token exchange rejected ${TOKEN}`;
+    return `proxy auth failed for ${URL_PASSWORD_DECODED}`;
   };
-  (index as unknown as { artifacts: unknown[] }).artifacts = [artifact];
-  const items = new Map<string, unknown>();
-  items.set(`${REF}::demo.net.vlans`, {
-    key: `${REF}::demo.net.vlans`,
-    artifactRef: REF,
-    fqcn: 'demo.net.vlans',
-    name: 'vlans',
-    type: 'module',
-    collection: 'demo.net',
-    collectionVersion: '1.0.0',
-    detail: { description: `documentation mentioning ${SECRET}`, author: [] },
-  });
-  (index as unknown as { items: Map<string, unknown> }).items = items;
-
-  const clients = (
-    index as unknown as {
-      clients: Map<string, { fetchImpl: unknown }>;
-    }
-  ).clients;
-  const rejectWith = (message: string) => () =>
-    Promise.reject(new Error(message));
-  (clients.get('basic-reg') as unknown as { fetchImpl: unknown }).fetchImpl =
-    rejectWith(`fetch failed: authorization rejected for ${SECRET}`);
-  (clients.get('token-reg') as unknown as { fetchImpl: unknown }).fetchImpl =
-    rejectWith(`token exchange rejected ${TOKEN}`);
-  (clients.get('urlpw-reg') as unknown as { fetchImpl: unknown }).fetchImpl =
-    rejectWith(`proxy auth failed for ${URL_PASSWORD_DECODED}`);
-
-  return index;
+  const store = {
+    redactor,
+    items,
+    listRegistries: () => states,
+    getRegistry: (name: string) => states.find(s => s.connection.name === name),
+    reconcileStateFor: (name: string) => ({
+      at: '2026-01-01T00:00:00.000Z',
+      ok: false,
+      error: redactor.redact(failureFor(name)),
+      artifacts: 1,
+    }),
+    driftStateFor: () => ({
+      at: '2026-01-01T00:00:00.000Z',
+      changed: false,
+      details: [redactor.redact(failureFor('basic-reg'))],
+      requests: 1,
+    }),
+    refreshedAt: undefined,
+    cacheStats: { hits: 0, misses: 0, entries: 0 },
+    listArtifacts: async (type?: string) =>
+      !type || type === artifact.type ? [artifact] : [],
+    getArtifact: async (ref: string) => (ref === REF ? artifact : undefined),
+    listItems: async () => [...items.values()],
+    itemsIn: async (ref: string) =>
+      [...items.values()].filter(item => item.artifactRef === ref),
+    findItems: async (fqcn: string, artifactRef?: string) =>
+      [...items.values()].filter(
+        item =>
+          item.fqcn === fqcn &&
+          (artifactRef === undefined || item.artifactRef === artifactRef),
+      ),
+    listCollections: async () => [
+      {
+        ...artifact.manifest!.collections[0],
+        fqcn: 'demo.net',
+        providedBy: [REF],
+      },
+    ],
+    countsFor: () => ({ collections: 1, plugins: 1 }),
+    refreshRegistry: async (name: string) => ({
+      discovered: 0,
+      ok: false,
+      error: redactor.redactErrorText(new Error(failureFor(name))),
+    }),
+    pollRegistry: async () => ({
+      changed: false,
+      refreshed: false,
+      details: [redactor.redact(failureFor('basic-reg'))],
+      requests: 1,
+    }),
+  } as unknown as ContentStore;
+  return store;
 }
 
-/** Mount the real router over a seeded index, capturing its log lines. */
-async function appWith(index: ContentIndex, logs: string[] = []) {
+/** Mount the real router over a seeded store, capturing its log lines. */
+async function appWith(store: ContentStore, logs: string[] = []) {
   const app = express();
   app.use(
     await createRouter({
-      index,
+      db: store,
       logger: {
         info: (m: string) => logs.push(m),
         warn: (m: string) => logs.push(m),
@@ -392,7 +429,7 @@ const CASES: RouteCase[] = [
 describe('every route serves credential-free responses', () => {
   it.each(CASES)('$route', async ({ run, check }) => {
     const logs: string[] = [];
-    const res = await run(await appWith(seededIndex(logs), logs));
+    const res = await run(await appWith(seededStore(logs), logs));
 
     check(res);
     // Stated inline rather than through the helper, so the case body's
@@ -420,52 +457,28 @@ describe('every route serves credential-free responses', () => {
 });
 
 describe('a token exchanged at runtime', () => {
-  it('is redacted from responses and logs the moment it exists', async () => {
+  it('redacts a runtime token from responses and logs the moment it exists', async () => {
     // The router reads the index's live redactor: a bearer token the
     // registry issues mid-flight must be recognised by later responses,
     // not just by the redactor object in isolation.
-    const registry = new MockRegistry({
-      repositories: {
-        'demo/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
-      },
-      auth: 'bearer-challenge',
-    });
     const logs: string[] = [];
-    const index = new ContentIndex(
-      [
-        {
-          name: 'basic-reg',
-          url: 'https://mock.registry',
-          auth: { type: 'basic', username: 'ci', password: SECRET },
-          repositories: ['demo/ee'],
-        },
-      ] as never,
-      {
-        info: m => logs.push(m),
-        warn: m => logs.push(m),
-        debug: m => logs.push(m),
-      },
-      defaultContentTypes(),
-    );
-    const clients = (
-      index as unknown as {
-        clients: Map<string, { fetchImpl: unknown }>;
+    const store = seededStore(logs);
+    store.redactor.addRuntimeSecret('mock-token', 300_000, 'token-reg');
+    (
+      store as unknown as {
+        refreshRegistry: () => Promise<{
+          discovered: number;
+          ok: boolean;
+          error: string;
+        }>;
       }
-    ).clients;
-    (clients.get('basic-reg') as unknown as { fetchImpl: unknown }).fetchImpl =
-      registry.fetch;
+    ).refreshRegistry = async () => ({
+      discovered: 0,
+      ok: false,
+      error: '401: Bearer mock-token rejected',
+    });
 
-    // Completes the 401 → token → retry exchange, so 'mock-token' is now a
-    // credential the process holds. The artifact count proves discovery
-    // actually happened — an exchange that never ran proves nothing.
-    await index.refreshRegistry('basic-reg');
-    expect(index.listArtifacts().length).toBeGreaterThan(0);
-
-    // Then the registry quotes its own token in a failure.
-    (clients.get('basic-reg') as unknown as { fetchImpl: unknown }).fetchImpl =
-      () => Promise.reject(new Error('401: Bearer mock-token rejected'));
-
-    const res = await request(await appWith(index, logs)).post(
+    const res = await request(await appWith(store, logs)).post(
       '/registries/basic-reg/sync',
     );
 
@@ -480,7 +493,7 @@ describe('a token exchanged at runtime', () => {
 describe('log lines the sync path writes', () => {
   it('are redacted', async () => {
     const logs: string[] = [];
-    const res = await request(await appWith(seededIndex(logs), logs)).post(
+    const res = await request(await appWith(seededStore(logs), logs)).post(
       '/sync',
     );
 
@@ -497,7 +510,7 @@ describe('errors that escape a handler', () => {
    * platform could possibly echo — so the test sees the most the error
    * could have leaked, not the least.
    */
-  async function appWorstCase(index: ContentIndex) {
+  async function appWorstCase(index: ContentStore) {
     const app = await appWith(index);
     app.use(((
       err: Error & { status?: number; statusCode?: number },
@@ -522,7 +535,7 @@ describe('errors that escape a handler', () => {
   }
 
   it('is redacted in place before the platform formats it', async () => {
-    const index = seededIndex();
+    const index = seededStore();
     // A hostile index entry whose documentation explodes when read — the
     // unexpected handler fault the trailing middleware exists for. The
     // error quotes one credential in its message and another in its cause.
@@ -562,7 +575,7 @@ describe('errors that escape a handler', () => {
     // Node's JSON.parse messages include a snippet of the offending input,
     // so a credential typed into a request body reaches the parser's error
     // message — and from there the platform's serialisation of it.
-    const res = await request(await appWorstCase(seededIndex()))
+    const res = await request(await appWorstCase(seededStore()))
       .post('/config/validate')
       .set('Content-Type', 'application/json')
       .send(`{"a": ${SECRET}}`);
@@ -572,7 +585,7 @@ describe('errors that escape a handler', () => {
   });
 
   it('falls back to a clean error when the original message is read-only', async () => {
-    const index = seededIndex();
+    const index = seededStore();
     const hostile = {
       key: `${REF}::demo.timeout`,
       artifactRef: REF,

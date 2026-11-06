@@ -1,9 +1,9 @@
 export { automationContentPlugin as default } from './plugin';
-export { ContentIndex } from './ContentIndex';
+export { ContentStore } from './ContentStore';
 export type {
   IndexedArtifact,
   IndexedItem,
   RegistryState,
-} from './ContentIndex';
-export { itemKey, UNKNOWN_IMAGE_TYPE } from './ContentIndex';
+} from './ContentStore';
+export { itemKey, UNKNOWN_IMAGE_TYPE } from './ContentStore';
 export { createRouter } from './router';
