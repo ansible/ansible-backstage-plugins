@@ -97,6 +97,13 @@ incident report wastes everyone's time:
 
 Create an `Opaque` Secret in the same namespace as the portal workload:
 
+Create the password file without a trailing newline:
+
+```shell
+read -r -s CONTENT_REGISTRY_PASSWORD
+printf '%s' "$CONTENT_REGISTRY_PASSWORD" > /path/to/protected/registry-password
+```
+
 ```shell
 kubectl create secret generic automation-content-registry \
   --from-literal=username='registry-user' \
