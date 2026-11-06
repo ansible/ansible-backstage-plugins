@@ -1,5 +1,6 @@
 import {
   CredentialRedactor,
+  REDACTED,
   publicUrl,
   redactorForConnections,
 } from './CredentialRedactor';
@@ -128,6 +129,24 @@ describe('CredentialRedactor', () => {
       };
       expect(out.when).toBe(when);
       expect(out.note).toBe('[REDACTED]');
+    });
+
+    it('redacts secret keys and preserves __proto__ as data', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const original = JSON.parse(
+        `{"${FAKE_PASSWORD}":"value","__proto__":{"polluted":true},"safe":1}`,
+      ) as Record<string, unknown>;
+
+      const out = redactor.redactValue(original) as Record<string, unknown>;
+
+      expect(out[REDACTED]).toBe('value');
+      expect(Object.prototype.hasOwnProperty.call(out, '__proto__')).toBe(true);
+      const protoData = Object.getOwnPropertyDescriptor(out, '__proto__')
+        ?.value as { polluted?: boolean };
+      expect(protoData.polluted).toBe(true);
+      expect(Object.getPrototypeOf(out)).toBe(Object.prototype);
+      expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
     });
 
     it('marks self-referencing structures instead of looping forever', () => {

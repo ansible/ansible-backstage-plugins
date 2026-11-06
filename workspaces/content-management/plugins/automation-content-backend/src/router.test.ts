@@ -341,6 +341,29 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
+  it('summarises capability-probe causes before serving /registries', async () => {
+    const index = indexWithFailedReconcile();
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+      () =>
+        Promise.reject(
+          new Error('fetch failed', {
+            cause: new Error('DNS lookup failed for secret-host.internal'),
+          }),
+        );
+
+    await index.refreshRegistry('corporate');
+    const res = await request(await appWith(index)).get('/registries');
+
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain('secret-host.internal');
+    expect(res.body.items[0].lastReconcileError).toBe(
+      RECONCILE_FAILURE_SUMMARY,
+    );
+  });
+
   it('summarises capability-probe failures before serving /registries', async () => {
     const connection = {
       name: 'probe-failure',

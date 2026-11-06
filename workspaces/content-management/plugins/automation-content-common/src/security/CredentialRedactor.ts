@@ -287,13 +287,16 @@ export class CredentialRedactor {
         continue;
       }
       try {
-        candidate.message = this.redact(message);
+        const cleanMessage = this.redact(message);
+        if (cleanMessage !== message) candidate.message = cleanMessage;
       } catch {
         complete = false;
       }
       try {
-        if (typeof candidate.stack === 'string')
-          candidate.stack = this.redact(candidate.stack);
+        if (typeof candidate.stack === 'string') {
+          const cleanStack = this.redact(candidate.stack);
+          if (cleanStack !== candidate.stack) candidate.stack = cleanStack;
+        }
       } catch {
         complete = false;
       }
@@ -350,7 +353,15 @@ export class CredentialRedactor {
     ancestors.add(value);
     try {
       for (const [key, entry] of Object.entries(value)) {
-        copy[key] = this.redactNode(entry, depth + 1, ancestors, maxDepth);
+        // Redact keys as well as values. defineProperty preserves hostile JSON
+        // keys such as __proto__ as data instead of changing the copy's
+        // prototype or silently dropping the key.
+        Object.defineProperty(copy, this.redact(key), {
+          value: this.redactNode(entry, depth + 1, ancestors, maxDepth),
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
       }
     } finally {
       ancestors.delete(value);
