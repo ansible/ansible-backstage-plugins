@@ -211,21 +211,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
             // The scheduler logs what escapes a task, with its own logger.
             // Redact the original before rethrowing, or that log line is the
             // one place the boundary does not reach.
-            if (!this.redactor.redactErrorInPlace(error)) {
-              const replacement = new Error(
-                this.redactor.redactErrorText(error),
-              ) as Error & { status?: number; statusCode?: number };
-              const source = error as {
-                status?: unknown;
-                statusCode?: unknown;
-              };
-              if (typeof source?.status === 'number')
-                replacement.status = source.status;
-              if (typeof source?.statusCode === 'number')
-                replacement.statusCode = source.statusCode;
-              throw replacement;
-            }
-            throw error;
+            throw this.redactor.redactErrorForRethrow(error);
           }
         },
       });

@@ -532,7 +532,10 @@ function notFound(res) {
 
 /** Find a repository by its registry-controlled name. */
 function findRepo(registry, name) {
-  return registry.repos.find(repo => repo.name === name);
+  const decoded = safeDecode(name);
+  return registry.repos.find(
+    repo => repo.name === name || repo.name === decoded,
+  );
 }
 
 /** Authenticate and issue the deterministic bearer token. */
@@ -793,11 +796,14 @@ function control(registry, action, payload, res) {
         return sendJson(res, 400, { error: 'no repository to tag' });
       }
       const credentialFor = repo.images[0].credentialFor;
+      const existing = new Set(repo.images.map(image => image.tag));
+      let n = repo.images.length + 1;
+      while (existing.has(`v${n}`)) n += 1;
       repo.images.push(
         withCredentialFor(
           makeEE({
-            tag: 'v2',
-            labels: { 'org.opencontainers.image.version': 'drift' },
+            tag: `v${n}`,
+            labels: { 'org.opencontainers.image.version': `drift-${n}` },
           }),
           credentialFor,
         ),

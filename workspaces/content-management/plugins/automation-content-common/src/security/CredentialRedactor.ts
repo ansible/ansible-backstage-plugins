@@ -31,7 +31,7 @@ const MIN_RUNTIME_SECRET_LENGTH = 8;
 const RUNTIME_SECRET_GRACE_MS = 60 * 60 * 1000;
 
 /** Prevent a registry-provided lifetime from disabling expiry pruning. */
-const MAX_RUNTIME_SECRET_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_RUNTIME_SECRET_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Match the per-client OCI token-cache capacity. */
 const MAX_RUNTIME_SECRETS_PER_OWNER = 1_000;
@@ -332,6 +332,28 @@ export class CredentialRedactor {
       current = candidate.cause;
     }
     return complete;
+  }
+
+  /** Redact an error before handing it to a formatter outside this boundary. */
+  redactErrorForRethrow(error: unknown): unknown {
+    if (this.redactErrorInPlace(error)) return error;
+
+    const replacement = new Error(this.redactErrorText(error)) as Error & {
+      name?: string;
+      status?: number;
+      statusCode?: number;
+    };
+    const source = error as {
+      name?: unknown;
+      status?: unknown;
+      statusCode?: unknown;
+    };
+    if (typeof source?.name === 'string')
+      replacement.name = this.redact(source.name);
+    if (typeof source?.status === 'number') replacement.status = source.status;
+    if (typeof source?.statusCode === 'number')
+      replacement.statusCode = source.statusCode;
+    return replacement;
   }
 
   private redactNode(

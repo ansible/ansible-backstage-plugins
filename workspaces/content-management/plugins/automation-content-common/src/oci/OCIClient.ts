@@ -4,6 +4,7 @@ import { DigestCache, digestKey } from './DigestCache';
 import { logSafeText } from './logSafeText';
 import {
   CredentialRedactor,
+  MAX_RUNTIME_SECRET_TTL_MS,
   redactorForConnections,
 } from '../security/CredentialRedactor';
 import {
@@ -539,7 +540,10 @@ export class OCIClient {
     if (!token) return undefined;
 
     // Renew a little early to avoid racing expiry mid-sync.
-    const ttl = (body.expires_in ?? 300) * 1000;
+    const requestedTtl = (body.expires_in ?? 300) * 1000;
+    const ttl = Number.isFinite(requestedTtl)
+      ? Math.min(Math.max(0, requestedTtl), MAX_RUNTIME_SECRET_TTL_MS)
+      : MAX_RUNTIME_SECRET_TTL_MS;
     // Registered the moment it exists: the token is a credential this process
     // holds, and every later log line or error message must recognise it.
     this.redactor.addRuntimeSecret(token, ttl, this.connection.name);
