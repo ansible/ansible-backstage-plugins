@@ -30,8 +30,8 @@ const MIN_RUNTIME_SECRET_LENGTH = 8;
 /** Keep runtime tokens for a grace period after their registry-side expiry. */
 const RUNTIME_SECRET_GRACE_MS = 60 * 60 * 1000;
 
-/** Bound runtime-token memory and the work performed by every redaction. */
-const MAX_RUNTIME_SECRETS = 2_000;
+/** Match the per-client OCI token-cache capacity. */
+const MAX_RUNTIME_SECRETS_PER_OWNER = 1_000;
 
 /** How many `cause` links redactErrorText walks before giving up. */
 const MAX_CAUSE_DEPTH = 10;
@@ -58,8 +58,11 @@ export class CredentialRedactor {
   /** Secrets supplied by configuration and therefore retained for process life. */
   private readonly persistentSecrets = new Set<string>();
 
-  /** Runtime-minted token -> expiry plus grace period. Map order is insertion order. */
-  private readonly runtimeSecrets = new Map<string, number>();
+  /** Owner -> runtime-minted token -> expiry. Each inner map is FIFO. */
+  private readonly runtimeSecrets = new Map<string, Map<string, number>>();
+
+  /** Runtime token -> owners that can still use it. */
+  private readonly runtimeSecretOwners = new Map<string, Set<string>>();
 
   private nextRuntimePruneAt = 0;
 
@@ -80,18 +83,28 @@ export class CredentialRedactor {
 
   /**
    * Register a short-lived bearer token without allowing runtime churn to grow
-   * the redaction set forever. The cache cap is deliberately above the OCI
-   * token cache cap, so a token is not evicted while the client can still use it.
+   * the redaction set forever. Each owner has the same capacity as its OCI
+   * token cache, so one owner cannot evict a token another owner can still use.
    */
-  addRuntimeSecret(value: string | undefined | null, ttlMs: number): void {
+  addRuntimeSecret(
+    value: string | undefined | null,
+    ttlMs: number,
+    owner: string,
+  ): void {
     if (typeof value !== 'string' || value.length < MIN_RUNTIME_SECRET_LENGTH)
       return;
 
     const now = Date.now();
     this.pruneRuntimeSecrets(now);
-    this.runtimeSecrets.delete(value);
+    const ownerSecrets =
+      this.runtimeSecrets.get(owner) ?? new Map<string, number>();
+    ownerSecrets.delete(value);
     const expiresAt = now + Math.max(0, ttlMs) + RUNTIME_SECRET_GRACE_MS;
-    this.runtimeSecrets.set(value, expiresAt);
+    ownerSecrets.set(value, expiresAt);
+    this.runtimeSecrets.set(owner, ownerSecrets);
+    const owners = this.runtimeSecretOwners.get(value) ?? new Set<string>();
+    owners.add(owner);
+    this.runtimeSecretOwners.set(value, owners);
     this.insertSecret(value);
     this.nextRuntimePruneAt = Math.min(
       this.nextRuntimePruneAt || Number.POSITIVE_INFINITY,
@@ -117,37 +130,47 @@ export class CredentialRedactor {
   private pruneRuntimeSecrets(now: number): void {
     if (
       now < this.nextRuntimePruneAt &&
-      this.runtimeSecrets.size <= MAX_RUNTIME_SECRETS
+      [...this.runtimeSecrets.values()].every(
+        secrets => secrets.size <= MAX_RUNTIME_SECRETS_PER_OWNER,
+      )
     )
       return;
 
     let nextExpiry = Number.POSITIVE_INFINITY;
-    for (const [secret, expiresAt] of this.runtimeSecrets) {
-      if (expiresAt <= now) {
-        this.runtimeSecrets.delete(secret);
-        if (!this.persistentSecrets.has(secret)) {
-          const index = this.secrets.indexOf(secret);
-          if (index >= 0) this.secrets.splice(index, 1);
-          this.secretIndex.delete(secret);
+    for (const [owner, ownerSecrets] of this.runtimeSecrets) {
+      for (const [secret, expiresAt] of ownerSecrets) {
+        if (expiresAt <= now) {
+          ownerSecrets.delete(secret);
+          this.removeRuntimeOwner(secret, owner);
+        } else {
+          nextExpiry = Math.min(nextExpiry, expiresAt);
         }
-      } else {
-        nextExpiry = Math.min(nextExpiry, expiresAt);
       }
-    }
 
-    while (this.runtimeSecrets.size > MAX_RUNTIME_SECRETS) {
-      const oldest = this.runtimeSecrets.keys().next().value;
-      if (oldest === undefined) break;
-      this.runtimeSecrets.delete(oldest);
-      if (!this.persistentSecrets.has(oldest)) {
-        const index = this.secrets.indexOf(oldest);
-        if (index >= 0) this.secrets.splice(index, 1);
-        this.secretIndex.delete(oldest);
+      while (ownerSecrets.size > MAX_RUNTIME_SECRETS_PER_OWNER) {
+        const oldest = ownerSecrets.keys().next().value;
+        if (oldest === undefined) break;
+        ownerSecrets.delete(oldest);
+        this.removeRuntimeOwner(oldest, owner);
       }
+      if (ownerSecrets.size === 0) this.runtimeSecrets.delete(owner);
     }
 
     this.nextRuntimePruneAt =
       nextExpiry === Number.POSITIVE_INFINITY ? 0 : nextExpiry;
+  }
+
+  private removeRuntimeOwner(secret: string, owner: string): void {
+    const owners = this.runtimeSecretOwners.get(secret);
+    if (!owners) return;
+    owners.delete(owner);
+    if (owners.size > 0) return;
+
+    this.runtimeSecretOwners.delete(secret);
+    if (this.persistentSecrets.has(secret)) return;
+    const index = this.secrets.indexOf(secret);
+    if (index >= 0) this.secrets.splice(index, 1);
+    this.secretIndex.delete(secret);
   }
 
   /**

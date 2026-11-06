@@ -48,21 +48,46 @@ describe('CredentialRedactor', () => {
       expect(redactor.redact('abc and ab')).toBe('[REDACTED] and [REDACTED]');
     });
 
-    it('bounds runtime secrets while retaining the newest token', () => {
+    it('bounds runtime secrets per owner without evicting another owner', () => {
       const redactor = new CredentialRedactor();
-      for (let i = 0; i <= 2000; i++) {
-        redactor.addRuntimeSecret(`runtime-token-${i}`, 86_400_000);
+      redactor.addRuntimeSecret('runtime-token-owner-b', 86_400_000, 'owner-b');
+      for (let i = 0; i <= 1000; i++) {
+        redactor.addRuntimeSecret(
+          `runtime-token-owner-a-${i}`,
+          86_400_000,
+          'owner-a',
+        );
       }
 
-      expect(redactor.redact('runtime-token-0')).toBe('runtime-token-0');
-      expect(redactor.redact('runtime-token-2000')).toBe('[REDACTED]');
+      expect(redactor.redact('runtime-token-owner-b')).toBe('[REDACTED]');
+      expect(redactor.redact('runtime-token-owner-a-0')).toBe(
+        'runtime-token-owner-a-0',
+      );
+      expect(redactor.redact('runtime-token-owner-a-1000')).toBe('[REDACTED]');
+    });
+
+    it('prunes expired runtime tokens for each owner', () => {
+      jest.useFakeTimers();
+      try {
+        const redactor = new CredentialRedactor();
+        redactor.addRuntimeSecret('runtime-token-expired', 0, 'owner-a');
+        redactor.addRuntimeSecret('runtime-token-live', 86_400_000, 'owner-b');
+        jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+
+        expect(redactor.redact('runtime-token-expired')).toBe(
+          'runtime-token-expired',
+        );
+        expect(redactor.redact('runtime-token-live')).toBe('[REDACTED]');
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('keeps configured short secrets but rejects short runtime tokens', () => {
       const configured = new CredentialRedactor();
       configured.addSecret('short');
       const runtimeOnly = new CredentialRedactor();
-      runtimeOnly.addRuntimeSecret('short', 86_400_000);
+      runtimeOnly.addRuntimeSecret('short', 86_400_000, 'owner');
 
       expect(configured.redact('short')).toBe('[REDACTED]');
       expect(runtimeOnly.redact('short')).toBe('short');

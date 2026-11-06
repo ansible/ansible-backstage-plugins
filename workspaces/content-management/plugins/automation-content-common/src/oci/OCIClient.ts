@@ -542,7 +542,7 @@ export class OCIClient {
     const ttl = (body.expires_in ?? 300) * 1000;
     // Registered the moment it exists: the token is a credential this process
     // holds, and every later log line or error message must recognise it.
-    this.redactor.addRuntimeSecret(token, ttl);
+    this.redactor.addRuntimeSecret(token, ttl, this.connection.name);
     // Bound the cache before inserting: the key is the registry-controlled
     // challenge scope, so a registry returning a unique scope per response
     // could otherwise grow it without limit. Oldest entries go first, the
