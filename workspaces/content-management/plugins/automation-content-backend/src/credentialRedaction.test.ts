@@ -31,11 +31,11 @@ const EE_LABEL = 'ansible-execution-environment';
 const EE_TYPE = 'execution-environment';
 
 /** One distinct credential per channel the configuration offers. */
-const SECRET = 'hunter2'; // basic-auth password
+const SECRET = 'fake-registry-password'; // basic-auth password
 const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString('base64');
-const TOKEN = 'pre-issued-token'; // configured bearer token
-const URL_PASSWORD = 'p%40ss'; // percent-encoded in the registry URL
-const URL_PASSWORD_DECODED = 'p@ss';
+const TOKEN = 'fake-bearer-token'; // configured bearer token
+const URL_PASSWORD = 'fake%40pass'; // percent-encoded in the registry URL
+const URL_PASSWORD_DECODED = 'fake@pass';
 
 const ALL_CREDENTIALS = [
   SECRET,
@@ -567,5 +567,38 @@ describe('errors that escape a handler', () => {
 
     expect(res.status).toBe(400);
     expectCredentialFree(res.text);
+  });
+
+  it('falls back to a clean error when the original message is read-only', async () => {
+    const index = seededIndex();
+    const hostile = {
+      key: `${REF}::demo.timeout`,
+      artifactRef: REF,
+      fqcn: 'demo.timeout',
+      name: 'timeout',
+      type: 'module',
+      collection: 'demo.net',
+      collectionVersion: '1.0.0',
+    };
+    Object.defineProperty(hostile, 'detail', {
+      get() {
+        throw new DOMException(
+          `render timed out for ${SECRET}`,
+          'TimeoutError',
+        );
+      },
+    });
+    (index as unknown as { items: Map<string, unknown> }).items.set(
+      `${REF}::demo.timeout`,
+      hostile,
+    );
+
+    const res = await request(await appWorstCase(index)).get(
+      '/content-items/demo.timeout',
+    );
+
+    expect(res.status).toBe(500);
+    expectCredentialFree(res.text);
+    expect(res.text).toContain('[REDACTED]');
   });
 });

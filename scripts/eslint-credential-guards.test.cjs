@@ -111,6 +111,9 @@ const WHOLE_ENV_VALUES = [
   'const arrow = () => process.env;',
   'const shared = new Env(process.env);',
   'const picked = cond ? process.env : {};',
+  'const { env } = process;',
+  'const { env: alias } = process;',
+  '({ env } = process);',
 ];
 
 /** Reading the environment through a computed key. */

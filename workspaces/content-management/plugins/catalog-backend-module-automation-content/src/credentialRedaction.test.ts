@@ -20,7 +20,7 @@ import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { defaultContentTypes } from './contentTypes';
 
 const EE_LABEL = 'ansible-execution-environment';
-const SECRET = 'hunter2';
+const SECRET = 'fake-registry-password';
 const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString('base64');
 
 function connection() {
@@ -262,6 +262,53 @@ describe('credential redaction in the catalog provider', () => {
     expect(error.stack).not.toContain(BASIC_WIRE_FORM);
     expect(error.cause?.message).toBe(`wire form [REDACTED]`);
     expect(error.cause?.message).not.toContain(BASIC_WIRE_FORM);
+  });
+
+  it('preserves a timeout diagnostic when its message is read-only', async () => {
+    const registry = new MockRegistry({
+      catalogEnabled: true,
+      repositories: { 'demo/network-ee': [] },
+    });
+    let catalogRequests = 0;
+    const failing: FetchLike = async (url, init) => {
+      if (new URL(url).pathname === '/v2/_catalog') {
+        catalogRequests += 1;
+        if (catalogRequests > 1) {
+          throw new DOMException(
+            `catalog request timed out for ${SECRET}`,
+            'TimeoutError',
+          );
+        }
+      }
+      return registry.fetch(url, init);
+    };
+
+    let scheduled: (() => Promise<void>) | undefined;
+    const provider = new OCIRegistryEntityProvider({
+      connection: { ...connection(), repositories: undefined },
+      contentTypes: defaultContentTypes(),
+      fetch: failing,
+      taskRunner: {
+        run: async ({ fn }: { fn: () => Promise<void> }) => {
+          scheduled = fn;
+        },
+      } as never,
+      logger: {
+        info: () => {},
+        warn: () => {},
+        debug: () => {},
+        error: () => {},
+        child: () => undefined,
+      } as never,
+    });
+
+    await provider.connect({
+      applyMutation: async () => {},
+      refresh: async () => {},
+    } as never);
+    await expect(scheduled!()).rejects.toThrow(
+      'catalog request timed out for [REDACTED]',
+    );
   });
 
   it('redacts runtime-exchanged tokens from catalog entities and logs', async () => {

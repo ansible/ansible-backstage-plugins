@@ -8,6 +8,7 @@ import {
 } from '../testing/MockRegistry';
 
 const HOST = 'https://mock.registry';
+const FAKE_REGISTRY_PASSWORD = 'fake-registry-password';
 
 function connection(
   overrides: Partial<RegistryConnection> = {},
@@ -335,6 +336,22 @@ describe('pullReference', () => {
         reference: 'sha256:abc',
       }),
     ).toBe('mock.registry/ansible/ee@sha256:abc');
+  });
+
+  it('fails closed when the configured URL cannot be parsed', () => {
+    const client = new OCIClient(
+      connection({
+        url: `https://ci:${FAKE_REGISTRY_PASSWORD}@mock.registry:99999`,
+      }),
+    );
+
+    expect(
+      client.pullReference({
+        registry: 'mock',
+        repository: 'ansible/ee',
+        reference: 'latest',
+      }),
+    ).toBe('(unparseable URL)/ansible/ee:latest');
   });
 });
 
@@ -1195,7 +1212,13 @@ describe('registry-controlled names cannot forge log lines', () => {
 });
 
 describe('credential redaction', () => {
-  const basic = { type: 'basic' as const, username: 'u', password: 'hunter2' };
+  const FAKE_PASSWORD = 'fake-registry-password';
+  const RUNTIME_TOKEN = 'fake-runtime-token';
+  const basic = {
+    type: 'basic' as const,
+    username: 'u',
+    password: FAKE_PASSWORD,
+  };
 
   /** A bearer-only registry, as in the priming tests, issuing one token. */
   function bearerOnlyRegistry() {
@@ -1207,7 +1230,7 @@ describe('credential redaction', () => {
       const path = new URL(url).pathname;
       if (path.startsWith('/v2/auth')) {
         return auth?.startsWith('Basic ')
-          ? new Response(JSON.stringify({ token: 'issued-token' }), {
+          ? new Response(JSON.stringify({ token: RUNTIME_TOKEN }), {
               status: 200,
             })
           : new Response(JSON.stringify({ error: 'auth required' }), {
@@ -1246,7 +1269,7 @@ describe('credential redaction', () => {
 
     // The token is a credential the process now holds; anything that quotes
     // it later — a log line, an error — must have it recognised.
-    expect(redactor.redact('Authorization: Bearer issued-token')).toBe(
+    expect(redactor.redact(`Authorization: Bearer ${RUNTIME_TOKEN}`)).toBe(
       'Authorization: Bearer [REDACTED]',
     );
   });
@@ -1255,7 +1278,9 @@ describe('credential redaction', () => {
     const lines: string[] = [];
     const client = new OCIClient(connection({ auth: basic }), {
       fetch: () =>
-        Promise.reject(new Error('fetch failed: socket hung up after hunter2')),
+        Promise.reject(
+          new Error(`fetch failed: socket hung up after ${FAKE_PASSWORD}`),
+        ),
       logger: {
         debug: m => lines.push(m),
         warn: m => lines.push(m),
@@ -1265,7 +1290,7 @@ describe('credential redaction', () => {
     await client.request('/v2/demo/ee/tags/list').catch(() => {});
 
     expect(lines.length).toBeGreaterThan(0);
-    expect(lines.join('\n')).not.toContain('hunter2');
+    expect(lines.join('\n')).not.toContain(FAKE_PASSWORD);
     expect(lines.join('\n')).toContain('[REDACTED]');
   });
 
@@ -1276,14 +1301,31 @@ describe('credential redaction', () => {
 
     // A repository name quoting the credential: registry-controlled input,
     // exactly the channel through which a secret could reach an error.
-    await expect(client.getManifest('hunter2/ee', 'latest')).rejects.toThrow(
-      /manifest fetch failed for \[REDACTED\]\/ee/,
-    );
+    await expect(
+      client.getManifest(`${FAKE_PASSWORD}/ee`, 'latest'),
+    ).rejects.toThrow(/manifest fetch failed for \[REDACTED\]\/ee/);
+  });
+
+  it('sanitizes registry-controlled names in manifest errors', async () => {
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: async () => new Response('boom', { status: 500 }),
+    });
+
+    let error: unknown;
+    try {
+      await client.getManifest('evil\n[ERROR] forged', 'tag\u001b[31m');
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toContain('\n');
+    expect((error as Error).message).not.toContain('\u001b');
   });
 
   it('strips credentials embedded in the registry URL from pull references', () => {
     const client = new OCIClient(
-      connection({ url: 'https://ci:hunter2@mock.registry' }),
+      connection({ url: `https://ci:${FAKE_PASSWORD}@mock.registry` }),
     );
 
     expect(

@@ -538,12 +538,11 @@ export class OCIClient {
     const token = body.token ?? body.access_token;
     if (!token) return undefined;
 
-    // Registered the moment it exists: the token is a credential this process
-    // holds, and every later log line or error message must recognise it.
-    this.redactor.addSecret(token);
-
     // Renew a little early to avoid racing expiry mid-sync.
     const ttl = (body.expires_in ?? 300) * 1000;
+    // Registered the moment it exists: the token is a credential this process
+    // holds, and every later log line or error message must recognise it.
+    this.redactor.addRuntimeSecret(token, ttl);
     // Bound the cache before inserting: the key is the registry-controlled
     // challenge scope, so a registry returning a unique scope per response
     // could otherwise grow it without limit. Oldest entries go first, the
@@ -998,7 +997,9 @@ export class OCIClient {
     if (!res.ok) {
       throw new RegistryError(
         this.redactor.redact(
-          `manifest fetch failed for ${repository}:${reference}: ${res.status}`,
+          `manifest fetch failed for ${logSafeText(repository)}:${logSafeText(
+            reference,
+          )}: ${res.status}`,
         ),
         res.status,
         this.connection.name,
@@ -1200,7 +1201,7 @@ export class OCIClient {
         parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
       return `${parsed.host}${pathname}`;
     } catch {
-      return this.base.replace(/^https?:\/\//, '');
+      return '(unparseable URL)';
     }
   }
 }

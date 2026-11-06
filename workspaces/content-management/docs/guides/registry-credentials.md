@@ -137,13 +137,29 @@ upstream:
 
 Every key of a Secret named here becomes an environment variable, so the
 Secret's keys must be named as the variables — `CONTENT_REGISTRY_USERNAME` and
-`CONTENT_REGISTRY_PASSWORD`, not `username` and `password` — and the Secret
-should hold only registry-credential keys, since all of its keys are exposed.
-Setting an array in Helm replaces it wholesale: merge with any entries already
-in `extraEnvVarsSecrets` rather than overwriting them. The chart's
-`extraEnvVars` takes literal name/value pairs only — credentials do not belong
-there. The registry configuration itself goes wherever the deployment's
-app-config goes (`upstream.backstage.appConfig` for the chart).
+`CONTENT_REGISTRY_PASSWORD`, not `username` and `password` — when using this
+convenient whole-Secret mapping. The Secret should hold only
+registry-credential keys, since all of its keys are exposed. Setting an array
+in Helm replaces it wholesale: merge with any entries already in
+`extraEnvVarsSecrets` rather than overwriting them.
+
+For different Secret key names, use `extraEnvVars` with a
+`valueFrom.secretKeyRef` entry instead. That maps only the required keys and
+never puts literal credentials in Helm values:
+
+```yaml
+upstream:
+  backstage:
+    extraEnvVars:
+      - name: CONTENT_REGISTRY_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: automation-content-registry
+            key: password
+```
+
+The registry configuration itself goes wherever the deployment's app-config
+goes (`upstream.backstage.appConfig` for the chart).
 
 ## Required access: the RBAC boundary
 

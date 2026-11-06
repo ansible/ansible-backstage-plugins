@@ -153,7 +153,7 @@ describe('CapabilityProbe', () => {
   });
 
   it('redacts its failure logs through the redactor it is given', async () => {
-    const secret = 'hunter2';
+    const secret = 'fake-registry-password';
     const lines: string[] = [];
     // A registry whose catalog endpoint fails with an error quoting the
     // credential: the probe catches it, formats it, and logs it.

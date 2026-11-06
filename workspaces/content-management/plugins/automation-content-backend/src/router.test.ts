@@ -648,7 +648,7 @@ describe('config validation', () => {
 });
 
 describe('credential redaction at the HTTP boundary', () => {
-  const SECRET = 'hunter2';
+  const SECRET = 'fake-registry-password';
   const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
     'base64',
   );

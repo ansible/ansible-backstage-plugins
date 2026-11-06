@@ -81,7 +81,9 @@ const config = {
   urlPasswordEncoded: required('LAB_URL_PASSWORD'),
 };
 config.urlPasswordDecoded = safeDecode(config.urlPasswordEncoded);
+const retiredSecrets = new Set();
 
+/** Decode a URL password without letting malformed input stop the fixture. */
 function safeDecode(value) {
   try {
     return decodeURIComponent(value);
@@ -238,6 +240,7 @@ function makeEE({
 
 const PLACEHOLDER = 'lab-placeholder-credential';
 
+/** Render a referrer payload using the credential associated with the request. */
 function renderPayload(image, authorization) {
   const credential =
     typeof image.credentialFor === 'function'
@@ -248,7 +251,7 @@ function renderPayload(image, authorization) {
   );
 }
 
-// Wire the per-image credential source into the image object.
+/** Wire the per-image credential source into the image object. */
 function withCredentialFor(image, credentialFor) {
   image.credentialFor = credentialFor;
   return image;
@@ -258,6 +261,7 @@ function withCredentialFor(image, credentialFor) {
 // Virtual registries
 // ---------------------------------------------------------------------------
 
+/** Build the Basic-auth registry repositories. */
 function labBasicRepos(registry) {
   const password = registry.password;
   return [
@@ -283,6 +287,7 @@ function labBasicRepos(registry) {
   ];
 }
 
+/** Build the bearer-challenge registry repositories. */
 function labTokenRepos(registry) {
   return [
     {
@@ -310,6 +315,7 @@ function labTokenRepos(registry) {
   ];
 }
 
+/** Build the static-bearer registry repositories. */
 function labBearerRepos(registry) {
   return [
     {
@@ -322,6 +328,7 @@ function labBearerRepos(registry) {
   ];
 }
 
+/** Build the URL-password registry repositories. */
 function labUrlpwRepos(registry) {
   return [
     {
@@ -418,6 +425,7 @@ function bearerValue(authorization) {
     : undefined;
 }
 
+/** Compare a Basic authorization payload without leaking timing information. */
 function basicMatches(authorization, username, password) {
   if (typeof authorization !== 'string' || !authorization.startsWith('Basic '))
     return false;
@@ -428,6 +436,23 @@ function basicMatches(authorization, username, password) {
   const a = Buffer.from(presented);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Compare bearer values without returning early on a matching prefix. */
+function secretMatches(presented, expected) {
+  if (typeof presented !== 'string' || typeof expected !== 'string')
+    return false;
+  const a = Buffer.from(presented, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Check a bearer value against every token issued by this registry. */
+function issuedTokenMatches(registry, presented) {
+  for (const issued of registry.issued) {
+    if (secretMatches(presented, issued)) return true;
+  }
+  return false;
 }
 
 /**
@@ -448,15 +473,16 @@ function hostileError(registry) {
   });
 }
 
+/** Decide whether a registry request has the credentials required by its mode. */
 function authorized(registry, req) {
   const authorization = req.headers.authorization;
   switch (registry.mode) {
     case 'basic':
       return basicMatches(authorization, registry.username, registry.password);
     case 'bearer-challenge':
-      return registry.issued.has(bearerValue(authorization));
+      return issuedTokenMatches(registry, bearerValue(authorization));
     case 'static-bearer':
-      return bearerValue(authorization) === registry.staticToken;
+      return secretMatches(bearerValue(authorization), registry.staticToken);
     case 'anonymous':
       return true;
     default:
@@ -464,6 +490,7 @@ function authorized(registry, req) {
   }
 }
 
+/** Return the challenge advertised by an authentication mode. */
 function challenge(registry) {
   switch (registry.mode) {
     case 'basic':
@@ -490,6 +517,7 @@ function send(res, status, body, headers = {}) {
   res.end(body);
 }
 
+/** Send a JSON response with the fixture's default content type. */
 function sendJson(res, status, body, headers = {}) {
   send(res, status, JSON.stringify(body), {
     'content-type': 'application/json',
@@ -497,14 +525,17 @@ function sendJson(res, status, body, headers = {}) {
   });
 }
 
+/** Send the OCI not-found shape used by the mock registry. */
 function notFound(res) {
   sendJson(res, 404, { errors: [{ code: 'NAME_UNKNOWN' }] });
 }
 
+/** Find a repository by its registry-controlled name. */
 function findRepo(registry, name) {
   return registry.repos.find(repo => repo.name === name);
 }
 
+/** Authenticate and issue the deterministic bearer token. */
 function serveTokenEndpoint(registry, req, res) {
   if (registry.mode !== 'bearer-challenge') return notFound(res);
   if (
@@ -531,6 +562,7 @@ function serveTokenEndpoint(registry, req, res) {
   sendJson(res, 200, { token, expires_in: 300 });
 }
 
+/** Identify OCI endpoints that require repository authentication. */
 function isPerRepoPath(path) {
   return (
     /\/tags\/list$/.test(path) ||
@@ -540,6 +572,7 @@ function isPerRepoPath(path) {
   );
 }
 
+/** Serve the hostile OCI API for one virtual registry. */
 function handleApi(registry, req, res, path) {
   // Version check: answer 200 when authorized, challenge when not. The
   // client primes this endpoint anonymously, so a challenge here is normal.
@@ -705,7 +738,17 @@ function statusBody() {
   };
 }
 
+/** Redact every current, retired, encoded and issued secret from fixture logs. */
 function redactFixtureLog(value) {
+  /** Include URL spellings so encoded credentials cannot bypass the logger. */
+  const spellings = secret => {
+    if (typeof secret !== 'string') return [];
+    try {
+      return [secret, encodeURIComponent(secret)];
+    } catch {
+      return [secret];
+    }
+  };
   const secrets = [
     config.password,
     config.staticToken,
@@ -714,6 +757,7 @@ function redactFixtureLog(value) {
     Buffer.from(`${config.username}:${config.password}`, 'utf8').toString(
       'base64',
     ),
+    ...retiredSecrets,
     ...registries.flatMap(registry => [
       registry.password,
       registry.staticToken,
@@ -722,6 +766,7 @@ function redactFixtureLog(value) {
       ...(registry.issued ? [...registry.issued] : []),
     ]),
   ]
+    .flatMap(spellings)
     .filter(secret => typeof secret === 'string' && secret.length > 1)
     .sort((a, b) => b.length - a.length);
 
@@ -731,6 +776,7 @@ function redactFixtureLog(value) {
   );
 }
 
+/** Apply one manual-test state transition to a virtual registry. */
 function control(registry, action, payload, res) {
   switch (action) {
     case 'fail':
@@ -767,6 +813,9 @@ function control(registry, action, payload, res) {
       const password = payload?.password;
       if (typeof password !== 'string' || password.length < 2) {
         return sendJson(res, 400, { error: 'password required' });
+      }
+      if (typeof registry.password === 'string') {
+        retiredSecrets.add(registry.password);
       }
       registry.password = password;
       // Rotate the hostile data with the credential: clean repository names
@@ -811,9 +860,18 @@ function readBody(req) {
   });
 }
 
+/** Route control-plane, token and OCI requests for one virtual registry. */
 async function handle(registry, req, res) {
   const url = new URL(req.url, `http://${HOST}:${registry.port}`);
   const path = url.pathname;
+  const allowedHosts = [
+    `${HOST}:${registry.port}`,
+    `localhost:${registry.port}`,
+  ];
+
+  if (path.startsWith('/__lab/') && !allowedHosts.includes(req.headers.host)) {
+    return sendJson(res, 403, { error: 'forbidden host' });
+  }
 
   if (path === '/__lab/status') {
     return sendJson(res, 200, statusBody());
@@ -821,6 +879,9 @@ async function handle(registry, req, res) {
   if (path === '/__lab/control') {
     if (req.method !== 'POST') {
       return sendJson(res, 405, { error: 'POST required' });
+    }
+    if (!/^application\/json\b/i.test(req.headers['content-type'] ?? '')) {
+      return sendJson(res, 415, { error: 'application/json required' });
     }
     const body = await readBody(req);
     let parsed;
@@ -849,11 +910,26 @@ async function handle(registry, req, res) {
   return notFound(res);
 }
 
+/** Reduce a request target to path and query before it reaches the logger. */
+function safeRequestTarget(rawUrl) {
+  try {
+    const target = new URL(rawUrl, `http://${HOST}`);
+    return `${target.pathname}${target.search}`;
+  } catch {
+    return '(invalid request target)';
+  }
+}
+
+/** Log one completed request without exposing its raw target. */
 function logLine(registry, req, res) {
   const original = res.writeHead.bind(res);
   res.writeHead = (status, headers) => {
     console.log(
-      redactFixtureLog(`${registry.name} ${req.method} ${req.url} ${status}`),
+      redactFixtureLog(
+        `${registry.name} ${req.method} ${safeRequestTarget(
+          req.url,
+        )} ${status}`,
+      ),
     );
     return original(status, headers);
   };
@@ -863,9 +939,7 @@ for (const registry of registries) {
   const server = http.createServer((req, res) => {
     logLine(registry, req, res);
     handle(registry, req, res).catch(error => {
-      console.error(
-        redactFixtureLog(`${registry.name} handler error: ${String(error)}`),
-      );
+      console.error(redactFixtureLog(`${registry.name} handler error`));
       if (!res.headersSent)
         sendJson(res, 500, { errors: [{ code: 'INTERNAL' }] });
     });

@@ -24,6 +24,15 @@ export const REDACTED = '[REDACTED]';
  */
 const MIN_SECRET_LENGTH = 2;
 
+/** Runtime tokens need more entropy than operator passwords to be registered. */
+const MIN_RUNTIME_SECRET_LENGTH = 8;
+
+/** Keep runtime tokens for a grace period after their registry-side expiry. */
+const RUNTIME_SECRET_GRACE_MS = 60 * 60 * 1000;
+
+/** Bound runtime-token memory and the work performed by every redaction. */
+const MAX_RUNTIME_SECRETS = 2_000;
+
 /** How many `cause` links redactErrorText walks before giving up. */
 const MAX_CAUSE_DEPTH = 10;
 
@@ -43,6 +52,14 @@ export class CredentialRedactor {
    */
   private readonly secrets: string[] = [];
 
+  /** Secrets supplied by configuration and therefore retained for process life. */
+  private readonly persistentSecrets = new Set<string>();
+
+  /** Runtime-minted token -> expiry plus grace period. Map order is insertion order. */
+  private readonly runtimeSecrets = new Map<string, number>();
+
+  private nextRuntimePruneAt = 0;
+
   /**
    * Register a secret to redact.
    *
@@ -54,10 +71,77 @@ export class CredentialRedactor {
   addSecret(value: string | undefined | null): void {
     if (typeof value !== 'string') return;
     if (value.trim().length < MIN_SECRET_LENGTH) return;
+    this.persistentSecrets.add(value);
+    this.insertSecret(value);
+  }
+
+  /**
+   * Register a short-lived bearer token without allowing runtime churn to grow
+   * the redaction set forever. The cache cap is deliberately above the OCI
+   * token cache cap, so a token is not evicted while the client can still use it.
+   */
+  addRuntimeSecret(value: string | undefined | null, ttlMs: number): void {
+    if (typeof value !== 'string' || value.length < MIN_RUNTIME_SECRET_LENGTH)
+      return;
+
+    const now = Date.now();
+    this.pruneRuntimeSecrets(now);
+    this.runtimeSecrets.delete(value);
+    const expiresAt = now + Math.max(0, ttlMs) + RUNTIME_SECRET_GRACE_MS;
+    this.runtimeSecrets.set(value, expiresAt);
+    this.insertSecret(value);
+    this.nextRuntimePruneAt = Math.min(
+      this.nextRuntimePruneAt || Number.POSITIVE_INFINITY,
+      expiresAt,
+    );
+    this.pruneRuntimeSecrets(now);
+  }
+
+  private insertSecret(value: string): void {
     if (this.secrets.includes(value)) return;
 
-    this.secrets.push(value);
-    this.secrets.sort((a, b) => b.length - a.length);
+    let low = 0;
+    let high = this.secrets.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (this.secrets[middle].length >= value.length) low = middle + 1;
+      else high = middle;
+    }
+    this.secrets.splice(low, 0, value);
+  }
+
+  private pruneRuntimeSecrets(now: number): void {
+    if (
+      now < this.nextRuntimePruneAt &&
+      this.runtimeSecrets.size <= MAX_RUNTIME_SECRETS
+    )
+      return;
+
+    let nextExpiry = Number.POSITIVE_INFINITY;
+    for (const [secret, expiresAt] of this.runtimeSecrets) {
+      if (expiresAt <= now) {
+        this.runtimeSecrets.delete(secret);
+        if (!this.persistentSecrets.has(secret)) {
+          const index = this.secrets.indexOf(secret);
+          if (index >= 0) this.secrets.splice(index, 1);
+        }
+      } else {
+        nextExpiry = Math.min(nextExpiry, expiresAt);
+      }
+    }
+
+    while (this.runtimeSecrets.size > MAX_RUNTIME_SECRETS) {
+      const oldest = this.runtimeSecrets.keys().next().value;
+      if (oldest === undefined) break;
+      this.runtimeSecrets.delete(oldest);
+      if (!this.persistentSecrets.has(oldest)) {
+        const index = this.secrets.indexOf(oldest);
+        if (index >= 0) this.secrets.splice(index, 1);
+      }
+    }
+
+    this.nextRuntimePruneAt =
+      nextExpiry === Number.POSITIVE_INFINITY ? 0 : nextExpiry;
   }
 
   /**
@@ -70,6 +154,7 @@ export class CredentialRedactor {
    * reference, so hot logging paths pay nothing when there is nothing to do.
    */
   redact(text: string): string {
+    this.pruneRuntimeSecrets(Date.now());
     let redacted = text;
     for (const secret of this.secrets) {
       if (!redacted.includes(secret)) continue;
@@ -161,17 +246,36 @@ export class CredentialRedactor {
    * For errors that will be rethrown to a handler we do not control — the
    * platform's task runner, express's error middleware — the original object
    * is what gets formatted, so the original object is what must be cleaned.
+   * Returns false when a read-only message or stack prevented complete cleanup.
    */
-  redactErrorInPlace(error: unknown): void {
+  redactErrorInPlace(error: unknown): boolean {
     const seen = new Set<unknown>();
     let current: unknown = error;
+    let complete = true;
     for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
-      if (!(current instanceof Error) || seen.has(current)) break;
+      if (current === null || typeof current !== 'object' || seen.has(current))
+        break;
       seen.add(current);
-      current.message = this.redact(current.message);
-      if (current.stack) current.stack = this.redact(current.stack);
-      current = (current as { cause?: unknown }).cause;
+      const candidate = current as {
+        message?: unknown;
+        stack?: unknown;
+        cause?: unknown;
+      };
+      if (typeof candidate.message !== 'string') break;
+      try {
+        candidate.message = this.redact(candidate.message);
+      } catch {
+        complete = false;
+      }
+      try {
+        if (typeof candidate.stack === 'string')
+          candidate.stack = this.redact(candidate.stack);
+      } catch {
+        complete = false;
+      }
+      current = candidate.cause;
     }
+    return complete;
   }
 
   private redactNode(

@@ -196,6 +196,21 @@ const contentCredentialBoundary = {
   ].map(selector => ({ selector, message: clusterClientMessage })),
 
   restrictedSrcSyntax: [
+    {
+      selector:
+        "VariableDeclarator[init.name='process'] > ObjectPattern > Property[key.name='env']",
+      message: envObjectMessage,
+    },
+    {
+      selector:
+        "AssignmentExpression[right.name='process'] > ObjectPattern > Property[key.name='env']",
+      message: envObjectMessage,
+    },
+    {
+      selector:
+        "AssignmentPattern[right.name='process'] > ObjectPattern > Property[key.name='env']",
+      message: envObjectMessage,
+    },
     ...ENV_VALUE_PARENTS.flatMap(parent =>
       ENV_OBJECT.map(ref => ({
         selector: `${parent}:has(> ${ref})`,

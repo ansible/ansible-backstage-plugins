@@ -319,7 +319,7 @@ describe('error cause traversal is bounded', () => {
 });
 
 describe('credential redaction', () => {
-  const SECRET = 'hunter2';
+  const SECRET = 'fake-registry-password';
   const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
     'base64',
   );

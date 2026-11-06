@@ -5,6 +5,10 @@ import {
 } from './CredentialRedactor';
 import type { RegistryAuth, RegistryConnection } from '../oci/types';
 
+const FAKE_PASSWORD = 'fake-registry-password';
+const FAKE_URL_PASSWORD_DECODED = 'fake@pass';
+const FAKE_URL_PASSWORD_ENCODED = 'fake%40pass';
+
 function connection(
   auth: RegistryAuth,
   url = 'https://mock.registry',
@@ -40,13 +44,33 @@ describe('CredentialRedactor', () => {
       redactor.addSecret('abc');
       expect(redactor.redact('abc and ab')).toBe('[REDACTED] and [REDACTED]');
     });
+
+    it('bounds runtime secrets while retaining the newest token', () => {
+      const redactor = new CredentialRedactor();
+      for (let i = 0; i <= 2000; i++) {
+        redactor.addRuntimeSecret(`runtime-token-${i}`, 86_400_000);
+      }
+
+      expect(redactor.redact('runtime-token-0')).toBe('runtime-token-0');
+      expect(redactor.redact('runtime-token-2000')).toBe('[REDACTED]');
+    });
+
+    it('keeps configured short secrets but rejects short runtime tokens', () => {
+      const configured = new CredentialRedactor();
+      configured.addSecret('short');
+      const runtimeOnly = new CredentialRedactor();
+      runtimeOnly.addRuntimeSecret('short', 86_400_000);
+
+      expect(configured.redact('short')).toBe('[REDACTED]');
+      expect(runtimeOnly.redact('short')).toBe('short');
+    });
   });
 
   describe('redact', () => {
     it('replaces every occurrence, not just the first', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      expect(redactor.redact('hunter2 then hunter2')).toBe(
+      redactor.addSecret(FAKE_PASSWORD);
+      expect(redactor.redact(`${FAKE_PASSWORD} then ${FAKE_PASSWORD}`)).toBe(
         '[REDACTED] then [REDACTED]',
       );
     });
@@ -62,7 +86,7 @@ describe('CredentialRedactor', () => {
 
     it('returns the same string reference when nothing matches', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
+      redactor.addSecret(FAKE_PASSWORD);
       const text = 'nothing to see';
       expect(redactor.redact(text)).toBe(text);
     });
@@ -71,11 +95,11 @@ describe('CredentialRedactor', () => {
   describe('redactValue', () => {
     it('deep-copies nested structures, leaving the original untouched', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
+      redactor.addSecret(FAKE_PASSWORD);
       const original = {
-        password: 'hunter2',
-        nested: { token: 'hunter2', safe: 'plain' },
-        list: ['hunter2', 42, true, null],
+        password: FAKE_PASSWORD,
+        nested: { token: FAKE_PASSWORD, safe: 'plain' },
+        list: [FAKE_PASSWORD, 42, true, null],
       };
 
       const out = redactor.redactValue(original) as typeof original;
@@ -87,16 +111,16 @@ describe('CredentialRedactor', () => {
       expect(out.list[2]).toBe(true);
       expect(out.list[3]).toBeNull();
 
-      expect(original.password).toBe('hunter2');
-      expect(original.nested.token).toBe('hunter2');
+      expect(original.password).toBe(FAKE_PASSWORD);
+      expect(original.nested.token).toBe(FAKE_PASSWORD);
     });
 
     it('passes Dates through untouched, by reference', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
+      redactor.addSecret(FAKE_PASSWORD);
       const when = new Date('2026-10-26T12:00:00Z');
 
-      const out = redactor.redactValue({ when, note: 'hunter2' }) as {
+      const out = redactor.redactValue({ when, note: FAKE_PASSWORD }) as {
         when: Date;
         note: string;
       };
@@ -116,7 +140,7 @@ describe('CredentialRedactor', () => {
 
     it('stops at a sane depth so hostile payloads cannot blow the stack', () => {
       const redactor = new CredentialRedactor();
-      let deep: Record<string, unknown> = { leaf: 'hunter2' };
+      let deep: Record<string, unknown> = { leaf: FAKE_PASSWORD };
       for (let i = 0; i < 50; i++) {
         deep = { layer: deep };
       }
@@ -140,8 +164,8 @@ describe('CredentialRedactor', () => {
 
     it('copies arbitrarily deep structures when the caller raises the cap', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      let deep: Record<string, unknown> = { leaf: 'hunter2' };
+      redactor.addSecret(FAKE_PASSWORD);
+      let deep: Record<string, unknown> = { leaf: FAKE_PASSWORD };
       for (let i = 0; i < 15; i++) {
         deep = { layer: deep };
       }
@@ -153,12 +177,12 @@ describe('CredentialRedactor', () => {
 
     it('copies Error objects, redacting message, stack and cause', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      const original = new Error('auth failed for hunter2');
+      redactor.addSecret(FAKE_PASSWORD);
+      const original = new Error(`auth failed for ${FAKE_PASSWORD}`);
       original.name = 'RegistryError';
-      original.stack = 'Error: at /registry/hunter2 line 3';
+      original.stack = `Error: at /registry/${FAKE_PASSWORD} line 3`;
       (original as { cause?: unknown }).cause = new Error(
-        'token hunter2 rejected',
+        `token ${FAKE_PASSWORD} rejected`,
       );
 
       const out = redactor.redactValue(original);
@@ -166,7 +190,7 @@ describe('CredentialRedactor', () => {
       const copy = out as Error;
       expect(copy.message).toBe('auth failed for [REDACTED]');
       expect(copy.name).toBe('RegistryError');
-      expect(copy.stack).not.toContain('hunter2');
+      expect(copy.stack).not.toContain(FAKE_PASSWORD);
       const cause = (copy as { cause?: unknown }).cause as Error;
       expect(cause).toBeInstanceOf(Error);
       expect(cause.message).toBe('token [REDACTED] rejected');
@@ -212,8 +236,8 @@ describe('CredentialRedactor', () => {
 
     it('renders a thrown primitive redacted', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      expect(redactor.redactErrorText('hunter2')).toBe('[REDACTED]');
+      redactor.addSecret(FAKE_PASSWORD);
+      expect(redactor.redactErrorText(FAKE_PASSWORD)).toBe('[REDACTED]');
     });
 
     it('renders objects without a message as an unknown error', () => {
@@ -238,8 +262,8 @@ describe('CredentialRedactor', () => {
 
     it('redacts a rejection value that quotes a secret', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      expect(redactor.redactErrorText('password is hunter2')).toBe(
+      redactor.addSecret(FAKE_PASSWORD);
+      expect(redactor.redactErrorText(`password is ${FAKE_PASSWORD}`)).toBe(
         'password is [REDACTED]',
       );
     });
@@ -248,33 +272,58 @@ describe('CredentialRedactor', () => {
   describe('redactErrorInPlace', () => {
     it('cleans message, stack and cause of the original error', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      const root = new Error('auth failed for hunter2');
-      root.stack = 'Error: at /registry/hunter2 line 3';
-      const inner = new Error('token hunter2 rejected');
+      redactor.addSecret(FAKE_PASSWORD);
+      const root = new Error(`auth failed for ${FAKE_PASSWORD}`);
+      root.stack = `Error: at /registry/${FAKE_PASSWORD} line 3`;
+      const inner = new Error(`token ${FAKE_PASSWORD} rejected`);
       (root as { cause?: unknown }).cause = inner;
 
       redactor.redactErrorInPlace(root);
 
       expect(root.message).toBe('auth failed for [REDACTED]');
-      expect(root.stack).not.toContain('hunter2');
+      expect(root.stack).not.toContain(FAKE_PASSWORD);
       expect(inner.message).toBe('token [REDACTED] rejected');
     });
 
     it('leaves values that are not errors alone', () => {
       const redactor = new CredentialRedactor();
-      expect(() => redactor.redactErrorInPlace('hunter2')).not.toThrow();
+      expect(() => redactor.redactErrorInPlace(FAKE_PASSWORD)).not.toThrow();
       expect(() => redactor.redactErrorInPlace(null)).not.toThrow();
     });
 
     it('terminates on a cause cycle', () => {
       const redactor = new CredentialRedactor();
-      redactor.addSecret('hunter2');
-      const loop: Error & { cause?: unknown } = new Error('loop hunter2');
+      redactor.addSecret(FAKE_PASSWORD);
+      const loop: Error & { cause?: unknown } = new Error(
+        `loop ${FAKE_PASSWORD}`,
+      );
       loop.cause = loop;
 
       expect(() => redactor.redactErrorInPlace(loop)).not.toThrow();
       expect(loop.message).toBe('loop [REDACTED]');
+    });
+
+    it('reports when an error has a read-only message', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const timeout = new DOMException(
+        `request timed out for ${FAKE_PASSWORD}`,
+        'TimeoutError',
+      );
+
+      expect(redactor.redactErrorInPlace(timeout)).toBe(false);
+      expect(redactor.redactErrorText(timeout)).toBe(
+        'request timed out for [REDACTED]',
+      );
+    });
+
+    it('reports when an Error is frozen', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const frozen = Object.freeze(new Error(`frozen ${FAKE_PASSWORD}`));
+
+      expect(redactor.redactErrorInPlace(frozen)).toBe(false);
+      expect(redactor.redactErrorText(frozen)).toBe('frozen [REDACTED]');
     });
   });
 });
@@ -282,15 +331,27 @@ describe('CredentialRedactor', () => {
 describe('redactorForConnections', () => {
   it('collects basic-auth passwords', () => {
     const redactor = redactorForConnections([
-      connection({ type: 'basic', username: 'ci-bot', password: 'hunter2' }),
+      connection({
+        type: 'basic',
+        username: 'ci-bot',
+        password: FAKE_PASSWORD,
+      }),
     ]);
-    expect(redactor.redact('password=hunter2')).toBe('password=[REDACTED]');
+    expect(redactor.redact(`password=${FAKE_PASSWORD}`)).toBe(
+      'password=[REDACTED]',
+    );
   });
 
   it('collects the base64 form a basic header actually puts on the wire', () => {
-    const onTheWire = Buffer.from('ci-bot:hunter2', 'utf8').toString('base64');
+    const onTheWire = Buffer.from(`ci-bot:${FAKE_PASSWORD}`, 'utf8').toString(
+      'base64',
+    );
     const redactor = redactorForConnections([
-      connection({ type: 'basic', username: 'ci-bot', password: 'hunter2' }),
+      connection({
+        type: 'basic',
+        username: 'ci-bot',
+        password: FAKE_PASSWORD,
+      }),
     ]);
     expect(redactor.redact(`Authorization: Basic ${onTheWire}`)).toBe(
       'Authorization: Basic [REDACTED]',
@@ -299,43 +360,49 @@ describe('redactorForConnections', () => {
 
   it('collects pre-issued bearer tokens', () => {
     const redactor = redactorForConnections([
-      connection({ type: 'bearer', token: 's3cr3t-t0ken' }),
+      connection({ type: 'bearer', token: 'fake-bearer-token' }),
     ]);
-    expect(redactor.redact('Bearer s3cr3t-t0ken')).toBe('Bearer [REDACTED]');
+    expect(redactor.redact('Bearer fake-bearer-token')).toBe(
+      'Bearer [REDACTED]',
+    );
   });
 
   it('still collects the password field when the declared type is not basic', () => {
     const redactor = redactorForConnections([
-      connection({ type: 'bearer', password: 'hunter2' }),
+      connection({ type: 'bearer', password: FAKE_PASSWORD }),
     ]);
-    expect(redactor.redact('pw=hunter2')).toBe('pw=[REDACTED]');
+    expect(redactor.redact(`pw=${FAKE_PASSWORD}`)).toBe('pw=[REDACTED]');
   });
 
   it('collects credentials embedded in the registry URL itself', () => {
     const redactor = redactorForConnections([
       connection(
         { type: 'anonymous' },
-        'https://ci:hunter2@registry.example.com',
+        `https://ci:${FAKE_PASSWORD}@registry.example.com`,
       ),
     ]);
     expect(
-      redactor.redact('GET https://ci:hunter2@registry.example.com/v2/'),
+      redactor.redact(
+        `GET https://ci:${FAKE_PASSWORD}@registry.example.com/v2/`,
+      ),
     ).toBe('GET https://ci:[REDACTED]@registry.example.com/v2/');
   });
 
   it('collects a URL-embedded password in both its spellings', () => {
-    // `p@ss` percent-encodes to `p%40ss` inside a URL. Text quoting the URL
+    // `fake@pass` percent-encodes to `fake%40pass` inside a URL. Text quoting the URL
     // carries the encoded form; text quoting the configuration carries the
     // decoded one. Both must be recognised.
     const redactor = redactorForConnections([
       connection(
         { type: 'anonymous' },
-        'https://ci:p%40ss@registry.example.com',
+        `https://ci:${FAKE_URL_PASSWORD_ENCODED}@registry.example.com`,
       ),
     ]);
-    expect(redactor.redact('p%40ss and p@ss')).toBe(
-      '[REDACTED] and [REDACTED]',
-    );
+    expect(
+      redactor.redact(
+        `${FAKE_URL_PASSWORD_ENCODED} and ${FAKE_URL_PASSWORD_DECODED}`,
+      ),
+    ).toBe('[REDACTED] and [REDACTED]');
   });
 
   it('gathers secrets across multiple connections', () => {
@@ -359,9 +426,9 @@ describe('redactorForConnections', () => {
 
 describe('publicUrl', () => {
   it('removes userinfo, query and fragment, keeping host and path', () => {
-    expect(publicUrl('https://ci:hunter2@registry.example.com/v2/path')).toBe(
-      'https://registry.example.com/v2/path',
-    );
+    expect(
+      publicUrl(`https://ci:${FAKE_PASSWORD}@registry.example.com/v2/path`),
+    ).toBe('https://registry.example.com/v2/path');
     expect(publicUrl('https://registry.example.com/?token=abc#frag')).toBe(
       'https://registry.example.com',
     );

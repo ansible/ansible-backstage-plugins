@@ -893,7 +893,10 @@ export async function createRouter(
       _res: unknown,
       next: (err?: unknown) => void,
     ) => {
-      redactor.redactErrorInPlace(err);
+      if (!redactor.redactErrorInPlace(err)) {
+        next(new Error(redactor.redactErrorText(err)));
+        return;
+      }
       next(err);
     },
   );
