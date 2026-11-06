@@ -2,14 +2,22 @@ import express from 'express';
 import { inspect } from 'node:util';
 import request from 'supertest';
 import { CredentialRedactor } from '@ansible/automation-content-common';
+import knexFactory from 'knex';
+import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
   type ArtifactListOptions,
   ContentStore,
   IndexedArtifact,
   IndexedItem,
+  ArtifactSyncNotFoundError,
 } from './ContentStore';
 import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
-import { RouterOptions } from './router';
+import {
+  mockCredentials,
+  mockServices,
+  mockErrorHandler,
+} from '@backstage/backend-test-utils';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 const warn = jest.fn();
@@ -42,6 +50,13 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
     findItems: async () => [],
     listCollections: async () => [],
     countsFor: () => undefined,
+    reconcileStateForArtifact: () => undefined,
+    syncArtifact: async () => ({
+      status: 'completed' as const,
+      ref: 'reg/repo@sha256:abc',
+      tag: 'latest' as const,
+      retainedPrevious: false,
+    }),
     refreshRegistry: async () => ({ discovered: 0, ok: true }),
     refreshAll: async () => ({ artifacts: 0, items: 0 }),
     pollRegistry: async () => ({
@@ -57,55 +72,58 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
 
 async function appWith(
   db?: ContentStore,
-  httpAuth?: unknown,
-  superuser = true,
+  httpAuth = mockServices.httpAuth(),
   allowed = true,
-  dependencies: {
-    userInfo?: Pick<RouterOptions['userInfo'], 'getUserInfo'>;
-    auth?: Pick<RouterOptions['auth'], 'getPluginRequestToken'>;
-    catalogClient?: Pick<RouterOptions['catalogClient'], 'getEntityByRef'>;
-  } = {},
+  authorize = jest
+    .fn()
+    .mockResolvedValue([
+      { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
+    ]),
 ) {
   const app = express();
   app.use(
     await createRouter({
       db: db ?? stubDB(),
       logger,
-      permissions: {
-        authorize: jest
-          .fn()
-          .mockResolvedValue([
-            { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
-          ]),
-      } as never,
-      userInfo: {
-        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
-        ...dependencies.userInfo,
-      } as never,
-      auth: {
-        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
-        ...dependencies.auth,
-      } as never,
-      catalogClient: {
-        getEntityByRef: async () => ({
-          metadata: {
-            annotations: { 'aap.platform/is_superuser': String(superuser) },
-          },
-        }),
-        ...dependencies.catalogClient,
-      } as never,
-      httpAuth: (httpAuth ?? {
-        // The plugin sign-in barrier is covered in plugin.test.ts; provide
-        // signed-in credentials here for the router's superuser checks.
-        credentials: () =>
-          Promise.resolve({
-            principal: { type: 'user', userEntityRef: 'user:default/test' },
-          }),
-      }) as never,
+      permissions: { authorize } as never,
+      httpAuth: httpAuth as never,
     }),
   );
+  app.use(mockErrorHandler());
   return app;
 }
+
+it.each([
+  '/registries',
+  '/content',
+  '/content/reg/repo@sha256:abc/contents',
+  '/content/reg/repo@sha256:abc',
+  '/execution-environments',
+  '/execution-environments/reg/repo@sha256:abc/contents',
+  '/execution-environments/reg/repo@sha256:abc',
+  '/collections',
+  '/collections/cisco/ios',
+  '/content-items',
+  '/content-items/cisco.ios.ios_acls',
+  '/plugins',
+  '/plugins/cisco.ios.ios_acls',
+])('denies reads on %s without ansible.content.view', async path => {
+  const app = await appWith(seedDB([]), undefined, false);
+  const response = await request(app).get(path).expect(403);
+  expect(response.body).toEqual({
+    error: 'Forbidden: ansible.content.view permission required',
+  });
+});
+
+it('denies resolution and validation without ansible.content.view', async () => {
+  const app = await appWith(seedDB([]), undefined, false);
+  await request(app)
+    .post('/resolve/requirements')
+    .send({ collections: [] })
+    .expect(403);
+  await request(app).post('/config/validate').send({}).expect(403);
+  await request(app).get('/health').expect(200);
+});
 
 const DEFAULT_ARTIFACT: IndexedArtifact = {
   ref: 'reg/repo@sha256:abc',
@@ -124,38 +142,10 @@ const DEFAULT_ARTIFACT: IndexedArtifact = {
   manifest: { collections: [], generatedBy: {}, complete: true } as never,
 };
 
-it.each([
-  '/registries',
-  '/content',
-  '/content/reg/repo@sha256:abc/contents',
-  '/content/reg/repo@sha256:abc',
-  '/execution-environments',
-  '/execution-environments/reg/repo@sha256:abc/contents',
-  '/execution-environments/reg/repo@sha256:abc',
-  '/collections',
-  '/collections/cisco/ios',
-  '/content-items',
-  '/content-items/cisco.ios.ios_acls',
-  '/plugins',
-  '/plugins/cisco.ios.ios_acls',
-])('denies reads on %s without ansible.content.view', async path => {
-  const app = await appWith(seedDB([]), undefined, true, false);
-  const response = await request(app).get(path).expect(403);
-  expect(response.body).toEqual({
-    error: 'Forbidden: ansible.content.view permission required',
-  });
-});
-
-it('denies resolution and validation without ansible.content.view', async () => {
-  const app = await appWith(seedDB([]), undefined, true, false);
-  await request(app)
-    .post('/resolve/requirements')
-    .send({ collections: [] })
-    .expect(403);
-  await request(app).post('/config/validate').send({}).expect(403);
-  await request(app).get('/health').expect(200);
-});
-
+/**
+ * Seed the store without touching a registry. These tests cover the HTTP
+ * contract; discovery has its own coverage.
+ */
 function seedDB(items: Array<Record<string, unknown>>): ContentStore {
   const seededItems: IndexedItem[] = items.map(item => ({
     key: `${DEFAULT_ARTIFACT.ref}::${item.fqcn}`,
@@ -189,96 +179,214 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
 }
 
 
-describe('sync authorization', () => {
-  const sensitiveMarker = 'https://user:secret-auth-marker@internal.example';
-  const fail = async (): Promise<never> => {
-    throw new Error(sensitiveMarker);
-  };
+describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
+  'sync authorization on %s',
+  path => {
+    function syncIndex() {
+      const index = stubDB({
+        getRegistry: () => ({ connection: { name: 'reg' } } as never),
+        listRegistries: () => [{ connection: { name: 'reg' } }] as never,
+      });
+      const refresh = jest
+        .spyOn(index, 'refreshRegistry')
+        .mockResolvedValue({ ok: true, discovered: 0 });
+      const poll = jest.spyOn(index, 'pollRegistry').mockResolvedValue({
+        changed: false,
+        refreshed: false,
+        details: [],
+        requests: 0,
+      });
+      return { index, refresh, poll };
+    }
 
-  describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
-    '%s fails closed',
-    path => {
-      it.each([
-        {
-          name: 'service identity',
-          dependencies: { userInfo: { getUserInfo: fail } },
-          warns: true,
-        },
-        {
-          name: 'token failure',
-          dependencies: { auth: { getPluginRequestToken: fail } },
-          warns: true,
-        },
-        {
-          name: 'catalog failure',
-          dependencies: { catalogClient: { getEntityByRef: fail } },
-          warns: true,
-        },
-        {
-          name: 'missing entity',
-          dependencies: {
-            catalogClient: { getEntityByRef: async () => undefined },
-          },
-          warns: false,
-        },
-        {
-          name: 'missing annotation',
-          dependencies: {
-            catalogClient: {
-              getEntityByRef: async () => ({
-                apiVersion: 'backstage.io/v1alpha1',
-                kind: 'User',
-                metadata: { name: 'test' },
-              }),
-            },
-          },
-          warns: false,
-        },
-      ])(
-        'denies $name without logging sensitive details',
-        async ({ dependencies, warns }) => {
-          warn.mockClear();
-          const index = seedDB([]);
-          const refresh = jest.spyOn(index, 'refreshRegistry');
-          const poll = jest.spyOn(index, 'pollRegistry');
-          const app = await appWith(index, undefined, true, true, dependencies);
-          const response = await request(app).post(path).expect(403);
-          expect(response.body).toEqual({
-            error: 'Forbidden: superuser access required',
-          });
-          expect(refresh).not.toHaveBeenCalled();
-          expect(poll).not.toHaveBeenCalled();
-          expect(warn.mock.calls).toEqual(
-            warns ? [['Unable to authorize content registry sync']] : [],
-          );
-          expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
-        },
-      );
+    it.each(['user:default/no-catalog-entity', 'user:default/guest'])(
+      'allows permitted user %s without any catalog lookup or annotation',
+      async userEntityRef => {
+        const { index, refresh, poll } = syncIndex();
+        const credentials = mockCredentials.user(userEntityRef);
+        const httpAuth = mockServices.httpAuth({
+          defaultCredentials: credentials,
+        });
+        jest.spyOn(httpAuth, 'credentials');
+        const authorize = jest
+          .fn()
+          .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]);
+        const response = await request(
+          await appWith(index, httpAuth, true, authorize),
+        ).post(path);
+        expect(response.status).toBe(
+          path === '/registries/reg/sync' ? 202 : 200,
+        );
+        expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+          allow: ['user'],
+        });
+        expect(authorize).toHaveBeenCalledWith(
+          [{ permission: automationContentSyncPermission }],
+          { credentials },
+        );
+        expect(refresh.mock.calls.length + poll.mock.calls.length).toBe(1);
+      },
+    );
+
+    it.each([
+      {
+        name: 'denied permission',
+        decisions: [{ result: AuthorizeResult.DENY }],
+        throws: false,
+      },
+      {
+        name: 'conditional permission',
+        decisions: [{ result: AuthorizeResult.CONDITIONAL }],
+        throws: false,
+      },
+      { name: 'missing decision', decisions: [], throws: false },
+      { name: 'unavailable permission service', decisions: [], throws: true },
+    ])(
+      'denies $name without privileged side effects or sensitive logging',
+      async ({ decisions, throws }) => {
+        warn.mockClear();
+        const sensitiveMarker =
+          'https://user:secret-auth-marker@internal.example';
+        const authorize = jest.fn().mockImplementation(async () => {
+          if (throws) throw new Error(sensitiveMarker);
+          return decisions;
+        });
+        const { index, refresh, poll } = syncIndex();
+        const response = await request(
+          await appWith(index, undefined, true, authorize),
+        )
+          .post(path)
+          .expect(403);
+        expect(response.body).toEqual({
+          error: 'Forbidden: ansible.content.sync permission required',
+        });
+        expect(refresh).not.toHaveBeenCalled();
+        expect(poll).not.toHaveBeenCalled();
+        expect(warn.mock.calls).toEqual(
+          throws ? [['Unable to authorize content registry sync']] : [],
+        );
+        expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
+        expect(inspect(response.body)).not.toContain(sensitiveMarker);
+      },
+    );
+
+    it.each([
+      { name: 'service', credentials: mockCredentials.service(), status: 403 },
+      { name: 'anonymous', credentials: mockCredentials.none(), status: 401 },
+    ])(
+      'rejects $name credentials before permission evaluation',
+      async ({ credentials, status }) => {
+        const { index, refresh, poll } = syncIndex();
+        const httpAuth = mockServices.httpAuth({
+          defaultCredentials: credentials,
+        });
+        jest.spyOn(httpAuth, 'credentials');
+        const authorize = jest
+          .fn()
+          .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]);
+        const response = await request(
+          await appWith(index, httpAuth, true, authorize),
+        ).post(path);
+        expect(response.status).toBe(status);
+        expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+          allow: ['user'],
+        });
+        expect(authorize).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
+        expect(poll).not.toHaveBeenCalled();
+      },
+    );
+  },
+);
+
+describe('POST /artifacts/:ref/sync', () => {
+  const ref = 'reg/team/repo@sha256:abc';
+  const path = `/artifacts/${encodeURIComponent(ref)}/sync`;
+
+  it.each(['completed', 'failed'] as const)(
+    'returns the typed %s outcome with 202 and decodes the row ref',
+    async status => {
+      const index = seedDB([]);
+      const result = {
+        status,
+        ref: status === 'completed' ? 'reg/team/repo@sha256:new' : ref,
+        tag: 'latest' as const,
+        retainedPrevious: status === 'failed',
+      };
+      const sync = jest.spyOn(index, 'syncArtifact').mockResolvedValue(result);
+      const refresh = jest.spyOn(index, 'refreshRegistry');
+      const response = await request(await appWith(index))
+        .post(path)
+        .expect(202);
+      expect(response.body).toEqual(result);
+      expect(sync).toHaveBeenCalledWith(ref);
+      expect(refresh).not.toHaveBeenCalled();
     },
   );
 
-  it.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
-    'denies non-superusers on %s',
-    async path => {
+  it.each(['ARTIFACT_NOT_FOUND', 'LATEST_TAG_NOT_FOUND'] as const)(
+    'returns safe 404 code %s',
+    async code => {
       const index = seedDB([]);
+      jest
+        .spyOn(index, 'syncArtifact')
+        .mockRejectedValue(new ArtifactSyncNotFoundError(code));
+      const response = await request(await appWith(index))
+        .post(path)
+        .expect(404);
+      expect(response.body.code).toBe(code);
+    },
+  );
+
+  it.each([
+    {
+      name: 'denied user',
+      credentials: mockCredentials.user(),
+      allowed: false,
+      status: 403,
+    },
+    {
+      name: 'service principal',
+      credentials: mockCredentials.service(),
+      allowed: true,
+      status: 403,
+    },
+    {
+      name: 'anonymous',
+      credentials: mockCredentials.none(),
+      allowed: true,
+      status: 401,
+    },
+  ])(
+    'rejects $name without index mutation',
+    async ({ credentials, allowed, status }) => {
+      const index = seedDB([]);
+      const sync = jest.spyOn(index, 'syncArtifact');
       const refresh = jest.spyOn(index, 'refreshRegistry');
       const poll = jest.spyOn(index, 'pollRegistry');
-      const app = await appWith(index, undefined, false);
-      await request(app).post(path).expect(403);
+      const response = await request(
+        await appWith(
+          index,
+          mockServices.httpAuth({ defaultCredentials: credentials }),
+          allowed,
+        ),
+      ).post(path);
+      expect(response.status).toBe(status);
+      expect(sync).not.toHaveBeenCalled();
       expect(refresh).not.toHaveBeenCalled();
       expect(poll).not.toHaveBeenCalled();
     },
   );
-
-  it('allows superusers to sync', async () => {
-    const app = await appWith(seedDB([]));
-    await request(app).post('/sync').expect(200);
-  });
 });
 
 describe('documentation field normalisation', () => {
+  /**
+   * ansible-doc emits `description`, `author` and `notes` as either a scalar or a list
+   * depending on how each collection author wrote the YAML. The API declares arrays, so
+   * it must deliver arrays — a consumer that trusts the contract crashed on this.
+   */
   it('coerces a string description to an array', async () => {
-    const db = seedDB([
+    const index = seedDB([
       {
         fqcn: 'cisco.ios.ios_acls',
         name: 'ios_acls',
@@ -286,7 +394,7 @@ describe('documentation field normalisation', () => {
         detail: { description: 'Resource module to configure ACLs.' },
       },
     ]);
-    const res = await request(await appWith(db)).get(
+    const res = await request(await appWith(index)).get(
       '/content-items/cisco.ios.ios_acls',
     );
 
@@ -297,7 +405,7 @@ describe('documentation field normalisation', () => {
   });
 
   it('coerces a string author to an array', async () => {
-    const db = seedDB([
+    const index = seedDB([
       {
         fqcn: 'ansible.netcommon.parse_cli',
         name: 'parse_cli',
@@ -305,7 +413,7 @@ describe('documentation field normalisation', () => {
         detail: { author: 'Ansible Network Team' },
       },
     ]);
-    const res = await request(await appWith(db)).get(
+    const res = await request(await appWith(index)).get(
       '/content-items/ansible.netcommon.parse_cli',
     );
 
@@ -313,7 +421,7 @@ describe('documentation field normalisation', () => {
   });
 
   it('leaves genuine arrays untouched', async () => {
-    const db = seedDB([
+    const index = seedDB([
       {
         fqcn: 'cisco.ios.ios_vlans',
         name: 'ios_vlans',
@@ -321,7 +429,7 @@ describe('documentation field normalisation', () => {
         detail: { description: ['line one', 'line two'], author: ['A', 'B'] },
       },
     ]);
-    const res = await request(await appWith(db)).get(
+    const res = await request(await appWith(index)).get(
       '/content-items/cisco.ios.ios_vlans',
     );
 
@@ -330,10 +438,10 @@ describe('documentation field normalisation', () => {
   });
 
   it('omits the field entirely when absent, rather than emitting null', async () => {
-    const db = seedDB([
+    const index = seedDB([
       { fqcn: 'cisco.ios.ios', name: 'ios', type: 'cliconf', detail: {} },
     ]);
-    const res = await request(await appWith(db)).get(
+    const res = await request(await appWith(index)).get(
       '/content-items/cisco.ios.ios',
     );
 
@@ -342,7 +450,7 @@ describe('documentation field normalisation', () => {
   });
 
   it('always returns providedBy as an array', async () => {
-    const db = seedDB([
+    const index = seedDB([
       {
         fqcn: 'cisco.ios.ios_vlans',
         name: 'ios_vlans',
@@ -350,7 +458,7 @@ describe('documentation field normalisation', () => {
         detail: {},
       },
     ]);
-    const res = await request(await appWith(db)).get(
+    const res = await request(await appWith(index)).get(
       '/content-items/cisco.ios.ios_vlans',
     );
 
@@ -361,7 +469,8 @@ describe('documentation field normalisation', () => {
 
 describe('GET /health', () => {
   it('returns an ok status for a liveness check', async () => {
-    const res = await request(await appWith()).get('/health');
+    const index = seedDB([]);
+    const res = await request(await appWith(index)).get('/health');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
@@ -525,53 +634,115 @@ describe('GET /content pagination', () => {
 });
 
 describe('diagnostics are summarised on the registry listing', () => {
-  const corporateConnection = {
-    name: 'corporate',
-    url: 'https://registry.corp.example.com',
-    auth: { type: 'anonymous' },
-  };
-
-  const reconcileError =
-    `repository listing failed: fetch failed: Hostname/IP does not match ` +
-    `certificate's altnames: Hostname: registry.corp.example.com. is not ` +
-    `in cert's altnames: DNS:secret-host.internal`;
-
-  function dbWithFailedReconcile(
-    overrides: Partial<ContentStore> = {},
-  ): ContentStore {
-    return stubDB({
-      listRegistries: () => [{ connection: corporateConnection as never }],
-      getRegistry: (name: string) =>
-        name === 'corporate'
-          ? { connection: corporateConnection as never }
-          : undefined,
-      reconcileStateFor: () => ({
-        at: '2026-10-22T00:00:00.000Z',
-        ok: false,
-        error: reconcileError,
-        artifacts: 2,
-      }),
-      driftStateFor: () => ({
-        at: '2026-10-22T00:00:00.000Z',
-        changed: false,
-        details: ['check failed: connection refused from 10.1.2.3'],
-        requests: 3,
-      }),
-      ...overrides,
+  /**
+   * An index with one registry whose last reconciliation — and drift check —
+   * failed the way a TLS rejection would: the error text quotes hostnames
+   * from the certificate's subject alternative names.
+   *
+   * Every route except `GET /health` sits behind the sign-in barrier (#977),
+   * and the fixed summary is all the listing reports — the raw cause goes to
+   * the backend log and the sync responses. The private fields are written
+   * directly because the point of these tests is the HTTP contract, not
+   * discovery.
+   */
+  async function createTestDB() {
+    const db = knexFactory({
+      client: 'better-sqlite3',
+      connection: { filename: ':memory:' },
+      useNullAsDefault: true,
     });
+    await db.schema.createTable('artifacts', table => {
+      table.string('ref').primary();
+      table.string('type').notNullable();
+      table.string('registry').notNullable().index();
+      table.string('repository').notNullable();
+      table.string('digest').notNullable();
+      table.text('tags').notNullable().defaultTo('[]');
+      table.string('pull_reference').notNullable();
+      table.boolean('contents_known').notNullable().defaultTo(false);
+      table.text('classification').notNullable().defaultTo('{}');
+      table.text('manifest');
+      table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+      table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+    });
+    await db.schema.createTable('items', table => {
+      table.string('key').primary();
+      table.string('fqcn').notNullable().index();
+      table.string('name').notNullable();
+      table.string('type').notNullable();
+      table.string('collection').notNullable();
+      table.string('collection_version').notNullable();
+      table.string('short_description');
+      table.string('version_added');
+      table.boolean('deprecated').notNullable().defaultTo(false);
+      table
+        .string('artifact_ref')
+        .notNullable()
+        .references('ref')
+        .inTable('artifacts')
+        .onDelete('CASCADE');
+      table.text('detail');
+      table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+      table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+    });
+    return db;
+  }
+
+  /**
+   * A real store over an in-memory database, so the sync paths exercise the
+   * actual discovery and reconciliation machinery with an injectable fetch.
+   */
+  async function indexWithFailedReconcile(): Promise<ContentStore> {
+    const store = new ContentStore(
+      [
+        {
+          name: 'corporate',
+          url: 'https://registry.corp.example.com',
+          auth: { type: 'anonymous' },
+        },
+      ] as never,
+      (await createTestDB()) as never,
+      { info: () => {}, warn: () => {}, debug: () => {} },
+      defaultContentTypes(),
+    );
+    const internals = store as unknown as {
+      reconcile: Map<string, unknown>;
+      drift: Map<string, unknown>;
+    };
+    internals.reconcile.set('corporate', {
+      at: '2026-10-22T00:00:00.000Z',
+      ok: false,
+      error:
+        `repository listing failed: fetch failed: Hostname/IP does not match ` +
+        `certificate's altnames: Hostname: registry.corp.example.com. is not ` +
+        `in cert's altnames: DNS:secret-host.internal`,
+      artifacts: 2,
+    });
+    internals.drift.set('corporate', {
+      at: '2026-10-22T00:00:00.000Z',
+      changed: false,
+      details: ['check failed: connection refused from 10.1.2.3'],
+      requests: 3,
+    });
+    return store;
   }
 
   it('replaces the reconcile error with the fixed summary on /registries', async () => {
-    const db = dbWithFailedReconcile();
-    const res = await request(await appWith(db)).get('/registries');
+    const res = await request(
+      await appWith(await indexWithFailedReconcile()),
+    ).get('/registries');
 
     expect(res.status).toBe(200);
     const corporate = res.body.items.find(
       (item: { name: string }) => item.name === 'corporate',
     );
+    // Status, timestamp, and counts stay; the cause does not.
     expect(corporate.lastReconcileOk).toBe(false);
     expect(corporate.lastReconciledAt).toBe('2026-10-22T00:00:00.000Z');
     expect(corporate.lastReconcileError).toBe(RECONCILE_FAILURE_SUMMARY);
+    // No certificate subjects, SANs, or internal hostnames leak: the
+    // registry's own URL is configuration this route serves on purpose;
+    // everything beyond it is diagnostic detail.
     const body = JSON.stringify(res.body);
     expect(body).not.toContain('secret-host.internal');
     expect(body).not.toContain('altnames');
@@ -579,14 +750,17 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 
   it('keeps the detailed cause on the per-registry sync response', async () => {
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        discovered: 0,
-        ok: false,
-        error: 'fetch failed: certificate has expired',
-      }),
-    });
-    const res = await request(await appWith(db)).post(
+    const index = await indexWithFailedReconcile();
+    // A live sync of the same registry fails with a detailed cause, the way
+    // a TLS rejection would: the caller explicitly asked for the refresh, so
+    // the response must carry it.
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+      () => Promise.reject(new Error('fetch failed: certificate has expired'));
+
+    const res = await request(await appWith(index)).post(
       '/registries/corporate/sync',
     );
 
@@ -596,39 +770,40 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 
   it('keeps the detailed cause on the global sync response', async () => {
+    const index = await indexWithFailedReconcile();
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
     const detail = 'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        discovered: 0,
-        ok: false,
-        error: detail,
-      }),
-    });
+    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
+      () => Promise.reject(new Error(detail));
 
-    const res = await request(await appWith(db)).post('/sync');
+    const res = await request(await appWith(index)).post('/sync');
 
     expect(res.status).toBe(207);
     expect(res.body.status).toBe('partial');
     const outcome = res.body.registries[0];
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toContain(detail);
+    // Response detail must not erase the operator's diagnostic state.
+    expect(index.reconcileStateFor('corporate')?.error).toContain(detail);
   });
 
   it('completes a global sync of healthy registries', async () => {
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        ok: true,
-        discovered: 3,
-      }),
+    const index = await indexWithFailedReconcile();
+    const refresh = jest.spyOn(index, 'refreshRegistry').mockResolvedValue({
+      ok: true,
+      discovered: 3,
     });
 
-    const res = await request(await appWith(db)).post('/sync');
+    const res = await request(await appWith(index)).post('/sync');
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('completed');
     expect(res.body.registries).toEqual([
       { registry: 'corporate', ok: true, discovered: 3 },
     ]);
+    expect(refresh).toHaveBeenCalledWith('corporate');
   });
 });
 
@@ -636,31 +811,46 @@ describe('GET /registries', () => {
   it.each([undefined, { at: '2026-10-31', ok: true, artifacts: 0 }])(
     'omits failure diagnostics when reconciliation is %p',
     async reconcile => {
-      const mockConnection = {
-        name: 'mock',
-        url: 'https://mock.registry',
-        auth: { type: 'anonymous' },
-      };
-      const db = stubDB({
-        listRegistries: () => [{ connection: mockConnection as never }],
+      const index = stubDB({
+        getRegistry: () =>
+          ({
+            connection: {
+              name: 'mock',
+              url: 'https://mock.registry',
+              auth: { type: 'anonymous' },
+            },
+          } as never),
+        listRegistries: () =>
+          [
+            {
+              connection: {
+                name: 'mock',
+                url: 'https://mock.registry',
+                auth: { type: 'anonymous' },
+              },
+            },
+          ] as never,
         reconcileStateFor: () => reconcile as never,
-        driftStateFor: () => undefined,
       });
-      const res = await request(await appWith(db)).get('/registries');
+      const res = await request(await appWith(index)).get('/registries');
       expect(res.body.items).toHaveLength(1);
       expect(res.body.items[0]).not.toHaveProperty('lastReconcileError');
       expect(res.body.items[0].lastReconcileOk).toBe(reconcile?.ok);
     },
   );
   it('returns empty items when none are configured', async () => {
-    const res = await request(await appWith()).get('/registries');
+    const index = seedDB([]);
+    const res = await request(await appWith(index)).get('/registries');
 
     expect(res.status).toBe(200);
     expect(res.body.items).toEqual([]);
   });
 
   it('POST poll returns 404 for an unknown registry', async () => {
-    const res = await request(await appWith()).post('/registries/reg/poll');
+    const index = seedDB([]);
+    const res = await request(await appWith(index)).post(
+      '/registries/reg/poll',
+    );
 
     expect(res.status).toBe(404);
     expect(res.body.code).toBe('REGISTRY_NOT_FOUND');
@@ -687,7 +877,8 @@ describe('config validation', () => {
   }
 
   it('accepts a registry that configures a CA bundle alone', async () => {
-    const res = await request(await appWith())
+    const index = seedDB([]);
+    const res = await request(await appWith(index))
       .post('/config/validate')
       .send(document([registry({ caFile: '/etc/pki/mock-ca.pem' })]));
 
@@ -701,7 +892,7 @@ describe('config validation', () => {
   });
 
   it('reports missing registry names and URLs at their field paths', async () => {
-    const res = await request(await appWith())
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send(document([registry({ name: undefined, url: undefined })]));
     expect(res.body.valid).toBe(false);
@@ -715,7 +906,7 @@ describe('config validation', () => {
   });
 
   it('rejects duplicate registry names', async () => {
-    const res = await request(await appWith())
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send(document([registry(), registry()]));
     expect(res.body.valid).toBe(false);
@@ -725,7 +916,7 @@ describe('config validation', () => {
   });
 
   it('warns that realm rewriting changes the credential destination', async () => {
-    const res = await request(await appWith())
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send(document([registry({ rewriteAuthRealmHost: true })]));
     expect(res.body.valid).toBe(true);
@@ -740,7 +931,7 @@ describe('config validation', () => {
   });
 
   it('rejects registry URLs without a scheme', async () => {
-    const res = await request(await appWith())
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send(document([registry({ url: 'mock.registry' })]));
     expect(res.body.valid).toBe(false);
@@ -757,7 +948,7 @@ describe('config validation', () => {
     // paths must survive whatever a caller sends. An object whose
     // `toString` is null would otherwise crash the handler with a 500
     // instead of a validation result.
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: { toString: null },
@@ -778,7 +969,7 @@ describe('config validation', () => {
   it.each([{ namespaces: [] }, { namespaces: ['team'] }])(
     'validates namespaces $namespaces without configured repositories',
     async ({ namespaces }) => {
-      const res = await request(await appWith())
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send(document([registry({ repositories: [], namespaces })]));
       expect(res.body.valid).toBe(true);
@@ -787,7 +978,10 @@ describe('config validation', () => {
   );
 
   it('rejects caFile combined with the insecure opt-out, at the caFile path', async () => {
-    const res = await request(await appWith())
+    // The same refusal readRegistryConfigs makes at startup — CI must see it
+    // before the process does, not as a boot failure after merge.
+    const index = seedDB([]);
+    const res = await request(await appWith(index))
       .post('/config/validate')
       .send(
         document([
@@ -806,7 +1000,7 @@ describe('config validation', () => {
   it.each(['y', 'yes', 'true', '1', 'on', ' ON ', ' YeS ', 1])(
     'rejects caFile combined with insecure=%p, matching startup coercion',
     async insecure => {
-      const res = await request(await appWith())
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send(document([registry({ caFile: '/etc/pki/ca.pem', insecure })]));
 
@@ -824,7 +1018,7 @@ describe('config validation', () => {
   it.each([false, 'n', 'no', 'false', '0', 'off', ' OFF ', 0, null])(
     'accepts caFile combined with insecure=%p',
     async insecure => {
-      const res = await request(await appWith())
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send(document([registry({ caFile: '/etc/pki/ca.pem', insecure })]));
 
@@ -837,7 +1031,7 @@ describe('config validation', () => {
   it.each(['maybe', '', 2, {}, []])(
     'reports invalid insecure=%p at its field path',
     async insecure => {
-      const res = await request(await appWith())
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send(document([registry({ insecure })]));
 
@@ -853,7 +1047,7 @@ describe('config validation', () => {
   it.each([null, [], 'registry', 1, true])(
     'reports malformed registry entry %p and continues validating',
     async entry => {
-      const res = await request(await appWith())
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send(document([entry, registry({ insecure: 'maybe' })]));
 
@@ -874,15 +1068,25 @@ describe('configuration boundary', () => {
    * could answer 404 ("no such registry") and satisfy a weaker test.
    */
   function seedWithRegistry(): ContentStore {
-    const connection = {
-      name: 'reg',
-      url: 'https://reg.example',
-      auth: { type: 'anonymous' },
-    };
     return stubDB({
-      listRegistries: () => [{ connection: connection as never }],
-      getRegistry: (name: string) =>
-        name === 'reg' ? { connection: connection as never } : undefined,
+      getRegistry: () =>
+        ({
+          connection: {
+            name: 'reg',
+            url: 'https://reg.example',
+            auth: { type: 'anonymous' },
+          },
+        } as never),
+      listRegistries: () =>
+        [
+          {
+            connection: {
+              name: 'reg',
+              url: 'https://reg.example',
+              auth: { type: 'anonymous' },
+            },
+          },
+        ] as never,
     });
   }
 
@@ -920,7 +1124,7 @@ describe('configuration boundary', () => {
   it('flags a registry URL with a non-HTTP scheme', async () => {
     // A URL like ftp://quay.io is a real URL — just not one this plugin can
     // talk to. It has to be rejected up front, before any request is sent.
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -939,7 +1143,7 @@ describe('configuration boundary', () => {
   });
 
   it('flags a registry URL with no scheme at all', async () => {
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -968,7 +1172,7 @@ describe('configuration boundary', () => {
     // `//` as a host swap, so the client would refuse its own registry.
     'https://quay.io//v2',
   ])('rejects %s, which the loader also rejects at startup', async badUrl => {
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -989,7 +1193,7 @@ describe('configuration boundary', () => {
   it.each(['https://quay.io?', 'https://quay.io#'])(
     'rejects %s — an unfinished query or fragment — like the loader',
     async badUrl => {
-      const res = await request(await appWith(stubDB()))
+      const res = await request(await appWith(seedDB([])))
         .post('/config/validate')
         .send({
           apiVersion: 'content.ansible.com/v1',
@@ -1014,7 +1218,7 @@ describe('configuration boundary', () => {
     // HTTPS:// prefix — instead of rejecting it. This endpoint has to reach
     // the same verdict, or it would tell users their working configuration
     // is broken.
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -1027,7 +1231,7 @@ describe('configuration boundary', () => {
   });
 
   it('flags embedded credentials and query suffixes, like the loader', async () => {
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -1059,7 +1263,7 @@ describe('configuration boundary', () => {
     // Before this fix, a registry entry that wasn't a proper settings object
     // crashed the endpoint with a server error (500). Now it comes back as an
     // ordinary "this is wrong with your configuration" report.
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -1080,7 +1284,7 @@ describe('configuration boundary', () => {
   it('reports a non-string URL as a validation error, not a crash', async () => {
     // Same idea as the test above: `url: 123` is a mistake in the document,
     // and the endpoint's job is to say so, not to fail.
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -1099,7 +1303,7 @@ describe('configuration boundary', () => {
   });
 
   it('reports duplicate registry names, which would be ambiguous endpoints', async () => {
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',
@@ -1120,7 +1324,7 @@ describe('configuration boundary', () => {
   });
 
   it('accepts a well-formed configuration and only warns about insecure registries', async () => {
-    const res = await request(await appWith(stubDB()))
+    const res = await request(await appWith(seedDB([])))
       .post('/config/validate')
       .send({
         apiVersion: 'content.ansible.com/v1',

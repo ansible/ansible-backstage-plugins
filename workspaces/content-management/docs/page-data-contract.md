@@ -50,8 +50,10 @@ The old `/automation-content/execution-environments` path redirects here in
 both hosts.
 `/content` and `/automation-content` redirect to `/content/ee`; there is no
 separate content landing page or Content navigation item.
-The EE catalog header owns the admin Sync action (`syncAll()`), with
-per-registry results surfaced as portal notifications.
+The EE catalog header owns the manual Sync action (`syncAll()`), with
+per-registry results surfaced as portal notifications. The definition-file
+tab opens the existing registry-selection dialog; Collections uses the same
+header sync action.
 
 Tina's `ImagesCatalogPage` layout, artifact data:
 
@@ -66,11 +68,18 @@ Tina's `ImagesCatalogPage` layout, artifact data:
 | Classification           | `classification.type` when available; never append a missing confidence value                                                                                                                                                 |
 | Search / filter          | client-side search over the loaded page, plus the all-images toggle; no facet sidebar                                                                                                                                         |
 | Favourites               | catalog stars (matching rules above)                                                                                                                                                                                          |
-| Row actions              | Visible favourite star; menu with Use in Controller, Sync, and View details. Sync refreshes the owning registry and requires backend superuser access.                                                                        |
+| Row actions              | Visible favourite star; menu with Use in Controller and Sync. The image name links to details. Sync resolves only this repository's current `latest` image and requires a signed-in user with `ansible.content.sync`.         |
 
 Tags and digests are displayed in image details, not in the catalog table.
 The client uses server pagination with 10, 20, or 50 rows per page. Changing the
 page size returns to page 1; no pre-pagination response fallback remains.
+
+Content view/sync permissions come from the host's configured RBAC roles; no
+default role is added for signed-in users. Manual sync and drift-poll endpoints
+require a user identity and `ansible.content.sync`, rejecting anonymous and
+service-only requests. Guest configuration, unrelated administration, and
+catalog create/unregister permissions stay under their existing policies.
+Downstream SCM and AAP credential requirements remain.
 
 ### EE details (`/content/ee/…`)
 
@@ -90,10 +99,15 @@ supported. Contents that are unknown or partial must be explained, but the
 routine raw `complete inventory · build-time-manifest` readout is not part of
 the reviewed design.
 
-Image Sync waits for the registry reconciliation response, distinguishes a
-completed result from a failed result, and refreshes both image metadata and
-the separately fetched collection contents. A failed reconciliation may retain
-previously indexed contents; the UI reports that rather than claiming success.
+Row and detail-page Sync wait for targeted reconciliation of the selected
+repository's current `latest` image, refreshing its metadata and collection
+contents. Other repositories and sibling image contents are not scanned, and
+unrelated images retain their existing freshness timestamps. If `latest` moves,
+the response identifies the new digest and image details follow that reference.
+A missing `latest` tag is reported explicitly. Core manifest/config failures
+preserve the previous index. Unavailable optional inventory remains unknown;
+verified inventory may be retained for the same digest, never copied to a new
+digest. Header and registry-selection Sync remain registry-wide actions.
 
 Readme-from-git, links cards, and resources cards remain
 **deferred** (no git readme exists for registry artifacts). Build/edit

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
 import type { Entity } from '@backstage/catalog-model';
 import {
   catalogApiRef,
@@ -34,6 +34,7 @@ import {
   ContentApiError,
   type ExecutionEnvironment,
 } from '../../api';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { eeRouteRef } from '../../routes';
 import {
   EmptyState,
@@ -41,7 +42,6 @@ import {
   StatusBadge,
   syncStatusIcon,
 } from '../common';
-import { useIsSuperuser } from '@ansible/portal-plugin-sdk';
 import type { StatusBadgeTone } from '../common';
 import { UseInControllerDialog } from './UseInControllerDialog';
 import {
@@ -87,16 +87,19 @@ export function ImagesCatalogPage({
 }): ReactElement {
   const api = useApi(automationContentApiRef);
   const catalog = useApi(catalogApiRef);
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const base = useRouteRef(eeRouteRef)();
-  const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [starredOnly, setStarredOnly] = useState(false);
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [syncError, setSyncError] = useState('');
-  const [syncingRegistry, setSyncingRegistry] = useState('');
+  const [syncStatus, setSyncStatus] = useState('');
+  const [syncingRefs, setSyncingRefs] = useState<Set<string>>(new Set());
+  const inFlightRefs = useRef(new Set<string>());
   const [controllerImage, setControllerImage] =
     useState<ExecutionEnvironment | null>(null);
   const images = useAsyncRetry(
@@ -161,30 +164,41 @@ export function ImagesCatalogPage({
     paginationOptions: { type: 'none' },
   });
 
-  const syncRegistry = async (registry: string): Promise<void> => {
-    if (syncingRegistry) return;
-    setSyncingRegistry(registry);
+  const syncArtifact = async (ref: string): Promise<void> => {
+    if (!canSync || inFlightRefs.current.has(ref)) return;
+    inFlightRefs.current.add(ref);
+    setSyncingRefs(new Set(inFlightRefs.current));
     setSyncError('');
+    setSyncStatus('');
     try {
-      const result = await api.syncRegistry(registry);
+      const result = await api.syncArtifact(ref);
       if (result.status === 'failed') {
         setSyncError(
           result.retainedPrevious
-            ? `Sync failed for ${displayRegistryName(
-                registry,
-              )}. Previously indexed content is still shown.`
-            : `Unable to sync ${displayRegistryName(registry)}.`,
+            ? 'Sync failed. Previously indexed content is still shown.'
+            : 'Unable to sync this image.',
         );
+        return;
       }
+      setSyncStatus(
+        result.ref === ref
+          ? 'Sync completed.'
+          : 'Sync completed. The latest image changed and the catalog was refreshed.',
+      );
       images.retry();
     } catch (error) {
-      setSyncError(
-        error instanceof ContentApiError && error.status === 403
-          ? `Sync access needed for ${displayRegistryName(registry)}.`
-          : `Unable to sync ${displayRegistryName(registry)}.`,
-      );
+      if (error instanceof ContentApiError && error.status === 403) {
+        setSyncError('Sync access needed for this image.');
+      } else if (error instanceof ContentApiError && error.status === 404) {
+        setSyncError(
+          'Latest image not found. This repository may not have a latest tag.',
+        );
+      } else {
+        setSyncError('Unable to sync this image.');
+      }
     } finally {
-      setSyncingRegistry('');
+      inFlightRefs.current.delete(ref);
+      setSyncingRefs(new Set(inFlightRefs.current));
     }
   };
 
@@ -292,21 +306,16 @@ export function ImagesCatalogPage({
                   >
                     Use in Controller
                   </MenuItem>
-                  {isSuperuser && (
+                  {canSync && (
                     <MenuItem
-                      isDisabled={Boolean(syncingRegistry)}
+                      isDisabled={syncingRefs.has(row.ref)}
                       onAction={() => {
-                        void syncRegistry(row.registry);
+                        void syncArtifact(row.ref);
                       }}
                     >
-                      {syncingRegistry === row.registry ? 'Syncing…' : 'Sync'}
+                      {syncingRefs.has(row.ref) ? 'Syncing…' : 'Sync'}
                     </MenuItem>
                   )}
-                  <MenuItem
-                    onAction={() => navigate(environmentHref(base, row.ref))}
-                  >
-                    View details
-                  </MenuItem>
                 </Menu>
               </MenuTrigger>
             </Flex>
@@ -353,6 +362,7 @@ export function ImagesCatalogPage({
           </Flex>
         </Flex>
         {syncError && <Text role="alert">{syncError}</Text>}
+        {syncStatus && <Text role="status">{syncStatus}</Text>}
         <Text as="h2" variant="title-medium">
           Execution environment images
           {images.value ? ` (${images.value.totalItems})` : ''}

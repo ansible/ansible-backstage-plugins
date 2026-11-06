@@ -1,5 +1,45 @@
 import { AutomationContentClient, ContentApiError } from './api';
 
+it.each(['completed', 'failed'] as const)(
+  'syncs only the encoded artifact row with a %s outcome',
+  async status => {
+    const ref = 'registry/team/image@sha256:abc';
+    const result = {
+      status,
+      ref,
+      tag: 'latest',
+      retainedPrevious: status === 'failed',
+    };
+    const fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: true, status: 202, json: async () => result });
+    const client = new AutomationContentClient({
+      discoveryApi: { getBaseUrl: async () => '/backend' },
+      fetchApi: { fetch },
+    });
+    await expect(client.syncArtifact(ref)).resolves.toEqual(result);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/backend/artifacts/registry%2Fteam%2Fimage%40sha256%3Aabc/sync',
+      { method: 'POST' },
+    );
+  },
+);
+
+it('retains 404 when latest is absent without attempting registry sync', async () => {
+  const fetch = jest
+    .fn()
+    .mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+  const client = new AutomationContentClient({
+    discoveryApi: { getBaseUrl: async () => '/backend' },
+    fetchApi: { fetch },
+  });
+  await expect(
+    client.syncArtifact('registry/repo@sha256:abc'),
+  ).rejects.toHaveProperty('status', 404);
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
 it('retains HTTP status so a missing artifact differs from an unavailable service', async () => {
   const client = new AutomationContentClient({
     discoveryApi: { getBaseUrl: async () => '/backend' },

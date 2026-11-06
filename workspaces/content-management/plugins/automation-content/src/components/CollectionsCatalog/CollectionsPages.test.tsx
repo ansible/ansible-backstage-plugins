@@ -5,6 +5,7 @@ import {
   mockApis,
 } from '@backstage/test-utils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
+import { usePermission } from '@backstage/plugin-permission-react';
 import {
   catalogApiRef,
   MockStarredEntitiesApi,
@@ -17,6 +18,7 @@ import {
   type ContentItemSummary,
   type SyncResult,
 } from '../../api';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { CollectionsCatalogPage } from './CollectionsCatalogPage';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
 
@@ -37,9 +39,11 @@ jest.mock('../ContentItemDocumentation', () => ({
     </h1>
   ),
 }));
-jest.mock('@ansible/portal-plugin-sdk', () => ({
-  useIsSuperuser: () => ({ isSuperuser: true }),
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(),
 }));
+const mockUsePermission = jest.mocked(usePermission);
 
 const first: Collection = {
   namespace: 'ns',
@@ -146,6 +150,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
 });
 
 function mount(path: string, starredApi = new MockStarredEntitiesApi()) {
@@ -573,6 +578,24 @@ it('reports successful registry sync from the real sync API', async () => {
   ).toBeTruthy();
   expect(api.syncAll).toHaveBeenCalledTimes(1);
 });
+
+it.each([
+  ['denied', { allowed: false, loading: false }],
+  ['loading', { allowed: false, loading: true }],
+] as const)(
+  'hides collection sync and makes no API call while permission is %s',
+  async (_state, permission) => {
+    mockUsePermission.mockReturnValue(permission);
+    await mount('/');
+    await screen.findByRole('link', { name: 'ns.name_with.dots' });
+
+    expect(screen.queryByRole('button', { name: 'Sync Now' })).toBeNull();
+    expect(api.syncAll).not.toHaveBeenCalled();
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: automationContentSyncPermission,
+    });
+  },
+);
 
 it('reports partial registry sync results without masking the failed source', async () => {
   api.syncAll.mockResolvedValueOnce({

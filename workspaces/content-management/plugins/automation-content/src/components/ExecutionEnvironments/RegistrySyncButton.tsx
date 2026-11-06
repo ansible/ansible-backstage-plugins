@@ -1,8 +1,10 @@
 import { useRef, useState, type ReactElement } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { Button } from '@backstage/ui';
 import SyncIcon from '@material-ui/icons/Sync';
-import { useIsSuperuser, useNotifications } from '@ansible/portal-plugin-sdk';
+import { useNotifications } from '@ansible/portal-plugin-sdk';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { automationContentApiRef } from '../../api';
 
 /** Sync every configured registry with per-registry notification feedback. */
@@ -14,12 +16,14 @@ export function RegistrySyncButton({
   onSynced: () => void;
 }): ReactElement | null {
   const api = useApi(automationContentApiRef);
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const { showNotification } = useNotifications();
   const [syncing, setSyncing] = useState(false);
   const inFlight = useRef(false);
   const sync = async () => {
-    if (!isSuperuser || inFlight.current) return;
+    if (!canSync || inFlight.current) return;
     inFlight.current = true;
     setSyncing(true);
     onStatus('Syncing configured registries');
@@ -54,7 +58,7 @@ export function RegistrySyncButton({
       setSyncing(false);
     }
   };
-  return isSuperuser ? (
+  return canSync ? (
     <Button
       variant="secondary"
       iconStart={<SyncIcon />}

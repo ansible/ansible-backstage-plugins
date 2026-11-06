@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
 import {
   Button,
   Checkbox,
@@ -11,7 +12,7 @@ import {
   Flex,
   Text,
 } from '@backstage/ui';
-import { useIsSuperuser } from '@ansible/portal-plugin-sdk';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import {
   automationContentApiRef,
   ContentApiError,
@@ -29,7 +30,9 @@ export function ImageSyncDialog({
   onSynced: (status: string) => void;
 }): ReactElement {
   const api = useApi(automationContentApiRef);
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const [registries, setRegistries] = useState<Registry[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState('');
@@ -58,7 +61,7 @@ export function ImageSyncDialog({
     };
   }, [api, open]);
   const sync = async () => {
-    if (!isSuperuser || inFlight.current || !selected.length) return;
+    if (!canSync || inFlight.current || !selected.length) return;
     inFlight.current = true;
     setSyncing(true);
     setError('');
@@ -154,7 +157,7 @@ export function ImageSyncDialog({
         <Button
           onPress={sync}
           isPending={syncing}
-          isDisabled={!isSuperuser || !selected.length}
+          isDisabled={!canSync || !selected.length}
         >
           Sync selected
         </Button>

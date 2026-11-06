@@ -1,28 +1,35 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { Entity } from '@backstage/catalog-model';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import {
+  type ArtifactSyncResult,
   automationContentApiRef,
   ContentApiError,
   type ArtifactContents,
   type AutomationContentApi,
   type ExecutionEnvironment,
-  type RegistrySyncResult,
 } from '../../api';
 import { ImagesCatalogPage } from './ImagesCatalogPage';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 
-const superuserState = { isSuperuser: true };
-
-jest.mock('@ansible/portal-plugin-sdk', () => ({
-  ...jest.requireActual('@ansible/portal-plugin-sdk'),
-  useIsSuperuser: () => superuserState,
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(),
 }));
 
+const mockUsePermission = jest.mocked(usePermission);
 const mockIsStarredEntity = jest.fn((_entity: Entity) => false);
 const mockToggleStarredEntity = jest.fn();
 let entityStarred = false;
@@ -44,6 +51,7 @@ jest.mock('@backstage/plugin-catalog-react', () => ({
 }));
 
 beforeEach(() => {
+  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
   mockIsStarredEntity.mockReset().mockReturnValue(false);
   mockToggleStarredEntity.mockReset();
   entityStarred = false;
@@ -101,17 +109,24 @@ const envelope = (
 
 function createLiveApi(image?: ExecutionEnvironment): {
   api: AutomationContentApi;
+  syncArtifact: jest.Mock;
   syncRegistry: jest.Mock;
+  syncAll: jest.Mock;
 } {
   const enumeration = {
     status: 'unknown' as const,
     source: 'external-introspection' as const,
   };
-  const syncRegistry = jest.fn(async (_registry: string) => ({
-    status: 'completed' as const,
-    discovered: 0,
-    retainedPrevious: false,
-  }));
+  const syncArtifact = jest.fn(
+    async (_ref: string): Promise<ArtifactSyncResult> => ({
+      status: 'completed',
+      ref: image?.ref ?? base.ref,
+      tag: 'latest',
+      retainedPrevious: false,
+    }),
+  );
+  const syncRegistry = jest.fn();
+  const syncAll = jest.fn();
   const api: AutomationContentApi = {
     listRegistries: async () => [],
     listExecutionEnvironments: async ({ page = 1 } = {}) => ({
@@ -134,14 +149,11 @@ function createLiveApi(image?: ExecutionEnvironment): {
     getContentItem: async fqcn => {
       throw new ContentApiError(404, `No content item for ${fqcn}`);
     },
-    syncAll: async () => ({
-      status: 'completed',
-      durationMs: 0,
-      registries: [],
-    }),
+    syncAll,
     syncRegistry,
+    syncArtifact,
   };
-  return { api, syncRegistry };
+  return { api, syncArtifact, syncRegistry, syncAll };
 }
 
 it('does not describe a failed inventory request as empty', async () => {
@@ -525,15 +537,23 @@ it('keeps search and the all-images toggle without the facet rail', async () => 
   );
 });
 
-it('hides row sync from non-superusers', async () => {
-  superuserState.isSuperuser = false;
-  try {
+it.each([
+  ['denied', { allowed: false, loading: false }],
+  ['loading', { allowed: false, loading: true }],
+] as const)(
+  'hides row sync and makes no API call while permission is %s',
+  async (_state, permission) => {
+    const syncArtifact = jest.fn();
+    mockUsePermission.mockReturnValue(permission);
     render(
       <TestApiProvider
         apis={[
           [
             automationContentApiRef,
-            { listExecutionEnvironments: async () => envelope([base]) },
+            {
+              listExecutionEnvironments: async () => envelope([base]),
+              syncArtifact,
+            },
           ],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
         ]}
@@ -547,16 +567,55 @@ it('hides row sync from non-superusers', async () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Actions for repo' }),
     );
-    expect(screen.getByRole('menuitem', { name: 'View details' })).toBeTruthy();
     expect(screen.queryByRole('menuitem', { name: 'Sync' })).toBeNull();
-  } finally {
-    superuserState.isSuperuser = true;
-  }
+    expect(syncArtifact).not.toHaveBeenCalled();
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: automationContentSyncPermission,
+    });
+  },
+);
+
+it('allows sync with the content permission without a matching catalog entity', async () => {
+  const syncArtifact = jest.fn().mockResolvedValue({
+    status: 'completed',
+    ref: base.ref,
+    tag: 'latest',
+    retainedPrevious: false,
+  });
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            listExecutionEnvironments: async () => envelope([base]),
+            syncArtifact,
+          },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await screen.findByRole('link', { name: 'repo' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  expect(screen.getByRole('menuitem', { name: 'Sync' })).toBeTruthy();
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+  await waitFor(() => expect(syncArtifact).toHaveBeenCalledWith(base.ref));
+  expect(mockUsePermission).toHaveBeenCalledWith({
+    permission: automationContentSyncPermission,
+  });
 });
 
 it('shows the star toggle and reviewed row actions, including the unavailable controller action', async () => {
   const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
-  const syncRegistry = jest
+  const syncArtifact = jest
     .fn()
     .mockRejectedValue(new ContentApiError(403, 'Forbidden'));
   const { rerender } = render(
@@ -566,7 +625,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           automationContentApiRef,
           {
             listExecutionEnvironments: async () => envelope([base]),
-            syncRegistry,
+            syncArtifact,
           },
         ],
         [
@@ -582,7 +641,10 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
     </TestApiProvider>,
   );
 
-  await screen.findByRole('link', { name: 'repo' });
+  const imageLink = await screen.findByRole('link', { name: 'repo' });
+  expect(imageLink.getAttribute('href')).toBe(
+    '/content/ee/r%2Frepo%40sha256%3Aone',
+  );
   await userEvent.click(
     screen.getByRole('button', { name: 'Add repo to favorites' }),
   );
@@ -594,7 +656,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           automationContentApiRef,
           {
             listExecutionEnvironments: async () => envelope([base]),
-            syncRegistry,
+            syncArtifact,
           },
         ],
         [
@@ -624,7 +686,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
   expect(
     screen.queryByRole('menuitem', { name: 'Copy pull reference' }),
   ).toBeNull();
-  expect(screen.getByRole('menuitem', { name: 'View details' })).toBeTruthy();
+  expect(screen.queryByRole('menuitem', { name: 'View details' })).toBeNull();
   expect(screen.queryByRole('menuitem', { name: /favorite/i })).toBeNull();
 
   await userEvent.click(
@@ -647,88 +709,38 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-  expect(syncRegistry).toHaveBeenCalledWith('r');
+  expect(syncArtifact).toHaveBeenCalledWith(base.ref);
   expect((await screen.findByRole('alert')).textContent).toContain(
-    'Sync access needed for R.',
+    'Sync access needed for this image.',
   );
 });
 
-it.each([
-  ['completed', null],
-  ['failed', 'Sync failed for R. Previously indexed content is still shown.'],
-] as const)(
-  'refreshes catalog rows and reports a resolved %s reconciliation accurately',
-  async (status, expectedAlert) => {
-    let reconciled = false;
-    const { api } = createLiveApi(base);
-    const listExecutionEnvironments = jest.fn(async () =>
-      envelope([
-        {
-          ...base,
-          ...(reconciled
-            ? {
-                lastReconciledAt: new Date().toISOString(),
-                lastReconcileOk: status === 'completed',
-              }
-            : {}),
-        },
-      ]),
-    );
-    const syncRegistry = jest.fn(
-      async (_registry: string): Promise<RegistrySyncResult> => {
-        reconciled = true;
-        return {
-          status,
-          discovered: 1,
-          retainedPrevious: status === 'failed',
-          error:
-            status === 'failed'
-              ? 'https://user:secret@registry.invalid'
-              : undefined,
-        };
-      },
-    );
-    render(
-      <TestApiProvider
-        apis={[
-          [
-            automationContentApiRef,
-            { ...api, listExecutionEnvironments, syncRegistry },
-          ],
-          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-        ]}
-      >
-        <MemoryRouter>
-          <ImagesCatalogPage />
-        </MemoryRouter>
-      </TestApiProvider>,
-    );
-    await screen.findByRole('link', { name: 'repo' });
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Actions for repo' }),
-    );
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-    await waitFor(() =>
-      expect(listExecutionEnvironments).toHaveBeenCalledTimes(2),
-    );
-    expect(
-      await screen.findByText(status === 'failed' ? 'Failed' : 'Available'),
-    ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'repo' })).toBeTruthy();
-    expect(screen.queryByRole('alert')?.textContent ?? null).toBe(
-      expectedAlert,
-    );
-    expect(syncRegistry).toHaveBeenCalledWith('r');
-    expect(screen.queryByText('Sync started.')).toBeNull();
-    expect(screen.queryByText(/secret/)).toBeNull();
-  },
-);
-
-it('uses safe generic feedback for an HTTP 500 sync failure', async () => {
-  const { api } = createLiveApi(base);
-  api.syncRegistry = async () => {
-    throw new ContentApiError(500, 'https://user:secret@registry.invalid');
+it('syncs only the selected artifact and refreshes to its new latest digest', async () => {
+  const nextImage: ExecutionEnvironment = {
+    ...base,
+    ref: 'r/repo@sha256:two',
+    digest: 'sha256:two',
+    pullReference: 'r/repo@sha256:two',
   };
+  const otherImage: ExecutionEnvironment = {
+    ...base,
+    ref: 'other/other@sha256:one',
+    registry: 'other',
+    repository: 'other',
+    pullReference: 'other/other@sha256:one',
+  };
+  const { api, syncArtifact, syncRegistry, syncAll } = createLiveApi(base);
+  const listExecutionEnvironments = jest
+    .fn()
+    .mockResolvedValueOnce(envelope([base, otherImage]))
+    .mockResolvedValueOnce(envelope([nextImage, otherImage]));
+  api.listExecutionEnvironments = listExecutionEnvironments;
+  syncArtifact.mockResolvedValueOnce({
+    status: 'completed',
+    ref: nextImage.ref,
+    tag: 'latest',
+    retainedPrevious: false,
+  });
   render(
     <TestApiProvider
       apis={[
@@ -746,11 +758,168 @@ it('uses safe generic feedback for an HTTP 500 sync failure', async () => {
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-  expect((await screen.findByRole('alert')).textContent).toContain(
-    'Unable to sync R.',
+  expect(
+    await screen.findByText(
+      'Sync completed. The latest image changed and the catalog was refreshed.',
+    ),
+  ).toBeTruthy();
+  await waitFor(() =>
+    expect(listExecutionEnvironments).toHaveBeenCalledTimes(2),
   );
+  expect(screen.getByRole('link', { name: 'repo' }).getAttribute('href')).toBe(
+    '/content/ee/r%2Frepo%40sha256%3Atwo',
+  );
+  expect(screen.getByRole('link', { name: 'other' }).getAttribute('href')).toBe(
+    '/content/ee/other%2Fother%40sha256%3Aone',
+  );
+  expect(syncArtifact).toHaveBeenCalledTimes(1);
+  expect(syncArtifact).toHaveBeenCalledWith(base.ref);
+  expect(syncRegistry).not.toHaveBeenCalled();
+  expect(syncAll).not.toHaveBeenCalled();
+});
+
+it('marks only the syncing artifact row as in flight', async () => {
+  const otherImage: ExecutionEnvironment = {
+    ...base,
+    ref: 'other/other@sha256:one',
+    registry: 'other',
+    repository: 'other',
+    pullReference: 'other/other@sha256:one',
+  };
+  const { api, syncArtifact } = createLiveApi(base);
+  api.listExecutionEnvironments = async () => envelope([base, otherImage]);
+  let finishSync!: (result: ArtifactSyncResult) => void;
+  syncArtifact.mockReturnValueOnce(
+    new Promise<ArtifactSyncResult>(resolve => {
+      finishSync = resolve;
+    }),
+  );
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await screen.findByRole('link', { name: 'repo' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  expect(
+    screen
+      .getByRole('menuitem', { name: 'Syncing…' })
+      .getAttribute('aria-disabled'),
+  ).toBe('true');
+
+  await userEvent.keyboard('{Escape}');
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for other' }),
+  );
+  expect(
+    screen
+      .getByRole('menuitem', { name: 'Sync' })
+      .getAttribute('aria-disabled'),
+  ).not.toBe('true');
+  expect(syncArtifact).toHaveBeenCalledTimes(1);
+  expect(syncArtifact).toHaveBeenCalledWith(base.ref);
+
+  await act(async () => {
+    finishSync({
+      status: 'completed',
+      ref: base.ref,
+      tag: 'latest',
+      retainedPrevious: false,
+    });
+  });
+  expect(await screen.findByText('Sync completed.')).toBeTruthy();
+});
+
+it('keeps the row on its current digest after a failed latest image sync', async () => {
+  const { api, syncArtifact, syncRegistry, syncAll } = createLiveApi(base);
+  const listExecutionEnvironments = jest.fn(async () => envelope([base]));
+  api.listExecutionEnvironments = listExecutionEnvironments;
+  syncArtifact.mockResolvedValueOnce({
+    status: 'failed',
+    ref: base.ref,
+    tag: 'latest',
+    retainedPrevious: true,
+    error: 'https://user:secret@registry.invalid',
+  });
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  await screen.findByRole('link', { name: 'repo' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+
+  expect(
+    await screen.findByText(
+      'Sync failed. Previously indexed content is still shown.',
+    ),
+  ).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'repo' }).getAttribute('href')).toBe(
+    '/content/ee/r%2Frepo%40sha256%3Aone',
+  );
+  expect(listExecutionEnvironments).toHaveBeenCalledTimes(1);
+  expect(syncArtifact).toHaveBeenCalledWith(base.ref);
+  expect(syncRegistry).not.toHaveBeenCalled();
+  expect(syncAll).not.toHaveBeenCalled();
   expect(screen.queryByText(/secret/)).toBeNull();
 });
+
+it.each([
+  [404, 'Latest image not found. This repository may not have a latest tag.'],
+  [500, 'Unable to sync this image.'],
+] as const)(
+  'shows fixed feedback for an HTTP %s latest image sync failure',
+  async (status, message) => {
+    const { api, syncArtifact } = createLiveApi(base);
+    syncArtifact.mockRejectedValueOnce(
+      new ContentApiError(status, 'https://user:secret@registry.invalid'),
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, api],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        ]}
+      >
+        <MemoryRouter>
+          <ImagesCatalogPage />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    await screen.findByRole('link', { name: 'repo' });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Actions for repo' }),
+    );
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(message);
+    expect(screen.queryByText(/secret/)).toBeNull();
+    expect(syncArtifact).toHaveBeenCalledWith(base.ref);
+  },
+);
 
 it('labels partial counts and unknown contents without requiring catalog matches', async () => {
   render(
