@@ -2,17 +2,22 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { ConfigReader } from '@backstage/config';
 import { publicUrl } from '@ansible/automation-content-common';
-import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import {
-  AuthService,
+  ContentStore,
+  IndexedArtifact,
+  IndexedItem,
+  ArtifactSyncNotFoundError,
+} from './ContentStore';
+import {
   HttpAuthService,
   LoggerService,
   PermissionsService,
-  UserInfoService,
 } from '@backstage/backend-plugin-api';
-import { CatalogClient } from '@backstage/catalog-client';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { automationContentViewPermission } from '@ansible/automation-content-common/permissions';
+import {
+  automationContentViewPermission,
+  automationContentSyncPermission,
+} from '@ansible/automation-content-common/permissions';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
@@ -20,9 +25,6 @@ export interface RouterOptions {
   httpAuth: HttpAuthService;
   db: ContentStore;
   permissions: PermissionsService;
-  auth: AuthService;
-  userInfo: UserInfoService;
-  catalogClient: CatalogClient;
 }
 
 /**
@@ -135,11 +137,10 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     contentsKnown: artifact.contentsKnown,
     classification: artifact.classification,
     enumeration: enumerationOf(artifact),
-    // When the registry was last successfully read, and whether that read
-    // succeeded. The catalog is a cache over state the registry owns, so how
-    // fresh it is matters; the ok flag drives the row's sync state.
-    lastReconciledAt: db.reconcileStateFor(artifact.registry)?.at,
-    lastReconcileOk: db.reconcileStateFor(artifact.registry)?.ok,
+    // Most recent full or row-specific attempt; syncing one artifact must not
+    // advance freshness for other rows in the same registry.
+    lastReconciledAt: db.reconcileStateForArtifact(artifact)?.at,
+    lastReconcileOk: db.reconcileStateForArtifact(artifact)?.ok,
     counts: db.countsFor(artifact),
     collections: (artifact.manifest?.collections ?? []).map(c => ({
       namespace: c.namespace,
@@ -153,8 +154,7 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { db, logger, httpAuth, auth, userInfo, catalogClient, permissions } =
-    options;
+  const { db, logger, httpAuth, permissions } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
@@ -191,43 +191,50 @@ export async function createRouter(
   };
 
   /**
-   * Reuse the AAP backend's catalog annotation check; never trust UI gating.
+   * Manual sync requires a signed-in user and explicit permission, not a
+   * catalog User entity or AAP superuser annotation. Never trust UI gating.
    * Typed structurally (req: unknown) for the same @types/express identity
    * reasons as RouteRequest above; cast only at the httpAuth boundary, the
    * same pattern as workspaces/apme .../router.ts `ensureUser`.
    */
-  const requireSuperuser = async (
+  const requireContentSync = async (
     req: unknown,
     res: RouteResponse,
     next: () => void,
   ) => {
+    const credentials = await httpAuth.credentials(
+      req as Parameters<HttpAuthService['credentials']>[0],
+      { allow: ['user'] },
+    );
     try {
-      const credentials = await httpAuth.credentials(
-        req as Parameters<HttpAuthService['credentials']>[0],
+      const [decision] = await permissions.authorize(
+        [{ permission: automationContentSyncPermission }],
+        { credentials },
       );
-      const { userEntityRef } = await userInfo.getUserInfo(credentials);
-      const { token } = await auth.getPluginRequestToken({
-        onBehalfOf: credentials,
-        targetPluginId: 'catalog',
-      });
-      const entity = await catalogClient.getEntityByRef(userEntityRef, {
-        token,
-      });
-      if (
-        entity?.metadata.annotations?.['aap.platform/is_superuser'] === 'true'
-      ) {
+      if (decision?.result === AuthorizeResult.ALLOW) {
         next();
         return;
       }
     } catch {
-      // Missing identities and failed catalog lookups fail closed without leaking details.
+      // Permission service failures fail closed without leaking details.
       logger.warn('Unable to authorize content registry sync');
     }
-    res.status(403).json({ error: 'Forbidden: superuser access required' });
+    res
+      .status(403)
+      .json({ error: 'Forbidden: ansible.content.sync permission required' });
   };
 
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
+  });
+
+  router.post('/artifacts/:ref/sync', requireContentSync, async (req, res) => {
+    try {
+      res.status(202).json(await db.syncArtifact(req.params.ref));
+    } catch (error) {
+      if (!(error instanceof ArtifactSyncNotFoundError)) throw error;
+      res.status(404).json({ error: error.message, code: error.code });
+    }
   });
 
   // Reads are permission-gated below, each route explicitly, so the OpenAPI
@@ -262,7 +269,7 @@ export async function createRouter(
    * Backs the manual refresh control in the UI: a full re-read, for when a user knows
    * something changed and does not want to wait for the poll.
    */
-  router.post('/sync', requireSuperuser, async (_req, res) => {
+  router.post('/sync', requireContentSync, async (_req, res) => {
     const started = Date.now();
     const results = [];
     for (const state of db.listRegistries()) {
@@ -286,51 +293,59 @@ export async function createRouter(
   });
 
   /** Cheap drift check: does the registry still match the index? */
-  router.post('/registries/:name/poll', requireSuperuser, async (req, res) => {
-    const { name } = req.params;
-    if (!db.getRegistry(name)) {
-      res.status(404).json({
-        error: `No such registry: ${name}`,
-        code: 'REGISTRY_NOT_FOUND',
+  router.post(
+    '/registries/:name/poll',
+    requireContentSync,
+    async (req, res) => {
+      const { name } = req.params;
+      if (!db.getRegistry(name)) {
+        res.status(404).json({
+          error: `No such registry: ${name}`,
+          code: 'REGISTRY_NOT_FOUND',
+        });
+        return;
+      }
+      const result = await db.pollRegistry(name);
+      res.json({
+        ...result,
+        lastReconciledAt: db.reconcileStateFor(name)?.at,
       });
-      return;
-    }
-    const result = await db.pollRegistry(name);
-    res.json({
-      ...result,
-      lastReconciledAt: db.reconcileStateFor(name)?.at,
-    });
-  });
+    },
+  );
 
   /**
    * Full re-read of one registry: the single-registry counterpart of POST /sync,
    * backing the per-registry refresh control in the UI.
    */
-  router.post('/registries/:name/sync', requireSuperuser, async (req, res) => {
-    const { name } = req.params;
-    if (!db.getRegistry(name)) {
-      res.status(404).json({
-        error: `No such registry: ${name}`,
-        code: 'REGISTRY_NOT_FOUND',
+  router.post(
+    '/registries/:name/sync',
+    requireContentSync,
+    async (req, res) => {
+      const { name } = req.params;
+      if (!db.getRegistry(name)) {
+        res.status(404).json({
+          error: `No such registry: ${name}`,
+          code: 'REGISTRY_NOT_FOUND',
+        });
+        return;
+      }
+      const result = await db.refreshRegistry(name);
+      logger.info(
+        redactor.redact(
+          `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
+            result.error ? ` (${result.error})` : ''
+          }`,
+        ),
+      );
+      res.status(202).json({
+        status: result.ok ? 'completed' : 'failed',
+        discovered: result.discovered,
+        retainedPrevious: !result.ok,
+        error: result.error,
+        lastReconciledAt: db.reconcileStateFor(name)?.at,
       });
-      return;
-    }
-    const result = await db.refreshRegistry(name);
-    logger.info(
-      redactor.redact(
-        `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
-          result.error ? ` (${result.error})` : ''
-        }`,
-      ),
-    );
-    res.status(202).json({
-      status: result.ok ? 'completed' : 'failed',
-      discovered: result.discovered,
-      retainedPrevious: !result.ok,
-      error: result.error,
-      lastReconciledAt: db.reconcileStateFor(name)?.at,
-    });
-  });
+    },
+  );
 
   // -- Content: type-agnostic ---------------------------------------------
   //
@@ -541,9 +556,7 @@ export async function createRouter(
     requireContentView,
     async (req, res) => {
       const fqcn = `${req.params.namespace}.${req.params.name}`;
-      const matches = (await db.listCollections()).filter(
-        c => c.fqcn === fqcn,
-      );
+      const matches = (await db.listCollections()).filter(c => c.fqcn === fqcn);
       if (matches.length === 0) {
         res.status(404).json({
           error: `Collection not found: ${fqcn}`,

@@ -3,14 +3,27 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
 import {
   portalContributionsApiRef,
   type CatalogContributionContext,
   type CatalogTabDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { automationContentManifest } from '../../pluginManifest';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { EECatalogPage } from './EECatalogPage';
 import styles from './EECatalogPage.module.css';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(),
+}));
+
+const mockUsePermission = jest.mocked(usePermission);
+
+beforeEach(() => {
+  mockUsePermission.mockReturnValue({ allowed: false, loading: false });
+});
 
 beforeAll(() => {
   const cssApi = globalThis.CSS ?? ({} as typeof CSS);
@@ -34,7 +47,6 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
   NotificationProvider: ({ children }: { children: ReactNode }) => children,
   NotificationStack: () => null,
   useNotifications: () => ({ notifications: [], removeNotification: () => {} }),
-  useIsSuperuser: () => ({ isSuperuser: false }),
 }));
 
 jest.mock('./DefinitionFilesCatalogPage', () => ({
@@ -45,7 +57,47 @@ jest.mock('./ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => 'Fallback images',
 }));
 jest.mock('./RegistrySyncButton', () => ({ RegistrySyncButton: () => null }));
-jest.mock('./catalog/ImageSyncDialog', () => ({ ImageSyncDialog: () => null }));
+jest.mock('./catalog/ImageSyncDialog', () => ({
+  ImageSyncDialog: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog">Registry sync dialog</div> : null,
+}));
+
+it('offers definition-file sync to users granted the content sync permission', async () => {
+  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
+  render(
+    <TestApiProvider apis={[]}>
+      <MemoryRouter initialEntries={['/content/ee/catalog']}>
+        <EECatalogPage view="catalog" />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await userEvent.click(screen.getByRole('button', { name: 'Sync Now' }));
+  expect((await screen.findByRole('dialog')).textContent).toContain(
+    'Registry sync dialog',
+  );
+  expect(mockUsePermission).toHaveBeenCalledWith({
+    permission: automationContentSyncPermission,
+  });
+});
+
+it.each([
+  ['denied', { allowed: false, loading: false }],
+  ['loading', { allowed: false, loading: true }],
+] as const)(
+  'hides definition-file sync while permission is %s',
+  async (_state, permission) => {
+    mockUsePermission.mockReturnValue(permission);
+    render(
+      <TestApiProvider apis={[]}>
+        <MemoryRouter initialEntries={['/content/ee/catalog']}>
+          <EECatalogPage view="catalog" />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Sync Now' })).toBeNull();
+  },
+);
 
 it('wraps the shared execution-environment page in a full-height themed surface', () => {
   const { container } = render(

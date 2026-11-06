@@ -5,6 +5,7 @@ import {
   catalogApiRef,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import {
   Button,
@@ -16,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@backstage/ui';
 import SyncIcon from '@material-ui/icons/Sync';
-import { useIsSuperuser } from '@ansible/portal-plugin-sdk';
+import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import type { Entity } from '@backstage/catalog-model';
 import { automationContentApiRef } from '../../api';
 import type { Registry } from '../../api';
@@ -64,7 +65,9 @@ export function CollectionsCatalogPage(): ReactElement {
   const api = useApi(automationContentApiRef);
   const catalogApi = useApi(catalogApiRef);
   const base = useRouteRef(collectionsRouteRef)();
-  const { isSuperuser } = useIsSuperuser();
+  const { allowed: canSync } = usePermission({
+    permission: automationContentSyncPermission,
+  });
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
@@ -329,7 +332,7 @@ export function CollectionsCatalogPage(): ReactElement {
   }
 
   const sync = async (): Promise<void> => {
-    if (!isSuperuser || syncInFlight.current) return;
+    if (!canSync || syncInFlight.current) return;
     syncInFlight.current = true;
     setSyncing(true);
     setSyncStatus(undefined);
@@ -399,7 +402,7 @@ export function CollectionsCatalogPage(): ReactElement {
                 </Tooltip>
               </TooltipTrigger>
             </div>
-            {isSuperuser && (
+            {canSync && (
               <Button
                 variant="secondary"
                 size="small"

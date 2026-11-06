@@ -4,7 +4,10 @@ import {
 } from '@backstage/backend-plugin-api';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { redactorForConnections } from '@ansible/automation-content-common';
-import { automationContentViewPermission } from '@ansible/automation-content-common/permissions';
+import {
+  automationContentViewPermission,
+  automationContentSyncPermission,
+} from '@ansible/automation-content-common/permissions';
 import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { readRegistryConfigs } from './config';
 import { defaultContentTypes } from './contentTypes';
@@ -29,7 +32,10 @@ export const catalogModuleAutomationContent = createBackendModule({
         permissionsRegistry: coreServices.permissionsRegistry,
       },
       async init({ catalog, config, logger, scheduler, permissionsRegistry }) {
-        permissionsRegistry.addPermissions([automationContentViewPermission]);
+        permissionsRegistry.addPermissions([
+          automationContentViewPermission,
+          automationContentSyncPermission,
+        ]);
         const registries = readRegistryConfigs(config);
         if (registries.length === 0) {
           logger.info('automation-content: no OCI registries configured');

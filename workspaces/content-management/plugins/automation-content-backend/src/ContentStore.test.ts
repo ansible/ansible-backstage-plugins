@@ -6,13 +6,14 @@ import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-auto
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
+  OCIClient,
   MediaTypes,
   RegistryConnection,
   fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
-import { ContentStore } from './ContentStore';
+import { ContentStore, ArtifactSyncNotFoundError } from './ContentStore';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
 
@@ -517,4 +518,293 @@ describe('credential redaction', () => {
     expect(row.manifest).not.toContain(SECRET);
     expect(row.manifest).toContain('[REDACTED]');
   });
+});
+
+describe('strict latest-only artifact sync', () => {
+  async function fixture(
+    oldTags = ['latest', 'v1'],
+    originalInventory = false,
+  ) {
+    const inventory = {
+      schemaVersion: '1.0.0',
+      generatedAt: '2026-01-01',
+      generatedBy: { tool: 'test', version: '1' },
+      complete: true,
+      collections: [
+        {
+          namespace: 'ns',
+          name: 'shared',
+          version: '1',
+          plugins: [],
+          roles: [],
+          playbooks: [],
+          edaPlugins: [],
+          rulebooks: [],
+        },
+      ],
+    };
+    const withInventory = (image: ReturnType<typeof makeLabelledImage>) => ({
+      ...image,
+      referrers: [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: `sha256:${'f'.repeat(64)}`,
+          size: 200,
+          artifactType: CONTENT_MANIFEST_ARTIFACT_TYPE,
+        },
+      ],
+      referrerPayloads: { [`sha256:${'a'.repeat(64)}`]: inventory },
+    });
+    const base = makeLabelledImage(oldTags[0], { [EE_LABEL]: 'true' });
+    const old = originalInventory ? withInventory(base) : base;
+    const sibling = withInventory(
+      makeLabelledImage('stable', { [EE_LABEL]: 'true' }),
+    );
+    sibling.digest = `sha256:${'b'.repeat(64)}`;
+    const repositories = {
+      'ansible/ee': [...oldTags.map(tag => ({ ...old, tag })), sibling],
+      'other/repo': [makeImage({ tag: 'untouched' })],
+    };
+    const registry = new MockRegistry({
+      repositories,
+      referrersMode: 'native',
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+    const original = (await index.listArtifacts()).find(
+      a => a.digest === old.digest,
+    )!;
+    const other = (await index.listArtifacts()).find(
+      a => a.digest === sibling.digest,
+    )!;
+    const client = (
+      index as unknown as { clients: Map<string, OCIClient> }
+    ).clients.get('mock')!;
+    registry.requests.length = 0;
+    return { index, registry, repositories, old, original, other, client };
+  }
+
+  it('freshly resolves moved latest only, preserving sibling aliases, data, providers and freshness', async () => {
+    const { index, registry, repositories, old, original, other } =
+      await fixture();
+    const before = index.reconcileStateFor('mock');
+    const siblingState = index.reconcileStateForArtifact(
+      await index.getArtifact(other.ref),
+    );
+    const next = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    next.digest = `sha256:${'c'.repeat(64)}`;
+    repositories['ansible/ee'] = [
+      { ...old, tag: 'v1' },
+      repositories['ansible/ee'][2],
+      next,
+    ];
+    const refresh = jest.spyOn(index, 'refreshRegistry');
+    const result = await index.syncArtifact(original.ref);
+    expect(result).toMatchObject({
+      status: 'completed',
+      ref: `mock/ansible/ee@${next.digest}`,
+      tag: 'latest',
+      retainedPrevious: false,
+    });
+    expect((await index.getArtifact(original.ref))?.tags).toEqual(['v1']);
+    // DB round-trips preserve fields, not object identity.
+    expect(await index.getArtifact(other.ref)).toEqual(other);
+    expect((await index.listCollections())[0].providedBy).toEqual([other.ref]);
+    expect(index.reconcileStateFor('mock')).toBe(before);
+    expect(
+      index.reconcileStateForArtifact(await index.getArtifact(other.ref)),
+    ).toBe(siblingState);
+    expect(
+      index.reconcileStateForArtifact(await index.getArtifact(original.ref)),
+    ).toBe(before);
+    expect(
+      index.reconcileStateForArtifact(await index.getArtifact(result.ref))?.ok,
+    ).toBe(true);
+    expect(refresh).not.toHaveBeenCalled();
+    const paths = registry.requests.map(r => r.path);
+    expect(paths).toContain('/v2/ansible/ee/manifests/latest');
+    expect(paths.every(path => path.startsWith('/v2/ansible/ee/'))).toBe(true);
+    expect(paths.join(' ')).not.toMatch(
+      /tags\/list|_catalog|manifests\/v1|manifests\/stable/,
+    );
+    expect(
+      paths
+        .filter(path => path.includes('/referrers/'))
+        .every(path => path === `/v2/ansible/ee/referrers/${next.digest}`),
+    ).toBe(true);
+    // Mutable latest must be read again despite cached immutable manifests.
+    const moved = { ...next, digest: `sha256:${'d'.repeat(64)}` };
+    repositories['ansible/ee'] = [{ ...old, tag: 'v1' }, moved];
+    const second = await index.syncArtifact(result.ref);
+    expect(second.ref).toBe(`mock/ansible/ee@${moved.digest}`);
+    expect(await index.getArtifact(result.ref)).toBeUndefined();
+    expect(
+      index.reconcileStateForArtifact(await index.getArtifact(result.ref)),
+    ).toBeUndefined();
+    expect(
+      (
+        index as unknown as { artifactReconcile: Map<string, unknown> }
+      ).artifactReconcile.has(result.ref),
+    ).toBe(false);
+    expect(
+      registry.requests.filter(r => r.path.endsWith('/manifests/latest')),
+    ).toHaveLength(2);
+  });
+
+  it('merges latest into an already-indexed digest without dropping its aliases', async () => {
+    const { index, repositories, original, other } = await fixture(['latest']);
+    repositories['ansible/ee'] = [
+      { ...repositories['ansible/ee'][1], tag: 'latest' },
+      repositories['ansible/ee'][1],
+    ];
+    const result = await index.syncArtifact(original.ref);
+    expect(result.ref).toBe(other.ref);
+    expect((await index.getArtifact(other.ref))?.tags).toEqual([
+      'stable',
+      'latest',
+    ]);
+    expect(await index.getArtifact(original.ref)).toBeUndefined();
+  });
+
+  it('never falls back to the clicked digest when latest is absent', async () => {
+    const { index, registry, original, repositories } = await fixture(['v1']);
+    const before = await index.listArtifacts();
+    await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
+      code: 'LATEST_TAG_NOT_FOUND',
+    });
+    // DB reads return fresh objects; compare the persisted snapshot.
+    expect(await index.listArtifacts()).toEqual(before);
+    expect(registry.requests.map(r => r.path)).toEqual([
+      '/v2/ansible/ee/manifests/latest',
+    ]);
+    expect(repositories['ansible/ee']).toHaveLength(2);
+  });
+
+  it.each([429, 500, 503])(
+    'retains the entire previous index on latest HTTP %s',
+    async status => {
+      const { index, original, client } = await fixture();
+      const before = await index.listArtifacts();
+      jest
+        .spyOn(client, 'request')
+        .mockResolvedValue(new Response('sensitive-secret', { status }));
+      const result = await index.syncArtifact(original.ref);
+      expect(result).toMatchObject({
+        status: 'failed',
+        ref: original.ref,
+        retainedPrevious: true,
+        error: 'Artifact reconciliation failed.',
+      });
+      // DB reads return fresh objects; compare the persisted snapshot.
+      expect(await index.listArtifacts()).toEqual(before);
+      expect(
+        index.reconcileStateForArtifact(await index.getArtifact(original.ref))
+          ?.ok,
+      ).toBe(false);
+    },
+  );
+
+  it('retains old rows on transport failure or a failed latest config read', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    const read = jest
+      .spyOn(client, 'getManifest')
+      .mockRejectedValueOnce(new Error('TLS sensitive-secret'));
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'failed',
+      error: 'Artifact reconciliation failed.',
+    });
+    read.mockRestore();
+    jest.spyOn(client, 'getConfigBlob').mockResolvedValue(undefined);
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'failed',
+      retainedPrevious: true,
+    });
+    // DB reads return fresh objects; compare the persisted snapshot.
+    expect(await index.listArtifacts()).toEqual(before);
+  });
+
+  it('retains old rows for malformed latest manifests', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    const latest = await client.getManifest('ansible/ee', 'latest');
+    jest
+      .spyOn(client, 'getManifest')
+      .mockResolvedValue({ ...latest, manifest: {} as never });
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'failed',
+      retainedPrevious: true,
+    });
+    // DB reads return fresh objects; compare the persisted snapshot.
+    expect(await index.listArtifacts()).toEqual(before);
+  });
+
+  it('rejects unknown and out-of-config rows without any network access', async () => {
+    const { index, original, registry } = await fixture();
+    await expect(
+      index.syncArtifact('https://attacker.invalid/anything'),
+    ).rejects.toBeInstanceOf(ArtifactSyncNotFoundError);
+    index.getRegistry('mock')!.connection.repositories = ['different/repo'];
+    await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
+      code: 'ARTIFACT_NOT_FOUND',
+    });
+    expect(registry.requests).toHaveLength(0);
+  });
+
+  it('does not override a newer full reconciliation with older artifact freshness', async () => {
+    const { index, original } = await fixture();
+    await index.syncArtifact(original.ref);
+    await index.refreshRegistry('mock');
+    expect(
+      index.reconcileStateForArtifact(await index.getArtifact(original.ref)),
+    ).toBe(index.reconcileStateFor('mock'));
+  });
+
+  it('keeps same-digest known inventory when optional metadata is unavailable', async () => {
+    const { index, original, client } = await fixture(['latest', 'v1'], true);
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Optional metadata unavailable'));
+    const result = await index.syncArtifact(original.ref);
+    expect(result.status).toBe('completed');
+    expect((await index.getArtifact(result.ref))?.manifest).toEqual(
+      original.manifest,
+    );
+    expect((await index.getArtifact(result.ref))?.contentsKnown).toBe(true);
+  });
+
+  it('does not copy old inventory to a newly resolved digest with optional metadata missing', async () => {
+    const { index, original, client, repositories } = await fixture(
+      ['latest', 'v1'],
+      true,
+    );
+    const moved = {
+      ...repositories['ansible/ee'][0],
+      digest: `sha256:${'e'.repeat(64)}`,
+    };
+    repositories['ansible/ee'] = [moved];
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Optional metadata unavailable'));
+    const result = await index.syncArtifact(original.ref);
+    expect(result.status).toBe('completed');
+    expect(result.ref).not.toBe(original.ref);
+    expect((await index.getArtifact(result.ref))?.manifest).toBeUndefined();
+    expect((await index.getArtifact(result.ref))?.contentsKnown).toBe(false);
+  });
+
+  it.each([null, 'invalid', [], { config: 'invalid' }])(
+    'retains old data for malformed core config %p',
+    async config => {
+      const { index, original, client } = await fixture();
+      const before = await index.listArtifacts();
+      jest.spyOn(client, 'getConfigBlob').mockResolvedValue(config as never);
+      await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+        status: 'failed',
+        retainedPrevious: true,
+      });
+      // DB reads return fresh objects; compare the persisted snapshot.
+      expect(await index.listArtifacts()).toEqual(before);
+    },
+  );
 });

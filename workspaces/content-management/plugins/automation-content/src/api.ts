@@ -40,7 +40,7 @@ export interface ExecutionEnvironment {
   pullReference: string;
   contentsKnown: boolean;
   enumeration: Enumeration;
-  /** When the registry this came from was last successfully read. */
+  /** Most recent full-registry or row-specific reconciliation attempt. */
   lastReconciledAt?: string;
   /** Whether that last read succeeded — drives the row's sync state. */
   lastReconcileOk?: boolean;
@@ -178,6 +178,18 @@ export interface AutomationContentApi {
   syncAll(): Promise<SyncResult>;
   /** Reconcile only the named registry, retaining its previous index on failure. */
   syncRegistry(name: string): Promise<RegistrySyncResult>;
+  /** Resolve and inspect only latest in the indexed row's repository. */
+  syncArtifact(ref: string): Promise<ArtifactSyncResult>;
+}
+
+/** Latest-row reconciliation; successful ref may name a new digest. */
+export interface ArtifactSyncResult {
+  status: 'completed' | 'failed';
+  ref: string;
+  tag: 'latest';
+  retainedPrevious: boolean;
+  lastReconciledAt?: string;
+  error?: string;
 }
 
 /** Result of the backend's single-registry reconciliation endpoint. */
@@ -253,6 +265,10 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async syncRegistry(name: string): Promise<RegistrySyncResult> {
     return this.post(`/registries/${encodeURIComponent(name)}/sync`);
+  }
+
+  async syncArtifact(ref: string): Promise<ArtifactSyncResult> {
+    return this.post(`/artifacts/${encodeURIComponent(ref)}/sync`);
   }
 
   private async get<T>(path: string): Promise<T> {

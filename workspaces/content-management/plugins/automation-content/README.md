@@ -20,8 +20,8 @@ All routes live under `/content`:
 
 The old `/automation-content` root and catalog paths redirect to their
 `/content` equivalents, including execution environment and collection details.
-There is no separate landing page. Registry sync lives in a superuser-only
-header button on the images page.
+There is no separate landing page. Registry sync is available from the images
+page header and image actions to users with `ansible.content.sync`.
 
 The same components render in both the new frontend system (`alpha.tsx`
 blueprints, the default host) and the legacy app entry, so both hosts serve
@@ -77,13 +77,28 @@ username/password, TLS verification) for registry connections.
   distinct "Contents unknown" badge; counts are never presented as complete
   when the inventory is partial.
 - **View gating:** `ansible.content.view` gates the content views and API reads.
-- **Sync gating:** the images page's header sync button is rendered only for
-  superusers, and the backend rejects sync requests from non-superusers with 403.
-- **Sync results:** image-level Sync reports completed or failed reconciliation
-  and refreshes both metadata and collection contents. Failed reconciliation
-  can retain the previously indexed inventory.
+- **Sync gating:** manual sync and drift polls require a signed-in user and
+  `ansible.content.sync`. Service credentials alone cannot invoke these actions.
+- **Sync scope:** an image row or detail-page Sync resolves and inspects only
+  that repository's current `latest` image. It does not scan the registry or
+  other tags' image contents. Header and definition-tab Sync remain separate
+  registry-wide actions. A missing `latest` tag on row Sync is reported
+  without falling back to the old digest.
+- **Sync results:** image-level Sync refreshes the target's metadata and collection
+  contents. Details follow the new digest when `latest` moves. Failed reconciliation
+  retains the previous inventory; unrelated images are not marked freshly synced.
+- **Optional inventory:** unreadable optional content manifests leave contents
+  unknown. Verified inventory can be retained for the same digest, but is never
+  copied from an old digest to a new image.
 - **Missing metadata:** collection status, publisher, signing, and source use
   `—` when absent. They are not inferred from names or registries.
+
+The host must grant content permissions through its configured RBAC roles;
+signing in does not automatically grant them. This plugin does not add a default
+role, administrator access, or catalog create/delete permissions. Catalog
+creation and unregister remain subject to their existing guards. Builds and
+template actions still require their real SCM or AAP credentials. Existing
+Guest-provider configuration is unchanged.
 
 ## Local development
 

@@ -189,6 +189,18 @@ function seededStore(_logs: string[] = []): ContentStore {
       },
     ],
     countsFor: () => ({ collections: 1, plugins: 1 }),
+    reconcileStateForArtifact: () => ({
+      at: '2026-01-01T00:00:00.000Z',
+      ok: false,
+      error: redactor.redact(failureFor('basic-reg')),
+      artifacts: 1,
+    }),
+    syncArtifact: async () => ({
+      status: 'completed',
+      ref: REF,
+      tag: 'latest',
+      retainedPrevious: false,
+    }),
     refreshRegistry: async (name: string) => ({
       discovered: 0,
       ok: false,
@@ -225,22 +237,10 @@ async function appWith(store: ContentStore, logs: string[] = []) {
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
       } as never,
-      // Reads are authorized and the user is a superuser, so every route
-      // under test is reachable; the gating itself has coverage in
+      // Reads and syncs are authorized; the gating itself has coverage in
       // router.test.ts.
       permissions: {
         authorize: async () => [{ result: 'ALLOW' as const }],
-      } as never,
-      userInfo: {
-        getUserInfo: async () => ({ userEntityRef: 'user:default/test' }),
-      } as never,
-      auth: {
-        getPluginRequestToken: async () => ({ token: 'catalog-token' }),
-      } as never,
-      catalogClient: {
-        getEntityByRef: async () => ({
-          metadata: { annotations: { 'aap.platform/is_superuser': 'true' } },
-        }),
       } as never,
     }),
   );
@@ -276,6 +276,17 @@ const CASES: RouteCase[] = [
         'https://mock.registry',
         'https://mock.registry',
       ]);
+    },
+  },
+  {
+    route: 'POST /artifacts/:ref/sync',
+    run: app => request(app).post(`/artifacts/${encodeURIComponent(REF)}/sync`),
+    check: res => {
+      expect(res.status).toBe(202);
+      // A clean sync outcome carries no diagnostic text at all; the redactor
+      // boundary is still exercised because every JSON response passes
+      // through it on the way out.
+      expect(JSON.stringify(res.body)).not.toContain('secret');
     },
   },
   {

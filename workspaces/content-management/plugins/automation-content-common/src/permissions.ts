@@ -6,3 +6,10 @@ export const automationContentViewPermission: BasicPermission = {
   name: 'ansible.content.view',
   attributes: {},
 };
+
+/** Manually reconcile automation content from configured registries. */
+export const automationContentSyncPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.content.sync',
+  attributes: { action: 'update' },
+};
