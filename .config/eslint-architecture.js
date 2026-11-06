@@ -182,7 +182,7 @@ const ENV_COMPUTED = [
   "MemberExpression[computed=true][property.type!='Literal'][object.object.name='process'][object.property.name='env']",
   "MemberExpression[computed=true][property.type!='Literal'][object.object.name='process'][object.computed=true][object.property.value='env']",
   "MemberExpression[computed=true][property.type!='Literal'][object.object.type='MemberExpression'][object.object.object.name=/^(globalThis|global)$/][object.object.property.name='process'][object.property.name='env']",
-  "MemberExpression[computed=true][property.type!='Literal'][object.type='MemberExpression'][object.property.name='env'][object.object.type='CallExpression']",
+  "MemberExpression[computed=true][property.type!='Literal'][object.type='MemberExpression'][object.property.name='env'][object.object.type='CallExpression'][object.object.callee.name='require'][object.object.arguments.0.value=/^(node:)?process$/]",
 ];
 
 const clusterClientMessage =

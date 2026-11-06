@@ -861,7 +861,7 @@ describe('the policy covers every request the client issues', () => {
     const fetchImpl: FetchLike = async (url, init) => {
       fetched.push(url);
       if (originOf(url) === 'http://auth.example') {
-        return new Response(JSON.stringify({ token: 'issued' }));
+        return new Response(JSON.stringify({ token: 'issued-token' }));
       }
       if (init?.headers?.Authorization) {
         return new Response(JSON.stringify({ tags: ['dev'] }), {

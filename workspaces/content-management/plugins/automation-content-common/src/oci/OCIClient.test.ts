@@ -1132,16 +1132,16 @@ describe('auth failure logs carry no registry-controlled text', () => {
   });
 });
 
-describe('the token cache stays bounded', () => {
+describe('runtime token redaction capacity', () => {
   /**
    * The cache is keyed by the registry-controlled challenge scope, so a
    * registry issuing a unique scope per response could otherwise grow it
-   * without limit. After the ceiling is passed, the oldest entries are
-   * evicted — observable as a fresh token exchange for a scope that was
-   * cached earlier.
+   * without limit. The redactor must refuse a token once its bounded budget is
+   * full rather than evicting a token that remains in the client cache.
    */
-  it('evicts the oldest entries once the registry has issued many scopes', async () => {
+  it('fails closed once the registry has issued too many scopes', async () => {
     const tokenHits: Record<string, number> = {};
+    const warn = jest.fn();
     const fetchImpl = async (
       url: string,
       init?: { headers?: Record<string, string> },
@@ -1165,7 +1165,7 @@ describe('the token cache stays bounded', () => {
         'www-authenticate': `Bearer realm="https://mock.registry/token",service="mock",scope="${scope}"`,
       };
       // A token scoped to another repository is rejected, as real registries
-      // do — which is what makes an evicted cache entry observable.
+      // do — which makes failed token acquisition observable.
       if (init?.headers?.Authorization !== `Bearer t-${scope}`) {
         return new Response('{}', { status: 401, headers: challenge });
       }
@@ -1174,19 +1174,68 @@ describe('the token cache stays bounded', () => {
         headers: { 'content-type': 'application/json' },
       });
     };
-    const client = new OCIClient(connection(), { fetch: fetchImpl as never });
+    const client = new OCIClient(connection(), {
+      fetch: fetchImpl as never,
+      logger: { debug: () => {}, warn },
+    });
 
-    // One scope per repository: enough distinct scopes to pass the ceiling.
-    for (let i = 0; i < 1_002; i++) {
+    // One scope per repository: the next token cannot be retained safely.
+    for (let i = 0; i < 1_000; i++) {
       for await (const tag of client.listTags(`flood/${i}`)) void tag;
     }
-    const before = tokenHits['repository:flood/0:pull'] ?? 0;
 
-    // flood/0 was cached first, so it is the first out. Listing it again
-    // must exchange a fresh token rather than use a stale cache entry.
-    for await (const tag of client.listTags('flood/0')) void tag;
+    await expect(async () => {
+      for await (const tag of client.listTags('flood/1000')) void tag;
+    }).rejects.toThrow('tag listing failed for flood/1000: 401');
 
-    expect(tokenHits['repository:flood/0:pull']).toBe(before + 1);
+    expect(tokenHits['repository:flood/1000:pull']).toBe(1);
+    expect(
+      warn.mock.calls.some(([message]) =>
+        String(message).includes('token redaction capacity exhausted'),
+      ),
+    ).toBe(true);
+  });
+
+  it('uses a conservative cache lifetime for an invalid expiry', async () => {
+    jest.useFakeTimers();
+    try {
+      const tokenHits: string[] = [];
+      const fetchImpl = async (
+        url: string,
+        init?: { headers?: Record<string, string> },
+      ) => {
+        const target = new URL(url);
+        if (target.pathname === '/token') {
+          const token = `invalid-expiry-token-${tokenHits.length}`;
+          tokenHits.push(token);
+          return new Response(
+            JSON.stringify({ token, expires_in: 'not-a-number' }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        if (init?.headers?.Authorization) {
+          return new Response('{}', { status: 200 });
+        }
+        return new Response('{}', {
+          status: 401,
+          headers: {
+            'www-authenticate':
+              'Bearer realm="https://mock.registry/token",service="mock",scope="repository:demo:pull"',
+          },
+        });
+      };
+      const client = new OCIClient(connection(), {
+        fetch: fetchImpl as never,
+      });
+
+      await client.request('/v2/demo/manifests/latest');
+      jest.advanceTimersByTime(300_001);
+      await client.request('/v2/demo/manifests/latest');
+
+      expect(tokenHits).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

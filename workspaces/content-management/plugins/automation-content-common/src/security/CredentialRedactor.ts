@@ -51,18 +51,11 @@ const CAUSE_CHAIN_TRUNCATED = '(cause chain truncated)';
 const UNKNOWN_ERROR = 'unknown error';
 
 export class CredentialRedactor {
-  /**
-   * Registered secrets, kept longest first: when one secret contains another
-   * as a substring, the longer one must be replaced whole or its shorter
-   * sibling splits it and the remainder leaks.
-   */
-  private readonly secrets: string[] = [];
-
-  /** O(1) membership index; the array remains sorted for redaction order. */
+  /** O(1) membership index for registered secrets. */
   private readonly secretIndex = new Set<string>();
 
-  /** Prefix index for the single-pass literal redaction scanner. */
-  private readonly secretBuckets = new Map<string, string[]>();
+  /** Prefix index for the literal redaction scanner. */
+  private readonly secretBuckets = new Map<string, Set<string>>();
 
   /** Secrets supplied by configuration and therefore retained for process life. */
   private readonly persistentSecrets = new Set<string>();
@@ -99,14 +92,20 @@ export class CredentialRedactor {
     value: string | undefined | null,
     ttlMs: number,
     owner: string,
-  ): void {
+  ): boolean {
     if (typeof value !== 'string' || value.length < MIN_RUNTIME_SECRET_LENGTH)
-      return;
+      return false;
 
     const now = Date.now();
     this.pruneRuntimeSecrets(now);
     const ownerSecrets =
       this.runtimeSecrets.get(owner) ?? new Map<string, number>();
+    if (
+      ownerSecrets.size >= MAX_RUNTIME_SECRETS_PER_OWNER &&
+      !ownerSecrets.has(value)
+    ) {
+      return false;
+    }
     ownerSecrets.delete(value);
     const safeTtl = Number.isFinite(ttlMs)
       ? Math.min(Math.max(0, ttlMs), MAX_RUNTIME_SECRET_TTL_MS)
@@ -122,36 +121,24 @@ export class CredentialRedactor {
       this.nextRuntimePruneAt || Number.POSITIVE_INFINITY,
       expiresAt,
     );
-    this.pruneRuntimeSecrets(
-      now,
-      ownerSecrets.size > MAX_RUNTIME_SECRETS_PER_OWNER,
-    );
+    this.pruneRuntimeSecrets(now);
+    return true;
   }
 
   private insertSecret(value: string): void {
     if (this.secretIndex.has(value)) return;
     this.secretIndex.add(value);
     const prefix = value.slice(0, SECRET_PREFIX_LENGTH);
-    const bucket = this.secretBuckets.get(prefix) ?? [];
-    bucket.push(value);
+    const bucket = this.secretBuckets.get(prefix) ?? new Set<string>();
+    bucket.add(value);
     this.secretBuckets.set(prefix, bucket);
-
-    let low = 0;
-    let high = this.secrets.length;
-    while (low < high) {
-      const middle = Math.floor((low + high) / 2);
-      if (this.secrets[middle].length >= value.length) low = middle + 1;
-      else high = middle;
-    }
-    this.secrets.splice(low, 0, value);
   }
 
-  private pruneRuntimeSecrets(now: number, force = false): void {
+  private pruneRuntimeSecrets(now: number): void {
     if (
-      !force &&
-      (this.runtimeSecrets.size === 0 ||
-        this.nextRuntimePruneAt === 0 ||
-        now < this.nextRuntimePruneAt)
+      this.runtimeSecrets.size === 0 ||
+      this.nextRuntimePruneAt === 0 ||
+      now < this.nextRuntimePruneAt
     )
       return;
 
@@ -166,12 +153,6 @@ export class CredentialRedactor {
         }
       }
 
-      while (ownerSecrets.size > MAX_RUNTIME_SECRETS_PER_OWNER) {
-        const oldest = ownerSecrets.keys().next().value;
-        if (oldest === undefined) break;
-        ownerSecrets.delete(oldest);
-        this.removeRuntimeOwner(oldest, owner);
-      }
       if (ownerSecrets.size === 0) this.runtimeSecrets.delete(owner);
     }
 
@@ -187,15 +168,12 @@ export class CredentialRedactor {
 
     this.runtimeSecretOwners.delete(secret);
     if (this.persistentSecrets.has(secret)) return;
-    const index = this.secrets.indexOf(secret);
-    if (index >= 0) this.secrets.splice(index, 1);
     this.secretIndex.delete(secret);
     const prefix = secret.slice(0, SECRET_PREFIX_LENGTH);
     const bucket = this.secretBuckets.get(prefix);
     if (bucket) {
-      const bucketIndex = bucket.indexOf(secret);
-      if (bucketIndex >= 0) bucket.splice(bucketIndex, 1);
-      if (bucket.length === 0) this.secretBuckets.delete(prefix);
+      bucket.delete(secret);
+      if (bucket.size === 0) this.secretBuckets.delete(prefix);
     }
   }
 
@@ -210,21 +188,28 @@ export class CredentialRedactor {
     this.pruneRuntimeSecrets(Date.now());
     if (this.secretBuckets.size === 0) return text;
 
-    let result: string | undefined;
-    let lastCopied = 0;
-    let index = 0;
-    while (index < text.length) {
+    const ranges: Array<[number, number]> = [];
+    for (let index = 0; index < text.length; index++) {
       const match = this.secretAt(text, index);
-      if (!match) {
-        index += 1;
-        continue;
+      if (!match) continue;
+      const start = index;
+      const end = index + match.length;
+      const previous = ranges[ranges.length - 1];
+      if (previous && start < previous[1]) {
+        previous[1] = Math.max(previous[1], end);
+      } else {
+        ranges.push([start, end]);
       }
-      result ??= '';
-      result += text.slice(lastCopied, index) + REDACTED;
-      index += match.length;
-      lastCopied = index;
     }
-    return result === undefined ? text : result + text.slice(lastCopied);
+    if (ranges.length === 0) return text;
+
+    let result = '';
+    let lastCopied = 0;
+    for (const [start, end] of ranges) {
+      result += text.slice(lastCopied, start) + REDACTED;
+      lastCopied = end;
+    }
+    return result + text.slice(lastCopied);
   }
 
   private secretAt(text: string, index: number): string | undefined {
@@ -361,14 +346,13 @@ export class CredentialRedactor {
       }
       if (typeof message !== 'string') {
         complete = false;
-        current = candidate.cause;
-        continue;
-      }
-      try {
-        const cleanMessage = this.redact(message);
-        if (cleanMessage !== message) candidate.message = cleanMessage;
-      } catch {
-        complete = false;
+      } else {
+        try {
+          const cleanMessage = this.redact(message);
+          if (cleanMessage !== message) candidate.message = cleanMessage;
+        } catch {
+          complete = false;
+        }
       }
       try {
         if (typeof candidate.stack === 'string') {
@@ -382,8 +366,10 @@ export class CredentialRedactor {
         if (key === 'message' || key === 'stack' || key === 'cause') continue;
         try {
           const field = candidate[key as keyof typeof candidate];
-          if (typeof field !== 'string') continue;
-          const cleanField = this.redact(field);
+          const cleanField =
+            typeof field === 'string'
+              ? this.redact(field)
+              : this.redactNode(field, 0, new Set([current]), MAX_VALUE_DEPTH);
           if (cleanField !== field)
             (candidate as Record<string, unknown>)[key] = cleanField;
         } catch {

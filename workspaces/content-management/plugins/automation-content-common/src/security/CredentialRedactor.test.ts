@@ -48,22 +48,30 @@ describe('CredentialRedactor', () => {
       expect(redactor.redact('abc and ab')).toBe('[REDACTED] and [REDACTED]');
     });
 
-    it('bounds runtime secrets per owner without evicting another owner', () => {
+    it('merges overlapping secrets instead of leaving a suffix exposed', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret('abcd');
+      redactor.addSecret('bcdefgh');
+
+      expect(redactor.redact('abcdefgh')).toBe('[REDACTED]');
+    });
+
+    it('refuses new runtime secrets when an owner budget is full', () => {
       const redactor = new CredentialRedactor();
       redactor.addRuntimeSecret('runtime-token-owner-b', 86_400_000, 'owner-b');
       for (let i = 0; i <= 1000; i++) {
-        redactor.addRuntimeSecret(
+        const accepted = redactor.addRuntimeSecret(
           `runtime-token-owner-a-${i}`,
           86_400_000,
           'owner-a',
         );
+        expect(accepted).toBe(i < 1000);
       }
 
       expect(redactor.redact('runtime-token-owner-b')).toBe('[REDACTED]');
-      expect(redactor.redact('runtime-token-owner-a-0')).toBe(
-        'runtime-token-owner-a-0',
-      );
-      expect(redactor.redact('runtime-token-owner-a-1000')).toBe('[REDACTED]');
+      expect(redactor.redact('runtime-token-owner-a-0')).toBe('[REDACTED]');
+      const overflow = 'runtime-token-owner-a-overflow';
+      expect(redactor.redact(overflow)).toBe(overflow);
     });
 
     it('prunes expired runtime tokens for each owner', () => {
@@ -339,6 +347,20 @@ describe('CredentialRedactor', () => {
 
       expect(redactor.redactErrorInPlace(error)).toBe(true);
       expect(error.body).toBe('payload contains [REDACTED]');
+    });
+
+    it('redacts nested fields on plain rejection objects', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const error = {
+        message: 'request failed',
+        detail: { response: `password=${FAKE_PASSWORD}` },
+        statusCode: 502,
+      };
+
+      expect(redactor.redactErrorInPlace(error)).toBe(true);
+      expect(error.detail.response).toBe('password=[REDACTED]');
+      expect(error.statusCode).toBe(502);
     });
 
     it('leaves values that are not errors alone', () => {

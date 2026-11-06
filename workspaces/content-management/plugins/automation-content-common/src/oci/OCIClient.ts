@@ -30,6 +30,7 @@ const MAX_REDIRECT_HOPS = 5;
  * ones without meaningful memory.
  */
 const TOKEN_CACHE_MAX_ENTRIES = 1_000;
+const DEFAULT_TOKEN_CACHE_TTL_MS = 300_000;
 
 /**
  * undici is loaded lazily, and only by the default transport. This package also
@@ -543,14 +544,28 @@ export class OCIClient {
     const token = body.token ?? body.access_token;
     if (!token) return undefined;
 
-    // Renew a little early to avoid racing expiry mid-sync.
-    const requestedTtl = (body.expires_in ?? 300) * 1000;
-    const ttl = Number.isFinite(requestedTtl)
-      ? Math.min(Math.max(0, requestedTtl), MAX_RUNTIME_SECRET_TTL_MS)
-      : MAX_RUNTIME_SECRET_TTL_MS;
+    // Keep the cache conservative when the registry gives us no usable expiry.
+    // The redactor uses a longer bound because the token may remain valid
+    // beyond the cache lifetime and must stay protected while it is retained.
+    const advertisedTtl = body.expires_in;
+    const hasUsableExpiry =
+      typeof advertisedTtl === 'number' &&
+      Number.isFinite(advertisedTtl) &&
+      advertisedTtl > 0;
+    const cacheTtl = hasUsableExpiry
+      ? Math.min(advertisedTtl * 1000, MAX_RUNTIME_SECRET_TTL_MS)
+      : DEFAULT_TOKEN_CACHE_TTL_MS;
+    const redactionTtl = hasUsableExpiry ? cacheTtl : MAX_RUNTIME_SECRET_TTL_MS;
     // Registered the moment it exists: the token is a credential this process
     // holds, and every later log line or error message must recognise it.
-    this.redactor.addRuntimeSecret(token, ttl, this.connection.name);
+    if (
+      !this.redactor.addRuntimeSecret(token, redactionTtl, this.connection.name)
+    ) {
+      this.logger?.warn(
+        `[${this.connection.name}] token redaction capacity exhausted`,
+      );
+      return undefined;
+    }
     // Bound the cache before inserting: the key is the registry-controlled
     // challenge scope, so a registry returning a unique scope per response
     // could otherwise grow it without limit. Oldest entries go first, the
@@ -562,7 +577,7 @@ export class OCIClient {
     }
     this.tokenCache.set(cacheKey, {
       token,
-      expiresAt: Date.now() + ttl - 10_000,
+      expiresAt: Date.now() + cacheTtl - 10_000,
     });
     return token;
   }

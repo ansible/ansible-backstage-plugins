@@ -152,6 +152,8 @@ const LEGITIMATE_READS = [
   "process.env.DEBUG = '1';",
   'const globalNodeEnv = globalThis.process.env.NODE_ENV;',
   "const requiredNodeEnv = require('node:process').env.NODE_ENV;",
+  'const configured = getConfig().env[name];',
+  'const loaded = loadSettings().env[key];',
 ];
 
 const CLUSTER_MARKER = 'must not load Kubernetes/OpenShift clients';

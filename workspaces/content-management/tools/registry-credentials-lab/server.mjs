@@ -747,7 +747,13 @@ function redactFixtureLog(value) {
   const spellings = secret => {
     if (typeof secret !== 'string') return [];
     try {
-      return [secret, encodeURIComponent(secret)];
+      return [
+        secret,
+        encodeURIComponent(secret),
+        encodeURI(secret),
+        secret.replaceAll(' ', '+'),
+        encodeURIComponent(secret).replaceAll('%20', '+'),
+      ];
     } catch {
       return [secret];
     }
