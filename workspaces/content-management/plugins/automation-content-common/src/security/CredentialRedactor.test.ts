@@ -331,6 +331,16 @@ describe('CredentialRedactor', () => {
       expect(inner.message).toBe('token [REDACTED] rejected');
     });
 
+    it('redacts enumerable error fields outside the standard properties', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const error = new Error('request failed') as Error & { body?: string };
+      error.body = `payload contains ${FAKE_PASSWORD}`;
+
+      expect(redactor.redactErrorInPlace(error)).toBe(true);
+      expect(error.body).toBe('payload contains [REDACTED]');
+    });
+
     it('leaves values that are not errors alone', () => {
       const redactor = new CredentialRedactor();
       redactor.addSecret(FAKE_PASSWORD);

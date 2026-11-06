@@ -378,6 +378,18 @@ export class CredentialRedactor {
       } catch {
         complete = false;
       }
+      for (const key of Object.keys(candidate)) {
+        if (key === 'message' || key === 'stack' || key === 'cause') continue;
+        try {
+          const field = candidate[key as keyof typeof candidate];
+          if (typeof field !== 'string') continue;
+          const cleanField = this.redact(field);
+          if (cleanField !== field)
+            (candidate as Record<string, unknown>)[key] = cleanField;
+        } catch {
+          complete = false;
+        }
+      }
       current = candidate.cause;
     }
     return complete;

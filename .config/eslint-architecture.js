@@ -169,10 +169,20 @@ const ENV_ALIAS_OBJECTS = [
   "MemberExpression[property.name='env'][computed=false][object.type='CallExpression'][object.callee.name='require'][object.arguments.0.value=/^(node:)?process$/]",
 ];
 
+/** Whole-environment destructuring from a required process module. */
+const ENV_ALIAS_DESTRUCTURING = [
+  "VariableDeclarator[init.type='CallExpression'][init.callee.name='require'][init.arguments.0.value=/^(node:)?process$/] > ObjectPattern > Property[key.name='env']",
+  "VariableDeclarator[init.type='CallExpression'][init.callee.name='require'][init.arguments.0.value=/^(node:)?process$/] > ObjectPattern > Property[computed=true][key.value='env']",
+  "AssignmentExpression[right.type='CallExpression'][right.callee.name='require'][right.arguments.0.value=/^(node:)?process$/] > ObjectPattern > Property[key.name='env']",
+  "AssignmentExpression[right.type='CallExpression'][right.callee.name='require'][right.arguments.0.value=/^(node:)?process$/] > ObjectPattern > Property[computed=true][key.value='env']",
+];
+
 /** Computed lookups — `process.env[name]` — in both env spellings. */
 const ENV_COMPUTED = [
   "MemberExpression[computed=true][property.type!='Literal'][object.object.name='process'][object.property.name='env']",
   "MemberExpression[computed=true][property.type!='Literal'][object.object.name='process'][object.computed=true][object.property.value='env']",
+  "MemberExpression[computed=true][property.type!='Literal'][object.object.type='MemberExpression'][object.object.object.name=/^(globalThis|global)$/][object.object.property.name='process'][object.property.name='env']",
+  "MemberExpression[computed=true][property.type!='Literal'][object.type='MemberExpression'][object.property.name='env'][object.object.type='CallExpression']",
 ];
 
 const clusterClientMessage =
@@ -260,7 +270,13 @@ const contentCredentialBoundary = {
         'ImportDeclaration[source.value=/^(node:)?process$/] ImportDefaultSpecifier',
       message: envImportMessage,
     },
-    ...ENV_ALIAS_OBJECTS.map(selector => ({
+    ...ENV_VALUE_PARENTS.flatMap(parent =>
+      ENV_ALIAS_OBJECTS.map(ref => ({
+        selector: `${parent}:has(> ${ref})`,
+        message: envObjectMessage,
+      })),
+    ),
+    ...ENV_ALIAS_DESTRUCTURING.map(selector => ({
       selector,
       message: envObjectMessage,
     })),

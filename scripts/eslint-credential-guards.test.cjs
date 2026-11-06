@@ -119,6 +119,9 @@ const WHOLE_ENV_VALUES = [
   'const checked = process.env satisfies Record<string, string | undefined>;',
   'Object.keys(globalThis.process.env);',
   "Object.keys(require('node:process').env);",
+  "const { env } = require('node:process');",
+  "const { ['env']: requiredEnv } = require('process');",
+  "({ env } = require('node:process'));",
 ];
 
 /** Reading the environment through a computed key. */
@@ -126,6 +129,8 @@ const COMPUTED_ENV_READS = [
   'const value = process.env[name];',
   'const value = process.env[`PREFIX_${name}`];',
   'const value = process["env"][name];',
+  'const value = globalThis.process.env[name];',
+  "const value = require('node:process').env[name];",
 ];
 
 /** Importing the environment object instead of reading named variables. */
@@ -145,6 +150,8 @@ const LEGITIMATE_READS = [
   'const nested = f(g(process.env.NAME));',
   'const coverage = process.env.OCI_SCENARIO_COVERAGE;',
   "process.env.DEBUG = '1';",
+  'const globalNodeEnv = globalThis.process.env.NODE_ENV;',
+  "const requiredNodeEnv = require('node:process').env.NODE_ENV;",
 ];
 
 const CLUSTER_MARKER = 'must not load Kubernetes/OpenShift clients';

@@ -770,7 +770,7 @@ function redactFixtureLog(value) {
     ]),
   ]
     .flatMap(spellings)
-    .filter(secret => typeof secret === 'string' && secret.length > 1)
+    .filter(secret => typeof secret === 'string' && secret.length > 0)
     .sort((a, b) => b.length - a.length);
 
   return secrets.reduce(
