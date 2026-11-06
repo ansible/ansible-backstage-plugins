@@ -133,7 +133,8 @@ their plugins in this monorepo using `workspace:^` dependencies, the shared root
 lockfile, and repository build/test tooling. Acceptance starts from a fresh
 clone and includes dynamic export and installation in RHDH. Public npm packages,
 an external repository starter, and out-of-tree onboarding are outside this
-preview scope, not release prerequisites. A third-party plugin is architecturally
+preview scope, not release prerequisites; see
+[out-of-tree readiness](portal-sdk-out-of-tree.md). A third-party plugin is architecturally
 independent of the host even when its source lives in the same repository.
 
 ## Contribution and experience model
@@ -184,7 +185,8 @@ ownership group and declare SDK dependencies with `workspace:^`. A new ownership
 group also requires root workspace/CI registration rather than only creating a
 directory. Repository co-location does not permit imports of host internals or
 another optional plugin's implementation. Out-of-tree development would require
-a separately agreed dependency delivery model and is not part of this preview.
+a separately agreed dependency delivery model and is not part of this preview;
+see [out-of-tree readiness](portal-sdk-out-of-tree.md) for the current gaps.
 
 ## API entry points
 
