@@ -69,6 +69,18 @@ export function registryLinkUrl(
   return `${base.origin}${basePath}/${path}`;
 }
 
+/** Only HTTP(S) URLs may be published as entity links. */
+export function safeSourceUrl(value: string): string | undefined {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Whether the adapter that claimed this artifact reads a build-time content manifest.
  *
@@ -634,6 +646,9 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       for (const plugin of collection.plugins) {
         byType[plugin.type] = (byType[plugin.type] ?? 0) + 1;
       }
+      const sourceUrl = collection.repository
+        ? safeSourceUrl(collection.repository)
+        : undefined;
       const collectionLocation =
         `${LOCATION_TYPE}:${registry.name}/${repository}@${digest}` +
         `#${collection.namespace}.${collection.name}`;
@@ -675,8 +690,10 @@ export class OCIRegistryEntityProvider implements EntityProvider {
             ...(counts.edaPlugins ? ['eda'] : []),
             ...(counts.rulebooks ? ['rulebooks'] : []),
           ],
-          ...(collection.repository
-            ? { links: [{ url: collection.repository, title: 'Source' }] }
+          ...(sourceUrl
+            ? {
+                links: [{ url: sourceUrl, title: 'Source' }],
+              }
             : {}),
         },
         spec: {

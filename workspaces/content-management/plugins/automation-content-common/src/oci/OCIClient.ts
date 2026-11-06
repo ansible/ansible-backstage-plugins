@@ -544,6 +544,23 @@ export class OCIClient {
     const token = body.token ?? body.access_token;
     if (!token) return undefined;
 
+    const previous = this.tokenCache.get(cacheKey);
+    if (previous) {
+      this.tokenCache.delete(cacheKey);
+      this.releaseCachedToken(previous.token);
+    }
+    // Bound the cache before inserting: the key is the registry-controlled
+    // challenge scope, so a registry returning a unique scope per response
+    // could otherwise grow it without limit. Oldest entries go first, the
+    // same eviction order MemoryDigestCache uses.
+    while (this.tokenCache.size >= TOKEN_CACHE_MAX_ENTRIES) {
+      const oldest = this.tokenCache.keys().next().value;
+      if (oldest === undefined) break;
+      const entry = this.tokenCache.get(oldest);
+      this.tokenCache.delete(oldest);
+      if (entry) this.releaseCachedToken(entry.token);
+    }
+
     // Keep the cache conservative when the registry gives us no usable expiry.
     // The redactor uses a longer bound because the token may remain valid
     // beyond the cache lifetime and must stay protected while it is retained.
@@ -561,25 +578,22 @@ export class OCIClient {
     if (
       !this.redactor.addRuntimeSecret(token, redactionTtl, this.connection.name)
     ) {
-      this.logger?.warn(
-        `[${this.connection.name}] token redaction capacity exhausted`,
+      this.logger?.debug(
+        `[${this.connection.name}] token is too short for runtime redaction`,
       );
-      return undefined;
-    }
-    // Bound the cache before inserting: the key is the registry-controlled
-    // challenge scope, so a registry returning a unique scope per response
-    // could otherwise grow it without limit. Oldest entries go first, the
-    // same eviction order MemoryDigestCache uses.
-    while (this.tokenCache.size >= TOKEN_CACHE_MAX_ENTRIES) {
-      const oldest = this.tokenCache.keys().next().value;
-      if (oldest === undefined) break;
-      this.tokenCache.delete(oldest);
     }
     this.tokenCache.set(cacheKey, {
       token,
       expiresAt: Date.now() + cacheTtl - 10_000,
     });
     return token;
+  }
+
+  private releaseCachedToken(token: string): void {
+    for (const entry of this.tokenCache.values()) {
+      if (entry.token === token) return;
+    }
+    this.redactor.releaseRuntimeSecret(token, this.connection.name);
   }
 
   private staticAuthHeader(): string | undefined {

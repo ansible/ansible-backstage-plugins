@@ -56,7 +56,7 @@ describe('CredentialRedactor', () => {
       expect(redactor.redact('abcdefgh')).toBe('[REDACTED]');
     });
 
-    it('refuses new runtime secrets when an owner budget is full', () => {
+    it('evicts the lowest-expiry runtime secret when an owner budget is full', () => {
       const redactor = new CredentialRedactor();
       redactor.addRuntimeSecret('runtime-token-owner-b', 86_400_000, 'owner-b');
       for (let i = 0; i <= 1000; i++) {
@@ -65,13 +65,43 @@ describe('CredentialRedactor', () => {
           86_400_000,
           'owner-a',
         );
-        expect(accepted).toBe(i < 1000);
+        expect(accepted).toBe(true);
       }
 
       expect(redactor.redact('runtime-token-owner-b')).toBe('[REDACTED]');
-      expect(redactor.redact('runtime-token-owner-a-0')).toBe('[REDACTED]');
+      expect(redactor.redact('runtime-token-owner-a-0')).toBe(
+        'runtime-token-owner-a-0',
+      );
       const overflow = 'runtime-token-owner-a-overflow';
       expect(redactor.redact(overflow)).toBe(overflow);
+      expect(redactor.redact('runtime-token-owner-a-1000')).toBe('[REDACTED]');
+    });
+
+    it('releases a runtime secret only for the requested owner', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addRuntimeSecret('shared-runtime-token', 86_400_000, 'owner-a');
+      redactor.addRuntimeSecret('shared-runtime-token', 86_400_000, 'owner-b');
+
+      redactor.releaseRuntimeSecret('shared-runtime-token', 'owner-a');
+      expect(redactor.redact('shared-runtime-token')).toBe('[REDACTED]');
+
+      redactor.releaseRuntimeSecret('shared-runtime-token', 'owner-b');
+      expect(redactor.redact('shared-runtime-token')).toBe(
+        'shared-runtime-token',
+      );
+    });
+
+    it('does not release a configured secret with the same runtime value', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret('persistent-runtime-token');
+      redactor.addRuntimeSecret(
+        'persistent-runtime-token',
+        86_400_000,
+        'owner',
+      );
+
+      redactor.releaseRuntimeSecret('persistent-runtime-token', 'owner');
+      expect(redactor.redact('persistent-runtime-token')).toBe('[REDACTED]');
     });
 
     it('prunes expired runtime tokens for each owner', () => {
@@ -286,6 +316,41 @@ describe('CredentialRedactor', () => {
       const text = redactor.redactErrorText(root);
       expect(text.split(': ')).toHaveLength(11);
       expect(text).toContain('(cause chain truncated)');
+    });
+
+    it('does not let a secret beyond the depth budget escape rethrow redaction', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const root: Error & { cause?: unknown } = new Error('link-0');
+      let current = root;
+      for (let depth = 1; depth < 12; depth++) {
+        const next: Error & { cause?: unknown } = new Error(
+          depth === 11 ? `secret ${FAKE_PASSWORD}` : `link-${depth}`,
+        );
+        current.cause = next;
+        current = next;
+      }
+
+      const replacement = redactor.redactErrorForRethrow(root);
+      expect(replacement).not.toBe(root);
+      expect(replacement).toBeInstanceOf(Error);
+      expect((replacement as Error).message).toContain(
+        '(cause chain truncated)',
+      );
+      expect((replacement as Error).message).not.toContain(FAKE_PASSWORD);
+    });
+
+    it('keeps a deep but fully cleaned cause chain when no budget is exceeded', () => {
+      const redactor = new CredentialRedactor();
+      const root: Error & { cause?: unknown } = new Error('link-0');
+      let current = root;
+      for (let depth = 1; depth < 10; depth++) {
+        const next: Error & { cause?: unknown } = new Error(`link-${depth}`);
+        current.cause = next;
+        current = next;
+      }
+
+      expect(redactor.redactErrorForRethrow(root)).toBe(root);
     });
 
     it('renders a thrown primitive redacted', () => {

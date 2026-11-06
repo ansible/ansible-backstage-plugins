@@ -1136,10 +1136,10 @@ describe('runtime token redaction capacity', () => {
   /**
    * The cache is keyed by the registry-controlled challenge scope, so a
    * registry issuing a unique scope per response could otherwise grow it
-   * without limit. The redactor must refuse a token once its bounded budget is
-   * full rather than evicting a token that remains in the client cache.
+   * without limit. The redactor and cache must evict together so the client
+   * continues authenticating after its bounded budget is full.
    */
-  it('fails closed once the registry has issued too many scopes', async () => {
+  it('continues authenticating after the registry has issued too many scopes', async () => {
     const tokenHits: Record<string, number> = {};
     const warn = jest.fn();
     const fetchImpl = async (
@@ -1179,21 +1179,19 @@ describe('runtime token redaction capacity', () => {
       logger: { debug: () => {}, warn },
     });
 
-    // One scope per repository: the next token cannot be retained safely.
+    // One scope per repository exercises both cache and redactor eviction.
     for (let i = 0; i < 1_000; i++) {
       for await (const tag of client.listTags(`flood/${i}`)) void tag;
     }
 
-    await expect(async () => {
-      for await (const tag of client.listTags('flood/1000')) void tag;
-    }).rejects.toThrow('tag listing failed for flood/1000: 401');
+    await expect(
+      (async () => {
+        for await (const tag of client.listTags('flood/1000')) void tag;
+      })(),
+    ).resolves.toBeUndefined();
 
     expect(tokenHits['repository:flood/1000:pull']).toBe(1);
-    expect(
-      warn.mock.calls.some(([message]) =>
-        String(message).includes('token redaction capacity exhausted'),
-      ),
-    ).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('uses a conservative cache lifetime for an invalid expiry', async () => {

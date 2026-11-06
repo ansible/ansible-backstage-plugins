@@ -123,6 +123,10 @@ describe('credential redaction in the catalog provider', () => {
               namespace: 'demo',
               name: 'net',
               version: '1.0.0',
+              // The repository field is registry-controlled and must not
+              // become a non-HTTP(S) catalog link.
+              // eslint-disable-next-line no-script-url
+              repository: 'javascript:alert(1)',
               description: `networking collection built with ${SECRET}`,
               plugins: [],
               roles: [],
@@ -194,6 +198,7 @@ describe('credential redaction in the catalog provider', () => {
     expect(collection).toBeDefined();
     expect(collection!.metadata.description).toContain('[REDACTED]');
     expect(collection!.metadata.description).toContain('networking collection');
+    expect(collection!.metadata.links).toBeUndefined();
 
     // Safe metadata survives redaction: counts, annotations, structure.
     expect(environment!.metadata.description).toContain('1 collection');

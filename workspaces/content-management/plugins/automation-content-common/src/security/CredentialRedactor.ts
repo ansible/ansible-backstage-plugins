@@ -104,7 +104,7 @@ export class CredentialRedactor {
       ownerSecrets.size >= MAX_RUNTIME_SECRETS_PER_OWNER &&
       !ownerSecrets.has(value)
     ) {
-      return false;
+      this.evictOldestRuntimeSecret(owner);
     }
     ownerSecrets.delete(value);
     const safeTtl = Number.isFinite(ttlMs)
@@ -123,6 +123,29 @@ export class CredentialRedactor {
     );
     this.pruneRuntimeSecrets(now);
     return true;
+  }
+
+  /** Release a runtime token when the owning client evicts it from its cache. */
+  releaseRuntimeSecret(value: string, owner: string): void {
+    const ownerSecrets = this.runtimeSecrets.get(owner);
+    if (!ownerSecrets?.delete(value)) return;
+    this.removeRuntimeOwner(value, owner);
+    if (ownerSecrets.size === 0) this.runtimeSecrets.delete(owner);
+  }
+
+  private evictOldestRuntimeSecret(owner: string): void {
+    const ownerSecrets = this.runtimeSecrets.get(owner);
+    if (!ownerSecrets?.size) return;
+
+    let oldest: string | undefined;
+    let oldestExpiry = Number.POSITIVE_INFINITY;
+    for (const [secret, expiresAt] of ownerSecrets) {
+      if (expiresAt < oldestExpiry) {
+        oldestExpiry = expiresAt;
+        oldest = secret;
+      }
+    }
+    if (oldest !== undefined) this.releaseRuntimeSecret(oldest, owner);
   }
 
   private insertSecret(value: string): void {
@@ -323,7 +346,8 @@ export class CredentialRedactor {
     const seen = new Set<unknown>();
     let current: unknown = error;
     let complete = true;
-    for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+    let depth = 0;
+    for (; depth < MAX_CAUSE_DEPTH; depth++) {
       if (current === null || current === undefined || seen.has(current)) break;
       if (typeof current !== 'object') {
         if (typeof current === 'string' && this.redact(current) !== current)
@@ -378,6 +402,11 @@ export class CredentialRedactor {
       }
       current = candidate.cause;
     }
+    // A cause was still pending when the depth budget ran out: the original
+    // may carry unredacted text beyond this depth, so the caller must replace
+    // it with the bounded text form.
+    if (depth === MAX_CAUSE_DEPTH && current !== null && current !== undefined)
+      complete = false;
     return complete;
   }
 

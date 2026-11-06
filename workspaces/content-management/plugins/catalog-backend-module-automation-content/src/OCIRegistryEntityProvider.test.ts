@@ -1,4 +1,4 @@
-import { registryLinkUrl } from './OCIRegistryEntityProvider';
+import { registryLinkUrl, safeSourceUrl } from './OCIRegistryEntityProvider';
 
 /**
  * The registry URL arrives in canonical form from configuration (see
@@ -58,5 +58,26 @@ describe('registryLinkUrl', () => {
     expect(registryLinkUrl('https://quay.io', '')).toBeUndefined();
     expect(registryLinkUrl('https://quay.io', '..')).toBeUndefined();
     expect(registryLinkUrl('https://quay.io', '/..//./')).toBeUndefined();
+  });
+});
+
+describe('safeSourceUrl', () => {
+  it.each([
+    // The literal is the attack payload under test, not a script URL in
+    // production code; the lint rule exists for the latter.
+    // eslint-disable-next-line no-script-url
+    'javascript:alert(1)',
+    'data:text/html,x',
+    'file:///etc/passwd',
+    'not a URL',
+  ])('rejects unsafe source URL %s', value => {
+    expect(safeSourceUrl(value)).toBeUndefined();
+  });
+
+  it.each([
+    ['https://example.com/source', 'https://example.com/source'],
+    ['http://localhost:3000/source', 'http://localhost:3000/source'],
+  ])('keeps the safe source URL %s', (value, expected) => {
+    expect(safeSourceUrl(value)).toBe(expected);
   });
 });

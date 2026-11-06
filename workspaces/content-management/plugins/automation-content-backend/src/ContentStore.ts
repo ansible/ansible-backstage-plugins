@@ -779,13 +779,20 @@ export class ContentStore {
     const located = await readContentManifest(client, repository, digest).catch(
       () => undefined,
     );
+    // Registry-controlled documentation must be clean before it reaches the
+    // database, because persisted rows and backups are outside the API boundary.
+    const manifest = located?.manifest
+      ? (this.redactor.redactValue(located.manifest, {
+          maxDepth: 64,
+        }) as AnsibleContentManifest)
+      : undefined;
 
     return {
       ...base,
       type: classification.type,
-      contentsKnown: Boolean(located?.manifest),
+      contentsKnown: Boolean(manifest),
       classification,
-      manifest: located?.manifest,
+      manifest,
     };
   }
 

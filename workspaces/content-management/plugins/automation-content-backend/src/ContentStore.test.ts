@@ -3,8 +3,10 @@
  */
 import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
+import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
+  MediaTypes,
   RegistryConnection,
   fakeRegistryCredentials,
   makeImage,
@@ -453,5 +455,66 @@ describe('credential redaction', () => {
 
     expect(index.redactor.redact(`pw=${SECRET}`)).toBe('pw=[REDACTED]');
     expect(index.redactor.redact(BASIC_WIRE_FORM)).toBe('[REDACTED]');
+  });
+
+  it('redacts content manifests before persisting them', async () => {
+    const referrerDigest = `sha256:${'ref'.padEnd(64, '0')}`;
+    const payloadDigest = `sha256:${'pay'.padEnd(64, '0')}`;
+    const image = {
+      ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+      referrers: [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: referrerDigest,
+          size: 200,
+          artifactType: CONTENT_MANIFEST_ARTIFACT_TYPE,
+        },
+      ],
+      referrerPayloads: {
+        [payloadDigest]: {
+          schemaVersion: 'v1',
+          generatedAt: '2026-01-01T00:00:00Z',
+          generatedBy: { tool: 'ansible-builder', version: '1.2' },
+          complete: true,
+          collections: [
+            {
+              namespace: 'demo',
+              name: 'net',
+              version: '1.0.0',
+              description: `contains ${SECRET}`,
+              plugins: [],
+              roles: [],
+              playbooks: [],
+              edaPlugins: [],
+              rulebooks: [],
+            },
+          ],
+        },
+      },
+    };
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [image] },
+      referrersMode: 'native',
+    });
+    const db = await createTestDB();
+    const store = new ContentStore(
+      [secretConnection()],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl =
+      registry.fetch;
+
+    const outcome = await store.refreshRegistry('mock');
+    expect(outcome.ok).toBe(true);
+
+    const row = await db('artifacts').first();
+    expect(row?.manifest).toBeDefined();
+    expect(row.manifest).not.toContain(SECRET);
+    expect(row.manifest).toContain('[REDACTED]');
   });
 });
