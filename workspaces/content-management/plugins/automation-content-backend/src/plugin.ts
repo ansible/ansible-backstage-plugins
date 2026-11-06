@@ -1,11 +1,17 @@
 import {
   coreServices,
   createBackendPlugin,
+  resolvePackagePath,
 } from '@backstage/backend-plugin-api';
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
-import { ContentIndex } from './ContentIndex';
+import { ContentStore } from './ContentStore';
 import { createRouter } from './router';
+
+const migrationsDir = resolvePackagePath(
+  '@ansible/plugin-automation-content-backend',
+  'migrations',
+);
 
 /**
  * The automation content API.
@@ -20,27 +26,42 @@ export const automationContentPlugin = createBackendPlugin({
     env.registerInit({
       deps: {
         config: coreServices.rootConfig,
+        database: coreServices.database,
         logger: coreServices.logger,
         httpRouter: coreServices.httpRouter,
         httpAuth: coreServices.httpAuth,
         scheduler: coreServices.scheduler,
       },
-      async init({ config, logger, httpRouter, httpAuth, scheduler }) {
+      async init({
+        config,
+        database,
+        logger,
+        httpRouter,
+        httpAuth,
+        scheduler,
+      }) {
+        const knex = await database.getClient();
+
+        if (!database.migrations?.skip) {
+          await knex.migrate.latest({
+            directory: migrationsDir,
+          });
+        }
         const registries = readRegistryConfigs(config).map(r => r.connection);
 
-        const index = new ContentIndex(
+        const loggerAdapter = {
+          info: (m: string) => logger.info(m),
+          warn: (m: string) => logger.warn(m),
+          debug: (m: string) => logger.debug(m),
+        };
+        const indexDB = new ContentStore(
           registries,
-          {
-            info: (m: string) => logger.info(m),
-            warn: (m: string) => logger.warn(m),
-            debug: (m: string) => logger.debug(m),
-          },
-          // Same registry as the catalog provider uses, so the API and the catalog can
-          // never disagree about what an artifact is.
+          knex as any,
+          loggerAdapter,
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ index, logger, httpAuth }));
+        httpRouter.use(await createRouter({ db: indexDB, logger, httpAuth }));
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
@@ -56,7 +77,7 @@ export const automationContentPlugin = createBackendPlugin({
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
           fn: async () => {
-            const { checked, refreshed, requests } = await index.pollAll();
+            const { checked, refreshed, requests } = await indexDB.pollAll();
             if (refreshed > 0) {
               logger.info(
                 `drift poll: ${refreshed}/${checked} registr(ies) refreshed ` +
@@ -76,13 +97,9 @@ export const automationContentPlugin = createBackendPlugin({
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },
           fn: async () => {
-            const { artifacts, items } = await index.refreshAll();
-            const environments = index.listArtifacts(
-              'execution-environment',
-            ).length;
+            const { artifacts, items } = await indexDB.refreshAll();
             logger.info(
-              `content index refreshed: ${artifacts} artifacts ` +
-                `(${environments} execution environments), ${items} content items`,
+              `content index refreshed: ${artifacts} artifacts, ${items} content items`,
             );
           },
         });

@@ -31,7 +31,7 @@ afterEach(async () => {
 
 /**
  * Serve a MockRegistry over a loopback HTTP socket, using the same thin
- * adapter ContentIndexTransport.test.ts uses for HTTPS: request → FetchLike →
+ * adapter the transport test uses for HTTPS: request → FetchLike →
  * response. The registry is empty on purpose — these tests are about the
  * barrier, not discovery, which has its own coverage.
  */

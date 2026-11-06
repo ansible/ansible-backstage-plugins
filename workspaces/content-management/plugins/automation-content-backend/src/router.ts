@@ -2,13 +2,13 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
-import { ContentIndex, IndexedArtifact, IndexedItem } from './ContentIndex';
+import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
 export interface RouterOptions {
-  index: ContentIndex;
   logger: LoggerService;
   httpAuth: HttpAuthService;
+  db: ContentStore;
 }
 
 /**
@@ -31,10 +31,6 @@ type RouteResponse = {
 };
 
 const EE_TYPE = 'execution-environment';
-
-// Default number of items per page
-const PAGE_SIZE = 10;
-const ALLOWED_PER_PAGE = [PAGE_SIZE, 20, 50] as const;
 
 /**
  * What GET /registries reports about a failed reconciliation.
@@ -106,7 +102,7 @@ function enumerationOf(artifact: IndexedArtifact) {
     : { status: 'unknown', source: 'external-introspection' };
 }
 
-function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
+function artifactView(db: ContentStore, artifact: IndexedArtifact) {
   return {
     ref: artifact.ref,
     type: artifact.type,
@@ -116,13 +112,10 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
     tags: artifact.tags,
     pullReference: artifact.pullReference,
     contentsKnown: artifact.contentsKnown,
-    // Why this was or was not recognised, so an operator never has to guess.
     classification: artifact.classification,
     enumeration: enumerationOf(artifact),
-    // When the registry was last successfully read. The catalog is a cache over state
-    // the registry owns, so how fresh it is matters.
-    lastReconciledAt: index.reconcileStateFor(artifact.registry)?.at,
-    counts: index.countsFor(artifact),
+    lastReconciledAt: db.reconcileStateFor(artifact.registry)?.at,
+    counts: db.countsFor(artifact),
     collections: (artifact.manifest?.collections ?? []).map(c => ({
       namespace: c.namespace,
       name: c.name,
@@ -135,14 +128,11 @@ function artifactView(index: ContentIndex, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { index, logger } = options;
+  const { db, logger } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
   router.get('/health', (_req, res) => {
-    // A liveness probe's answer: nothing else. The route is unauthenticated
-    // (#977), so it must not describe registries, cache state, or failure
-    // causes — see RECONCILE_FAILURE_SUMMARY for where those live now.
     res.json({ status: 'ok' });
   });
 
@@ -150,8 +140,8 @@ export async function createRouter(
 
   router.get('/registries', (_req, res) => {
     res.json({
-      items: index.listRegistries().map(state => {
-        const reconcile = index.reconcileStateFor(state.connection.name);
+      items: db.listRegistries().map(state => {
+        const reconcile = db.reconcileStateFor(state.connection.name);
         return {
           name: state.connection.name,
           url: state.connection.url,
@@ -160,12 +150,9 @@ export async function createRouter(
           capabilities: state.capabilities,
           lastReconciledAt: reconcile?.at,
           lastReconcileOk: reconcile?.ok,
-          // Fixed summary only — the raw cause can quote internal hostnames;
-          // the log and the sync responses are where it belongs. See
-          // RECONCILE_FAILURE_SUMMARY.
           lastReconcileError:
             reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
-          lastCheckedAt: index.driftStateFor(state.connection.name)?.at,
+          lastCheckedAt: db.driftStateFor(state.connection.name)?.at,
         };
       }),
     });
@@ -178,15 +165,11 @@ export async function createRouter(
    * something changed and does not want to wait for the poll.
    */
   router.post('/sync', async (_req, res) => {
-    // This route sits behind the default sign-in barrier (#977), so every
-    // caller is a verified user or service principal — the detailed failure
-    // cause is the only view this handler produces. Anonymous callers are
-    // turned away before the router runs at all.
     const started = Date.now();
     const results = [];
-    for (const state of index.listRegistries()) {
+    for (const state of db.listRegistries()) {
       const name = state.connection.name;
-      const outcome = await index.refreshRegistry(name);
+      const outcome = await db.refreshRegistry(name);
       results.push({ registry: name, ...outcome });
     }
     const ok = results.every(r => r.ok);
@@ -195,25 +178,25 @@ export async function createRouter(
       status: ok ? 'completed' : 'partial',
       durationMs: Date.now() - started,
       registries: results,
-      refreshedAt: index.refreshedAt,
-      cache: index.cacheStats,
+      refreshedAt: db.refreshedAt,
+      cache: db.cacheStats,
     });
   });
 
   /** Cheap drift check: does the registry still match the index? */
   router.post('/registries/:name/poll', async (req, res) => {
     const { name } = req.params;
-    if (!index.getRegistry(name)) {
+    if (!db.getRegistry(name)) {
       res.status(404).json({
         error: `No such registry: ${name}`,
         code: 'REGISTRY_NOT_FOUND',
       });
       return;
     }
-    const result = await index.pollRegistry(name);
+    const result = await db.pollRegistry(name);
     res.json({
       ...result,
-      lastReconciledAt: index.reconcileStateFor(name)?.at,
+      lastReconciledAt: db.reconcileStateFor(name)?.at,
     });
   });
 
@@ -223,14 +206,14 @@ export async function createRouter(
    */
   router.post('/registries/:name/sync', async (req, res) => {
     const { name } = req.params;
-    if (!index.getRegistry(name)) {
+    if (!db.getRegistry(name)) {
       res.status(404).json({
         error: `No such registry: ${name}`,
         code: 'REGISTRY_NOT_FOUND',
       });
       return;
     }
-    const result = await index.refreshRegistry(name);
+    const result = await db.refreshRegistry(name);
     logger.info(
       `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
         result.error ? ` (${result.error})` : ''
@@ -239,10 +222,9 @@ export async function createRouter(
     res.status(202).json({
       status: result.ok ? 'completed' : 'failed',
       discovered: result.discovered,
-      // A failed sync leaves the previous index in place rather than emptying it.
       retainedPrevious: !result.ok,
       error: result.error,
-      lastReconciledAt: index.reconcileStateFor(name)?.at,
+      lastReconciledAt: db.reconcileStateFor(name)?.at,
     });
   });
 
@@ -252,9 +234,9 @@ export async function createRouter(
   // matter of registering an adapter, not of hand-writing another route — per-type
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
-  const filterArtifacts = (query: Record<string, unknown>) => {
-    const { type, registry, collection, contentsKnown } = query;
-    let artifacts = index.listArtifacts(
+  const listContent = async (req: RouteRequest, res: RouteResponse) => {
+    const { type, registry, collection, contentsKnown } = req.query;
+    let artifacts = await db.listArtifacts(
       typeof type === 'string' ? type : undefined,
     );
 
@@ -264,7 +246,8 @@ export async function createRouter(
     if (typeof collection === 'string') {
       artifacts = artifacts.filter(a =>
         (a.manifest?.collections ?? []).some(
-          c => `${c.namespace}.${c.name}` === collection,
+          (c: { namespace: string; name: string }) =>
+            `${c.namespace}.${c.name}` === collection,
         ),
       );
     }
@@ -273,48 +256,7 @@ export async function createRouter(
       artifacts = artifacts.filter(a => a.contentsKnown === want);
     }
 
-    return artifacts;
-  };
-
-  /** Paginated listing of artifacts, filtered by optional query params. */
-  const listContent = (req: RouteRequest, res: RouteResponse) => {
-    const artifacts = filterArtifacts(req.query);
-    const requested = Number(req.query.per_page) || PAGE_SIZE;
-    const perPage = ALLOWED_PER_PAGE.includes(requested as any)
-      ? requested
-      : PAGE_SIZE;
-    const totalItems = artifacts.length;
-    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
-    const start = (page - 1) * perPage;
-    const items = artifacts
-      .slice(start, start + perPage)
-      .map(a => artifactView(index, a));
-    const lastPage = Math.max(1, Math.ceil(totalItems / perPage));
-
-    const buildLink = (p: number): string => {
-      const params = new URLSearchParams();
-      for (const [key, val] of Object.entries(req.query)) {
-        if (key !== 'page' && typeof val === 'string') {
-          params.set(key, val);
-        }
-      }
-      params.set('page', String(p));
-      return `?${params.toString()}`;
-    };
-
-    const next = page * perPage < totalItems ? buildLink(page + 1) : null;
-    const previous = page > 1 ? buildLink(page - 1) : null;
-
-    res.json({
-      page,
-      pageSize: perPage,
-      totalItems,
-      next,
-      previous,
-      firstPage: buildLink(1),
-      lastPage: buildLink(lastPage),
-      items,
-    });
+    res.json({ items: artifacts.map(a => artifactView(db, a)) });
   };
 
   /**
@@ -324,8 +266,8 @@ export async function createRouter(
    * its collections. `depth=flat` returns the content items themselves. Both are
    * useful: the first is how a user browses, the second is how an agent searches.
    */
-  const getContents = (req: RouteRequest, res: RouteResponse) => {
-    const artifact = index.getArtifact(req.params.ref);
+  const getContents = async (req: RouteRequest, res: RouteResponse) => {
+    const artifact = await db.getArtifact(req.params.ref);
     if (!artifact) {
       res
         .status(404)
@@ -336,7 +278,6 @@ export async function createRouter(
     const enumeration = enumerationOf(artifact);
 
     if (!artifact.manifest) {
-      // An empty list would assert the artifact is empty. It is not known to be.
       res.json({
         enumeration,
         classification: artifact.classification,
@@ -366,8 +307,7 @@ export async function createRouter(
 
     const items =
       depth === 'flat' || typeFilter
-        ? index
-            .itemsIn(artifact.ref)
+        ? (await db.itemsIn(artifact.ref))
             .filter(i => !typeFilter || i.type === typeFilter)
             .map(itemSummary)
         : [];
@@ -380,15 +320,15 @@ export async function createRouter(
     });
   };
 
-  const getContent = (req: RouteRequest, res: RouteResponse) => {
-    const artifact = index.getArtifact(req.params.ref);
+  const getContent = async (req: RouteRequest, res: RouteResponse) => {
+    const artifact = await db.getArtifact(req.params.ref);
     if (!artifact) {
       res
         .status(404)
         .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
       return;
     }
-    res.json(artifactView(index, artifact));
+    res.json(artifactView(db, artifact));
   };
 
   router.get('/content', listContent);
@@ -406,11 +346,11 @@ export async function createRouter(
 
   // -- Collections --------------------------------------------------------
 
-  router.get('/collections', (req, res) => {
+  router.get('/collections', async (req, res) => {
     const q =
       typeof req.query.q === 'string' ? req.query.q.toLowerCase() : undefined;
-    const items = index
-      .listCollections()
+    const all = await db.listCollections();
+    const items = all
       .filter(
         c =>
           !q ||
@@ -436,9 +376,10 @@ export async function createRouter(
     res.json({ items });
   });
 
-  router.get('/collections/:namespace/:name', (req, res) => {
+  router.get('/collections/:namespace/:name', async (req, res) => {
     const fqcn = `${req.params.namespace}.${req.params.name}`;
-    const matches = index.listCollections().filter(c => c.fqcn === fqcn);
+    const all = await db.listCollections();
+    const matches = all.filter(c => c.fqcn === fqcn);
     if (matches.length === 0) {
       res.status(404).json({
         error: `Collection not found: ${fqcn}`,
@@ -471,7 +412,7 @@ export async function createRouter(
 
   // -- Content items (Level B) --------------------------------------------
 
-  const searchItems = (req: RouteRequest, res: RouteResponse) => {
+  const searchItems = async (req: RouteRequest, res: RouteResponse) => {
     const { q, type, collection } = req.query;
     const scope =
       (typeof req.query.in === 'string' && req.query.in) ||
@@ -481,7 +422,8 @@ export async function createRouter(
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 500);
     const needle = typeof q === 'string' ? q.toLowerCase() : undefined;
 
-    const matched = index.listItems().filter(item => {
+    const allItems = await db.listItems();
+    const matched = allItems.filter(item => {
       if (type && item.type !== type) return false;
       if (collection && item.collection !== collection) return false;
       if (scope && item.artifactRef !== scope) return false;
@@ -498,15 +440,7 @@ export async function createRouter(
     });
   };
 
-  /**
-   * One content item.
-   *
-   * Scope with `?in=<artifact ref>` to get the variant from a specific environment.
-   * Unscoped, every variant is returned, because two environments may ship different
-   * versions of the same collection and silently picking one would give an answer that
-   * looks authoritative and may be wrong.
-   */
-  const getItem = (req: RouteRequest, res: RouteResponse) => {
+  const getItem = async (req: RouteRequest, res: RouteResponse) => {
     const fqcn = req.params.fqcn;
     const scope =
       (typeof req.query.in === 'string' && req.query.in) ||
@@ -514,7 +448,7 @@ export async function createRouter(
         req.query.executionEnvironment) ||
       undefined;
 
-    const variants = index.findItems(fqcn, scope);
+    const variants = await db.findItems(fqcn, scope);
     if (variants.length === 0) {
       res.status(404).json({
         error: scope
@@ -525,12 +459,10 @@ export async function createRouter(
       return;
     }
 
-    // Every artifact shipping this name, so a caller can see where else it is
-    // available without issuing a second search.
-    const providedBy = index.findItems(fqcn).map(v => v.artifactRef);
+    const providedBy = (await db.findItems(fqcn)).map(v => v.artifactRef);
 
-    const render = (item: IndexedItem) => {
-      const artifact = index.getArtifact(item.artifactRef);
+    const render = async (item: IndexedItem) => {
+      const artifact = await db.getArtifact(item.artifactRef);
       return {
         ...itemSummary(item),
         ...normaliseDoc(item.detail ?? {}),
@@ -543,15 +475,14 @@ export async function createRouter(
     };
 
     if (variants.length === 1) {
-      res.json(render(variants[0]));
+      res.json(await render(variants[0]));
       return;
     }
 
     res.json({
       fqcn,
       variantCount: variants.length,
-      // Differing collection versions is the reason variants exist; surface it first.
-      variants: variants.map(render),
+      variants: await Promise.all(variants.map(render)),
     });
   };
 
@@ -564,9 +495,7 @@ export async function createRouter(
 
   // -- Resolution ---------------------------------------------------------
 
-  router.post('/resolve/requirements', (req, res) => {
-    // Validate at the boundary: a malformed body must read as a 400, not a 500
-    // from a `.map` on a non-array or an entry with no name.
+  router.post('/resolve/requirements', async (req, res) => {
     const raw = req.body?.collections;
     if (!Array.isArray(raw)) {
       res
@@ -601,7 +530,7 @@ export async function createRouter(
         : { version: '*', ...entry },
     );
 
-    const environments = index.listArtifacts(EE_TYPE);
+    const environments = await db.listArtifacts(EE_TYPE);
     const satisfiedBy: Array<{
       ref: string;
       pullReference: string;
@@ -646,6 +575,7 @@ export async function createRouter(
       }
     }
 
+    const collections = await db.listCollections();
     const unsatisfied = required
       .filter(
         requirement =>
@@ -659,8 +589,7 @@ export async function createRouter(
           ),
       )
       .map(requirement => {
-        const anyVersion = index
-          .listCollections()
+        const anyVersion = collections
           .filter(c => c.fqcn === requirement.name)
           .map(c => c.version);
         return {
@@ -680,9 +609,8 @@ export async function createRouter(
           `considered; they may also satisfy these requirements.`,
       );
     }
-    const unclassified = index
-      .listArtifacts()
-      .filter(a => a.type !== EE_TYPE).length;
+    const allArtifacts = await db.listArtifacts();
+    const unclassified = allArtifacts.filter(a => a.type !== EE_TYPE).length;
     if (unclassified > 0) {
       notes.push(
         `${unclassified} image(s) were not recognised as execution environments and ` +
