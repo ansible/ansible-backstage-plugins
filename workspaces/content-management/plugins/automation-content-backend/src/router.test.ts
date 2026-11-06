@@ -1,5 +1,6 @@
 import express from 'express';
 import request from 'supertest';
+import { fakeRegistryCredentials } from '@ansible/automation-content-common';
 import { ContentIndex } from './ContentIndex';
 import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
 
@@ -340,6 +341,35 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
+  it('summarises capability-probe failures before serving /registries', async () => {
+    const connection = {
+      name: 'probe-failure',
+      url: 'https://registry.corp.example.com',
+      auth: { type: 'anonymous' },
+    };
+    const index = new ContentIndex([connection as never], {
+      info: () => {},
+      warn: () => {},
+      debug: () => {},
+    });
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (
+      clients.get('probe-failure') as unknown as { fetchImpl: unknown }
+    ).fetchImpl = () =>
+      Promise.reject(new Error('TLS failure at secret-host.internal'));
+
+    await index.refreshRegistry('probe-failure');
+    const res = await request(await appWith(index)).get('/registries');
+
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain('secret-host.internal');
+    expect(res.body.items[0].lastReconcileError).toBe(
+      RECONCILE_FAILURE_SUMMARY,
+    );
+  });
+
   it('keeps the detailed cause on the per-registry sync response', async () => {
     const index = indexWithFailedReconcile();
     // A live sync of the same registry fails with a detailed cause, the way
@@ -648,7 +678,7 @@ describe('config validation', () => {
 });
 
 describe('credential redaction at the HTTP boundary', () => {
-  const SECRET = 'fake-registry-password';
+  const SECRET = fakeRegistryCredentials().password;
   const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
     'base64',
   );

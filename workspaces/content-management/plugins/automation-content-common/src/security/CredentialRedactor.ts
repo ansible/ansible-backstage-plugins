@@ -52,6 +52,9 @@ export class CredentialRedactor {
    */
   private readonly secrets: string[] = [];
 
+  /** O(1) membership index; the array remains sorted for redaction order. */
+  private readonly secretIndex = new Set<string>();
+
   /** Secrets supplied by configuration and therefore retained for process life. */
   private readonly persistentSecrets = new Set<string>();
 
@@ -98,7 +101,8 @@ export class CredentialRedactor {
   }
 
   private insertSecret(value: string): void {
-    if (this.secrets.includes(value)) return;
+    if (this.secretIndex.has(value)) return;
+    this.secretIndex.add(value);
 
     let low = 0;
     let high = this.secrets.length;
@@ -124,6 +128,7 @@ export class CredentialRedactor {
         if (!this.persistentSecrets.has(secret)) {
           const index = this.secrets.indexOf(secret);
           if (index >= 0) this.secrets.splice(index, 1);
+          this.secretIndex.delete(secret);
         }
       } else {
         nextExpiry = Math.min(nextExpiry, expiresAt);
@@ -137,6 +142,7 @@ export class CredentialRedactor {
       if (!this.persistentSecrets.has(oldest)) {
         const index = this.secrets.indexOf(oldest);
         if (index >= 0) this.secrets.splice(index, 1);
+        this.secretIndex.delete(oldest);
       }
     }
 
@@ -249,21 +255,39 @@ export class CredentialRedactor {
    * Returns false when a read-only message or stack prevented complete cleanup.
    */
   redactErrorInPlace(error: unknown): boolean {
+    if (typeof error === 'string') return this.redact(error) === error;
+
     const seen = new Set<unknown>();
     let current: unknown = error;
     let complete = true;
     for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
-      if (current === null || typeof current !== 'object' || seen.has(current))
+      if (current === null || current === undefined || seen.has(current)) break;
+      if (typeof current !== 'object') {
+        if (typeof current === 'string' && this.redact(current) !== current)
+          complete = false;
         break;
+      }
       seen.add(current);
       const candidate = current as {
         message?: unknown;
         stack?: unknown;
         cause?: unknown;
       };
-      if (typeof candidate.message !== 'string') break;
+      let message: unknown;
       try {
-        candidate.message = this.redact(candidate.message);
+        message = candidate.message;
+      } catch {
+        complete = false;
+        current = candidate.cause;
+        continue;
+      }
+      if (typeof message !== 'string') {
+        complete = false;
+        current = candidate.cause;
+        continue;
+      }
+      try {
+        candidate.message = this.redact(message);
       } catch {
         complete = false;
       }

@@ -2,6 +2,7 @@ import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-auto
 import {
   MockRegistry,
   RegistryConnection,
+  fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
@@ -319,7 +320,7 @@ describe('error cause traversal is bounded', () => {
 });
 
 describe('credential redaction', () => {
-  const SECRET = 'fake-registry-password';
+  const SECRET = fakeRegistryCredentials().password;
   const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
     'base64',
   );

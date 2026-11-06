@@ -12,6 +12,7 @@ import {
   FetchLike,
   MediaTypes,
   MockRegistry,
+  fakeRegistryCredentials,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
@@ -20,7 +21,7 @@ import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { defaultContentTypes } from './contentTypes';
 
 const EE_LABEL = 'ansible-execution-environment';
-const SECRET = 'fake-registry-password';
+const SECRET = fakeRegistryCredentials().password;
 const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString('base64');
 
 function connection() {

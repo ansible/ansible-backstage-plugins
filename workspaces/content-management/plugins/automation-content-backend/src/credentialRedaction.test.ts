@@ -24,6 +24,7 @@ import { createRouter } from './router';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
   MockRegistry,
+  fakeRegistryCredentials,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
 
@@ -31,11 +32,12 @@ const EE_LABEL = 'ansible-execution-environment';
 const EE_TYPE = 'execution-environment';
 
 /** One distinct credential per channel the configuration offers. */
-const SECRET = 'fake-registry-password'; // basic-auth password
+const FAKE_CREDENTIALS = fakeRegistryCredentials();
+const SECRET = FAKE_CREDENTIALS.password; // basic-auth password
 const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString('base64');
-const TOKEN = 'fake-bearer-token'; // configured bearer token
-const URL_PASSWORD = 'fake%40pass'; // percent-encoded in the registry URL
-const URL_PASSWORD_DECODED = 'fake@pass';
+const TOKEN = FAKE_CREDENTIALS.token; // configured bearer token
+const URL_PASSWORD = FAKE_CREDENTIALS.urlPasswordEncoded;
+const URL_PASSWORD_DECODED = FAKE_CREDENTIALS.urlPasswordDecoded;
 
 const ALL_CREDENTIALS = [
   SECRET,

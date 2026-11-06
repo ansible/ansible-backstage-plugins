@@ -114,6 +114,8 @@ const WHOLE_ENV_VALUES = [
   'const { env } = process;',
   'const { env: alias } = process;',
   '({ env } = process);',
+  'const { ["env"]: computed } = process;',
+  "const { ['env']: singleQuoted } = process;",
 ];
 
 /** Reading the environment through a computed key. */

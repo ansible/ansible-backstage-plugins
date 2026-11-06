@@ -894,7 +894,18 @@ export async function createRouter(
       next: (err?: unknown) => void,
     ) => {
       if (!redactor.redactErrorInPlace(err)) {
-        next(new Error(redactor.redactErrorText(err)));
+        const replacement = new Error(
+          redactor.redactErrorText(err),
+        ) as Error & {
+          status?: number;
+          statusCode?: number;
+        };
+        const source = err as { status?: unknown; statusCode?: unknown };
+        if (typeof source?.status === 'number')
+          replacement.status = source.status;
+        if (typeof source?.statusCode === 'number')
+          replacement.statusCode = source.statusCode;
+        next(replacement);
         return;
       }
       next(err);

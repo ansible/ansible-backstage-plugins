@@ -4,10 +4,12 @@ import {
   redactorForConnections,
 } from './CredentialRedactor';
 import type { RegistryAuth, RegistryConnection } from '../oci/types';
+import { fakeRegistryCredentials } from '../testing/fakeCredentials';
 
-const FAKE_PASSWORD = 'fake-registry-password';
-const FAKE_URL_PASSWORD_DECODED = 'fake@pass';
-const FAKE_URL_PASSWORD_ENCODED = 'fake%40pass';
+const FAKE_CREDENTIALS = fakeRegistryCredentials();
+const FAKE_PASSWORD = FAKE_CREDENTIALS.password;
+const FAKE_URL_PASSWORD_DECODED = FAKE_CREDENTIALS.urlPasswordDecoded;
+const FAKE_URL_PASSWORD_ENCODED = FAKE_CREDENTIALS.urlPasswordEncoded;
 
 function connection(
   auth: RegistryAuth,
@@ -287,8 +289,24 @@ describe('CredentialRedactor', () => {
 
     it('leaves values that are not errors alone', () => {
       const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
       expect(() => redactor.redactErrorInPlace(FAKE_PASSWORD)).not.toThrow();
+      expect(redactor.redactErrorInPlace(FAKE_PASSWORD)).toBe(false);
       expect(() => redactor.redactErrorInPlace(null)).not.toThrow();
+    });
+
+    it('continues through a cause after a non-string message', () => {
+      const redactor = new CredentialRedactor();
+      redactor.addSecret(FAKE_PASSWORD);
+      const root = {
+        message: 42,
+        cause: new Error(`nested ${FAKE_PASSWORD}`),
+      };
+
+      expect(redactor.redactErrorInPlace(root)).toBe(false);
+      expect(redactor.redactErrorText(root)).toBe(
+        `unknown error: nested [REDACTED]`,
+      );
     });
 
     it('terminates on a cause cycle', () => {
@@ -360,9 +378,9 @@ describe('redactorForConnections', () => {
 
   it('collects pre-issued bearer tokens', () => {
     const redactor = redactorForConnections([
-      connection({ type: 'bearer', token: 'fake-bearer-token' }),
+      connection({ type: 'bearer', token: FAKE_CREDENTIALS.token }),
     ]);
-    expect(redactor.redact('Bearer fake-bearer-token')).toBe(
+    expect(redactor.redact(`Bearer ${FAKE_CREDENTIALS.token}`)).toBe(
       'Bearer [REDACTED]',
     );
   });
@@ -389,7 +407,7 @@ describe('redactorForConnections', () => {
   });
 
   it('collects a URL-embedded password in both its spellings', () => {
-    // `fake@pass` percent-encodes to `fake%40pass` inside a URL. Text quoting the URL
+    // The URL password percent-encodes inside a URL. Text quoting the URL
     // carries the encoded form; text quoting the configuration carries the
     // decoded one. Both must be recognised.
     const redactor = redactorForConnections([

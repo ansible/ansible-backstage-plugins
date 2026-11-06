@@ -203,12 +203,27 @@ const contentCredentialBoundary = {
     },
     {
       selector:
+        "VariableDeclarator[init.name='process'] > ObjectPattern > Property[computed=true][key.value='env']",
+      message: envObjectMessage,
+    },
+    {
+      selector:
         "AssignmentExpression[right.name='process'] > ObjectPattern > Property[key.name='env']",
       message: envObjectMessage,
     },
     {
       selector:
+        "AssignmentExpression[right.name='process'] > ObjectPattern > Property[computed=true][key.value='env']",
+      message: envObjectMessage,
+    },
+    {
+      selector:
         "AssignmentPattern[right.name='process'] > ObjectPattern > Property[key.name='env']",
+      message: envObjectMessage,
+    },
+    {
+      selector:
+        "AssignmentPattern[right.name='process'] > ObjectPattern > Property[computed=true][key.value='env']",
       message: envObjectMessage,
     },
     ...ENV_VALUE_PARENTS.flatMap(parent =>

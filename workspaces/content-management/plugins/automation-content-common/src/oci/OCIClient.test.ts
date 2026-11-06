@@ -6,9 +6,11 @@ import {
   makeImage,
   makeLabelledImage,
 } from '../testing/MockRegistry';
+import { fakeRegistryCredentials } from '../testing/fakeCredentials';
 
 const HOST = 'https://mock.registry';
-const FAKE_REGISTRY_PASSWORD = 'fake-registry-password';
+const FAKE_CREDENTIALS = fakeRegistryCredentials();
+const FAKE_REGISTRY_PASSWORD = FAKE_CREDENTIALS.password;
 
 function connection(
   overrides: Partial<RegistryConnection> = {},
@@ -1212,8 +1214,8 @@ describe('registry-controlled names cannot forge log lines', () => {
 });
 
 describe('credential redaction', () => {
-  const FAKE_PASSWORD = 'fake-registry-password';
-  const RUNTIME_TOKEN = 'fake-runtime-token';
+  const FAKE_PASSWORD = FAKE_CREDENTIALS.password;
+  const RUNTIME_TOKEN = FAKE_CREDENTIALS.token;
   const basic = {
     type: 'basic' as const,
     username: 'u',

@@ -3,6 +3,7 @@ import { OCIClient } from './OCIClient';
 import { RegistryConnection } from './types';
 import { redactorForConnections } from '../security/CredentialRedactor';
 import { MockRegistry, makeImage } from '../testing/MockRegistry';
+import { fakeRegistryCredentials } from '../testing/fakeCredentials';
 
 function client(
   registry: MockRegistry,
@@ -153,7 +154,7 @@ describe('CapabilityProbe', () => {
   });
 
   it('redacts its failure logs through the redactor it is given', async () => {
-    const secret = 'fake-registry-password';
+    const secret = fakeRegistryCredentials().password;
     const lines: string[] = [];
     // A registry whose catalog endpoint fails with an error quoting the
     // credential: the probe catches it, formats it, and logs it.

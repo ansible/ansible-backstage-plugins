@@ -151,12 +151,21 @@ never puts literal credentials in Helm values:
 upstream:
   backstage:
     extraEnvVars:
+      - name: CONTENT_REGISTRY_USERNAME
+        valueFrom:
+          secretKeyRef:
+            name: automation-content-registry
+            key: username
       - name: CONTENT_REGISTRY_PASSWORD
         valueFrom:
           secretKeyRef:
             name: automation-content-registry
             key: password
 ```
+
+Merge these entries with the chart's existing `extraEnvVars` entries rather
+than replacing the array; those defaults may be required by the deployment's
+existing app-config.
 
 The registry configuration itself goes wherever the deployment's app-config
 goes (`upstream.backstage.appConfig` for the chart).
