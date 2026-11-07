@@ -4,6 +4,7 @@ import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useNotifications } from '@ansible/portal-plugin-sdk';
 import { syncImageWithNotifications } from './imageSyncNotifications';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { usePermission } from '@backstage/plugin-permission-react';
 import type { Entity } from '@backstage/catalog-model';
 import {
@@ -128,6 +129,7 @@ export function ImagesCatalogPage({
   wrapInContainer?: boolean;
 }): ReactElement {
   const api = useApi(automationContentApiRef);
+  const aapAuth = useApi(rhAapAuthApiRef);
   const { showNotification } = useNotifications();
   const catalog = useApi(catalogApiRef);
   const navigate = useNavigate();
@@ -386,7 +388,18 @@ export function ImagesCatalogPage({
                 <Menu>
                   <MenuItem
                     onAction={() => {
-                      setControllerImage(row);
+                      // Establish the AAP session before opening the dialog:
+                      // the Backstage login prompt cannot stack above a BUI
+                      // modal, so it must appear with no dialog open. If the
+                      // user is sent through OAuth, the page redirects and
+                      // they retry this action with the token cached.
+                      aapAuth
+                        .getAccessToken()
+                        .then(() => setControllerImage(row))
+                        .catch(() => {
+                          // Login declined or failed; the prompt already said
+                          // why. Nothing to open.
+                        });
                     }}
                   >
                     Use in Controller

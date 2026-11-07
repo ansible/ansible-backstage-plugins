@@ -188,6 +188,7 @@ it('does not describe a failed inventory request as empty', async () => {
           },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -207,6 +208,7 @@ it('defaults to classified EEs and refetches everything when toggled', async () 
       apis={[
         [automationContentApiRef, { listExecutionEnvironments }],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -250,6 +252,7 @@ it('retains search controls when no images match and clears the filters', async 
           },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -293,6 +296,7 @@ it('uses server totals, fetches page 2 and resets pagination when all types chan
       apis={[
         [automationContentApiRef, { listExecutionEnvironments }],
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -356,6 +360,7 @@ it('keeps favorites filtering on the current page', async () => {
           { listExecutionEnvironments: async () => envelope([base]) },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -387,6 +392,7 @@ it('offers supported page sizes and resets to page one when the size changes', a
       apis={[
         [automationContentApiRef, { listExecutionEnvironments }],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -428,6 +434,7 @@ it('skips the catalog request for an empty page', async () => {
           { listExecutionEnvironments: async () => envelope([]) },
         ],
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -480,6 +487,7 @@ it('keeps inventory visible when the filtered catalog request fails', async () =
           { listExecutionEnvironments: async () => envelope([base]) },
         ],
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -507,6 +515,7 @@ it('preserves precise matching and favorites for shared digests', async () => {
           { listExecutionEnvironments: async () => envelope([base, other]) },
         ],
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -546,6 +555,7 @@ it('keeps search and the all-images toggle without the facet rail', async () => 
           catalogApiRef,
           { getEntities: async () => ({ items: [linkedEntity] }) },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -607,6 +617,7 @@ it.each([
             },
           ],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         ]}
       >
         <MemoryRouter>
@@ -644,6 +655,7 @@ it('allows sync with the content permission without a matching catalog entity', 
           },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -684,6 +696,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           { getEntities: async () => ({ items: [linkedEntity] }) },
         ],
         [scaffolderApiRef, { scaffold }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -826,6 +839,7 @@ it('syncs only the selected artifact and refreshes to its new latest digest', as
       apis={[
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -883,6 +897,7 @@ it('marks only the syncing artifact row as in flight', async () => {
       apis={[
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -960,6 +975,7 @@ it('keeps the row on its current digest after a failed latest image sync', async
       apis={[
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -1007,6 +1023,7 @@ it.each([
         apis={[
           [automationContentApiRef, api],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         ]}
       >
         <MemoryRouter>
@@ -1050,6 +1067,7 @@ it('labels partial counts and unknown contents without requiring catalog matches
           },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
@@ -1086,6 +1104,7 @@ it.each([
         apis={[
           [automationContentApiRef, { listExecutionEnvironments }],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         ]}
       >
         <MemoryRouter>

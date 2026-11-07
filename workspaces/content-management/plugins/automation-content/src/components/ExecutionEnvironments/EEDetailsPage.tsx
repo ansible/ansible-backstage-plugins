@@ -9,6 +9,7 @@ import {
 import { syncImageWithNotifications } from './imageSyncNotifications';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { usePermission } from '@backstage/plugin-permission-react';
 import {
   catalogApiRef,
@@ -221,6 +222,7 @@ function EEDetailsContent(): ReactElement {
     useNotifications();
   const { ref = '' } = useParams<{ ref: string }>();
   const api = useApi(automationContentApiRef);
+  const aapAuth = useApi(rhAapAuthApiRef);
   const { allowed: canSync } = usePermission({
     permission: automationContentSyncPermission,
   });
@@ -567,7 +569,18 @@ function EEDetailsContent(): ReactElement {
                 <Menu>
                   <MenuItem
                     onAction={() => {
-                      setControllerOpen(true);
+                      // Establish the AAP session before opening the dialog:
+                      // the Backstage login prompt cannot stack above a BUI
+                      // modal, so it must appear with no dialog open. If the
+                      // user is sent through OAuth, the page redirects and
+                      // they retry this action with the token cached.
+                      aapAuth
+                        .getAccessToken()
+                        .then(() => setControllerOpen(true))
+                        .catch(() => {
+                          // Login declined or failed; the prompt already said
+                          // why. Nothing to open.
+                        });
                     }}
                   >
                     Use in Controller

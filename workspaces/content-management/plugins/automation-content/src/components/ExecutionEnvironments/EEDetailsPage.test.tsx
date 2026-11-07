@@ -121,6 +121,7 @@ function renderSyncDetails(
       apis={[
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -459,6 +460,7 @@ it.each([
       <TestApiProvider
         apis={[
           [catalogApiRef, { getEntities }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
           [
             automationContentApiRef,
             {
@@ -580,6 +582,7 @@ function renderLegacyContentLink(query: string) {
             }),
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -644,6 +647,7 @@ it('shows populated image metadata without leaking missing classification confid
             }),
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter initialEntries={[`/${encodeURIComponent(pullReference)}`]}>
@@ -710,6 +714,7 @@ it('links to definition details only for an explicit component entity ref', asyn
             }),
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -767,6 +772,7 @@ it('combines only reported collection content counts and marks missing metadata'
             getContents,
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -820,6 +826,7 @@ it('uses an em dash when a complete inventory reports no content counts', async 
             }),
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -872,6 +879,7 @@ it('keeps collection contents unknown when the image inventory is unknown', asyn
             getContents: async () => unknownContents,
           },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -933,6 +941,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
     <TestApiProvider
       apis={[
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [scaffolderApiRef, { scaffold }],
         [
           automationContentApiRef,
@@ -1002,6 +1011,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
     <TestApiProvider
       apis={[
         [catalogApiRef, { getEntities }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [scaffolderApiRef, { scaffold }],
         [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
@@ -1135,6 +1145,7 @@ describe('tag selector', () => {
         apis={[
           [automationContentApiRef, api],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         ]}
       >
         <MemoryRouter
@@ -1242,6 +1253,7 @@ it('keeps the previous artifact visible while a tag switch loads', async () => {
       apis={[
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
@@ -1319,6 +1331,7 @@ it('keeps the favorite on the image across tag switches', async () => {
           catalogApiRef,
           { getEntities: async () => ({ items: [defaultEntity] }) },
         ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter
