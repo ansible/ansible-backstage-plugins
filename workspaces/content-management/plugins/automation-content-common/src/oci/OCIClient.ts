@@ -3,6 +3,11 @@ import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
 import { logSafeText } from './logSafeText';
 import {
+  CredentialRedactor,
+  MAX_RUNTIME_SECRET_TTL_MS,
+  redactorForConnections,
+} from '../security/CredentialRedactor';
+import {
   ArtifactRef,
   Descriptor,
   ImageConfig,
@@ -25,6 +30,7 @@ const MAX_REDIRECT_HOPS = 5;
  * ones without meaningful memory.
  */
 const TOKEN_CACHE_MAX_ENTRIES = 1_000;
+const DEFAULT_TOKEN_CACHE_TTL_MS = 300_000;
 
 /**
  * undici is loaded lazily, and only by the default transport. This package also
@@ -84,6 +90,13 @@ export interface OCIClientOptions {
   /** Per-request timeout. */
   timeoutMs?: number;
   logger?: { debug(msg: string): void; warn(msg: string): void };
+  /**
+   * Where this client's credentials are redacted. When omitted, one is built
+   * from the connection itself, so a standalone client still protects its own
+   * logs. Composition roots that need runtime-minted tokens recognised
+   * elsewhere — an index serving API responses — pass their shared instance.
+   */
+  redactor?: CredentialRedactor;
   /**
    * Cache for digest-addressed reads only. Tag lookups are never cached — a tag is a
    * mutable pointer, and caching one is how a catalog starts lying about an image.
@@ -168,6 +181,12 @@ export class OCIClient {
   private readonly timeoutMs: number;
   private readonly logger?: OCIClientOptions['logger'];
   private readonly cache?: DigestCache;
+  /**
+   * Knows every credential this connection can produce, including tokens it
+   * exchanges at runtime. Every log line and every thrown message passes
+   * through it.
+   */
+  private readonly redactor: CredentialRedactor;
   /** Whether this connection explicitly opted out of transport trust. */
   private readonly allowInsecure: boolean;
   /** Built lazily by verified connections — see the class docblock. */
@@ -186,6 +205,7 @@ export class OCIClient {
     private readonly connection: RegistryConnection,
     options: OCIClientOptions = {},
   ) {
+    this.redactor = options.redactor ?? redactorForConnections([connection]);
     if (connection.insecure === true && connection.ca) {
       // The same refusal the config layer makes at startup, enforced here so a
       // programmatically constructed connection cannot combine them either: a
@@ -201,8 +221,19 @@ export class OCIClient {
     }
     this.allowInsecure = connection.insecure === true;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.logger = options.logger;
     this.cache = options.cache;
+
+    // The client is where credentials turn into text: authorization headers
+    // in error messages, token endpoints in priming failures, statuses beside
+    // repository names. Whatever logger is injected, its lines leave redacted.
+    const injectedLogger = options.logger;
+    this.logger = injectedLogger
+      ? {
+          debug: (msg: string) =>
+            injectedLogger.debug(this.redactor.redact(msg)),
+          warn: (msg: string) => injectedLogger.warn(this.redactor.redact(msg)),
+        }
+      : undefined;
 
     const injected = options.fetch;
     const transport: FetchLike = async (url, init) => {
@@ -245,6 +276,10 @@ export class OCIClient {
     return this.connection.name;
   }
 
+  get credentialRedactor(): CredentialRedactor {
+    return this.redactor;
+  }
+
   private get base(): string {
     // Trim trailing slashes without a regex — the URL is configuration data, and
     // `replace(/\/+$/, '')` is a polynomial-time pattern on hostile input.
@@ -267,9 +302,13 @@ export class OCIClient {
     const protocol = transportProtocol(url);
     if (protocol !== 'https:') {
       throw new RegistryError(
-        `refused ${protocol ?? 'unparseable'} request to ${redactUrl(url)}: ` +
-          `registry connections verify TLS by default; set insecure: true on ` +
-          `registry "${this.connection.name}" to allow this (local development only)`,
+        this.redactor.redact(
+          `refused ${protocol ?? 'unparseable'} request to ${redactUrl(
+            url,
+          )}: ` +
+            `registry connections verify TLS by default; set insecure: true on ` +
+            `registry "${this.connection.name}" to allow this (local development only)`,
+        ),
         undefined,
         this.connection.name,
       );
@@ -338,9 +377,11 @@ export class OCIClient {
 
       if (hop >= MAX_REDIRECT_HOPS) {
         throw new RegistryError(
-          `too many redirects following ${redactUrl(url)}: registry ` +
-            `"${this.connection.name}" redirected more than ` +
-            `${MAX_REDIRECT_HOPS} times`,
+          this.redactor.redact(
+            `too many redirects following ${redactUrl(url)}: registry ` +
+              `"${this.connection.name}" redirected more than ` +
+              `${MAX_REDIRECT_HOPS} times`,
+          ),
           undefined,
           this.connection.name,
         );
@@ -503,8 +544,11 @@ export class OCIClient {
     const token = body.token ?? body.access_token;
     if (!token) return undefined;
 
-    // Renew a little early to avoid racing expiry mid-sync.
-    const ttl = (body.expires_in ?? 300) * 1000;
+    const previous = this.tokenCache.get(cacheKey);
+    if (previous) {
+      this.tokenCache.delete(cacheKey);
+      this.releaseCachedToken(previous.token);
+    }
     // Bound the cache before inserting: the key is the registry-controlled
     // challenge scope, so a registry returning a unique scope per response
     // could otherwise grow it without limit. Oldest entries go first, the
@@ -512,13 +556,44 @@ export class OCIClient {
     while (this.tokenCache.size >= TOKEN_CACHE_MAX_ENTRIES) {
       const oldest = this.tokenCache.keys().next().value;
       if (oldest === undefined) break;
+      const entry = this.tokenCache.get(oldest);
       this.tokenCache.delete(oldest);
+      if (entry) this.releaseCachedToken(entry.token);
+    }
+
+    // Keep the cache conservative when the registry gives us no usable expiry.
+    // The redactor uses a longer bound because the token may remain valid
+    // beyond the cache lifetime and must stay protected while it is retained.
+    const advertisedTtl = body.expires_in;
+    const hasUsableExpiry =
+      typeof advertisedTtl === 'number' &&
+      Number.isFinite(advertisedTtl) &&
+      advertisedTtl > 0;
+    const cacheTtl = hasUsableExpiry
+      ? Math.min(advertisedTtl * 1000, MAX_RUNTIME_SECRET_TTL_MS)
+      : DEFAULT_TOKEN_CACHE_TTL_MS;
+    const redactionTtl = hasUsableExpiry ? cacheTtl : MAX_RUNTIME_SECRET_TTL_MS;
+    // Registered the moment it exists: the token is a credential this process
+    // holds, and every later log line or error message must recognise it.
+    if (
+      !this.redactor.addRuntimeSecret(token, redactionTtl, this.connection.name)
+    ) {
+      this.logger?.debug(
+        `[${this.connection.name}] token is too short for runtime redaction`,
+      );
     }
     this.tokenCache.set(cacheKey, {
       token,
-      expiresAt: Date.now() + ttl - 10_000,
+      expiresAt: Date.now() + cacheTtl - 10_000,
     });
     return token;
+  }
+
+  private releaseCachedToken(token: string): void {
+    for (const entry of this.tokenCache.values()) {
+      if (entry.token === token) return;
+    }
+    this.redactor.releaseRuntimeSecret(token, this.connection.name);
   }
 
   private staticAuthHeader(): string | undefined {
@@ -874,7 +949,7 @@ export class OCIClient {
         if (res.status === 404 || res.status === 401 || res.status === 403)
           return;
         throw new RegistryError(
-          `catalog listing failed: ${res.status}`,
+          this.redactor.redact(`catalog listing failed: ${res.status}`),
           res.status,
           this.connection.name,
         );
@@ -900,7 +975,9 @@ export class OCIClient {
       if (!res.ok) {
         if (res.status === 404) return;
         throw new RegistryError(
-          `tag listing failed for ${logSafeText(repository)}: ${res.status}`,
+          this.redactor.redact(
+            `tag listing failed for ${logSafeText(repository)}: ${res.status}`,
+          ),
           res.status,
           this.connection.name,
         );
@@ -956,7 +1033,11 @@ export class OCIClient {
     });
     if (!res.ok) {
       throw new RegistryError(
-        `manifest fetch failed for ${repository}:${reference}: ${res.status}`,
+        this.redactor.redact(
+          `manifest fetch failed for ${logSafeText(repository)}:${logSafeText(
+            reference,
+          )}: ${res.status}`,
+        ),
         res.status,
         this.connection.name,
       );
@@ -1138,9 +1219,27 @@ export class OCIClient {
 
   /** Build a pull reference a user can hand to podman. Portal never proxies this. */
   pullReference(ref: ArtifactRef): string {
-    const host = this.base.replace(/^https?:\/\//, '');
+    const host = this.pullHost();
     const sep = ref.reference.startsWith('sha256:') ? '@' : ':';
     return `${host}/${ref.repository}${sep}${ref.reference}`;
+  }
+
+  /**
+   * Host and path of the configured registry, credentials removed.
+   *
+   * A pull reference is published — into API responses and catalog
+   * annotations — so userinfo embedded in the configured URL must not
+   * survive into it.
+   */
+  private pullHost(): string {
+    try {
+      const parsed = new URL(this.base);
+      let pathname = parsed.pathname === '/' ? '' : parsed.pathname;
+      while (pathname.endsWith('/')) pathname = pathname.slice(0, -1);
+      return `${parsed.host}${pathname}`;
+    } catch {
+      return '(unparseable URL)';
+    }
   }
 }
 

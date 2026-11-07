@@ -1,4 +1,5 @@
 import { OCIClient } from './OCIClient';
+import { CredentialRedactor } from '../security/CredentialRedactor';
 import {
   AuthScheme,
   BackendCapabilities,
@@ -17,6 +18,12 @@ export interface ProbeOptions {
   /** Declared out-of-band: webhook support is registry configuration, not an API. */
   declaredNotifications?: BackendCapabilities['notifications'];
   logger?: { debug(msg: string): void; warn(msg: string): void };
+  /**
+   * Redacts probe failures and log lines. Defaults to an empty redactor —
+   * formatting still applies, redaction does not — because the composition
+   * roots that know the connections pass their shared instance.
+   */
+  redactor?: CredentialRedactor;
 }
 
 /**
@@ -32,10 +39,22 @@ export interface ProbeOptions {
  * otherwise — with the corresponding UI affordance hidden rather than guessed at.
  */
 export class CapabilityProbe {
+  private readonly redactor: CredentialRedactor;
+  private readonly logger?: ProbeOptions['logger'];
+
   constructor(
     private readonly client: OCIClient,
     private readonly options: ProbeOptions = {},
-  ) {}
+  ) {
+    this.redactor = options.redactor ?? client.credentialRedactor;
+    const injected = options.logger;
+    this.logger = injected
+      ? {
+          debug: (m: string) => injected.debug(this.redactor.redact(m)),
+          warn: (m: string) => injected.warn(this.redactor.redact(m)),
+        }
+      : undefined;
+  }
 
   async probe(): Promise<BackendCapabilities> {
     const capabilities: BackendCapabilities = {
@@ -110,7 +129,9 @@ export class CapabilityProbe {
       capabilities.catalogEnumeration = await this.client.supportsCatalog();
     } catch (error) {
       capabilities.catalogEnumeration = false;
-      this.options.logger?.debug(`catalog probe failed: ${String(error)}`);
+      this.logger?.debug(
+        `catalog probe failed: ${this.redactor.redactErrorText(error)}`,
+      );
     }
     if (!capabilities.catalogEnumeration) {
       capabilities.notes.push(
@@ -135,7 +156,9 @@ export class CapabilityProbe {
         );
       }
     } catch (error) {
-      this.options.logger?.debug(`pagination probe failed: ${String(error)}`);
+      this.logger?.debug(
+        `pagination probe failed: ${this.redactor.redactErrorText(error)}`,
+      );
     }
   }
 
@@ -175,7 +198,9 @@ export class CapabilityProbe {
         );
       }
     } catch (error) {
-      this.options.logger?.debug(`referrers probe failed: ${String(error)}`);
+      this.logger?.debug(
+        `referrers probe failed: ${this.redactor.redactErrorText(error)}`,
+      );
       capabilities.notes.push('Referrers probe failed; assuming unsupported.');
     }
   }

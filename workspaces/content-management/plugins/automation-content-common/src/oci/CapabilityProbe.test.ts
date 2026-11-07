@@ -1,7 +1,9 @@
 import { CapabilityProbe } from './CapabilityProbe';
 import { OCIClient } from './OCIClient';
 import { RegistryConnection } from './types';
+import { redactorForConnections } from '../security/CredentialRedactor';
 import { MockRegistry, makeImage } from '../testing/MockRegistry';
+import { fakeRegistryCredentials } from '../testing/fakeCredentials';
 
 function client(
   registry: MockRegistry,
@@ -149,5 +151,47 @@ describe('CapabilityProbe', () => {
     expect(capabilities.referrers).toBe('none');
     expect(capabilities.tagPagination).toBe(false);
     expect(capabilities.notes.join(' ')).toMatch(/No sample repository/i);
+  });
+
+  it('redacts its failure logs through the redactor it is given', async () => {
+    const secret = fakeRegistryCredentials().password;
+    const lines: string[] = [];
+    // A registry whose catalog endpoint fails with an error quoting the
+    // credential: the probe catches it, formats it, and logs it.
+    const failingCatalog = async (url: string) => {
+      if (url.includes('_catalog')) {
+        throw new Error(`catalog listing failed: ${secret}`);
+      }
+      return new Response('{}', { status: 200 });
+    };
+    const probe = new CapabilityProbe(
+      new OCIClient(
+        {
+          name: 'mock',
+          url: 'https://mock.registry',
+          auth: { type: 'anonymous' },
+        },
+        { fetch: failingCatalog as never },
+      ),
+      {
+        redactor: redactorForConnections([
+          {
+            name: 'mock',
+            url: 'https://mock.registry',
+            auth: { type: 'basic', username: 'u', password: secret },
+          },
+        ]),
+        logger: {
+          debug: m => lines.push(m),
+          warn: m => lines.push(m),
+        },
+      },
+    );
+
+    const capabilities = await probe.probe();
+
+    expect(capabilities.catalogEnumeration).toBe(false);
+    expect(lines.join('\n')).not.toContain(secret);
+    expect(lines.join('\n')).toContain('[REDACTED]');
   });
 });

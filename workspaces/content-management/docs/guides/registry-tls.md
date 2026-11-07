@@ -3,7 +3,9 @@
 Registry connections verify TLS by default and refuse plain HTTP. This guide
 covers what that means for each kind of setup, the one opt-out, and how to
 trust a private CA with verification fully on. The decision record behind the
-policy is [ADR-006](../adrs/006-tls-verification-by-default.md).
+policy is [ADR-006](../adrs/006-tls-verification-by-default.md). Credentials
+are a separate concern — [Registry credentials](registry-credentials.md)
+covers their delivery, rotation and redaction.
 
 ## What the default does
 
@@ -112,6 +114,10 @@ available and composes with everything here.
 - Refusals and warnings name the registry, never URL data: a URL that reaches
   an error is reduced to its scheme, host, and path — userinfo is masked and
   query and fragment dropped, since each can carry a secret
+- Registry passwords and tokens are replaced with `[REDACTED]` wherever they
+  could appear, including the base64 basic-auth form and bearer tokens minted
+  by a token exchange — the full inventory is
+  [its own guide](registry-credentials.md)
 - A failed sync retains what was already indexed rather than emptying the
   catalog
 

@@ -20,6 +20,7 @@
     "test:watch": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --experimental-vm-modules\" backstage-cli repo test",
     "test:all": "bash scripts/test-with-console-log.sh --coverage",
     "test:composition": "node --test scripts/portal-development.test.cjs",
+    "test:credential-guards": "node --test scripts/eslint-credential-guards.test.cjs",
     "test:e2e": "playwright test",
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",

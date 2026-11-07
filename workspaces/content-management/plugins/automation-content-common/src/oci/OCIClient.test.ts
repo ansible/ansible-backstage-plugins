@@ -1,12 +1,16 @@
 import { OCIClient, nextLink } from './OCIClient';
+import { CredentialRedactor } from '../security/CredentialRedactor';
 import { ImageManifest, MediaTypes, RegistryConnection } from './types';
 import {
   MockRegistry,
   makeImage,
   makeLabelledImage,
 } from '../testing/MockRegistry';
+import { fakeRegistryCredentials } from '../testing/fakeCredentials';
 
 const HOST = 'https://mock.registry';
+const FAKE_CREDENTIALS = fakeRegistryCredentials();
+const FAKE_REGISTRY_PASSWORD = FAKE_CREDENTIALS.password;
 
 function connection(
   overrides: Partial<RegistryConnection> = {},
@@ -334,6 +338,22 @@ describe('pullReference', () => {
         reference: 'sha256:abc',
       }),
     ).toBe('mock.registry/ansible/ee@sha256:abc');
+  });
+
+  it('fails closed when the configured URL cannot be parsed', () => {
+    const client = new OCIClient(
+      connection({
+        url: `https://ci:${FAKE_REGISTRY_PASSWORD}@mock.registry:99999`,
+      }),
+    );
+
+    expect(
+      client.pullReference({
+        registry: 'mock',
+        repository: 'ansible/ee',
+        reference: 'latest',
+      }),
+    ).toBe('(unparseable URL)/ansible/ee:latest');
   });
 });
 
@@ -1112,16 +1132,16 @@ describe('auth failure logs carry no registry-controlled text', () => {
   });
 });
 
-describe('the token cache stays bounded', () => {
+describe('runtime token redaction capacity', () => {
   /**
    * The cache is keyed by the registry-controlled challenge scope, so a
    * registry issuing a unique scope per response could otherwise grow it
-   * without limit. After the ceiling is passed, the oldest entries are
-   * evicted — observable as a fresh token exchange for a scope that was
-   * cached earlier.
+   * without limit. The redactor and cache must evict together so the client
+   * continues authenticating after its bounded budget is full.
    */
-  it('evicts the oldest entries once the registry has issued many scopes', async () => {
+  it('continues authenticating after the registry has issued too many scopes', async () => {
     const tokenHits: Record<string, number> = {};
+    const warn = jest.fn();
     const fetchImpl = async (
       url: string,
       init?: { headers?: Record<string, string> },
@@ -1145,7 +1165,7 @@ describe('the token cache stays bounded', () => {
         'www-authenticate': `Bearer realm="https://mock.registry/token",service="mock",scope="${scope}"`,
       };
       // A token scoped to another repository is rejected, as real registries
-      // do — which is what makes an evicted cache entry observable.
+      // do — which makes failed token acquisition observable.
       if (init?.headers?.Authorization !== `Bearer t-${scope}`) {
         return new Response('{}', { status: 401, headers: challenge });
       }
@@ -1154,19 +1174,66 @@ describe('the token cache stays bounded', () => {
         headers: { 'content-type': 'application/json' },
       });
     };
-    const client = new OCIClient(connection(), { fetch: fetchImpl as never });
+    const client = new OCIClient(connection(), {
+      fetch: fetchImpl as never,
+      logger: { debug: () => {}, warn },
+    });
 
-    // One scope per repository: enough distinct scopes to pass the ceiling.
-    for (let i = 0; i < 1_002; i++) {
+    // One scope per repository exercises both cache and redactor eviction.
+    for (let i = 0; i < 1_000; i++) {
       for await (const tag of client.listTags(`flood/${i}`)) void tag;
     }
-    const before = tokenHits['repository:flood/0:pull'] ?? 0;
 
-    // flood/0 was cached first, so it is the first out. Listing it again
-    // must exchange a fresh token rather than use a stale cache entry.
-    for await (const tag of client.listTags('flood/0')) void tag;
+    await expect(
+      (async () => {
+        for await (const tag of client.listTags('flood/1000')) void tag;
+      })(),
+    ).resolves.toBeUndefined();
 
-    expect(tokenHits['repository:flood/0:pull']).toBe(before + 1);
+    expect(tokenHits['repository:flood/1000:pull']).toBe(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('uses a conservative cache lifetime for an invalid expiry', async () => {
+    jest.useFakeTimers();
+    try {
+      const tokenHits: string[] = [];
+      const fetchImpl = async (
+        url: string,
+        init?: { headers?: Record<string, string> },
+      ) => {
+        const target = new URL(url);
+        if (target.pathname === '/token') {
+          const token = `invalid-expiry-token-${tokenHits.length}`;
+          tokenHits.push(token);
+          return new Response(
+            JSON.stringify({ token, expires_in: 'not-a-number' }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        if (init?.headers?.Authorization) {
+          return new Response('{}', { status: 200 });
+        }
+        return new Response('{}', {
+          status: 401,
+          headers: {
+            'www-authenticate':
+              'Bearer realm="https://mock.registry/token",service="mock",scope="repository:demo:pull"',
+          },
+        });
+      };
+      const client = new OCIClient(connection(), {
+        fetch: fetchImpl as never,
+      });
+
+      await client.request('/v2/demo/manifests/latest');
+      jest.advanceTimersByTime(300_001);
+      await client.request('/v2/demo/manifests/latest');
+
+      expect(tokenHits).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
@@ -1190,5 +1257,132 @@ describe('registry-controlled names cannot forge log lines', () => {
     expect(thrown).toBeInstanceOf(Error);
     expect((thrown as Error).message).toContain('evil');
     expect((thrown as Error).message).not.toContain('\n');
+  });
+});
+
+describe('credential redaction', () => {
+  const FAKE_PASSWORD = FAKE_CREDENTIALS.password;
+  const RUNTIME_TOKEN = FAKE_CREDENTIALS.token;
+  const basic = {
+    type: 'basic' as const,
+    username: 'u',
+    password: FAKE_PASSWORD,
+  };
+
+  /** A bearer-only registry, as in the priming tests, issuing one token. */
+  function bearerOnlyRegistry() {
+    const fetchImpl = async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ) => {
+      const auth = init?.headers?.Authorization;
+      const path = new URL(url).pathname;
+      if (path.startsWith('/v2/auth')) {
+        return auth?.startsWith('Basic ')
+          ? new Response(JSON.stringify({ token: RUNTIME_TOKEN }), {
+              status: 200,
+            })
+          : new Response(JSON.stringify({ error: 'auth required' }), {
+              status: 401,
+            });
+      }
+      if (!auth) {
+        return new Response('{}', {
+          status: 401,
+          headers: {
+            'www-authenticate':
+              'Bearer realm="https://mock.registry/v2/auth",service="quay"',
+          },
+        });
+      }
+      if (!auth.startsWith('Bearer ')) {
+        return new Response(JSON.stringify({ error: 'bad format' }), {
+          status: 400,
+        });
+      }
+      return new Response(JSON.stringify({ name: 'demo/ee', tags: ['dev'] }), {
+        status: 200,
+      });
+    };
+    return fetchImpl as never;
+  }
+
+  it('registers an exchanged token with the redactor the moment it arrives', async () => {
+    const redactor = new CredentialRedactor();
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: bearerOnlyRegistry(),
+      redactor,
+    });
+
+    await client.request('/v2/demo/ee/tags/list');
+
+    // The token is a credential the process now holds; anything that quotes
+    // it later — a log line, an error — must have it recognised.
+    expect(redactor.redact(`Authorization: Bearer ${RUNTIME_TOKEN}`)).toBe(
+      'Authorization: Bearer [REDACTED]',
+    );
+  });
+
+  it('redacts its own log lines, including priming failures', async () => {
+    const lines: string[] = [];
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: () =>
+        Promise.reject(
+          new Error(`fetch failed: socket hung up after ${FAKE_PASSWORD}`),
+        ),
+      logger: {
+        debug: m => lines.push(m),
+        warn: m => lines.push(m),
+      },
+    });
+
+    await client.request('/v2/demo/ee/tags/list').catch(() => {});
+
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines.join('\n')).not.toContain(FAKE_PASSWORD);
+    expect(lines.join('\n')).toContain('[REDACTED]');
+  });
+
+  it('redacts the messages of errors it throws', async () => {
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: async () => new Response('boom', { status: 500 }),
+    });
+
+    // A repository name quoting the credential: registry-controlled input,
+    // exactly the channel through which a secret could reach an error.
+    await expect(
+      client.getManifest(`${FAKE_PASSWORD}/ee`, 'latest'),
+    ).rejects.toThrow(/manifest fetch failed for \[REDACTED\]\/ee/);
+  });
+
+  it('sanitizes registry-controlled names in manifest errors', async () => {
+    const client = new OCIClient(connection({ auth: basic }), {
+      fetch: async () => new Response('boom', { status: 500 }),
+    });
+
+    let error: unknown;
+    try {
+      await client.getManifest('evil\n[ERROR] forged', 'tag\u001b[31m');
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).not.toContain('\n');
+    expect((error as Error).message).not.toContain('\u001b');
+  });
+
+  it('strips credentials embedded in the registry URL from pull references', () => {
+    const client = new OCIClient(
+      connection({ url: `https://ci:${FAKE_PASSWORD}@mock.registry` }),
+    );
+
+    expect(
+      client.pullReference({
+        registry: 'mock',
+        repository: 'ansible/ee',
+        reference: 'latest',
+      }),
+    ).toBe('mock.registry/ansible/ee:latest');
   });
 });

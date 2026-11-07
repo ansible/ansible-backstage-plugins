@@ -3,9 +3,12 @@
  */
 import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
+import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
+  MediaTypes,
   RegistryConnection,
+  fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
@@ -362,5 +365,156 @@ describe('error cause traversal is bounded', () => {
     expect(drift.details).toEqual([
       'check failed: loop: (cause chain truncated)',
     ]);
+  });
+});
+
+describe('credential redaction', () => {
+  const SECRET = fakeRegistryCredentials().password;
+  const BASIC_WIRE_FORM = Buffer.from(`ci:${SECRET}`, 'utf8').toString(
+    'base64',
+  );
+
+  function secretConnection(): RegistryConnection {
+    return {
+      name: 'mock',
+      url: `https://ci:${SECRET}@mock.registry`,
+      auth: { type: 'basic', username: 'ci', password: SECRET },
+      repositories: ['ansible/ee'],
+    };
+  }
+
+  async function secretStoreFailingWith(
+    error: unknown,
+    logs: string[] = [],
+  ): Promise<ContentStore> {
+    const db = await createTestDB();
+    const store = new ContentStore(
+      [secretConnection()],
+      db as never,
+      {
+        info: message => logs.push(message),
+        warn: message => logs.push(message),
+        debug: message => logs.push(message),
+      },
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(error);
+    return store;
+  }
+
+  it('redacts credentials from reconcile errors and logs', async () => {
+    const logs: string[] = [];
+    const index = await secretStoreFailingWith(
+      new Error(`fetch failed: authorization rejected for ${SECRET}`),
+      logs,
+    );
+
+    const outcome = await index.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('[REDACTED]');
+    expect(outcome.error).not.toContain(SECRET);
+    expect(logs.join('\n')).not.toContain(SECRET);
+  });
+
+  it('redacts the base64 basic-auth form from errors', async () => {
+    const store = await secretStoreFailingWith(
+      new Error(`Authorization Basic ${BASIC_WIRE_FORM} rejected`),
+    );
+    const outcome = await store.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).not.toContain(BASIC_WIRE_FORM);
+    expect(outcome.error).toContain('[REDACTED]');
+  });
+
+  it('redacts credentials from drift-check details', async () => {
+    const index = await secretStoreFailingWith(
+      new Error(`fetch failed: ${SECRET} in the URL userinfo`),
+    );
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details.join()).toContain('[REDACTED]');
+    expect(drift.details.join()).not.toContain(SECRET);
+  });
+
+  it('exposes a live redactor covering its registries', async () => {
+    const db = await createTestDB();
+    const index = new ContentStore(
+      [secretConnection()],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+
+    expect(index.redactor.redact(`pw=${SECRET}`)).toBe('pw=[REDACTED]');
+    expect(index.redactor.redact(BASIC_WIRE_FORM)).toBe('[REDACTED]');
+  });
+
+  it('redacts content manifests before persisting them', async () => {
+    const referrerDigest = `sha256:${'ref'.padEnd(64, '0')}`;
+    const payloadDigest = `sha256:${'pay'.padEnd(64, '0')}`;
+    const image = {
+      ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+      referrers: [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: referrerDigest,
+          size: 200,
+          artifactType: CONTENT_MANIFEST_ARTIFACT_TYPE,
+        },
+      ],
+      referrerPayloads: {
+        [payloadDigest]: {
+          schemaVersion: 'v1',
+          generatedAt: '2026-01-01T00:00:00Z',
+          generatedBy: { tool: 'ansible-builder', version: '1.2' },
+          complete: true,
+          collections: [
+            {
+              namespace: 'demo',
+              name: 'net',
+              version: '1.0.0',
+              description: `contains ${SECRET}`,
+              plugins: [],
+              roles: [],
+              playbooks: [],
+              edaPlugins: [],
+              rulebooks: [],
+            },
+          ],
+        },
+      },
+    };
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [image] },
+      referrersMode: 'native',
+    });
+    const db = await createTestDB();
+    const store = new ContentStore(
+      [secretConnection()],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl =
+      registry.fetch;
+
+    const outcome = await store.refreshRegistry('mock');
+    expect(outcome.ok).toBe(true);
+
+    const row = await db('artifacts').first();
+    expect(row?.manifest).toBeDefined();
+    expect(row.manifest).not.toContain(SECRET);
+    expect(row.manifest).toContain('[REDACTED]');
   });
 });

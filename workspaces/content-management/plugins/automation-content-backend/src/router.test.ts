@@ -1,5 +1,6 @@
 import express from 'express';
 import request from 'supertest';
+import { CredentialRedactor } from '@ansible/automation-content-common';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
 
@@ -13,6 +14,7 @@ const logger = {
 
 function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
   return {
+    redactor: new CredentialRedactor(),
     listRegistries: () => [],
     getRegistry: () => undefined,
     reconcileStateFor: () => undefined,

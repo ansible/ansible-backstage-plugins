@@ -2,6 +2,7 @@ import express from 'express';
 import Router from 'express-promise-router';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
+import { publicUrl } from '@ansible/automation-content-common';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
@@ -27,6 +28,11 @@ type RouteRequest = {
 
 type RouteResponse = {
   status: (code: number) => RouteResponse;
+  json: (body: unknown) => unknown;
+};
+
+/** Structural response shape for the shared API redaction boundary. */
+type JsonCapableResponse = {
   json: (body: unknown) => unknown;
 };
 
@@ -132,6 +138,16 @@ export async function createRouter(
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
+  // Every JSON response passes through the live redactor so runtime bearer
+  // tokens and registry-controlled metadata cannot bypass a route handler.
+  const redactor = db.redactor;
+  router.use((_req: unknown, res: JsonCapableResponse, next: () => void) => {
+    const original = res.json.bind(res);
+    res.json = (body: unknown) =>
+      original(redactor.redactValue(body, { maxDepth: 64 }));
+    next();
+  });
+
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
@@ -144,7 +160,7 @@ export async function createRouter(
         const reconcile = db.reconcileStateFor(state.connection.name);
         return {
           name: state.connection.name,
-          url: state.connection.url,
+          url: publicUrl(state.connection.url),
           namespaces: state.connection.namespaces,
           repositories: state.connection.repositories,
           capabilities: state.capabilities,
@@ -173,7 +189,11 @@ export async function createRouter(
       results.push({ registry: name, ...outcome });
     }
     const ok = results.every(r => r.ok);
-    logger.info(`manual sync of ${results.length} registr(ies), ok=${ok}`);
+    logger.info(
+      redactor.redact(
+        `manual sync of ${results.length} registr(ies), ok=${ok}`,
+      ),
+    );
     res.status(ok ? 200 : 207).json({
       status: ok ? 'completed' : 'partial',
       durationMs: Date.now() - started,
@@ -215,9 +235,11 @@ export async function createRouter(
     }
     const result = await db.refreshRegistry(name);
     logger.info(
-      `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
-        result.error ? ` (${result.error})` : ''
-      }`,
+      redactor.redact(
+        `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
+          result.error ? ` (${result.error})` : ''
+        }`,
+      ),
     );
     res.status(202).json({
       status: result.ok ? 'completed' : 'failed',
@@ -770,6 +792,19 @@ export async function createRouter(
 
     res.json({ valid: errors.length === 0, errors, warnings });
   });
+
+  // Platform error middleware formats whatever escapes a handler. Ensure the
+  // original is cleaned, or replace it with a safe copy when it is read-only.
+  router.use(
+    (
+      err: Error,
+      _req: unknown,
+      _res: unknown,
+      next: (err?: unknown) => void,
+    ) => {
+      next(redactor.redactErrorForRethrow(err));
+    },
+  );
 
   // Cast across `@types/express` identity boundaries (see RouteRequest note above).
   return router as unknown as express.Router;

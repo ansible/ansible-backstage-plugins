@@ -19,6 +19,11 @@ export type {
 } from './oci/OCIClient';
 export { CapabilityProbe, probeRegistry } from './oci/CapabilityProbe';
 export type { ProbeOptions } from './oci/CapabilityProbe';
+export {
+  CredentialRedactor,
+  redactorForConnections,
+  publicUrl,
+} from './security/CredentialRedactor';
 
 export type {
   BackendAdapter,
@@ -78,4 +83,5 @@ export {
   makeImage,
   makeLabelledImage,
 } from './testing/MockRegistry';
+export { fakeRegistryCredentials } from './testing/fakeCredentials';
 export type { MockImage, MockRegistryOptions } from './testing/MockRegistry';

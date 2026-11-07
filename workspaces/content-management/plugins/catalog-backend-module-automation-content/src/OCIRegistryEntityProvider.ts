@@ -10,6 +10,7 @@ import {
 import {
   CapabilityProbe,
   ContentTypeRegistry,
+  CredentialRedactor,
   ImageManifest,
   MetadataBundle,
   FetchLike,
@@ -18,6 +19,7 @@ import {
   Resolution,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
+  redactorForConnections,
   BackendCapabilities,
 } from '@ansible/automation-content-common';
 import {
@@ -65,6 +67,18 @@ export function registryLinkUrl(
   let basePath = base.pathname;
   while (basePath.endsWith('/')) basePath = basePath.slice(0, -1);
   return `${base.origin}${basePath}/${path}`;
+}
+
+/** Only HTTP(S) URLs may be published as entity links. */
+export function safeSourceUrl(value: string): string | undefined {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -131,6 +145,12 @@ export interface OCIRegistryEntityProviderOptions {
   contentTypes?: ContentTypeRegistry;
   /** Injected transport. Tests drive the provider against a mock registry with it. */
   fetch?: FetchLike;
+  /**
+   * Where this registry's credentials are redacted. Defaults to one built
+   * from the connection, so a standalone provider still protects itself;
+   * module.ts passes a shared instance covering every configured registry.
+   */
+  redactor?: CredentialRedactor;
 }
 
 /** What discovery concluded about one artifact. */
@@ -160,14 +180,29 @@ export class OCIRegistryEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
   private capabilities?: BackendCapabilities;
   private readonly client: OCIClient;
+  private readonly redactor: CredentialRedactor;
+  /** The provider's logger, wrapped so no line leaves with a credential. */
+  private readonly log: {
+    info(m: string): void;
+    warn(m: string): void;
+    debug(m: string): void;
+  };
 
   constructor(private readonly options: OCIRegistryEntityProviderOptions) {
+    this.redactor =
+      options.redactor ?? redactorForConnections([options.connection]);
+    this.log = {
+      info: m => options.logger.info(this.redactor.redact(m)),
+      warn: m => options.logger.warn(this.redactor.redact(m)),
+      debug: m => options.logger.debug(this.redactor.redact(m)),
+    };
     this.client = new OCIClient(options.connection, {
       fetch: options.fetch,
       logger: {
-        debug: (msg: string) => options.logger.debug(msg),
-        warn: (msg: string) => options.logger.warn(msg),
+        debug: (msg: string) => this.log.debug(msg),
+        warn: (msg: string) => this.log.warn(msg),
       },
+      redactor: this.redactor,
     });
   }
 
@@ -182,7 +217,14 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       await runner.run({
         id: this.getProviderName(),
         fn: async () => {
-          await this.refresh();
+          try {
+            await this.refresh();
+          } catch (error) {
+            // The scheduler logs what escapes a task, with its own logger.
+            // Redact the original before rethrowing, or that log line is the
+            // one place the boundary does not reach.
+            throw this.redactor.redactErrorForRethrow(error);
+          }
         },
       });
     }
@@ -193,18 +235,19 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     if (!this.connection) {
       throw new Error(`${this.getProviderName()} is not connected`);
     }
-    const { logger, connection: registry } = this.options;
+    const { connection: registry } = this.options;
     const errors: string[] = [];
 
     if (!this.capabilities) {
       this.capabilities = await new CapabilityProbe(this.client, {
         sampleRepository: registry.repositories?.[0],
         logger: {
-          debug: (m: string) => logger.debug(m),
-          warn: (m: string) => logger.warn(m),
+          debug: (m: string) => this.log.debug(m),
+          warn: (m: string) => this.log.warn(m),
         },
+        redactor: this.redactor,
       }).probe();
-      logger.info(
+      this.log.info(
         `[${registry.name}] capabilities: referrers=${this.capabilities.referrers} ` +
           `catalog=${this.capabilities.catalogEnumeration} ` +
           `auth=${this.capabilities.auth.join('/')}`,
@@ -212,7 +255,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     }
 
     const repositories = await this.resolveRepositories();
-    logger.info(
+    this.log.info(
       `[${registry.name}] scanning ${repositories.length} repositor(ies)`,
     );
 
@@ -221,10 +264,15 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       try {
         entities.push(...(await this.scanRepository(repository)));
       } catch (error) {
-        const message = `${repository}: ${(error as Error).message}`;
+        // The repository name is registry-controlled too: redact the whole
+        // line, not just the error text, or a repository named after a
+        // credential leaks through the prefix.
+        const message = this.redactor.redact(
+          `${repository}: ${this.redactor.redactErrorText(error)}`,
+        );
         errors.push(message);
         // Per-repository isolation: one bad repository must not abort the batch.
-        logger.warn(`[${registry.name}] ${message}`);
+        this.log.warn(`[${registry.name}] ${message}`);
       }
     }
 
@@ -242,7 +290,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       return true;
     });
     if (unique.length < entities.length) {
-      logger.warn(
+      this.log.warn(
         `[${registry.name}] dropped ${entities.length - unique.length} ` +
           `duplicate entity ref(s) before mutation`,
       );
@@ -253,7 +301,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     // must not read as "its content is gone". Keep the previous view and let
     // the next successful cycle catch up.
     if (errors.length > 0) {
-      logger.warn(
+      this.log.warn(
         `[${registry.name}] keeping previous entities: ` +
           `${errors.length} repositor(y/ies) failed this cycle`,
       );
@@ -268,7 +316,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       })),
     });
 
-    logger.info(`[${registry.name}] emitted ${unique.length} entities`);
+    this.log.info(`[${registry.name}] emitted ${unique.length} entities`);
     return { entities: unique.length, errors };
   }
 
@@ -283,7 +331,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     if (configured.length > 0) return configured;
 
     if (!this.capabilities?.catalogEnumeration) {
-      this.options.logger.warn(
+      this.log.warn(
         `[${this.options.connection.name}] no repositories configured and _catalog is ` +
           `unavailable; nothing to scan`,
       );
@@ -333,18 +381,30 @@ export class OCIRegistryEntityProvider implements EntityProvider {
           )
         : undefined;
 
+      // The manifest is registry-controlled documentation. Redact it once
+      // here — after discovery, which needed the raw values, and before
+      // construction — and everything downstream (the environment's
+      // summary, the collection entities, their annotations) is built from
+      // clean text. The depth cap matches the response boundary's: real
+      // documentation nests deeper than a hostile-diagnostics default.
+      const manifest = found?.manifest
+        ? (this.redactor.redactValue(found.manifest, {
+            maxDepth: 64,
+          }) as AnsibleContentManifest)
+        : undefined;
+
       entities.push(
         this.toExecutionEnvironment(
           repository,
           digest,
           tags,
           classification,
-          found?.manifest,
+          manifest,
         ),
       );
-      if (found?.manifest) {
+      if (manifest) {
         entities.push(
-          ...this.toCollections(repository, digest, tags, found.manifest),
+          ...this.toCollections(repository, digest, tags, manifest),
         );
       }
     }
@@ -377,10 +437,10 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         config = await this.client.getConfigBlob(repository, descriptor);
       }
     } catch (error) {
-      this.options.logger.debug(
-        `[${this.options.connection.name}] ${repository}@${digest}: ${String(
-          error,
-        )}`,
+      this.log.debug(
+        `[${
+          this.options.connection.name
+        }] ${repository}@${digest}: ${this.redactor.redactErrorText(error)}`,
       );
     }
 
@@ -425,13 +485,26 @@ export class OCIRegistryEntityProvider implements EntityProvider {
   }
 
   private toExecutionEnvironment(
-    repository: string,
-    digest: string,
-    tags: string[],
+    rawRepository: string,
+    rawDigest: string,
+    rawTags: string[],
     classification: Identified,
     manifest?: AnsibleContentManifest,
   ): Entity {
     const { connection: registry, owner = 'unknown', system } = this.options;
+    // Registry-controlled strings — repository, tags, signals, digest —
+    // become entity names, refs, links and annotations. Redact them after
+    // discovery (the requests above needed the raw values) and before
+    // construction: a hostile registry can name things after a credential
+    // the redactor knows, most realistically a token it issued itself. The
+    // name sanitiser replaces the [REDACTED] marker with catalog-legal
+    // characters, so redaction cannot produce an invalid entity name.
+    const repository = this.redactor.redact(rawRepository);
+    const digest = this.redactor.redact(rawDigest);
+    const tags = rawTags.map(tag => this.redactor.redact(tag));
+    const signals = classification.signals.map(signal =>
+      this.redactor.redact(signal),
+    );
     const summary = manifest ? summariseManifest(manifest) : undefined;
 
     const location = `${LOCATION_TYPE}:${registry.name}/${repository}@${digest}`;
@@ -452,7 +525,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       }),
       [Annotations.lastReconciled]: new Date().toISOString(),
       [Annotations.contentType]: classification.type,
-      [Annotations.classification]: classification.signals.join('; '),
+      [Annotations.classification]: signals.join('; '),
       [Annotations.capabilities]: JSON.stringify({
         referrers: this.capabilities?.referrers,
         notifications: this.capabilities?.notifications,
@@ -484,7 +557,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     } else {
       description =
         `OCI image, not recognised as an execution environment — ` +
-        `${classification.signals.join('; ')}`;
+        `${signals.join('; ')}`;
     }
 
     // The EE name is also the scope for its collection entities: two
@@ -544,12 +617,17 @@ export class OCIRegistryEntityProvider implements EntityProvider {
    * than entities, because they have no independent lifecycle.
    */
   private toCollections(
-    repository: string,
-    digest: string,
+    rawRepository: string,
+    rawDigest: string,
     _tags: string[],
     manifest: AnsibleContentManifest,
   ): Entity[] {
     const { connection: registry, owner = 'unknown', system } = this.options;
+    // See toExecutionEnvironment: identity strings are redacted after
+    // discovery, before construction. The manifest was already redacted at
+    // the scan boundary, so its entries arrive clean.
+    const repository = this.redactor.redact(rawRepository);
+    const digest = this.redactor.redact(rawDigest);
     const eeName = this.entityName([
       registry.name,
       repository,
@@ -568,6 +646,9 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       for (const plugin of collection.plugins) {
         byType[plugin.type] = (byType[plugin.type] ?? 0) + 1;
       }
+      const sourceUrl = collection.repository
+        ? safeSourceUrl(collection.repository)
+        : undefined;
       const collectionLocation =
         `${LOCATION_TYPE}:${registry.name}/${repository}@${digest}` +
         `#${collection.namespace}.${collection.name}`;
@@ -609,8 +690,10 @@ export class OCIRegistryEntityProvider implements EntityProvider {
             ...(counts.edaPlugins ? ['eda'] : []),
             ...(counts.rulebooks ? ['rulebooks'] : []),
           ],
-          ...(collection.repository
-            ? { links: [{ url: collection.repository, title: 'Source' }] }
+          ...(sourceUrl
+            ? {
+                links: [{ url: sourceUrl, title: 'Source' }],
+              }
             : {}),
         },
         spec: {
