@@ -12,6 +12,7 @@ exports.up = async function up(knex) {
     table.string('pull_reference').notNullable();
     table.boolean('contents_known').notNullable().defaultTo(false);
     table.text('classification').notNullable().defaultTo('{}');
+    table.text('signing');
     table.text('manifest');
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());

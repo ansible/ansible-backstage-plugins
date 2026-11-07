@@ -34,6 +34,7 @@ async function createTestDB() {
     table.string('pull_reference').notNullable();
     table.boolean('contents_known').notNullable().defaultTo(false);
     table.text('classification').notNullable().defaultTo('{}');
+    table.text('signing');
     table.text('manifest');
     table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
@@ -905,5 +906,399 @@ describe('inventory search', () => {
     } finally {
       await db.destroy();
     }
+  });
+});
+
+describe('drift detection', () => {
+  it('reports no change when the registry matches the index', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([]);
+  });
+
+  it('detects a newly added tag', async () => {
+    const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [v1] };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    repositories['ansible/ee'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toContain('ansible/ee:v2 added');
+  });
+
+  it('detects a tag moved to different content', async () => {
+    const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [v1] };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    // Same tag, different digest — the case that makes tag-keyed caching unsafe.
+    const moved = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    moved.digest = `sha256:${'moved'.padEnd(64, '9')}`;
+    repositories['ansible/ee'] = [moved];
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toMatch(/ansible\/ee:v1 moved/);
+  });
+
+  it('detects a removed tag', async () => {
+    const repositories = {
+      'ansible/ee': [
+        makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+        makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+      ],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    repositories['ansible/ee'] = [repositories['ansible/ee'][0]];
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toContain('ansible/ee:v2 removed');
+  });
+
+  it('ignores referrer fallback tags, which are artifacts about images', async () => {
+    const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [image] },
+      referrersMode: 'tag-fallback',
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const drift = await index.detectDrift('mock');
+    expect(drift.details.join()).not.toContain('sha256-');
+  });
+
+  it('treats a failed check as "no change", not as everything being removed', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    // Break the transport the way an outage would.
+    const clients = (index as unknown as { clients: Map<string, unknown> })
+      .clients;
+    (clients.get('mock') as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(new Error('connection refused'));
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details.join()).toMatch(/check failed/);
+  });
+
+  it('refreshes only when drift is found', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const quiet = await index.pollRegistry('mock');
+    expect(quiet.refreshed).toBe(false);
+
+    repositories['ansible/ee'].push(makeImage({ tag: 'v2' }));
+    const noisy = await index.pollRegistry('mock');
+
+    expect(noisy.changed).toBe(true);
+    expect(noisy.refreshed).toBe(true);
+    // The new image carries no EE label, so it is catalogued as a plain image.
+    expect(await index.listArtifacts('oci-image')).toHaveLength(1);
+  });
+});
+
+describe('digest cache', () => {
+  it('avoids re-reading unchanged content on a second refresh', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+
+    await index.refreshRegistry('mock');
+    const afterFirst = index.cacheStats.misses;
+
+    registry.reset();
+    await index.refreshRegistry('mock');
+
+    expect(index.cacheStats.hits).toBeGreaterThan(0);
+    // No new misses: everything digest-addressed was already cached.
+    expect(index.cacheStats.misses).toBe(afterFirst);
+    expect(registry.countRequests('/blobs/')).toBe(0);
+  });
+});
+
+describe('error cause traversal is bounded', () => {
+  /**
+   * A cause chain is untrusted input: a registry's transport can produce — or
+   * a hostile one can deliberately produce — a cycle or an arbitrarily deep
+   * chain. These tests drive reconciliation with such failures, so they prove
+   * the walk terminates as well as what it reports.
+   */
+  async function indexFailingWith(error: unknown): Promise<ContentStore> {
+    const db = await createTestDB();
+    const index = new ContentStore(
+      [connection()] as never,
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(error);
+    return index;
+  }
+
+  it('unwraps a wrapped chain to the real message', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+
+    const outcome = await (
+      await indexFailingWith(wrapped)
+    ).refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('fetch failed');
+    expect(outcome.error).toContain('unable to get local issuer certificate');
+    expect(outcome.error).not.toContain('truncated');
+  });
+
+  it('terminates on a self-referencing cause', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+
+    const outcome = await (
+      await indexFailingWith(cyclic)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('loop');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('terminates on a two-object cause cycle', async () => {
+    const alpha: Error & { cause?: unknown } = new Error('alpha');
+    const beta: Error & { cause?: unknown } = new Error('beta');
+    alpha.cause = beta;
+    beta.cause = alpha;
+
+    const outcome = await (
+      await indexFailingWith(alpha)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('alpha');
+    expect(outcome.error).toContain('beta');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('caps an excessively deep chain', async () => {
+    const head: Error & { cause?: unknown } = new Error('depth-0');
+    let tail = head;
+    for (let depth = 1; depth < 50; depth++) {
+      const next: Error & { cause?: unknown } = new Error(`depth-${depth}`);
+      tail.cause = next;
+      tail = next;
+    }
+
+    const outcome = await (
+      await indexFailingWith(head)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('depth-0');
+    expect(outcome.error).toContain('truncated');
+    expect(outcome.error).not.toContain('depth-49');
+  });
+
+  it('describes a non-Error rejection value', async () => {
+    const failing = await indexFailingWith('gateway gone');
+    const outcome = await failing.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('gateway gone');
+  });
+
+  it.each([
+    [{}, 'unknown error'],
+    [{ message: 42 }, 'unknown error'],
+    [new Error(''), 'unknown error'],
+    [null, 'null'],
+    [undefined, 'undefined'],
+    [42, '42'],
+    [false, 'false'],
+  ])(
+    'describes rejection %p without default object stringification',
+    async (error, message) => {
+      const outcome = await (
+        await indexFailingWith(error)
+      ).refreshRegistry('mock');
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).toBe(`capability probe failed: ${message}`);
+      expect(outcome.error).not.toContain('[object Object]');
+    },
+  );
+
+  it('reports the cause chain when a drift check fails', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+    const index = await indexFailingWith(wrapped);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: fetch failed: unable to get local issuer certificate',
+    ]);
+    expect(index.driftStateFor('mock')).toEqual(drift);
+  });
+
+  it('describes non-Error drift-check failures', async () => {
+    const index = await indexFailingWith('gateway gone');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual(['check failed: gateway gone']);
+  });
+
+  it('bounds cyclic drift-check failures', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+    const index = await indexFailingWith(cyclic);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: loop: (cause chain truncated)',
+    ]);
+  });
+});
+
+describe('signature detection', () => {
+  const COSIGN_TYPE = 'application/vnd.dev.cosign.simplesigning.v1+json';
+  const hex = 'a'.repeat(64);
+
+  async function indexOverRepositories(
+    repositories: Record<string, ReturnType<typeof makeImage>[]>,
+    referrersMode: 'native' | 'tag-fallback' | 'none' = 'native',
+  ) {
+    return storeOver(new MockRegistry({ repositories, referrersMode }));
+  }
+
+  it('reports signed from a cosign signature referrer', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    image.referrers = [
+      {
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        digest: `sha256:${'c'.repeat(64)}`,
+        size: 1042,
+        artifactType: COSIGN_TYPE,
+      },
+    ];
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    const artifact = (await index.listArtifacts()).find(
+      a => a.digest === image.digest,
+    )!;
+    expect(artifact.signing).toEqual({
+      state: 'signed',
+      evidence: ['cosign signature referrer found'],
+    });
+  });
+
+  it('reports signed from a digest-derived .sig tag when referrers are unavailable', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    // The signature tag names the signed image digest; its own content is
+    // irrelevant — it is skipped, never indexed.
+    const signatureTag = makeImage({ tag: `sha256-${hex}.sig` });
+    const index = await indexOverRepositories(
+      { 'ansible/ee': [image, signatureTag] },
+      'none',
+    );
+    await index.refreshRegistry('mock');
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].signing).toEqual({
+      state: 'signed',
+      evidence: [
+        'no cosign signature referrer',
+        'digest-derived .sig tag found',
+      ],
+    });
+  });
+
+  it('reports not-signed only when both schemes could be checked', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toEqual({
+      state: 'not-signed',
+      evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
+    });
+  });
+
+  it('reports undetermined when a scheme could not be consulted', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const index = await indexOverRepositories(
+      { 'ansible/ee': [image] },
+      'none',
+    );
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toMatchObject({
+      state: 'undetermined',
+    });
+  });
+
+  it('never indexes .sig tags as artifacts', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const signatureTag = makeImage({ tag: `sha256-${hex}.sig` });
+    const index = await indexOverRepositories({
+      'ansible/ee': [image, signatureTag],
+    });
+    await index.refreshRegistry('mock');
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].digest).toBe(image.digest);
+  });
+
+  it('a row sync does not erase an established signing state', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [image] };
+    const index = await indexOverRepositories(repositories);
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
+    // A row sync cannot enumerate tags, so its own determination is weaker;
+    // the full scan's verdict must survive.
+    await index.syncArtifact((await index.listArtifacts())[0].ref);
+    expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
   });
 });

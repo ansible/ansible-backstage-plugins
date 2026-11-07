@@ -526,6 +526,21 @@ components:
         contentsKnown:
           type: boolean
           description: False when no content manifest is published. Distinct from containing nothing.
+        signing:
+          type: object
+          required: [state, evidence]
+          description: |
+            Signature presence in three states. Cosign 3 writes signatures as
+            OCI referrers while older cosign and some registries use
+            digest-derived `.sig` tags, so "not found" is not "not signed".
+            Evidence reports what was checked — never a trust verdict.
+          properties:
+            state:
+              type: string
+              enum: [signed, not-signed, undetermined]
+            evidence:
+              type: array
+              items: { type: string }
         enumeration:
           $ref: '#/components/schemas/Enumeration'
         counts:

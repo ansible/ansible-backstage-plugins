@@ -55,7 +55,20 @@ export interface IndexedArtifact {
   pullReference: string;
   contentsKnown: boolean;
   classification: IdentifiedType;
+  /**
+   * Signature presence in three states. Cosign 3 writes signatures as OCI
+   * referrers while older cosign and some registries use digest-derived
+   * `.sig` tags, so a tool that walks only one scheme finds nothing and
+   * calls the image unsigned — "not found" is not "not signed".
+   */
+  signing: SigningState;
   manifest?: AnsibleContentManifest;
+}
+
+/** What was checked and what was found; never a trust verdict. */
+export interface SigningState {
+  state: 'signed' | 'not-signed' | 'undetermined';
+  evidence: string[];
 }
 
 export interface ArtifactListOptions {
@@ -151,6 +164,11 @@ export class ArtifactSyncNotFoundError extends Error {
 
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
+/** Cosign tag-based signatures: the tag name carries the signed image digest. */
+const SIGNATURE_TAG = /^sha256-([0-9a-f]{64})\.sig$/;
+/** Cosign OCI-referrer signatures declare this artifact type. */
+const COSIGN_SIGNATURE_ARTIFACT_TYPE =
+  'application/vnd.dev.cosign.simplesigning.v1+json';
 
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
@@ -373,6 +391,11 @@ export class ContentStore {
         target.manifest = existing.manifest;
         target.contentsKnown = existing.contentsKnown;
       }
+      // A row sync never enumerates tags, so the .sig scheme stays unchecked;
+      // an undetermined result must not erase what a full scan established.
+      if (target.signing.state === 'undetermined' && existing?.signing) {
+        target.signing = existing.signing;
+      }
       // Commit after core reads succeed, using current rows rather than a
       // pre-await snapshot. Older digests keep their data and non-latest aliases.
       await this.db.transaction(async trx => {
@@ -414,6 +437,7 @@ export class ContentStore {
           pull_reference: target.pullReference,
           contents_known: target.contentsKnown,
           classification: JSON.stringify(target.classification),
+          signing: target.signing ? JSON.stringify(target.signing) : null,
           manifest: target.manifest ? JSON.stringify(target.manifest) : null,
         });
         for (const item of flattenItems(target)) {
@@ -698,6 +722,7 @@ export class ContentStore {
           pull_reference: a.pullReference,
           contents_known: a.contentsKnown,
           classification: JSON.stringify(a.classification),
+          signing: a.signing ? JSON.stringify(a.signing) : null,
           manifest: a.manifest ? JSON.stringify(a.manifest) : null,
         });
         const items = flattenItems(a);
@@ -755,7 +780,7 @@ export class ContentStore {
         const observed = new Map<string, string>();
         for await (const tag of client.listTags(repository)) {
           requests += 1;
-          if (REFERRER_TAG.test(tag)) continue;
+          if (SIGNATURE_TAG.test(tag) || REFERRER_TAG.test(tag)) continue;
           const head = await client.headManifest(repository, tag);
           requests += 1;
           if (head.digest) observed.set(tag, head.digest);
@@ -956,6 +981,7 @@ export class ContentStore {
       pullReference: row.pull_reference as string,
       contentsKnown: Boolean(row.contents_known),
       classification: JSON.parse(row.classification as string),
+      signing: row.signing ? JSON.parse(row.signing as string) : undefined,
       manifest: row.manifest ? JSON.parse(row.manifest as string) : undefined,
     };
   }
@@ -1013,8 +1039,17 @@ export class ContentStore {
       string,
       { tags: string[]; timestamps: Record<string, string> }
     >();
+    // Image digests covered by a digest-derived `.sig` signature tag, keyed
+    // by the hex in the tag name. The tags themselves address signature
+    // artifacts, never images, so they are recorded and skipped.
+    const signedByTag = new Set<string>();
 
     for await (const tag of client.listTags(repository)) {
+      const signature = SIGNATURE_TAG.exec(tag);
+      if (signature) {
+        signedByTag.add(signature[1]);
+        continue;
+      }
       if (REFERRER_TAG.test(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
@@ -1048,6 +1083,7 @@ export class ContentStore {
           client,
           undefined,
           tagInfo.timestamps,
+          signedByTag,
         ),
       );
     }
@@ -1062,6 +1098,7 @@ export class ContentStore {
     client: OCIClient,
     verified?: { artifact: ResolvedArtifact; config?: ImageConfig },
     tagTimestamps: Record<string, string> = {},
+    signedByTag?: Set<string>,
   ): Promise<IndexedArtifact> {
     const base = {
       ref: `${registry}/${repository}@${digest}`,
@@ -1077,9 +1114,10 @@ export class ContentStore {
       }),
     };
 
-    const { referrers } = await client
+    const { referrers, via } = await client
       .getReferrers(repository, digest)
       .catch(() => ({ referrers: [], via: 'none' as const }));
+    const signing = this.determineSigning(digest, referrers, via, signedByTag);
 
     let labels: Record<string, string> | undefined;
     let resolved: ResolvedArtifact | undefined;
@@ -1113,6 +1151,7 @@ export class ContentStore {
         type: classification.type,
         contentsKnown: false,
         classification,
+        signing,
       };
     }
 
@@ -1132,10 +1171,63 @@ export class ContentStore {
       type: classification.type,
       contentsKnown: Boolean(manifest),
       classification,
+      signing,
       manifest,
     };
   }
 
+  /**
+   * Signature presence, checked across both schemes cosign has used.
+   *
+   * "Signed" reports that a signature artifact was found — it asserts nothing
+   * about who signed or whether the signature still verifies. "Not signed" is
+   * only reported when both schemes could be checked and neither had a
+   * signature; when a scheme was unavailable the state is "undetermined",
+   * because an unfindable signature is not proof of its absence.
+   */
+  private determineSigning(
+    digest: string,
+    referrers: Descriptor[],
+    referrersVia: string,
+    signedByTag?: Set<string>,
+  ): SigningState {
+    if (
+      referrers.some(
+        descriptor =>
+          descriptor.artifactType === COSIGN_SIGNATURE_ARTIFACT_TYPE,
+      )
+    ) {
+      return {
+        state: 'signed',
+        evidence: ['cosign signature referrer found'],
+      };
+    }
+    const evidence = ['no cosign signature referrer'];
+    const hex = digest.replace(/^sha256:/, '');
+    if (signedByTag?.has(hex)) {
+      return {
+        state: 'signed',
+        evidence: [...evidence, 'digest-derived .sig tag found'],
+      };
+    }
+    evidence.push('no digest-derived .sig tag');
+    if (referrersVia === 'none' || !signedByTag) {
+      // One of the schemes could not be consulted; absence is not provable.
+      return {
+        state: 'undetermined',
+        evidence: [...evidence, 'a signature scheme could not be checked'],
+      };
+    }
+    return { state: 'not-signed', evidence };
+  }
+
+  /**
+   * Ask the registered content types which one owns this artifact.
+   *
+   * The index knows no content type of its own. With an empty registry every artifact
+   * is reported as unidentified — honestly, with each adapter's reason — rather than
+   * silently dropped.
+   */
   private identify(
     artifact: ResolvedArtifact | undefined,
     signalsFrom: { labels?: Record<string, string>; referrers?: Descriptor[] },

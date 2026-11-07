@@ -1522,3 +1522,70 @@ it('keeps the favorite on the image across tag switches', async () => {
     screen.queryByRole('button', { name: /remove repo-image from favorites/i }),
   ).toBeNull();
 });
+
+describe('signing presentation', () => {
+  function renderWithSigning(
+    signing: ExecutionEnvironment['signing'] | undefined,
+  ) {
+    const api = {
+      getExecutionEnvironment: async () => ({ ...image, signing }),
+      getContents: async () => ({
+        enumeration: image.enumeration,
+        collections: [],
+        items: [],
+      }),
+    };
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, api],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        ]}
+      >
+        <MemoryRouter
+          initialEntries={[`/content/${encodeURIComponent(image.ref)}`]}
+        >
+          <Routes>
+            <Route path="/content/:ref" element={<EEDetailsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+  }
+
+  it('shows Signed with the evidence behind a disclosure', async () => {
+    renderWithSigning({
+      state: 'signed',
+      evidence: ['cosign signature referrer found'],
+    });
+    expect(await screen.findByText('Signed')).toBeTruthy();
+    expect(
+      await screen.findByText('cosign signature referrer found'),
+    ).toBeTruthy();
+  });
+
+  it('shows Not signed and Not determined as distinct states', async () => {
+    renderWithSigning({
+      state: 'not-signed',
+      evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
+    });
+    expect(await screen.findByText('Not signed')).toBeTruthy();
+  });
+
+  it('shows Not determined when a scheme could not be checked', async () => {
+    renderWithSigning({
+      state: 'undetermined',
+      evidence: ['a signature scheme could not be checked'],
+    });
+    expect(await screen.findByText('Not determined')).toBeTruthy();
+  });
+
+  it('shows Unknown when no signing data is available', async () => {
+    renderWithSigning(undefined);
+    expect(await screen.findByText('Classification')).toBeTruthy();
+    // MetadataRow renders dt label + dd value as siblings.
+    const signingLabel = screen.getByText('Signing', { exact: true });
+    const value = signingLabel.parentElement?.nextElementSibling;
+    expect(value?.textContent).toContain('Unknown');
+  });
+});

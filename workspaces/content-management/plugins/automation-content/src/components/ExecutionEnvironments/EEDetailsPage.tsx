@@ -153,6 +153,20 @@ function classificationLabel(type: string | undefined): string {
     .replace(/^\w/, first => first.toUpperCase());
 }
 
+function signingLabel(state: string): string {
+  if (state === 'signed') return 'Signed';
+  if (state === 'not-signed') return 'Not signed';
+  return 'Not determined';
+}
+
+function signingTone(state: string): StatusBadgeTone {
+  // Strong signaling is reserved for states that change a decision; "Signed"
+  // is a quiet fact, and an undetermined lookup asks for attention, not alarm.
+  if (state === 'undetermined') return 'info';
+  if (state === 'not-signed') return 'warning';
+  return 'neutral';
+}
+
 function inventorySourceLabel(origin: string): string {
   const labels: Record<string, string> = {
     'build-time-manifest': 'Build-time manifest',
@@ -682,7 +696,32 @@ function EEDetailsContent(): ReactElement {
                         {status}
                       </StatusBadge>
                     </MetadataRow>
-                    <MetadataRow label="Signing">Unknown</MetadataRow>
+                    <MetadataRow label="Signing">
+                      {value.signing ? (
+                        <Flex direction="column" gap="1" align="start">
+                          <StatusBadge
+                            tone={signingTone(value.signing.state)}
+                            size="small"
+                            variant="outline"
+                          >
+                            {signingLabel(value.signing.state)}
+                          </StatusBadge>
+                          {/* The badge opens the evidence; it never asserts a
+                              conclusion about who signed or whether the
+                              signature verifies. */}
+                          <details>
+                            <summary>Evidence</summary>
+                            <ul>
+                              {value.signing.evidence.map(item => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        </Flex>
+                      ) : (
+                        <Text color="secondary">Unknown</Text>
+                      )}
+                    </MetadataRow>
                     <MetadataRow label="Origin">
                       <Flex direction="column" align="start" gap="1">
                         <StatusBadge

@@ -159,6 +159,7 @@ const DEFAULT_ARTIFACT: IndexedArtifact = {
     confidence: 'certain',
     signals: [],
   } as never,
+  signing: { state: 'not-signed', evidence: ['no cosign signature referrer'] },
   manifest: { collections: [], generatedBy: {}, complete: true } as never,
 };
 
@@ -873,6 +874,7 @@ describe('GET /content pagination', () => {
         confidence: 'certain',
         signals: [],
       } as never,
+      signing: { state: 'not-signed', evidence: [] },
       manifest: { collections: [], generatedBy: {}, complete: true } as never,
     };
   }
@@ -1040,6 +1042,7 @@ describe('diagnostics are summarised on the registry listing', () => {
       table.string('pull_reference').notNullable();
       table.boolean('contents_known').notNullable().defaultTo(false);
       table.text('classification').notNullable().defaultTo('{}');
+      table.text('signing');
       table.text('manifest');
       table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
       table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());

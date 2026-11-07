@@ -44,6 +44,15 @@ export interface ExecutionEnvironment {
   lastReconciledAt?: string;
   /** Whether that last read succeeded — drives the row's sync state. */
   lastReconcileOk?: boolean;
+  /**
+   * Signature presence in three states: found, provably absent, or not
+   * determinable. Evidence lists what was checked — it is never a trust
+   * verdict.
+   */
+  signing?: {
+    state: 'signed' | 'not-signed' | 'undetermined';
+    evidence: string[];
+  };
   counts?: ContentCounts;
   collections: Array<{
     namespace: string;

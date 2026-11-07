@@ -142,6 +142,7 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     // advance freshness for other rows in the same registry.
     lastReconciledAt: db.reconcileStateForArtifact(artifact)?.at,
     lastReconcileOk: db.reconcileStateForArtifact(artifact)?.ok,
+    signing: artifact.signing,
     counts: db.countsFor(artifact),
     collections: (artifact.manifest?.collections ?? []).map(c => ({
       namespace: c.namespace,

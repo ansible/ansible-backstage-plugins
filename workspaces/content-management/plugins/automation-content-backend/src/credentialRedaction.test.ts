@@ -96,6 +96,10 @@ function seededStore(_logs: string[] = []): ContentStore {
       signals: [`label ${EE_LABEL}=true`, `config blob mentions ${SECRET}`],
       readsContentManifest: true,
     },
+    signing: {
+      state: 'not-signed',
+      evidence: ['no cosign signature referrer'],
+    },
     manifest: {
       schemaVersion: '1.0.0',
       collections: [
