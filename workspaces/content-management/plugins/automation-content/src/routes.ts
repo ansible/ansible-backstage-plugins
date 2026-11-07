@@ -22,15 +22,3 @@ export const eeDetailsRouteRef = createSubRouteRef({
   parent: eeRouteRef,
   path: '/:ref',
 });
-
-/** Collections have their own catalog entry point for host navigation. */
-export const collectionsRouteRef = createRouteRef({
-  id: 'automation-content/collections',
-});
-
-/** Preserve the full entity identity when opening a collection directly. */
-export const collectionDetailsRouteRef = createSubRouteRef({
-  id: 'automation-content/collections/details',
-  parent: collectionsRouteRef,
-  path: '/:namespace/:name',
-});

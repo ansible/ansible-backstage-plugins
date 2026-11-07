@@ -35,19 +35,6 @@ jest.mock('./components/ExecutionEnvironments/EECatalogPage', () => ({
   EECatalogPage: () => <h1>Execution Environments</h1>,
   ImagesTabContent: () => <h2>Native images content</h2>,
 }));
-jest.mock('./components/CollectionsCatalog/CollectionsCatalogPage', () => ({
-  CollectionsCatalogPage: () => <h1>Collections</h1>,
-}));
-jest.mock('./components/CollectionsCatalog/CollectionDetailsPage', () => ({
-  CollectionDetailsPage: () => {
-    const { namespace, name } = useParams();
-    return (
-      <h1>
-        Collection details {namespace}.{name}
-      </h1>
-    );
-  },
-}));
 jest.mock('./components/ExecutionEnvironments/EEDetailsPage', () => ({
   EEDetailsPage: () => {
     const { ref } = useParams();
@@ -60,19 +47,9 @@ it.each([
   ['/content/ee', 'Execution Environments'],
   ['/automation-content', 'Execution Environments'],
   ['/automation-content/execution-environments', 'Execution Environments'],
-  ['/automation-content/collections', 'Collections'],
-  ['/content/collections', 'Collections'],
-  [
-    '/content/collections/ns/name_with.dots',
-    'Collection details ns.name_with.dots',
-  ],
   [
     '/automation-content/execution-environments/registry%2Fdemo%40sha256%3A123',
     'EE details registry/demo@sha256:123',
-  ],
-  [
-    '/automation-content/collections/ns/name_with.dots',
-    'Collection details ns.name_with.dots',
   ],
 ])(
   'discovers the native page at %s',
