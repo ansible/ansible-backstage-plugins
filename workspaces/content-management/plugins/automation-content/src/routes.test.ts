@@ -1,10 +1,7 @@
-import { rootRouteRef, eeRouteRef, eeDetailsRouteRef } from './routes';
+import { eeRouteRef, eeDetailsRouteRef } from './routes';
 
-it('keeps catalog roots distinct and parameter-free', () => {
-  expect(new Set([rootRouteRef, eeRouteRef]).size).toBe(2);
-  for (const route of [rootRouteRef, eeRouteRef]) {
-    expect(route.params).toEqual([]);
-  }
+it('keeps the EE catalog root parameter-free', () => {
+  expect(eeRouteRef.params).toEqual([]);
 });
 
 it('preserves immutable artifact identity on EE details', () => {

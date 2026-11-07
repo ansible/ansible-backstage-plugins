@@ -1,1 +1,1 @@
-export { AutomationContentPage, AutomationContentEEPage } from './plugin';
+export { AutomationContentEEPage } from './plugin';

@@ -5,13 +5,19 @@
 # block into dynamic-plugins.yaml pluginConfig. Filename is a Janus IDP
 # convention so `rhdh-cli plugin package` can print an example overlay.
 # Changing this file alone does not change Portal.
+#
+# Mount the EE page, not a plugin root: the EE page owns the route refs its
+# pages consume (eeRouteRef and its details sub-route). A root-only mount
+# leaves those refs unbound and the pages crash instead of rendering. The
+# native entry point declares the same ref at /content/ee for hosts that
+# install the new frontend system instead.
 
 dynamicPlugins:
   frontend:
     ansible.plugin-automation-content:
       dynamicRoutes:
-        - path: /automation-content
-          importName: AutomationContentPage
+        - path: /content/ee
+          importName: AutomationContentEEPage
           menuItem:
             icon: CatalogIcon
-            text: Automation Content
+            text: Execution Environments
