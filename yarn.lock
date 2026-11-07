@@ -398,9 +398,29 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/content-type-collection@workspace:^, @ansible/content-type-collection@workspace:workspaces/content-management/plugins/content-type-collection":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-type-collection@workspace:workspaces/content-management/plugins/content-type-collection"
+  dependencies:
+    "@ansible/automation-content-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
+    "@backstage/cli": "npm:0.36.5"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/content-type-execution-environment@workspace:^, @ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment":
   version: 0.0.0-use.local
   resolution: "@ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment"
+  dependencies:
+    "@ansible/automation-content-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
+    "@backstage/cli": "npm:0.36.5"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/content-type-skill@workspace:^, @ansible/content-type-skill@workspace:workspaces/content-management/plugins/content-type-skill":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-type-skill@workspace:workspaces/content-management/plugins/content-type-skill"
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
@@ -568,7 +588,9 @@ __metadata:
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
+    "@ansible/content-type-collection": "workspace:^"
     "@ansible/content-type-execution-environment": "workspace:^"
+    "@ansible/content-type-skill": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.5"

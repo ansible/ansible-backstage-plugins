@@ -1,5 +1,7 @@
 import { ContentTypeRegistry } from '@ansible/automation-content-common';
 import { ExecutionEnvironmentAdapter } from '@ansible/content-type-execution-environment';
+import { CollectionAdapter } from '@ansible/content-type-collection';
+import { SkillAdapter } from '@ansible/content-type-skill';
 
 /**
  * The content types this deployment recognises.
@@ -14,5 +16,8 @@ import { ExecutionEnvironmentAdapter } from '@ansible/content-type-execution-env
  * file and follows it through discovery to a catalog entity.
  */
 export function defaultContentTypes(): ContentTypeRegistry {
-  return new ContentTypeRegistry().register(new ExecutionEnvironmentAdapter());
+  return new ContentTypeRegistry()
+    .register(new ExecutionEnvironmentAdapter())
+    .register(new CollectionAdapter())
+    .register(new SkillAdapter());
 }
