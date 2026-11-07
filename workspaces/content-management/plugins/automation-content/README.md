@@ -2,26 +2,27 @@
 
 The automation-content plugin is the discovery frontend for Ansible content
 sourced from configured OCI registries. It catalogs execution environments and
-collections as they exist in the registries, with per-image content
+their contents as they exist in the registries, with per-image content
 enumeration, item documentation, and registry health visibility.
 
 ## Pages
 
 All routes live under `/content`:
 
-| Route                                   | Page                                                           |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `/content`                              | Redirect to the images catalog                                 |
-| `/content/ee`                           | Images catalog with Images, Definition files, and Create tabs  |
-| `/content/ee/:ref`                      | EE details: tags, contents, provided collections and plugins   |
-| `/content/ee/catalog/:namespace/:name`  | Definition-file details: README, Builder definition and source |
-| `/content/collections`                  | Collections catalog grouped by FQCN with latest-version badges |
-| `/content/collections/:namespace/:name` | Collection details: versions, providing environments, contents |
+| Route                                  | Page                                                                |
+| -------------------------------------- | ------------------------------------------------------------------- |
+| `/content`                             | Redirect to the images catalog                                      |
+| `/content/ee`                          | Images catalog with Images, Definition files, and Create tabs       |
+| `/content/ee/:ref`                     | EE details: tags, All Content tab, provided collections and plugins |
+| `/content/ee/catalog/:namespace/:name` | Definition-file details: README, Builder definition and source      |
 
-The old `/automation-content` root and catalog paths redirect to their
-`/content` equivalents, including execution environment and collection details.
-There is no separate landing page. Registry sync is available from the images
-page header and image actions to users with `ansible.content.sync`.
+The old `/automation-content` root and execution-environment paths redirect to
+their `/content` equivalents. There is no separate landing page. Registry sync
+is available from the catalog header ("Sync registries") and image actions to
+users with `ansible.content.sync`. The standalone collections catalog that
+briefly lived at `/content/collections` was removed per the 2026-11-06
+re-review scope fence; the pre-existing self-service Collections experience
+remains the left-navigation collections area.
 
 The same components render in both the new frontend system (`alpha.tsx`
 blueprints, the default host) and the legacy app entry, so both hosts serve

@@ -50,29 +50,32 @@ The old `/automation-content/execution-environments` path redirects here in
 both hosts.
 `/content` and `/automation-content` redirect to `/content/ee`; there is no
 separate content landing page or Content navigation item.
-The EE catalog header owns the manual Sync action (`syncAll()`), with
-per-registry results surfaced as portal notifications. The definition-file
-tab opens the existing registry-selection dialog; Collections uses the same
-header sync action.
+The EE catalog header owns the manual Sync action ("Sync registries"), which
+opens the existing registry-selection dialog on every view — images,
+definition files, and create. Per-registry results surface as portal
+notifications.
 
 Tina's `ImagesCatalogPage` layout, artifact data:
 
-| UI element               | Source / mapping                                                                                                                                                                                                              |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Row identity             | `repository` (+ `registry` as secondary text)                                                                                                                                                                                 |
-| Source                   | Registry display name and source label. A definition-file source requires an explicit association, not an inferred name match.                                                                                                |
-| Freshness                | `lastReconciledAt` (relative time)                                                                                                                                                                                            |
-| Inventory fidelity badge | `enumeration.status` + `enumeration.source`; `contentsKnown` false ⇒ "contents unknown" badge, never render counts as complete                                                                                                |
-| Volume indicators        | `counts.collections` / `counts.plugins` labelled approximate when `enumeration.status !== 'complete'`                                                                                                                         |
-| Status                   | Last reconciliation result and age in a small outlined pill badge with a semantic status icon; Stale currently uses a 24-hour frontend threshold. Missing history is displayed as Syncing, not verified active-job telemetry. |
-| Classification           | `classification.type` when available; never append a missing confidence value                                                                                                                                                 |
-| Search / filter          | client-side search over the loaded page, plus the all-images toggle; no facet sidebar                                                                                                                                         |
-| Favourites               | catalog stars (matching rules above)                                                                                                                                                                                          |
-| Row actions              | Visible favourite star; menu with Use in Controller and Sync. The image name links to details. Sync resolves only this repository's current `latest` image and requires a signed-in user with `ansible.content.sync`.         |
+| UI element               | Source / mapping                                                                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Row identity             | `repository` (+ `registry` as secondary text)                                                                                                                                                                                   |
+| Source, Source type      | Registry display name in one column; the derived source label (`External registry` / `Definition file`) as a badge in a separate column. A definition-file source requires an explicit association, not an inferred name match. |
+| Freshness                | `lastReconciledAt` (relative time)                                                                                                                                                                                              |
+| Inventory fidelity badge | `enumeration.status` + `enumeration.source`; `contentsKnown` false ⇒ "contents unknown" badge, never render counts as complete                                                                                                  |
+| Volume indicators        | `counts.collections` / `counts.plugins` labelled approximate when `enumeration.status !== 'complete'`                                                                                                                           |
+| Status                   | Last reconciliation result and age in a small outlined pill badge with a semantic status icon; Stale currently uses a 24-hour frontend threshold. Missing history is displayed as Syncing, not verified active-job telemetry.   |
+| Classification           | `classification.type` when available; never append a missing confidence value                                                                                                                                                   |
+| Search / filter          | client-side search over the loaded page, plus the all-images toggle; no facet sidebar                                                                                                                                           |
+| Favourites               | catalog stars (matching rules above)                                                                                                                                                                                            |
+| Row actions              | Visible favourite star; menu with Use in Controller and Sync. The image name links to details. Sync resolves only this repository's current `latest` image and requires a signed-in user with `ansible.content.sync`.           |
 
 Tags and digests are displayed in image details, not in the catalog table.
 The client uses server pagination with 10, 20, or 50 rows per page. Changing the
 page size returns to page 1; no pre-pagination response fallback remains.
+Image, Source, Source type, and Last synced sort server-side (`sort`/`order`
+query parameters) across the full result set before pagination, so sorting
+never reorders only the visible page; Contents and Status are not sortable.
 
 Content view/sync permissions come from the host's configured RBAC roles; no
 default role is added for signed-in users. Manual sync and drift-poll endpoints
@@ -87,13 +90,13 @@ Image details follow the selected-image branch in Tina's
 `ExecutionEnvironments/catalog/ImagesCatalogPage.tsx`. Her separate
 `catalog/EEDetailsPage.tsx` is the definition-file view, not the image view.
 
-| Tab                | Content                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview           | Compact metadata list with source/status labels, registry, digest, tags, pull reference with a standalone copy control, classification, available inventory metadata, and last synchronization time. Status uses a small outlined pill badge with a semantic icon; source and metadata badges retain BUI's native shape. The image menu does not contain a duplicate copy action. |
-| Collections        | `getContents(ref)` — columns Collection, Version, Status, Publisher, Signing, Source, Contents. Content counts form one summary, not separate count columns. Missing metadata uses `—`; never infer certification or signing. `N/A` is reserved for inapplicable values.                                                                                                          |
-| Item documentation | `getContentItem(fqcn, inArtifact)` — description, notes, options tree, examples, returns. This must preserve the old `ContentItemView` capability (ansible-doc style rendering), including the `variants` fallback behaviour in `AutomationContentClient.getContentItem`                                                                                                          |
+| Tab                | Content                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overview           | Compact metadata list with source/status labels, registry, digest, tags, pull reference with a standalone copy control, classification, available inventory metadata, and last synchronization time. Status uses a small outlined pill badge with a semantic icon; source and metadata badges retain BUI's native shape. The image menu does not contain a duplicate copy action.                                                          |
+| All Content        | `getContents(ref)` — columns Collection, Type, Version, Status, Publisher, Signing, Source, Contents. The Type column renders the manifest-derived entry type (`collection` today; other kinds appear when the index reports them), `—` when the field is absent. Content counts form one summary, not separate count columns. Missing metadata uses `—`; never infer certification or signing. `N/A` is reserved for inapplicable values. |
+| Item documentation | `getContentItem(fqcn, inArtifact)` — description, notes, options tree, examples, returns. This must preserve the old `ContentItemView` capability (ansible-doc style rendering), including the `variants` fallback behaviour in `AutomationContentClient.getContentItem`                                                                                                                                                                   |
 
-Overview and Collections are the only image-details tabs. Collection-level
+Overview and All Content are the only image-details tabs. Collection-level
 content/documentation views and existing direct documentation links remain
 supported. Contents that are unknown or partial must be explained, but the
 routine raw `complete inventory · build-time-manifest` readout is not part of
@@ -136,39 +139,16 @@ this plugin. Tina's prototype is the authoritative design. A different
 team (or this one, later) populates the definition data; the views ship
 now.
 
-### Collections catalog (`/content/collections`)
+### Collections outside execution environments (removed)
 
-Mounted at the content-workspace path per the 2026-11-02 direction: the content
-workspace owns the collections view, and portal-scaffolder's legacy page
-coexists unconfigured. The old `/automation-content/collections` path redirects
-here in both hosts.
-
-Tina's `CollectionsListPage` / `CollectionsCatalogPage` layout, artifact data:
-
-| UI element         | Source / mapping                                                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Card/list identity | group `listCollections()` results by `fqcn`; card title `namespace.name`, latest `version` as badge                                                   |
-| Version handling   | **Do not** filter on `ansible.io/is-latest-version` (prototype bug — OCI entities never set it). Compute "latest" as the max version within the group |
-| Description        | `description`                                                                                                                                         |
-| Volume indicators  | aggregated `counts`                                                                                                                                   |
-| Provided-by        | `providedBy[]` — the EEs shipping it; links to EE details                                                                                             |
-| Search             | `listCollections(query)` server-side where supported, plus client-side grouping                                                                       |
-| Row action         | navigate to collection details                                                                                                                        |
-
-The Personal and Company filter groups retain Favorites and All as separate
-options. Favorites uses matching catalog entities and stays selected while
-search metadata loads or fails; it must not silently switch to All or display
-unstarred results. Metadata failures use the existing error/retry state.
-
-### Collection details (`/content/collections/…`)
-
-| Section  | Content                                                                                                             |
-| -------- | ------------------------------------------------------------------------------------------------------------------- |
-| Header   | `fqcn`, version selector (all versions present in the data, each showing which EEs provide it)                      |
-| Contents | `searchContentItems({ collection: fqcn })`; item rows navigate to item documentation (same component as EE details) |
-| About    | `description`, counts, provided-by list                                                                             |
-
-Readme card is **deferred** (no git readme exists for registry artifacts).
+The standalone collections catalog (`/content/collections`) and
+collection-details pages added earlier on this branch were removed per the
+2026-11-06 re-review scope fence: the pre-existing self-service Collections
+experience remains the left-navigation collections area, and this feature's
+collection scope is listing the collections inside an execution environment
+(the All Content tab above). `listCollections` remains in the API client and
+the backend contract; the standalone pages, routes, mounts, and redirects are
+gone.
 
 ## Deferred capability register
 
