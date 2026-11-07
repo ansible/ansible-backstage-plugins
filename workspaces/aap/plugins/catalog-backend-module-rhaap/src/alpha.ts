@@ -2,11 +2,8 @@ import {
   createBackendFeatureLoader,
   createServiceFactory,
 } from '@backstage/backend-plugin-api';
-import {
-  userProvisionerRef,
-  UserProvisioner,
-  ansibleServiceFactory,
-} from '@ansible/backstage-rhaap-common';
+import { userProvisionerRef, UserProvisioner } from '@ansible/aap-node';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import { catalogModuleRhaap } from './module';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 

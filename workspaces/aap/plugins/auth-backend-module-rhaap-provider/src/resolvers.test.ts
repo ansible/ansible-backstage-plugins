@@ -5,7 +5,7 @@ import {
   SignInInfo,
 } from '@backstage/plugin-auth-node';
 import { AAPAuthSignInResolvers } from './resolvers';
-import { IUserProvisioner } from '@ansible/backstage-rhaap-common';
+import { IUserProvisioner } from '@ansible/aap-node';
 import { ConfigReader } from '@backstage/config';
 import { AuthenticationError } from '@backstage/errors';
 

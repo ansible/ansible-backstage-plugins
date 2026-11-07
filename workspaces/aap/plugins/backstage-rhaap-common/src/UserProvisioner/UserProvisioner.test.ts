@@ -1,48 +1,21 @@
-import { UserProvisioner } from './index';
+import {
+  UserProvisioner as AapUserProvisioner,
+  userProvisionerRef as aapUserProvisionerRef,
+} from '@ansible/aap-node';
+import { UserProvisioner, userProvisionerRef } from './index';
 
-describe('UserProvisioner', () => {
-  describe('createUser', () => {
-    it('throws when no create function has been registered', async () => {
-      const provisioner = new UserProvisioner();
-      await expect(provisioner.createUser('jdoe', 42)).rejects.toThrow(
-        'UserProvisioner: no create user function registered for "jdoe"',
-      );
-    });
+describe('UserProvisioner shim', () => {
+  it('re-exports the same class and root-scoped service reference', () => {
+    expect(UserProvisioner).toBe(AapUserProvisioner);
+    expect(userProvisionerRef).toBe(aapUserProvisionerRef);
+    expect(userProvisionerRef.id).toBe('rhaap.user-provisioner');
+    expect(userProvisionerRef.scope).toBe('root');
+  });
 
-    it('calls the registered function with username and userID', async () => {
-      const provisioner = new UserProvisioner();
-      const mockFn = jest.fn().mockResolvedValue(true);
-
-      provisioner.registerCreateUserFn(mockFn);
-      const result = await provisioner.createUser('jdoe', 42);
-
-      expect(mockFn).toHaveBeenCalledWith('jdoe', 42);
-      expect(result).toBe(true);
-    });
-
-    it('propagates errors thrown by the registered function', async () => {
-      const provisioner = new UserProvisioner();
-      provisioner.registerCreateUserFn(async () => {
-        throw new Error('provisioning failed');
-      });
-
-      await expect(provisioner.createUser('jdoe', 42)).rejects.toThrow(
-        'provisioning failed',
-      );
-    });
-
-    it('allows replacing the registered function', async () => {
-      const provisioner = new UserProvisioner();
-      const firstFn = jest.fn().mockResolvedValue(false);
-      const secondFn = jest.fn().mockResolvedValue(true);
-
-      provisioner.registerCreateUserFn(firstFn);
-      provisioner.registerCreateUserFn(secondFn);
-      const result = await provisioner.createUser('jdoe', 42);
-
-      expect(firstFn).not.toHaveBeenCalled();
-      expect(secondFn).toHaveBeenCalledWith('jdoe', 42);
-      expect(result).toBe(true);
-    });
+  it('re-exports UserProvisioner from @ansible/aap-node', async () => {
+    const provisioner = new UserProvisioner();
+    await expect(provisioner.createUser('jdoe', 42)).rejects.toThrow(
+      'UserProvisioner: no create user function registered for "jdoe"',
+    );
   });
 });
