@@ -8,6 +8,7 @@ import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import {
   automationContentApiRef,
   type ArtifactSyncResult,
@@ -906,7 +907,27 @@ it('shows artifact overview, themed source and status, and controller actions', 
       },
     },
   };
-  const getEntities = jest.fn().mockResolvedValue({ items: [entity] });
+  const getEntities = jest.fn(
+    async ({ filter }: { filter?: { kind?: string } }) =>
+      filter?.kind === 'Group'
+        ? {
+            items: [
+              {
+                apiVersion: 'backstage.io/v1alpha1',
+                kind: 'Group',
+                metadata: {
+                  name: 'org-default',
+                  annotations: {
+                    'ansible.com/aap-org-id': '1',
+                    'ansible.com/organization': 'Default',
+                  },
+                },
+                spec: { type: 'organization' },
+              },
+            ],
+          }
+        : { items: [entity] },
+  );
   const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
   const { rerender } = render(
     <TestApiProvider
@@ -982,6 +1003,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
       apis={[
         [catalogApiRef, { getEntities }],
         [scaffolderApiRef, { scaffold }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           {
@@ -1041,10 +1063,12 @@ it('shows artifact overview, themed source and status, and controller actions', 
     values: {
       environmentName: 'repo',
       environmentDescription: 'Use repo in Ansible Automation Controller.',
+      organizationId: 1,
+      organizationName: 'Default',
       image: image.pullReference,
       pull: 'always',
-      organization: '',
     },
+    secrets: { aapToken: 'aap-token' },
   });
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await userEvent.click(

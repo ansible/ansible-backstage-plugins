@@ -769,6 +769,7 @@ function EEDetailsContent(): ReactElement {
             open
             imageName={value.repository}
             pullReference={value.pullReference}
+            tag={defaultTag}
             onClose={() => setControllerOpen(false)}
           />
         )}

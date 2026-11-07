@@ -27,6 +27,7 @@
     "dist-scalprum"
   ],
   "dependencies": {
+    "@ansible/aap-app-auth": "workspace:^",
     "@ansible/automation-content-common": "workspace:^",
     "@ansible/content-model": "workspace:^",
     "@ansible/portal-extension-host": "workspace:^",

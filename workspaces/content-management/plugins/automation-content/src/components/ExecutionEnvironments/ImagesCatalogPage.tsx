@@ -771,6 +771,11 @@ export function ImagesCatalogPage({
           open
           imageName={controllerImage.repository}
           pullReference={controllerImage.pullReference}
+          tag={
+            controllerImage.tags.includes('latest')
+              ? 'latest'
+              : controllerImage.tags[0]
+          }
           onClose={() => setControllerImage(null)}
         />
       )}

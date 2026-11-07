@@ -15,6 +15,7 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { Entity } from '@backstage/catalog-model';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import {
   type ArtifactSyncResult,
   automationContentApiRef,
@@ -711,9 +712,32 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
         ],
         [
           catalogApiRef,
-          { getEntities: async () => ({ items: [linkedEntity] }) },
+          {
+            // The star lookup wants the linked Component; the dialog's
+            // organization dropdown wants synced AAP Groups.
+            getEntities: async ({ filter }: { filter?: { kind?: string } }) =>
+              filter?.kind === 'Group'
+                ? {
+                    items: [
+                      {
+                        apiVersion: 'backstage.io/v1alpha1',
+                        kind: 'Group',
+                        metadata: {
+                          name: 'org-default',
+                          annotations: {
+                            'ansible.com/aap-org-id': '1',
+                            'ansible.com/organization': 'Default',
+                          },
+                        },
+                        spec: { type: 'organization' },
+                      },
+                    ],
+                  }
+                : { items: [linkedEntity] },
+          },
         ],
         [scaffolderApiRef, { scaffold }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <MemoryRouter>
