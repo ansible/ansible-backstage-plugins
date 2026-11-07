@@ -178,6 +178,159 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
   });
 }
 
+function seedArtifacts(count: number): ContentStore {
+  const artifacts = Array.from({ length: count }, (_, i) => ({
+    ref: `reg/repo-${i}@sha256:${i}`,
+    type: 'execution-environment',
+    registry: 'reg',
+    repository: `repo-${i}`,
+    digest: `sha256:${i}`,
+    tags: ['latest'],
+    pullReference: `reg/repo-${i}@sha256:${i}`,
+    contentsKnown: true,
+    classification: {
+      type: 'execution-environment',
+      signals: [],
+      readsContentManifest: true,
+    },
+    manifest: { collections: [], generatedBy: {}, complete: true },
+  })) as unknown as IndexedArtifact[];
+  return stubDB({
+    listArtifacts: async () => artifacts,
+    listArtifactsPaginated: async (
+      opts: { limit?: number; offset?: number } = {},
+    ) => ({
+      items: artifacts.slice(
+        opts.offset ?? 0,
+        (opts.offset ?? 0) + (opts.limit ?? artifacts.length),
+      ),
+      totalCount: artifacts.length,
+    }),
+    getArtifact: async (ref: string) =>
+      artifacts.find(a => a.ref === ref) as IndexedArtifact,
+    listItems: async () => [],
+    itemsIn: async () => [],
+    findItems: async () => [],
+  });
+}
+
+describe('GET /content sorting', () => {
+  it.each([
+    'repository',
+    'registry',
+    'sourceType',
+    'lastReconciledAt',
+  ] as const)(
+    'sorts %s ascending and descending, preserving ties',
+    async sort => {
+      const index = seedArtifacts(3);
+      const artifacts = await index.listArtifacts();
+      artifacts.forEach((artifact, i) => {
+        artifact.repository = i === 0 ? 'z' : 'a';
+        artifact.registry = i === 0 ? 'z' : 'a';
+        if (sort === 'sourceType' && i !== 0) artifact.registry = '';
+      });
+      jest
+        .spyOn(index, 'reconcileStateForArtifact')
+        .mockImplementation((artifact?: IndexedArtifact) => ({
+          at:
+            artifact?.ref === artifacts[0].ref
+              ? '2026-02-01T00:00:00Z'
+              : '2026-01-01T00:00:00Z',
+          ok: true,
+          artifacts: 1,
+        }));
+      const app = await appWith(index);
+      for (const order of ['asc', 'desc']) {
+        const res = await request(app)
+          .get(`/content?sort=${sort}&order=${order}`)
+          .expect(200);
+        const expected =
+          order === 'asc'
+            ? [artifacts[1], artifacts[2], artifacts[0]]
+            : artifacts;
+        expect(res.body.items.map((item: { ref: string }) => item.ref)).toEqual(
+          expected.map(a => a.ref),
+        );
+      }
+    },
+  );
+
+  it('sorts the full result before pagination and keeps the original default order', async () => {
+    const index = seedArtifacts(15);
+    (await index.listArtifacts()).forEach((a, i) => {
+      a.repository = String(15 - i).padStart(2, '0');
+    });
+    const app = await appWith(index);
+    const first = await request(app)
+      .get('/content?sort=repository')
+      .expect(200);
+    const second = await request(app)
+      .get('/content?sort=repository&page=2')
+      .expect(200);
+    expect(
+      [...first.body.items, ...second.body.items].map(
+        (a: { repository: string }) => a.repository,
+      ),
+    ).toEqual(
+      Array.from({ length: 15 }, (_, i) => String(i + 1).padStart(2, '0')),
+    );
+    expect(first.body.next).toContain('sort=repository');
+    const original = await request(app).get('/content').expect(200);
+    expect(original.body.items[0].repository).toBe('15');
+    const alias = await request(app)
+      .get('/execution-environments?sort=repository')
+      .expect(200);
+    expect(alias.body.items).toEqual(first.body.items);
+  });
+
+  it.each([
+    ['sort=unknown', 'INVALID_SORT'],
+    ['sort=', 'INVALID_SORT'],
+    ['sort=registry&sort=repository', 'INVALID_SORT'],
+    ['order=up', 'INVALID_ORDER'],
+    ['order=', 'INVALID_ORDER'],
+    ['order=asc&order=desc', 'INVALID_ORDER'],
+  ])('rejects invalid query %s', async (query, code) => {
+    const res = await request(await appWith(seedArtifacts(1)))
+      .get(`/content?${query}`)
+      .expect(400);
+    expect(res.body.code).toBe(code);
+  });
+
+  it('derives collection entry types and preserves unknown contents', async () => {
+    const index = seedArtifacts(1);
+    const artifact = (await index.listArtifacts())[0];
+    artifact.manifest!.collections.push({
+      namespace: 'ns',
+      name: 'example',
+      version: '1',
+      plugins: [],
+      roles: [],
+      playbooks: [],
+      edaPlugins: [],
+      rulebooks: [],
+    });
+    const app = await appWith(index);
+    const known = await request(app)
+      .get(`/content/${artifact.ref}/contents`)
+      .expect(200);
+    expect(known.body.collections[0]).toMatchObject({
+      type: 'collection',
+      fqcn: 'ns.example',
+    });
+    artifact.manifest = undefined;
+    artifact.contentsKnown = false;
+    const unknown = await request(app)
+      .get(`/content/${artifact.ref}/contents`)
+      .expect(200);
+    expect(unknown.body).toMatchObject({
+      enumeration: { status: 'unknown' },
+      collections: [],
+      items: [],
+    });
+  });
+});
 
 describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
   'sync authorization on %s',

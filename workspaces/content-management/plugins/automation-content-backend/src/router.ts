@@ -353,8 +353,29 @@ export async function createRouter(
   // matter of registering an adapter, not of hand-writing another route — per-type
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
+  const SORT_KEYS = [
+    'repository',
+    'registry',
+    'sourceType',
+    'lastReconciledAt',
+  ] as const;
+
   const listContent = async (req: RouteRequest, res: RouteResponse) => {
-    const { type, registry, collection, contentsKnown } = req.query;
+    const { type, registry, collection, contentsKnown, sort, order } =
+      req.query;
+    if (
+      sort !== undefined &&
+      (typeof sort !== 'string' || !SORT_KEYS.includes(sort as never))
+    ) {
+      res.status(400).json({ error: 'Invalid sort key', code: 'INVALID_SORT' });
+      return;
+    }
+    if (order !== undefined && order !== 'asc' && order !== 'desc') {
+      res
+        .status(400)
+        .json({ error: 'Invalid sort order', code: 'INVALID_ORDER' });
+      return;
+    }
     const page = Math.max(Math.floor(Number(req.query.page ?? 1)) || 1, 1);
     const rawPerPage = Number(req.query.per_page);
     const pageSize = ALLOWED_PAGE_SIZES.includes(rawPerPage as 10 | 20 | 50)
@@ -368,7 +389,64 @@ export async function createRouter(
     let items: ReturnType<typeof artifactView>[];
     let totalItems: number;
 
-    if (collectionFilter) {
+    if (typeof sort === 'string') {
+      // Sorted requests read the full filtered result so the ordering is
+      // global, then paginate in memory; unsorted requests stay in the DB.
+      let artifacts = await db.listArtifacts(
+        typeof type === 'string' ? type : undefined,
+      );
+      if (typeof registry === 'string')
+        artifacts = artifacts.filter(a => a.registry === registry);
+      if (contentsKnown !== undefined) {
+        const want = contentsKnown === 'true';
+        artifacts = artifacts.filter(a => a.contentsKnown === want);
+      }
+      if (collectionFilter) {
+        artifacts = artifacts.filter(a =>
+          (a.manifest?.collections ?? []).some(
+            (c: { namespace: string; name: string }) =>
+              `${c.namespace}.${c.name}` === collectionFilter,
+          ),
+        );
+      }
+      const key = sort as (typeof SORT_KEYS)[number];
+      const direction = order === 'desc' ? -1 : 1;
+      const value = (a: IndexedArtifact): string | undefined => {
+        if (key === 'lastReconciledAt')
+          return db.reconcileStateForArtifact(a)?.at;
+        if (key === 'sourceType') {
+          // Match today's badge. When producer association lands, definitionEntityRef
+          // must take priority (definition-file), even when a registry is present.
+          return a.registry ? 'external-registry' : 'definition-file';
+        }
+        return a[key] || undefined;
+      };
+      // Compute each key once rather than per comparison: the timestamp key is a
+      // registry-state lookup, and a comparator that re-derives it makes sorting
+      // O(n log n) lookups out of O(n).
+      const keyed = artifacts.map(artifact => ({
+        artifact,
+        key: value(artifact),
+      }));
+      // Missing timestamps and empty/absent registries sort last ascending, first
+      // descending. Lexical ISO timestamp ordering; equal keys retain index order.
+      keyed.sort((a, b) => {
+        const left = a.key;
+        const right = b.key;
+        let comparison = 0;
+        if (left !== right) {
+          if (left === undefined) comparison = 1;
+          else if (right === undefined) comparison = -1;
+          else comparison = left < right ? -1 : 1;
+        }
+        return direction * comparison;
+      });
+      const sorted = keyed.map(k => k.artifact);
+      totalItems = sorted.length;
+      items = sorted
+        .slice(offset, offset + pageSize)
+        .map(a => artifactView(db, a));
+    } else if (collectionFilter) {
       let artifacts = await db.listArtifacts(
         typeof type === 'string' ? type : undefined,
       );
@@ -463,6 +541,8 @@ export async function createRouter(
       typeof req.query.type === 'string' ? req.query.type : undefined;
 
     const collections = artifact.manifest.collections.map(c => ({
+      // These entries are derived from the manifest's collection inventory.
+      type: 'collection',
       namespace: c.namespace,
       name: c.name,
       version: c.version,
