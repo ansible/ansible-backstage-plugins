@@ -36,14 +36,39 @@ jobs:
           fetch-depth: 0 # Shallow clones should be disabled for better SonarCloud analysis
 
       # PR and main push workflows already upload coverage for this commit.
+      # Stacked PRs often leave cancelled duplicate "Test with Node.js 22" checks for
+      # the same SHA. Wait until at least one successful check exists; ignore cancelled.
       - name: Wait for coverage-producing tests
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-regexp: 'Test with Node.js 22'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+        id: wait-coverage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for a successful 'Test with Node.js 22' check on ${HEAD_SHA}"
+          for _ in $(seq 1 90); do
+            SUCCESS_COUNT=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "Test with Node.js 22" and .status == "completed" and .conclusion == "success")] | length')
+            IN_PROGRESS=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "Test with Node.js 22" and .status != "completed")] | length')
+            echo "success=${SUCCESS_COUNT} in_progress=${IN_PROGRESS}"
+            if [ "${SUCCESS_COUNT}" -ge 1 ]; then
+              echo "Found successful Node 22 coverage check"
+              exit 0
+            fi
+            if [ "${IN_PROGRESS}" -eq 0 ]; then
+              echo "No successful Test with Node.js 22 check for ${HEAD_SHA}" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for Test with Node.js 22 on ${HEAD_SHA}" >&2
+          exit 1
 
       - name: Get coverage workflow run ID
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
@@ -58,13 +83,13 @@ jobs:
           fi
           HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
           RUNS_URL="/repos/${{ github.repository }}/actions/workflows/${WORKFLOW_FILE}/runs"
-          QUERY="head_sha=${HEAD_SHA}&event=${WORKFLOW_EVENT}&per_page=1"
+          QUERY="head_sha=${HEAD_SHA}&event=${WORKFLOW_EVENT}&per_page=100"
           RUN_ID=$(gh api \
             -H "Accept: application/vnd.github+json" \
             "${RUNS_URL}?${QUERY}" \
-            --jq '.workflow_runs[0].id')
+            --jq '.workflow_runs | map(select(.conclusion == "success")) | max_by(.id) | .id')
           if [ -z "$RUN_ID" ] || [ "$RUN_ID" = 'null' ]; then
-            echo "No ${WORKFLOW_FILE} run found for this commit" >&2
+            echo "No successful ${WORKFLOW_FILE} run found for this commit" >&2
             exit 1
           fi
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT

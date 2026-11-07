@@ -7,9 +7,11 @@
  */
 
 import { createBackend } from '@backstage/backend-defaults';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 
 const backend = createBackend();
+backend.add(ansibleServiceFactory);
 backend.add(rhaapOrganizationServiceFactory);
 
 backend.add(import('@backstage/plugin-app-backend'));

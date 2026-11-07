@@ -5,7 +5,8 @@ import {
   LoggerService,
 } from '@backstage/backend-plugin-api';
 import { getVerbosityLevels } from '@ansible/aap-common/constants';
-import { IAAPService, getAnsibleConfig } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
+import { getAnsibleConfig } from '@ansible/backstage-rhaap-common';
 import {
   InputError,
   NotAllowedError,

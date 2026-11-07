@@ -2,7 +2,7 @@ import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { LaunchJobTemplate } from '@ansible/aap-common';
 import { TERMINAL_JOB_STATUSES } from '@ansible/aap-common/constants';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import {
   parseAapActionValues,
   rethrowPreservingInputError,

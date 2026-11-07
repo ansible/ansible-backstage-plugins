@@ -5,5 +5,17 @@
  * @packageDocumentation
  */
 
-export { catalogModuleRhaap as default } from './module';
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import { catalogModuleRhaap } from './module';
+
+export { catalogModuleRhaap };
 export * from './router';
+
+/** Register the transitional AAP client factory alongside the catalog module. */
+export default createBackendFeatureLoader({
+  loader: function* () {
+    yield ansibleServiceFactory;
+    yield catalogModuleRhaap;
+  },
+});

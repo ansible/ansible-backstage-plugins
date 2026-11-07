@@ -14,5 +14,17 @@
  * limitations under the License.
  */
 
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import { scaffolderModuleAnsible } from './module';
+
 export * from './actions';
-export { scaffolderModuleAnsible as default } from './module';
+export { scaffolderModuleAnsible };
+
+/** Register the transitional AAP client factory alongside the scaffolder module. */
+export default createBackendFeatureLoader({
+  loader: function* () {
+    yield ansibleServiceFactory;
+    yield scaffolderModuleAnsible;
+  },
+});

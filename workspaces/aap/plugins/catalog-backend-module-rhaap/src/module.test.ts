@@ -1,10 +1,14 @@
 import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { catalogModuleRhaap } from './module';
-import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
+import {
+  createServiceFactory,
+  SchedulerServiceTaskScheduleDefinition,
+} from '@backstage/backend-plugin-api';
+import { ansibleServiceRef } from '@ansible/aap-node';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
-import { MOCK_CONFIG } from './mock';
+import { MOCK_CONFIG, mockAnsibleService } from './mock';
 import { createRouter } from './router';
 
 jest.mock('./router', () => ({
@@ -12,6 +16,12 @@ jest.mock('./router', () => ({
     .fn()
     .mockResolvedValue((_req: any, _res: any, next: any) => next()),
 }));
+
+const mockAnsibleServiceFactory = createServiceFactory({
+  service: ansibleServiceRef,
+  deps: {},
+  factory: async () => mockAnsibleService as any,
+});
 
 describe('catalogModuleRHAAPEntityProvider', () => {
   it('should register provider at the catalog extension point', async () => {
@@ -40,6 +50,7 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
+        mockAnsibleServiceFactory,
         mockServices.rootConfig.factory(MOCK_CONFIG),
         scheduler.factory,
       ],
@@ -91,6 +102,7 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
+        mockAnsibleServiceFactory,
         mockServices.rootConfig.factory(configWithExternalAccess),
         scheduler.factory,
       ],
