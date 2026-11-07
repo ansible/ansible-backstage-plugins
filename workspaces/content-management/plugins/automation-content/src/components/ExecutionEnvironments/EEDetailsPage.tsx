@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
+import {
+  NotificationProvider,
+  NotificationStack,
+  useNotifications,
+} from '@ansible/portal-plugin-sdk';
+import { syncImageWithNotifications } from './imageSyncNotifications';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
@@ -14,7 +20,6 @@ import {
   ButtonIcon,
   Card,
   CardBody,
-  Cell,
   CellText,
   Container,
   Flex,
@@ -39,7 +44,7 @@ import {
   type ContentCounts,
 } from '../../api';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
-import { collectionsRouteRef, eeRouteRef } from '../../routes';
+import { eeRouteRef } from '../../routes';
 import { EmptyState, StatusBadge, syncStatusIcon } from '../common';
 import type { StatusBadgeTone } from '../common';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
@@ -196,6 +201,16 @@ function MetadataRow({
 
 /** Artifact metadata and relationships, without definition-authoring or SCM actions. */
 export function EEDetailsPage(): ReactElement {
+  return (
+    <NotificationProvider>
+      <EEDetailsContent />
+    </NotificationProvider>
+  );
+}
+
+function EEDetailsContent(): ReactElement {
+  const { showNotification, notifications, removeNotification } =
+    useNotifications();
   const { ref = '' } = useParams<{ ref: string }>();
   const api = useApi(automationContentApiRef);
   const { allowed: canSync } = usePermission({
@@ -205,13 +220,11 @@ export function EEDetailsPage(): ReactElement {
   const navigate = useNavigate();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const base = useRouteRef(eeRouteRef)();
-  const collectionsBase = useRouteRef(collectionsRouteRef)();
   const [params, setParams] = useSearchParams();
   const selected = ['overview', 'collections'].includes(params.get('tab') ?? '')
     ? params.get('tab')!
     : 'overview';
   const [copyStatus, setCopyStatus] = useState('');
-  const [syncStatus, setSyncStatus] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [controllerOpen, setControllerOpen] = useState(false);
   const image = useAsyncRetry(
@@ -251,23 +264,12 @@ export function EEDetailsPage(): ReactElement {
       id: 'name',
       label: 'Collection',
       isRowHeader: true,
-      cell: c => (
-        <Cell>
-          <Link
-            href={`${collectionsBase}/${encodeURIComponent(
-              c.namespace,
-            )}/${encodeURIComponent(c.name)}?${new URLSearchParams({
-              in: ref,
-              version: c.version,
-            })}`}
-            color="info"
-            className={styles.infoLink}
-            title={c.fqcn}
-          >
-            {c.fqcn}
-          </Link>
-        </Cell>
-      ),
+      cell: c => <CellText title={c.fqcn} />,
+    },
+    {
+      id: 'type',
+      label: 'Type',
+      cell: c => <CellText title={c.type || '—'} />,
     },
     {
       id: 'version',
@@ -336,37 +338,23 @@ export function EEDetailsPage(): ReactElement {
   const syncImage = async (): Promise<void> => {
     if (!canSync || !value || syncing) return;
     setSyncing(true);
-    setSyncStatus('');
     try {
-      const result = await api.syncArtifact(value.ref);
-      if (result.status === 'failed') {
-        setSyncStatus(
-          result.retainedPrevious
-            ? 'Sync failed. Previously indexed content is still shown.'
-            : 'Unable to sync this image.',
-        );
-        return;
-      }
+      const result = await syncImageWithNotifications(
+        api,
+        value.ref,
+        value.repository,
+        showNotification,
+      );
+      if (result.status === 'failed') return;
       if (result.ref !== value.ref) {
-        setSyncStatus(
-          'Sync completed. The latest image changed; showing the updated image.',
-        );
         navigate(environmentHref(base, result.ref), { replace: true });
         return;
       }
-      setSyncStatus('Sync completed.');
       image.retry();
       contents.retry();
-    } catch (error) {
-      if (error instanceof ContentApiError && error.status === 403) {
-        setSyncStatus('Sync access needed for this image.');
-      } else if (error instanceof ContentApiError && error.status === 404) {
-        setSyncStatus(
-          'Latest image not found. This repository may not have a latest tag.',
-        );
-      } else {
-        setSyncStatus('Unable to sync this image.');
-      }
+    } catch {
+      // Outcome feedback is emitted as notifications by
+      // syncImageWithNotifications; nothing further to report here.
     } finally {
       setSyncing(false);
     }
@@ -403,6 +391,10 @@ export function EEDetailsPage(): ReactElement {
   }
   return (
     <Container className={styles.detailContainer}>
+      <NotificationStack
+        notifications={notifications}
+        onClose={removeNotification}
+      />
       <Flex direction="column" gap="4">
         <BreadcrumbsNavigation
           items={[
@@ -490,7 +482,6 @@ export function EEDetailsPage(): ReactElement {
             <Button onPress={image.retry}>Retry</Button>
           </div>
         )}
-        {syncStatus && <Text role="status">{syncStatus}</Text>}
         {value && (
           <Tabs
             selectedKey={selected}
@@ -502,7 +493,7 @@ export function EEDetailsPage(): ReactElement {
           >
             <TabList aria-label="Execution environment details">
               <Tab id="overview">Overview</Tab>
-              <Tab id="collections">Collections</Tab>
+              <Tab id="collections">All Content</Tab>
             </TabList>
             <TabPanel id="overview">
               <Card className={styles.detailSurface}>

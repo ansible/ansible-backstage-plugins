@@ -18,7 +18,6 @@ import {
 } from '@ansible/portal-plugin-sdk';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { ImageSyncDialog } from './catalog/ImageSyncDialog';
-import { RegistrySyncButton } from './RegistrySyncButton';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { eeDetailsRouteRef, eeRouteRef } from '../../routes';
 import { CreateContent } from './CreateContent';
@@ -95,7 +94,6 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
     permission: automationContentSyncPermission,
   });
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('');
   const [syncVersion, setSyncVersion] = useState(0);
   useEffect(() => {
     const tabIndex = (location.state as { tabIndex?: number })?.tabIndex;
@@ -126,26 +124,19 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
             tooltip="Execution environment images and definition files available to the portal."
             actions={
               <>
-                {view === 'images' && (
-                  <RegistrySyncButton
-                    onStatus={setSyncStatus}
-                    onSynced={() => setSyncVersion(version => version + 1)}
-                  />
-                )}
-                {view !== 'images' && canSync && (
+                {canSync && (
                   <Flex align="center" gap="2">
                     <Button
                       variant="secondary"
                       iconStart={<SyncIcon />}
                       onPress={() => setSyncDialogOpen(true)}
                     >
-                      Sync Now
+                      Sync registries
                     </Button>
                   </Flex>
                 )}
               </>
             }
-            status={syncStatus}
           />
           <Tabs
             selectedKey={selectedTab}
@@ -181,8 +172,7 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
           <ImageSyncDialog
             open={syncDialogOpen}
             onClose={() => setSyncDialogOpen(false)}
-            onSynced={status => {
-              setSyncStatus(status);
+            onSynced={() => {
               setSyncVersion(version => version + 1);
             }}
           />

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -16,8 +17,9 @@ import {
   type ExecutionEnvironment,
 } from '../../api';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
-import detailStyles from './details.module.css';
 import { EEDetailsPage } from './EEDetailsPage';
+
+const mockShowNotification = jest.fn();
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
@@ -147,6 +149,7 @@ const syncedContents: ArtifactContents = {
   enumeration: { status: 'complete', source: 'build-time-manifest' },
   collections: [
     {
+      type: 'collection',
       namespace: 'ansible',
       name: 'posix',
       fqcn: 'ansible.posix',
@@ -226,11 +229,20 @@ it.each(['unknown', 'populated'] as const)(
       screen.getByRole('button', { name: 'Actions for repo' }),
     );
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-    expect(await screen.findByText('Sync completed.')).toBeTruthy();
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Sync completed.',
+          severity: 'success',
+        }),
+      ),
+    );
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sync started', severity: 'info' }),
+    );
     expect(await screen.findByText('2.2.2')).toBeTruthy();
-    const collectionLink = screen.getByRole('link', { name: 'ansible.posix' });
-    expect(collectionLink).toBeTruthy();
-    expect(collectionLink.className.includes(detailStyles.infoLink)).toBe(true);
+    expect(screen.getByText('ansible.posix')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'ansible.posix' })).toBeNull();
     await waitFor(() => {
       expect(api.getContents).toHaveBeenCalledTimes(2);
       expect(api.getExecutionEnvironment).toHaveBeenCalledTimes(2);
@@ -249,19 +261,16 @@ it('opens the new latest image overview when sync changes the artifact digest', 
     tag: 'latest',
     retainedPrevious: false,
   }));
-  await screen.findByRole('link', { name: 'ansible.posix' });
+  await screen.findByText('ansible.posix');
   await userEvent.click(
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
 
-  expect(
-    await screen.findByText(
-      'Sync completed. The latest image changed; showing the updated image.',
+  await waitFor(() =>
+    expect(screen.getByTestId('current-location').textContent).toBe(
+      `/content/${encodeURIComponent(latestRef)}`,
     ),
-  ).toBeTruthy();
-  expect(screen.getByTestId('current-location').textContent).toBe(
-    `/content/${encodeURIComponent(latestRef)}`,
   );
   expect(
     screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected'),
@@ -280,25 +289,27 @@ it('keeps the current detail after a failed latest image sync without exposing b
     retainedPrevious: true,
     error: 'https://user:secret@registry.invalid',
   }));
-  await screen.findByRole('link', { name: 'ansible.posix' });
+  await screen.findByText('ansible.posix');
   await userEvent.click(
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-  expect(
-    await screen.findByText(
-      'Sync failed. Previously indexed content is still shown.',
+  await waitFor(() =>
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Sync failed. Previously indexed content is still shown.',
+        severity: 'error',
+      }),
     ),
-  ).toBeTruthy();
+  );
+  expect(mockShowNotification).not.toHaveBeenCalledWith(
+    expect.objectContaining({ severity: 'success' }),
+  );
   expect(api.getContents).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId('current-location').textContent).toBe(
     `/content/${encodeURIComponent(image.ref)}?tab=collections`,
   );
-  expect(
-    await screen.findByRole('link', { name: 'ansible.posix' }),
-  ).toBeTruthy();
-  expect(screen.queryByText('Sync started.')).toBeNull();
-  expect(screen.queryByText('Sync completed.')).toBeNull();
+  expect(await screen.findByText('ansible.posix')).toBeTruthy();
   expect(screen.queryByText(/secret/)).toBeNull();
 });
 
@@ -312,17 +323,23 @@ it.each([
     const api = renderSyncDetails(syncedContents, syncedContents, async () => {
       throw new ContentApiError(status, 'https://user:secret@registry.invalid');
     });
-    await screen.findByRole('link', { name: 'ansible.posix' });
+    await screen.findByText('ansible.posix');
     await userEvent.click(
       screen.getByRole('button', { name: 'Actions for repo' }),
     );
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-    expect(await screen.findByText(copy)).toBeTruthy();
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ description: copy, severity: 'error' }),
+      ),
+    );
+    expect(mockShowNotification).not.toHaveBeenCalledWith(
+      expect.objectContaining({ severity: 'success' }),
+    );
     expect(screen.getByTestId('current-location').textContent).toBe(
       `/content/${encodeURIComponent(image.ref)}?tab=collections`,
     );
     expect(api.getContents).toHaveBeenCalledTimes(1);
-    expect(screen.queryByText('Sync completed.')).toBeNull();
     expect(screen.queryByText(/secret/)).toBeNull();
   },
 );
@@ -343,6 +360,7 @@ it.each([
       enumeration,
       collections: [
         {
+          type: enumeration.status === 'complete' ? 'collection' : undefined,
           namespace: 'ansible',
           name: 'posix',
           fqcn: 'ansible.posix',
@@ -378,14 +396,12 @@ it.each([
         </MemoryRouter>
       </TestApiProvider>,
     );
-    const link = await screen.findByRole('link', { name: 'ansible.posix' });
-    expect(link.getAttribute('href')).toContain(
-      new URLSearchParams({ in: ref, version: '1.0.0' }).toString(),
-    );
+    expect(await screen.findByText('ansible.posix')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'ansible.posix' })).toBeNull();
     expect(getContents).toHaveBeenCalledWith(ref);
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Overview',
-      'Collections',
+      'All Content',
     ]);
     expect(screen.queryByRole('tab', { name: 'Content items' })).toBeNull();
     expect(getEntities).toHaveBeenCalledWith({
@@ -402,6 +418,7 @@ it.each([
         .map(header => header.textContent?.trim()),
     ).toEqual([
       'Collection',
+      'Type',
       'Version',
       'Status',
       'Publisher',
@@ -420,7 +437,12 @@ it.each([
         screen.queryByRole('columnheader', { name: countColumn }),
       ).toBeNull();
     }
-    expect(screen.getAllByText('—')).toHaveLength(4);
+    expect(screen.getAllByText('—')).toHaveLength(
+      enumeration.status === 'complete' ? 4 : 5,
+    );
+    expect(screen.queryByText('collection') !== null).toBe(
+      enumeration.status === 'complete',
+    );
     expect(screen.queryByText('Certified')).toBeNull();
     expect(screen.queryByText('Signed')).toBeNull();
   },
@@ -630,6 +652,7 @@ it('combines only reported collection content counts and marks missing metadata'
     enumeration,
     collections: [
       {
+        type: 'collection',
         namespace: 'ansible',
         name: 'posix',
         fqcn: 'ansible.posix',
@@ -663,9 +686,7 @@ it('combines only reported collection content counts and marks missing metadata'
     </TestApiProvider>,
   );
 
-  expect(
-    await screen.findByRole('link', { name: 'ansible.posix' }),
-  ).toBeTruthy();
+  expect(await screen.findByText('ansible.posix')).toBeTruthy();
   expect(screen.getByText('48 plugins, 5 roles, 3 playbooks')).toBeTruthy();
   expect(screen.getAllByText('—')).toHaveLength(4);
   expect(screen.queryByText(/0 (plugins|roles|playbooks)/)).toBeNull();
@@ -694,6 +715,7 @@ it('uses an em dash when a complete inventory reports no content counts', async 
               enumeration,
               collections: [
                 {
+                  type: 'collection',
                   namespace: 'ansible',
                   name: 'posix',
                   fqcn: 'ansible.posix',
@@ -717,9 +739,7 @@ it('uses an em dash when a complete inventory reports no content counts', async 
     </TestApiProvider>,
   );
 
-  expect(
-    await screen.findByRole('link', { name: 'ansible.posix' }),
-  ).toBeTruthy();
+  expect(await screen.findByText('ansible.posix')).toBeTruthy();
   expect(screen.getAllByText('—')).toHaveLength(5);
   expect(screen.queryByText('Unknown')).toBeNull();
 });
@@ -738,6 +758,7 @@ it('keeps collection contents unknown when the image inventory is unknown', asyn
     enumeration,
     collections: [
       {
+        type: 'collection',
         namespace: 'ansible',
         name: 'posix',
         fqcn: 'ansible.posix',
@@ -770,9 +791,7 @@ it('keeps collection contents unknown when the image inventory is unknown', asyn
     </TestApiProvider>,
   );
 
-  expect(
-    await screen.findByRole('link', { name: 'ansible.posix' }),
-  ).toBeTruthy();
+  expect(await screen.findByText('ansible.posix')).toBeTruthy();
   expect(screen.getByText('Unknown')).toBeTruthy();
   expect(screen.queryByText('10 plugins')).toBeNull();
 });
@@ -836,7 +855,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
   expect(
     await screen.findByRole('tab', { name: 'Overview', selected: true }),
   ).toBeTruthy();
-  expect(screen.getByRole('tab', { name: 'Collections' })).toBeTruthy();
+  expect(screen.getByRole('tab', { name: 'All Content' })).toBeTruthy();
   expect(screen.getByText('Contents unknown')).toBeTruthy();
   expect(screen.queryByText('0 collections / 0 plugins')).toBeNull();
   expect(screen.getByText('latest')).toBeTruthy();
@@ -945,3 +964,14 @@ it('shows artifact overview, themed source and status, and controller actions', 
   ).toBeNull();
   expect(screen.queryByRole('tab', { name: 'Definition file' })).toBeNull();
 });
+
+jest.mock('@ansible/portal-plugin-sdk', () => ({
+  NotificationProvider: ({ children }: { children: ReactNode }) => children,
+  NotificationStack: () => null,
+  useNotifications: () => ({
+    showNotification: mockShowNotification,
+    notifications: [],
+    removeNotification: jest.fn(),
+  }),
+}));
+beforeEach(() => mockShowNotification.mockClear());
