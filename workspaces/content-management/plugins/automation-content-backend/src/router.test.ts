@@ -51,6 +51,7 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
     listCollections: async () => [],
     countsFor: () => undefined,
     reconcileStateForArtifact: () => undefined,
+    repositoryTags: async () => [],
     syncArtifact: async () => ({
       status: 'completed' as const,
       ref: 'reg/repo@sha256:abc',
@@ -160,6 +161,107 @@ const DEFAULT_ARTIFACT: IndexedArtifact = {
   } as never,
   manifest: { collections: [], generatedBy: {}, complete: true } as never,
 };
+
+describe('GET /repositories/:registry/:repository/tags', () => {
+  function taggedIndex(artifacts: unknown[]) {
+    return stubDB({
+      getRegistry: (name: string) =>
+        name === 'reg' ? ({ connection: { name: 'reg' } } as never) : undefined,
+      listArtifacts: async () => artifacts as never,
+      repositoryTags: async (
+        _registry: string,
+        repository: string,
+      ): Promise<Array<{ tag: string; digest: string; ref: string }>> =>
+        (
+          artifacts as Array<{
+            repository: string;
+            tags: string[];
+            digest: string;
+            ref: string;
+          }>
+        )
+          .filter(a => a.repository === repository)
+          .flatMap(a =>
+            a.tags.map(tag => ({ tag, digest: a.digest, ref: a.ref })),
+          ),
+    });
+  }
+
+  const artifact = (over: {
+    digest: string;
+    repository: string;
+    tags: string[];
+  }) => ({
+    ref: `reg/${over.repository}@${over.digest}`,
+    type: 'execution-environment',
+    registry: 'reg',
+    repository: over.repository,
+    digest: over.digest,
+    tags: over.tags,
+    pullReference: `reg/${over.repository}@${over.digest}`,
+    contentsKnown: false,
+    classification: {
+      type: 'execution-environment',
+      confidence: 'certain',
+      signals: [],
+    },
+  });
+
+  it('flattens tags across a repository digests', async () => {
+    const index = taggedIndex([
+      artifact({ digest: 'sha256:abc', repository: 'repo', tags: ['latest'] }),
+      artifact({ digest: 'sha256:def', repository: 'repo', tags: ['3.0'] }),
+    ]);
+    const response = await request(await appWith(index))
+      .get('/repositories/reg/repo/tags')
+      .expect(200);
+    expect(response.body).toEqual({
+      registry: 'reg',
+      repository: 'repo',
+      tags: [
+        { tag: 'latest', digest: 'sha256:abc', ref: 'reg/repo@sha256:abc' },
+        { tag: '3.0', digest: 'sha256:def', ref: 'reg/repo@sha256:def' },
+      ],
+    });
+  });
+
+  it('serves repositories with slashes in the path', async () => {
+    const index = taggedIndex([
+      artifact({
+        digest: 'sha256:abc',
+        repository: 'demo/repo',
+        tags: ['latest', '3.0'],
+      }),
+    ]);
+    const response = await request(await appWith(index))
+      .get('/repositories/reg/demo/repo/tags')
+      .expect(200);
+    expect(response.body.repository).toBe('demo/repo');
+    expect(response.body.tags).toHaveLength(2);
+  });
+
+  it('returns an empty tag list for a known registry and unknown repository', async () => {
+    const index = taggedIndex([
+      artifact({ digest: 'sha256:abc', repository: 'repo', tags: ['latest'] }),
+    ]);
+    const response = await request(await appWith(index))
+      .get('/repositories/reg/no-such-repo/tags')
+      .expect(200);
+    expect(response.body).toEqual({
+      registry: 'reg',
+      repository: 'no-such-repo',
+      tags: [],
+    });
+  });
+
+  it('rejects an unknown registry with a typed error', async () => {
+    const index = taggedIndex([]);
+    const response = await request(await appWith(index))
+      .get('/repositories/nope/repo/tags')
+      .expect(404);
+    expect(response.body.code).toBe('REGISTRY_NOT_FOUND');
+  });
+});
 
 /**
  * Seed the store without touching a registry. These tests cover the HTTP

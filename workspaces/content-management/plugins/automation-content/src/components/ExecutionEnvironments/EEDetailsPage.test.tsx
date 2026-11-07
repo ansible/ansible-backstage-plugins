@@ -16,6 +16,7 @@ import {
   type AutomationContentApi,
   type Enumeration,
   type ExecutionEnvironment,
+  type RepositoryTagMap,
 } from '../../api';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 import { EEDetailsPage } from './EEDetailsPage';
@@ -319,7 +320,7 @@ it.each(['unknown', 'populated'] as const)(
   },
 );
 
-it('opens the new latest image overview when sync changes the artifact digest', async () => {
+it('stays on the current tab when sync changes the artifact digest', async () => {
   const latestRef = 'registry/repo@sha256:two';
   const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
     status: 'completed',
@@ -335,11 +336,13 @@ it('opens the new latest image overview when sync changes the artifact digest', 
 
   await waitFor(() =>
     expect(screen.getByTestId('current-location').textContent).toBe(
-      `/content/${encodeURIComponent(latestRef)}`,
+      `/content/${encodeURIComponent(latestRef)}?tab=collections`,
     ),
   );
   expect(
-    screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected'),
+    screen
+      .getByRole('tab', { name: 'All Content' })
+      .getAttribute('aria-selected'),
   ).toBe('true');
   expect(api.syncArtifact).toHaveBeenCalledWith(image.ref);
   await waitFor(() =>
@@ -518,7 +521,8 @@ it.each([
     expect(getEntities).toHaveBeenCalledWith({
       filter: {
         kind: 'Component',
-        'metadata.annotations.ansible.com/digest': [image.digest],
+        'metadata.annotations.ansible.com/registry': [image.registry],
+        'metadata.annotations.ansible.com/repository': [image.repository],
       },
     });
     expect(screen.getByText(expectedContents)).toBeTruthy();
@@ -1015,7 +1019,8 @@ it('shows artifact overview, themed source and status, and controller actions', 
   expect(getEntities).toHaveBeenCalledWith({
     filter: {
       kind: 'Component',
-      'metadata.annotations.ansible.com/digest': [image.digest],
+      'metadata.annotations.ansible.com/registry': [image.registry],
+      'metadata.annotations.ansible.com/repository': [image.repository],
     },
   });
   await userEvent.click(
@@ -1063,3 +1068,250 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
   }),
 }));
 beforeEach(() => mockShowNotification.mockClear());
+
+describe('tag selector', () => {
+  const tagMap: RepositoryTagMap = {
+    registry: 'registry',
+    repository: 'repo',
+    tags: [
+      { tag: 'latest', digest: 'sha256:one', ref: 'registry/repo@sha256:one' },
+      { tag: '2.9', digest: 'sha256:two', ref: 'registry/repo@sha256:two' },
+    ],
+  };
+
+  function renderWithTagMap(
+    artifact: ExecutionEnvironment,
+    map: RepositoryTagMap | Error,
+    search = '',
+  ) {
+    const api = {
+      getExecutionEnvironment: async (requestedRef: string) =>
+        requestedRef === 'registry/repo@sha256:two'
+          ? {
+              ...artifact,
+              ref: requestedRef,
+              digest: 'sha256:two',
+              tags: ['2.9'],
+            }
+          : artifact,
+      getContents: async () => ({
+        enumeration: image.enumeration,
+        collections: [],
+        items: [],
+      }),
+      getRepositoryTags:
+        map instanceof Error
+          ? async () => {
+              throw map;
+            }
+          : async () => map,
+    };
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, api],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        ]}
+      >
+        <MemoryRouter
+          initialEntries={[
+            `/content/${encodeURIComponent(artifact.ref)}${search}`,
+          ]}
+        >
+          <Routes>
+            <Route path="/content/:ref" element={<EEDetailsPage />} />
+          </Routes>
+          <CurrentLocation />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    return api;
+  }
+
+  it('defaults to the latest tag of the current digest', async () => {
+    renderWithTagMap({ ...image, tags: ['latest', '3.0'] }, tagMap);
+    // The trigger's accessible name carries the "Tags" label; its content
+    // shows the selected tag.
+    const trigger = await screen.findByRole('button', { name: /tags/i });
+    expect(trigger.textContent).toContain('latest');
+  });
+
+  it('lists the default tag first, then the rest sorted', async () => {
+    renderWithTagMap({ ...image, tags: ['latest'] }, tagMap);
+    const trigger = await screen.findByRole('button', { name: /tags/i });
+    await userEvent.click(trigger);
+    const options = await screen.findAllByRole('option');
+    expect(options.map(o => o.textContent?.trim())).toEqual([
+      'latest (Default)',
+      '2.9',
+    ]);
+  });
+
+  it('falls back to first tag when latest is not on this digest', async () => {
+    renderWithTagMap(
+      {
+        ...image,
+        digest: 'sha256:two',
+        ref: 'registry/repo@sha256:two',
+        tags: ['2.9'],
+      },
+      tagMap,
+    );
+    const trigger = await screen.findByRole('button', { name: /2\.9/i });
+    expect(trigger.textContent).toContain('2.9');
+  });
+
+  it('navigates to the selected tag artifact and keeps the current tab', async () => {
+    renderWithTagMap(
+      { ...image, tags: ['latest'] },
+      tagMap,
+      '?tab=collections',
+    );
+    const trigger = await screen.findByRole('button', { name: /latest/i });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('current-location').textContent).toBe(
+        `/content/${encodeURIComponent(
+          'registry/repo@sha256:two',
+        )}?tab=collections`,
+      ),
+    );
+  });
+
+  it('degrades to static badges when the tag map cannot be loaded', async () => {
+    renderWithTagMap(
+      { ...image, tags: ['latest'] },
+      new ContentApiError(500, 'registry down'),
+    );
+    // Badge fallback, not an error state.
+    expect(await screen.findByText('latest')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /latest/i })).toBeNull();
+  });
+});
+
+it('keeps the previous artifact visible while a tag switch loads', async () => {
+  const map: RepositoryTagMap = {
+    registry: 'registry',
+    repository: 'repo',
+    tags: [
+      { tag: 'latest', digest: 'sha256:one', ref: 'registry/repo@sha256:one' },
+      { tag: '2.9', digest: 'sha256:two', ref: 'registry/repo@sha256:two' },
+    ],
+  };
+  let releaseSecond: ((value: ExecutionEnvironment) => void) | undefined;
+  const second = new Promise<ExecutionEnvironment>(resolve => {
+    releaseSecond = resolve;
+  });
+  const api = {
+    getExecutionEnvironment: async (requestedRef: string) =>
+      requestedRef === 'registry/repo@sha256:two' ? second : image,
+    getContents: async () => ({
+      enumeration: image.enumeration,
+      collections: [],
+      items: [],
+    }),
+    getRepositoryTags: async () => map,
+  };
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter
+        initialEntries={[`/content/${encodeURIComponent(image.ref)}`]}
+      >
+        <Routes>
+          <Route path="/content/:ref" element={<EEDetailsPage />} />
+        </Routes>
+        <CurrentLocation />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  // First artifact fully loads.
+  expect(await screen.findByText('sha256:one')).toBeTruthy();
+  const trigger = await screen.findByRole('button', { name: /tags/i });
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
+  // While the second digest is still in flight, the page keeps showing the
+  // first artifact instead of blanking to the loading skeleton.
+  expect(await screen.findByText('sha256:one')).toBeTruthy();
+  expect(screen.queryByText('Loading image details…')).toBeNull();
+  releaseSecond?.({
+    ...image,
+    ref: 'registry/repo@sha256:two',
+    digest: 'sha256:two',
+    tags: ['2.9'],
+  });
+  expect(await screen.findByText('sha256:two')).toBeTruthy();
+});
+
+it('keeps the favorite on the image across tag switches', async () => {
+  entityStarred = false;
+  // The catalog entity belongs to the default tag's digest; the page is
+  // viewing a different digest of the same repository. The star must still
+  // represent the image, not the currently displayed version.
+  const defaultEntity = {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      name: 'repo-image',
+      annotations: {
+        'ansible.com/registry': image.registry,
+        'ansible.com/repository': image.repository,
+        'ansible.com/digest': 'sha256:one',
+      },
+    },
+  };
+  const map: RepositoryTagMap = {
+    registry: 'registry',
+    repository: 'repo',
+    tags: [
+      { tag: 'latest', digest: 'sha256:one', ref: 'registry/repo@sha256:one' },
+      { tag: '2.9', digest: 'sha256:two', ref: 'registry/repo@sha256:two' },
+    ],
+  };
+  const api = {
+    getExecutionEnvironment: async () => ({
+      ...image,
+      ref: 'registry/repo@sha256:two',
+      digest: 'sha256:two',
+      tags: ['2.9'],
+    }),
+    getContents: async () => ({
+      enumeration: image.enumeration,
+      collections: [],
+      items: [],
+    }),
+    getRepositoryTags: async () => map,
+  };
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [
+          catalogApiRef,
+          { getEntities: async () => ({ items: [defaultEntity] }) },
+        ],
+      ]}
+    >
+      <MemoryRouter
+        initialEntries={[
+          `/content/${encodeURIComponent('registry/repo@sha256:two')}`,
+        ]}
+      >
+        <Routes>
+          <Route path="/content/:ref" element={<EEDetailsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  expect(
+    await screen.findByRole('button', { name: /add repo-image to favorites/i }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: /remove repo-image from favorites/i }),
+  ).toBeNull();
+});

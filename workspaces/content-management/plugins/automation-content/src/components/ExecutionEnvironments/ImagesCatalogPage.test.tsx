@@ -157,6 +157,11 @@ function createLiveApi(image?: ExecutionEnvironment): {
       if (image && ref === image.ref) return image;
       throw new ContentApiError(404, 'Not found');
     },
+    getRepositoryTags: async () => ({
+      registry: image?.registry ?? 'r',
+      repository: image?.repository ?? 'repo',
+      tags: [],
+    }),
     getContents: async (): Promise<ArtifactContents> => ({
       enumeration,
       collections: [],

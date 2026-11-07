@@ -2831,6 +2831,64 @@ paths:
   # Path strings mirror the router's express-4 patterns verbatim, including the
   # `(*)` wildcard suffix, as required by api/scripts/check-drift.mjs.
 
+  /repositories/{registry}/{repository}(*)/tags:
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: listRepositoryTags
+      tags: [Automation Content Registries]
+      security:
+        - JWT: []
+      summary: List a repository's tags and the digests they last resolved to
+      description: |
+        Flattened across the repository's indexed digests. Reports what the
+        last scan read: a tag moved after the scan keeps pointing at the
+        digest it had then, until the next reconciliation.
+      parameters:
+        - name: registry
+          in: path
+          required: true
+          schema: { type: string }
+        - name: repository
+          in: path
+          required: true
+          schema: { type: string }
+          description: May contain slashes; the repository path within the registry.
+      responses:
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '404':
+          description: No such registry
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '200':
+          description: The repository's tag-to-digest map
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registry, repository, tags]
+                properties:
+                  registry: { type: string }
+                  repository: { type: string }
+                  tags:
+                    type: array
+                    items:
+                      type: object
+                      required: [tag, digest, ref]
+                      properties:
+                        tag: { type: string }
+                        digest: { type: string }
+                        ref:
+                          type: string
+                          description: The digest-based artifact ref the tag resolves to.
+
   /registries:
     servers:
       - url: /api/automation-content

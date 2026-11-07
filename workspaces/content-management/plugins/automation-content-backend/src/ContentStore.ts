@@ -65,6 +65,13 @@ export interface ArtifactListOptions {
   order?: 'asc' | 'desc';
 }
 
+/** One tag of one repository, resolved to the digest the index last read. */
+export interface RepositoryTag {
+  tag: string;
+  digest: string;
+  ref: string;
+}
+
 export interface IndexedItem {
   /** Unique within one artifact. The same FQCN in another artifact is a distinct item. */
   key: string;
@@ -463,6 +470,23 @@ export class ContentStore {
     const query = this.artifactQuery({ ...options, type });
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
+  /** Flattened tag→digest map for one repository across all its digests. */
+  async repositoryTags(
+    registry: string,
+    repository: string,
+  ): Promise<Array<{ tag: string; digest: string; ref: string }>> {
+    const rows = await this.db('artifacts')
+      .where({ registry, repository })
+      .select('ref', 'digest', 'tags');
+    return rows.flatMap((row: { ref: string; digest: string; tags: string }) =>
+      (JSON.parse(row.tags ?? '[]') as string[]).map(tag => ({
+        tag,
+        digest: row.digest,
+        ref: row.ref,
+      })),
+    );
   }
 
   async listArtifactsPaginated(

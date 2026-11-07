@@ -57,6 +57,11 @@ function createLiveApi(): AutomationContentApi {
       enumeration,
       collections: [],
     }),
+    getRepositoryTags: async () => ({
+      registry: 'zot',
+      repository: 'demo/utopia-ee',
+      tags: [],
+    }),
     getContents: async (): Promise<ArtifactContents> => ({
       enumeration,
       collections: [],

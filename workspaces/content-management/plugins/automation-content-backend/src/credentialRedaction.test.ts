@@ -189,6 +189,7 @@ function seededStore(_logs: string[] = []): ContentStore {
       },
     ],
     countsFor: () => ({ collections: 1, plugins: 1 }),
+    repositoryTags: async () => [],
     reconcileStateForArtifact: () => ({
       at: '2026-01-01T00:00:00.000Z',
       ok: false,
@@ -261,6 +262,14 @@ const CASES: RouteCase[] = [
     check: res => {
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ok');
+    },
+  },
+  {
+    route: 'GET /repositories/:registry/:repository/tags',
+    run: app => request(app).get('/repositories/basic-reg/demo/ee/tags'),
+    check: res => {
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toContain('secret');
     },
   },
   {

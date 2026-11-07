@@ -130,6 +130,18 @@ export interface ExecutionEnvironmentPage {
   next: string | null;
 }
 
+export interface RepositoryTag {
+  tag: string;
+  digest: string;
+  ref: string;
+}
+
+export interface RepositoryTagMap {
+  registry: string;
+  repository: string;
+  tags: RepositoryTag[];
+}
+
 export interface AutomationContentApi {
   listRegistries(): Promise<Registry[]>;
   listExecutionEnvironments(opts?: {
@@ -141,6 +153,11 @@ export interface AutomationContentApi {
     order?: 'asc' | 'desc';
   }): Promise<ExecutionEnvironmentPage>;
   getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment>;
+  /** Tag→digest map for one repository, as the index last read it. */
+  getRepositoryTags(
+    registry: string,
+    repository: string,
+  ): Promise<RepositoryTagMap>;
   getContents(
     ref: string,
     opts?: { depth?: 'direct' | 'flat'; type?: string },
@@ -280,6 +297,17 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment> {
     return this.get(`/content/${encodeURIComponent(ref)}`);
+  }
+
+  async getRepositoryTags(
+    registry: string,
+    repository: string,
+  ): Promise<RepositoryTagMap> {
+    return this.get(
+      `/repositories/${encodeURIComponent(registry)}/${encodeURIComponent(
+        repository,
+      )}/tags`,
+    );
   }
 
   async getContents(

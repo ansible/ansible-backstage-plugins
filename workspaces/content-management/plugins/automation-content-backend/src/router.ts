@@ -270,6 +270,32 @@ export async function createRouter(
   });
 
   /**
+   * Tag→digest map for one repository, flattened across its indexed digests.
+   *
+   * Backs the tag selector on the image details page: selecting a tag is
+   * navigating to the artifact of the digest that tag last resolved to.
+   */
+  router.get(
+    '/repositories/:registry/:repository(*)/tags',
+    requireContentView,
+    async (req, res) => {
+      const { registry, repository } = req.params;
+      if (!db.getRegistry(registry)) {
+        res.status(404).json({
+          error: `No such registry: ${registry}`,
+          code: 'REGISTRY_NOT_FOUND',
+        });
+        return;
+      }
+      res.json({
+        registry,
+        repository,
+        tags: await db.repositoryTags(registry, repository),
+      });
+    },
+  );
+
+  /**
    * Refresh every registry.
    *
    * Backs the manual refresh control in the UI: a full re-read, for when a user knows

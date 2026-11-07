@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import {
@@ -28,6 +28,7 @@ import {
   Menu,
   MenuItem,
   MenuTrigger,
+  Select,
   Skeleton,
   Tab,
   TabList,
@@ -43,6 +44,7 @@ import {
   ContentApiError,
   type ArtifactContents,
   type ContentCounts,
+  type ExecutionEnvironment,
 } from '../../api';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { eeRouteRef } from '../../routes';
@@ -59,7 +61,6 @@ import {
   definitionFileHref,
   definitionFileName,
   imageContentsSummary,
-  matchesEnvironment,
   relativeTime,
   sourceLabel,
   syncStateLabel,
@@ -234,22 +235,41 @@ function EEDetailsContent(): ReactElement {
   const [copyStatus, setCopyStatus] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [controllerOpen, setControllerOpen] = useState(false);
+  // Tag switches and latest-change navigation stay on the current tab. The
+  // item param is dropped: it names a content item of the previous digest's
+  // inventory, which the new digest need not contain.
+  const hrefKeepingTab = (targetRef: string): string => {
+    const kept = new URLSearchParams();
+    const tab = params.get('tab');
+    if (tab) kept.set('tab', tab);
+    const suffix = kept.toString() ? `?${kept}` : '';
+    return `${environmentHref(base, targetRef)}${suffix}`;
+  };
   const image = useAsyncRetry(
     () => api.getExecutionEnvironment(ref),
     [api, ref],
   );
-  const digest = image.value?.digest;
-  // Catalog-owned preferences are optional; they never gate artifact details.
+  // A favorite means the image — the repository — not one digest. Candidates
+  // are the repository's entities across all of its digests; the details page
+  // picks a stable representative so the star does not move with the tag.
   const entities = useAsyncRetry(async () => {
-    if (!digest) return { items: [] };
+    const current = image.value;
+    if (!current) return { items: [] };
     return catalog.getEntities({
       filter: {
         kind: 'Component',
-        'metadata.annotations.ansible.com/digest': [digest],
+        'metadata.annotations.ansible.com/registry': [current.registry],
+        'metadata.annotations.ansible.com/repository': [current.repository],
       },
     });
-  }, [catalog, digest]);
+  }, [catalog, image.value?.registry, image.value?.repository]);
   const contents = useAsyncRetry(() => api.getContents(ref), [api, ref]);
+  // The repository's tag→digest map powers the tag selector. It is optional:
+  // when it cannot be loaded the page degrades to the static tag badges.
+  const tagMap = useAsyncRetry(async () => {
+    if (!image.value) return undefined;
+    return api.getRepositoryTags(image.value.registry, image.value.repository);
+  }, [api, image.value?.registry, image.value?.repository]);
   const data = useMemo(
     () =>
       contents.value?.collections.map(c => ({
@@ -363,13 +383,56 @@ function EEDetailsContent(): ReactElement {
       ),
     },
   ];
-  const value = image.value?.ref === ref ? image.value : undefined;
+  // Switching tags navigates to another digest of the same repository; keep
+  // the last artifact of that repository visible while the next resolves, so
+  // the page never blanks mid-swap. Navigating to a different repository
+  // still shows the loading state — briefly showing the wrong image would be
+  // worse than the skeleton.
+  const resolved = image.value?.ref === ref ? image.value : undefined;
+  const [retained, setRetained] = useState<ExecutionEnvironment>();
+  useEffect(() => {
+    if (resolved) setRetained(resolved);
+  }, [resolved]);
+  const routeRepository = ref.split('@')[0];
+  const value =
+    resolved ??
+    (retained &&
+    `${retained.registry}/${retained.repository}` === routeRepository
+      ? retained
+      : undefined);
+  // The repository's default tag leads the list and is labelled as the
+  // default; the rest sort numerically so 9.0 precedes 10.0. The selected
+  // tag is the first list entry that resolves to the displayed digest.
+  const orderedTags = useMemo(() => {
+    const sorted = [...(tagMap.value?.tags ?? [])].sort((a, b) =>
+      a.tag.localeCompare(b.tag, undefined, { numeric: true }),
+    );
+    const latest = sorted.find(entry => entry.tag === 'latest');
+    return latest
+      ? [latest, ...sorted.filter(entry => entry.tag !== 'latest')]
+      : sorted;
+  }, [tagMap.value]);
+  const defaultTag = value
+    ? orderedTags.find(entry => entry.digest === value.digest)?.tag
+    : undefined;
   const status = syncStateLabel(
     value?.lastReconciledAt,
     value?.lastReconcileOk,
   );
-  const entity =
-    value && entities.value?.items.find(e => matchesEnvironment(e, value));
+  // The star follows the image, not the tag: prefer the default tag's entity
+  // so the representative stays put across tag switches, and fall back to any
+  // of the repository's entities.
+  const entity = useMemo(() => {
+    const items = entities.value?.items ?? [];
+    const defaultDigest = orderedTags[0]?.digest;
+    return (
+      items.find(
+        candidate =>
+          (candidate.metadata.annotations ?? {})['ansible.com/digest'] ===
+          defaultDigest,
+      ) ?? items[0]
+    );
+  }, [entities.value, orderedTags]);
   const definitionHref = value?.definitionEntityRef
     ? definitionFileHref(base, value.definitionEntityRef)
     : undefined;
@@ -403,7 +466,7 @@ function EEDetailsContent(): ReactElement {
       );
       if (result.status === 'failed') return;
       if (result.ref !== value.ref) {
-        navigate(environmentHref(base, result.ref), { replace: true });
+        navigate(hrefKeepingTab(result.ref), { replace: true });
         return;
       }
       image.retry();
@@ -445,14 +508,38 @@ function EEDetailsContent(): ReactElement {
           justify="between"
           gap="3"
         >
-          <Text
-            as="h1"
-            variant="title-small"
-            weight="bold"
-            className={styles.title}
-          >
-            {value?.repository ?? 'Execution environment'}
-          </Text>
+          <Flex direction="column" gap="2">
+            <Text
+              as="h1"
+              variant="title-small"
+              weight="bold"
+              className={styles.title}
+            >
+              {value?.repository ?? 'Execution environment'}
+            </Text>
+            {value && tagMap.value && tagMap.value.tags.length ? (
+              <Flex align="center" gap="2">
+                <Text color="secondary">Tags</Text>
+                <Select
+                  aria-label="Tags"
+                  value={defaultTag}
+                  options={orderedTags.map((entry, index) => ({
+                    id: entry.tag,
+                    label: index === 0 ? `${entry.tag} (Default)` : entry.tag,
+                  }))}
+                  onChange={key => {
+                    const next = orderedTags.find(entry => entry.tag === key);
+                    // Selecting a tag is navigating to the artifact of the
+                    // digest that tag last resolved to; the whole page —
+                    // overview and All Content — then shows that tag's data.
+                    if (next && next.ref !== ref) {
+                      navigate(hrefKeepingTab(next.ref));
+                    }
+                  }}
+                />
+              </Flex>
+            ) : null}
+          </Flex>
           {value && (
             <Flex align="center" gap="2">
               {entity && (
@@ -500,7 +587,7 @@ function EEDetailsContent(): ReactElement {
             Favorites are unavailable. Image details are still available.
           </Text>
         )}
-        {image.loading && (
+        {image.loading && !value && (
           <div aria-busy="true" aria-label="Loading image details">
             <Text role="status">Loading image details…</Text>
             <div aria-hidden="true">
