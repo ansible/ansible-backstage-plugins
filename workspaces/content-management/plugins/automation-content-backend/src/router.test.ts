@@ -125,6 +125,25 @@ it('denies resolution and validation without ansible.content.view', async () => 
   await request(app).get('/health').expect(200);
 });
 
+it('fails closed with fixed copy when the view permission service is unavailable', async () => {
+  warn.mockClear();
+  const sensitiveMarker = 'https://user:secret-view-marker@internal.example';
+  const authorize = jest.fn().mockImplementation(async () => {
+    throw new Error(sensitiveMarker);
+  });
+  const response = await request(
+    await appWith(seedDB([]), undefined, true, authorize),
+  )
+    .get('/content')
+    .expect(403);
+  expect(response.body).toEqual({
+    error: 'Forbidden: ansible.content.view permission required',
+  });
+  expect(warn.mock.calls).toEqual([['Unable to authorize content view']]);
+  expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
+  expect(inspect(response.body)).not.toContain(sensitiveMarker);
+});
+
 const DEFAULT_ARTIFACT: IndexedArtifact = {
   ref: 'reg/repo@sha256:abc',
   type: 'execution-environment',
