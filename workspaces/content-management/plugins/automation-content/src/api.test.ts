@@ -1,5 +1,29 @@
 import { AutomationContentClient, ContentApiError } from './api';
 
+it('sends server sort and contents depth without changing default depth', async () => {
+  const fetch = jest
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({}) });
+  const client = new AutomationContentClient({
+    discoveryApi: { getBaseUrl: async () => '/backend' },
+    fetchApi: { fetch },
+  });
+  await client.listExecutionEnvironments({
+    page: 2,
+    sort: 'sourceType',
+    order: 'desc',
+  });
+  expect(fetch).toHaveBeenLastCalledWith(
+    '/backend/content?sort=sourceType&order=desc&type=execution-environment&page=2',
+  );
+  await client.getContents('r/image', { depth: 'flat' });
+  expect(fetch).toHaveBeenLastCalledWith(
+    '/backend/content/r%2Fimage/contents?depth=flat',
+  );
+  await client.getContents('r/image');
+  expect(fetch).toHaveBeenLastCalledWith('/backend/content/r%2Fimage/contents');
+});
+
 it.each(['completed', 'failed'] as const)(
   'syncs only the encoded artifact row with a %s outcome',
   async status => {

@@ -130,6 +130,7 @@ export interface ArtifactContents {
   enumeration: Enumeration;
   classification?: Classification;
   collections: Array<{
+    type: string;
     namespace: string;
     name: string;
     version: string;
@@ -158,6 +159,8 @@ export interface AutomationContentApi {
     allTypes?: boolean;
     page?: number;
     perPage?: number;
+    sort?: 'repository' | 'registry' | 'sourceType' | 'lastReconciledAt';
+    order?: 'asc' | 'desc';
   }): Promise<ExecutionEnvironmentPage>;
   getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment>;
   getContents(
@@ -174,8 +177,6 @@ export interface AutomationContentApi {
     limit?: number;
   }): Promise<{ totalItems: number; items: ContentItemSummary[] }>;
   getContentItem(fqcn: string, inArtifact?: string): Promise<ContentItem>;
-  /** Re-read every registry and rebuild the index. */
-  syncAll(): Promise<SyncResult>;
   /** Reconcile only the named registry, retaining its previous index on failure. */
   syncRegistry(name: string): Promise<RegistrySyncResult>;
   /** Resolve and inspect only latest in the indexed row's repository. */
@@ -259,10 +260,6 @@ export class AutomationContentClient implements AutomationContentApi {
     return (await res.json()) as T;
   }
 
-  async syncAll(): Promise<SyncResult> {
-    return this.post('/sync');
-  }
-
   async syncRegistry(name: string): Promise<RegistrySyncResult> {
     return this.post(`/registries/${encodeURIComponent(name)}/sync`);
   }
@@ -286,7 +283,13 @@ export class AutomationContentClient implements AutomationContentApi {
   }
 
   async listExecutionEnvironments(
-    opts: { allTypes?: boolean; page?: number; perPage?: number } = {},
+    opts: {
+      allTypes?: boolean;
+      page?: number;
+      perPage?: number;
+      sort?: 'repository' | 'registry' | 'sourceType' | 'lastReconciledAt';
+      order?: 'asc' | 'desc';
+    } = {},
   ): Promise<ExecutionEnvironmentPage> {
     // By default only artifacts classified as execution environments are
     // listed. `allTypes` opts in to the full registry inventory: the
@@ -294,6 +297,8 @@ export class AutomationContentClient implements AutomationContentApi {
     // (legitimate EEs lacking builder labels or a manifest referrer) are
     // hidden by the default filter and only reachable through this option.
     const search = new URLSearchParams();
+    if (opts.sort) search.set('sort', opts.sort);
+    if (opts.order) search.set('order', opts.order);
     if (!opts.allTypes) search.set('type', 'execution-environment');
     if (opts.page !== undefined) search.set('page', String(opts.page));
     if (opts.perPage !== undefined)

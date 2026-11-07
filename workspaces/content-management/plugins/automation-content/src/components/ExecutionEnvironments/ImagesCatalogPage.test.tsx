@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   act,
   fireEvent,
@@ -23,6 +24,8 @@ import {
 } from '../../api';
 import { ImagesCatalogPage } from './ImagesCatalogPage';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
+
+const mockShowNotification = jest.fn();
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
@@ -149,7 +152,6 @@ function createLiveApi(image?: ExecutionEnvironment): {
     getContentItem: async fqcn => {
       throw new ContentApiError(404, `No content item for ${fqcn}`);
     },
-    syncAll,
     syncRegistry,
     syncArtifact,
   };
@@ -178,7 +180,6 @@ it('does not describe a failed inventory request as empty', async () => {
   );
   expect(await screen.findByRole('alert')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
-  expect(screen.queryByText('0 images loaded')).toBeNull();
   expect(screen.queryByText('No execution environments discovered')).toBeNull();
 });
 
@@ -393,7 +394,6 @@ it('offers supported page sizes and resets to page one when the size changes', a
     }),
   );
   expect(await screen.findByText('1 - 20 of 60')).toBeTruthy();
-  expect(screen.getByText('1 images loaded')).toBeTruthy();
 });
 
 it('skips the catalog request for an empty page', async () => {
@@ -413,7 +413,7 @@ it('skips the catalog request for an empty page', async () => {
       </MemoryRouter>
     </TestApiProvider>,
   );
-  await screen.findByText('0 images loaded');
+  await screen.findByText('No execution environments discovered');
   expect(getEntities).not.toHaveBeenCalled();
 });
 
@@ -710,8 +710,14 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
   expect(syncArtifact).toHaveBeenCalledWith(base.ref);
-  expect((await screen.findByRole('alert')).textContent).toContain(
-    'Sync access needed for this image.',
+  await waitFor(() =>
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'repo: sync failed',
+        description: 'Sync access needed for this image.',
+        severity: 'error',
+      }),
+    ),
   );
 });
 
@@ -758,11 +764,15 @@ it('syncs only the selected artifact and refreshes to its new latest digest', as
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-  expect(
-    await screen.findByText(
-      'Sync completed. The latest image changed and the catalog was refreshed.',
+  await waitFor(() =>
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          'Sync completed. The latest image changed and the catalog was refreshed.',
+        severity: 'success',
+      }),
     ),
-  ).toBeTruthy();
+  );
   await waitFor(() =>
     expect(listExecutionEnvironments).toHaveBeenCalledTimes(2),
   );
@@ -841,7 +851,23 @@ it('marks only the syncing artifact row as in flight', async () => {
       retainedPrevious: false,
     });
   });
-  expect(await screen.findByText('Sync completed.')).toBeTruthy();
+  await waitFor(() =>
+    expect(mockShowNotification).toHaveBeenCalledWith({
+      title: 'repo: sync complete',
+      description: 'Sync completed.',
+      severity: 'success',
+    }),
+  );
+  expect(mockShowNotification).toHaveBeenCalledWith({
+    title: 'Sync started',
+    description: 'repo',
+    severity: 'info',
+  });
+  expect(mockShowNotification).toHaveBeenCalledWith({
+    title: 'repo: sync complete',
+    description: 'Sync completed.',
+    severity: 'success',
+  });
 });
 
 it('keeps the row on its current digest after a failed latest image sync', async () => {
@@ -873,11 +899,15 @@ it('keeps the row on its current digest after a failed latest image sync', async
   );
   await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
 
-  expect(
-    await screen.findByText(
-      'Sync failed. Previously indexed content is still shown.',
+  await waitFor(() =>
+    expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'repo: sync failed',
+        description: 'Sync failed. Previously indexed content is still shown.',
+        severity: 'error',
+      }),
     ),
-  ).toBeTruthy();
+  );
   expect(screen.getByRole('link', { name: 'repo' }).getAttribute('href')).toBe(
     '/content/ee/r%2Frepo%40sha256%3Aone',
   );
@@ -915,7 +945,11 @@ it.each([
       screen.getByRole('button', { name: 'Actions for repo' }),
     );
     await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
-    expect((await screen.findByRole('alert')).textContent).toBe(message);
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ description: message, severity: 'error' }),
+      ),
+    );
     expect(screen.queryByText(/secret/)).toBeNull();
     expect(syncArtifact).toHaveBeenCalledWith(base.ref);
   },
@@ -961,3 +995,91 @@ it('labels partial counts and unknown contents without requiring catalog matches
     screen.getAllByRole('link', { name: 'repo' })[0].getAttribute('href'),
   ).toContain('r%2Frepo%40sha256%3Aone');
 });
+
+it.each([
+  ['Image', 'repository'],
+  ['Source', 'registry'],
+  ['Source type', 'sourceType'],
+  ['Last synced', 'lastReconciledAt'],
+])(
+  'sorts %s on the server and resets to page one',
+  async (label, backendKey) => {
+    const listExecutionEnvironments = jest.fn(
+      async ({ page }: { page: number }) => envelope([base], page, 25),
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, { listExecutionEnvironments }],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        ]}
+      >
+        <MemoryRouter>
+          <ImagesCatalogPage />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    await screen.findByRole('link', { name: 'repo' });
+    expect(
+      screen
+        .getAllByRole('columnheader')
+        .map(header => header.textContent?.trim()),
+    ).toEqual([
+      'Image',
+      'Source',
+      'Source type',
+      'Contents',
+      'Status',
+      'Last synced',
+      'Actions',
+    ]);
+    expect(screen.getByText('R')).toBeTruthy();
+    expect(screen.getByText('External registry')).toBeTruthy();
+    for (const unsorted of ['Contents', 'Status', 'Actions'])
+      expect(
+        screen
+          .getByRole('columnheader', { name: unsorted })
+          .hasAttribute('aria-sort'),
+      ).toBe(false);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await waitFor(() =>
+      expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+        allTypes: false,
+        page: 2,
+        perPage: 10,
+      }),
+    );
+    await userEvent.click(screen.getByRole('columnheader', { name: label }));
+    await waitFor(() =>
+      expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+        allTypes: false,
+        page: 1,
+        perPage: 10,
+        sort: backendKey,
+        order: 'asc',
+      }),
+    );
+    await userEvent.click(screen.getByRole('columnheader', { name: label }));
+    await waitFor(() =>
+      expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+        allTypes: false,
+        page: 1,
+        perPage: 10,
+        sort: backendKey,
+        order: 'desc',
+      }),
+    );
+  },
+);
+jest.mock('@ansible/portal-plugin-sdk', () => ({
+  NotificationProvider: ({ children }: { children: ReactNode }) => children,
+  NotificationStack: () => null,
+  useNotifications: () => ({
+    showNotification: mockShowNotification,
+    notifications: [],
+    removeNotification: jest.fn(),
+  }),
+}));
+beforeEach(() => mockShowNotification.mockClear());

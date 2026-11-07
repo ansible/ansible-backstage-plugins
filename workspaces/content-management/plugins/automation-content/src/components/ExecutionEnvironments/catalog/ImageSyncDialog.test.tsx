@@ -1,10 +1,17 @@
+import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
-import { automationContentApiRef, ContentApiError } from '../../../api';
+import {
+  automationContentApiRef,
+  ContentApiError,
+  type RegistrySyncResult,
+} from '../../../api';
 import { ImageSyncDialog } from './ImageSyncDialog';
+
+const mockShowNotification = jest.fn();
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
@@ -98,4 +105,77 @@ it.each([
   expect(screen.queryByText(/credential-marker/)).toBeNull();
   expect(onSynced.mock.calls).toEqual([[`team-registry: ${reason}`]]);
   expect(onClose).not.toHaveBeenCalled();
+  expect(mockShowNotification).toHaveBeenNthCalledWith(1, {
+    title: 'Sync started',
+    description: 'team-registry',
+    severity: 'info',
+  });
+  expect(mockShowNotification).toHaveBeenLastCalledWith({
+    title: 'team-registry: sync failed',
+    description:
+      error instanceof ContentApiError && error.status === 403
+        ? 'Sync access needed for this registry.'
+        : 'Registry reconciliation failed.',
+    severity: 'error',
+  });
 });
+
+it('confirms only selected registries and reports real partial results', async () => {
+  const onSynced = jest.fn();
+  const onClose = jest.fn();
+  const syncRegistry = jest.fn(
+    async (name: string): Promise<RegistrySyncResult> => ({
+      status: name === 'one' ? 'completed' : 'failed',
+      discovered: 4,
+      retainedPrevious: name !== 'one',
+    }),
+  );
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            listRegistries: async () => [
+              { name: 'one', url: 'https://one.example' },
+              { name: 'two', url: 'https://two.example' },
+            ],
+            syncRegistry,
+          },
+        ],
+      ]}
+    >
+      <ImageSyncDialog open onClose={onClose} onSynced={onSynced} />
+    </TestApiProvider>,
+  );
+  await screen.findByRole('checkbox', { name: 'one' });
+  expect(syncRegistry).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Sync selected' }));
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  expect(mockShowNotification).toHaveBeenCalledWith({
+    title: 'one: sync complete',
+    description: '4 artifacts discovered',
+    severity: 'success',
+  });
+  expect(mockShowNotification).toHaveBeenCalledWith({
+    title: 'two: sync failed',
+    description: 'Registry reconciliation failed.',
+    severity: 'error',
+  });
+  expect(onSynced).toHaveBeenCalledWith(
+    'one: sync completed; two: sync failed',
+  );
+  expect(onClose).not.toHaveBeenCalled();
+});
+
+jest.mock('@ansible/portal-plugin-sdk', () => ({
+  NotificationProvider: ({ children }: { children: ReactNode }) => children,
+  NotificationStack: () => null,
+  useNotifications: () => ({
+    showNotification: mockShowNotification,
+    notifications: [],
+    removeNotification: jest.fn(),
+  }),
+}));
+beforeEach(() => mockShowNotification.mockClear());

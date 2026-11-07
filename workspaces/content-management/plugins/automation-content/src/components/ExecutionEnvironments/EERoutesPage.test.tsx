@@ -73,14 +73,15 @@ function createLiveApi(): AutomationContentApi {
       providedBy: [imageRef],
       enumeration,
     }),
-    syncAll: async () => ({
-      status: 'completed',
-      durationMs: 0,
-      registries: [],
-    }),
     syncRegistry: async () => ({
       status: 'completed',
       discovered: 0,
+      retainedPrevious: false,
+    }),
+    syncArtifact: async ref => ({
+      status: 'completed',
+      ref,
+      tag: 'latest',
       retainedPrevious: false,
     }),
   };

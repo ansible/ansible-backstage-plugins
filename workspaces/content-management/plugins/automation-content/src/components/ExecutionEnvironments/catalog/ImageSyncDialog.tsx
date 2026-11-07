@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
+import { useNotifications } from '@ansible/portal-plugin-sdk';
 import {
   Button,
   Checkbox,
@@ -30,6 +31,7 @@ export function ImageSyncDialog({
   onSynced: (status: string) => void;
 }): ReactElement {
   const api = useApi(automationContentApiRef);
+  const { showNotification } = useNotifications();
   const { allowed: canSync } = usePermission({
     permission: automationContentSyncPermission,
   });
@@ -66,9 +68,32 @@ export function ImageSyncDialog({
     setSyncing(true);
     setError('');
     try {
+      showNotification({
+        title: 'Sync started',
+        description: selected.join(', '),
+        severity: 'info',
+      });
       const results = await Promise.allSettled(
         selected.map(name => api.syncRegistry(name)),
       );
+      results.forEach((result, index) => {
+        const ok =
+          result.status === 'fulfilled' && result.value.status === 'completed';
+        const accessNeeded =
+          result.status === 'rejected' &&
+          result.reason instanceof ContentApiError &&
+          result.reason.status === 403;
+        let description = accessNeeded
+          ? 'Sync access needed for this registry.'
+          : 'Registry reconciliation failed.';
+        if (ok && result.status === 'fulfilled')
+          description = `${result.value.discovered} artifacts discovered`;
+        showNotification({
+          title: `${selected[index]}: ${ok ? 'sync complete' : 'sync failed'}`,
+          description,
+          severity: ok ? 'success' : 'error',
+        });
+      });
       const status = results
         .map((result, index) => {
           if (result.status === 'rejected') {
