@@ -3,7 +3,7 @@ import {
   createRoutableExtension,
 } from '@backstage/core-plugin-api';
 import { automationContentApiFactory } from './apis';
-import { collectionsRouteRef, eeRouteRef, rootRouteRef } from './routes';
+import { eeRouteRef, rootRouteRef } from './routes';
 
 export const automationContentPlugin = createPlugin({
   id: 'automation-content',
@@ -22,18 +22,6 @@ export const AutomationContentEEPage = automationContentPlugin.provide(
         m => m.EERoutesPage,
       ),
     mountPoint: eeRouteRef,
-  }),
-);
-
-/** Legacy catalog mount point also registers collection navigation. */
-export const AutomationContentCollectionsPage = automationContentPlugin.provide(
-  createRoutableExtension({
-    name: 'AutomationContentCollectionsPage',
-    component: () =>
-      import('./components/CollectionsCatalog/CollectionsRoutesPage').then(
-        m => m.CollectionsRoutesPage,
-      ),
-    mountPoint: collectionsRouteRef,
   }),
 );
 

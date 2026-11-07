@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { EERoutesPage } from './ExecutionEnvironments/EERoutesPage';
-import { CollectionsRoutesPage } from './CollectionsCatalog/CollectionsRoutesPage';
 
 /** Mounts the shared content catalogs beneath the legacy host's content route. */
 export function AutomationContentRoutes(): ReactElement {
@@ -9,7 +8,6 @@ export function AutomationContentRoutes(): ReactElement {
     <Routes>
       <Route index element={<Navigate to="/content/ee" replace />} />
       <Route path="execution-environments/*" element={<EERoutesPage />} />
-      <Route path="collections/*" element={<CollectionsRoutesPage />} />
     </Routes>
   );
 }

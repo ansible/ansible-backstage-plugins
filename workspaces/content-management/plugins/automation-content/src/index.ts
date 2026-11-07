@@ -1,5 +1,1 @@
-export {
-  AutomationContentPage,
-  AutomationContentEEPage,
-  AutomationContentCollectionsPage,
-} from './plugin';
+export { AutomationContentPage, AutomationContentEEPage } from './plugin';

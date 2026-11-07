@@ -13,29 +13,11 @@ import { CatalogTabBlueprint } from '@ansible/portal-extension-api/alpha';
 import { automationContentManifest } from './pluginManifest';
 import { Navigate, useParams } from 'react-router-dom';
 import BuildIcon from '@material-ui/icons/Build';
-import ExtensionIcon from '@material-ui/icons/Extension';
-import {
-  eeRouteRef,
-  eeDetailsRouteRef,
-  collectionsRouteRef,
-  collectionDetailsRouteRef,
-} from './routes';
+import { eeRouteRef, eeDetailsRouteRef } from './routes';
 
 function LegacyEEDetailsRedirect() {
   const { ref } = useParams();
   return <Navigate to={`/content/ee/${encodeURIComponent(ref!)}`} replace />;
-}
-
-function LegacyCollectionDetailsRedirect() {
-  const { namespace, name } = useParams();
-  return (
-    <Navigate
-      to={`/content/collections/${encodeURIComponent(
-        namespace!,
-      )}/${encodeURIComponent(name!)}`}
-      replace
-    />
-  );
 }
 
 /** Native discovery lets hosts mount content catalogs without legacy app wiring. */
@@ -45,8 +27,6 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
   routes: {
     ee: convertLegacyRouteRef(eeRouteRef),
     eeDetails: convertLegacyRouteRef(eeDetailsRouteRef),
-    collections: convertLegacyRouteRef(collectionsRouteRef),
-    collectionDetails: convertLegacyRouteRef(collectionDetailsRouteRef),
   },
   extensions: [
     CatalogTabBlueprint.make({
@@ -116,54 +96,6 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       params: {
         path: '/automation-content/execution-environments/:ref',
         loader: async () => compatWrapper(<LegacyEEDetailsRedirect />),
-      },
-    }),
-    PageBlueprint.make({
-      name: 'collections',
-      params: {
-        // Content-workspace mount per the 2026-11-02 direction: the content
-        // workspace owns the collections view at its own path, and
-        // portal-scaffolder's legacy page coexists unconfigured.
-        path: '/content/collections',
-        title: 'Collections',
-        icon: <ExtensionIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(collectionsRouteRef),
-        loader: async () => {
-          const { CollectionsRoutesPage } = await import(
-            './components/CollectionsCatalog/CollectionsRoutesPage'
-          );
-          return compatWrapper(<CollectionsRoutesPage />);
-        },
-      },
-    }),
-    PageBlueprint.make({
-      name: 'collections-redirect',
-      params: {
-        path: '/automation-content/collections',
-        loader: async () =>
-          compatWrapper(<Navigate to="/content/collections" replace />),
-      },
-    }),
-    PageBlueprint.make({
-      name: 'collection-details-redirect',
-      params: {
-        path: '/automation-content/collections/:namespace/:name',
-        loader: async () => compatWrapper(<LegacyCollectionDetailsRedirect />),
-      },
-    }),
-    PageBlueprint.make({
-      name: 'collection-details',
-      params: {
-        path: '/content/collections/:namespace/:name',
-        title: 'Collection details',
-        noHeader: true,
-        loader: async () => {
-          const { CollectionDetailsPage } = await import(
-            './components/CollectionsCatalog/CollectionDetailsPage'
-          );
-          return compatWrapper(<CollectionDetailsPage />);
-        },
       },
     }),
   ],

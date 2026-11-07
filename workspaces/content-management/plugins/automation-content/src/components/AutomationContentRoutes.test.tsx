@@ -27,12 +27,6 @@ jest.mock('./ExecutionEnvironments/EECatalogPage', () => ({
 jest.mock('./ExecutionEnvironments/EEDetailsPage', () => ({
   EEDetailsPage: () => <div>Image details</div>,
 }));
-jest.mock('./CollectionsCatalog/CollectionsCatalogPage', () => ({
-  CollectionsCatalogPage: () => <div>Collection catalog</div>,
-}));
-jest.mock('./CollectionsCatalog/CollectionDetailsPage', () => ({
-  CollectionDetailsPage: () => <div>Collection details</div>,
-}));
 
 it.each([
   ['', 'Image catalog'],
@@ -40,8 +34,6 @@ it.each([
   ['/execution-environments/catalog', 'Definition files catalog'],
   ['/execution-environments/create', 'Create templates'],
   ['/execution-environments/example', 'Image details'],
-  ['/collections', 'Collection catalog'],
-  ['/collections/example/demo', 'Collection details'],
 ])('mounts %s in the legacy content route', async (path, title) => {
   await renderInTestApp(
     <TestApiProvider apis={[[permissionApiRef, mockApis.permission()]]}>
