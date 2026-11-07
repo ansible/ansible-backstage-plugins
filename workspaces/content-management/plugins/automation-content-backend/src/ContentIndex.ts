@@ -52,6 +52,14 @@ export interface IndexedArtifact {
   manifest?: AnsibleContentManifest;
 }
 
+export interface ArtifactListOptions {
+  registry?: string;
+  collection?: string;
+  contentsKnown?: boolean;
+  sort?: 'repository' | 'registry' | 'sourceType' | 'lastReconciledAt';
+  order?: 'asc' | 'desc';
+}
+
 export interface IndexedItem {
   /** Unique within one artifact. The same FQCN in another artifact is a distinct item. */
   key: string;
@@ -229,9 +237,50 @@ export class ContentIndex {
     return this.registries.get(name);
   }
 
-  /** All artifacts, optionally filtered by content type. */
-  listArtifacts(type?: string): IndexedArtifact[] {
-    return type ? this.artifacts.filter(a => a.type === type) : this.artifacts;
+  /** Filter, then stably order the complete result before callers paginate it. */
+  listArtifacts(
+    type?: string,
+    options: ArtifactListOptions = {},
+  ): IndexedArtifact[] {
+    if (!type && Object.values(options).every(v => v === undefined)) {
+      return this.artifacts;
+    }
+    const artifacts = this.artifacts.filter(
+      a =>
+        (!type || a.type === type) &&
+        (options.registry === undefined || a.registry === options.registry) &&
+        (options.contentsKnown === undefined ||
+          a.contentsKnown === options.contentsKnown) &&
+        (options.collection === undefined ||
+          (a.manifest?.collections ?? []).some(
+            c => `${c.namespace}.${c.name}` === options.collection,
+          )),
+    );
+    const { sort, order = 'asc' } = options;
+    if (!sort) return artifacts;
+    const value = (a: IndexedArtifact): string | undefined => {
+      if (sort === 'lastReconciledAt')
+        return this.reconcileStateForArtifact(a.ref)?.at;
+      if (sort === 'sourceType') {
+        // Match today's badge. When producer association lands, definitionEntityRef
+        // must take priority (definition-file), even when a registry is present.
+        return a.registry ? 'external-registry' : 'definition-file';
+      }
+      return a[sort] || undefined;
+    };
+    // Missing timestamps and empty/absent registries sort last ascending, first
+    // descending. Lexical ISO timestamp ordering; equal keys retain index order.
+    return artifacts.sort((a, b) => {
+      const left = value(a);
+      const right = value(b);
+      let comparison = 0;
+      if (left !== right) {
+        if (left === undefined) comparison = 1;
+        else if (right === undefined) comparison = -1;
+        else comparison = left < right ? -1 : 1;
+      }
+      return order === 'desc' ? -comparison : comparison;
+    });
   }
 
   getArtifact(ref: string): IndexedArtifact | undefined {

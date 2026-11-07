@@ -2993,6 +2993,15 @@ paths:
         - name: contentsKnown
           in: query
           schema: { type: boolean }
+        - name: sort
+          in: query
+          description: Stable ordering before pagination. Omit to retain index order. sourceType is external-registry when registry is present, otherwise definition-file. Missing timestamps and empty registries sort last ascending and first descending.
+          schema:
+            type: string
+            enum: [repository, registry, sourceType, lastReconciledAt]
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
         - name: page
           in: query
           description: Page number (1-indexed, defaults to 1).
@@ -3012,6 +3021,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedContentResponse'
+        '400':
+          description: Invalid sort key (INVALID_SORT) or order (INVALID_ORDER).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentErrorResponse' }
 
   /content/{ref}(*):
     servers:
@@ -3092,7 +3106,14 @@ paths:
                   classification: { $ref: '#/components/schemas/Classification' }
                   collections:
                     type: array
-                    items: { type: object }
+                    items:
+                      type: object
+                      required: [type]
+                      properties:
+                        type:
+                          type: string
+                          enum: [collection]
+                          description: Entry kind derived from the manifest collection inventory.
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
@@ -3160,6 +3181,15 @@ paths:
       summary: List execution environments
       description: Thin alias over `/content?type=execution-environment`.
       parameters:
+        - name: sort
+          in: query
+          description: Same stable, pre-pagination ordering and missing-value rules as /content.
+          schema:
+            type: string
+            enum: [repository, registry, sourceType, lastReconciledAt]
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: asc }
         - name: registry
           in: query
           schema: { type: string }

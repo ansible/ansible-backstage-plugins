@@ -342,31 +342,41 @@ export async function createRouter(
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
   const filterArtifacts = (query: Record<string, unknown>) => {
-    const { type, registry, collection, contentsKnown } = query;
-    let artifacts = index.listArtifacts(
-      typeof type === 'string' ? type : undefined,
-    );
-
-    if (typeof registry === 'string') {
-      artifacts = artifacts.filter(a => a.registry === registry);
-    }
-    if (typeof collection === 'string') {
-      artifacts = artifacts.filter(a =>
-        (a.manifest?.collections ?? []).some(
-          c => `${c.namespace}.${c.name}` === collection,
-        ),
-      );
-    }
-    if (contentsKnown !== undefined) {
-      const want = contentsKnown === 'true';
-      artifacts = artifacts.filter(a => a.contentsKnown === want);
-    }
-
-    return artifacts;
+    const { type, registry, collection, contentsKnown, sort, order } = query;
+    return index.listArtifacts(typeof type === 'string' ? type : undefined, {
+      registry: typeof registry === 'string' ? registry : undefined,
+      collection: typeof collection === 'string' ? collection : undefined,
+      contentsKnown:
+        contentsKnown === undefined ? undefined : contentsKnown === 'true',
+      sort: sort as
+        | 'repository'
+        | 'registry'
+        | 'sourceType'
+        | 'lastReconciledAt'
+        | undefined,
+      order: order as 'asc' | 'desc' | undefined,
+    });
   };
 
   /** Paginated listing of artifacts, filtered by optional query params. */
   const listContent = (req: RouteRequest, res: RouteResponse) => {
+    const { sort, order } = req.query;
+    if (
+      sort !== undefined &&
+      (typeof sort !== 'string' ||
+        !['repository', 'registry', 'sourceType', 'lastReconciledAt'].includes(
+          sort,
+        ))
+    ) {
+      res.status(400).json({ error: 'Invalid sort key', code: 'INVALID_SORT' });
+      return;
+    }
+    if (order !== undefined && order !== 'asc' && order !== 'desc') {
+      res
+        .status(400)
+        .json({ error: 'Invalid sort order', code: 'INVALID_ORDER' });
+      return;
+    }
     const artifacts = filterArtifacts(req.query);
     const requested = Number(req.query.per_page) || PAGE_SIZE;
     const perPage = ALLOWED_PER_PAGE.includes(requested as any)
@@ -440,6 +450,8 @@ export async function createRouter(
       typeof req.query.type === 'string' ? req.query.type : undefined;
 
     const collections = artifact.manifest.collections.map(c => ({
+      // These entries are derived from the manifest's collection inventory.
+      type: 'collection',
       namespace: c.namespace,
       name: c.name,
       version: c.version,

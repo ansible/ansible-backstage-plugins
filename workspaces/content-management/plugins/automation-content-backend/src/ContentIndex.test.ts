@@ -6,9 +6,78 @@ import {
   makeLabelledImage,
   OCIClient,
 } from '@ansible/automation-content-common';
-import { ContentIndex, ArtifactSyncNotFoundError } from './ContentIndex';
+import {
+  ContentIndex,
+  ArtifactSyncNotFoundError,
+  IndexedArtifact,
+} from './ContentIndex';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
+
+describe('listArtifacts ordering', () => {
+  it('filters before sorting, keeps missing values last ascending, and never mutates index order', () => {
+    const index = new ContentIndex([], silent);
+    const artifacts: IndexedArtifact[] = ['z', '', 'a', 'a'].map(
+      (registry, i) => ({
+        ref: String(i),
+        registry,
+        repository: 'repo',
+        type: 'execution-environment',
+        digest: String(i),
+        tags: [],
+        pullReference: String(i),
+        contentsKnown: i !== 0,
+        classification: {
+          type: 'execution-environment',
+          signals: [],
+          readsContentManifest: false,
+        },
+      }),
+    );
+    (index as unknown as { artifacts: IndexedArtifact[] }).artifacts =
+      artifacts;
+    const refs = (rows: IndexedArtifact[]): string[] => rows.map(a => a.ref);
+    expect(refs(index.listArtifacts(undefined, { sort: 'registry' }))).toEqual([
+      '2',
+      '3',
+      '0',
+      '1',
+    ]);
+    expect(
+      refs(
+        index.listArtifacts(undefined, {
+          sort: 'registry',
+          order: 'desc',
+          contentsKnown: true,
+        }),
+      ),
+    ).toEqual(['1', '2', '3']);
+    jest.spyOn(index, 'reconcileStateForArtifact').mockImplementation(ref =>
+      ref === '1'
+        ? undefined
+        : {
+            at: ref === '0' ? '2026-02-01T00:00:00Z' : '2026-01-01T00:00:00Z',
+            ok: true,
+            artifacts: 1,
+          },
+    );
+    expect(
+      refs(index.listArtifacts(undefined, { sort: 'lastReconciledAt' })),
+    ).toEqual(['2', '3', '0', '1']);
+    expect(
+      refs(
+        index.listArtifacts(undefined, {
+          sort: 'lastReconciledAt',
+          order: 'desc',
+        }),
+      ),
+    ).toEqual(['1', '0', '2', '3']);
+    expect(
+      refs(index.listArtifacts(undefined, { sort: 'sourceType' })),
+    ).toEqual(['1', '0', '2', '3']);
+    expect(refs(index.listArtifacts())).toEqual(['0', '1', '2', '3']);
+  });
+});
 
 function connection(): RegistryConnection {
   return {
