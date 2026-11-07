@@ -56,30 +56,34 @@ jest.mock('./CreateContent', () => ({ CreateContent: () => 'Mocked create' }));
 jest.mock('./ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => 'Fallback images',
 }));
-jest.mock('./RegistrySyncButton', () => ({ RegistrySyncButton: () => null }));
 jest.mock('./catalog/ImageSyncDialog', () => ({
   ImageSyncDialog: ({ open }: { open: boolean }) =>
     open ? <div role="dialog">Registry sync dialog</div> : null,
 }));
 
-it('offers definition-file sync to users granted the content sync permission', async () => {
-  mockUsePermission.mockReturnValue({ allowed: true, loading: false });
-  render(
-    <TestApiProvider apis={[]}>
-      <MemoryRouter initialEntries={['/content/ee/catalog']}>
-        <EECatalogPage view="catalog" />
-      </MemoryRouter>
-    </TestApiProvider>,
-  );
+it.each(['images', 'catalog'] as const)(
+  'offers registry selection from %s to users granted sync permission',
+  async view => {
+    mockUsePermission.mockReturnValue({ allowed: true, loading: false });
+    render(
+      <TestApiProvider apis={[]}>
+        <MemoryRouter initialEntries={['/content/ee/catalog']}>
+          <EECatalogPage view={view} />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
 
-  await userEvent.click(screen.getByRole('button', { name: 'Sync Now' }));
-  expect((await screen.findByRole('dialog')).textContent).toContain(
-    'Registry sync dialog',
-  );
-  expect(mockUsePermission).toHaveBeenCalledWith({
-    permission: automationContentSyncPermission,
-  });
-});
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sync registries' }),
+    );
+    expect((await screen.findByRole('dialog')).textContent).toContain(
+      'Registry sync dialog',
+    );
+    expect(mockUsePermission).toHaveBeenCalledWith({
+      permission: automationContentSyncPermission,
+    });
+  },
+);
 
 it.each([
   ['denied', { allowed: false, loading: false }],
@@ -95,7 +99,9 @@ it.each([
         </MemoryRouter>
       </TestApiProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Sync Now' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Sync registries' }),
+    ).toBeNull();
   },
 );
 

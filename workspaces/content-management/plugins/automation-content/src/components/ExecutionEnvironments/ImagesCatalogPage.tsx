@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
+import { useNotifications } from '@ansible/portal-plugin-sdk';
+import { syncImageWithNotifications } from './imageSyncNotifications';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import type { Entity } from '@backstage/catalog-model';
@@ -25,15 +27,12 @@ import {
   Table,
   Text,
   useTable,
+  type SortDescriptor,
 } from '@backstage/ui';
 import StarIcon from '@material-ui/icons/Star';
 import StarBorderIcon from '@material-ui/icons/StarBorder';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
-import {
-  automationContentApiRef,
-  ContentApiError,
-  type ExecutionEnvironment,
-} from '../../api';
+import { automationContentApiRef, type ExecutionEnvironment } from '../../api';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { eeRouteRef } from '../../routes';
 import {
@@ -86,6 +85,7 @@ export function ImagesCatalogPage({
   wrapInContainer?: boolean;
 }): ReactElement {
   const api = useApi(automationContentApiRef);
+  const { showNotification } = useNotifications();
   const catalog = useApi(catalogApiRef);
   const { allowed: canSync } = usePermission({
     permission: automationContentSyncPermission,
@@ -96,15 +96,34 @@ export function ImagesCatalogPage({
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
-  const [syncError, setSyncError] = useState('');
-  const [syncStatus, setSyncStatus] = useState('');
+  const [sort, setSort] = useState<SortDescriptor | null>(null);
+  const sortKeys = {
+    image: 'repository',
+    source: 'registry',
+    sourceType: 'sourceType',
+    'last-synced': 'lastReconciledAt',
+  } as const;
+  const sortKey = sort
+    ? sortKeys[sort.column as keyof typeof sortKeys]
+    : undefined;
   const [syncingRefs, setSyncingRefs] = useState<Set<string>>(new Set());
   const inFlightRefs = useRef(new Set<string>());
   const [controllerImage, setControllerImage] =
     useState<ExecutionEnvironment | null>(null);
   const images = useAsyncRetry(
-    () => api.listExecutionEnvironments({ allTypes, page, perPage }),
-    [api, allTypes, page, perPage],
+    () =>
+      api.listExecutionEnvironments({
+        allTypes,
+        page,
+        perPage,
+        ...(sortKey && sort
+          ? {
+              sort: sortKey,
+              order: sort.direction === 'ascending' ? 'asc' : 'desc',
+            }
+          : {}),
+      }),
+    [api, allTypes, page, perPage, sortKey, sort?.direction],
   );
   const data = useMemo(
     () => images.value?.items.map(image => ({ ...image, id: image.ref })),
@@ -138,6 +157,11 @@ export function ImagesCatalogPage({
 
   const table = useTable<ImageRow>({
     mode: 'complete',
+    sort,
+    onSortChange: descriptor => {
+      setPage(1);
+      setSort(descriptor);
+    },
     data,
     filter: starredOnly,
     filterFn: (rows, only) =>
@@ -168,34 +192,18 @@ export function ImagesCatalogPage({
     if (!canSync || inFlightRefs.current.has(ref)) return;
     inFlightRefs.current.add(ref);
     setSyncingRefs(new Set(inFlightRefs.current));
-    setSyncError('');
-    setSyncStatus('');
     try {
-      const result = await api.syncArtifact(ref);
-      if (result.status === 'failed') {
-        setSyncError(
-          result.retainedPrevious
-            ? 'Sync failed. Previously indexed content is still shown.'
-            : 'Unable to sync this image.',
-        );
-        return;
-      }
-      setSyncStatus(
-        result.ref === ref
-          ? 'Sync completed.'
-          : 'Sync completed. The latest image changed and the catalog was refreshed.',
+      const result = await syncImageWithNotifications(
+        api,
+        ref,
+        data?.find(row => row.ref === ref)?.repository ?? ref,
+        showNotification,
       );
+      if (result.status === 'failed') return;
       images.retry();
-    } catch (error) {
-      if (error instanceof ContentApiError && error.status === 403) {
-        setSyncError('Sync access needed for this image.');
-      } else if (error instanceof ContentApiError && error.status === 404) {
-        setSyncError(
-          'Latest image not found. This repository may not have a latest tag.',
-        );
-      } else {
-        setSyncError('Unable to sync this image.');
-      }
+    } catch {
+      // Outcome feedback is emitted as notifications by
+      // syncImageWithNotifications; nothing further to report here.
     } finally {
       inFlightRefs.current.delete(ref);
       setSyncingRefs(new Set(inFlightRefs.current));
@@ -206,6 +214,7 @@ export function ImagesCatalogPage({
     {
       id: 'image',
       label: 'Image',
+      isSortable: true,
       isRowHeader: true,
       cell: row => (
         <Cell>
@@ -224,12 +233,22 @@ export function ImagesCatalogPage({
     {
       id: 'source',
       label: 'Source',
+      isSortable: true,
+      cell: row => (
+        <CellText
+          title={row.registry ? displayRegistryName(row.registry) : '—'}
+        />
+      ),
+    },
+    {
+      id: 'sourceType',
+      label: 'Source type',
+      isSortable: true,
       cell: row => {
         const source = imageSourceLabel(row.registry, row.definitionEntityRef);
         return (
           <Cell>
             <Flex direction="column" align="start" gap="1">
-              {row.registry && <Text>{displayRegistryName(row.registry)}</Text>}
               <StatusBadge
                 tone={source === 'Definition file' ? 'info' : 'neutral'}
               >
@@ -270,6 +289,7 @@ export function ImagesCatalogPage({
     {
       id: 'last-synced',
       label: 'Last synced',
+      isSortable: true,
       cell: row => <CellText title={relativeTime(row.lastReconciledAt)} />,
     },
     {
@@ -361,8 +381,6 @@ export function ImagesCatalogPage({
             </Checkbox>
           </Flex>
         </Flex>
-        {syncError && <Text role="alert">{syncError}</Text>}
-        {syncStatus && <Text role="status">{syncStatus}</Text>}
         <Text as="h2" variant="title-medium">
           Execution environment images
           {images.value ? ` (${images.value.totalItems})` : ''}
@@ -375,9 +393,6 @@ export function ImagesCatalogPage({
         )}
         {entities.error && (
           <Text>Catalog links are unavailable. Favorites may be missing.</Text>
-        )}
-        {!images.loading && !images.error && images.value && (
-          <Text aria-live="polite">{data?.length ?? 0} images loaded</Text>
         )}
         <div aria-busy={images.loading} className={styles.table}>
           {!images.error && (
