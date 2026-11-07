@@ -56,6 +56,14 @@ export interface IndexedArtifact {
   manifest?: AnsibleContentManifest;
 }
 
+export interface ArtifactListOptions {
+  registry?: string;
+  collection?: string;
+  contentsKnown?: boolean;
+  sort?: 'repository' | 'registry' | 'sourceType' | 'lastReconciledAt';
+  order?: 'asc' | 'desc';
+}
+
 export interface IndexedItem {
   /** Unique within one artifact. The same FQCN in another artifact is a distinct item. */
   key: string;
