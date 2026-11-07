@@ -59,16 +59,17 @@ npx tsc --noEmit -p workspaces/<workspace>/plugins/<plugin>   # package-scoped t
 
 This branch organizes plugins into workspaces by ownership: `aap`, `apme`, `portal-core`, and `self-service`.
 
-| Directory                                                          | Package Name                                                   | Role                                                            | Type            |
-| ------------------------------------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------- | --------------- |
-| `workspaces/aap/plugins/backstage-rhaap-common`                    | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions               | Common library  |
-| `workspaces/aap/plugins/backstage-rhaap`                           | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                | Frontend plugin |
-| `workspaces/content-development/plugins/portal-scaffolder`         | `@ansible/portal-scaffolder`                                   | Self-service UI (templates, tasks, EEs, collections, git repos) | Frontend plugin |
-| `workspaces/aap/plugins/catalog-backend-module-rhaap`              | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog           | Backend module  |
-| `workspaces/aap/plugins/scaffolder-backend-module-backstage-rhaap` | `@ansible/plugin-scaffolder-backend-module-backstage-rhaap`    | Custom scaffolder actions for AAP                               | Backend module  |
-| `workspaces/aap/plugins/auth-backend-module-rhaap-provider`        | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                        | Backend module  |
-| `workspaces/portal-core/plugins/portal-core`                       | `@ansible/portal-core`                                         | Native frontend host and configurable navigation                | Frontend plugin |
-| `workspaces/portal-core/plugins/portal-plugin-sdk`                 | `@ansible/portal-plugin-sdk`                                   | Reusable frontend components, context, and utilities            | Frontend SDK    |
+| Directory                                                               | Package Name                                                   | Role                                                            | Type            |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- | --------------- |
+| `workspaces/aap/plugins/backstage-rhaap-common`                         | `@ansible/backstage-rhaap-common`                              | Shared AAP client, types, interfaces, permissions               | Common library  |
+| `workspaces/aap/plugins/backstage-rhaap`                                | `@ansible/plugin-backstage-rhaap`                              | Ansible sidebar & frontend pages                                | Frontend plugin |
+| `workspaces/content-development/plugins/portal-scaffolder`                | `@ansible/portal-scaffolder`                                   | Self-service UI (templates, tasks, EEs, collections, git repos) | Frontend plugin |
+| `workspaces/aap/plugins/catalog-backend-module-rhaap`                   | `@ansible/backstage-plugin-catalog-backend-module-rhaap`       | Entity providers that sync AAP resources into catalog           | Backend module  |
+| `workspaces/aap/plugins/scaffolder-backend-module-aap`                  | `@ansible/plugin-scaffolder-backend-module-aap`                | AAP scaffolder actions, filters, and Controller autocomplete    | Backend module  |
+| `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module` | `@ansible/portal-scaffolder-backend-module`                    | Creator actions and catalog autocomplete                        | Backend module  |
+| `workspaces/aap/plugins/auth-backend-module-rhaap-provider`             | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider` | AAP OAuth authentication                                        | Backend module  |
+| `workspaces/portal-core/plugins/portal-core`                            | `@ansible/portal-core`                                         | Native frontend host and configurable navigation                | Frontend plugin |
+| `workspaces/portal-core/plugins/portal-plugin-sdk`                      | `@ansible/portal-plugin-sdk`                                   | Reusable frontend components, context, and utilities            | Frontend SDK    |
 
 ### Core Service Pattern
 
@@ -79,7 +80,8 @@ The `ansibleServiceRef` (in `backstage-rhaap-common/src/AAPService/`) is a Backs
 ```text
 backstage-rhaap-common (shared: AAPClient, types, permissions)
     ├── catalog-backend-module-rhaap (uses ansibleServiceRef)
-    ├── scaffolder-backend-module-backstage-rhaap (uses ansibleServiceRef)
+    ├── scaffolder-backend-module-aap (uses ansibleServiceRef)
+    └── portal-scaffolder-backend-module (creator and EE lifecycle actions)
     └── auth-backend-module-rhaap-provider (uses AAPClient directly)
 
 Frontend plugins (backstage-rhaap, self-service) communicate with backend
@@ -104,7 +106,10 @@ Providers use `fromConfig()` static factory methods and run on a scheduler.
 
 ### Scaffolder Actions
 
-Located in `scaffolder-backend-module-backstage-rhaap/src/actions/`. Each action is a separate file:
+AAP actions are located in `workspaces/aap/plugins/scaffolder-backend-module-aap/src/actions/`; creator and EE actions are located in `workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module/src/actions/`.
+
+- AAP actions: `aapCreateProject.ts`, `aapCreateJobTemplate.ts`, `aapLaunchJobTemplate.ts`, `aapCreateEEEnv.ts`, `aapCleanUp.ts`
+- Creator actions: `ansible.ts`, `ansibleContentCreate.ts`, `createEEDefinition.ts`, `prepareForPublish.ts`
 
 - `ansible.ts` — main scaffolder action
 - `aapCreateProject.ts`, `aapCreateJobTemplate.ts`, `aapLaunchJobTemplate.ts`, `aapCreateEEEnv.ts`, `aapCleanUp.ts` — AAP resource management

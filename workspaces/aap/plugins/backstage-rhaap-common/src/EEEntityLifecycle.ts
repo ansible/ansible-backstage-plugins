@@ -7,9 +7,14 @@ export type EELifecycleCleanupResult = {
   warning?: string;
 };
 
-export interface EEEntityLifecycleService {
+export interface EEEntityProviderService {
   getProviderName(): string;
   connect(connection: any): Promise<void>;
+  register(entity: any): Promise<void>;
+  unregister(name: string): Promise<void>;
+}
+
+export interface EEEntityLifecycleService {
   registerExecutionEnvironment(
     entity: Entity,
     credentials: BackstageCredentials,
@@ -21,8 +26,14 @@ export interface EEEntityLifecycleService {
   ): Promise<EELifecycleCleanupResult>;
 }
 
+export const eeEntityProviderServiceRef =
+  createServiceRef<EEEntityProviderService>({
+    id: 'ansible.ee-entity-provider',
+    scope: 'root',
+  });
+
 export const eeEntityLifecycleServiceRef =
   createServiceRef<EEEntityLifecycleService>({
     id: 'ansible.ee-entity-lifecycle',
-    scope: 'root',
+    scope: 'plugin',
   });

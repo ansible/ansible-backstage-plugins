@@ -1,8 +1,8 @@
 import { BackendDynamicPluginInstaller } from '@backstage/backend-dynamic-feature-service';
 
-import { scaffolderModulePortalScaffolder } from '../module';
+import featureLoader from '..';
 
 export const dynamicPluginInstaller: BackendDynamicPluginInstaller = {
   kind: 'new',
-  install: () => scaffolderModulePortalScaffolder,
+  install: () => featureLoader,
 };

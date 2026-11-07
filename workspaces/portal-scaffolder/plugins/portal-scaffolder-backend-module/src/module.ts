@@ -59,11 +59,18 @@ export const scaffolderModulePortalScaffolder = createBackendModule({
           );
           autocomplete.addAutocompleteProvider({
             id: 'portal-catalog',
-            handler: ({ context }: { context?: Record<string, string> }) =>
+            handler: ({
+              context,
+              resource,
+            }: {
+              context?: Record<string, string>;
+              resource: string;
+            }) =>
               handleCollectionsAutocompleteRequest({
                 auth,
                 discovery,
                 logger,
+                resource,
                 context,
               }),
           });

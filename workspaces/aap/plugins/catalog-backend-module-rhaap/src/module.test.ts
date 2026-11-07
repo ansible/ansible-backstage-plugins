@@ -2,10 +2,10 @@ import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { catalogModuleRhaap } from './module';
 import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
-import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { MOCK_CONFIG } from './mock';
 import { createRouter } from './router';
+import { eeEntityLifecycleServiceFactory } from './eeEntityLifecycleService';
 
 jest.mock('./router', () => ({
   createRouter: jest
@@ -15,14 +15,14 @@ jest.mock('./router', () => ({
 
 describe('catalogModuleRHAAPEntityProvider', () => {
   it('should register provider at the catalog extension point', async () => {
-    let addedProviders: Array<AAPEntityProvider> | undefined;
+    let addedProviders: Array<any> | undefined;
     let usedSchedule: SchedulerServiceTaskScheduleDefinition | undefined;
     const modelExtensionPoint = {
       setFieldValidators: (validators: any) => jest.fn(validators),
     };
     const extensionPoint = {
-      addEntityProvider: (providers: any) => {
-        addedProviders = providers;
+      addEntityProvider: (...providers: any[]) => {
+        addedProviders = providers.flat();
       },
     };
     const runner = jest.fn();
@@ -40,6 +40,7 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
+        eeEntityLifecycleServiceFactory,
         mockServices.rootConfig.factory(MOCK_CONFIG),
         scheduler.factory,
       ],
@@ -47,10 +48,14 @@ describe('catalogModuleRHAAPEntityProvider', () => {
 
     expect(usedSchedule?.frequency).toEqual({ months: 1 });
     expect(usedSchedule?.timeout).toEqual({ minutes: 3 });
-    expect(addedProviders?.length).toEqual(1);
-    expect(addedProviders?.pop()?.getProviderName()).toEqual(
-      'AapEntityProvider:development',
-    );
+    expect(
+      addedProviders?.some(p => p.getProviderName() === 'EEEntityProvider'),
+    ).toBe(true);
+    expect(
+      addedProviders
+        ?.find(p => p.getProviderName().startsWith('AapEntityProvider'))
+        ?.getProviderName(),
+    ).toEqual('AapEntityProvider:development');
     expect(runner).not.toHaveBeenCalled();
   });
 
@@ -91,6 +96,7 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
+        eeEntityLifecycleServiceFactory,
         mockServices.rootConfig.factory(configWithExternalAccess),
         scheduler.factory,
       ],
