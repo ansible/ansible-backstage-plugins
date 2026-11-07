@@ -161,20 +161,26 @@ export async function createRouter(
     res: RouteResponse,
     next: () => void,
   ): Promise<void> => {
-    const credentials = await httpAuth.credentials(
-      req as Parameters<HttpAuthService['credentials']>[0],
-    );
-    const [decision] = await permissions.authorize(
-      [{ permission: automationContentViewPermission }],
-      { credentials },
-    );
-    if (decision.result === AuthorizeResult.ALLOW) {
-      next();
-    } else {
-      res
-        .status(403)
-        .json({ error: 'Forbidden: ansible.content.view permission required' });
+    try {
+      const credentials = await httpAuth.credentials(
+        req as Parameters<HttpAuthService['credentials']>[0],
+      );
+      const [decision] = await permissions.authorize(
+        [{ permission: automationContentViewPermission }],
+        { credentials },
+      );
+      if (decision?.result === AuthorizeResult.ALLOW) {
+        next();
+        return;
+      }
+    } catch {
+      // Permission service failures fail closed without leaking details,
+      // mirroring requireContentSync.
+      logger.warn('Unable to authorize content view');
     }
+    res
+      .status(403)
+      .json({ error: 'Forbidden: ansible.content.view permission required' });
   };
 
   /**

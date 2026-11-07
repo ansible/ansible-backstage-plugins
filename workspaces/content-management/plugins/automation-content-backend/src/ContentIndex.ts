@@ -268,19 +268,25 @@ export class ContentIndex {
       }
       return a[sort] || undefined;
     };
+    // Compute each key once rather than per comparison: the timestamp key is a
+    // registry-state lookup, and a comparator that re-derives it makes sorting
+    // O(n log n) lookups out of O(n).
+    const keyed = artifacts.map(artifact => ({
+      artifact,
+      key: value(artifact),
+    }));
     // Missing timestamps and empty/absent registries sort last ascending, first
     // descending. Lexical ISO timestamp ordering; equal keys retain index order.
-    return artifacts.sort((a, b) => {
-      const left = value(a);
-      const right = value(b);
+    keyed.sort((left, right) => {
       let comparison = 0;
-      if (left !== right) {
-        if (left === undefined) comparison = 1;
-        else if (right === undefined) comparison = -1;
-        else comparison = left < right ? -1 : 1;
+      if (left.key !== right.key) {
+        if (left.key === undefined) comparison = 1;
+        else if (right.key === undefined) comparison = -1;
+        else comparison = left.key < right.key ? -1 : 1;
       }
       return order === 'desc' ? -comparison : comparison;
     });
+    return keyed.map(entry => entry.artifact);
   }
 
   getArtifact(ref: string): IndexedArtifact | undefined {
