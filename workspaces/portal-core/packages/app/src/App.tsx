@@ -44,10 +44,7 @@ import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
 // Local-testing mount for the content experience. In a dynamic (RHDH) deployment
 // the same page is mounted by `dynamicRoutes` config instead — see the plugin's
 // routes.ts.
-import {
-  AutomationContentEEPage,
-  AutomationContentCollectionsPage,
-} from '@ansible/plugin-automation-content';
+import { AutomationContentEEPage } from '@ansible/plugin-automation-content';
 // Side-effect import: triggers registerManifest() + registerApmeExtensions() in plugin.ts
 import '@ansible/plugin-backstage-apme';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
@@ -69,18 +66,6 @@ import { RbacPage } from '@backstage-community/plugin-rbac';
 function LegacyEEDetailsRedirect() {
   const { ref } = useParams();
   return <Navigate to={`/content/ee/${encodeURIComponent(ref!)}`} replace />;
-}
-
-function LegacyCollectionDetailsRedirect() {
-  const { namespace, name } = useParams();
-  return (
-    <Navigate
-      to={`/content/collections/${encodeURIComponent(
-        namespace!,
-      )}/${encodeURIComponent(name!)}`}
-      replace
-    />
-  );
 }
 
 const app = createApp({
@@ -169,10 +154,6 @@ const routes = (
     <Route path="/content" element={<Navigate to="/content/ee" replace />} />
     <Route path="/content/ee" element={<AutomationContentEEPage />} />
     <Route
-      path="/content/collections"
-      element={<AutomationContentCollectionsPage />}
-    />
-    <Route
       path="/automation-content"
       element={<Navigate to="/content/ee" replace />}
     />
@@ -180,18 +161,10 @@ const routes = (
       path="/automation-content/execution-environments"
       element={<Navigate to="/content/ee" replace />}
     />
-    <Route
-      path="/automation-content/collections"
-      element={<Navigate to="/content/collections" replace />}
-    />
     <Route path="/self-service" element={<SelfServicePage />} />
     <Route
       path="/automation-content/execution-environments/:ref"
       element={<LegacyEEDetailsRedirect />}
-    />
-    <Route
-      path="/automation-content/collections/:namespace/:name"
-      element={<LegacyCollectionDetailsRedirect />}
     />
   </FlatRoutes>
 );
