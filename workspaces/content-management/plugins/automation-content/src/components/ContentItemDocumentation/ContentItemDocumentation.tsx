@@ -1,13 +1,17 @@
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useApi } from '@backstage/core-plugin-api';
+import { useSearchParams } from 'react-router-dom';
 import {
   Button,
   Card,
   CardBody,
   CardHeader,
   Flex,
-  Grid,
   Skeleton,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
   Text,
 } from '@backstage/ui';
 import { automationContentApiRef, ContentApiError } from '../../api';
@@ -45,11 +49,27 @@ function ContentItemDocumentationContent({
   inArtifact?: string;
 }) {
   const api = useApi(automationContentApiRef);
+  const [params, setParams] = useSearchParams();
   const result = useAsyncRetry(
     () => api.getContentItem(fqcn, inArtifact),
     [api, fqcn, inArtifact],
   );
   const doc = result.loading ? undefined : result.value;
+  const noteLines = lines(doc?.notes);
+  const optionEntries = Object.entries(doc?.options ?? {});
+  const returnEntries = Object.entries(doc?.returns ?? {});
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    ...(noteLines.length ? [{ id: 'notes', label: 'Notes' }] : []),
+    ...(optionEntries.length ? [{ id: 'arguments', label: 'Arguments' }] : []),
+    ...(doc?.examples ? [{ id: 'examples', label: 'Examples' }] : []),
+    ...(returnEntries.length
+      ? [{ id: 'returns', label: 'Return values' }]
+      : []),
+  ];
+  const selectedTab =
+    tabs.find(tab => tab.id === params.get('tab'))?.id ?? 'overview';
+
   return (
     <Flex direction="column" gap="4">
       <PageHeaderSection title={fqcn} description={doc?.shortDescription} />
@@ -77,74 +97,95 @@ function ContentItemDocumentationContent({
         </div>
       )}
       {doc && (
-        <>
-          <Card>
-            <CardHeader>
-              <Text variant="title-medium" as="h2">
-                Description
-              </Text>
-            </CardHeader>
-            <CardBody>
-              <Flex direction="column" gap="3">
-                <Text>
-                  {doc.type} · {doc.collection} {doc.collectionVersion}
-                  {doc.versionAdded ? ` · Added ${doc.versionAdded}` : ''}
-                  {doc.deprecated ? ' · Deprecated' : ''}
-                </Text>
-                <Text>
-                  Inventory: {doc.enumeration.status} · {doc.enumeration.source}
-                  {doc.enumeration.ansibleCore
-                    ? ` · ansible-core ${doc.enumeration.ansibleCore}`
-                    : ''}
-                </Text>
-                {lines(doc.description).map((line, index) => (
-                  <Text as="p" key={index}>
-                    {line}
-                  </Text>
-                ))}
-                {lines(doc.author).length > 0 && (
-                  <Text>Authors: {lines(doc.author).join(', ')}</Text>
-                )}
-                {lines(doc.providedBy).length > 0 && (
-                  <Text className={styles.wrap}>
-                    Available in: {lines(doc.providedBy).join(', ')}
-                  </Text>
-                )}
-              </Flex>
-            </CardBody>
-          </Card>
-          {lines(doc.notes).length > 0 && (
+        <Tabs
+          selectedKey={selectedTab}
+          onSelectionChange={key => {
+            const next = new URLSearchParams(params);
+            next.set('tab', String(key));
+            setParams(next);
+          }}
+        >
+          <TabList aria-label={`${fqcn} documentation`}>
+            {tabs.map(tab => (
+              <Tab key={tab.id} id={tab.id}>
+                {tab.label}
+              </Tab>
+            ))}
+          </TabList>
+          <TabPanel id="overview">
             <Card>
               <CardHeader>
                 <Text variant="title-medium" as="h2">
-                  Notes
+                  Description
                 </Text>
               </CardHeader>
               <CardBody>
-                {lines(doc.notes).map((line, index) => (
-                  <Text as="p" key={index}>
-                    {line}
+                <Flex direction="column" gap="3">
+                  <Text>
+                    {doc.type} · {doc.collection} {doc.collectionVersion}
+                    {doc.versionAdded ? ` · Added ${doc.versionAdded}` : ''}
+                    {doc.deprecated ? ' · Deprecated' : ''}
                   </Text>
-                ))}
+                  <Text>
+                    Inventory: {doc.enumeration.status} ·{' '}
+                    {doc.enumeration.source}
+                    {doc.enumeration.ansibleCore
+                      ? ` · ansible-core ${doc.enumeration.ansibleCore}`
+                      : ''}
+                  </Text>
+                  {lines(doc.description).map((line, index) => (
+                    <Text as="p" key={index}>
+                      {line}
+                    </Text>
+                  ))}
+                  {lines(doc.author).length > 0 && (
+                    <Text>Authors: {lines(doc.author).join(', ')}</Text>
+                  )}
+                  {lines(doc.providedBy).length > 0 && (
+                    <Text className={styles.wrap}>
+                      Available in: {lines(doc.providedBy).join(', ')}
+                    </Text>
+                  )}
+                </Flex>
               </CardBody>
             </Card>
+          </TabPanel>
+          {noteLines.length > 0 && (
+            <TabPanel id="notes">
+              <Card>
+                <CardHeader>
+                  <Text variant="title-medium" as="h2">
+                    Notes
+                  </Text>
+                </CardHeader>
+                <CardBody>
+                  {noteLines.map((line, index) => (
+                    <Text as="p" key={index}>
+                      {line}
+                    </Text>
+                  ))}
+                </CardBody>
+              </Card>
+            </TabPanel>
           )}
-          {Object.keys(doc.options ?? {}).length > 0 && (
-            <Card>
-              <CardHeader>
-                <Text variant="title-medium" as="h2">
-                  Arguments
-                </Text>
-              </CardHeader>
-              <CardBody>
-                {Object.entries(doc.options ?? {}).map(([name, spec]) => (
-                  <OptionTree key={name} name={name} spec={spec} />
-                ))}
-              </CardBody>
-            </Card>
+          {optionEntries.length > 0 && (
+            <TabPanel id="arguments">
+              <Card>
+                <CardHeader>
+                  <Text variant="title-medium" as="h2">
+                    Arguments
+                  </Text>
+                </CardHeader>
+                <CardBody>
+                  {optionEntries.map(([name, spec]) => (
+                    <OptionTree key={name} name={name} spec={spec} />
+                  ))}
+                </CardBody>
+              </Card>
+            </TabPanel>
           )}
-          <Grid.Root columns={{ initial: '1', lg: '2' }} gap="4">
-            {doc.examples && (
+          {doc.examples && (
+            <TabPanel id="examples">
               <Card>
                 <CardHeader>
                   <Text variant="title-medium" as="h2">
@@ -155,8 +196,10 @@ function ContentItemDocumentationContent({
                   <pre className={styles.code}>{doc.examples}</pre>
                 </CardBody>
               </Card>
-            )}
-            {Object.keys(doc.returns ?? {}).length > 0 && (
+            </TabPanel>
+          )}
+          {returnEntries.length > 0 && (
+            <TabPanel id="returns">
               <Card>
                 <CardHeader>
                   <Text variant="title-medium" as="h2">
@@ -169,9 +212,9 @@ function ContentItemDocumentationContent({
                   </pre>
                 </CardBody>
               </Card>
-            )}
-          </Grid.Root>
-        </>
+            </TabPanel>
+          )}
+        </Tabs>
       )}
     </Flex>
   );

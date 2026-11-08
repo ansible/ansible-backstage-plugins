@@ -1,5 +1,6 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
+import { MemoryRouter } from 'react-router-dom';
 import {
   AutomationContentClient,
   automationContentApiRef,
@@ -29,22 +30,41 @@ const doc: ContentItem = {
   returns: { changed: { type: 'bool' } },
 };
 
-it('renders notes, all option descriptions, nested fields, examples and returns scoped to the artifact', async () => {
+it('renders documentation sections in tabs and restores a deep-linked tab', async () => {
   const getContentItem = jest.fn().mockResolvedValue(doc);
   render(
-    <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
-      <ContentItemDocumentation
-        fqcn={doc.fqcn}
-        inArtifact="r/repo@sha256:one"
-      />
-    </TestApiProvider>,
+    <MemoryRouter
+      initialEntries={[`/content/ee?item=${doc.fqcn}&tab=arguments`]}
+    >
+      <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
+        <ContentItemDocumentation
+          fqcn={doc.fqcn}
+          inArtifact="r/repo@sha256:one"
+        />
+      </TestApiProvider>
+    </MemoryRouter>,
   );
-  expect(await screen.findByText('Manage mounts')).toBeTruthy();
-  expect(screen.getByText('Requires privileges')).toBeTruthy();
-  expect(screen.getByText('Must be absolute')).toBeTruthy();
+  expect(await screen.findByText('Must be absolute')).toBeTruthy();
+  expect(
+    screen
+      .getByRole('tab', { name: 'Arguments' })
+      .getAttribute('aria-selected'),
+  ).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Suboptions for path' }));
   expect(screen.getByText('nested')).toBeTruthy();
   expect(screen.getByText('Default: false')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Notes' }));
+  expect(screen.getByText('Requires privileges')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Overview' }));
+  expect(screen.getByText('Manage mounts')).toBeTruthy();
+  expect(screen.getByText(/Available in:/)).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Examples' }));
   expect(screen.getByRole('heading', { name: 'Examples' })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Return values' }));
   expect(screen.getByRole('heading', { name: 'Return values' })).toBeTruthy();
   expect(getContentItem).toHaveBeenCalledWith(doc.fqcn, 'r/repo@sha256:one');
 });
@@ -67,23 +87,27 @@ it('hides previous documentation while loading a different item and artifact', a
     .mockResolvedValueOnce(doc)
     .mockReturnValueOnce(nextRequest);
   const { rerender } = render(
-    <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
-      <ContentItemDocumentation
-        fqcn={doc.fqcn}
-        inArtifact="r/repo@sha256:one"
-      />
-    </TestApiProvider>,
+    <MemoryRouter>
+      <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
+        <ContentItemDocumentation
+          fqcn={doc.fqcn}
+          inArtifact="r/repo@sha256:one"
+        />
+      </TestApiProvider>
+    </MemoryRouter>,
   );
 
   expect(await screen.findByText('Manage mounts')).toBeTruthy();
 
   rerender(
-    <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
-      <ContentItemDocumentation
-        fqcn={nextDoc.fqcn}
-        inArtifact="r/repo@sha256:two"
-      />
-    </TestApiProvider>,
+    <MemoryRouter>
+      <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
+        <ContentItemDocumentation
+          fqcn={nextDoc.fqcn}
+          inArtifact="r/repo@sha256:two"
+        />
+      </TestApiProvider>
+    </MemoryRouter>,
   );
 
   expect(screen.getByText('Loading documentation…')).toBeTruthy();
@@ -125,9 +149,11 @@ it.each([undefined, 'r/repo@sha256:two'])(
       .fn()
       .mockResolvedValue({ ...doc, in: provider });
     render(
-      <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
-        <ContentItemDocumentation fqcn={doc.fqcn} />
-      </TestApiProvider>,
+      <MemoryRouter>
+        <TestApiProvider apis={[[automationContentApiRef, { getContentItem }]]}>
+          <ContentItemDocumentation fqcn={doc.fqcn} />
+        </TestApiProvider>
+      </MemoryRouter>,
     );
     await screen.findByText('Manage mounts');
     expect(screen.queryByText(/Documentation from/)?.textContent).toBe(
