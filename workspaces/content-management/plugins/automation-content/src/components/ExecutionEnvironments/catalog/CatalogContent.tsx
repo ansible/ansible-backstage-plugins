@@ -465,7 +465,7 @@ export function EEListPage({
             ?.toString()
             .toLowerCase()
             .trim() === 'true';
-        const openSource = (view: boolean) => {
+        const sourceUrlFor = (view: boolean) => {
           const annotations = entity.metadata.annotations ?? {};
           const editUrl = annotations[ANNOTATION_EDIT_URL];
           const sourceLocation = annotations['backstage.io/source-location'];
@@ -480,9 +480,10 @@ export function EEListPage({
             rawUrl ?? '',
             entity.metadata.name ?? '',
           );
-          const safeUrl = cleanHttpUrl(urlToOpen);
-          if (safeUrl) window.open(safeUrl, '_blank', 'noopener,noreferrer');
+          return cleanHttpUrl(urlToOpen);
         };
+        const safeEditUrl = sourceUrlFor(false);
+        const safeViewUrl = sourceUrlFor(true);
         return (
           <Cell>
             <Flex gap="2">
@@ -563,12 +564,32 @@ export function EEListPage({
                           Build
                         </MenuItem>
                       )}
-                      <MenuItem onAction={() => openSource(false)}>
-                        Edit definition
-                      </MenuItem>
-                      <MenuItem onAction={() => openSource(true)}>
-                        View in source
-                      </MenuItem>
+                      {safeEditUrl && (
+                        <MenuItem
+                          onAction={() =>
+                            window.open(
+                              safeEditUrl,
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
+                          }
+                        >
+                          Edit definition
+                        </MenuItem>
+                      )}
+                      {safeViewUrl && (
+                        <MenuItem
+                          onAction={() =>
+                            window.open(
+                              safeViewUrl,
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
+                          }
+                        >
+                          View in source
+                        </MenuItem>
+                      )}
                       <MenuItem
                         color="danger"
                         onAction={() => setEntityToUnregister(entity)}

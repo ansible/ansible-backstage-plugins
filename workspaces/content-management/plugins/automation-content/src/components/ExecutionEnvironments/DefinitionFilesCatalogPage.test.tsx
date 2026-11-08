@@ -312,9 +312,9 @@ it('gates row actions by annotations and buildability', async () => {
   );
   expect(screen.queryByRole('menuitem', { name: 'Build' })).toBeNull();
   expect(
-    screen.getByRole('menuitem', { name: 'Edit definition' }),
-  ).toBeTruthy();
-  expect(screen.getByRole('menuitem', { name: 'View in source' })).toBeTruthy();
+    screen.queryByRole('menuitem', { name: 'Edit definition' }),
+  ).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: 'View in source' })).toBeNull();
   expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeTruthy();
 });
 
@@ -461,33 +461,51 @@ it.each([
   },
 );
 
-it.each(['Edit definition', 'View in source'])(
-  'rejects credential-bearing catalog URLs for %s',
-  async action => {
-    const open = jest.spyOn(window, 'open').mockImplementation(() => null);
-    try {
-      const unsafe: Entity = {
-        ...definition,
-        metadata: {
-          ...definition.metadata,
-          annotations: {
-            'backstage.io/edit-url':
-              'https://user:secret@example.com/catalog-info.yaml',
-            'backstage.io/view-url': 'https://user:secret@example.com/repo',
-          },
-        },
-      };
-      renderPage(async () => ({ items: [unsafe] }));
-      await userEvent.click(
-        await screen.findByRole('button', { name: 'Actions for web-ee' }),
-      );
-      await userEvent.click(screen.getByRole('menuitem', { name: action }));
-      expect(open).not.toHaveBeenCalled();
-    } finally {
-      open.mockRestore();
-    }
-  },
-);
+it.each([
+  ['missing', undefined],
+  ['credential-bearing', 'https://user:secret@example.com/catalog-info.yaml'],
+  ['non-HTTP', 'ftp://example.com/catalog-info.yaml'],
+])('hides source actions for %s catalog URLs', async (_description, url) => {
+  const unsafe: Entity = {
+    ...definition,
+    metadata: {
+      ...definition.metadata,
+      annotations: {
+        ...(url
+          ? { 'backstage.io/edit-url': url, 'backstage.io/view-url': url }
+          : {}),
+      },
+    },
+  };
+  renderPage(async () => ({ items: [unsafe] }));
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Actions for web-ee' }),
+  );
+  expect(
+    screen.queryByRole('menuitem', { name: 'Edit definition' }),
+  ).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: 'View in source' })).toBeNull();
+});
+
+it('shows both source actions for a safe catalog URL', async () => {
+  const safe: Entity = {
+    ...definition,
+    metadata: {
+      ...definition.metadata,
+      annotations: {
+        'backstage.io/edit-url': 'https://example.com/catalog-info.yaml',
+      },
+    },
+  };
+  renderPage(async () => ({ items: [safe] }));
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Actions for web-ee' }),
+  );
+  expect(
+    screen.getByRole('menuitem', { name: 'Edit definition' }),
+  ).toBeTruthy();
+  expect(screen.getByRole('menuitem', { name: 'View in source' })).toBeTruthy();
+});
 
 it('debounces search and retains the focused search node during reload', async () => {
   let resolveReload: (value: { items: Entity[] }) => void = () => {};

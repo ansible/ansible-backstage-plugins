@@ -704,14 +704,16 @@ describe('strict latest-only artifact sync', () => {
     expect(await index.getArtifact(original.ref)).toBeUndefined();
   });
 
-  it('never falls back to the clicked digest when latest is absent', async () => {
+  it('preserves reconcile state and never falls back to the clicked digest when latest is absent', async () => {
     const { index, registry, original, repositories } = await fixture(['v1']);
     const before = await index.listArtifacts();
+    const reconcileBefore = index.reconcileStateOf(original);
     await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
       code: 'LATEST_TAG_NOT_FOUND',
     });
     // DB reads return fresh objects; compare the persisted snapshot.
     expect(await index.listArtifacts()).toEqual(before);
+    expect(index.reconcileStateOf(original)).toBe(reconcileBefore);
     expect(registry.requests.map(r => r.path)).toEqual([
       '/v2/ansible/ee/manifests/latest',
     ]);

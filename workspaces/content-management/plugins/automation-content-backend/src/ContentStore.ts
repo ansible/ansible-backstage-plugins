@@ -504,9 +504,9 @@ export class ContentStore {
         lastReconciledAt: at,
       };
     } catch (error) {
+      if (error instanceof ArtifactSyncNotFoundError) throw error;
       const at = new Date().toISOString();
       this.artifactReconcile.set(ref, { at, ok: false, artifacts: 1 });
-      if (error instanceof ArtifactSyncNotFoundError) throw error;
       this.logger.warn(
         `[${original.registry}] artifact sync failed: ${logSafeText(
           this.redactor.redactErrorText(error),
