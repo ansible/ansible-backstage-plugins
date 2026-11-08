@@ -1554,7 +1554,7 @@ describe('signing presentation', () => {
     );
   }
 
-  it('shows Signed with the evidence behind a disclosure', async () => {
+  it('shows Signed with quiet inline evidence', async () => {
     renderWithSigning({
       state: 'signed',
       evidence: ['cosign signature referrer found'],
@@ -1563,6 +1563,7 @@ describe('signing presentation', () => {
     expect(
       await screen.findByText('Cosign signature referrer found'),
     ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Evidence' })).toBeNull();
   });
 
   it('shows Not signed and Not determined as distinct states', async () => {
@@ -1571,6 +1572,8 @@ describe('signing presentation', () => {
       evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
     });
     expect(await screen.findByText('Not signed')).toBeTruthy();
+    expect(screen.getByText('No cosign signature referrer')).toBeTruthy();
+    expect(screen.getByText('No digest-derived .sig tag')).toBeTruthy();
   });
 
   it('shows Not determined when a scheme could not be checked', async () => {
@@ -1579,6 +1582,9 @@ describe('signing presentation', () => {
       evidence: ['a signature scheme could not be checked'],
     });
     expect(await screen.findByText('Not determined')).toBeTruthy();
+    expect(
+      screen.getByText('A signature scheme could not be checked'),
+    ).toBeTruthy();
   });
 
   it('shows Unknown when no signing data is available', async () => {
@@ -1588,5 +1594,6 @@ describe('signing presentation', () => {
     const signingLabel = screen.getByText('Signing', { exact: true });
     const value = signingLabel.parentElement?.nextElementSibling;
     expect(value?.textContent).toContain('Unknown');
+    expect(screen.queryByRole('button', { name: 'Evidence' })).toBeNull();
   });
 });

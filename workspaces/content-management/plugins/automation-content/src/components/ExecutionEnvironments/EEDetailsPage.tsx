@@ -16,9 +16,6 @@ import {
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import {
-  Accordion,
-  AccordionPanel,
-  AccordionTrigger,
   Badge,
   Button,
   ButtonIcon,
@@ -29,8 +26,6 @@ import {
   Container,
   Flex,
   Link,
-  List,
-  ListRow,
   Menu,
   MenuItem,
   MenuTrigger,
@@ -716,21 +711,15 @@ function EEDetailsContent(): ReactElement {
                           >
                             {signingLabel(value.signing.state)}
                           </StatusBadge>
-                          {/* The badge opens the evidence; it never asserts a
-                              conclusion about who signed or whether the
-                              signature verifies. */}
-                          <Accordion defaultExpanded={false}>
-                            <AccordionTrigger title="Evidence" />
-                            <AccordionPanel>
-                              <List aria-label="Signing evidence">
-                                {value.signing.evidence.map(item => (
-                                  <ListRow key={item}>
-                                    {signingEvidenceLabel(item)}
-                                  </ListRow>
-                                ))}
-                              </List>
-                            </AccordionPanel>
-                          </Accordion>
+                          {value.signing.evidence.map(item => (
+                            <Text
+                              key={item}
+                              variant="body-small"
+                              color="secondary"
+                            >
+                              {signingEvidenceLabel(item)}
+                            </Text>
+                          ))}
                         </Flex>
                       ) : (
                         <Text color="secondary">Unknown</Text>
