@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -27,6 +28,7 @@ import {
 } from './controllerDialogIntent';
 
 const mockShowNotification = jest.fn();
+expect.extend(toHaveNoViolations);
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
@@ -123,7 +125,7 @@ function renderSyncDetails(
     AutomationContentApi,
     'getExecutionEnvironment' | 'getContents' | 'syncArtifact'
   >;
-  render(
+  const { container } = render(
     <TestApiProvider
       apis={[
         [automationContentApiRef, api],
@@ -144,7 +146,7 @@ function renderSyncDetails(
       </MemoryRouter>
     </TestApiProvider>,
   );
-  return { getContents, getExecutionEnvironment, syncArtifact };
+  return { container, getContents, getExecutionEnvironment, syncArtifact };
 }
 
 function CurrentLocation() {
@@ -235,6 +237,24 @@ it('shows the verification warning in the details overview', async () => {
       name: 'Last verified over 6 months ago',
     }),
   ).toBeTruthy();
+});
+
+it('has no accessibility violations in loaded image details and collections', async () => {
+  const { container } = renderSyncDetails(
+    syncedContents,
+    syncedContents,
+    async () => ({
+      status: 'completed',
+      ref: image.ref,
+      tag: 'latest',
+      retainedPrevious: false,
+    }),
+  );
+  await screen.findByText('ansible.posix');
+  expect(await axe(container)).toHaveNoViolations();
+  await userEvent.click(screen.getByRole('tab', { name: 'Overview' }));
+  await screen.findByText(image.pullReference);
+  expect(await axe(container)).toHaveNoViolations();
 });
 
 it.each([

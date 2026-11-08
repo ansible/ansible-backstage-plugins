@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import {
   act,
   fireEvent,
@@ -31,6 +32,7 @@ import { ImagesCatalogPage } from './ImagesCatalogPage';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 
 const mockShowNotification = jest.fn();
+expect.extend(toHaveNoViolations);
 
 jest.mock('@backstage/plugin-permission-react', () => ({
   ...jest.requireActual('@backstage/plugin-permission-react'),
@@ -180,6 +182,28 @@ function createLiveApi(image?: ExecutionEnvironment): {
   };
   return { api, syncArtifact, syncRegistry, syncAll };
 }
+
+it('has no accessibility violations in the loaded image catalog', async () => {
+  const { api } = createLiveApi(base);
+  const { container } = render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [
+          catalogApiRef,
+          { getEntities: async () => ({ items: [linkedEntity] }) },
+        ],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  await screen.findByRole('link', { name: 'repo' });
+  expect(await axe(container)).toHaveNoViolations();
+});
 
 it('does not describe a failed inventory request as empty', async () => {
   render(

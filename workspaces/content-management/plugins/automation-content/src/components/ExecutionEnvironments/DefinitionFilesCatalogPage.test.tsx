@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -26,6 +27,14 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { MemoryRouter } from 'react-router-dom';
 import styles from './details.module.css';
 import { DefinitionFilesCatalogPage } from './DefinitionFilesCatalogPage';
+
+expect.extend(toHaveNoViolations);
+
+it('has no accessibility violations in the loaded definition catalog', async () => {
+  const { container } = renderPage();
+  await screen.findByRole('link', { name: 'web-ee' });
+  expect(await axe(container)).toHaveNoViolations();
+});
 
 jest.mock('@backstage/core-plugin-api', () => ({
   ...jest.requireActual('@backstage/core-plugin-api'),

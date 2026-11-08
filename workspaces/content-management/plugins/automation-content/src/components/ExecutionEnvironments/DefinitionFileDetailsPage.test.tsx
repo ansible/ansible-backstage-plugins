@@ -1,4 +1,5 @@
 import type { Entity } from '@backstage/catalog-model';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import type { ReactElement, ReactNode } from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -15,6 +16,15 @@ import {
 import { DefinitionFileDetailsPage } from './DefinitionFileDetailsPage';
 import { EERoutesPage } from './EERoutesPage';
 import { notificationStore } from '@ansible/portal-plugin-sdk';
+
+expect.extend(toHaveNoViolations);
+
+it('has no accessibility violations in loaded definition details', async () => {
+  const { container } = renderDetails(definitionEntity());
+  await screen.findByRole('heading', { name: 'team-ee', level: 1 });
+  await screen.findByText('localhost:8445/demo/utopia-ee:latest');
+  expect(await axe(container)).toHaveNoViolations();
+});
 
 jest.mock('@ansible/portal-extension-host/alpha', () => ({
   useNativeEntityPage: jest.fn(() => undefined),
@@ -117,7 +127,7 @@ function renderDetails(
 ) {
   const getEntityByRef = jest.fn().mockResolvedValue(entity);
   const fetch = jest.fn(fetchImplementation);
-  render(
+  const { container } = render(
     <TestApiProvider
       apis={[
         [catalogApiRef, { getEntityByRef }],
@@ -141,7 +151,7 @@ function renderDetails(
       </MemoryRouter>
     </TestApiProvider>,
   );
-  return { getEntityByRef, fetch };
+  return { container, getEntityByRef, fetch };
 }
 
 it('fetches the namespaced Component and renders its inline content through the local details route', async () => {

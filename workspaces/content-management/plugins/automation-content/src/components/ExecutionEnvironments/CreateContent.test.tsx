@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider, mockApis } from '@backstage/test-utils';
 import type { Entity } from '@backstage/catalog-model';
@@ -7,6 +8,14 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { CreateContent } from './CreateContent';
 import { errorApiRef, identityApiRef } from '@backstage/core-plugin-api';
+
+expect.extend(toHaveNoViolations);
+
+it('has no accessibility violations in the loaded creation page', async () => {
+  const { container } = renderCreate();
+  await screen.findByRole('link', { name: 'Minimal execution environment' });
+  expect(await axe(container)).toHaveNoViolations();
+});
 
 jest.mock('@backstage/plugin-catalog-react', () => ({
   ...jest.requireActual('@backstage/plugin-catalog-react'),

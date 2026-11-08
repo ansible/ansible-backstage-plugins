@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -7,6 +8,22 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { automationContentApiRef } from '../../api';
 import { UseInControllerDialog } from './UseInControllerDialog';
+
+expect.extend(toHaveNoViolations);
+
+it('has no accessibility violations in the loaded Controller dialog', async () => {
+  renderDialog();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: /organization/i }).textContent,
+    ).toContain('Default'),
+  );
+  // The dialog is portaled outside the render container.
+  expect(await axe(document.body)).toHaveNoViolations();
+  await userEvent.click(screen.getByRole('button', { name: /organization/i }));
+  await screen.findByRole('option', { name: 'Network' });
+  expect(await axe(document.body)).toHaveNoViolations();
+});
 
 beforeAll(() => {
   // React Aria escapes the CSP nonce meta selector; jsdom lacks CSS.escape.
