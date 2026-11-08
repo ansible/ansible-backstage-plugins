@@ -24,6 +24,11 @@ import {
   type AutomationContentApi,
   type ExecutionEnvironment,
 } from '../../api';
+import {
+  clearControllerIntent,
+  peekControllerIntent,
+  CONTROLLER_INTENT_PARAM,
+} from './controllerDialogIntent';
 import { ImagesCatalogPage } from './ImagesCatalogPage';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 
@@ -60,6 +65,9 @@ beforeEach(() => {
   mockIsStarredEntity.mockReset().mockReturnValue(false);
   mockToggleStarredEntity.mockReset();
   entityStarred = false;
+  // The controller-dialog intent lives in the real window URL, which jsdom
+  // shares across tests; never let one test's intent leak into the next.
+  window.history.replaceState(null, '', window.location.pathname);
 });
 
 beforeAll(() => {
@@ -636,6 +644,38 @@ it.each([
     });
   },
 );
+
+it('restores the controller dialog after the login redirect', async () => {
+  const { api } = createLiveApi(base);
+  // The OAuth redirect returns with the intent parked in the URL by the
+  // menu handler that could not open the dialog before authentication.
+  window.history.replaceState(
+    null,
+    '',
+    `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(base.ref)}`,
+  );
+  render(
+    <TestApiProvider
+      apis={[
+        [automationContentApiRef, api],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [scaffolderApiRef, { scaffold: jest.fn() }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  // The dialog reopens on exactly the parked image, without a second click.
+  expect(await screen.findByRole('dialog')).toBeTruthy();
+  expect(
+    screen.getByRole('textbox', { name: 'Execution environment name' }),
+  ).toHaveProperty('value', 'repo');
+  // The intent is consumed, so a reload cannot reopen it again.
+  expect(peekControllerIntent()).toBeNull();
+});
 
 it('allows sync with the content permission without a matching catalog entity', async () => {
   const syncArtifact = jest.fn().mockResolvedValue({

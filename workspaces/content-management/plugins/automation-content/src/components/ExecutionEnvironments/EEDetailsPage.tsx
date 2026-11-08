@@ -69,6 +69,12 @@ import {
 import styles from './details.module.css';
 import { UseInControllerDialog } from './UseInControllerDialog';
 import { VerificationWarning } from './VerificationWarning';
+import {
+  clearControllerIntent,
+  peekControllerIntent,
+  setControllerIntent,
+  takeControllerIntent,
+} from './controllerDialogIntent';
 
 type IncludedCollection = ArtifactContents['collections'][number];
 interface CollectionRow extends IncludedCollection {
@@ -237,6 +243,31 @@ function EEDetailsContent(): ReactElement {
   const [copyStatus, setCopyStatus] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [controllerOpen, setControllerOpen] = useState(false);
+  // A Use in Controller click interrupted by the OAuth redirect parks itself
+  // in the URL; on return, re-establish the session and reopen the dialog.
+  // The artifact ref is already this page's path, so the parked value only
+  // marks the intent. It is consumed once the session resolves, so a further
+  // redirect can still find it.
+  useEffect(() => {
+    const intent = peekControllerIntent();
+    if (!intent) return undefined;
+    let cancelled = false;
+    aapAuth
+      .getAccessToken()
+      .then(() => {
+        if (cancelled) return;
+        takeControllerIntent();
+        setControllerOpen(true);
+      })
+      .catch(() => {
+        if (!cancelled) clearControllerIntent();
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Mount-only: the restore runs once, before any user interaction.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Tag switches and latest-change navigation stay on the current tab. The
   // item param is dropped: it names a content item of the previous digest's
   // inventory, which the new digest need not contain.
@@ -571,15 +602,21 @@ function EEDetailsContent(): ReactElement {
                     onAction={() => {
                       // Establish the AAP session before opening the dialog:
                       // the Backstage login prompt cannot stack above a BUI
-                      // modal, so it must appear with no dialog open. If the
-                      // user is sent through OAuth, the page redirects and
-                      // they retry this action with the token cached.
+                      // modal, so it must appear with no dialog open. The
+                      // intent parks in the URL first, so an OAuth redirect
+                      // restores the dialog on return; when the session
+                      // resolves in place there is nothing to restore.
+                      setControllerIntent(value.ref);
                       aapAuth
                         .getAccessToken()
-                        .then(() => setControllerOpen(true))
+                        .then(() => {
+                          clearControllerIntent();
+                          setControllerOpen(true);
+                        })
                         .catch(() => {
-                          // Login declined or failed; the prompt already said
-                          // why. Nothing to open.
+                          // Login declined or failed; the prompt already
+                          // said why. Nothing to open or restore.
+                          clearControllerIntent();
                         });
                     }}
                   >

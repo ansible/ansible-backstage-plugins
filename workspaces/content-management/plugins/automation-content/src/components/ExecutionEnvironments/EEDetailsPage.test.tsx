@@ -21,6 +21,11 @@ import {
 } from '../../api';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 import { EEDetailsPage } from './EEDetailsPage';
+import {
+  clearControllerIntent,
+  CONTROLLER_INTENT_PARAM,
+  peekControllerIntent,
+} from './controllerDialogIntent';
 
 const mockShowNotification = jest.fn();
 
@@ -33,6 +38,9 @@ const mockUsePermission = jest.mocked(usePermission);
 
 beforeEach(() => {
   mockUsePermission.mockReturnValue({ allowed: true, loading: false });
+  // The controller-dialog intent lives in the real window URL, which jsdom
+  // shares across tests; never let one test's intent leak into the next.
+  window.history.replaceState(null, '', window.location.pathname);
 });
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -1102,6 +1110,93 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
   }),
 }));
 beforeEach(() => mockShowNotification.mockClear());
+
+describe('controller dialog restore', () => {
+  it('reopens the dialog after the login redirect', async () => {
+    // The OAuth redirect returns with the intent parked in the URL; the
+    // artifact ref is already this page's path.
+    window.history.replaceState(
+      null,
+      '',
+      `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(image.ref)}`,
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+          [scaffolderApiRef, { scaffold: jest.fn() }],
+          [
+            automationContentApiRef,
+            {
+              getExecutionEnvironment: async () => image,
+              getContents: async () => ({
+                enumeration: image.enumeration,
+                collections: [],
+                items: [],
+              }),
+            },
+          ],
+        ]}
+      >
+        <MemoryRouter initialEntries={[`/${encodeURIComponent(image.ref)}`]}>
+          <Routes>
+            <Route path=":ref" element={<EEDetailsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'Execution environment name' }),
+    ).toHaveProperty('value', 'repo');
+    // The intent is consumed, so a reload cannot reopen it again.
+    expect(peekControllerIntent()).toBeNull();
+  });
+
+  it('drops the intent when the session cannot be established', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(image.ref)}`,
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [
+            rhAapAuthApiRef,
+            { getAccessToken: async () => Promise.reject(new Error('no')) },
+          ],
+          [scaffolderApiRef, { scaffold: jest.fn() }],
+          [
+            automationContentApiRef,
+            {
+              getExecutionEnvironment: async () => image,
+              getContents: async () => ({
+                enumeration: image.enumeration,
+                collections: [],
+                items: [],
+              }),
+            },
+          ],
+        ]}
+      >
+        <MemoryRouter initialEntries={[`/${encodeURIComponent(image.ref)}`]}>
+          <Routes>
+            <Route path=":ref" element={<EEDetailsPage />} />
+          </Routes>
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    // The page renders without a dialog, and the intent is dropped rather
+    // than retriggering authentication on every mount.
+    expect(await screen.findByText('External registry')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(peekControllerIntent()).toBeNull();
+    clearControllerIntent();
+  });
+});
 
 describe('tag selector', () => {
   const tagMap: RepositoryTagMap = {
