@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { TestApiProvider } from '@backstage/test-utils';
 import userEvent from '@testing-library/user-event';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
@@ -171,6 +172,7 @@ it('shows the verification warning in the details overview', async () => {
   render(
     <TestApiProvider
       apis={[
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           {

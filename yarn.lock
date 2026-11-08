@@ -456,6 +456,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-automation-content@workspace:workspaces/content-management/plugins/automation-content"
   dependencies:
+    "@ansible/aap-app-auth": "workspace:^"
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"

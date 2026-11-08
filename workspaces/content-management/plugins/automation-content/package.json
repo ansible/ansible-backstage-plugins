@@ -55,6 +55,7 @@
     "react-router-dom": "^6.30.5"
   },
   "devDependencies": {
+    "@ansible/aap-app-auth": "workspace:^",
     "@backstage/cli": "0.36.5",
     "@backstage/frontend-test-utils": "0.6.3",
     "@backstage/test-utils": "1.7.21",
