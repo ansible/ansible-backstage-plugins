@@ -12,6 +12,7 @@ import {
   type ArtifactContents,
   type AutomationContentApi,
 } from '../../api';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { EERoutesPage } from './EERoutesPage';
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -89,6 +90,7 @@ async function renderRoute(path: string): Promise<void> {
         [automationContentApiRef, createLiveApi()],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
         [permissionApiRef, mockApis.permission()],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
       ]}
     >
       <Routes>
