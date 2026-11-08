@@ -10,6 +10,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
+import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { Entity } from '@backstage/catalog-model';
@@ -1107,6 +1108,7 @@ it('renders responsive image cards and toggles between grid and table views', as
   const { container } = render(
     <TestApiProvider
       apis={[
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           { listExecutionEnvironments: async () => envelope([image]) },
@@ -1179,6 +1181,7 @@ it('filters by any selected collection and combines the filter with search', asy
   render(
     <TestApiProvider
       apis={[
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           { listExecutionEnvironments: async () => envelope(images) },
@@ -1237,6 +1240,7 @@ it('shows a six-month warning in the table and the grid card', async () => {
   render(
     <TestApiProvider
       apis={[
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           { listExecutionEnvironments: async () => envelope([image]) },
@@ -1265,6 +1269,7 @@ it('keeps card actions permission-gated', async () => {
   render(
     <TestApiProvider
       apis={[
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           {
