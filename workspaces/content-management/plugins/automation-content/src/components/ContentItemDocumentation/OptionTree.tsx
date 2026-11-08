@@ -1,4 +1,12 @@
-import { Badge, Box, Flex, Text } from '@backstage/ui';
+import {
+  Accordion,
+  AccordionPanel,
+  AccordionTrigger,
+  Badge,
+  Box,
+  Flex,
+  Text,
+} from '@backstage/ui';
 import type { OptionSpec } from '../../api';
 
 /**
@@ -56,17 +64,19 @@ export function OptionTree({
             </Text>
           ))}
         {spec.suboptions && depth < MAX_OPTION_DEPTH && (
-          <details open>
-            <summary>Suboptions for {name}</summary>
-            {Object.entries(spec.suboptions).map(([child, childSpec]) => (
-              <OptionTree
-                key={child}
-                name={child}
-                spec={childSpec}
-                depth={depth + 1}
-              />
-            ))}
-          </details>
+          <Accordion defaultExpanded={false}>
+            <AccordionTrigger title={`Suboptions for ${name}`} />
+            <AccordionPanel>
+              {Object.entries(spec.suboptions).map(([child, childSpec]) => (
+                <OptionTree
+                  key={child}
+                  name={child}
+                  spec={childSpec}
+                  depth={depth + 1}
+                />
+              ))}
+            </AccordionPanel>
+          </Accordion>
         )}
       </Flex>
     </Box>
