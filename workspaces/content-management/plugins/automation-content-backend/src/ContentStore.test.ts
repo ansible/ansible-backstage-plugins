@@ -1416,3 +1416,33 @@ describe('enumeration fail-soft behavior', () => {
     expect(await index.listArtifacts()).toHaveLength(1);
   });
 });
+
+describe('cosign attachment tags', () => {
+  it('ignores cosign attachments during indexing and drift detection', async () => {
+    const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const hex = 'a'.repeat(64);
+    image.digest = `sha256:${hex}`;
+    const repositories = {
+      'ansible/ee': [
+        image,
+        makeImage({ tag: `sha256-${hex}.att` }),
+        makeImage({ tag: `sha256-${hex}.sbom` }),
+      ],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].digest).toBe(image.digest);
+    expect(artifacts[0].signing?.state).not.toBe('signed');
+    expect((await index.detectDrift('mock')).changed).toBe(false);
+
+    repositories['ansible/ee'] = [image];
+    expect((await index.detectDrift('mock')).changed).toBe(false);
+    expect(registry.requests.map(r => r.path).join(' ')).not.toMatch(
+      /\.att|\.sbom/,
+    );
+  });
+});

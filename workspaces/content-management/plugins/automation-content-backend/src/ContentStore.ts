@@ -164,6 +164,7 @@ export class ArtifactSyncNotFoundError extends Error {
 
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
+const COSIGN_ATTACHMENT_TAG = /^sha256-[0-9a-f]{64}\.(?:att|sbom)$/;
 /** Cosign tag-based signatures: the tag name carries the signed image digest. */
 const SIGNATURE_TAG = /^sha256-([0-9a-f]{64})\.sig$/;
 /** Cosign OCI-referrer signatures declare this artifact type. */
@@ -813,7 +814,12 @@ export class ContentStore {
         const observed = new Map<string, string>();
         for await (const tag of client.listTags(repository)) {
           requests += 1;
-          if (SIGNATURE_TAG.test(tag) || REFERRER_TAG.test(tag)) continue;
+          if (
+            SIGNATURE_TAG.test(tag) ||
+            REFERRER_TAG.test(tag) ||
+            COSIGN_ATTACHMENT_TAG.test(tag)
+          )
+            continue;
           const head = await client.headManifest(repository, tag);
           requests += 1;
           if (head.digest) observed.set(tag, head.digest);
@@ -1088,7 +1094,7 @@ export class ContentStore {
         signedByTag.add(signature[1]);
         continue;
       }
-      if (REFERRER_TAG.test(tag)) continue;
+      if (REFERRER_TAG.test(tag) || COSIGN_ATTACHMENT_TAG.test(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
         throw new Error(
