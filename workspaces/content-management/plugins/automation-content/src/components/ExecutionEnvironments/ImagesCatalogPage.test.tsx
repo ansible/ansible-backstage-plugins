@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { TestApiProvider } from '@backstage/test-utils';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -83,6 +83,11 @@ const base: ExecutionEnvironment = {
   counts: { collections: 2, plugins: 3 },
   collections: [],
 };
+
+function CurrentPath() {
+  const location = useLocation();
+  return <output data-testid="current-path">{location.pathname}</output>;
+}
 
 const linkedEntity = {
   apiVersion: 'backstage.io/v1alpha1',
@@ -1083,3 +1088,206 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
   }),
 }));
 beforeEach(() => mockShowNotification.mockClear());
+
+it('renders responsive image cards and toggles between grid and table views', async () => {
+  const image: ExecutionEnvironment = {
+    ...base,
+    lastReconciledAt: new Date().toISOString(),
+    lastReconcileOk: true,
+    tags: ['latest', 'stable'],
+    collections: [
+      {
+        namespace: 'ansible',
+        name: 'posix',
+        version: '2.2.2',
+        fqcn: 'ansible.posix',
+      },
+    ],
+  };
+  const { container } = render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          { listExecutionEnvironments: async () => envelope([image]) },
+        ],
+        [
+          catalogApiRef,
+          { getEntities: async () => ({ items: [linkedEntity] }) },
+        ],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+        <CurrentPath />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await screen.findByRole('link', { name: 'repo' });
+  const gridButton = screen.getByRole('button', { name: 'Grid' });
+  await userEvent.click(gridButton);
+  expect(gridButton.getAttribute('aria-pressed')).toBe('true');
+  expect(
+    screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed'),
+  ).toBe('false');
+  const card = screen.getByRole('link', { name: 'View repo details' });
+  expect(card).toBeTruthy();
+  expect(screen.getByText('External registry')).toBeTruthy();
+  expect(screen.getByText('latest, stable')).toBeTruthy();
+  expect(
+    screen.getByText('Approximate: 2 collections / 3 plugins'),
+  ).toBeTruthy();
+  expect(container.querySelector('.imageGrid')).toBeTruthy();
+
+  fireEvent.click(card);
+  expect(screen.getByTestId('current-path').textContent).toBe(
+    '/content/ee/r%2Frepo%40sha256%3Aone',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Table' }));
+  expect(
+    await screen.findByRole('columnheader', { name: 'Status' }),
+  ).toBeTruthy();
+});
+
+it('filters by any selected collection and combines the filter with search', async () => {
+  const collection = (fqcn: string) => {
+    const [namespace, name] = fqcn.split('.');
+    return { namespace, name, version: '1.0.0', fqcn };
+  };
+  const images = [
+    {
+      ...base,
+      ref: 'r/repo-one@sha256:one',
+      repository: 'repo-one',
+      collections: [collection('ansible.posix'), collection('amazon.aws')],
+    },
+    {
+      ...base,
+      ref: 'r/repo-two@sha256:two',
+      repository: 'repo-two',
+      collections: [collection('community.general')],
+    },
+    {
+      ...base,
+      ref: 'r/repo-unknown@sha256:three',
+      repository: 'repo-unknown',
+      contentsKnown: false,
+      collections: [collection('ansible.posix')],
+    },
+  ];
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          { listExecutionEnvironments: async () => envelope(images) },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await screen.findByRole('link', { name: 'repo-one' });
+  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Contains collection' }),
+  );
+  await userEvent.click(
+    screen.getByRole('checkbox', { name: 'ansible.posix' }),
+  );
+  await userEvent.click(
+    screen.getByRole('checkbox', { name: 'community.general' }),
+  );
+
+  expect(
+    screen.getByRole('link', { name: 'View repo-one details' }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole('link', { name: 'View repo-two details' }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole('link', { name: 'View repo-unknown details' }),
+  ).toBeNull();
+
+  await userEvent.type(
+    screen.getByRole('searchbox', { name: 'Search images' }),
+    'community',
+  );
+  expect(
+    await screen.findByRole('link', { name: 'View repo-two details' }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole('link', { name: 'View repo-one details' }),
+  ).toBeNull();
+});
+
+it('shows a six-month warning in the table and the grid card', async () => {
+  const image = {
+    ...base,
+    lastReconciledAt: new Date(
+      Date.now() - 7 * 30 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+    lastReconcileOk: true,
+  };
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          { listExecutionEnvironments: async () => envelope([image]) },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  await screen.findByRole('link', { name: 'repo' });
+  expect(
+    screen.getByRole('note', { name: 'Last verified over 6 months ago' }),
+  ).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  expect(
+    screen.getByRole('note', { name: 'Last verified over 6 months ago' }),
+  ).toBeTruthy();
+});
+
+it('keeps card actions permission-gated', async () => {
+  mockUsePermission.mockReturnValue({ allowed: false, loading: false });
+  const syncArtifact = jest.fn();
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            listExecutionEnvironments: async () => envelope([base]),
+            syncArtifact,
+          },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  await screen.findByRole('link', { name: 'repo' });
+  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  expect(
+    screen.getByRole('menuitem', { name: 'Use in Controller' }),
+  ).toBeTruthy();
+  expect(screen.queryByRole('menuitem', { name: 'Sync' })).toBeNull();
+  expect(syncArtifact).not.toHaveBeenCalled();
+});
