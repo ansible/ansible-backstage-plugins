@@ -25,7 +25,6 @@ import {
   type ExecutionEnvironment,
 } from '../../api';
 import {
-  clearControllerIntent,
   peekControllerIntent,
   CONTROLLER_INTENT_PARAM,
 } from './controllerDialogIntent';
