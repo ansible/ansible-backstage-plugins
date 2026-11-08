@@ -169,6 +169,12 @@ const SIGNATURE_TAG = /^sha256-([0-9a-f]{64})\.sig$/;
 /** Cosign OCI-referrer signatures declare this artifact type. */
 const COSIGN_SIGNATURE_ARTIFACT_TYPE =
   'application/vnd.dev.cosign.simplesigning.v1+json';
+/**
+ * Sigstore bundles — cosign 3's default — share their artifact type with
+ * attestations, so a bundle referrer proves neither a signature nor its
+ * absence. Versioned (`…bundle.v0.1`, `v0.2`, `v0.3`), hence the prefix.
+ */
+const SIGSTORE_BUNDLE_PREFIX = 'application/vnd.dev.sigstore.bundle.';
 
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
@@ -1211,6 +1217,40 @@ export class ContentStore {
       };
     }
     evidence.push('no digest-derived .sig tag');
+    if (
+      referrers.some(descriptor =>
+        descriptor.artifactType?.startsWith(SIGSTORE_BUNDLE_PREFIX),
+      )
+    ) {
+      // A Sigstore bundle is cosign 3's signature format, but the same
+      // artifact type also carries attestations. Without reading the
+      // bundle's content neither a signature nor its absence can be
+      // claimed, so the honest state is undetermined.
+      return {
+        state: 'undetermined',
+        evidence: [
+          ...evidence,
+          'sigstore bundle referrer present; not identifiable as a signature',
+        ],
+      };
+    }
+    if (
+      referrers.some(descriptor =>
+        descriptor.artifactType?.startsWith(SIGSTORE_BUNDLE_PREFIX),
+      )
+    ) {
+      // A Sigstore bundle is cosign 3's signature format, but the same
+      // artifact type also carries attestations. Without reading the
+      // bundle's content neither a signature nor its absence can be
+      // claimed, so the honest state is undetermined.
+      return {
+        state: 'undetermined',
+        evidence: [
+          ...evidence,
+          'sigstore bundle referrer present; not identifiable as a signature',
+        ],
+      };
+    }
     if (referrersVia === 'none' || !signedByTag) {
       // One of the schemes could not be consulted; absence is not provable.
       return {

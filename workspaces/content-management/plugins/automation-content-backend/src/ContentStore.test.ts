@@ -1266,6 +1266,31 @@ describe('signature detection', () => {
     });
   });
 
+  it('reports undetermined for a sigstore bundle referrer', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    // Cosign 3 pushes Sigstore bundles; the artifact type is shared with
+    // attestations, so presence alone cannot claim a signature.
+    image.referrers = [
+      {
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        digest: `sha256:${'b'.repeat(64)}`,
+        size: 1042,
+        artifactType: 'application/vnd.dev.sigstore.bundle.v0.3+json',
+      },
+    ];
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toEqual({
+      state: 'undetermined',
+      evidence: [
+        'no cosign signature referrer',
+        'no digest-derived .sig tag',
+        'sigstore bundle referrer present; not identifiable as a signature',
+      ],
+    });
+  });
+
   it('reports undetermined when a scheme could not be consulted', async () => {
     const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
     const index = await indexOverRepositories(
