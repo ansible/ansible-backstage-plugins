@@ -16,7 +16,7 @@
   },
   "sideEffects": false,
   "dependencies": {
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "scripts": {
     "build": "backstage-cli package build",
