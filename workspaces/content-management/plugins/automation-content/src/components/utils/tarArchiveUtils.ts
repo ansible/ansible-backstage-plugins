@@ -26,14 +26,21 @@ const writeOctalField = (
   num: number,
   len: number,
 ) => {
-  const str = num.toString(8).padStart(len - 2, '0');
+  if (!Number.isSafeInteger(num) || num < 0) {
+    throw new Error('Tar octal field requires a non-negative safe integer');
+  }
+  const str = num.toString(8).padStart(len - 1, '0');
+  if (str.length > len - 1) {
+    throw new Error(
+      `Tar octal field overflow: ${num} exceeds ${len - 1} octal digits`,
+    );
+  }
   const encoder = new TextEncoder();
   const bytes = encoder.encode(str);
-  const writeLen = Math.min(bytes.length, len - 2);
+  const writeLen = bytes.length;
   for (let i = 0; i < writeLen; i++) {
     buf[offset + i] = bytes[i];
   }
-  buf[offset + writeLen] = 0x20; // space
   buf[offset + len - 1] = 0; // null
 };
 
