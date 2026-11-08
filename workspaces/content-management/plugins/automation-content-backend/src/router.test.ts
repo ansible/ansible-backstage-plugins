@@ -132,6 +132,9 @@ it('fails closed with fixed copy when the view permission service is unavailable
   const authorize = jest.fn().mockImplementation(async () => {
     throw new Error(sensitiveMarker);
   });
+  const index = seedDB([]);
+  const listArtifacts = jest.spyOn(index, 'listArtifacts');
+  const syncArtifact = jest.spyOn(index, 'syncArtifact');
   const response = await request(
     await appWith(seedDB([]), undefined, true, authorize),
   )
@@ -143,6 +146,31 @@ it('fails closed with fixed copy when the view permission service is unavailable
   expect(warn.mock.calls).toEqual([['Unable to authorize content view']]);
   expect(inspect(warn.mock.calls)).not.toContain(sensitiveMarker);
   expect(inspect(response.body)).not.toContain(sensitiveMarker);
+  expect(listArtifacts).not.toHaveBeenCalled();
+  expect(syncArtifact).not.toHaveBeenCalled();
+});
+
+it('fails closed before authorization or registry access when credentials fail', async () => {
+  const credentials = jest
+    .fn()
+    .mockRejectedValue(new Error('private identity error'));
+  const authorize = jest.fn();
+  const index = seedDB([]);
+  const listArtifacts = jest.spyOn(index, 'listArtifacts');
+  const syncArtifact = jest.spyOn(index, 'syncArtifact');
+  const app = await appWith(
+    index,
+    mockServices.httpAuth.mock({ credentials }),
+    true,
+    authorize,
+  );
+  const response = await request(app).get('/content').expect(403);
+  expect(response.body).toEqual({
+    error: 'Forbidden: ansible.content.view permission required',
+  });
+  expect(authorize).not.toHaveBeenCalled();
+  expect(listArtifacts).not.toHaveBeenCalled();
+  expect(syncArtifact).not.toHaveBeenCalled();
 });
 
 const DEFAULT_ARTIFACT: IndexedArtifact = {
