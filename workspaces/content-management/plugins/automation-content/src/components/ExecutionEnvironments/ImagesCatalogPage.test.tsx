@@ -15,7 +15,6 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import type { Entity } from '@backstage/catalog-model';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import {
   type ArtifactSyncResult,
   automationContentApiRef,

@@ -8,7 +8,6 @@ import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import {
   automationContentApiRef,
   type ArtifactSyncResult,
