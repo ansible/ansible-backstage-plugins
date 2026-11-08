@@ -65,6 +65,7 @@ import {
 import styles from './details.module.css';
 import { ContentItemDocumentation } from '../ContentItemDocumentation';
 import { UseInControllerDialog } from './UseInControllerDialog';
+import { VerificationWarning } from './VerificationWarning';
 
 type IncludedCollection = ArtifactContents['collections'][number];
 interface CollectionRow extends IncludedCollection {
@@ -554,7 +555,10 @@ function EEDetailsContent(): ReactElement {
                     </MetadataRow>
                     <MetadataRow label="Digest">{value.digest}</MetadataRow>
                     <MetadataRow label="Last synchronized">
-                      {relativeTime(value.lastReconciledAt)}
+                      <Flex align="center" gap="2" className={styles.wrapFlex}>
+                        <Text>{relativeTime(value.lastReconciledAt)}</Text>
+                        <VerificationWarning image={value} />
+                      </Flex>
                     </MetadataRow>
                     <MetadataRow label="Contents">
                       <Flex direction="column" gap="1">

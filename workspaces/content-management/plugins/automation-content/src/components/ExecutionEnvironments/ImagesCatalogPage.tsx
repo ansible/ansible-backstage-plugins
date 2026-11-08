@@ -13,9 +13,12 @@ import {
 import {
   Button,
   ButtonIcon,
+  Card,
+  CardBody,
   Cell,
   CellText,
   Checkbox,
+  CheckboxGroup,
   ColumnConfig,
   Container,
   Flex,
@@ -52,6 +55,9 @@ import {
   syncStateLabel,
 } from './catalogHelpers';
 import styles from './details.module.css';
+import catalogStyles from './ImagesCatalogPage.module.css';
+import { useNavigate } from 'react-router-dom';
+import { VerificationWarning } from './VerificationWarning';
 
 interface ImageRow extends ExecutionEnvironment {
   id: string;
@@ -87,12 +93,16 @@ export function ImagesCatalogPage({
   const api = useApi(automationContentApiRef);
   const { showNotification } = useNotifications();
   const catalog = useApi(catalogApiRef);
+  const navigate = useNavigate();
   const { allowed: canSync } = usePermission({
     permission: automationContentSyncPermission,
   });
   const base = useRouteRef(eeRouteRef)();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [starredOnly, setStarredOnly] = useState(false);
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [collectionFilterOpen, setCollectionFilterOpen] = useState(false);
+  const [view, setView] = useState<'table' | 'grid'>('table');
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -155,7 +165,24 @@ export function ImagesCatalogPage({
     return linked;
   }, [data, entities.value]);
 
-  const table = useTable<ImageRow>({
+  const collectionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (data ?? [])
+            .filter(image => image.contentsKnown)
+            .flatMap(image =>
+              image.collections.map(collection => collection.fqcn),
+            ),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [data],
+  );
+
+  const table = useTable<
+    ImageRow,
+    { starredOnly: boolean; collections: string[] }
+  >({
     mode: 'complete',
     sort,
     onSortChange: descriptor => {
@@ -163,14 +190,24 @@ export function ImagesCatalogPage({
       setSort(descriptor);
     },
     data,
-    filter: starredOnly,
-    filterFn: (rows, only) =>
-      only
-        ? rows.filter(row => {
-            const entity = entityByImageRef.get(row.ref);
-            return entity && isStarredEntity(entity);
-          })
-        : rows,
+    filter: { starredOnly, collections: selectedCollections },
+    filterFn: (rows, filters) =>
+      rows.filter(row => {
+        if (filters.starredOnly) {
+          const entity = entityByImageRef.get(row.ref);
+          if (!entity || !isStarredEntity(entity)) return false;
+        }
+        if (
+          filters.collections.length &&
+          (!row.contentsKnown ||
+            !row.collections.some(collection =>
+              filters.collections.includes(collection.fqcn),
+            ))
+        ) {
+          return false;
+        }
+        return true;
+      }),
     searchFn: (rows, query) =>
       rows.filter(row =>
         [
@@ -179,6 +216,7 @@ export function ImagesCatalogPage({
           row.digest,
           ...row.tags,
           row.classification?.type ?? '',
+          ...row.collections.map(collection => collection.fqcn),
         ]
           .join(' ')
           .toLowerCase()
@@ -187,6 +225,46 @@ export function ImagesCatalogPage({
     // Search and favorites filter the fetched page, not the whole inventory.
     paginationOptions: { type: 'none' },
   });
+
+  const visibleImages = useMemo(() => {
+    const query = table.search.value.trim().toLowerCase();
+    return (data ?? []).filter(row => {
+      if (
+        query &&
+        ![
+          row.repository,
+          row.registry,
+          row.digest,
+          ...row.tags,
+          row.classification?.type ?? '',
+          ...row.collections.map(collection => collection.fqcn),
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(query)
+      ) {
+        return false;
+      }
+      if (starredOnly) {
+        const entity = entityByImageRef.get(row.ref);
+        if (!entity || !isStarredEntity(entity)) return false;
+      }
+      return (
+        !selectedCollections.length ||
+        (row.contentsKnown &&
+          row.collections.some(collection =>
+            selectedCollections.includes(collection.fqcn),
+          ))
+      );
+    });
+  }, [
+    data,
+    entityByImageRef,
+    isStarredEntity,
+    selectedCollections,
+    starredOnly,
+    table.search.value,
+  ]);
 
   const syncArtifact = async (ref: string): Promise<void> => {
     if (!canSync || inFlightRefs.current.has(ref)) return;
@@ -290,7 +368,16 @@ export function ImagesCatalogPage({
       id: 'last-synced',
       label: 'Last synced',
       isSortable: true,
-      cell: row => <CellText title={relativeTime(row.lastReconciledAt)} />,
+      cell: row => (
+        <Cell>
+          <Flex align="center" gap="2" className={styles.wrapFlex}>
+            <Text title={relativeTime(row.lastReconciledAt)}>
+              {relativeTime(row.lastReconciledAt)}
+            </Text>
+            <VerificationWarning image={row} />
+          </Flex>
+        </Cell>
+      ),
     },
     {
       id: 'actions',
@@ -370,6 +457,17 @@ export function ImagesCatalogPage({
             <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
               Favorites only
             </Checkbox>
+            <Button
+              variant="tertiary"
+              aria-expanded={collectionFilterOpen}
+              aria-controls="image-collection-filter"
+              onPress={() => setCollectionFilterOpen(open => !open)}
+            >
+              Contains collection
+              {selectedCollections.length
+                ? ` (${selectedCollections.length})`
+                : ''}
+            </Button>
             <Checkbox
               isSelected={allTypes}
               onChange={value => {
@@ -379,7 +477,45 @@ export function ImagesCatalogPage({
             >
               Show all images
             </Checkbox>
+            <Flex gap="1" role="group" aria-label="Image view">
+              <Button
+                variant={view === 'table' ? 'secondary' : 'tertiary'}
+                aria-pressed={view === 'table'}
+                onPress={() => setView('table')}
+              >
+                Table
+              </Button>
+              <Button
+                variant={view === 'grid' ? 'secondary' : 'tertiary'}
+                aria-pressed={view === 'grid'}
+                onPress={() => setView('grid')}
+              >
+                Grid
+              </Button>
+            </Flex>
           </Flex>
+          {collectionFilterOpen && (
+            <CheckboxGroup
+              id="image-collection-filter"
+              className={catalogStyles.collectionFilter}
+              label="Contains collection"
+              orientation="horizontal"
+              value={selectedCollections}
+              onChange={setSelectedCollections}
+            >
+              {collectionOptions.length ? (
+                collectionOptions.map(collection => (
+                  <Checkbox key={collection} value={collection}>
+                    {collection}
+                  </Checkbox>
+                ))
+              ) : (
+                <Text color="secondary">
+                  No known collections on this page.
+                </Text>
+              )}
+            </CheckboxGroup>
+          )}
         </Flex>
         <Text as="h2" variant="title-medium">
           Execution environment images
@@ -395,7 +531,7 @@ export function ImagesCatalogPage({
           <Text>Catalog links are unavailable. Favorites may be missing.</Text>
         )}
         <div aria-busy={images.loading} className={styles.table}>
-          {!images.error && (
+          {!images.error && view === 'table' && (
             <Table
               {...table.tableProps}
               pagination={{
@@ -437,6 +573,7 @@ export function ImagesCatalogPage({
                         onPress={() => {
                           table.search.onChange('');
                           setStarredOnly(false);
+                          setSelectedCollections([]);
                         }}
                       >
                         Clear search and filters
@@ -446,6 +583,248 @@ export function ImagesCatalogPage({
                 />
               }
             />
+          )}
+          {!images.error && view === 'grid' && (
+            <>
+              {visibleImages.length ? (
+                <div className={catalogStyles.imageGrid}>
+                  {visibleImages.map(image => {
+                    const entity = entityByImageRef.get(image.ref);
+                    const starred = entity ? isStarredEntity(entity) : false;
+                    const detailHref = environmentHref(base, image.ref);
+                    return (
+                      <div
+                        key={image.ref}
+                        className={catalogStyles.cardLink}
+                        role="link"
+                        tabIndex={0}
+                        aria-label={`View ${image.repository} details`}
+                        onClick={() => navigate(detailHref)}
+                        onKeyDown={event => {
+                          if (
+                            event.target === event.currentTarget &&
+                            (event.key === 'Enter' || event.key === ' ')
+                          ) {
+                            event.preventDefault();
+                            navigate(detailHref);
+                          }
+                        }}
+                      >
+                        <Card className={catalogStyles.imageCard}>
+                          <CardBody>
+                            <Flex direction="column" gap="3">
+                              <Flex
+                                align="start"
+                                justify="between"
+                                gap="2"
+                                className={styles.wrapFlex}
+                              >
+                                <Link
+                                  href={detailHref}
+                                  color="info"
+                                  className={styles.infoLink}
+                                  onClick={event => event.stopPropagation()}
+                                >
+                                  {image.repository}
+                                </Link>
+                                <Flex
+                                  align="center"
+                                  gap="1"
+                                  onClick={event => event.stopPropagation()}
+                                  onKeyDown={event => event.stopPropagation()}
+                                >
+                                  {entity && (
+                                    <ButtonIcon
+                                      variant="tertiary"
+                                      icon={
+                                        starred ? (
+                                          <StarIcon />
+                                        ) : (
+                                          <StarBorderIcon />
+                                        )
+                                      }
+                                      aria-pressed={starred}
+                                      aria-label={`${
+                                        starred ? 'Remove' : 'Add'
+                                      } ${image.repository} ${
+                                        starred ? 'from' : 'to'
+                                      } favorites`}
+                                      onPress={() =>
+                                        toggleStarredEntity(entity)
+                                      }
+                                    />
+                                  )}
+                                  <MenuTrigger>
+                                    <ButtonIcon
+                                      variant="tertiary"
+                                      icon={<MoreVertIcon />}
+                                      aria-label={`Actions for ${image.repository}`}
+                                    />
+                                    <Menu>
+                                      <MenuItem
+                                        onAction={() =>
+                                          setControllerImage(image)
+                                        }
+                                      >
+                                        Use in Controller
+                                      </MenuItem>
+                                      {canSync && (
+                                        <MenuItem
+                                          isDisabled={syncingRefs.has(
+                                            image.ref,
+                                          )}
+                                          onAction={() => {
+                                            void syncArtifact(image.ref);
+                                          }}
+                                        >
+                                          {syncingRefs.has(image.ref)
+                                            ? 'Syncing…'
+                                            : 'Sync'}
+                                        </MenuItem>
+                                      )}
+                                    </Menu>
+                                  </MenuTrigger>
+                                </Flex>
+                              </Flex>
+                              <Flex
+                                align="center"
+                                justify="between"
+                                gap="2"
+                                className={styles.wrapFlex}
+                              >
+                                <Text color="secondary">
+                                  {image.registry
+                                    ? displayRegistryName(image.registry)
+                                    : '—'}
+                                </Text>
+                                <StatusBadge
+                                  tone={syncStatusTone(
+                                    syncStateLabel(
+                                      image.lastReconciledAt,
+                                      image.lastReconcileOk,
+                                    ),
+                                  )}
+                                  size="small"
+                                  variant="outline"
+                                  icon={syncStatusIcon(
+                                    syncStateLabel(
+                                      image.lastReconciledAt,
+                                      image.lastReconcileOk,
+                                    ),
+                                  )}
+                                >
+                                  {syncStateLabel(
+                                    image.lastReconciledAt,
+                                    image.lastReconcileOk,
+                                  )}
+                                </StatusBadge>
+                              </Flex>
+                              <Text color="secondary">
+                                {imageSourceLabel(
+                                  image.registry,
+                                  image.definitionEntityRef,
+                                )}
+                              </Text>
+                              <div className={catalogStyles.cardSection}>
+                                <Text variant="body-medium" weight="bold">
+                                  Tags
+                                </Text>
+                                <Text color="secondary">
+                                  {image.tags.length
+                                    ? image.tags.join(', ')
+                                    : 'Untagged'}
+                                </Text>
+                              </div>
+                              <div className={catalogStyles.cardSection}>
+                                <Text variant="body-medium" weight="bold">
+                                  Contents
+                                </Text>
+                                <Text color="secondary">
+                                  {imageContentsSummary(image)}
+                                </Text>
+                              </div>
+                              <Flex
+                                align="center"
+                                justify="between"
+                                gap="2"
+                                className={styles.wrapFlex}
+                              >
+                                <Text color="secondary">
+                                  Last synced:{' '}
+                                  {relativeTime(image.lastReconciledAt)}
+                                </Text>
+                                <VerificationWarning image={image} />
+                              </Flex>
+                            </Flex>
+                          </CardBody>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <EmptyState
+                  title={
+                    data?.length
+                      ? 'No images match your search or filters'
+                      : 'No execution environments discovered'
+                  }
+                  description={
+                    data?.length
+                      ? 'Change your search or filters.'
+                      : 'Images appear after configured registries are reconciled.'
+                  }
+                  action={
+                    data?.length ? (
+                      <Button
+                        variant="secondary"
+                        onPress={() => {
+                          table.search.onChange('');
+                          setStarredOnly(false);
+                          setSelectedCollections([]);
+                        }}
+                      >
+                        Clear search and filters
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              )}
+              {!!images.value?.totalItems && (
+                <Flex
+                  align="center"
+                  justify="between"
+                  gap="2"
+                  className={catalogStyles.gridPagination}
+                >
+                  <Text color="secondary">
+                    {`${(page - 1) * perPage + 1}–${Math.min(
+                      page * perPage,
+                      images.value.totalItems,
+                    )} of ${images.value.totalItems}`}
+                  </Text>
+                  <Flex gap="2">
+                    <Button
+                      variant="secondary"
+                      isDisabled={images.loading || page <= 1}
+                      onPress={() => setPage(current => current - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      isDisabled={
+                        images.loading ||
+                        page * perPage >= images.value.totalItems
+                      }
+                      onPress={() => setPage(current => current + 1)}
+                    >
+                      Next
+                    </Button>
+                  </Flex>
+                </Flex>
+              )}
+            </>
           )}
         </div>
       </Flex>

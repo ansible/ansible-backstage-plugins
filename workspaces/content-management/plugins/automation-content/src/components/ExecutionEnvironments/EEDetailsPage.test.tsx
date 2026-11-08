@@ -160,6 +160,44 @@ const syncedContents: ArtifactContents = {
   items: [],
 };
 
+it('shows the verification warning in the details overview', async () => {
+  const staleImage: ExecutionEnvironment = {
+    ...image,
+    lastReconciledAt: new Date(
+      Date.now() - 7 * 30 * 24 * 60 * 60 * 1000,
+    ).toISOString(),
+    lastReconcileOk: true,
+  };
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            getExecutionEnvironment: async () => staleImage,
+            getContents: async () => syncedContents,
+          },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+      ]}
+    >
+      <MemoryRouter
+        initialEntries={[`/content/${encodeURIComponent(image.ref)}`]}
+      >
+        <Routes>
+          <Route path="/content/:ref" element={<EEDetailsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  expect(
+    await screen.findByRole('note', {
+      name: 'Last verified over 6 months ago',
+    }),
+  ).toBeTruthy();
+});
+
 it.each([
   ['denied', { allowed: false, loading: false }],
   ['loading', { allowed: false, loading: true }],

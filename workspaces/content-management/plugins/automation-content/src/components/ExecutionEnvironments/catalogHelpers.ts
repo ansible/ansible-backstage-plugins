@@ -4,6 +4,19 @@ import type { ExecutionEnvironment } from '../../api';
 /** Reconciliation results older than this are displayed as stale. */
 export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
+/** Six-month verification window (183 days) for indexed execution environments. */
+export const VERIFICATION_STALE_AFTER_MS = 183 * 24 * 60 * 60 * 1000;
+
+/** Missing or invalid reconciliation times are not evidence of a recent verification. */
+export function isStale(lastReconciledAt?: string, now = Date.now()): boolean {
+  if (!lastReconciledAt) return true;
+  const reconciledAt = new Date(lastReconciledAt).getTime();
+  return (
+    !Number.isFinite(reconciledAt) ||
+    now - reconciledAt > VERIFICATION_STALE_AFTER_MS
+  );
+}
+
 /** Match immutable provider annotations, never a mutable tag or truncated entity name. */
 export function matchesEnvironment(
   entity: Entity,
