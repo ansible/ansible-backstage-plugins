@@ -194,6 +194,35 @@ it('renders entity-backed definition columns and metadata', async () => {
   expect(await screen.findByText('platform')).toBeTruthy();
 });
 
+it('preserves server full-text matches instead of filtering the paginated rows again', async () => {
+  // The catalog can match indexed fields that EntityTextFilter does not inspect.
+  const { queryEntities } = renderPage();
+  await screen.findByRole('link', { name: 'web-ee' });
+  fireEvent.change(
+    screen.getByRole('searchbox', { name: 'Search definition files' }),
+    { target: { value: 'server-indexed-term' } },
+  );
+  await waitFor(() =>
+    expect(queryEntities).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fullTextFilter: expect.objectContaining({
+          term: 'server-indexed-term',
+        }),
+        limit: 10,
+        offset: 0,
+      }),
+    ),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('link', { name: 'web-ee' })).toBeTruthy(),
+  );
+  expect(
+    screen.getByRole('heading', {
+      name: 'Execution Environments definition files (1)',
+    }),
+  ).toBeTruthy();
+});
+
 it('encodes non-default definition entity refs in the local details route', async () => {
   const namespacedDefinition: Entity = {
     ...definition,

@@ -73,10 +73,6 @@ type EntityPredicate = {
   'metadata.name': string;
 };
 
-function isDefinitionFileEntity(entity: Entity): boolean {
-  return entity.metadata.annotations?.['ansible.com/digest'] === undefined;
-}
-
 function catalogFilterFromEntityFilters(
   filters: DefaultEntityFilters,
 ): CatalogFilterValues {
@@ -249,21 +245,9 @@ export function EEListPage({
       .then(response => {
         if (cancelled || requestVersion !== requestVersionRef.current) return;
         setHasCatalogFailure(false);
-        setEntities(
-          response.items.filter(isDefinitionFileEntity).filter(entity =>
-            Object.values(filters).every(filter => {
-              if (
-                typeof filter !== 'object' ||
-                filter === null ||
-                !('filterEntity' in filter) ||
-                typeof filter.filterEntity !== 'function'
-              ) {
-                return true;
-              }
-              return filter.filterEntity(entity);
-            }),
-          ),
-        );
+        // All filters are applied by the catalog before pagination. Reapplying
+        // them here can discard server matches and disagree with totalItems.
+        setEntities(response.items);
         setTotalItems(response.totalItems);
       })
       .catch(fetchError => {
