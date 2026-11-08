@@ -140,8 +140,8 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     enumeration: enumerationOf(artifact),
     // Most recent full or row-specific attempt; syncing one artifact must not
     // advance freshness for other rows in the same registry.
-    lastReconciledAt: db.reconcileStateForArtifact(artifact)?.at,
-    lastReconcileOk: db.reconcileStateForArtifact(artifact)?.ok,
+    lastReconciledAt: db.reconcileStateOf(artifact)?.at,
+    lastReconcileOk: db.reconcileStateOf(artifact)?.ok,
     signing: artifact.signing,
     counts: db.countsFor(artifact),
     collections: (artifact.manifest?.collections ?? []).map(c => ({
@@ -460,8 +460,7 @@ export async function createRouter(
       const key = sort as (typeof SORT_KEYS)[number];
       const direction = order === 'desc' ? -1 : 1;
       const value = (a: IndexedArtifact): string | undefined => {
-        if (key === 'lastReconciledAt')
-          return db.reconcileStateForArtifact(a)?.at;
+        if (key === 'lastReconciledAt') return db.reconcileStateOf(a)?.at;
         if (key === 'sourceType') {
           // Match today's badge. When producer association lands, definitionEntityRef
           // must take priority (definition-file), even when a registry is present.

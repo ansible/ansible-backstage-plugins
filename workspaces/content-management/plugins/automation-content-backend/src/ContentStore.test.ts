@@ -71,10 +71,13 @@ function connection(): RegistryConnection {
   };
 }
 
-async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+async function storeOver(
+  registry: MockRegistry,
+  connectionOverride?: RegistryConnection,
+): Promise<ContentStore> {
   const db = await createTestDB();
   const store = new ContentStore(
-    [connection()],
+    [connectionOverride ?? connection()],
     db as never,
     silent,
     defaultContentTypes(),
@@ -623,7 +626,7 @@ describe('strict latest-only artifact sync', () => {
     const { index, registry, repositories, old, original, other } =
       await fixture();
     const before = index.reconcileStateFor('mock');
-    const siblingState = index.reconcileStateForArtifact(
+    const siblingState = index.reconcileStateOf(
       await index.getArtifact(other.ref),
     );
     const next = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
@@ -646,14 +649,14 @@ describe('strict latest-only artifact sync', () => {
     expect(await index.getArtifact(other.ref)).toEqual(other);
     expect((await index.listCollections())[0].providedBy).toEqual([other.ref]);
     expect(index.reconcileStateFor('mock')).toBe(before);
+    expect(index.reconcileStateOf(await index.getArtifact(other.ref))).toBe(
+      siblingState,
+    );
+    expect(index.reconcileStateOf(await index.getArtifact(original.ref))).toBe(
+      before,
+    );
     expect(
-      index.reconcileStateForArtifact(await index.getArtifact(other.ref)),
-    ).toBe(siblingState);
-    expect(
-      index.reconcileStateForArtifact(await index.getArtifact(original.ref)),
-    ).toBe(before);
-    expect(
-      index.reconcileStateForArtifact(await index.getArtifact(result.ref))?.ok,
+      index.reconcileStateOf(await index.getArtifact(result.ref))?.ok,
     ).toBe(true);
     expect(refresh).not.toHaveBeenCalled();
     const paths = registry.requests.map(r => r.path);
@@ -674,7 +677,7 @@ describe('strict latest-only artifact sync', () => {
     expect(second.ref).toBe(`mock/ansible/ee@${moved.digest}`);
     expect(await index.getArtifact(result.ref)).toBeUndefined();
     expect(
-      index.reconcileStateForArtifact(await index.getArtifact(result.ref)),
+      index.reconcileStateOf(await index.getArtifact(result.ref)),
     ).toBeUndefined();
     expect(
       (
@@ -733,8 +736,7 @@ describe('strict latest-only artifact sync', () => {
       // DB reads return fresh objects; compare the persisted snapshot.
       expect(await index.listArtifacts()).toEqual(before);
       expect(
-        index.reconcileStateForArtifact(await index.getArtifact(original.ref))
-          ?.ok,
+        index.reconcileStateOf(await index.getArtifact(original.ref))?.ok,
       ).toBe(false);
     },
   );
@@ -786,13 +788,27 @@ describe('strict latest-only artifact sync', () => {
     expect(registry.requests).toHaveLength(0);
   });
 
+  it('keeps a same-digest row in place after a row sync', async () => {
+    const { index, original } = await fixture();
+    const orderBefore = (await index.listArtifacts()).map(a => a.ref);
+    const result = await index.syncArtifact(original.ref);
+    expect(result).toMatchObject({
+      status: 'completed',
+      ref: original.ref,
+    });
+    // A row sync must not reshuffle paginated rows: when the digest is
+    // unchanged the artifact keeps its position in the index.
+    expect((await index.listArtifacts()).map(a => a.ref)).toEqual(orderBefore);
+    expect(index.reconcileStateOf(original)?.ok).toBe(true);
+  });
+
   it('does not override a newer full reconciliation with older artifact freshness', async () => {
     const { index, original } = await fixture();
     await index.syncArtifact(original.ref);
     await index.refreshRegistry('mock');
-    expect(
-      index.reconcileStateForArtifact(await index.getArtifact(original.ref)),
-    ).toBe(index.reconcileStateFor('mock'));
+    expect(index.reconcileStateOf(await index.getArtifact(original.ref))).toBe(
+      index.reconcileStateFor('mock'),
+    );
   });
 
   it('keeps same-digest known inventory when optional metadata is unavailable', async () => {
@@ -1325,5 +1341,78 @@ describe('signature detection', () => {
     // the full scan's verdict must survive.
     await index.syncArtifact((await index.listArtifacts())[0].ref);
     expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
+  });
+});
+
+describe('enumeration fail-soft behavior', () => {
+  // No explicit repository list: discovery depends on catalog enumeration,
+  // the configuration the startup race leaves unavailable.
+  const enumerated = (): RegistryConnection => ({
+    name: 'mock',
+    url: 'https://mock.registry',
+    auth: { type: 'anonymous' },
+  });
+
+  it('fails soft when enumeration is unavailable, then recovers by re-probing', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('latest', { [EE_LABEL]: 'true' })],
+    };
+    // A slow startup: the capability probe cannot reach _catalog, so
+    // catalogEnumeration reads false and no repository list is configured.
+    const registry = new MockRegistry({ repositories, catalogEnabled: false });
+    const index = await storeOver(registry, enumerated());
+    const first = await index.refreshRegistry('mock');
+    expect(first.ok).toBe(false);
+    expect(first.error).toMatch(/no repositories configured for mock/);
+    // The pessimistic probe must not be pinned for the process lifetime.
+    const states = (
+      index as unknown as {
+        registries: Map<string, { capabilities?: unknown }>;
+      }
+    ).registries;
+    expect(states.get('mock')?.capabilities).toBeUndefined();
+    // Enumeration returns; the next scheduled refresh recovers without a
+    // restart.
+    (
+      registry as unknown as { options: { catalogEnabled: boolean } }
+    ).options.catalogEnabled = true;
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+      discovered: 1,
+    });
+  });
+
+  it('keeps previously indexed artifacts when enumeration stays unavailable', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('latest', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const index = await storeOver(registry, enumerated());
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+      discovered: 1,
+    });
+    // The catalog goes away mid-process — the failure must retain, not wipe.
+    // Catalog enumeration itself now fails, while every other request still
+    // succeeds, which is exactly a registry that lost its _catalog endpoint.
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    const client = clients.get('mock')!;
+    const healthyFetch = client.fetchImpl as (
+      input: unknown,
+      init: unknown,
+    ) => Promise<unknown>;
+    (client as unknown as { fetchImpl: unknown }).fetchImpl = (
+      input: unknown,
+      init: unknown,
+    ) =>
+      String(input).includes('/v2/_catalog')
+        ? Promise.reject(new Error('catalog endpoint gone'))
+        : healthyFetch(input, init);
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    expect(await index.listArtifacts()).toHaveLength(1);
   });
 });

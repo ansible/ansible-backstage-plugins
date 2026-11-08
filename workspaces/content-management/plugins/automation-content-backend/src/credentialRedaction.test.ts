@@ -194,7 +194,7 @@ function seededStore(_logs: string[] = []): ContentStore {
     ],
     countsFor: () => ({ collections: 1, plugins: 1 }),
     repositoryTags: async () => [],
-    reconcileStateForArtifact: () => ({
+    reconcileStateOf: () => ({
       at: '2026-01-01T00:00:00.000Z',
       ok: false,
       error: redactor.redact(failureFor('basic-reg')),

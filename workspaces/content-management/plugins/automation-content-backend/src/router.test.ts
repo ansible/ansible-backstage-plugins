@@ -50,7 +50,7 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
     findItems: async () => [],
     listCollections: async () => [],
     countsFor: () => undefined,
-    reconcileStateForArtifact: () => undefined,
+    reconcileStateOf: () => undefined,
     repositoryTags: async () => [],
     syncArtifact: async () => ({
       status: 'completed' as const,
@@ -459,7 +459,7 @@ describe('GET /content sorting', () => {
         if (sort === 'sourceType' && i !== 0) artifact.registry = '';
       });
       jest
-        .spyOn(index, 'reconcileStateForArtifact')
+        .spyOn(index, 'reconcileStateOf')
         .mockImplementation((artifact?: IndexedArtifact) => ({
           at:
             artifact?.ref === artifacts[0].ref

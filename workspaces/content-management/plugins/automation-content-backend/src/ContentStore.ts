@@ -309,8 +309,13 @@ export class ContentStore {
     return this.reconcile.get(registry);
   }
 
-  /** A partial read never advances sibling rows or registry freshness. */
-  reconcileStateForArtifact(
+  /**
+   * Freshness for an already-resolved row. Sorting and per-row views call
+   * this directly: resolving an artifact by ref is a linear scan, and doing
+   * it once per row turns a sort into a quadratic walk. A partial read
+   * never advances sibling rows or registry freshness.
+   */
+  reconcileStateOf(
     artifact: IndexedArtifact | undefined,
   ): ReconcileState | undefined {
     if (!artifact) return undefined;
@@ -431,21 +436,43 @@ export class ContentStore {
           }
         }
         await trx('items').where('artifact_ref', target.ref).del();
-        await trx('artifacts').where('ref', target.ref).del();
-        await trx('artifacts').insert({
-          ref: target.ref,
-          type: target.type,
-          registry: target.registry,
-          repository: target.repository,
-          digest: target.digest,
-          tags: JSON.stringify(target.tags),
-          tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
-          pull_reference: target.pullReference,
-          contents_known: target.contentsKnown,
-          classification: JSON.stringify(target.classification),
-          signing: target.signing ? JSON.stringify(target.signing) : null,
-          manifest: target.manifest ? JSON.stringify(target.manifest) : null,
-        });
+        // A same-ref row keeps its position: UPDATE in place rather than
+        // delete-and-reinsert, so a row sync never reshuffles paginated rows.
+        // A newly resolved digest is inserted.
+        if (existing) {
+          await trx('artifacts')
+            .where('ref', target.ref)
+            .update({
+              type: target.type,
+              registry: target.registry,
+              repository: target.repository,
+              digest: target.digest,
+              tags: JSON.stringify(target.tags),
+              tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+              pull_reference: target.pullReference,
+              contents_known: target.contentsKnown,
+              classification: JSON.stringify(target.classification),
+              signing: target.signing ? JSON.stringify(target.signing) : null,
+              manifest: target.manifest
+                ? JSON.stringify(target.manifest)
+                : null,
+            });
+        } else {
+          await trx('artifacts').insert({
+            ref: target.ref,
+            type: target.type,
+            registry: target.registry,
+            repository: target.repository,
+            digest: target.digest,
+            tags: JSON.stringify(target.tags),
+            tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+            pull_reference: target.pullReference,
+            contents_known: target.contentsKnown,
+            classification: JSON.stringify(target.classification),
+            signing: target.signing ? JSON.stringify(target.signing) : null,
+            manifest: target.manifest ? JSON.stringify(target.manifest) : null,
+          });
+        }
         for (const item of flattenItems(target)) {
           await trx('items').insert({
             key: item.key,
@@ -1017,10 +1044,15 @@ export class ContentStore {
     if (configured.length > 0) return configured;
 
     if (!state.capabilities?.catalogEnumeration) {
-      this.logger.warn(
-        `[${name}] no repositories configured and catalog enumeration is unavailable`,
+      // An absent or pessimistic capability result is not evidence that the
+      // registry is empty. Fail this attempt — the caller keeps previously
+      // indexed artifacts — and drop the cached capabilities so the next
+      // cycle re-probes: a probe that raced slow startup traffic must not pin
+      // a false result for the lifetime of the process.
+      state.capabilities = undefined;
+      throw new Error(
+        `no repositories configured for ${name} and catalog enumeration is unavailable`,
       );
-      return [];
     }
 
     const namespaces = state.connection.namespaces;

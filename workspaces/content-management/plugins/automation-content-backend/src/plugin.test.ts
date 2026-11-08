@@ -64,7 +64,9 @@ async function serveRegistry() {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   state.registry = new MockRegistry(
-    { repositories: {}, auth: 'anonymous' },
+    // catalogEnabled: the registry is intentionally empty but enumerable,
+    // so a sync reports completion rather than a resolution failure.
+    { repositories: {}, auth: 'anonymous', catalogEnabled: true },
     `http://127.0.0.1:${port}`,
   );
 
