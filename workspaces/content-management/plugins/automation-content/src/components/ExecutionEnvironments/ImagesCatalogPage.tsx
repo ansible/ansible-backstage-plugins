@@ -48,7 +48,6 @@ import {
   StatusBadge,
   syncStatusIcon,
 } from '../common';
-import type { StatusBadgeTone } from '../common';
 import { UseInControllerDialog } from './UseInControllerDialog';
 import {
   clearControllerIntent,
@@ -61,7 +60,8 @@ import {
   imageContentsSummary,
   matchesEnvironment,
   relativeTime,
-  sourceLabel,
+  imageSourceLabel,
+  syncStatusTone,
   syncStateLabel,
 } from './catalogHelpers';
 import styles from './details.module.css';
@@ -75,21 +75,6 @@ interface ImageRow extends ExecutionEnvironment {
 
 function displayRegistryName(registry: string): string {
   return registry.charAt(0).toUpperCase() + registry.slice(1);
-}
-
-function syncStatusTone(status: string): StatusBadgeTone {
-  if (status === 'Available') return 'success';
-  if (status === 'Failed') return 'danger';
-  if (status === 'Stale') return 'warning';
-  return 'info';
-}
-
-function imageSourceLabel(
-  registry: string,
-  definitionEntityRef?: string,
-): string {
-  if (definitionEntityRef) return 'Definition file';
-  return sourceLabel(registry);
 }
 
 function ViewIcon({

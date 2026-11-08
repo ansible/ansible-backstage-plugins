@@ -3,11 +3,13 @@ import {
   definitionFileName,
   environmentHref,
   imageContentsSummary,
+  imageSourceLabel,
   matchesEnvironment,
   relativeTime,
   sortRepositoryTagsNewestFirst,
   STALE_AFTER_MS,
   syncStateLabel,
+  syncStatusTone,
 } from './catalogHelpers';
 import type { ExecutionEnvironment } from '../../api';
 
@@ -22,6 +24,24 @@ const image: ExecutionEnvironment = {
   enumeration: { status: 'unknown', source: 'labels' },
   collections: [],
 };
+
+it.each([
+  ['Available', 'success'],
+  ['Failed', 'danger'],
+  ['Stale', 'warning'],
+  ['Syncing', 'info'],
+  ['Unknown', 'info'],
+])('uses the shared image status tone for %s', (status, tone) => {
+  expect(syncStatusTone(status)).toBe(tone);
+});
+
+it.each([
+  ['registry', 'component:default/ee', 'Definition file'],
+  ['registry', undefined, 'External registry'],
+  ['', undefined, 'Definition file'],
+])('labels image sources consistently for %s / %s', (registry, ref, label) => {
+  expect(imageSourceLabel(registry, ref)).toBe(label);
+});
 
 it('round trips slashes and digest in immutable navigation', () => {
   const href = environmentHref('/images', image.ref);

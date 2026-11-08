@@ -62,8 +62,9 @@ import {
   definitionFileName,
   imageContentsSummary,
   relativeTime,
-  sourceLabel,
   sortRepositoryTagsNewestFirst,
+  imageSourceLabel,
+  syncStatusTone,
   syncStateLabel,
 } from './catalogHelpers';
 import styles from './details.module.css';
@@ -139,13 +140,6 @@ function collectionContentsSummary(
   return `${approximate ? 'Approximate: ' : ''}${reportedCounts.join(', ')}`;
 }
 
-function statusBadgeTone(status: string): StatusBadgeTone {
-  if (status === 'Available') return 'success';
-  if (status === 'Failed') return 'danger';
-  if (status === 'Stale') return 'warning';
-  return 'info';
-}
-
 function classificationLabel(type: string | undefined): string {
   if (!type) return 'Unknown';
   return type
@@ -196,14 +190,6 @@ function registryDisplayLabel(registry: string): string {
 
 function inventoryStatusLabel(status: string): string {
   return status.replace(/^\w/, first => first.toUpperCase());
-}
-
-function imageSourceLabel(
-  registry: string,
-  definitionEntityRef?: string,
-): string {
-  if (definitionEntityRef) return 'Definition file';
-  return sourceLabel(registry);
 }
 
 function MetadataRow({
@@ -696,7 +682,7 @@ function EEDetailsContent(): ReactElement {
                     </MetadataRow>
                     <MetadataRow label="Status">
                       <StatusBadge
-                        tone={statusBadgeTone(status)}
+                        tone={syncStatusTone(status)}
                         size="small"
                         variant="outline"
                         icon={syncStatusIcon(status)}

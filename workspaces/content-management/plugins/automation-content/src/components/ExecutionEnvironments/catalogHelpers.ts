@@ -1,5 +1,6 @@
 import { parseEntityRef, type Entity } from '@backstage/catalog-model';
 import type { ExecutionEnvironment, RepositoryTag } from '../../api';
+import type { StatusBadgeTone } from '../common';
 
 /** Reconciliation results older than this are displayed as stale. */
 export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
@@ -163,4 +164,21 @@ export function syncStateLabel(
  */
 export function sourceLabel(registry?: string): string {
   return registry ? 'External registry' : 'Definition file';
+}
+
+/** Consistent badge tone for image sync states in lists and details. */
+export function syncStatusTone(status: string): StatusBadgeTone {
+  if (status === 'Available') return 'success';
+  if (status === 'Failed') return 'danger';
+  if (status === 'Stale') return 'warning';
+  return 'info';
+}
+
+/** Prefer a known definition-file origin over the registry fallback. */
+export function imageSourceLabel(
+  registry: string,
+  definitionEntityRef?: string,
+): string {
+  if (definitionEntityRef) return 'Definition file';
+  return sourceLabel(registry);
 }
