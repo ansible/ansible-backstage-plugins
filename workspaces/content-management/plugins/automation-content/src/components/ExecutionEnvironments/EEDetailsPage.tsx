@@ -269,7 +269,9 @@ function EEDetailsContent(): ReactElement {
   const tagMap = useAsyncRetry(async () => {
     if (!image.value) return undefined;
     return api.getRepositoryTags(image.value.registry, image.value.repository);
-  }, [api, image.value?.registry, image.value?.repository]);
+    // Keyed on the resolved ref as well: a sync that moves the default tag
+    // navigates to a new digest, and the map must not keep the stale one.
+  }, [api, image.value?.registry, image.value?.repository, image.value?.ref]);
   const data = useMemo(
     () =>
       contents.value?.collections.map(c => ({
@@ -471,6 +473,7 @@ function EEDetailsContent(): ReactElement {
       }
       image.retry();
       contents.retry();
+      tagMap.retry();
     } catch {
       // Outcome feedback is emitted as notifications by
       // syncImageWithNotifications; nothing further to report here.
