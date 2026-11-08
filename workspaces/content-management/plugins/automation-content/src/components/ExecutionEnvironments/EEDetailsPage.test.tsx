@@ -1540,6 +1540,7 @@ describe('signing presentation', () => {
         apis={[
           [automationContentApiRef, api],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         ]}
       >
         <MemoryRouter
@@ -1560,7 +1561,7 @@ describe('signing presentation', () => {
     });
     expect(await screen.findByText('Signed')).toBeTruthy();
     expect(
-      await screen.findByText('cosign signature referrer found'),
+      await screen.findByText('Cosign signature referrer found'),
     ).toBeTruthy();
   });
 

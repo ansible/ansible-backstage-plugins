@@ -16,6 +16,10 @@ import {
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import {
+  Accordion,
+  AccordionPanel,
+  AccordionTrigger,
+  Badge,
   Button,
   ButtonIcon,
   Card,
@@ -25,6 +29,8 @@ import {
   Container,
   Flex,
   Link,
+  List,
+  ListRow,
   Menu,
   MenuItem,
   MenuTrigger,
@@ -157,6 +163,10 @@ function signingLabel(state: string): string {
   if (state === 'signed') return 'Signed';
   if (state === 'not-signed') return 'Not signed';
   return 'Not determined';
+}
+
+function signingEvidenceLabel(evidence: string): string {
+  return evidence.replace(/^[a-z]/, character => character.toUpperCase());
 }
 
 function signingTone(state: string): StatusBadgeTone {
@@ -709,14 +719,18 @@ function EEDetailsContent(): ReactElement {
                           {/* The badge opens the evidence; it never asserts a
                               conclusion about who signed or whether the
                               signature verifies. */}
-                          <details>
-                            <summary>Evidence</summary>
-                            <ul>
-                              {value.signing.evidence.map(item => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </details>
+                          <Accordion defaultExpanded={false}>
+                            <AccordionTrigger title="Evidence" />
+                            <AccordionPanel>
+                              <List aria-label="Signing evidence">
+                                {value.signing.evidence.map(item => (
+                                  <ListRow key={item}>
+                                    {signingEvidenceLabel(item)}
+                                  </ListRow>
+                                ))}
+                              </List>
+                            </AccordionPanel>
+                          </Accordion>
                         </Flex>
                       ) : (
                         <Text color="secondary">Unknown</Text>
