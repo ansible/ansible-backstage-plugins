@@ -40,7 +40,17 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
           const { ImagesTabContent } = await import(
             './components/ExecutionEnvironments/EECatalogPage'
           );
-          return compatWrapper(<ImagesTabContent />);
+          const { RequiresContentPermission } = await import(
+            './components/common/RequiresContentPermission'
+          );
+          // Hosts that collect catalog.tabs mount this tab directly, outside
+          // the route tree that applies the view permission on the EE pages.
+          // Wrap here so the tab is gated the same way in every host.
+          return compatWrapper(
+            <RequiresContentPermission>
+              <ImagesTabContent />
+            </RequiresContentPermission>,
+          );
         },
       },
     }),
