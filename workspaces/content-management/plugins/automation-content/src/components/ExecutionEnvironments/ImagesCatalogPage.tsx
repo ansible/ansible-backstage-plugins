@@ -688,9 +688,25 @@ export function ImagesCatalogPage({
                                     />
                                     <Menu>
                                       <MenuItem
-                                        onAction={() =>
-                                          setControllerImage(image)
-                                        }
+                                        onAction={() => {
+                                          // Same contract as the table
+                                          // action: establish the AAP session
+                                          // before the dialog opens, parking
+                                          // the intent so an OAuth redirect
+                                          // restores it on return.
+                                          setControllerIntent(image.ref);
+                                          aapAuth
+                                            .getAccessToken()
+                                            .then(() => {
+                                              clearControllerIntent();
+                                              setControllerImage(image);
+                                            })
+                                            .catch(() => {
+                                              // Login declined or failed;
+                                              // nothing to open or restore.
+                                              clearControllerIntent();
+                                            });
+                                        }}
                                       >
                                         Use in Controller
                                       </MenuItem>
