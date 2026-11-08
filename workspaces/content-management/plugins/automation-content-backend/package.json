@@ -19,7 +19,7 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/plugin-catalog-backend-module-automation-content --embed-package @ansible/content-type-execution-environment"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/plugin-catalog-backend-module-automation-content --embed-package @ansible/content-type-execution-environment --embed-package @ansible/content-type-collection --embed-package @ansible/content-type-skill"
   },
   "files": [
     "dist",
