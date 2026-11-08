@@ -42,13 +42,11 @@ function renderDialog({
   scaffold = jest.fn(),
   organizations = [organization(1, 'Default'), organization(7, 'Network')],
   getAccessToken = jest.fn().mockResolvedValue('aap-token'),
-  tag,
   pullReference = 'registry/team/ee@sha256:one',
 }: {
   scaffold?: jest.Mock;
   organizations?: unknown[];
   getAccessToken?: jest.Mock;
-  tag?: string;
   pullReference?: string;
 } = {}) {
   const getEntities = jest.fn().mockResolvedValue({ items: organizations });
@@ -70,7 +68,6 @@ function renderDialog({
                 open
                 imageName="team/ee"
                 pullReference={pullReference}
-                tag={tag}
                 onClose={onClose}
               />
             }
@@ -93,9 +90,9 @@ it('populates the organization dropdown from the catalog and defaults to the fir
   expect(trigger.textContent).toContain('Default');
 });
 
-it('submits the tagged image, organization identity, and token secret, then follows the task', async () => {
+it('submits the inspected digest, organization identity, and token secret, then follows the task', async () => {
   const scaffold = jest.fn().mockResolvedValue({ taskId: 'task-42' });
-  const { onClose } = renderDialog({ scaffold, tag: '2.9' });
+  const { onClose } = renderDialog({ scaffold });
   await screen.findByRole('button', { name: /organization/i });
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
@@ -113,24 +110,11 @@ it('submits the tagged image, organization identity, and token secret, then foll
       environmentDescription: 'Use team/ee in Ansible Automation Controller.',
       organizationId: 1,
       organizationName: 'Default',
-      image: 'registry/team/ee:2.9',
+      image: 'registry/team/ee@sha256:one',
       pull: 'always',
     },
     secrets: { aapToken: 'aap-token' },
   });
-});
-
-it('falls back to the immutable digest reference without a tag', async () => {
-  const scaffold = jest.fn().mockResolvedValue({ taskId: 't' });
-  renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
-  );
-  await waitFor(() => expect(scaffold).toHaveBeenCalled());
-  expect(scaffold.mock.calls[0][0].values.image).toBe(
-    'registry/team/ee@sha256:one',
-  );
 });
 
 it('blocks submission and explains when no organizations are synced', async () => {

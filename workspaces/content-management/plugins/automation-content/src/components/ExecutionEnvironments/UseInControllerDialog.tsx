@@ -52,29 +52,16 @@ function isMissingTemplate(error: unknown): boolean {
   );
 }
 
-/**
- * The image reference submitted to Controller: the tagged reference when a
- * tag is selected, so Controller pulls exactly what the user chose. Falls
- * back to the immutable digest reference when the image has no tag.
- */
-function taggedImageRef(pullReference: string, tag?: string): string {
-  if (!tag) return pullReference;
-  return `${pullReference.split('@')[0]}:${tag}`;
-}
-
 /** Form for starting the reviewed EE-in-Controller scaffolder workflow. */
 export function UseInControllerDialog({
   open,
   imageName,
   pullReference,
-  tag,
   onClose,
 }: Readonly<{
   open: boolean;
   imageName: string;
   pullReference: string;
-  /** Selected tag on the details page, or the row's default tag on the table. */
-  tag?: string;
   onClose: () => void;
 }>): ReactElement {
   const scaffolderApi = useApi(scaffolderApiRef);
@@ -119,7 +106,11 @@ export function UseInControllerDialog({
     [organizations.value],
   );
 
-  const image = taggedImageRef(pullReference, tag);
+  // Controller receives the digest-pinned reference: everything the user
+  // reviewed (contents, signing state, verification age) applies to this
+  // digest, and a mutable tag can point at a different image by the time
+  // Controller pulls it.
+  const image = pullReference;
 
   useEffect(() => {
     if (open) {
