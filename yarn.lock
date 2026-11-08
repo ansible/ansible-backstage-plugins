@@ -440,8 +440,8 @@ __metadata:
     "@backstage/core-plugin-api": "npm:1.12.9"
     "@backstage/theme": "npm:0.7.3"
     "@material-ui/core": "npm:^4.9.13"
-    "@material-ui/icons": "npm:^4.9.1"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
+    "@mui/icons-material": "npm:^5.0.0"
     "@red-hat-developer-hub/cli": "npm:^1.10.2"
     "@types/react": "npm:^18"
     react: "npm:^18.3.1"
@@ -481,8 +481,8 @@ __metadata:
     "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@material-ui/core": "npm:^4.12.4"
-    "@material-ui/icons": "npm:^4.11.3"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
+    "@mui/icons-material": "npm:^5.0.0"
     "@patternfly/react-core": "npm:^6.3.1"
     "@patternfly/react-icons": "npm:^6.3.1"
     "@rjsf/utils": "npm:^5.24.12"
@@ -523,8 +523,8 @@ __metadata:
     "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@material-ui/core": "npm:^4.9.13"
-    "@material-ui/icons": "npm:^4.9.1"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
+    "@mui/icons-material": "npm:^5.0.0"
     "@mui/utils": "npm:^5.15.14"
     "@testing-library/jest-dom": "npm:^6.0.0"
     "@testing-library/react": "npm:^16.0.0"
@@ -700,7 +700,7 @@ __metadata:
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
     "@backstage/test-utils": "npm:1.7.21"
     "@material-ui/core": "npm:^4.9.13"
-    "@material-ui/icons": "npm:^4.9.1"
+    "@mui/icons-material": "npm:^5.0.0"
     "@rjsf/core": "npm:^5.24.8"
     "@rjsf/utils": "npm:^5.24.8"
     "@rjsf/validator-ajv8": "npm:^5.24.8"
@@ -793,8 +793,8 @@ __metadata:
     "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@material-ui/core": "npm:^4.9.13"
-    "@material-ui/icons": "npm:^4.9.1"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
+    "@mui/icons-material": "npm:^5.0.0"
     "@testing-library/jest-dom": "npm:^6.0.0"
     "@testing-library/react": "npm:^14.0.0"
     react: "npm:^18.3.1"
@@ -806,8 +806,8 @@ __metadata:
     "@backstage/plugin-catalog-react": ^3.2.2
     "@backstage/theme": ^0.7.3
     "@material-ui/core": ^4.9.13
-    "@material-ui/icons": ^4.9.1
     "@material-ui/lab": "*"
+    "@mui/icons-material": ^5.0.0
     react: ^18.3.1
     react-dom: ^18.3.1
     react-router-dom: "*"
@@ -863,8 +863,8 @@ __metadata:
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
     "@backstage/test-utils": "npm:1.7.21"
     "@material-ui/core": "npm:4.12.4"
-    "@material-ui/icons": "npm:4.11.3"
     "@material-ui/lab": "npm:4.0.0-alpha.61"
+    "@mui/icons-material": "npm:5.0.0"
     "@testing-library/dom": "npm:^10.4.0"
     "@testing-library/jest-dom": "npm:^6.0.0"
     "@testing-library/react": "npm:^16.0.0"
@@ -879,8 +879,8 @@ __metadata:
     "@backstage/plugin-catalog-react": ^3.2.2
     "@backstage/plugin-scaffolder-react": ^2.0.3
     "@material-ui/core": ^4.9.13
-    "@material-ui/icons": ^4.9.1
     "@material-ui/lab": ^4.0.0-alpha.61
+    "@mui/icons-material": ^5.0.0
     react: ^18.3.1
     react-dom: ^18.3.1
     react-router: "*"
@@ -4346,6 +4346,13 @@ __metadata:
   version: 7.28.2
   resolution: "@babel/runtime@npm:7.28.2"
   checksum: 10c0/c20afe253629d53a405a610b12a62ac74d341a2c1e0fb202bbef0c118f6b5c84f94bf16039f58fd0483dd256901259930a43976845bdeb180cab1f882c21b6e0
+  languageName: node
+  linkType: hard
+
+"@babel/runtime@npm:^7.14.8":
+  version: 7.29.13
+  resolution: "@babel/runtime@npm:7.29.13"
+  checksum: 10c0/6e589f63a3f9192bc8de99a5bc02ff14daf14590e8de77c0f3487f4b7c3784181c60dfad927986d232fbf5581723bb577aae704b42ec14c8c44ad05b590b96d6
   languageName: node
   linkType: hard
 
@@ -13760,7 +13767,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@material-ui/icons@npm:4.11.3, @material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
+"@material-ui/icons@npm:^4.11.3, @material-ui/icons@npm:^4.9.1":
   version: 4.11.3
   resolution: "@material-ui/icons@npm:4.11.3"
   dependencies:
@@ -14311,7 +14318,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mui/icons-material@npm:5.18.0, @mui/icons-material@npm:^5.17.1":
+"@mui/icons-material@npm:5.0.0":
+  version: 5.0.0
+  resolution: "@mui/icons-material@npm:5.0.0"
+  dependencies:
+    "@babel/runtime": "npm:^7.14.8"
+  peerDependencies:
+    "@mui/material": ^5.0.0-rc.0
+    "@types/react": ^16.8.6 || ^17.0.0
+    react: ^17.0.2
+  peerDependenciesMeta:
+    "@types/react":
+      optional: true
+  checksum: 10c0/044442ae1d4d9dc6d04a0aa0bea6574384b214f85619049c3536556ec2b5dbd4f6f30ef99dce2c2860e6f4b09912bc5d07f6c027c863ddb9d5fea027c25fd31c
+  languageName: node
+  linkType: hard
+
+"@mui/icons-material@npm:5.18.0, @mui/icons-material@npm:^5.0.0, @mui/icons-material@npm:^5.17.1":
   version: 5.18.0
   resolution: "@mui/icons-material@npm:5.18.0"
   dependencies:
@@ -24317,7 +24340,7 @@ __metadata:
     "@backstage/theme": "npm:0.7.3"
     "@backstage/ui": "npm:0.17.1"
     "@material-ui/core": "npm:^4.12.2"
-    "@material-ui/icons": "npm:^4.9.1"
+    "@mui/icons-material": "npm:^5.0.0"
     "@playwright/test": "npm:^1.32.3"
     "@red-hat-developer-hub/backstage-plugin-global-header": "npm:3.2.1"
     "@red-hat-developer-hub/backstage-plugin-theme": "npm:0.15.0"
