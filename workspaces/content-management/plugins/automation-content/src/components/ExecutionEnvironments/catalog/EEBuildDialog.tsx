@@ -20,10 +20,7 @@ import {
   Text,
   TextField,
 } from '@backstage/ui';
-import {
-  messageFromUnknownError,
-  normalizePahRegistryUrlForBuild,
-} from './helpers';
+import { normalizePahRegistryUrlForBuild } from './helpers';
 import { useNotifications } from '../../notifications';
 
 /** Port of the prototype registry/image build form and catalog build request. */
@@ -154,8 +151,10 @@ export function EEBuildDialog({
         severity: 'success',
       });
       onClose();
-    } catch (e) {
-      setError(messageFromUnknownError(e));
+    } catch {
+      setError(
+        'The build request failed. Check your connection and try again.',
+      );
     } finally {
       setSubmitting(false);
     }

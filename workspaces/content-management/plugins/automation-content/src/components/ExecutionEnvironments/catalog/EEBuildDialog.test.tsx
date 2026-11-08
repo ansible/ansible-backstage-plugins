@@ -128,3 +128,20 @@ it.each([
     expect(onClose).not.toHaveBeenCalled();
   },
 );
+
+it('keeps transport error details out of request-failed feedback', async () => {
+  const fetch = jest
+    .fn()
+    .mockRejectedValue(new Error('token=credential-marker'));
+  const onClose = renderBuild(fetch);
+  await userEvent.type(
+    screen.getByRole('textbox', { name: 'Image name' }),
+    'namespace/test-ee',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Build' }));
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'The build request failed. Check your connection and try again.',
+  );
+  expect(screen.queryByText(/credential-marker/)).toBeNull();
+  expect(onClose).not.toHaveBeenCalled();
+});
