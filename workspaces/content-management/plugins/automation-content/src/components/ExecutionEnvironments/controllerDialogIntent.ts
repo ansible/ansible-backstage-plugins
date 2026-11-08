@@ -14,9 +14,9 @@ export function setControllerIntent(ref: string): void {
   const params = new URLSearchParams(window.location.search);
   params.set(CONTROLLER_INTENT_PARAM, ref);
   window.history.replaceState(
-    null,
+    window.history.state,
     '',
-    `${window.location.pathname}?${params}`,
+    `${window.location.pathname}?${params}${window.location.hash}`,
   );
 }
 
@@ -37,9 +37,11 @@ export function clearControllerIntent(): void {
   params.delete(CONTROLLER_INTENT_PARAM);
   const query = params.toString();
   window.history.replaceState(
-    null,
+    window.history.state,
     '',
-    query ? `?${query}` : window.location.pathname,
+    `${window.location.pathname}${query ? `?${query}` : ''}${
+      window.location.hash
+    }`,
   );
 }
 

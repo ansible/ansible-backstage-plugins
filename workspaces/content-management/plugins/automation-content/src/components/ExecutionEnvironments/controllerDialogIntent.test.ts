@@ -36,6 +36,21 @@ describe('controller dialog intent', () => {
     expect(window.location.search).toBe('?tab=overview');
   });
 
+  it('preserves the URL hash and router state when rewriting', () => {
+    window.history.replaceState(
+      { key: 'router-state' },
+      '',
+      '/content/ee/images?tab=overview#signing',
+    );
+    setControllerIntent('ref');
+    expect(window.location.hash).toBe('#signing');
+    expect(window.history.state).toEqual({ key: 'router-state' });
+    clearControllerIntent();
+    expect(window.location.search).toBe('?tab=overview');
+    expect(window.location.hash).toBe('#signing');
+    expect(window.history.state).toEqual({ key: 'router-state' });
+  });
+
   it('removes the query string entirely when it held only the intent', () => {
     setControllerIntent('ref');
     clearControllerIntent();
