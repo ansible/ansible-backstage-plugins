@@ -1,3 +1,5 @@
+/* BUI uses 1px solid borders and transparent backgrounds in its native controls.
+ * Keep those supported property values; all theme-specific values use BUI tokens. */
 /* BUI's documented theming path: class names + CSS variables. Delete this when Badge grows a status prop. */
 :global(.bui-Badge).success,
 :global(.bui-Badge).info,
@@ -16,8 +18,8 @@
 }
 
 :global(.bui-Badge).withIcon :global(.bui-BadgeIcon) svg {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: var(--bui-space-3);
+  height: var(--bui-space-3);
 }
 
 /* Status badges carry an icon; keep their pill shape distinct from metadata badges. */
@@ -57,35 +59,19 @@
 }
 
 :global(.bui-Badge).outline.success {
-  --status-accent: color-mix(
-    in srgb,
-    var(--bui-fg-success) 70%,
-    var(--bui-fg-primary)
-  );
+  --status-accent: var(--bui-fg-success);
 }
 
 :global(.bui-Badge).outline.info {
-  --status-accent: color-mix(
-    in srgb,
-    var(--bui-fg-info) 70%,
-    var(--bui-fg-primary)
-  );
+  --status-accent: var(--bui-fg-info);
 }
 
 :global(.bui-Badge).outline.danger {
-  --status-accent: color-mix(
-    in srgb,
-    var(--bui-fg-danger) 70%,
-    var(--bui-fg-primary)
-  );
+  --status-accent: var(--bui-fg-danger);
 }
 
 :global(.bui-Badge).outline.warning {
-  --status-accent: color-mix(
-    in srgb,
-    var(--bui-fg-warning) 70%,
-    var(--bui-fg-primary)
-  );
+  --status-accent: var(--bui-fg-warning);
 }
 
 :global(.bui-Badge).outline.success :global(.bui-BadgeIcon),
