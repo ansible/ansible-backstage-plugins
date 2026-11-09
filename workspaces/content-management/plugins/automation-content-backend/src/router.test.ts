@@ -335,6 +335,66 @@ function seedArtifacts(count: number): ContentStore {
   });
 }
 
+describe('GET /content repository grouping', () => {
+  const older = {
+    ...DEFAULT_ARTIFACT,
+    tags: ['10.0', 'latest'],
+    tagTimestamps: { '10.0': '2026-01-01' },
+  };
+  const newer = {
+    ...DEFAULT_ARTIFACT,
+    ref: `${DEFAULT_ARTIFACT.ref}-new`,
+    digest: 'sha256:new',
+    tags: ['2.0'],
+    tagTimestamps: { '2.0': '2026-02-01' },
+  };
+
+  it.each(['', '&sort=repository'])(
+    'groups before pagination and sorting (%s)',
+    async sort => {
+      const others = Array.from({ length: 10 }, (_, i) => ({
+        ...older,
+        ref: `other-${i}`,
+        repository: `other-${i}`,
+      }));
+      const db = stubDB({
+        listArtifacts: async () => [older, newer, ...others],
+      });
+      const app = await appWith(db);
+      const first = await request(app)
+        .get(`/content?per_page=10${sort}`)
+        .expect(200);
+      const second = await request(app)
+        .get(`/content?per_page=10&page=2${sort}`)
+        .expect(200);
+      expect(first.body.totalItems).toBe(11);
+      expect(second.body.items).toHaveLength(1);
+      const rows = [...first.body.items, ...second.body.items];
+      const row = rows.find(a => a.ref === newer.ref);
+      expect(row.tags).toEqual(['2.0', '10.0', 'latest']);
+      expect(rows.some(a => a.ref === older.ref)).toBe(false);
+    },
+  );
+
+  it.each(['search=old', 'search=old&registry=reg&contentsKnown=true'])(
+    'returns the representative when another digest matches %s',
+    async query => {
+      const listArtifacts = jest.fn(async (_type, options) =>
+        options?.search ? [older] : [older, newer],
+      );
+      const response = await request(await appWith(stubDB({ listArtifacts })))
+        .get(`/content?${query}`)
+        .expect(200);
+      expect(response.body.items).toHaveLength(1);
+      expect(response.body.items[0].ref).toBe(newer.ref);
+      expect(listArtifacts).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ search: 'old' }),
+      );
+    },
+  );
+});
+
 describe('GET /content sorting', () => {
   it.each(['/content', '/execution-environments'])(
     'rejects search longer than 256 characters on %s before querying the store',
@@ -357,7 +417,8 @@ describe('GET /content sorting', () => {
         .get(path)
         .query({ search: 'a'.repeat(256) })
         .expect(200);
-      expect(listArtifactsPaginated).toHaveBeenCalledTimes(1);
+      expect(listArtifactsPaginated).not.toHaveBeenCalled();
+      expect(listArtifacts).toHaveBeenCalled();
     },
   );
 
@@ -387,7 +448,7 @@ describe('GET /content sorting', () => {
     'sourceType',
     'lastReconciledAt',
   ] as const)(
-    'sorts %s ascending and descending, preserving ties',
+    'sorts %s ascending and descending after grouping duplicate repositories',
     async sort => {
       const index = seedArtifacts(3);
       const artifacts = await index.listArtifacts();
@@ -413,8 +474,8 @@ describe('GET /content sorting', () => {
           .expect(200);
         const expected =
           order === 'asc'
-            ? [artifacts[1], artifacts[2], artifacts[0]]
-            : artifacts;
+            ? [artifacts[1], artifacts[0]]
+            : [artifacts[0], artifacts[1]];
         expect(res.body.items.map((item: { ref: string }) => item.ref)).toEqual(
           expected.map(a => a.ref),
         );

@@ -1,3 +1,4 @@
+import { groupImages } from './groupImages';
 import express from 'express';
 import Router from 'express-promise-router';
 import { ConfigReader } from '@backstage/config';
@@ -434,27 +435,27 @@ export async function createRouter(
     let items: ReturnType<typeof artifactView>[];
     let totalItems: number;
 
-    if (typeof sort === 'string') {
-      // Sorted requests read the full filtered result so the ordering is
-      // global, then paginate in memory; unsorted requests stay in the DB.
-      let artifacts = await db.listArtifacts(
-        typeof type === 'string' ? type : undefined,
-        filters,
+    // Match digests first, then select from the complete repository group.
+    const allArtifacts = await db.listArtifacts();
+    let matches = await db.listArtifacts(
+      typeof type === 'string' ? type : undefined,
+      filters,
+    );
+    if (typeof registry === 'string')
+      matches = matches.filter(a => a.registry === registry);
+    if (contentsKnown !== undefined)
+      matches = matches.filter(
+        a => a.contentsKnown === (contentsKnown === 'true'),
       );
-      if (typeof registry === 'string')
-        artifacts = artifacts.filter(a => a.registry === registry);
-      if (contentsKnown !== undefined) {
-        const want = contentsKnown === 'true';
-        artifacts = artifacts.filter(a => a.contentsKnown === want);
-      }
-      if (collectionFilter) {
-        artifacts = artifacts.filter(a =>
-          (a.manifest?.collections ?? []).some(
-            (c: { namespace: string; name: string }) =>
-              `${c.namespace}.${c.name}` === collectionFilter,
-          ),
-        );
-      }
+    if (collectionFilter)
+      matches = matches.filter(a =>
+        (a.manifest?.collections ?? []).some(
+          c => `${c.namespace}.${c.name}` === collectionFilter,
+        ),
+      );
+    const artifacts = groupImages(allArtifacts, matches);
+
+    if (typeof sort === 'string') {
       const key = sort as (typeof SORT_KEYS)[number];
       const direction = order === 'desc' ? -1 : 1;
       const value = (a: IndexedArtifact): string | undefined => {
@@ -492,39 +493,12 @@ export async function createRouter(
       items = sorted
         .slice(offset, offset + pageSize)
         .map(a => artifactView(db, a));
-    } else if (collectionFilter) {
-      let artifacts = await db.listArtifacts(
-        typeof type === 'string' ? type : undefined,
-        filters,
-      );
-
-      if (typeof registry === 'string')
-        artifacts = artifacts.filter(a => a.registry === registry);
-      if (contentsKnown !== undefined) {
-        const want = contentsKnown === 'true';
-        artifacts = artifacts.filter(a => a.contentsKnown === want);
-      }
-      artifacts = artifacts.filter(a =>
-        (a.manifest?.collections ?? []).some(
-          (c: { namespace: string; name: string }) =>
-            `${c.namespace}.${c.name}` === collectionFilter,
-        ),
-      );
-
+    } else {
+      artifacts.sort((a, b) => a.ref.localeCompare(b.ref));
       totalItems = artifacts.length;
       items = artifacts
         .slice(offset, offset + pageSize)
         .map(a => artifactView(db, a));
-    } else {
-      const result = await db.listArtifactsPaginated({
-        ...filters,
-        type: typeof type === 'string' ? type : undefined,
-        limit: pageSize,
-        offset,
-      });
-
-      totalItems = result.totalCount;
-      items = result.items.map(a => artifactView(db, a));
     }
 
     const lastPage = Math.max(Math.ceil(totalItems / pageSize), 1);
