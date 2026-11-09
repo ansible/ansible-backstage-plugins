@@ -126,9 +126,7 @@ it('wraps the shared execution-environment page in a full-height themed surface'
   expect(
     screen.getByRole('heading', { name: 'Execution Environments' }),
   ).toBeTruthy();
-  expect(
-    screen.getByRole('tab', { name: 'Execution environments' }),
-  ).toBeTruthy();
+  expect(screen.getByRole('tab', { name: 'Images' })).toBeTruthy();
   expect(screen.getByText('Mocked definition files')).toBeTruthy();
 });
 
@@ -183,7 +181,7 @@ it('renders native Images through the SDK pipeline and retains the built-in rout
   expect(await screen.findByText('SDK Images panel')).toBeTruthy();
   expect(screen.queryByText('Fallback images')).toBeNull();
   expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
-    'Execution environments',
+    'Images',
     'Definition files',
     'Create',
   ]);
@@ -191,9 +189,7 @@ it('renders native Images through the SDK pipeline and retains the built-in rout
   expect(await screen.findByText('Mocked definition files')).toBeTruthy();
   await userEvent.click(screen.getByRole('tab', { name: 'Create' }));
   expect(await screen.findByText('Mocked create')).toBeTruthy();
-  await userEvent.click(
-    screen.getByRole('tab', { name: 'Execution environments' }),
-  );
+  await userEvent.click(screen.getByRole('tab', { name: 'Images' }));
   expect(await screen.findByText('SDK Images panel')).toBeTruthy();
   expect(loader).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -217,9 +213,7 @@ it('does not bypass native filtering with a fallback when a provider has no matc
   expect(
     await screen.findByRole('tab', { name: 'Definition files' }),
   ).toBeTruthy();
-  expect(
-    screen.queryByRole('tab', { name: 'Execution environments' }),
-  ).toBeNull();
+  expect(screen.queryByRole('tab', { name: 'Images' })).toBeNull();
   expect(screen.queryByText('Fallback images')).toBeNull();
 });
 
@@ -227,14 +221,10 @@ it('retains built-in Images and tab navigation when the native provider is absen
   renderCatalogTabs();
   expect(await screen.findByText('Fallback images')).toBeTruthy();
   expect(
-    screen
-      .getByRole('tab', { name: 'Execution environments' })
-      .getAttribute('aria-selected'),
+    screen.getByRole('tab', { name: 'Images' }).getAttribute('aria-selected'),
   ).toBe('true');
   await userEvent.click(screen.getByRole('tab', { name: 'Definition files' }));
   expect(await screen.findByText('Mocked definition files')).toBeTruthy();
-  await userEvent.click(
-    screen.getByRole('tab', { name: 'Execution environments' }),
-  );
+  await userEvent.click(screen.getByRole('tab', { name: 'Images' }));
   expect(await screen.findByText('Fallback images')).toBeTruthy();
 });

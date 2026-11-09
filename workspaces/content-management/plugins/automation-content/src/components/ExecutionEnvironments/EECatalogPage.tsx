@@ -63,7 +63,7 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
   const contributedTabs = nativeTabs ?? [
     {
       id: 'automation-content.discovery.images-tab',
-      label: 'Execution environments',
+      label: 'Images',
       component: ImagesTabContent,
     },
   ];
