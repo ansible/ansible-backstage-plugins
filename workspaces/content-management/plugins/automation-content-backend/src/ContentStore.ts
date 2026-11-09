@@ -190,7 +190,10 @@ export function itemKey(artifactRef: string, fqcn: string): string {
 
 /** Flatten an artifact's manifest into content items. */
 function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
-  const items: IndexedItem[] = [];
+  // One row per key: a manifest can list the same FQCN more than once
+  // (the in-memory index this replaces keyed a Map, last write winning),
+  // and the database's unique primary key must not reject a re-listing.
+  const byKey = new Map<string, IndexedItem>();
   for (const collection of artifact.manifest?.collections ?? []) {
     const collectionFqcn = `${collection.namespace}.${collection.name}`;
     const base = {
@@ -200,7 +203,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     };
 
     for (const plugin of collection.plugins) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, plugin.fqcn), {
         ...base,
         key: itemKey(artifact.ref, plugin.fqcn),
         fqcn: plugin.fqcn,
@@ -213,7 +216,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const role of collection.roles) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, role.fqcn), {
         ...base,
         key: itemKey(artifact.ref, role.fqcn),
         fqcn: role.fqcn,
@@ -224,7 +227,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const playbook of collection.playbooks) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, playbook.fqcn), {
         ...base,
         key: itemKey(artifact.ref, playbook.fqcn),
         fqcn: playbook.fqcn,
@@ -234,7 +237,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const eda of collection.edaPlugins) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, eda.fqcn), {
         ...base,
         key: itemKey(artifact.ref, eda.fqcn),
         fqcn: eda.fqcn,
@@ -245,7 +248,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
   }
-  return items;
+  return [...byKey.values()];
 }
 
 /**
