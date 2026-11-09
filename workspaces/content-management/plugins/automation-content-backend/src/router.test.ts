@@ -234,6 +234,26 @@ function seedArtifacts(count: number): ContentStore {
 }
 
 describe('GET /content sorting', () => {
+  it.each(['sort=repository', 'collection=ns.example'])(
+    'passes combined search filters to the store for %s',
+    async branch => {
+      const listArtifacts = jest.fn().mockResolvedValue([]);
+      const app = await appWith(stubDB({ listArtifacts }));
+      for (const contentsKnown of ['true', 'false']) {
+        await request(app)
+          .get(
+            `/content?${branch}&search=example&registry=reg&contentsKnown=${contentsKnown}`,
+          )
+          .expect(200);
+        expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
+          search: 'example',
+          registry: 'reg',
+          contentsKnown: contentsKnown === 'true',
+        });
+      }
+    },
+  );
+
   it.each([
     'repository',
     'registry',
@@ -356,7 +376,7 @@ describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
   path => {
     function syncIndex() {
       const index = stubDB({
-        getRegistry: () => ({ connection: { name: 'reg' } } as never),
+        getRegistry: () => ({ connection: { name: 'reg' } }) as never,
         listRegistries: () => [{ connection: { name: 'reg' } }] as never,
       });
       const refresh = jest
@@ -649,7 +669,6 @@ describe('GET /health', () => {
   });
 });
 
-
 describe('GET /content pagination', () => {
   function makeArtifact(n: number): IndexedArtifact {
     return {
@@ -802,7 +821,6 @@ describe('GET /content pagination', () => {
     expect(res.body.totalItems).toBe(25);
     expect(res.body.next).toContain('page=2');
   });
-
 });
 
 describe('diagnostics are summarised on the registry listing', () => {
@@ -991,7 +1009,7 @@ describe('GET /registries', () => {
               url: 'https://mock.registry',
               auth: { type: 'anonymous' },
             },
-          } as never),
+          }) as never,
         listRegistries: () =>
           [
             {
@@ -1248,7 +1266,7 @@ describe('configuration boundary', () => {
             url: 'https://reg.example',
             auth: { type: 'anonymous' },
           },
-        } as never),
+        }) as never,
       listRegistries: () =>
         [
           {
