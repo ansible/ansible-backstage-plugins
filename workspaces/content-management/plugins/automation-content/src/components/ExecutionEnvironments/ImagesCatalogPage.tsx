@@ -436,7 +436,7 @@ export function ImagesCatalogPage({
     <Flex direction="column" gap="4">
       {showHeader && (
         <PageHeaderSection
-          title="Execution environments"
+          title="Images"
           description="Discover immutable images from configured registries and inspect their Ansible content."
         />
       )}

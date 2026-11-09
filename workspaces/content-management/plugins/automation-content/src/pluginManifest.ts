@@ -26,7 +26,7 @@ export const automationContentManifest: PluginManifest = {
           kind: 'page-tab',
           surface: 'experience-slot',
           appliesToContentTypes: [CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE],
-          label: 'Execution environments',
+          label: 'Images',
           order: 0,
           launches: { type: 'slot', targetSlot: 'catalog.tabs' },
         },

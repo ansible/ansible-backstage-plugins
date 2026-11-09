@@ -378,6 +378,7 @@ function EEDetailsContent(): ReactElement {
           <BreadcrumbsNavigation
             items={[
               { label: 'Execution environments', href: base },
+              { label: 'Images', href: `${base}/images` },
               {
                 label: value?.repository ?? ref,
                 href: `${environmentHref(base, ref)}?tab=collections`,

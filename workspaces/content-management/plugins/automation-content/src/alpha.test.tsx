@@ -29,7 +29,7 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
 
 // Route discovery is independent of registry/catalog networking, covered by page tests.
 jest.mock('./components/ExecutionEnvironments/ImagesCatalogPage', () => ({
-  ImagesCatalogPage: () => <h1>Execution environments</h1>,
+  ImagesCatalogPage: () => <h1>Images</h1>,
 }));
 jest.mock('./components/ExecutionEnvironments/EECatalogPage', () => ({
   EECatalogPage: () => <h1>Execution Environments</h1>,
@@ -98,7 +98,7 @@ it('declares the Images catalog entry without an entity applicability predicate'
             id: 'automation-content.discovery.images-tab',
             kind: 'page-tab',
             surface: 'experience-slot',
-            label: 'Execution environments',
+            label: 'Images',
             order: 0,
             appliesToContentTypes: [CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE],
             launches: { type: 'slot', targetSlot: 'catalog.tabs' },
@@ -136,7 +136,7 @@ it('collects the blueprint through real host manifest validation and loads only 
     initialRouteEntries: ['/images-probe'],
   });
   expect(await screen.findByText('Collected tabs: 1')).toBeTruthy();
-  expect(await screen.findByText('Execution environments')).toBeTruthy();
+  expect(await screen.findByText('Images')).toBeTruthy();
   expect(await screen.findByText('Native images content')).toBeTruthy();
   expect(
     screen.queryByRole('heading', { name: 'Execution Environments' }),
