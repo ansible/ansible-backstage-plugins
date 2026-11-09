@@ -254,16 +254,18 @@ function EEDetailsContent(): ReactElement {
     [contents.value],
   );
   // Collection details are keyed by catalog entity name, not the image's FQCN.
+  // The entity provider publishes the FQCN and version as annotations
+  // (ansible.com/collection, ansible.com/version), not spec fields; the
+  // catalog narrows candidates by FQCN and the version matches here.
   const collectionEntities = useAsyncRetry(async () => {
     const collections =
       contents.value?.collections.filter(c => c.type === 'collection') ?? [];
     if (!collections.length) return { items: [] };
     return catalog.getEntities({
-      filter: collections.map(c => ({
+      filter: [...new Set(collections.map(c => c.fqcn))].map(fqcn => ({
         kind: 'Component',
         'spec.type': 'ansible-collection',
-        'spec.collection_full_name': c.fqcn,
-        'spec.collection_version': c.version,
+        'metadata.annotations.ansible.com/collection': fqcn,
       })),
     });
   }, [catalog, contents.value]);
@@ -285,8 +287,10 @@ function EEDetailsContent(): ReactElement {
           c.type === 'collection'
             ? collectionEntities.value?.items.find(
                 entity =>
-                  entity.spec?.collection_full_name === c.fqcn &&
-                  entity.spec?.collection_version === c.version,
+                  entity.metadata.annotations?.['ansible.com/collection'] ===
+                    c.fqcn &&
+                  entity.metadata.annotations?.['ansible.com/version'] ===
+                    c.version,
               )
             : undefined;
         return collection ? (
