@@ -369,6 +369,13 @@ export async function createRouter(
   const listContent = async (req: RouteRequest, res: RouteResponse) => {
     const { type, registry, collection, contentsKnown, sort, order, search } =
       req.query;
+    if (typeof search === 'string' && search.length > 256) {
+      res.status(400).json({
+        error: 'Search must not exceed 256 characters',
+        code: 'INVALID_SEARCH',
+      });
+      return;
+    }
     if (
       sort !== undefined &&
       (typeof sort !== 'string' || !SORT_KEYS.includes(sort as never))
