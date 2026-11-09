@@ -391,6 +391,12 @@ export async function createRouter(
 
     const collectionFilter =
       typeof collection === 'string' ? collection : undefined;
+    const filters = {
+      search: typeof search === 'string' ? search : undefined,
+      registry: typeof registry === 'string' ? registry : undefined,
+      contentsKnown:
+        contentsKnown !== undefined ? contentsKnown === 'true' : undefined,
+    };
 
     let items: ReturnType<typeof artifactView>[];
     let totalItems: number;
@@ -400,7 +406,7 @@ export async function createRouter(
       // global, then paginate in memory; unsorted requests stay in the DB.
       let artifacts = await db.listArtifacts(
         typeof type === 'string' ? type : undefined,
-        { search: typeof search === 'string' ? search : undefined },
+        filters,
       );
       if (typeof registry === 'string')
         artifacts = artifacts.filter(a => a.registry === registry);
@@ -456,7 +462,7 @@ export async function createRouter(
     } else if (collectionFilter) {
       let artifacts = await db.listArtifacts(
         typeof type === 'string' ? type : undefined,
-        { search: typeof search === 'string' ? search : undefined },
+        filters,
       );
 
       if (typeof registry === 'string')
@@ -478,11 +484,8 @@ export async function createRouter(
         .map(a => artifactView(db, a));
     } else {
       const result = await db.listArtifactsPaginated({
-        search: typeof search === 'string' ? search : undefined,
+        ...filters,
         type: typeof type === 'string' ? type : undefined,
-        registry: typeof registry === 'string' ? registry : undefined,
-        contentsKnown:
-          contentsKnown !== undefined ? contentsKnown === 'true' : undefined,
         limit: pageSize,
         offset,
       });
