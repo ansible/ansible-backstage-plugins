@@ -99,6 +99,7 @@ nav:
       - Quickstart (legacy compatibility): next/portal-sdk-quickstart.md
       - Dynamic plugins (legacy notes): next/portal-sdk-rhdh-dynamic-plugin.md
   - Architecture:
+      - UI decision tree (BUI): architecture/bui-ui-decision-tree.md
       - Historical architecture and planning:
           - Content experience refactoring plan: architecture/content-experience-refactor-and-sdk.md
           - Historical self-service extensions: architecture/self-service-extension-sdk.md
