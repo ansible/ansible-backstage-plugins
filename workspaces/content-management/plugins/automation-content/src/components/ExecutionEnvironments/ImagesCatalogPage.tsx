@@ -102,17 +102,19 @@ export function ImagesCatalogPage({
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [starredOnly, setStarredOnly] = useState(false);
   const [view, setView] = useState<'table' | 'grid'>('table');
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
+    if (search.trim() === debouncedSearch) return undefined;
     const timeout = window.setTimeout(() => {
       setPage(1);
       setDebouncedSearch(search.trim());
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [search]);
+  }, [search, debouncedSearch]);
   const [perPage, setPerPage] = useState(10);
   const [sort, setSort] = useState<SortDescriptor | null>(null);
   const sortKeys = {
@@ -405,7 +407,7 @@ export function ImagesCatalogPage({
             >
               Show all images
             </Checkbox>
-            <MenuTrigger>
+            <MenuTrigger isOpen={viewMenuOpen} onOpenChange={setViewMenuOpen}>
               <ButtonIcon
                 variant="tertiary"
                 aria-label={`View: ${view === 'table' ? 'Table' : 'Card'}`}
@@ -442,8 +444,10 @@ export function ImagesCatalogPage({
                 onSelectionChange={keys => {
                   if (keys !== 'all') {
                     const selected = [...keys][0];
-                    if (selected === 'table' || selected === 'grid')
+                    if (selected === 'table' || selected === 'grid') {
                       setView(selected);
+                      setViewMenuOpen(false);
+                    }
                   }
                 }}
               >
