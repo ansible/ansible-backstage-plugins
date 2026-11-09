@@ -462,6 +462,26 @@ it.each([
       ),
     );
     expect(getContents).toHaveBeenCalledWith(ref);
+    expect(
+      getEntities.mock.calls.filter(([query]) => Array.isArray(query.filter)),
+    ).toEqual(
+      enumeration.status === 'complete'
+        ? [
+            [
+              {
+                filter: [
+                  {
+                    kind: 'Component',
+                    'spec.type': 'ansible-collection',
+                    'spec.collection_full_name': 'ansible.posix',
+                    'spec.collection_version': '1.0.0',
+                  },
+                ],
+              },
+            ],
+          ]
+        : [],
+    );
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Overview',
       'All Content',

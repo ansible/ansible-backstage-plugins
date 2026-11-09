@@ -259,11 +259,12 @@ function EEDetailsContent(): ReactElement {
       contents.value?.collections.filter(c => c.type === 'collection') ?? [];
     if (!collections.length) return { items: [] };
     return catalog.getEntities({
-      filter: {
+      filter: collections.map(c => ({
         kind: 'Component',
         'spec.type': 'ansible-collection',
-        'spec.collection_full_name': [...new Set(collections.map(c => c.fqcn))],
-      },
+        'spec.collection_full_name': c.fqcn,
+        'spec.collection_version': c.version,
+      })),
     });
   }, [catalog, contents.value]);
   const table = useTable<CollectionRow>({
