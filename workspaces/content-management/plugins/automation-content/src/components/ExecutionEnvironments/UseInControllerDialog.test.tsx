@@ -88,7 +88,9 @@ function renderDialog({
   });
   const listRegistries = jest.fn().mockResolvedValue(registries);
   const onClose = jest.fn();
-  render(
+  const renderContent = (
+    overrides: Partial<Parameters<typeof UseInControllerDialog>[0]> = {},
+  ) => (
     <TestApiProvider
       apis={[
         [scaffolderApiRef, { scaffold }],
@@ -108,6 +110,7 @@ function renderDialog({
                 pullReference={pullReference}
                 selectedTag={selectedTag}
                 onClose={onClose}
+                {...overrides}
               />
             }
           />
@@ -117,9 +120,19 @@ function renderDialog({
           />
         </Routes>
       </MemoryRouter>
-    </TestApiProvider>,
+    </TestApiProvider>
   );
-  return { scaffold, getEntities, getAccessToken, getRepositoryTags, onClose };
+  const { rerender } = render(renderContent());
+  return {
+    scaffold,
+    getEntities,
+    getAccessToken,
+    getRepositoryTags,
+    onClose,
+    rerenderDialog: (
+      overrides: Partial<Parameters<typeof UseInControllerDialog>[0]>,
+    ) => rerender(renderContent(overrides)),
+  };
 }
 
 async function selectDefaultOrganization() {
@@ -172,6 +185,75 @@ it('uses the details-page tag as the default selection', async () => {
   ).toContain('2.9');
   expect(screen.getByText('sha256:two')).toBeTruthy();
   expect(screen.getByText('registry/team/ee:2.9')).toBeTruthy();
+});
+
+it('keeps user input when the details-page tag arrives and keeps the chosen tag when prefilling a new name', async () => {
+  const { rerenderDialog } = renderDialog();
+  await selectDefaultOrganization();
+  const name = screen.getByRole('textbox', {
+    name: /execution environment name/i,
+  });
+  await userEvent.clear(name);
+  await userEvent.type(name, 'custom-ee');
+  await userEvent.click(
+    await screen.findByRole('button', { name: /version/i }),
+  );
+  await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
+
+  rerenderDialog({ selectedTag: 'latest' });
+  expect((name as HTMLInputElement).value).toBe('custom-ee');
+  expect(
+    screen.getByRole('button', { name: /organization/i }).textContent,
+  ).toContain('Default');
+  expect(
+    screen.getByRole('button', { name: /version/i }).textContent,
+  ).toContain('2.9');
+
+  rerenderDialog({ imageName: 'team/renamed-ee', selectedTag: 'latest' });
+  expect((name as HTMLInputElement).value).toBe('team/renamed-ee');
+  expect(
+    screen.getByRole('button', { name: /version/i }).textContent,
+  ).toContain('2.9');
+});
+
+it('resets the chosen tag and copy status on image changes and reopening', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: jest.fn().mockResolvedValue(undefined) },
+  });
+  const { rerenderDialog } = renderDialog();
+  for (const reset of [
+    () => rerenderDialog({ pullReference: 'registry/team/ee@sha256:two' }),
+    () => {
+      rerenderDialog({
+        open: false,
+        pullReference: 'registry/team/ee@sha256:two',
+      });
+      rerenderDialog({
+        open: true,
+        pullReference: 'registry/team/ee@sha256:two',
+      });
+    },
+  ]) {
+    await userEvent.click(
+      await screen.findByRole('button', { name: /version/i }),
+    );
+    await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Copy selected image digest' }),
+    );
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Digest copied',
+    );
+
+    reset();
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /version/i }).textContent,
+      ).toContain('3.0'),
+    );
+    expect(screen.queryByText('Digest copied')).toBeNull();
+  }
 });
 
 it('submits the selected tag, organization identity, and token secret, then follows the task', async () => {

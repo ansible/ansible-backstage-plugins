@@ -215,12 +215,15 @@ export function UseInControllerDialog({
       setEnvironmentName(imageName);
       setDescription(`Use ${imageName} in Ansible Automation Controller.`);
       setOrganizationId('');
-      setSelectedTagOverride('');
       setOrganizationError('');
-      setCopyStatus('');
       setError('');
     }
-  }, [imageName, open, pullReference, selectedTag]);
+  }, [imageName, open]);
+
+  useEffect(() => {
+    setSelectedTagOverride('');
+    setCopyStatus('');
+  }, [pullReference, open]);
 
   const handleSubmit = async (): Promise<void> => {
     if (!environmentName.trim()) {
