@@ -726,10 +726,12 @@ walks the tree; its output is one paragraph that a reviewer can check against
 the vocabulary in section 1. No gate is skipped, and no gate revisits what an
 earlier one settled.
 
-"Good enough" means one thing throughout: the person reaches the goal without
-leaving the surface they started in, and without a surface we do not already own
-being created. Whether it is good enough on the journey is UX's call; whether it
-is good enough on the surface is engineering's (section 2.1).
+"Good enough" means one thing throughout: the person reaches the goal without a
+surface we do not already own being created, and without visiting a surface that
+exists only to hand them to another one. Moving between surfaces we already own
+is normal — Appendix A does exactly that — and what the tree forbids is
+inventing a doorway. Whether it is good enough on the journey is UX's call;
+whether it is good enough on the surface is engineering's (section 2.1).
 
 The tree is per change, not per programme. One journey routinely produces
 several records, and the execution-environment work is three templates, one
@@ -743,6 +745,11 @@ step has one.
 
 - **Every step has a shape.** Go to gate 1, starting from the surface that owns
   the step the journey is named after.
+- **Some steps have a shape and some do not.** The shaped steps proceed at gate
+  1. The unshaped one is either a genuinely new shape, which is the exception in
+     section 2.4 and the subject of gate 3, or a product decision that goes to
+     Plugin Factory intake. Appendix B is this case: the review workbench has no
+     owner, and every step around it does.
 - **No step has a shape.** Nothing to configure, reuse or extend. This is a
   product decision rather than a UI decision: it goes to Plugin Factory intake
   and the tree stops here.
@@ -879,8 +886,9 @@ the same words as "we considered it".
 
 ### 4.3 What the check can and cannot validate
 
-The advisory drift check already in CI (`bui-baseline.yaml`,
-`scripts/check-bui-drift.mjs`) reads source. It proves one field and only one:
+The advisory drift check proposed in #1040 (`bui-baseline.yaml`,
+`scripts/check-bui-drift.mjs`) reads source. It is not in CI yet; what follows
+is what it will and will not prove once it lands. It covers one field only:
 whether new non-BUI imports appeared, and whether the baseline grew. That is the
 `custom_surfaces` ceiling, and it is a good ceiling, because it is the one
 signal a machine can read honestly.
@@ -912,9 +920,12 @@ The record for Appendix A, in full:
 
 - **Goal:** create an execution environment, entered from a Create action on the
   page that lists existing execution environments.
-- **Level:** L3, with one L0 configuration predicate at the landing page.
+- **Level:** L3.
 - **Alternatives, cheapest first:**
-  - L0 alone — the right templates on the page, no way to get there.
+  - L0 with `groups` — sections the templates, but the page still lists them
+    all.
+  - L0 with `templateFilter` — the answer we want, unavailable in 1.54.9 and
+    present on Backstage `main`.
   - L1 — the stock page and its stock nav item, which serves browsing the
     product rather than the person who pressed a button on a list.
   - L2 — nothing inside the page needs replacing.
@@ -923,10 +934,10 @@ The record for Appendix A, in full:
   - L5, the same view with bespoke cards — it reproduces the stock template card
     and drifts on the first change to `@backstage/ui`.
 - **Custom surfaces:** none. One action contribution.
-- **Revalidated per release:** the action contribution, and the predicate when
-  the templates sub-page's config changes.
-- **Gap:** a missing slot — the collection page cannot host a create flow. Filed
-  upstream with a deadline; the L3 action is the interim.
+- **Revalidated per release:** the action contribution.
+- **Gap:** two. A missing slot — the collection page cannot host a create flow.
+  A missing input — `templateFilter`, already on Backstage `main`. Both filed
+  upstream; the L3 action is the interim.
 - **Author:** the plugin that owns the collection page.
 - **Reversal cost:** low. Removing an action and a predicate leaves no route and
   no nav item behind.
@@ -975,14 +986,17 @@ reviewer can act on.
 
 ### A.2 Gate 1 — how far the stock surface goes
 
-**L0.** The templates sub-page accepts a filter predicate for the templates it
-lists, so the landing page can show only execution-environment templates.
+**L0.** The templates sub-page can be reconfigured, but in the release RHDH 2.1
+pins (Backstage 1.54.9) the only inputs are `groups` and `enableBackstageUi`.
 
-- `Code:` the `templateFilter` input on `sub-page:scaffolder/templates`, built
-  with `createZodV4FilterPredicateSchema` from `@backstage/filter-predicates`;
-  `groups` names the list the filtered templates land in.
-- Not adequate alone: nothing in the product points at the filtered list, so the
-  journey still has no entry point.
+- `Code:` `groups: [{ title, filter }]` on `sub-page:scaffolder/templates`, with
+  each predicate written as `createZodV4FilterPredicateSchema()` from
+  `@backstage/filter-predicates`.
+- Not adequate: grouping files templates into named sections and puts the rest
+  under "Other". It removes nothing, so the page still lists every template in
+  the catalogue. What would remove them is a page-wide `templateFilter` input,
+  which exists on Backstage `main` and not in 1.54.9 — so at 2.1 it is not
+  available to us at all.
 
 **L1.** The whole stock page with its stock nav item. This is engineering's
 proposal, and it is the cheapest complete answer. Not adequate: it answers the
@@ -991,23 +1005,24 @@ looking at their execution environments and pressed a button there.
 
 **L2.** Nothing inside the page needs replacing, so this rung has no work.
 
-**L3.** A Create action on the collection page, pointing at the filtered
-templates list.
+**L3.** A Create action on the collection page, pointing at the templates page.
 
 - `Code:` a header or context action contribution on the page that lists the
-  environments, routed to `sub-page:scaffolder/templates` with the predicate
-  applied.
-- Adequate as far as the product allows: one press, and the person lands on the
-  three templates rather than on every template in the catalogue.
+  environments, routed to `sub-page:scaffolder/templates`.
+- Adequate as far as the release allows: one press, and the person is on the
+  templates list. It is not the filtered landing, because the release cannot
+  produce one.
 
-**What L3 does not fix.** The person still changes page. If continuity means
-never leaving the collection, the obstacle is not configuration and not a
-component: the collection page has nowhere to host a creation flow. That is a
-missing slot (section 2.3), and the honest answer is an upstream ask rather than
-a second create experience that drifts from the scaffolder.
+**What L3 does not fix.** Two things, and only one of them is ours. The person
+still changes page, because the collection page has nowhere to host a creation
+flow — a missing slot. And the landing page still shows every template, because
+the input that would filter it is not in the release — a missing input.
 
-**Stop at L3**, carrying the L0 predicate inside it: an action and a predicate,
-no route of ours, nothing to revalidate beyond the action.
+**Stop at L3.** One action, no route of ours, nothing to revalidate beyond the
+action. The gap is filed upstream, and the interim costs a page change and a
+full template list. Both are honest to state; the alternative is an L4 page of
+our own, which adds a route, a nav item and tests, and still runs the stock
+form.
 
 ### A.3 What was not built, and why
 
@@ -1080,12 +1095,15 @@ markup changes. The upstream ask was cheap by comparison.
 
 The exception is being narrowed rather than defended. The package exposes a
 `headless` entry — controller, transport, state — with no presentation and no
-CSS, which is the seam that makes a presentation swap possible at all. The
-Portal mounts the workflow through that entry and supplies its own chrome from
-`@backstage/ui`. A newer plugin in the APME repository exposes its views as
-separate entry points (`./workflow`, `./findings`, `./activity`,
-`./dependencies`) and uses BUI for host controls, with PatternFly confined to
-the workflow body.
+CSS, which is the seam that makes a presentation swap possible at all. A newer
+plugin in the APME repository uses it that way: headless for behaviour,
+`@backstage/ui` for chrome, PatternFly confined to the workflow body, and its
+views exposed as separate entry points (`./workflow`, `./findings`,
+`./activity`, `./dependencies`).
+
+The plugin in this repository has not got there yet. It imports `OperationPanel`
+from the package root, so it renders the PatternFly panel, and it forks that
+panel to place its own host action beside the pull-request control.
 
 What remains on PatternFly is chrome — cards, buttons, alerts, labels, form
 controls — rather than the parts that are genuinely custom. The diff view and
@@ -1134,7 +1152,6 @@ The middle column says what a component is for, not where you can see it today.
 | `DatePicker`         | a single date                                            | props, theme values      | low           |
 | `DateRangePicker`    | a start and end date                                     | props, theme values      | low           |
 | `Dialog`             | a modal for confirmation or detail                       | props, theme values      | low           |
-| `FieldError`         | the error line under a form field                        | props                    | none          |
 | `FieldLabel`         | the label above a form field                             | props                    | none          |
 | `Flex`               | one-dimensional layout: row or column, gap, alignment    | props                    | none          |
 | `FullPage`           | a full-height page shell                                 | props                    | none          |
@@ -1185,21 +1202,30 @@ you are revalidating a look on every release, and no check will remind you.
 What you attach to, rather than what you draw with. These are the surfaces from
 section 1.C, and the cheapest way to change each.
 
-| Construct                 | You change it by                                                    | Carrying cost |
-| ------------------------- | ------------------------------------------------------------------- | ------------- |
-| App shell and sidebar     | `NavContentBlueprint`, or the page's own title and icon             | low           |
-| Page                      | `withOverrides` on the owning plugin: title, icon, path             | none          |
-| Sub-page                  | its configuration inputs, for example `templateFilter` and `groups` | none          |
-| Entity tab                | `EntityDetailTabBlueprint`                                          | low           |
-| Entity card               | `EntityCardBlueprint`                                               | low           |
-| Home widget               | `HomePageWidgetBlueprint`                                           | low           |
-| Catalog column            | `CatalogTableColumnBlueprint`                                       | low           |
-| Header or context action  | `PluginHeaderActionBlueprint`, `EntityContextMenuItemBlueprint`     | low           |
-| Form field                | `FormFieldBlueprint`                                                | low           |
-| One nested component      | `SwappableComponentBlueprint`, where the owner offers one           | low           |
-| Theme and language        | `ThemeBlueprint`, `IconBundleBlueprint`, `TranslationBlueprint`     | low           |
-| A new page of stock parts | `PageBlueprint` composed from the primitives above                  | medium        |
-| A copy of a stock page    | forking it into our own plugin                                      | high          |
+| Construct                 | You change it by                                                         | Carrying cost |
+| ------------------------- | ------------------------------------------------------------------------ | ------------- |
+| App shell and sidebar     | `NavContentBlueprint`, or the page's own title and icon                  | low           |
+| Page                      | `withOverrides` on the owning plugin: title, icon, path                  | none          |
+| Sub-page                  | its configuration inputs, for example `groups` on the templates sub-page | none          |
+| Entity tab                | `EntityDetailTabBlueprint`                                               | low           |
+| Entity card               | `EntityCardBlueprint`                                                    | low           |
+| Home widget               | `HomePageWidgetBlueprint`                                                | low           |
+| Catalog column            | `CatalogTableColumnBlueprint`                                            | low           |
+| Header or context action  | `PluginHeaderActionBlueprint`, `EntityContextMenuItemBlueprint`          | low           |
+| Form field                | `FormFieldBlueprint`                                                     | low           |
+| One nested component      | `SwappableComponentBlueprint`, where the owner offers one                | low           |
+| Theme and language        | `ThemeBlueprint`, `IconBundleBlueprint`, `TranslationBlueprint`          | low           |
+| A new page of stock parts | `PageBlueprint` composed from the primitives above                       | medium        |
+| A copy of a stock page    | forking it into our own plugin                                           | high          |
+
+Two naming worlds meet in this table, and one does not imply the other. The
+Portal's own extension API (`@ansible/portal-extension-api/alpha`) provides
+`EntityDetailTabBlueprint`, `EntityOverviewCardBlueprint`,
+`CatalogTableColumnBlueprint` and the scaffolder blueprints. Upstream Backstage
+provides `EntityContentBlueprint` for the same job as an entity tab, and has no
+catalog-column blueprint at all — upstream customises columns by replacing the
+`page:catalog` extension. Use the Portal name when contributing to the Portal
+and the upstream name when contributing upstream.
 
 Two of these deserve a second look. **Swap before fork**:
 `SwappableComponentBlueprint` exists so a host can replace one nested component
@@ -1245,13 +1271,18 @@ the choice between them is the journey question in section 2.4.
 
 **Going deeper.** Four steps, in the order that answers a real question:
 
-1. **What does a given host actually have?** Read its configuration: the
-   `app.extensions` entries and the dynamic-plugin entries name the extensions
-   the app mounts. This is the only list that matters for a specific deployment.
-2. **What does a package offer?** Search its source for `PageBlueprint.make(`
-   and `SubPageBlueprint.make(`. The extension id defaults to `page:<pluginId>`
-   and `sub-page:<pluginId>/<name>`; `path` is the route and `title` is the nav
-   label.
+1. **What does a given host actually have?** Two sources, and configuration
+   alone under-reports. Read the `app.extensions` and dynamic-plugin entries,
+   then read the statically registered features in
+   `createApp({ features: [...] })` — RHDH mounts Catalog and Search that way
+   without listing them in configuration. Together they are the list that
+   matters for a deployment.
+2. **What does a package offer?** Search its source for `PageBlueprint.make(`,
+   `PageBlueprint.makeWithOverrides(`, `SubPageBlueprint.make(` and
+   `SubPageBlueprint.makeWithOverrides(`. The last of these is easy to miss and
+   is how RHDH re-declares the Scaffolder page. The extension id defaults to
+   `page:<pluginId>` and `sub-page:<pluginId>/<name>`; `path` is the route and
+   `title` is the nav label.
 3. **What is RHDH's own?** The `redhat-developer/rhdh-plugins` workspaces. As of
    2.1 they add pages and no sub-pages, so sub-pages are effectively an upstream
    construct.
