@@ -25,6 +25,8 @@ import {
   Link,
   Menu,
   MenuItem,
+  MenuListBox,
+  MenuListBoxItem,
   MenuTrigger,
   SearchField,
   Table,
@@ -477,22 +479,52 @@ export function ImagesCatalogPage({
             >
               Show all images
             </Checkbox>
-            <Flex gap="1" role="group" aria-label="Image view">
-              <Button
-                variant={view === 'table' ? 'secondary' : 'tertiary'}
-                aria-pressed={view === 'table'}
-                onPress={() => setView('table')}
+            <MenuTrigger>
+              <ButtonIcon
+                variant="tertiary"
+                aria-label={`View: ${view === 'table' ? 'Table' : 'Card'}`}
+                icon={
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    {view === 'table' ? (
+                      <>
+                        <rect x="3" y="4" width="18" height="16" rx="1" />
+                        <path d="M3 9h18M3 14h18M9 4v16" />
+                      </>
+                    ) : (
+                      <>
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                      </>
+                    )}
+                  </svg>
+                }
+              />
+              <MenuListBox
+                aria-label="Image view"
+                selectionMode="single"
+                disallowEmptySelection
+                placement="bottom end"
+                selectedKeys={new Set([view])}
+                onSelectionChange={keys => {
+                  if (keys !== 'all') {
+                    const selected = [...keys][0];
+                    if (selected === 'table' || selected === 'grid')
+                      setView(selected);
+                  }
+                }}
               >
-                Table
-              </Button>
-              <Button
-                variant={view === 'grid' ? 'secondary' : 'tertiary'}
-                aria-pressed={view === 'grid'}
-                onPress={() => setView('grid')}
-              >
-                Grid
-              </Button>
-            </Flex>
+                <MenuListBoxItem id="table">Table view</MenuListBoxItem>
+                <MenuListBoxItem id="grid">Card view</MenuListBoxItem>
+              </MenuListBox>
+            </MenuTrigger>
           </Flex>
           {collectionFilterOpen && (
             <CheckboxGroup
