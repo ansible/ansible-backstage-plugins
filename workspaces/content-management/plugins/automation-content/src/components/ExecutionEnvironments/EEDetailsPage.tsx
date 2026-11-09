@@ -20,6 +20,7 @@ import {
   ButtonIcon,
   Card,
   CardBody,
+  Cell,
   CellText,
   Container,
   Flex,
@@ -252,6 +253,19 @@ function EEDetailsContent(): ReactElement {
       })),
     [contents.value],
   );
+  // Collection details are keyed by catalog entity name, not the image's FQCN.
+  const collectionEntities = useAsyncRetry(async () => {
+    const collections =
+      contents.value?.collections.filter(c => c.type === 'collection') ?? [];
+    if (!collections.length) return { items: [] };
+    return catalog.getEntities({
+      filter: {
+        kind: 'Component',
+        'spec.type': 'ansible-collection',
+        'spec.collection_full_name': [...new Set(collections.map(c => c.fqcn))],
+      },
+    });
+  }, [catalog, contents.value]);
   const table = useTable<CollectionRow>({
     mode: 'complete',
     data,
@@ -263,9 +277,32 @@ function EEDetailsContent(): ReactElement {
   const columns: ColumnConfig<CollectionRow>[] = [
     {
       id: 'name',
-      label: 'Collection',
+      label: 'Name',
       isRowHeader: true,
-      cell: c => <CellText title={c.fqcn} />,
+      cell: c => {
+        const collection =
+          c.type === 'collection'
+            ? collectionEntities.value?.items.find(
+                entity =>
+                  entity.spec?.collection_full_name === c.fqcn &&
+                  entity.spec?.collection_version === c.version,
+              )
+            : undefined;
+        return collection ? (
+          <Cell>
+            <Link
+              href={`/self-service/collections/${encodeURIComponent(
+                collection.metadata.name,
+              )}`}
+              color="info"
+            >
+              {c.fqcn}
+            </Link>
+          </Cell>
+        ) : (
+          <CellText title={c.fqcn} />
+        );
+      },
     },
     {
       id: 'type',
