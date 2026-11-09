@@ -234,6 +234,31 @@ function seedArtifacts(count: number): ContentStore {
 }
 
 describe('GET /content sorting', () => {
+  it.each(['/content', '/execution-environments'])(
+    'rejects search longer than 256 characters on %s before querying the store',
+    async path => {
+      const listArtifacts = jest.fn().mockResolvedValue([]);
+      const listArtifactsPaginated = jest
+        .fn()
+        .mockResolvedValue({ items: [], totalCount: 0 });
+      const app = await appWith(
+        stubDB({ listArtifacts, listArtifactsPaginated }),
+      );
+      const response = await request(app)
+        .get(path)
+        .query({ search: 'a'.repeat(257) })
+        .expect(400);
+      expect(response.body.code).toBe('INVALID_SEARCH');
+      expect(listArtifacts).not.toHaveBeenCalled();
+      expect(listArtifactsPaginated).not.toHaveBeenCalled();
+      await request(app)
+        .get(path)
+        .query({ search: 'a'.repeat(256) })
+        .expect(200);
+      expect(listArtifactsPaginated).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each(['sort=repository', 'collection=ns.example'])(
     'passes combined search filters to the store for %s',
     async branch => {
