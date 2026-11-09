@@ -161,6 +161,32 @@ const syncedContents: ArtifactContents = {
   items: [],
 };
 
+it('renders only the empty state when an image has no collections', async () => {
+  const emptyContents: ArtifactContents = {
+    enumeration: { status: 'complete', source: 'build-time-manifest' },
+    collections: [],
+    items: [],
+  };
+  renderSyncDetails(emptyContents, emptyContents, async () => ({
+    status: 'completed',
+    ref: image.ref,
+    tag: 'latest',
+    retainedPrevious: false,
+  }));
+
+  expect(
+    await screen.findByRole('heading', {
+      name: 'No collections are included in this execution environment',
+    }),
+  ).toBeTruthy();
+  expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+  expect(
+    screen.queryByRole('button', { name: /page size|table page/i }),
+  ).toBeNull();
+  expect(document.querySelector('select[name="pageSize"]')).toBeNull();
+  expect(screen.queryByText(/^Show \d+ results$/)).toBeNull();
+});
+
 it('shows the verification warning in the details overview', async () => {
   const staleImage: ExecutionEnvironment = {
     ...image,

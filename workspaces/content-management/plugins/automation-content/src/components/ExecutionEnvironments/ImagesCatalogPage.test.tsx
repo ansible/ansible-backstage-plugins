@@ -116,6 +116,15 @@ const envelope = (
   next: page * pageSize < totalItems ? `?page=${page + 1}` : null,
 });
 
+function expectNoImageTableChrome(): void {
+  expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+  expect(
+    screen.queryByRole('button', { name: /table page size|table page/i }),
+  ).toBeNull();
+  expect(document.querySelector('select[name="pageSize"]')).toBeNull();
+  expect(screen.queryByText(/^\d+ - \d+ of \d+$/)).toBeNull();
+}
+
 function createLiveApi(image?: ExecutionEnvironment): {
   api: AutomationContentApi;
   syncArtifact: jest.Mock;
@@ -254,6 +263,7 @@ it('retains search controls when no images match and clears the filters', async 
   expect(
     await screen.findByText('No images match your search or filters'),
   ).toBeTruthy();
+  expectNoImageTableChrome();
   await userEvent.click(
     screen.getByRole('button', { name: 'Clear search and filters' }),
   );
@@ -358,6 +368,7 @@ it('keeps favorites filtering on the current page', async () => {
   expect(
     await screen.findByText('No images match your search or filters'),
   ).toBeTruthy();
+  expectNoImageTableChrome();
   await userEvent.click(
     screen.getByRole('button', { name: 'Clear search and filters' }),
   );
@@ -423,7 +434,36 @@ it('skips the catalog request for an empty page', async () => {
     </TestApiProvider>,
   );
   await screen.findByText('No execution environments discovered');
+  expectNoImageTableChrome();
   expect(getEntities).not.toHaveBeenCalled();
+});
+
+it('shows only the empty state in the image grid when there are no results', async () => {
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          { listExecutionEnvironments: async () => envelope([]) },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+
+  await screen.findByText('No execution environments discovered');
+  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
+
+  expect(screen.getByText('No execution environments discovered')).toBeTruthy();
+  expectNoImageTableChrome();
+  expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
 });
 
 it('keeps inventory visible when the filtered catalog request fails', async () => {

@@ -374,6 +374,34 @@ export function ImagesCatalogPage({
     },
   ];
 
+  const emptyState = (
+    <EmptyState
+      title={
+        data?.length || debouncedSearch || starredOnly
+          ? 'No images match your search or filters'
+          : 'No execution environments discovered'
+      }
+      description={
+        data?.length || debouncedSearch || starredOnly
+          ? 'Change your search or filters.'
+          : 'Images appear after configured registries are reconciled.'
+      }
+      action={
+        data?.length || debouncedSearch || starredOnly ? (
+          <Button
+            variant="secondary"
+            onPress={() => {
+              setSearch('');
+              setStarredOnly(false);
+            }}
+          >
+            Clear search and filters
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+
   const content = (
     <Flex direction="column" gap="4">
       {showHeader && (
@@ -473,61 +501,39 @@ export function ImagesCatalogPage({
           <Text>Catalog links are unavailable. Favorites may be missing.</Text>
         )}
         <div aria-busy={images.loading} className={styles.table}>
-          {!images.error && view === 'table' && (
-            <Table
-              {...table.tableProps}
-              pagination={{
-                type: 'page',
-                pageSize: perPage,
-                pageSizeOptions: [10, 20, 50],
-                showPageSizeOptions: true,
-                onPageSizeChange: size => {
-                  setPerPage(size);
-                  setPage(1);
-                },
-                offset: ((images.value?.page ?? page) - 1) * perPage,
-                totalCount: images.value?.totalItems ?? 0,
-                hasNextPage:
-                  !images.loading &&
-                  page * perPage < (images.value?.totalItems ?? 0),
-                hasPreviousPage: !images.loading && page > 1,
-                onNextPage: () => setPage(current => current + 1),
-                onPreviousPage: () => setPage(current => current - 1),
-              }}
-              isPending={images.loading}
-              columnConfig={columns}
-              emptyState={
-                <EmptyState
-                  title={
-                    data?.length || debouncedSearch || starredOnly
-                      ? 'No images match your search or filters'
-                      : 'No execution environments discovered'
-                  }
-                  description={
-                    data?.length || debouncedSearch || starredOnly
-                      ? 'Change your search or favorites filter.'
-                      : 'Images appear after configured registries are reconciled.'
-                  }
-                  action={
-                    data?.length || debouncedSearch || starredOnly ? (
-                      <Button
-                        variant="secondary"
-                        onPress={() => {
-                          setSearch('');
-                          setStarredOnly(false);
-                        }}
-                      >
-                        Clear search and filters
-                      </Button>
-                    ) : undefined
-                  }
-                />
-              }
-            />
-          )}
+          {!images.error &&
+            view === 'table' &&
+            (!images.loading && !visibleImages.length ? (
+              emptyState
+            ) : (
+              <Table
+                {...table.tableProps}
+                pagination={{
+                  type: 'page',
+                  pageSize: perPage,
+                  pageSizeOptions: [10, 20, 50],
+                  showPageSizeOptions: true,
+                  onPageSizeChange: size => {
+                    setPerPage(size);
+                    setPage(1);
+                  },
+                  offset: ((images.value?.page ?? page) - 1) * perPage,
+                  totalCount: images.value?.totalItems ?? 0,
+                  hasNextPage:
+                    !images.loading &&
+                    page * perPage < (images.value?.totalItems ?? 0),
+                  hasPreviousPage: !images.loading && page > 1,
+                  onNextPage: () => setPage(current => current + 1),
+                  onPreviousPage: () => setPage(current => current - 1),
+                }}
+                isPending={images.loading}
+                columnConfig={columns}
+                emptyState={emptyState}
+              />
+            ))}
           {!images.error && view === 'grid' && (
             <>
-              {visibleImages.length ? (
+              {visibleImages.length > 0 && (
                 <div className={catalogStyles.imageGrid}>
                   {visibleImages.map(image => {
                     const entity = entityByImageRef.get(image.ref);
@@ -703,34 +709,9 @@ export function ImagesCatalogPage({
                     );
                   })}
                 </div>
-              ) : (
-                <EmptyState
-                  title={
-                    data?.length || debouncedSearch || starredOnly
-                      ? 'No images match your search or filters'
-                      : 'No execution environments discovered'
-                  }
-                  description={
-                    data?.length || debouncedSearch || starredOnly
-                      ? 'Change your search or filters.'
-                      : 'Images appear after configured registries are reconciled.'
-                  }
-                  action={
-                    data?.length || debouncedSearch || starredOnly ? (
-                      <Button
-                        variant="secondary"
-                        onPress={() => {
-                          setSearch('');
-                          setStarredOnly(false);
-                        }}
-                      >
-                        Clear search and filters
-                      </Button>
-                    ) : undefined
-                  }
-                />
               )}
-              {!!images.value?.totalItems && (
+              {!visibleImages.length && !images.loading && emptyState}
+              {visibleImages.length > 0 && !!images.value?.totalItems && (
                 <Flex
                   align="center"
                   justify="between"
