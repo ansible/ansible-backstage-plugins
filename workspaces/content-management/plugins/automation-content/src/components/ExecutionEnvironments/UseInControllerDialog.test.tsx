@@ -239,9 +239,7 @@ it('resets the chosen tag and copy status on image changes and reopening', async
       await screen.findByRole('button', { name: /version/i }),
     );
     await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Copy selected image digest' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Copy digest' }));
     expect((await screen.findByRole('status')).textContent).toContain(
       'Digest copied',
     );
@@ -309,9 +307,9 @@ it('copies the full selected digest and announces the result', async () => {
     value: { writeText },
   });
   renderDialog();
-  await userEvent.click(
-    await screen.findByRole('button', { name: 'Copy selected image digest' }),
-  );
+  const copyButton = await screen.findByRole('button', { name: 'Copy digest' });
+  expect(screen.getByText('sha256:three')).toBeTruthy();
+  await userEvent.click(copyButton);
   expect(writeText).toHaveBeenCalledWith('sha256:three');
   expect((await screen.findByRole('status')).textContent).toContain(
     'Digest copied',
