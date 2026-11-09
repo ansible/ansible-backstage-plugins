@@ -108,13 +108,14 @@ export function ImagesCatalogPage({
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
-    if (search.trim() === debouncedSearch) return undefined;
     const timeout = window.setTimeout(() => {
-      setPage(1);
       setDebouncedSearch(search.trim());
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [search, debouncedSearch]);
+  }, [search]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
   const [perPage, setPerPage] = useState(10);
   const [sort, setSort] = useState<SortDescriptor | null>(null);
   const sortKeys = {
@@ -497,17 +498,17 @@ export function ImagesCatalogPage({
               emptyState={
                 <EmptyState
                   title={
-                    data?.length || search || starredOnly
+                    data?.length || debouncedSearch || starredOnly
                       ? 'No images match your search or filters'
                       : 'No execution environments discovered'
                   }
                   description={
-                    data?.length || search || starredOnly
+                    data?.length || debouncedSearch || starredOnly
                       ? 'Change your search or favorites filter.'
                       : 'Images appear after configured registries are reconciled.'
                   }
                   action={
-                    data?.length || search || starredOnly ? (
+                    data?.length || debouncedSearch || starredOnly ? (
                       <Button
                         variant="secondary"
                         onPress={() => {
@@ -704,17 +705,17 @@ export function ImagesCatalogPage({
               ) : (
                 <EmptyState
                   title={
-                    data?.length || search || starredOnly
+                    data?.length || debouncedSearch || starredOnly
                       ? 'No images match your search or filters'
                       : 'No execution environments discovered'
                   }
                   description={
-                    data?.length || search || starredOnly
+                    data?.length || debouncedSearch || starredOnly
                       ? 'Change your search or filters.'
                       : 'Images appear after configured registries are reconciled.'
                   }
                   action={
-                    data?.length || search || starredOnly ? (
+                    data?.length || debouncedSearch || starredOnly ? (
                       <Button
                         variant="secondary"
                         onPress={() => {
