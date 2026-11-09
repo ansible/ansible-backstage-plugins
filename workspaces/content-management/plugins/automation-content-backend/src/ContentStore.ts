@@ -57,6 +57,7 @@ export interface IndexedArtifact {
 }
 
 export interface ArtifactListOptions {
+  search?: string;
   registry?: string;
   collection?: string;
   contentsKnown?: boolean;
@@ -455,8 +456,11 @@ export class ContentStore {
     return this.cache.stats;
   }
 
-  async listArtifacts(type?: string): Promise<IndexedArtifact[]> {
-    const query = this.artifactQuery({ type });
+  async listArtifacts(
+    type?: string,
+    options: ArtifactListOptions = {},
+  ): Promise<IndexedArtifact[]> {
+    const query = this.artifactQuery({ ...options, type });
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
   }
@@ -487,6 +491,28 @@ export class ContentStore {
     if (opts.registry) query.where('registry', opts.registry);
     if (opts.contentsKnown !== undefined)
       query.where('contents_known', opts.contentsKnown);
+    if (opts.search?.trim()) {
+      const pattern = `%${opts.search
+        .trim()
+        .toLowerCase()
+        .replace(/[\\%_]/g, '\\$&')}%`;
+      const postgres = this.db.client.config.client === 'pg';
+      query.where(function searchFields() {
+        for (const field of [
+          'repository',
+          'registry',
+          'digest',
+          'tags',
+          'type',
+        ]) {
+          this.orWhereRaw("LOWER(??) LIKE ? ESCAPE '\\'", [field, pattern]);
+        }
+        const collections = postgres
+          ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE LOWER((c->>'namespace') || '.' || (c->>'name')) LIKE ? ESCAPE '\\'"
+          : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE LOWER(json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name')) LIKE ? ESCAPE '\\'";
+        this.orWhereRaw(`EXISTS (${collections})`, [pattern]);
+      });
+    }
     return query;
   }
 

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useNotifications } from '@ansible/portal-plugin-sdk';
@@ -83,7 +83,7 @@ function imageSourceLabel(
   return sourceLabel(registry);
 }
 
-/** Registry inventory with client-side search and optional catalog-owned stars. */
+/** Registry inventory with server-side search and optional catalog-owned stars. */
 export function ImagesCatalogPage({
   showHeader = true,
   wrapInContainer = true,
@@ -104,6 +104,15 @@ export function ImagesCatalogPage({
   const [view, setView] = useState<'table' | 'grid'>('table');
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search.trim());
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
   const [perPage, setPerPage] = useState(10);
   const [sort, setSort] = useState<SortDescriptor | null>(null);
   const sortKeys = {
@@ -123,6 +132,7 @@ export function ImagesCatalogPage({
     () =>
       api.listExecutionEnvironments({
         allTypes,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
         page,
         perPage,
         ...(sortKey && sort
@@ -132,7 +142,7 @@ export function ImagesCatalogPage({
             }
           : {}),
       }),
-    [api, allTypes, page, perPage, sortKey, sort?.direction],
+    [api, allTypes, debouncedSearch, page, perPage, sortKey, sort?.direction],
   );
   const data = useMemo(
     () => images.value?.items.map(image => ({ ...image, id: image.ref })),
@@ -181,56 +191,19 @@ export function ImagesCatalogPage({
         }
         return true;
       }),
-    searchFn: (rows, query) =>
-      rows.filter(row =>
-        [
-          row.repository,
-          row.registry,
-          row.digest,
-          ...row.tags,
-          row.classification?.type ?? '',
-          ...row.collections.map(collection => collection.fqcn),
-        ]
-          .join(' ')
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    // Search and favorites filter the fetched page, not the whole inventory.
+    // Favorites still filter the fetched page; search is server-authoritative.
     paginationOptions: { type: 'none' },
   });
 
   const visibleImages = useMemo(() => {
-    const query = table.search.value.trim().toLowerCase();
     return (data ?? []).filter(row => {
-      if (
-        query &&
-        ![
-          row.repository,
-          row.registry,
-          row.digest,
-          ...row.tags,
-          row.classification?.type ?? '',
-          ...row.collections.map(collection => collection.fqcn),
-        ]
-          .join(' ')
-          .toLowerCase()
-          .includes(query)
-      ) {
-        return false;
-      }
       if (starredOnly) {
         const entity = entityByImageRef.get(row.ref);
         if (!entity || !isStarredEntity(entity)) return false;
       }
       return true;
     });
-  }, [
-    data,
-    entityByImageRef,
-    isStarredEntity,
-    starredOnly,
-    table.search.value,
-  ]);
+  }, [data, entityByImageRef, isStarredEntity, starredOnly]);
 
   const syncArtifact = async (ref: string): Promise<void> => {
     if (!canSync || inFlightRefs.current.has(ref)) return;
@@ -416,8 +389,8 @@ export function ImagesCatalogPage({
           <SearchField
             aria-label="Search images"
             placeholder="Search images"
-            value={table.search.value}
-            onChange={table.search.onChange}
+            value={search}
+            onChange={setSearch}
           />
           <Flex align="center" gap="3" className={styles.wrapFlex}>
             <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
@@ -520,21 +493,21 @@ export function ImagesCatalogPage({
               emptyState={
                 <EmptyState
                   title={
-                    data?.length
+                    data?.length || search || starredOnly
                       ? 'No images match your search or filters'
                       : 'No execution environments discovered'
                   }
                   description={
-                    data?.length
+                    data?.length || search || starredOnly
                       ? 'Change your search or favorites filter.'
                       : 'Images appear after configured registries are reconciled.'
                   }
                   action={
-                    data?.length ? (
+                    data?.length || search || starredOnly ? (
                       <Button
                         variant="secondary"
                         onPress={() => {
-                          table.search.onChange('');
+                          setSearch('');
                           setStarredOnly(false);
                         }}
                       >
@@ -727,21 +700,21 @@ export function ImagesCatalogPage({
               ) : (
                 <EmptyState
                   title={
-                    data?.length
+                    data?.length || search || starredOnly
                       ? 'No images match your search or filters'
                       : 'No execution environments discovered'
                   }
                   description={
-                    data?.length
+                    data?.length || search || starredOnly
                       ? 'Change your search or filters.'
                       : 'Images appear after configured registries are reconciled.'
                   }
                   action={
-                    data?.length ? (
+                    data?.length || search || starredOnly ? (
                       <Button
                         variant="secondary"
                         onPress={() => {
-                          table.search.onChange('');
+                          setSearch('');
                           setStarredOnly(false);
                         }}
                       >

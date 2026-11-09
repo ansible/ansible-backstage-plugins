@@ -156,6 +156,7 @@ export interface ExecutionEnvironmentPage {
 export interface AutomationContentApi {
   listRegistries(): Promise<Registry[]>;
   listExecutionEnvironments(opts?: {
+    search?: string;
     allTypes?: boolean;
     page?: number;
     perPage?: number;
@@ -284,6 +285,7 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async listExecutionEnvironments(
     opts: {
+      search?: string;
       allTypes?: boolean;
       page?: number;
       perPage?: number;
@@ -297,6 +299,7 @@ export class AutomationContentClient implements AutomationContentApi {
     // (legitimate EEs lacking builder labels or a manifest referrer) are
     // hidden by the default filter and only reachable through this option.
     const search = new URLSearchParams();
+    if (opts.search) search.set('search', opts.search);
     if (opts.sort) search.set('sort', opts.sort);
     if (opts.order) search.set('order', opts.order);
     if (!opts.allTypes) search.set('type', 'execution-environment');

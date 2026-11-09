@@ -367,7 +367,7 @@ export async function createRouter(
   ] as const;
 
   const listContent = async (req: RouteRequest, res: RouteResponse) => {
-    const { type, registry, collection, contentsKnown, sort, order } =
+    const { type, registry, collection, contentsKnown, sort, order, search } =
       req.query;
     if (
       sort !== undefined &&
@@ -400,6 +400,7 @@ export async function createRouter(
       // global, then paginate in memory; unsorted requests stay in the DB.
       let artifacts = await db.listArtifacts(
         typeof type === 'string' ? type : undefined,
+        { search: typeof search === 'string' ? search : undefined },
       );
       if (typeof registry === 'string')
         artifacts = artifacts.filter(a => a.registry === registry);
@@ -455,6 +456,7 @@ export async function createRouter(
     } else if (collectionFilter) {
       let artifacts = await db.listArtifacts(
         typeof type === 'string' ? type : undefined,
+        { search: typeof search === 'string' ? search : undefined },
       );
 
       if (typeof registry === 'string')
@@ -476,6 +478,7 @@ export async function createRouter(
         .map(a => artifactView(db, a));
     } else {
       const result = await db.listArtifactsPaginated({
+        search: typeof search === 'string' ? search : undefined,
         type: typeof type === 'string' ? type : undefined,
         registry: typeof registry === 'string' ? registry : undefined,
         contentsKnown:
