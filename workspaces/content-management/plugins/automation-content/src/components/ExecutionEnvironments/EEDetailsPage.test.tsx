@@ -426,12 +426,14 @@ it.each([
         {
           apiVersion: 'backstage.io/v1alpha1',
           kind: 'Component',
-          metadata: { name: 'pah-published-ansible.posix-1.0.0' },
-          spec: {
-            type: 'ansible-collection',
-            collection_full_name: 'ansible.posix',
-            collection_version: '1.0.0',
+          metadata: {
+            name: 'pah-published-ansible.posix-1.0.0',
+            annotations: {
+              'ansible.com/collection': 'ansible.posix',
+              'ansible.com/version': '1.0.0',
+            },
           },
+          spec: { type: 'ansible-collection' },
         },
       ],
     });
@@ -499,8 +501,8 @@ it.each([
                   {
                     kind: 'Component',
                     'spec.type': 'ansible-collection',
-                    'spec.collection_full_name': 'ansible.posix',
-                    'spec.collection_version': '1.0.0',
+                    'metadata.annotations.ansible.com/collection':
+                      'ansible.posix',
                   },
                 ],
               },
