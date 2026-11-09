@@ -50,7 +50,6 @@ import { automationContentSyncPermission } from '@ansible/automation-content-com
 import { eeRouteRef } from '../../routes';
 import { EmptyState, StatusBadge, syncStatusIcon } from '../common';
 import { copyText } from '../common/clipboard';
-import type { StatusBadgeTone } from '../common';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import FileCopyIcon from '@material-ui/icons/FileCopy';
