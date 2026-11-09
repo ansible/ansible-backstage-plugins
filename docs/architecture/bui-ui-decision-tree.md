@@ -920,8 +920,10 @@ The record for Appendix A, in full:
 
 - **Goal:** create an execution environment, entered from the Create tab of the
   execution environments page.
-- **Level:** L4, with an L5 region — a page of ours carrying a bespoke list.
-  That is the current state, not a proposal; the proposal is to come back down.
+- **Level:** L5 — the Create tab renders its own template list, and section 4.1
+  records the highest rung any part of the change occupies. `custom_surfaces`
+  says where that part sits; the page around it is L4, and the proposal is to
+  come back down to L3.
 - **Alternatives, cheapest first:**
   - L0 with `groups` — sections the templates, but the page still lists them
     all.
@@ -934,6 +936,9 @@ The record for Appendix A, in full:
     section.
   - L3 — contribute a group into the stock templates sub-page, which is the
     correction proposed above.
+  - L4 — a page of ours built from stock parts. The page shell is at L4 already;
+    the part in question, the Create tab's list, is not made of stock parts, so
+    L4 does not describe it.
 - **Custom surfaces:** the EE page shell and its tabs; the Create tab's template
   list.
 - **Revalidated per release:** both, plus the `spec.type` predicate when
@@ -941,8 +946,9 @@ The record for Appendix A, in full:
 - **Gap:** a missing input — `templateFilter`, already on Backstage `main`. The
   same input removes the second list, which is why the upstream issue is worth
   filing even though the release is close.
-- **Author:** the plugin that owns the page — `portal-scaffolder` in this
-  repository.
+- **Author:** upstream Backstage. `sub-page:scaffolder/templates` is Backstage's
+  page and `templateFilter` is the input it lacks; `portal-scaffolder` in this
+  repository owns the page to be deleted, not the gap.
 - **Reversal cost:** medium. The page has a route and a nav item, so removing it
   leaves bookmarks that 404.
 
@@ -1024,6 +1030,16 @@ rather than rebuilding it.
   `TagFilterPicker`, `TemplateGroups` and `WizardCard` — filtered on `spec.type`
   containing `execution-environment`. That is a second template list, with its
   own filters and its own card, kept in step with the scaffolder by hand.
+- Not free, either: the stock wizard only renders a template's form through the
+  field widgets registered with it, and the generated EE templates use
+  `ui:field: BaseImagePicker`, `CollectionsPicker` and `EEFileNamePicker`. Those
+  are ours, mounted as `scaffolderFieldExtensions` in
+  `workspaces/portal-core/packages/app/src/App.tsx` and exposed to RHDH from
+  `workspaces/content-development/plugins/portal-scaffolder/app-config.janus-idp.yaml`.
+  Deleting the tab does not delete the registrations, but it does leave the
+  stock wizard as the only thing rendering them, so they have to keep working
+  there — including on the collection fields, whose schema is the shape the
+  picker was written against.
 
 **Where that leaves the tree.** Grouping does not filter, so on 2.1 the stock
 page cannot show only execution-environment templates. The Create tab's list
