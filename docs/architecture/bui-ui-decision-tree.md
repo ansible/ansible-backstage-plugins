@@ -1099,6 +1099,121 @@ One rung cannot say this. It is why the record carries `level` and
 change can contribute into someone else's page and still carry a bespoke region
 inside it.
 
+## Appendix C — What is on the shelf, as of RHDH 2.1
+
+Reference rather than argument. Everything here is versioned: RHDH 2.1 pins
+`@backstage/ui` 0.17.1, and the component list below was read from that
+published package, not from `main`. Regenerate it when the pin moves; a list
+like this is only worth having while it is true.
+
+One honest note before the tables: RHDH 2.1 imports `@backstage/ui` in a single
+file, so most of these components do not yet appear in the product's own pages.
+The middle column says what a component is for, not where you can see it today.
+
+### C.1 Primitives
+
+| Component            | Use it for                                               | You change it with       | Carrying cost |
+| -------------------- | -------------------------------------------------------- | ------------------------ | ------------- |
+| `Accordion`          | progressive disclosure of related sections               | props, theme values      | low           |
+| `Alert`              | inline status message: info, success, warning, danger    | props                    | none          |
+| `Avatar`             | a person or entity image, with initials as fallback      | props                    | none          |
+| `Badge`              | a small count or status marker                           | props                    | none          |
+| `Box`                | an unstyled container for spacing, background, border    | props                    | none          |
+| `Button`             | the primary action on a surface                          | props                    | none          |
+| `ButtonIcon`         | an icon-only action                                      | props                    | none          |
+| `ButtonLink`         | a link styled as a button                                | props                    | none          |
+| `Card`               | a grouped block of content with a title and footer slots | props                    | none          |
+| `Checkbox`           | one independent yes/no choice                            | props                    | none          |
+| `CheckboxGroup`      | several independent choices, labelled as a set           | props                    | none          |
+| `Combobox`           | a text input with a filtered suggestion list             | props                    | none          |
+| `Container`          | a max-width wrapper for page content                     | props                    | none          |
+| `DatePicker`         | a single date                                            | props, theme values      | low           |
+| `DateRangePicker`    | a start and end date                                     | props, theme values      | low           |
+| `Dialog`             | a modal for confirmation or detail                       | props, theme values      | low           |
+| `FieldError`         | the error line under a form field                        | props                    | none          |
+| `FieldLabel`         | the label above a form field                             | props                    | none          |
+| `Flex`               | one-dimensional layout: row or column, gap, alignment    | props                    | none          |
+| `FullPage`           | a full-height page shell                                 | props                    | none          |
+| `Grid`               | two-dimensional layout                                   | props                    | none          |
+| `Header`             | a page header with title, description and actions        | props, theme values      | low           |
+| `Link`               | a text link                                              | props                    | none          |
+| `List`               | a bulleted or numbered list                              | props                    | none          |
+| `Menu`               | a dropdown of actions                                    | props                    | none          |
+| `NumberField`        | a numeric input                                          | props                    | none          |
+| `PasswordField`      | a masked input                                           | props                    | none          |
+| `PluginHeader`       | a page header that carries plugin context                | props, theme values      | low           |
+| `Popover`            | anchored content that floats over the page               | props                    | none          |
+| `RadioGroup`         | one choice from a small set                              | props                    | none          |
+| `SearchAutocomplete` | a search input with suggestions                          | props                    | none          |
+| `SearchField`        | a search input                                           | props                    | none          |
+| `Select`             | one choice from a known list                             | props                    | none          |
+| `Skeleton`           | a placeholder while content loads                        | props                    | none          |
+| `Slider`             | a number chosen by dragging                              | props                    | none          |
+| `Switch`             | an immediate on/off toggle                               | props                    | none          |
+| `Table`              | tabular data, with sorting and row selection             | props, theme values, CSS | medium        |
+| `TablePagination`    | paging controls under a table                            | props                    | none          |
+| `Tabs`               | switching between sibling views                          | props, theme values      | low           |
+| `TagGroup`           | a set of tags, optionally removable                      | props                    | none          |
+| `Text`               | body and heading text with variants                      | props                    | none          |
+| `TextAreaField`      | a multi-line text input                                  | props                    | none          |
+| `TextField`          | a single-line text input                                 | props                    | none          |
+| `ToggleButton`       | a button with a pressed state                            | props                    | none          |
+| `ToggleButtonGroup`  | a segmented control                                      | props                    | none          |
+| `Tooltip`            | a short hint on hover or focus                           | props                    | none          |
+| `VisuallyHidden`     | content for assistive technology only                    | nothing to change        | none          |
+
+**Cost is a property of how you change a component, not of which one you pick.**
+Every row above can be changed three ways, and they cost different amounts:
+
+| Way                | What it means                                                           | Carrying cost |
+| ------------------ | ----------------------------------------------------------------------- | ------------- |
+| props              | you pass what the component already accepts                             | none          |
+| theme values       | colour, spacing and type from the theme, applied to every instance      | low           |
+| `className` or CSS | you own the look from that point on: it is custom surface and it drifts | medium        |
+| your own component | you replace it rather than change it                                    | high          |
+
+The step from theme values to CSS is the one that matters. Above it, the
+component is still upstream's and the drift check leaves you alone. Below it,
+you are revalidating a look on every release, and no check will remind you.
+
+### C.2 RHDH constructs
+
+What you attach to, rather than what you draw with. These are the surfaces from
+section 1.C, and the cheapest way to change each.
+
+| Construct                 | You change it by                                                    | Carrying cost |
+| ------------------------- | ------------------------------------------------------------------- | ------------- |
+| App shell and sidebar     | `NavContentBlueprint`, or the page's own title and icon             | low           |
+| Page                      | `withOverrides` on the owning plugin: title, icon, path             | none          |
+| Sub-page                  | its configuration inputs, for example `templateFilter` and `groups` | none          |
+| Entity tab                | `EntityDetailTabBlueprint`                                          | low           |
+| Entity card               | `EntityCardBlueprint`                                               | low           |
+| Home widget               | `HomePageWidgetBlueprint`                                           | low           |
+| Catalog column            | `CatalogTableColumnBlueprint`                                       | low           |
+| Header or context action  | `PluginHeaderActionBlueprint`, `EntityContextMenuItemBlueprint`     | low           |
+| Form field                | `FormFieldBlueprint`                                                | low           |
+| One nested component      | `SwappableComponentBlueprint`, where the owner offers one           | low           |
+| Theme and language        | `ThemeBlueprint`, `IconBundleBlueprint`, `TranslationBlueprint`     | low           |
+| A new page of stock parts | `PageBlueprint` composed from the primitives above                  | medium        |
+| A copy of a stock page    | forking it into our own plugin                                      | high          |
+
+Two of these deserve a second look. **Swap before fork**:
+`SwappableComponentBlueprint` exists so a host can replace one nested component
+without owning the page, and it is the only replacement the owning plugin
+promises to keep working. **A new page of stock parts** is not expensive because
+of the components; it is expensive because of the route, the nav item and the
+tests that come with it.
+
+### C.3 Regenerating this appendix
+
+- The primitive list comes from the published package: RHDH's pin in
+  `packages/app/package.json`, then `@backstage/ui`'s published contents.
+- The construct list comes from the alpha extensions in `backstage/backstage`
+  and `redhat-developer/rhdh`, plus the extension points this repository already
+  consumes.
+- Both lists are checked in the same way as the drift baseline: regenerate,
+  diff, commit. If the diff is large, that is the release note.
+
 ## References
 
 - Backstage frontend system architecture:
