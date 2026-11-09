@@ -50,6 +50,8 @@ export interface IndexedArtifact {
   repository: string;
   digest: string;
   tags: string[];
+  /** Registry Last-Modified timestamps keyed by tag, when available. */
+  tagTimestamps?: Record<string, string>;
   pullReference: string;
   contentsKnown: boolean;
   classification: IdentifiedType;
@@ -70,6 +72,7 @@ export interface RepositoryTag {
   tag: string;
   digest: string;
   ref: string;
+  lastModified?: string;
 }
 
 export interface IndexedItem {
@@ -361,6 +364,11 @@ export class ContentStore {
       );
       const existing = await this.getArtifact(target.ref);
       target.tags = [...new Set([...(existing?.tags ?? []), 'latest'])];
+      target.tagTimestamps = {
+        ...(existing?.tagTimestamps ?? {}),
+        ...(target.tagTimestamps ?? {}),
+        ...(latest.lastModified ? { latest: latest.lastModified } : {}),
+      };
       if (!target.manifest && existing?.manifest) {
         target.manifest = existing.manifest;
         target.contentsKnown = existing.contentsKnown;
@@ -379,10 +387,15 @@ export class ContentStore {
           if (artifact.ref === target.ref) continue;
           if (!artifact.tags.includes('latest')) continue;
           const tags = artifact.tags.filter(tag => tag !== 'latest');
+          const tagTimestamps = { ...(artifact.tagTimestamps ?? {}) };
+          delete tagTimestamps.latest;
           if (tags.length) {
             await trx('artifacts')
               .where('ref', artifact.ref)
-              .update({ tags: JSON.stringify(tags) });
+              .update({
+                tags: JSON.stringify(tags),
+                tag_timestamps: JSON.stringify(tagTimestamps),
+              });
           } else {
             await trx('items').where('artifact_ref', artifact.ref).del();
             await trx('artifacts').where('ref', artifact.ref).del();
@@ -397,6 +410,7 @@ export class ContentStore {
           repository: target.repository,
           digest: target.digest,
           tags: JSON.stringify(target.tags),
+          tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
           pull_reference: target.pullReference,
           contents_known: target.contentsKnown,
           classification: JSON.stringify(target.classification),
@@ -476,16 +490,28 @@ export class ContentStore {
   async repositoryTags(
     registry: string,
     repository: string,
-  ): Promise<Array<{ tag: string; digest: string; ref: string }>> {
+  ): Promise<RepositoryTag[]> {
     const rows = await this.db('artifacts')
       .where({ registry, repository })
-      .select('ref', 'digest', 'tags');
-    return rows.flatMap((row: { ref: string; digest: string; tags: string }) =>
-      (JSON.parse(row.tags ?? '[]') as string[]).map(tag => ({
-        tag,
-        digest: row.digest,
-        ref: row.ref,
-      })),
+      .select('ref', 'digest', 'tags', 'tag_timestamps');
+    return rows.flatMap(
+      (row: {
+        ref: string;
+        digest: string;
+        tags: string;
+        tag_timestamps?: string;
+      }) => {
+        const timestamps = JSON.parse(row.tag_timestamps ?? '{}') as Record<
+          string,
+          string
+        >;
+        return (JSON.parse(row.tags ?? '[]') as string[]).map(tag => ({
+          tag,
+          digest: row.digest,
+          ref: row.ref,
+          ...(timestamps[tag] ? { lastModified: timestamps[tag] } : {}),
+        }));
+      },
     );
   }
 
@@ -668,6 +694,7 @@ export class ContentStore {
           repository: a.repository,
           digest: a.digest,
           tags: JSON.stringify(a.tags),
+          tag_timestamps: JSON.stringify(a.tagTimestamps ?? {}),
           pull_reference: a.pullReference,
           contents_known: a.contentsKnown,
           classification: JSON.stringify(a.classification),
@@ -923,6 +950,9 @@ export class ContentStore {
       repository: row.repository as string,
       digest: row.digest as string,
       tags: JSON.parse(row.tags as string),
+      tagTimestamps: JSON.parse(
+        (row.tag_timestamps as string | undefined) ?? '{}',
+      ),
       pullReference: row.pull_reference as string,
       contentsKnown: Boolean(row.contents_known),
       classification: JSON.parse(row.classification as string),
@@ -979,7 +1009,10 @@ export class ContentStore {
     repository: string,
     client: OCIClient,
   ): Promise<IndexedArtifact[]> {
-    const byDigest = new Map<string, string[]>();
+    const byDigest = new Map<
+      string,
+      { tags: string[]; timestamps: Record<string, string> }
+    >();
 
     for await (const tag of client.listTags(repository)) {
       if (REFERRER_TAG.test(tag)) continue;
@@ -995,13 +1028,27 @@ export class ContentStore {
         );
         continue;
       }
-      byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
+      const tagInfo = byDigest.get(head.digest) ?? {
+        tags: [],
+        timestamps: {},
+      };
+      tagInfo.tags.push(tag);
+      if (head.lastModified) tagInfo.timestamps[tag] = head.lastModified;
+      byDigest.set(head.digest, tagInfo);
     }
 
     const found: IndexedArtifact[] = [];
-    for (const [digest, tags] of byDigest) {
+    for (const [digest, tagInfo] of byDigest) {
       found.push(
-        await this.inspect(registry, repository, digest, tags, client),
+        await this.inspect(
+          registry,
+          repository,
+          digest,
+          tagInfo.tags,
+          client,
+          undefined,
+          tagInfo.timestamps,
+        ),
       );
     }
     return found;
@@ -1014,6 +1061,7 @@ export class ContentStore {
     tags: string[],
     client: OCIClient,
     verified?: { artifact: ResolvedArtifact; config?: ImageConfig },
+    tagTimestamps: Record<string, string> = {},
   ): Promise<IndexedArtifact> {
     const base = {
       ref: `${registry}/${repository}@${digest}`,
@@ -1021,6 +1069,7 @@ export class ContentStore {
       repository,
       digest,
       tags,
+      tagTimestamps,
       pullReference: client.pullReference({
         registry,
         repository,

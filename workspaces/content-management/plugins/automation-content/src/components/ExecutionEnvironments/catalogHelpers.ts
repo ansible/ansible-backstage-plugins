@@ -1,11 +1,45 @@
 import { parseEntityRef, type Entity } from '@backstage/catalog-model';
-import type { ExecutionEnvironment } from '../../api';
+import type { ExecutionEnvironment, RepositoryTag } from '../../api';
 
 /** Reconciliation results older than this are displayed as stale. */
 export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 /** Six-month verification window (183 days) for indexed execution environments. */
 export const VERIFICATION_STALE_AFTER_MS = 183 * 24 * 60 * 60 * 1000;
+
+/**
+ * Order registry tags by their per-tag Last-Modified time when available.
+ * Registries that do not expose timestamps fall back to natural descending
+ * version order, with the mutable `latest` alias explicitly placed last.
+ */
+export function sortRepositoryTagsNewestFirst(
+  tags: readonly RepositoryTag[],
+): RepositoryTag[] {
+  const timestamp = (tag: RepositoryTag): number | undefined => {
+    if (!tag.lastModified) return undefined;
+    const parsed = Date.parse(tag.lastModified);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  return [...tags].sort((a, b) => {
+    const aTimestamp = timestamp(a);
+    const bTimestamp = timestamp(b);
+    if (aTimestamp !== undefined && bTimestamp !== undefined) {
+      if (aTimestamp !== bTimestamp) return bTimestamp - aTimestamp;
+    } else if (aTimestamp !== undefined) {
+      return -1;
+    } else if (bTimestamp !== undefined) {
+      return 1;
+    }
+
+    if (a.tag === 'latest' && b.tag !== 'latest') return 1;
+    if (b.tag === 'latest' && a.tag !== 'latest') return -1;
+    return b.tag.localeCompare(a.tag, undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+  });
+}
 
 /** Missing or invalid reconciliation times are not evidence of a recent verification. */
 export function isStale(lastReconciledAt?: string, now = Date.now()): boolean {

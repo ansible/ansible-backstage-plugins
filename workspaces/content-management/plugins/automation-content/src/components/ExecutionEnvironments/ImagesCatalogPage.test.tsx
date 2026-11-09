@@ -727,6 +727,18 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           {
             listExecutionEnvironments: async () => envelope([base]),
             syncArtifact,
+            listRegistries: async () => [{ name: 'r', url: 'https://r' }],
+            getRepositoryTags: async () => ({
+              registry: 'r',
+              repository: 'repo',
+              tags: [
+                {
+                  tag: 'latest',
+                  digest: 'sha256:one',
+                  ref: 'r/repo@sha256:one',
+                },
+              ],
+            }),
           },
         ],
         [
@@ -759,6 +771,18 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           {
             listExecutionEnvironments: async () => envelope([base]),
             syncArtifact,
+            listRegistries: async () => [{ name: 'r', url: 'https://r' }],
+            getRepositoryTags: async () => ({
+              registry: 'r',
+              repository: 'repo',
+              tags: [
+                {
+                  tag: 'latest',
+                  digest: 'sha256:one',
+                  ref: 'r/repo@sha256:one',
+                },
+              ],
+            }),
           },
         ],
         [
@@ -821,6 +845,8 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
   expect(
     screen.getByRole('textbox', { name: 'Execution environment name' }),
   ).toHaveProperty('value', 'repo');
+  await userEvent.click(screen.getByRole('button', { name: /organization/i }));
+  await userEvent.click(await screen.findByRole('option', { name: 'Default' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );

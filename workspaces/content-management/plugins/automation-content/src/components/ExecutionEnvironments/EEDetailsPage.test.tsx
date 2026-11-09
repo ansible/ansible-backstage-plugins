@@ -129,6 +129,7 @@ function renderSyncDetails(
         [automationContentApiRef, api],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
         [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [scaffolderApiRef, { scaffold: jest.fn() }],
       ]}
     >
       <MemoryRouter
@@ -587,6 +588,17 @@ function renderLegacyContentLink(query: string) {
               collections: [],
               items: [],
             }),
+            getRepositoryTags: async () => ({
+              registry: image.registry,
+              repository: image.repository,
+              tags: [
+                {
+                  tag: 'latest',
+                  digest: image.digest,
+                  ref: image.ref,
+                },
+              ],
+            }),
           },
         ],
         [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
@@ -970,6 +982,17 @@ it('shows artifact overview, themed source and status, and controller actions', 
               collections: [],
               items: [],
             }),
+            getRepositoryTags: async () => ({
+              registry: image.registry,
+              repository: image.repository,
+              tags: [
+                {
+                  tag: 'latest',
+                  digest: image.digest,
+                  ref: image.ref,
+                },
+              ],
+            }),
           },
         ],
       ]}
@@ -987,8 +1010,10 @@ it('shows artifact overview, themed source and status, and controller actions', 
   expect(screen.getByRole('tab', { name: 'All Content' })).toBeTruthy();
   expect(screen.getByText('Contents unknown')).toBeTruthy();
   expect(screen.queryByText('0 collections / 0 plugins')).toBeNull();
-  expect(screen.getByText('latest')).toBeTruthy();
-  expect(screen.getByText('1.0')).toBeTruthy();
+  // The one tag selector's value plus its hidden native option are expected;
+  // a third occurrence would be the removed duplicate tag badge list.
+  expect(screen.getAllByText('latest')).toHaveLength(2);
+  expect(screen.queryByText('1.0')).toBeNull();
   expect(screen.getByText('External registry')).toBeTruthy();
   expect(screen.getByText('Syncing')).toBeTruthy();
   expect(screen.getByText('Registry labels')).toBeTruthy();
@@ -1035,6 +1060,17 @@ it('shows artifact overview, themed source and status, and controller actions', 
               collections: [],
               items: [],
             }),
+            getRepositoryTags: async () => ({
+              registry: image.registry,
+              repository: image.repository,
+              tags: [
+                {
+                  tag: 'latest',
+                  digest: image.digest,
+                  ref: image.ref,
+                },
+              ],
+            }),
           },
         ],
       ]}
@@ -1069,6 +1105,8 @@ it('shows artifact overview, themed source and status, and controller actions', 
     screen.getByRole('menuitem', { name: 'Use in Controller' }),
   );
   expect(await screen.findByRole('dialog')).toBeTruthy();
+  await userEvent.click(screen.getByRole('button', { name: /organization/i }));
+  await userEvent.click(await screen.findByRole('option', { name: 'Default' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
@@ -1082,7 +1120,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
       environmentDescription: 'Use repo in Ansible Automation Controller.',
       organizationId: 1,
       organizationName: 'Default',
-      image: image.pullReference,
+      image: 'registry/repo:latest',
       pull: 'always',
     },
     secrets: { aapToken: 'aap-token' },
@@ -1202,8 +1240,18 @@ describe('tag selector', () => {
     registry: 'registry',
     repository: 'repo',
     tags: [
-      { tag: 'latest', digest: 'sha256:one', ref: 'registry/repo@sha256:one' },
-      { tag: '2.9', digest: 'sha256:two', ref: 'registry/repo@sha256:two' },
+      {
+        tag: 'latest',
+        digest: 'sha256:one',
+        ref: 'registry/repo@sha256:one',
+        lastModified: '2026-11-07T12:00:00.000Z',
+      },
+      {
+        tag: '2.9',
+        digest: 'sha256:two',
+        ref: 'registry/repo@sha256:two',
+        lastModified: '2026-11-08T12:00:00.000Z',
+      },
     ],
   };
 
@@ -1240,6 +1288,7 @@ describe('tag selector', () => {
           [automationContentApiRef, api],
           [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
           [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+          [scaffolderApiRef, { scaffold: jest.fn() }],
         ]}
       >
         <MemoryRouter
@@ -1265,15 +1314,42 @@ describe('tag selector', () => {
     expect(trigger.textContent).toContain('latest');
   });
 
-  it('lists the default tag first, then the rest sorted', async () => {
+  it('does not repeat the tag list in the overview metadata', async () => {
+    renderWithTagMap(
+      { ...image, tags: ['latest', 'display-only-tag'] },
+      tagMap,
+    );
+    await screen.findByRole('button', { name: /tags/i });
+    expect(screen.queryByText('display-only-tag')).toBeNull();
+  });
+
+  it('passes the currently selected tag to Use in Controller', async () => {
+    renderWithTagMap(
+      {
+        ...image,
+        ref: 'registry/repo@sha256:two',
+        digest: 'sha256:two',
+        tags: ['2.9'],
+      },
+      tagMap,
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: /actions for repo/i }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Use in Controller' }),
+    );
+    expect(
+      (await screen.findByRole('button', { name: /version/i })).textContent,
+    ).toContain('2.9');
+  });
+
+  it('lists tags by their Last-Modified time, without pinning latest', async () => {
     renderWithTagMap({ ...image, tags: ['latest'] }, tagMap);
     const trigger = await screen.findByRole('button', { name: /tags/i });
     await userEvent.click(trigger);
     const options = await screen.findAllByRole('option');
-    expect(options.map(o => o.textContent?.trim())).toEqual([
-      'latest (Default)',
-      '2.9',
-    ]);
+    expect(options.map(o => o.textContent?.trim())).toEqual(['2.9', 'latest']);
   });
 
   it('falls back to first tag when latest is not on this digest', async () => {
@@ -1308,14 +1384,14 @@ describe('tag selector', () => {
     );
   });
 
-  it('degrades to static badges when the tag map cannot be loaded', async () => {
+  it('keeps image details usable when the tag map cannot be loaded', async () => {
     renderWithTagMap(
       { ...image, tags: ['latest'] },
       new ContentApiError(500, 'registry down'),
     );
-    // Badge fallback, not an error state.
-    expect(await screen.findByText('latest')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /latest/i })).toBeNull();
+    expect(await screen.findByText('sha256:one')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /tags/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });
 

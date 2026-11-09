@@ -975,6 +975,7 @@ describe('diagnostics are summarised on the registry listing', () => {
       table.string('repository').notNullable();
       table.string('digest').notNullable();
       table.text('tags').notNullable().defaultTo('[]');
+      table.text('tag_timestamps').notNullable().defaultTo('{}');
       table.string('pull_reference').notNullable();
       table.boolean('contents_known').notNullable().defaultTo(false);
       table.text('classification').notNullable().defaultTo('{}');

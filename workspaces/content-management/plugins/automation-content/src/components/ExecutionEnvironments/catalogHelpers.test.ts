@@ -5,6 +5,7 @@ import {
   imageContentsSummary,
   matchesEnvironment,
   relativeTime,
+  sortRepositoryTagsNewestFirst,
   STALE_AFTER_MS,
   syncStateLabel,
 } from './catalogHelpers';
@@ -26,6 +27,39 @@ it('round trips slashes and digest in immutable navigation', () => {
   const href = environmentHref('/images', image.ref);
   expect(decodeURIComponent(href.slice('/images/'.length))).toBe(image.ref);
   expect(href).toContain('%2F');
+});
+
+it('orders repository tags by push time and defines the no-time fallback', () => {
+  const tags = [
+    {
+      tag: 'latest',
+      digest: 'sha256:latest',
+      ref: 'registry/repo@sha256:latest',
+    },
+    {
+      tag: 'v10',
+      digest: 'sha256:ten',
+      ref: 'registry/repo@sha256:ten',
+      lastModified: '2026-11-01T00:00:00.000Z',
+    },
+    {
+      tag: 'v2',
+      digest: 'sha256:two',
+      ref: 'registry/repo@sha256:two',
+      lastModified: '2026-11-08T00:00:00.000Z',
+    },
+  ];
+  expect(sortRepositoryTagsNewestFirst(tags).map(tag => tag.tag)).toEqual([
+    'v2',
+    'v10',
+    'latest',
+  ]);
+
+  expect(
+    sortRepositoryTagsNewestFirst(
+      tags.map(tag => ({ ...tag, lastModified: undefined })),
+    ).map(tag => tag.tag),
+  ).toEqual(['v10', 'v2', 'latest']);
 });
 
 it('builds a definition details route from a stable component ref', () => {

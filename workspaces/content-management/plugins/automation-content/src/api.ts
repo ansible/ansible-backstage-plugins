@@ -134,6 +134,8 @@ export interface RepositoryTag {
   tag: string;
   digest: string;
   ref: string;
+  /** Registry Last-Modified timestamp for this tag, if exposed by the registry. */
+  lastModified?: string;
 }
 
 export interface RepositoryTagMap {

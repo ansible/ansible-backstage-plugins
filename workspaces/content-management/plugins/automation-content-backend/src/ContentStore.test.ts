@@ -30,6 +30,7 @@ async function createTestDB() {
     table.string('repository').notNullable();
     table.string('digest').notNullable();
     table.text('tags').notNullable().defaultTo('[]');
+    table.text('tag_timestamps').notNullable().defaultTo('{}');
     table.string('pull_reference').notNullable();
     table.boolean('contents_known').notNullable().defaultTo(false);
     table.text('classification').notNullable().defaultTo('{}');
@@ -86,6 +87,39 @@ async function storeOver(registry: MockRegistry): Promise<ContentStore> {
 }
 
 const EE_LABEL = 'ansible-execution-environment';
+
+describe('repository tag timestamps', () => {
+  it('stores the registry Last-Modified value for each tag', async () => {
+    const images = [
+      {
+        ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+        lastModified: 'Sat, 07 Nov 2026 12:00:00 GMT',
+      },
+      {
+        ...makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+        lastModified: 'Sun, 08 Nov 2026 12:00:00 GMT',
+      },
+    ];
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': images },
+    });
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
+
+    expect(await store.repositoryTags('mock', 'ansible/ee')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: 'v1',
+          lastModified: 'Sat, 07 Nov 2026 12:00:00 GMT',
+        }),
+        expect.objectContaining({
+          tag: 'v2',
+          lastModified: 'Sun, 08 Nov 2026 12:00:00 GMT',
+        }),
+      ]),
+    );
+  });
+});
 
 describe('drift detection', () => {
   it('reports no change when the registry matches the store', async () => {

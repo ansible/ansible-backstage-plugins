@@ -16,7 +16,6 @@ import {
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import {
-  Badge,
   Button,
   ButtonIcon,
   Card,
@@ -64,6 +63,7 @@ import {
   imageContentsSummary,
   relativeTime,
   sourceLabel,
+  sortRepositoryTagsNewestFirst,
   syncStateLabel,
 } from './catalogHelpers';
 import styles from './details.module.css';
@@ -298,7 +298,7 @@ function EEDetailsContent(): ReactElement {
   }, [catalog, image.value?.registry, image.value?.repository]);
   const contents = useAsyncRetry(() => api.getContents(ref), [api, ref]);
   // The repository's tag→digest map powers the tag selector. It is optional:
-  // when it cannot be loaded the page degrades to the static tag badges.
+  // when it cannot be loaded, the image details remain usable without it.
   const tagMap = useAsyncRetry(async () => {
     if (!image.value) return undefined;
     return api.getRepositoryTags(image.value.registry, image.value.repository);
@@ -435,17 +435,11 @@ function EEDetailsContent(): ReactElement {
     `${retained.registry}/${retained.repository}` === routeRepository
       ? retained
       : undefined);
-  // The repository's default tag leads the list and is labelled as the
-  // default; the rest sort numerically so 9.0 precedes 10.0. The selected
-  // tag is the first list entry that resolves to the displayed digest.
+  // Tag order uses registry timestamps where available and natural descending
+  // version order otherwise. The selected tag is the first listed entry that
+  // resolves to the displayed digest.
   const orderedTags = useMemo(() => {
-    const sorted = [...(tagMap.value?.tags ?? [])].sort((a, b) =>
-      a.tag.localeCompare(b.tag, undefined, { numeric: true }),
-    );
-    const latest = sorted.find(entry => entry.tag === 'latest');
-    return latest
-      ? [latest, ...sorted.filter(entry => entry.tag !== 'latest')]
-      : sorted;
+    return sortRepositoryTagsNewestFirst(tagMap.value?.tags ?? []);
   }, [tagMap.value]);
   const defaultTag = value
     ? orderedTags.find(entry => entry.digest === value.digest)?.tag
@@ -559,9 +553,9 @@ function EEDetailsContent(): ReactElement {
                 <Select
                   aria-label="Tags"
                   value={defaultTag}
-                  options={orderedTags.map((entry, index) => ({
+                  options={orderedTags.map(entry => ({
                     id: entry.tag,
-                    label: index === 0 ? `${entry.tag} (Default)` : entry.tag,
+                    label: entry.tag,
                   }))}
                   onChange={key => {
                     const next = orderedTags.find(entry => entry.tag === key);
@@ -719,15 +713,6 @@ function EEDetailsContent(): ReactElement {
                         </Link>
                       </MetadataRow>
                     )}
-                    <MetadataRow label="Tags">
-                      <Flex gap="2" className={styles.wrapFlex}>
-                        {value.tags.length ? (
-                          value.tags.map(tag => <Badge key={tag}>{tag}</Badge>)
-                        ) : (
-                          <Text color="secondary">Untagged</Text>
-                        )}
-                      </Flex>
-                    </MetadataRow>
                     <MetadataRow label="Digest">{value.digest}</MetadataRow>
                     <MetadataRow label="Last synchronized">
                       <Flex align="center" gap="2" className={styles.wrapFlex}>
@@ -819,6 +804,9 @@ function EEDetailsContent(): ReactElement {
             open
             imageName={value.repository}
             pullReference={value.pullReference}
+            registry={value.registry}
+            repository={value.repository}
+            selectedTag={defaultTag}
             onClose={() => setControllerOpen(false)}
           />
         )}

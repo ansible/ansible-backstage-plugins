@@ -195,6 +195,8 @@ export interface ResolvedArtifact extends ArtifactRef {
   mediaType: string;
   manifest: Manifest;
   size?: number;
+  /** Registry-provided Last-Modified time for the resolved reference, when available. */
+  lastModified?: string;
 }
 
 /** Raw, unparsed metadata for a content-type adapter to interpret. */

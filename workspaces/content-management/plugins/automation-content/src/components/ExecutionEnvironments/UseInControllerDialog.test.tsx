@@ -5,6 +5,7 @@ import { TestApiProvider } from '@backstage/test-utils';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { automationContentApiRef } from '../../api';
 import { UseInControllerDialog } from './UseInControllerDialog';
 
 beforeAll(() => {
@@ -43,13 +44,49 @@ function renderDialog({
   organizations = [organization(1, 'Default'), organization(7, 'Network')],
   getAccessToken = jest.fn().mockResolvedValue('aap-token'),
   pullReference = 'registry/team/ee@sha256:one',
+  selectedTag,
+  registries = [{ name: 'registry', url: 'https://registry' }],
+  tags = [
+    {
+      tag: 'latest',
+      digest: 'sha256:one',
+      ref: 'registry/team/ee@sha256:one',
+      lastModified: '2026-11-07T12:00:00.000Z',
+    },
+    {
+      tag: '2.9',
+      digest: 'sha256:two',
+      ref: 'registry/team/ee@sha256:two',
+      lastModified: '2026-11-08T12:00:00.000Z',
+    },
+    {
+      tag: '3.0',
+      digest: 'sha256:three',
+      ref: 'registry/team/ee@sha256:three',
+      lastModified: '2026-11-09T12:00:00.000Z',
+    },
+  ],
 }: {
   scaffold?: jest.Mock;
   organizations?: unknown[];
   getAccessToken?: jest.Mock;
   pullReference?: string;
+  selectedTag?: string;
+  registries?: Array<{ name: string; url: string }>;
+  tags?: Array<{
+    tag: string;
+    digest: string;
+    ref: string;
+    lastModified?: string;
+  }>;
 } = {}) {
   const getEntities = jest.fn().mockResolvedValue({ items: organizations });
+  const getRepositoryTags = jest.fn().mockResolvedValue({
+    registry: 'registry',
+    repository: 'team/ee',
+    tags,
+  });
+  const listRegistries = jest.fn().mockResolvedValue(registries);
   const onClose = jest.fn();
   render(
     <TestApiProvider
@@ -57,6 +94,7 @@ function renderDialog({
         [scaffolderApiRef, { scaffold }],
         [catalogApiRef, { getEntities }],
         [rhAapAuthApiRef, { getAccessToken }],
+        [automationContentApiRef, { getRepositoryTags, listRegistries }],
       ]}
     >
       <MemoryRouter initialEntries={['/dialog']}>
@@ -68,6 +106,7 @@ function renderDialog({
                 open
                 imageName="team/ee"
                 pullReference={pullReference}
+                selectedTag={selectedTag}
                 onClose={onClose}
               />
             }
@@ -80,20 +119,73 @@ function renderDialog({
       </MemoryRouter>
     </TestApiProvider>,
   );
-  return { scaffold, getEntities, getAccessToken, onClose };
+  return { scaffold, getEntities, getAccessToken, getRepositoryTags, onClose };
 }
 
-it('populates the organization dropdown from the catalog and defaults to the first', async () => {
+async function selectDefaultOrganization() {
+  const organizationTrigger = await screen.findByRole('button', {
+    name: /organization/i,
+  });
+  await userEvent.click(organizationTrigger);
+  await userEvent.click(await screen.findByRole('option', { name: 'Default' }));
+}
+
+it('loads the repository tag map and defaults to the newest pushed tag', async () => {
   renderDialog();
-  const trigger = await screen.findByRole('button', { name: /organization/i });
-  // Sorted by name: Default before Network.
-  expect(trigger.textContent).toContain('Default');
+  expect(
+    screen.getByText(/follow progress and logs on the task page/i),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(/tags can move to a different image over time/i),
+  ).toBeTruthy();
+  const trigger = await screen.findByRole('button', { name: /version/i });
+  expect(trigger.textContent).toContain('3.0');
+  await userEvent.click(trigger);
+  expect(
+    (await screen.findAllByRole('option')).map(option =>
+      option.textContent?.trim(),
+    ),
+  ).toEqual(['3.0', '2.9', 'latest']);
 });
 
-it('submits the inspected digest, organization identity, and token secret, then follows the task', async () => {
+it('resolves registry keys from registry URLs for existing catalog callers', async () => {
+  const { getRepositoryTags } = renderDialog({
+    pullReference: 'images.example.test/registry/team/ee@sha256:one',
+    registries: [
+      {
+        name: 'internal-registry',
+        url: 'https://images.example.test/registry',
+      },
+    ],
+  });
+  await screen.findByRole('button', { name: /version/i });
+  expect(getRepositoryTags).toHaveBeenCalledWith(
+    'internal-registry',
+    'team/ee',
+  );
+});
+
+it('uses the details-page tag as the default selection', async () => {
+  renderDialog({ selectedTag: '2.9' });
+  expect(
+    (await screen.findByRole('button', { name: /version/i })).textContent,
+  ).toContain('2.9');
+  expect(screen.getByText('sha256:two')).toBeTruthy();
+  expect(screen.getByText('registry/team/ee:2.9')).toBeTruthy();
+});
+
+it('submits the selected tag, organization identity, and token secret, then follows the task', async () => {
   const scaffold = jest.fn().mockResolvedValue({ taskId: 'task-42' });
   const { onClose } = renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
+  const organizationTrigger = await screen.findByRole('button', {
+    name: /organization/i,
+  });
+  expect(organizationTrigger.textContent).not.toContain('Default');
+  await selectDefaultOrganization();
+  await userEvent.click(
+    await screen.findByRole('button', { name: /version/i }),
+  );
+  await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
@@ -110,11 +202,38 @@ it('submits the inspected digest, organization identity, and token secret, then 
       environmentDescription: 'Use team/ee in Ansible Automation Controller.',
       organizationId: 1,
       organizationName: 'Default',
-      image: 'registry/team/ee@sha256:one',
+      image: 'registry/team/ee:2.9',
       pull: 'always',
     },
     secrets: { aapToken: 'aap-token' },
   });
+});
+
+it('communicates the required organization when submitting a blank selection', async () => {
+  const scaffold = jest.fn();
+  renderDialog({ scaffold });
+  await screen.findByRole('button', { name: /organization/i });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Use in Controller' }),
+  );
+  expect(await screen.findByText('Select an organization.')).toBeTruthy();
+  expect(scaffold).not.toHaveBeenCalled();
+});
+
+it('copies the full selected digest and announces the result', async () => {
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+  renderDialog();
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Copy selected image digest' }),
+  );
+  expect(writeText).toHaveBeenCalledWith('sha256:three');
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Digest copied',
+  );
 });
 
 it('blocks submission and explains when no organizations are synced', async () => {
@@ -136,7 +255,7 @@ it('reports authentication failure with fixed copy', async () => {
     scaffold,
     getAccessToken: jest.fn().mockRejectedValue(new Error('secret-url')),
   });
-  await screen.findByRole('button', { name: /organization/i });
+  await selectDefaultOrganization();
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
@@ -150,7 +269,7 @@ it('reports authentication failure with fixed copy', async () => {
 it('reports the unavailable template honestly', async () => {
   const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
   renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
+  await selectDefaultOrganization();
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
@@ -169,7 +288,7 @@ it.each([
 ])('reports %s without exposing backend details', async (_label, failure) => {
   const scaffold = jest.fn().mockRejectedValue(failure);
   const { onClose } = renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
+  await selectDefaultOrganization();
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
@@ -184,7 +303,7 @@ it('reports other failures with fixed copy', async () => {
     .fn()
     .mockRejectedValue({ status: 500, message: 'private server details' });
   renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
+  await selectDefaultOrganization();
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );

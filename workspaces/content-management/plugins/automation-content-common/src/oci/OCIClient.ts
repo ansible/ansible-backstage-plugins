@@ -996,7 +996,12 @@ export class OCIClient {
   async headManifest(
     repository: string,
     reference: string,
-  ): Promise<{ digest?: string; mediaType?: string; status: number }> {
+  ): Promise<{
+    digest?: string;
+    mediaType?: string;
+    lastModified?: string;
+    status: number;
+  }> {
     const res = await this.request(`/v2/${repository}/manifests/${reference}`, {
       method: 'HEAD',
       headers: { Accept: MANIFEST_ACCEPT },
@@ -1004,6 +1009,7 @@ export class OCIClient {
     return {
       digest: res.headers.get('docker-content-digest') ?? undefined,
       mediaType: res.headers.get('content-type') ?? undefined,
+      lastModified: res.headers.get('last-modified') ?? undefined,
       status: res.status,
     };
   }
@@ -1062,6 +1068,7 @@ export class OCIClient {
         MediaTypes.ociManifest,
       manifest,
       size: raw.length,
+      lastModified: res.headers.get('last-modified') ?? undefined,
     };
     if (key) this.cache?.set(key, resolved, raw.length);
     return resolved;
