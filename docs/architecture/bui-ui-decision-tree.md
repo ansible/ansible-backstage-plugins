@@ -677,9 +677,12 @@ workarounds.
 ### 2.4 Journey decomposition
 
 Section 2.3 assumes something already hosts the journey. Ansible-domain journeys
-often have no native owner: converting another configuration tool's repository
-into Ansible content, or assessing the quality of Ansible content across a
-fleet. Neither exists in RHDH today, and the answer is not to build a page.
+rarely have an upstream owner: converting another tool's repository into Ansible
+content is X2Ansible, and assessing the quality of Ansible content across a
+fleet is APME. Both exist as surfaces we built — one as a page in
+`rhdh-plugins`, one as entity tabs in this repository — which is what makes them
+the interesting case. They are new to the product and not new in shape, and the
+work is to see which of their parts are new content and which are new shape.
 
 No journey is new in shape; it is new in content. Decompose the journey into
 steps, then ask for each step whether a native surface already performs that
@@ -694,13 +697,14 @@ kind of step.
 | Change account or org settings | Settings                        | stock sub-page                                  |
 | Guided multi-step input        | scaffold template form          | `FormFieldBlueprint`                            |
 
-**Converting a repository from another tool.** The steps are choose a
-repository, run a conversion, follow progress, review the result. Choosing and
-running are Catalog and Software Templates; progress is the stock task sub-page;
-the result is a card or a section on that task page. The novelty is a scaffolder
-action and a template entity, which are backend code and data rather than
-surface. The failure mode is building a dedicated converter page when the
-product already has a job runner.
+**Converting a repository from another tool.** X2Ansible is this journey, built
+as a page we own. Read that page against the decomposition rather than treating
+it as a precedent: the steps are choose a repository, run a conversion, follow
+progress, review the result. Choosing and running are Catalog and Software
+Templates; progress is the stock task sub-page; the result is a card or a
+section on that task page. The novelty is a scaffolder action and a template
+entity, which are backend code and data rather than surface. The failure mode is
+building a dedicated converter page when the product already has a job runner.
 
 **Assessing content quality.** "Status of one thing" is the entity page: a tab
 and a card. "Compare many things" is a collection page. That is the shape the
@@ -1213,6 +1217,52 @@ tests that come with it.
   consumes.
 - Both lists are checked in the same way as the drift baseline: regenerate,
   diff, commit. If the diff is large, that is the release note.
+
+### C.4 Pages and sub-pages, by example
+
+Examples, not an inventory. These are the ones a contributor meets first; the
+full set is larger and changes between releases.
+
+| Page               | Route                | Note                                                                      |
+| ------------------ | -------------------- | ------------------------------------------------------------------------- |
+| Catalog            | `/catalog`           | stock, present in every deployment                                        |
+| Software Templates | `/create`            | stock, retitled "Self-service" by RHDH                                    |
+| Search             | `/search`            | stock                                                                     |
+| Settings           | `/settings`          | stock, with General, Authentication Providers and Feature Flags sub-pages |
+| Docs               | `/docs`              | stock                                                                     |
+| Notifications      | `/notifications`     | stock                                                                     |
+| Home               | `/home`              | replaced in RHDH by the dynamic home page                                 |
+| X2Ansible          | `/x2a`               | ours, in `rhdh-plugins`                                                   |
+| Orchestrator       | `/orchestrator`      | ours, in `rhdh-plugins`                                                   |
+| Bulk import        | `/bulk-import`       | ours, in `rhdh-plugins`                                                   |
+| Adoption Insights  | `/adoption-insights` | ours, in `rhdh-plugins`                                                   |
+| Extensions         | `/extensions`        | ours, in `rhdh-plugins`                                                   |
+
+Sub-pages worth knowing: Software Templates has `templates`, `tasks`, `actions`,
+`edit` and `templating-extensions`; Settings has `general`, `auth-providers` and
+`feature-flags`. Every one of those is a place your content might belong, and
+the choice between them is the journey question in section 2.4.
+
+**Going deeper.** Four steps, in the order that answers a real question:
+
+1. **What does a given host actually have?** Read its configuration: the
+   `app.extensions` entries and the dynamic-plugin entries name the extensions
+   the app mounts. This is the only list that matters for a specific deployment.
+2. **What does a package offer?** Search its source for `PageBlueprint.make(`
+   and `SubPageBlueprint.make(`. The extension id defaults to `page:<pluginId>`
+   and `sub-page:<pluginId>/<name>`; `path` is the route and `title` is the nav
+   label.
+3. **What is RHDH's own?** The `redhat-developer/rhdh-plugins` workspaces. As of
+   2.1 they add pages and no sub-pages, so sub-pages are effectively an upstream
+   construct.
+4. **What about tabs?** Entity page tabs are a separate list: search for
+   `EntityContentBlueprint` and `EntityDetailTabBlueprint`. They are not pages
+   and do not appear in any route list.
+
+Two cautions. Search results are a floor, not a total: pages are occasionally
+declared indirectly, and a code search is capped. And a page existing in a
+package is not the same as it being enabled in a deployment, which is why step 1
+comes first.
 
 ## References
 
