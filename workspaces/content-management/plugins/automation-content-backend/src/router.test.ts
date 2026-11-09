@@ -286,7 +286,7 @@ describe('GET /content pagination', () => {
 
     expect(res.body.pageSize).toBe(20);
     expect(res.body.items).toHaveLength(20);
-    expect(res.body.lastPage).toBe('?page=2');
+    expect(res.body.lastPage).toBe('?per_page=20&page=2');
   });
 
   it('accepts per_page=50', async () => {
@@ -297,7 +297,7 @@ describe('GET /content pagination', () => {
     expect(res.body.pageSize).toBe(50);
     expect(res.body.items).toHaveLength(25);
     expect(res.body.next).toBeNull();
-    expect(res.body.lastPage).toBe('?page=1');
+    expect(res.body.lastPage).toBe('?per_page=50&page=1');
   });
 
   it('falls back to 10 for invalid per_page values', async () => {
@@ -325,6 +325,19 @@ describe('GET /content pagination', () => {
     expect(res.body.pageSize).toBe(20);
     expect(res.body.items).toHaveLength(5);
     expect(res.body.totalItems).toBe(25);
+  });
+
+  it('preserves query parameters in pagination links', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?type=execution-environment&registry=reg&per_page=10',
+    );
+
+    expect(res.body.next).toBe(
+      '?type=execution-environment&registry=reg&per_page=10&page=2',
+    );
+    expect(res.body.firstPage).toBe(
+      '?type=execution-environment&registry=reg&per_page=10&page=1',
+    );
   });
 
   it('returns page 1 and lastPage 1 when there are no results', async () => {

@@ -311,14 +311,26 @@ export async function createRouter(
 
     const lastPage = Math.max(Math.ceil(totalItems / pageSize), 1);
 
+    const baseParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key !== 'page' && typeof value === 'string') {
+        baseParams.set(key, value);
+      }
+    }
+    const pageLink = (p: number) => {
+      const params = new URLSearchParams(baseParams);
+      params.set('page', String(p));
+      return `?${params.toString()}`;
+    };
+
     res.json({
       page,
       pageSize,
       totalItems,
-      next: page < lastPage ? `?page=${page + 1}` : null,
-      previous: page > 1 ? `?page=${page - 1}` : null,
-      firstPage: '?page=1',
-      lastPage: `?page=${lastPage}`,
+      next: page < lastPage ? pageLink(page + 1) : null,
+      previous: page > 1 ? pageLink(page - 1) : null,
+      firstPage: pageLink(1),
+      lastPage: pageLink(lastPage),
       items,
     });
   };
