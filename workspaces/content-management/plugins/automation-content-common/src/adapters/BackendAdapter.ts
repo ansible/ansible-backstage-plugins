@@ -69,6 +69,13 @@ export interface BackendAdapter {
     hints: MetadataHint[],
   ): Promise<MetadataBundle>;
 
+  /** Retrieve a layer without exceeding the caller's byte budget. */
+  fetchBlob?(
+    ref: ResolvedArtifact,
+    descriptor: import('../oci/types').Descriptor,
+    maxBytes: number,
+  ): Promise<Buffer | undefined>;
+
   /** Publish. Absent when the backend is read-only. */
   store?(ref: ArtifactRef, payload: unknown): Promise<ResolvedArtifact>;
 

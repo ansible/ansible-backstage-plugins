@@ -10,6 +10,24 @@
  */
 
 export * from './oci/types';
+export {
+  assertMetadataDocument,
+  validateNormalizedMetadata,
+  METADATA_DOCUMENT_BYTE_LIMIT,
+  NORMALIZED_METADATA_BYTE_LIMIT,
+  METADATA_NODE_LIMIT,
+  METADATA_DEPTH_LIMIT,
+} from './adapters/metadataBudget';
+export {
+  ArchiveContentTypeAdapter,
+  readArchiveFile,
+  ARCHIVE_BYTE_LIMIT,
+  ARCHIVE_LAYER_MEDIA_TYPE,
+} from './adapters/ArchiveContentTypeAdapter';
+export type {
+  ArchiveItem,
+  ArchiveEnumeration,
+} from './adapters/ArchiveContentTypeAdapter';
 export { OCIClient, nextLink } from './oci/OCIClient';
 export { logSafeText } from './oci/logSafeText';
 export type {

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "artifactType": "application/vnd.ansible.fixture.skill.v1+json",
+  "config": {
+    "mediaType": "application/vnd.oci.empty.v1+json",
+    "digest": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "size": 3
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:fec8605e5e3ab7796c2ad7ac25132632ce32548bdb9ff64266fd08dba65e437e",
+      "size": 2214,
+      "annotations": {
+        "org.opencontainers.image.title": "utopia-cluster-triage-1.0.0.tar.gz",
+        "io.utopia.fixture.archive.root": "."
+      }
+    }
+  ],
+  "annotations": {
+    "org.opencontainers.image.title": "utopia-cluster-triage-1.0.0.tar.gz",
+    "org.opencontainers.image.description": "Locally authored Utopia fixture; OCI packaging test, not portal ingestion support or certified content",
+    "org.opencontainers.image.version": "1.0.0",
+    "org.opencontainers.image.source": "https://example.org/fixtures"
+  }
+}

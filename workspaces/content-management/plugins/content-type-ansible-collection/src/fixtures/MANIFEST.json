@@ -1,0 +1,16 @@
+{
+  "collection_info": {
+    "namespace": "utopia",
+    "name": "network",
+    "version": "1.0.0",
+    "description": "Network diagnostics",
+    "authors": ["Utopia"],
+    "tags": ["network"],
+    "license": ["Apache-2.0"],
+    "dependencies": { "ansible.utils": ">=1.0.0" },
+    "documentation": "https://example.org/docs",
+    "homepage": "https://example.org",
+    "issues": "https://example.org/issues",
+    "repository": "https://example.org/source"
+  }
+}

@@ -97,6 +97,10 @@ function itemSummary(item: IndexedItem) {
 }
 
 function enumerationOf(artifact: IndexedArtifact) {
+  if (artifact.enumeration) {
+    const { items: _items, ...enumeration } = artifact.enumeration;
+    return enumeration;
+  }
   const manifest = artifact.manifest;
   return manifest
     ? {
@@ -118,6 +122,7 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     tags: artifact.tags,
     pullReference: artifact.pullReference,
     contentsKnown: artifact.contentsKnown,
+    ...(artifact.metadata ? { metadata: artifact.metadata } : {}),
     classification: artifact.classification,
     enumeration: enumerationOf(artifact),
     lastReconciledAt: db.reconcileStateFor(artifact.registry)?.at,
@@ -300,11 +305,17 @@ export async function createRouter(
     const enumeration = enumerationOf(artifact);
 
     if (!artifact.manifest) {
+      const typeFilter =
+        typeof req.query.type === 'string' ? req.query.type : undefined;
       res.json({
         enumeration,
         classification: artifact.classification,
         collections: [],
-        items: [],
+        items: artifact.enumeration
+          ? (await db.itemsIn(artifact.ref))
+              .filter(item => !typeFilter || item.type === typeFilter)
+              .map(itemSummary)
+          : [],
       });
       return;
     }
@@ -470,7 +481,9 @@ export async function createRouter(
         req.query.executionEnvironment) ||
       undefined;
 
-    const variants = await db.findItems(fqcn, scope);
+    const itemType =
+      typeof req.query.type === 'string' ? req.query.type : undefined;
+    const variants = await db.findItems(fqcn, scope, itemType);
     if (variants.length === 0) {
       res.status(404).json({
         error: scope
@@ -481,13 +494,21 @@ export async function createRouter(
       return;
     }
 
-    const providedBy = (await db.findItems(fqcn)).map(v => v.artifactRef);
-
     const render = async (item: IndexedItem) => {
+      const providedBy = [
+        ...new Set(
+          (await db.findItems(fqcn, undefined, item.type)).map(
+            v => v.artifactRef,
+          ),
+        ),
+      ];
       const artifact = await db.getArtifact(item.artifactRef);
+      const detail = normaliseDoc(item.detail ?? {});
+      delete detail.variants;
+      delete detail.variantCount;
       return {
+        ...detail,
         ...itemSummary(item),
-        ...normaliseDoc(item.detail ?? {}),
         in: item.artifactRef,
         providedBy,
         enumeration: artifact

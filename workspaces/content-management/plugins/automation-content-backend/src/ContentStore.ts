@@ -12,6 +12,8 @@ import {
   MemoryDigestCache,
   logSafeText,
   OCIClient,
+  OCIBackendAdapter,
+  MINIMAL_CAPABILITIES,
   RegistryConnection,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
@@ -22,9 +24,11 @@ import type {
   Descriptor,
   MetadataBundle,
   ResolvedArtifact,
+  ArchiveEnumeration,
 } from '@ansible/automation-content-common';
 
 import { Knex } from 'knex';
+import { createHash } from 'crypto';
 
 /** What the index concluded about an artifact, and why. */
 export interface IdentifiedType {
@@ -52,10 +56,13 @@ export interface IndexedArtifact {
   contentsKnown: boolean;
   classification: IdentifiedType;
   manifest?: AnsibleContentManifest;
+  /** Non-EE inventory; stored separately from the EE manifest contract. */
+  enumeration?: ArchiveEnumeration;
+  metadata?: Record<string, string>;
 }
 
 export interface IndexedItem {
-  /** Unique within one artifact. The same FQCN in another artifact is a distinct item. */
+  /** SHA256 of the JSON tuple of artifact reference, FQCN and content type. */
   key: string;
   fqcn: string;
   name: string;
@@ -98,13 +105,35 @@ export interface ReconcileState {
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
+/** Cosign's digest-derived signature tags describe images, not content artifacts. */
+const SIGNATURE_TAG = /^sha256-[0-9a-f]{64}\.sig$/i;
+
 /** Composite key for a content item. */
-export function itemKey(artifactRef: string, fqcn: string): string {
-  return `${artifactRef}::${fqcn}`;
+export function itemKey(
+  artifactRef: string,
+  fqcn: string,
+  type: string,
+): string {
+  return createHash('sha256')
+    .update(JSON.stringify([artifactRef, fqcn, type]))
+    .digest('hex');
 }
 
 /** Flatten an artifact's manifest into content items. */
 function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
+  if (artifact.enumeration) {
+    return (artifact.enumeration.items ?? []).map(item => ({
+      key: itemKey(artifact.ref, item.fqcn, item.type),
+      artifactRef: artifact.ref,
+      fqcn: item.fqcn,
+      name: item.name,
+      type: item.type,
+      collection: item.type === 'collection' ? item.fqcn : '',
+      collectionVersion: item.version ?? artifact.metadata?.version ?? '',
+      shortDescription: item.description,
+      detail: item.detail,
+    }));
+  }
   const items: IndexedItem[] = [];
   for (const collection of artifact.manifest?.collections ?? []) {
     const collectionFqcn = `${collection.namespace}.${collection.name}`;
@@ -117,7 +146,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const plugin of collection.plugins) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, plugin.fqcn),
+        key: itemKey(artifact.ref, plugin.fqcn, plugin.type),
         fqcn: plugin.fqcn,
         name: plugin.name,
         type: plugin.type,
@@ -130,7 +159,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const role of collection.roles) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, role.fqcn),
+        key: itemKey(artifact.ref, role.fqcn, 'role'),
         fqcn: role.fqcn,
         name: role.name,
         type: 'role',
@@ -141,7 +170,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const playbook of collection.playbooks) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, playbook.fqcn),
+        key: itemKey(artifact.ref, playbook.fqcn, 'playbook'),
         fqcn: playbook.fqcn,
         name: playbook.name,
         type: 'playbook',
@@ -151,7 +180,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const eda of collection.edaPlugins) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, eda.fqcn),
+        key: itemKey(artifact.ref, eda.fqcn, eda.type),
         fqcn: eda.fqcn,
         name: eda.name,
         type: eda.type,
@@ -169,12 +198,13 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
  * Two levels: artifacts (execution environments and, in future, collections or skills
  * published in their own right) and the content items inside them.
  *
- * Items are keyed on **(artifact, FQCN)**, not FQCN alone. Two execution environments
+ * Items are keyed on **(artifact, FQCN, type)**, not FQCN alone. Two execution environments
  * may ship different versions of the same collection, in which case
  * `cisco.ios.ios_vlans` genuinely has different documentation in each. Collapsing them
  * on FQCN would serve one environment's argument specification while claiming the
  * module is available in both — the precise failure the provenance fields exist to
  * prevent.
+ * Plugin categories are distinct too: a callback and filter may share an FQCN.
  *
  * Database-backed content store.
  *
@@ -278,9 +308,14 @@ export class ContentStore {
     return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
   }
 
-  async findItems(fqcn: string, artifactRef?: string): Promise<IndexedItem[]> {
+  async findItems(
+    fqcn: string,
+    artifactRef?: string,
+    type?: string,
+  ): Promise<IndexedItem[]> {
     const query = this.db('items').where('fqcn', fqcn);
     if (artifactRef) query.where('artifact_ref', artifactRef);
+    if (type) query.where('type', type);
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
   }
@@ -309,6 +344,15 @@ export class ContentStore {
   }
 
   countsFor(artifact: IndexedArtifact) {
+    if (artifact.enumeration) {
+      if (!artifact.contentsKnown) return undefined;
+      const items = artifact.enumeration.items ?? [];
+      return {
+        items: items.length,
+        collections: items.filter(item => item.type === 'collection').length,
+        skills: items.filter(item => item.type === 'skill').length,
+      };
+    }
     return artifact.manifest ? summariseManifest(artifact.manifest) : undefined;
   }
 
@@ -374,6 +418,13 @@ export class ContentStore {
       await trx('artifacts').where('registry', name).del();
       let totalItems = 0;
       for (const a of outcome.artifacts) {
+        const storedManifest = a.enumeration
+          ? {
+              kind: 'artifact-inventory',
+              enumeration: a.enumeration,
+              metadata: a.metadata,
+            }
+          : a.manifest;
         await trx('artifacts').insert({
           ref: a.ref,
           type: a.type,
@@ -384,9 +435,15 @@ export class ContentStore {
           pull_reference: a.pullReference,
           contents_known: a.contentsKnown,
           classification: JSON.stringify(a.classification),
-          manifest: a.manifest ? JSON.stringify(a.manifest) : null,
+          manifest: storedManifest ? JSON.stringify(storedManifest) : null,
         });
-        const items = flattenItems(a);
+        // Only identical artifact/FQCN/type tuples collide. Keep the first exact
+        // duplicate while preserving distinct plugin categories with the same FQCN.
+        const itemsByKey = new Map<string, IndexedItem>();
+        for (const item of flattenItems(a)) {
+          if (!itemsByKey.has(item.key)) itemsByKey.set(item.key, item);
+        }
+        const items = [...itemsByKey.values()];
         totalItems += items.length;
         for (const item of items) {
           await trx('items').insert({
@@ -441,7 +498,7 @@ export class ContentStore {
         const observed = new Map<string, string>();
         for await (const tag of client.listTags(repository)) {
           requests += 1;
-          if (REFERRER_TAG.test(tag)) continue;
+          if (REFERRER_TAG.test(tag) || SIGNATURE_TAG.test(tag)) continue;
           const head = await client.headManifest(repository, tag);
           requests += 1;
           if (head.digest) observed.set(tag, head.digest);
@@ -629,6 +686,10 @@ export class ContentStore {
   }
 
   private rowToArtifact(row: Record<string, unknown>): IndexedArtifact {
+    const stored = row.manifest
+      ? JSON.parse(row.manifest as string)
+      : undefined;
+    const inventory = stored?.kind === 'artifact-inventory';
     return {
       ref: row.ref as string,
       type: row.type as string,
@@ -639,7 +700,10 @@ export class ContentStore {
       pullReference: row.pull_reference as string,
       contentsKnown: Boolean(row.contents_known),
       classification: JSON.parse(row.classification as string),
-      manifest: row.manifest ? JSON.parse(row.manifest as string) : undefined,
+      manifest: inventory ? undefined : stored,
+      ...(inventory
+        ? { enumeration: stored.enumeration, metadata: stored.metadata }
+        : {}),
     };
   }
 
@@ -695,7 +759,7 @@ export class ContentStore {
     const byDigest = new Map<string, string[]>();
 
     for await (const tag of client.listTags(repository)) {
-      if (REFERRER_TAG.test(tag)) continue;
+      if (REFERRER_TAG.test(tag) || SIGNATURE_TAG.test(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
         throw new Error(
@@ -768,6 +832,74 @@ export class ContentStore {
         `[${registry}] ${repository}:${tags.join(',')} classified as ` +
           `${classification.type} — ${classification.signals.join('; ')}`,
       );
+      const adapter = this.contentTypes?.get(classification.type);
+      if (adapter && resolved) {
+        const connection = this.registries.get(registry)!.connection;
+        const enumeration = await adapter
+          .enumerate(resolved, {
+            backend: new OCIBackendAdapter(client, connection),
+            capabilities:
+              this.registries.get(registry)?.capabilities ??
+              MINIMAL_CAPABILITIES,
+          })
+          .catch(() => ({
+            status: 'unknown' as const,
+            source: 'blob-fetch' as const,
+            schemaVersion: adapter.schema.version,
+            diagnostics: ['content adapter enumeration failed'],
+          }));
+        const annotations = resolved.manifest.annotations ?? {};
+        const metadata: Record<string, string> = {};
+        for (const field of ['title', 'description', 'version', 'source']) {
+          const value = annotations[`org.opencontainers.image.${field}`];
+          if (value !== undefined) metadata[field] = value;
+        }
+        const safe = this.redactor.redactValue(
+          { enumeration, metadata },
+          { maxDepth: 64 },
+        ) as {
+          enumeration: ArchiveEnumeration;
+          metadata: Record<string, string>;
+        };
+        // Failed archive reads must not erase last-good immutable contents. A
+        // complete empty inventory is authoritative and deliberately clears them.
+        if (
+          safe.enumeration.source === 'blob-fetch' &&
+          safe.enumeration.status !== 'complete' &&
+          !safe.enumeration.items?.length
+        ) {
+          const previous = await this.getArtifact(base.ref);
+          if (
+            previous?.type === classification.type &&
+            previous.contentsKnown &&
+            previous.enumeration?.source === 'blob-fetch' &&
+            previous.enumeration.items?.length
+          ) {
+            safe.enumeration = {
+              ...safe.enumeration,
+              status: 'partial',
+              items: previous.enumeration.items,
+              extractedAt: previous.enumeration.extractedAt,
+              diagnostics: [
+                'using cached/stale last-good inventory for the same immutable artifact; current enumeration failed',
+                ...(safe.enumeration.diagnostics ?? [
+                  'current enumeration returned no usable items',
+                ]),
+              ],
+            };
+          }
+        }
+        return {
+          ...base,
+          type: classification.type,
+          classification,
+          ...safe,
+          contentsKnown:
+            safe.enumeration.status === 'complete' ||
+            (safe.enumeration.status === 'partial' &&
+              Boolean(safe.enumeration.items?.length)),
+        };
+      }
       return {
         ...base,
         type: classification.type,

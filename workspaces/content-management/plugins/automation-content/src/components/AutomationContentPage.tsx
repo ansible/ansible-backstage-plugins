@@ -1,6 +1,13 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Breadcrumbs, Link, Typography, makeStyles } from '@material-ui/core';
+import {
+  Breadcrumbs,
+  Link,
+  Typography,
+  makeStyles,
+  Tabs,
+  Tab,
+} from '@material-ui/core';
 import {
   Content,
   ContentHeader,
@@ -19,11 +26,22 @@ import {
   EnvironmentView,
   OverviewView,
 } from './views';
+import { ArtifactDetailView, ArtifactListView } from './ArtifactViews';
 
 const useStyles = makeStyles(theme => ({
   crumbs: { marginBottom: theme.spacing(2) },
   crumb: { cursor: 'pointer' },
 }));
+
+/** Query fields that describe the current content selection, not app mode. */
+const CONTENT_PARAMS = [
+  'type',
+  'ee',
+  'collection',
+  'item',
+  'itemType',
+  'artifact',
+] as const;
 
 /** Short label for an artifact ref: `registry/repo@sha256:abcd…` → `repo`. */
 function shortEnvironment(ref: string): string {
@@ -68,24 +86,52 @@ const AutomationContentPageContent = () => {
   const environmentRef = params.get('ee') ?? undefined;
   const collectionFqcn = params.get('collection') ?? undefined;
   const itemFqcn = params.get('item') ?? undefined;
-
-  const goHome = useCallback(() => setParams({}), [setParams]);
-  const goEnvironment = useCallback(
-    (ref: string) => setParams({ ee: ref }),
+  const itemType = params.get('itemType') ?? undefined;
+  const artifactRef = params.get('artifact') ?? undefined;
+  const requestedType = params.get('type');
+  const contentType =
+    requestedType === 'skill' || requestedType === 'collection'
+      ? requestedType
+      : 'execution-environment';
+  const navigateContent = useCallback(
+    (values: Record<string, string | undefined>) => {
+      setParams(current => {
+        const next = new URLSearchParams(current);
+        CONTENT_PARAMS.forEach(key => next.delete(key));
+        Object.entries(values).forEach(([key, value]) => {
+          if (value === undefined || value === '') next.delete(key);
+          else next.set(key, value);
+        });
+        return next;
+      });
+    },
     [setParams],
   );
+  const goArtifact = (ref: string) =>
+    navigateContent({ type: contentType, artifact: ref });
+
+  const goHome = useCallback(
+    () => navigateContent({ type: contentType }),
+    [navigateContent, contentType],
+  );
+  const goEnvironment = useCallback(
+    (ref: string) => navigateContent({ ee: ref }),
+    [navigateContent],
+  );
   const goCollection = useCallback(
-    (fqcn: string) => setParams({ ee: environmentRef!, collection: fqcn }),
-    [setParams, environmentRef],
+    (fqcn: string) =>
+      navigateContent({ ee: environmentRef!, collection: fqcn }),
+    [navigateContent, environmentRef],
   );
   const goItem = useCallback(
-    (fqcn: string) =>
-      setParams({
+    (fqcn: string, selectedItemType: string) =>
+      navigateContent({
         ee: environmentRef!,
         collection: collectionFqcn!,
         item: fqcn,
+        itemType: selectedItemType,
       }),
-    [setParams, environmentRef, collectionFqcn],
+    [navigateContent, environmentRef, collectionFqcn],
   );
 
   const crumb = (label: string, onClick?: () => void) =>
@@ -105,8 +151,22 @@ const AutomationContentPageContent = () => {
     );
 
   const crumbs = [
-    crumb('Execution environments', environmentRef ? goHome : undefined),
+    crumb(
+      {
+        skill: 'Skills',
+        collection: 'Collection artifacts',
+        'execution-environment': 'Execution environments',
+      }[contentType],
+      environmentRef || artifactRef ? goHome : undefined,
+    ),
   ];
+  if (artifactRef)
+    crumbs.push(
+      crumb(
+        shortEnvironment(artifactRef),
+        itemFqcn ? () => goArtifact(artifactRef) : undefined,
+      ),
+    );
   if (environmentRef) {
     crumbs.push(
       crumb(
@@ -130,9 +190,41 @@ const AutomationContentPageContent = () => {
   let body: React.ReactNode;
   let title = 'Content';
 
-  if (environmentRef && collectionFqcn && itemFqcn) {
+  if (artifactRef && itemFqcn) {
     title = itemFqcn;
-    body = <ContentItemView environmentRef={environmentRef} fqcn={itemFqcn} />;
+    body = (
+      <ContentItemView
+        environmentRef={artifactRef}
+        fqcn={itemFqcn}
+        itemType={itemType}
+      />
+    );
+  } else if (artifactRef) {
+    title = shortEnvironment(artifactRef);
+    body = (
+      <ArtifactDetailView
+        artifactRef={artifactRef}
+        onOpenItem={(fqcn, selectedItemType) =>
+          navigateContent({
+            type: contentType,
+            artifact: artifactRef,
+            item: fqcn,
+            itemType: selectedItemType,
+          })
+        }
+      />
+    );
+  } else if (contentType !== 'execution-environment') {
+    body = <ArtifactListView type={contentType} onOpen={goArtifact} />;
+  } else if (environmentRef && collectionFqcn && itemFqcn) {
+    title = itemFqcn;
+    body = (
+      <ContentItemView
+        environmentRef={environmentRef}
+        fqcn={itemFqcn}
+        itemType={itemType}
+      />
+    );
   } else if (environmentRef && collectionFqcn) {
     title = collectionFqcn;
     body = (
@@ -168,6 +260,16 @@ const AutomationContentPageContent = () => {
             inspecting an image afterwards is approximate and labelled as such.
           </SupportButton>
         </ContentHeader>
+
+        <Tabs
+          value={contentType}
+          onChange={(_event, type: string) => navigateContent({ type })}
+          aria-label="Content type"
+        >
+          <Tab value="execution-environment" label="Execution environments" />
+          <Tab value="skill" label="Skills" />
+          <Tab value="collection" label="Collection artifacts" />
+        </Tabs>
 
         {crumbs.length > 1 && (
           <Breadcrumbs className={classes.crumbs} aria-label="breadcrumb">

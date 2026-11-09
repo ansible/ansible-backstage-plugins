@@ -217,6 +217,7 @@ __metadata:
     istanbul-lib-instrument: "npm:^6.0.3"
     msw: "npm:^2.11.4"
     node-forge: "npm:1.4.0"
+    tar: "npm:^7.5.7"
     undici: "npm:6.29.1"
   languageName: unknown
   linkType: soft
@@ -397,6 +398,27 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/content-type-ansible-collection@workspace:^, @ansible/content-type-ansible-collection@workspace:workspaces/content-management/plugins/content-type-ansible-collection":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-type-ansible-collection@workspace:workspaces/content-management/plugins/content-type-ansible-collection"
+  dependencies:
+    "@ansible/automation-content-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
+    "@backstage/cli": "npm:0.36.5"
+  languageName: unknown
+  linkType: soft
+
+"@ansible/content-type-ansible-skill@workspace:^, @ansible/content-type-ansible-skill@workspace:workspaces/content-management/plugins/content-type-ansible-skill":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-type-ansible-skill@workspace:workspaces/content-management/plugins/content-type-ansible-skill"
+  dependencies:
+    "@ansible/automation-content-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
+    "@backstage/cli": "npm:0.36.5"
+    yaml: "npm:^2.4.5"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/content-type-execution-environment@workspace:^, @ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment":
   version: 0.0.0-use.local
   resolution: "@ansible/content-type-execution-environment@workspace:workspaces/content-management/plugins/content-type-execution-environment"
@@ -438,12 +460,16 @@ __metadata:
     "@backstage/cli": "npm:0.36.5"
     "@backstage/core-components": "npm:0.18.13"
     "@backstage/core-plugin-api": "npm:1.12.9"
+    "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@material-ui/core": "npm:^4.9.13"
     "@material-ui/icons": "npm:^4.9.1"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"
     "@red-hat-developer-hub/cli": "npm:^1.10.2"
+    "@testing-library/jest-dom": "npm:^6.0.0"
+    "@testing-library/react": "npm:^16.0.0"
     "@types/react": "npm:^18"
+    msw: "npm:2.4.9"
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     react-router-dom: "npm:^6.30.5"
@@ -549,6 +575,8 @@ __metadata:
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
+    "@ansible/content-type-ansible-collection": "workspace:^"
+    "@ansible/content-type-ansible-skill": "workspace:^"
     "@ansible/content-type-execution-environment": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/catalog-model": "npm:1.10.0"

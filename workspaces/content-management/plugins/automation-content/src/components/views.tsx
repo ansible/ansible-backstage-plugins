@@ -587,7 +587,7 @@ export const CollectionView = ({
 }: {
   environmentRef: string;
   collectionFqcn: string;
-  onOpenItem: (fqcn: string) => void;
+  onOpenItem: (fqcn: string, itemType: string) => void;
 }) => {
   const classes = useStyles();
   const api = useApi(automationContentApiRef);
@@ -738,7 +738,7 @@ export const CollectionView = ({
       <Table
         options={{
           paging: true,
-          pageSize: 15,
+          pageSize: 10,
           search: false,
           toolbar: false,
           padding: 'dense',
@@ -746,7 +746,7 @@ export const CollectionView = ({
         }}
         columns={columns}
         data={items}
-        onRowClick={(_e, row) => row && onOpenItem(row.fqcn)}
+        onRowClick={(_e, row) => row && onOpenItem(row.fqcn, row.type)}
       />
     </InfoCard>
   );
@@ -759,15 +759,17 @@ export const CollectionView = ({
 export const ContentItemView = ({
   environmentRef,
   fqcn,
+  itemType,
 }: {
   environmentRef: string;
   fqcn: string;
+  itemType?: string;
 }) => {
   const classes = useStyles();
   const api = useApi(automationContentApiRef);
   const item = useAsync(
-    () => api.getContentItem(fqcn, environmentRef),
-    [api, fqcn, environmentRef],
+    () => api.getContentItem(fqcn, environmentRef, itemType),
+    [api, fqcn, environmentRef, itemType],
   );
 
   if (item.loading) return <SkeletonLoader />;
@@ -780,6 +782,29 @@ export const ContentItemView = ({
   const description = toLines(doc.description);
   const author = toLines(doc.author);
   const providedBy = toLines(doc.providedBy);
+  const itemMetadata: Record<string, string> = {};
+  const addLines = (label: string, value: string | string[] | undefined) => {
+    const lines = toLines(value);
+    if (lines.length) itemMetadata[label] = lines.join(', ');
+  };
+  addLines('Authors', doc.authors);
+  addLines('Tags', doc.tags);
+  addLines('License', doc.license);
+  addLines('Documentation', doc.documentation);
+  addLines('Homepage', doc.homepage);
+  addLines('Issues', doc.issues);
+  addLines('Repository', doc.repository);
+  addLines('Compatibility', doc.compatibility);
+  addLines('Allowed tools', doc['allowed-tools']);
+  if (doc.dependencies) {
+    const dependencies = Object.entries(doc.dependencies)
+      .filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      )
+      .map(([name, version]) => `${name}: ${version}`);
+    if (dependencies.length)
+      itemMetadata.Dependencies = dependencies.join('\n');
+  }
 
   return (
     <Grid container spacing={3} direction="column">
@@ -801,7 +826,7 @@ export const ContentItemView = ({
             )}
             {/* Provenance stays visible: documentation extracted by a different
                 ansible-core than the image ships can be subtly wrong. */}
-            <Tooltip title="Documentation was resolved by the ansible-core inside this image, so it matches what will actually run.">
+            <Tooltip title="Source of the extracted documentation. Missing provenance is unknown, not a guarantee of completeness.">
               <Chip
                 size="small"
                 variant="outlined"
@@ -824,6 +849,9 @@ export const ContentItemView = ({
             <Typography variant="caption" color="textSecondary" component="div">
               {author.join(', ')}
             </Typography>
+          )}
+          {Object.keys(itemMetadata).length > 0 && (
+            <StructuredMetadataTable metadata={itemMetadata} />
           )}
         </InfoCard>
       </Grid>

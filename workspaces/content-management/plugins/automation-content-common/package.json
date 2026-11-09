@@ -24,6 +24,7 @@
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
+    "tar": "^7.5.7",
     "undici": "6.29.1"
   },
   "devDependencies": {

@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 import knexFactory from 'knex';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
@@ -11,8 +13,9 @@ import {
   fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
+  OCIClient,
 } from '@ansible/automation-content-common';
-import { ContentStore } from './ContentStore';
+import { ContentStore, itemKey } from './ContentStore';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
 
@@ -68,13 +71,16 @@ function connection(): RegistryConnection {
   };
 }
 
-async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+async function storeOver(
+  registry: MockRegistry,
+  contentTypes = defaultContentTypes(),
+): Promise<ContentStore> {
   const db = await createTestDB();
   const store = new ContentStore(
     [connection()],
     db as never,
     silent,
-    defaultContentTypes(),
+    contentTypes,
   );
   const clients = (
     store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
@@ -86,7 +92,372 @@ async function storeOver(registry: MockRegistry): Promise<ContentStore> {
 
 const EE_LABEL = 'ansible-execution-environment';
 
+describe('archive content intake', () => {
+  it('hashes realistic long identities into stable bounded keys without merging types or sources', () => {
+    const ref = `local-registry/${'long-namespace/'.repeat(
+      8,
+    )}skills/cluster-triage@sha256:${'a'.repeat(64)}`;
+    const fqcn = 'utopia-cluster-triage';
+    expect(JSON.stringify([ref, fqcn, 'skill']).length).toBeGreaterThan(255);
+    const key = itemKey(ref, fqcn, 'skill');
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(key).toBe(itemKey(ref, fqcn, 'skill'));
+    expect(key).not.toBe(itemKey(ref, fqcn, 'collection'));
+    expect(key).not.toBe(
+      itemKey(ref.replace('local-registry', 'other-registry'), fqcn, 'skill'),
+    );
+    expect(key).not.toBe(
+      itemKey(ref.replace('a'.repeat(64), 'b'.repeat(64)), fqcn, 'skill'),
+    );
+  });
+
+  it('retains stale last-good archive items only for the same immutable artifact after a failed read', async () => {
+    const skill = makeImage({ tag: 'skill' });
+    skill.manifest = {
+      ...skill.manifest,
+      artifactType: 'application/vnd.ansible.fixture.skill.v1+json',
+    };
+    const repositories = {
+      'ansible/ee': [skill, makeImage({ tag: 'healthy' })],
+    };
+    const store = await storeOver(new MockRegistry({ repositories }));
+    const client = (
+      store as unknown as { clients: Map<string, OCIClient> }
+    ).clients.get('mock')!;
+    const payload = readFileSync(
+      join(
+        __dirname,
+        '../../content-type-ansible-skill/src/fixtures/layer.tar.gz',
+      ),
+    );
+    jest
+      .spyOn(client, 'getBlob')
+      .mockResolvedValueOnce(payload)
+      .mockResolvedValue(undefined);
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    const first = (await store.listArtifacts('skill'))[0];
+    expect(first.enumeration?.status).toBe('complete');
+    expect(await store.itemsIn(first.ref)).toHaveLength(1);
+    repositories['ansible/ee'].push(makeImage({ tag: 'new-healthy' }));
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    const stale = await store.getArtifact(first.ref);
+    expect(stale).toMatchObject({
+      contentsKnown: true,
+      enumeration: {
+        status: 'partial',
+        extractedAt: first.enumeration?.extractedAt,
+      },
+    });
+    expect(stale?.enumeration?.diagnostics).toEqual([
+      expect.stringContaining('cached/stale'),
+      'layer payload unavailable',
+    ]);
+    expect(await store.itemsIn(first.ref)).toEqual(
+      await store.findItems('cluster-triage', first.ref),
+    );
+    expect(await store.itemsIn(first.ref)).toHaveLength(1);
+    expect(
+      (await store.listArtifacts()).some(a => a.tags.includes('new-healthy')),
+    ).toBe(true);
+    skill.digest = `sha256:${'e'.repeat(64)}`;
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    const changed = (await store.listArtifacts('skill'))[0];
+    expect(changed.ref).not.toBe(first.ref);
+    expect(changed).toMatchObject({
+      contentsKnown: false,
+      enumeration: { status: 'unknown' },
+    });
+    expect(await store.itemsIn(changed.ref)).toEqual([]);
+  });
+
+  it('clears last-good archive items when a complete empty inventory is successfully read', async () => {
+    const skill = makeImage({ tag: 'skill' });
+    skill.manifest = {
+      ...skill.manifest,
+      artifactType: 'application/vnd.ansible.fixture.skill.v1+json',
+    };
+    const contentTypes = defaultContentTypes();
+    const enumerate = jest.spyOn(contentTypes.get('skill')!, 'enumerate');
+    enumerate.mockResolvedValueOnce({
+      status: 'complete',
+      source: 'blob-fetch',
+      schemaVersion: '1.0.0',
+      extractedAt: '2026-01-01T00:00:00Z',
+      items: [{ fqcn: 'demo', name: 'demo', type: 'skill', detail: {} }],
+    } as import('@ansible/automation-content-common').ArchiveEnumeration);
+    enumerate.mockResolvedValue({
+      status: 'complete',
+      source: 'blob-fetch',
+      schemaVersion: '1.0.0',
+      extractedAt: '2026-02-01T00:00:00Z',
+      items: [],
+    } as import('@ansible/automation-content-common').ArchiveEnumeration);
+    const store = await storeOver(
+      new MockRegistry({ repositories: { 'ansible/ee': [skill] } }),
+      contentTypes,
+    );
+    await store.refreshRegistry('mock');
+    expect(await store.listItems()).toHaveLength(1);
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    expect(await store.listItems()).toEqual([]);
+    expect((await store.listArtifacts('skill'))[0]).toMatchObject({
+      contentsKnown: true,
+      enumeration: {
+        status: 'complete',
+        items: [],
+        extractedAt: '2026-02-01T00:00:00Z',
+      },
+    });
+  });
+
+  it('encodes full item identities without delimiter ambiguity', () => {
+    expect(itemKey('a::b', 'c', 'filter')).not.toBe(
+      itemKey('a', 'b::c', 'filter'),
+    );
+    expect(itemKey('a', 'b', 'callback')).not.toBe(itemKey('a', 'b', 'filter'));
+  });
+  it('preserves plugin categories while deduplicating identical full identities across repeated refreshes', async () => {
+    const referrerDigest = `sha256:${'ref'.padEnd(64, '0')}`;
+    const payloadDigest = `sha256:${'pay'.padEnd(64, '0')}`;
+    const image = {
+      ...makeLabelledImage('duplicate-plugins', { [EE_LABEL]: 'true' }),
+      referrers: [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: referrerDigest,
+          size: 200,
+          artifactType: CONTENT_MANIFEST_ARTIFACT_TYPE,
+        },
+      ],
+      referrerPayloads: {
+        [payloadDigest]: {
+          schemaVersion: 'v1',
+          generatedAt: '2026-01-01T00:00:00Z',
+          generatedBy: { tool: 'ansible-builder', version: '1.2' },
+          complete: true,
+          collections: [
+            {
+              namespace: 'ansible',
+              name: 'builtin',
+              version: '2.18.0',
+              plugins: [
+                {
+                  fqcn: 'ansible.builtin.default',
+                  name: 'default',
+                  type: 'callback',
+                  shortDescription: 'First occurrence',
+                },
+                {
+                  fqcn: 'ansible.builtin.default',
+                  name: 'default',
+                  type: 'filter',
+                  shortDescription: 'Second occurrence',
+                },
+                {
+                  fqcn: 'ansible.builtin.debug',
+                  name: 'debug',
+                  type: 'module',
+                  shortDescription: 'Unaffected plugin',
+                },
+                {
+                  fqcn: 'ansible.builtin.default',
+                  name: 'default',
+                  type: 'callback',
+                  shortDescription: 'Exact duplicate loses',
+                },
+              ],
+              roles: [],
+              playbooks: [],
+              edaPlugins: [],
+              rulebooks: [],
+            },
+          ],
+        },
+      },
+    };
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [image] },
+      referrersMode: 'native',
+    });
+    const store = await storeOver(registry);
+    for (let refresh = 0; refresh < 2; refresh++) {
+      expect((await store.refreshRegistry('mock')).ok).toBe(true);
+      const artifacts = await store.listArtifacts('execution-environment');
+      expect(artifacts).toHaveLength(1);
+      expect(artifacts[0].contentsKnown).toBe(true);
+      expect(await store.findItems('ansible.builtin.default')).toEqual([
+        expect.objectContaining({
+          type: 'callback',
+          shortDescription: 'First occurrence',
+        }),
+        expect.objectContaining({
+          type: 'filter',
+          shortDescription: 'Second occurrence',
+        }),
+      ]);
+      expect(
+        await store.findItems(
+          'ansible.builtin.default',
+          artifacts[0].ref,
+          'filter',
+        ),
+      ).toEqual([expect.objectContaining({ type: 'filter' })]);
+      expect(
+        await store.findItems(
+          'ansible.builtin.default',
+          artifacts[0].ref,
+          'lookup',
+        ),
+      ).toEqual([]);
+      expect(await store.findItems('ansible.builtin.debug')).toEqual([
+        expect.objectContaining({
+          type: 'module',
+          shortDescription: 'Unaffected plugin',
+        }),
+      ]);
+      expect(await store.listItems()).toHaveLength(3);
+    }
+  });
+
+  it('classifies mixed content, persists inventories and retains them across reads and refreshes', async () => {
+    const skill = makeImage({ tag: 'skill' });
+    const collection = makeImage({ tag: 'collection' });
+    skill.manifest = {
+      ...skill.manifest,
+      artifactType: 'application/vnd.ansible.fixture.skill.v1+json',
+      layers: [
+        {
+          mediaType: 'application/vnd.oci.image.layer.v1.tar+gzip',
+          size: 512,
+          digest: `sha256:${'c'.repeat(64)}`,
+        },
+      ],
+      annotations: {
+        'org.opencontainers.image.version': '1.0.0',
+        'org.opencontainers.image.title': 'Cluster triage',
+      },
+    } as typeof skill.manifest;
+    collection.manifest = {
+      ...collection.manifest,
+      artifactType: 'application/vnd.ansible.fixture.collection.v1+json',
+      layers: [
+        {
+          mediaType: 'application/vnd.oci.image.layer.v1.tar+gzip',
+          size: 1024,
+          digest: `sha256:${'d'.repeat(64)}`,
+        },
+      ],
+    } as typeof collection.manifest;
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [
+          makeLabelledImage('ee', { [EE_LABEL]: 'true' }),
+          skill,
+          collection,
+          makeImage({ tag: 'plain' }),
+        ],
+      },
+    });
+    const store = await storeOver(registry);
+    const client = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients.get('mock')!;
+    const fallback = registry.fetch;
+    client.fetchImpl = async (
+      url: string,
+      init: Parameters<typeof fallback>[1],
+    ) => {
+      let type: string | undefined;
+      if (url.endsWith(`sha256:${'c'.repeat(64)}`)) type = 'skill';
+      if (url.endsWith(`sha256:${'d'.repeat(64)}`)) type = 'collection';
+      if (type && url.includes('/blobs/')) {
+        return new Response(
+          readFileSync(
+            join(
+              __dirname,
+              `../../content-type-ansible-${type}/src/fixtures/layer.tar.gz`,
+            ),
+          ),
+        );
+      }
+      return fallback(url, init);
+    };
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    expect((await store.listArtifacts()).map(a => a.type).sort()).toEqual([
+      'collection',
+      'execution-environment',
+      'oci-image',
+      'skill',
+    ]);
+    const skills = await store.listArtifacts('skill');
+    expect(skills[0]).toMatchObject({
+      contentsKnown: true,
+      metadata: { title: 'Cluster triage', version: '1.0.0' },
+      enumeration: { status: 'complete', source: 'blob-fetch' },
+    });
+    expect(skills[0].manifest).toBeUndefined();
+    expect(await store.itemsIn(skills[0].ref)).toEqual([
+      expect.objectContaining({
+        fqcn: 'cluster-triage',
+        type: 'skill',
+        collectionVersion: '1.0.0',
+        shortDescription: 'Diagnose a cluster',
+      }),
+    ]);
+    const collections = await store.listArtifacts('collection');
+    expect(await store.itemsIn(collections[0].ref)).toEqual([
+      expect.objectContaining({
+        fqcn: 'utopia.network',
+        type: 'collection',
+        detail: expect.objectContaining({ tags: ['network'] }),
+      }),
+    ]);
+    expect(await store.getArtifact(collections[0].ref)).toMatchObject({
+      enumeration: { status: 'complete' },
+    });
+    expect(
+      (await store.listArtifacts('execution-environment'))[0].contentsKnown,
+    ).toBe(false);
+    expect((await store.listArtifacts('oci-image'))[0].contentsKnown).toBe(
+      false,
+    );
+    await store.refreshRegistry('mock');
+    expect(await store.listItems()).toHaveLength(2);
+  });
+});
+
 describe('drift detection', () => {
+  it('ignores digest-derived cosign signature tags while indexing the underlying image', async () => {
+    const signatureTags = [
+      `sha256-${'a1'.repeat(32)}.sig`,
+      `sha256-${'AB'.repeat(32)}.sig`,
+    ];
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [
+          makeLabelledImage('latest', { [EE_LABEL]: 'true' }),
+          ...signatureTags.map(tag => makeImage({ tag })),
+          makeImage({ tag: 'release.sig' }),
+        ],
+      },
+    });
+    const store = await storeOver(registry);
+    expect((await store.refreshRegistry('mock')).ok).toBe(true);
+    const artifacts = await store.listArtifacts();
+    expect(artifacts).toHaveLength(2);
+    expect(
+      artifacts.find(a => a.type === 'execution-environment')?.tags,
+    ).toEqual(['latest']);
+    expect(artifacts.find(a => a.type === 'oci-image')?.tags).toEqual([
+      'release.sig',
+    ]);
+    const drift = await store.detectDrift('mock');
+    expect(drift.changed).toBe(false);
+    for (const tag of signatureTags) {
+      expect(registry.countRequests(`/manifests/${tag}`)).toBe(0);
+    }
+  });
+
   it('reports no change when the registry matches the store', async () => {
     const registry = new MockRegistry({
       repositories: {

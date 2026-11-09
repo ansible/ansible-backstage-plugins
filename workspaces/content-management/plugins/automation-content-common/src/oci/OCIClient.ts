@@ -1185,10 +1185,14 @@ export class OCIClient {
   async getBlob(
     repository: string,
     descriptor: Descriptor,
+    maxBytes = MAX_BLOB_BYTES,
   ): Promise<Buffer | undefined> {
     // The descriptor is registry controlled. Refuse to download anything
     // beyond a sane bound before it can exhaust memory.
-    if (descriptor.size !== undefined && descriptor.size > MAX_BLOB_BYTES) {
+    if (
+      descriptor.size !== undefined &&
+      descriptor.size > Math.min(maxBytes, MAX_BLOB_BYTES)
+    ) {
       this.logger?.warn(
         `[${this.connection.name}] refusing blob ${descriptor.digest}: ` +
           `declared size ${descriptor.size} exceeds ${MAX_BLOB_BYTES} bytes`,
@@ -1202,7 +1206,7 @@ export class OCIClient {
       descriptor.digest,
     );
     const cached = this.cache?.get<Buffer>(key);
-    if (cached) return cached;
+    if (cached) return cached.length <= maxBytes ? cached : undefined;
 
     const res = await this.request(
       `/v2/${repository}/blobs/${descriptor.digest}`,
@@ -1212,7 +1216,33 @@ export class OCIClient {
     );
     if (!res.ok) return undefined;
 
-    const buffer = Buffer.from(await res.arrayBuffer());
+    // Bounded callers must not trust a descriptor or Content-Length supplied by
+    // the registry. Cancel the stream as soon as the actual budget is exceeded.
+    let buffer: Buffer;
+    if (maxBytes < MAX_BLOB_BYTES && res.body) {
+      const reader = res.body.getReader();
+      const chunks: Buffer[] = [];
+      let length = 0;
+      try {
+        for (;;) {
+          const next = await reader.read();
+          if (next.done) break;
+          length += next.value.length;
+          if (length > maxBytes) {
+            await reader.cancel();
+            throw new Error(`layer exceeds ${maxBytes} byte budget`);
+          }
+          chunks.push(Buffer.from(next.value));
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      buffer = Buffer.concat(chunks, length);
+    } else {
+      buffer = Buffer.from(await res.arrayBuffer());
+    }
+    if (buffer.length > maxBytes)
+      throw new Error(`layer exceeds ${maxBytes} byte budget`);
     this.cache?.set(key, buffer, buffer.length);
     return buffer;
   }

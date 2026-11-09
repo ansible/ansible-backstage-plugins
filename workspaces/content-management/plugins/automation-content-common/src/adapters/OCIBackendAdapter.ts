@@ -84,6 +84,15 @@ export class OCIBackendAdapter implements BackendAdapter {
     return this.client.getManifest(ref.repository, ref.reference);
   }
 
+  /** Read an immutable layer within the content adapter's budget. */
+  async fetchBlob(
+    ref: ResolvedArtifact,
+    descriptor: Descriptor,
+    maxBytes: number,
+  ): Promise<Buffer | undefined> {
+    return this.client.getBlob(ref.repository, descriptor, maxBytes);
+  }
+
   /**
    * Retrieve raw metadata documents for a content-type adapter to interpret.
    *

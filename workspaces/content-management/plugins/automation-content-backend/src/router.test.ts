@@ -1,6 +1,8 @@
 import express from 'express';
 import request from 'supertest';
 import { CredentialRedactor } from '@ansible/automation-content-common';
+import type { ArchiveItem } from '@ansible/automation-content-common';
+import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
 
@@ -98,14 +100,230 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
     listItems: async () => seededItems,
     itemsIn: async (artifactRef: string) =>
       seededItems.filter(i => i.artifactRef === artifactRef),
-    findItems: async (fqcn: string, artifactRef?: string) => {
+    findItems: async (fqcn: string, artifactRef?: string, type?: string) => {
       let result = seededItems.filter(i => i.fqcn === fqcn);
       if (artifactRef)
         result = result.filter(i => i.artifactRef === artifactRef);
+      if (type) result = result.filter(i => i.type === type);
       return result;
     },
   });
 }
+
+describe('authoritative item detail', () => {
+  it.each([
+    'type: {forged: true}\nfqcn: not-demo\nshortDescription: forged\ncollectionVersion: forged',
+    'variants: custom-author-field\nvariantCount: 99',
+  ])(
+    'preserves adapter identity and strips reserved wrappers from skill frontmatter',
+    async fields => {
+      const adapter = defaultContentTypes().get('skill') as unknown as {
+        parse(document: string): ArchiveItem[];
+      };
+      const parsed = adapter.parse(
+        `---\nname: demo\ndescription: legit\n${fields}\ncustom: preserved\nin: forged\nprovidedBy: forged\nenumeration: forged\n---`,
+      )[0];
+      const db = seedDB([
+        {
+          fqcn: parsed.fqcn,
+          name: parsed.name,
+          type: parsed.type,
+          shortDescription: parsed.description,
+          collectionVersion: '1.0.0',
+          detail: parsed.detail,
+        },
+      ]);
+      const response = await request(await appWith(db))
+        .get('/content-items/demo')
+        .query({ in: DEFAULT_ARTIFACT.ref, type: 'skill' });
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        fqcn: 'demo',
+        name: 'demo',
+        type: 'skill',
+        shortDescription: 'legit',
+        collectionVersion: '1.0.0',
+        description: ['legit'],
+        custom: 'preserved',
+        in: DEFAULT_ARTIFACT.ref,
+        providedBy: [DEFAULT_ARTIFACT.ref],
+        enumeration: { status: 'complete' },
+      });
+      expect(response.body).not.toHaveProperty('variants');
+      expect(response.body).not.toHaveProperty('variantCount');
+    },
+  );
+
+  it('retains the actual variants envelope while keeping each variant authoritative', async () => {
+    const db = seedDB([
+      {
+        fqcn: 'demo',
+        name: 'demo',
+        type: 'callback',
+        detail: { variants: 'forged', variantCount: 99, type: 'forged' },
+      },
+      {
+        fqcn: 'demo',
+        name: 'demo',
+        type: 'filter',
+        detail: { variants: 'forged', fqcn: 'forged' },
+      },
+    ]);
+    const response = await request(await appWith(db))
+      .get('/content-items/demo')
+      .query({ in: DEFAULT_ARTIFACT.ref });
+    expect(response.body.variantCount).toBe(2);
+    expect(response.body.variants.map((v: { type: string }) => v.type)).toEqual(
+      ['callback', 'filter'],
+    );
+    for (const variant of response.body.variants) {
+      expect(variant.fqcn).toBe('demo');
+      expect(variant).not.toHaveProperty('variants');
+      expect(variant).not.toHaveProperty('variantCount');
+    }
+  });
+});
+
+describe('archive content API', () => {
+  const skill: IndexedArtifact = {
+    ...DEFAULT_ARTIFACT,
+    type: 'skill',
+    manifest: undefined,
+    metadata: { title: 'Cluster triage', version: '1.0.0' },
+    enumeration: {
+      status: 'complete',
+      source: 'blob-fetch',
+      schemaVersion: '1.0.0',
+    },
+  };
+  const item: IndexedItem = {
+    key: 'skill-item',
+    fqcn: 'cluster-triage',
+    name: 'cluster-triage',
+    type: 'skill',
+    collection: '',
+    collectionVersion: '1.0.0',
+    artifactRef: skill.ref,
+    shortDescription: 'Diagnose a cluster',
+    detail: { tags: ['operations'], authors: ['Utopia'] },
+  };
+  const db = () =>
+    stubDB({
+      listArtifacts: async type => (!type || type === 'skill' ? [skill] : []),
+      getArtifact: async () => skill,
+      itemsIn: async () => [item],
+      listItems: async () => [item],
+      findItems: async () => [item],
+    });
+
+  it('supports type filtering without broadening the EE alias', async () => {
+    const app = await appWith(db());
+    expect(
+      (await request(app).get('/content?type=skill')).body.items,
+    ).toHaveLength(1);
+    expect(
+      (await request(app).get('/content?type=collection')).body.items,
+    ).toEqual([]);
+    expect(
+      (await request(app).get('/execution-environments')).body.items,
+    ).toEqual([]);
+  });
+
+  it('serves skill metadata and inventory through the existing normalized item routes', async () => {
+    const app = await appWith(db());
+    const ref = encodeURIComponent(skill.ref);
+    const artifact = await request(app).get(`/content/${ref}`);
+    expect(artifact.body).toMatchObject({
+      type: 'skill',
+      metadata: { title: 'Cluster triage' },
+      enumeration: { status: 'complete', source: 'blob-fetch' },
+    });
+    const contents = await request(app).get(`/content/${ref}/contents`);
+    expect(contents.body.items).toEqual([
+      expect.objectContaining({
+        fqcn: 'cluster-triage',
+        shortDescription: 'Diagnose a cluster',
+        collectionVersion: '1.0.0',
+        in: skill.ref,
+      }),
+    ]);
+    expect(
+      (await request(app).get('/content-items?type=skill')).body.items,
+    ).toHaveLength(1);
+    expect(
+      (await request(app).get('/content-items/cluster-triage')).body,
+    ).toMatchObject({ tags: ['operations'], authors: ['Utopia'] });
+  });
+});
+
+describe('typed plugin identities', () => {
+  it('keeps scoped legacy variants and supports typed detail on both route families', async () => {
+    const fqcn = 'ansible.builtin.default';
+    const onlyCallback = 'other/repo@sha256:other';
+    const db = seedDB([
+      {
+        fqcn,
+        name: 'default',
+        type: 'callback',
+        detail: { description: 'Callback docs' },
+      },
+      {
+        fqcn,
+        name: 'default',
+        type: 'filter',
+        detail: { description: 'Filter docs' },
+      },
+      {
+        fqcn,
+        name: 'default',
+        type: 'callback',
+        artifactRef: onlyCallback,
+        detail: { description: 'Other callback' },
+      },
+    ]);
+    const app = await appWith(db);
+    for (const route of ['content-items', 'plugins']) {
+      const legacy = await request(app)
+        .get(`/${route}/${fqcn}`)
+        .query({ in: DEFAULT_ARTIFACT.ref });
+      expect(legacy.body.variantCount).toBe(2);
+      expect(legacy.body.variants.map((v: { type: string }) => v.type)).toEqual(
+        ['callback', 'filter'],
+      );
+      const typed = await request(app)
+        .get(`/${route}/${fqcn}`)
+        .query({ in: DEFAULT_ARTIFACT.ref, type: 'filter' });
+      expect(typed.body).toMatchObject({
+        type: 'filter',
+        description: ['Filter docs'],
+        providedBy: [DEFAULT_ARTIFACT.ref],
+      });
+      expect(
+        (
+          await request(app).get(`/${route}/${fqcn}`).query({
+            executionEnvironment: DEFAULT_ARTIFACT.ref,
+            type: 'callback',
+          })
+        ).body.type,
+      ).toBe('callback');
+      expect(
+        (
+          await request(app)
+            .get(`/${route}/${fqcn}`)
+            .query({ in: DEFAULT_ARTIFACT.ref, type: 'lookup' })
+        ).status,
+      ).toBe(404);
+    }
+    const search = await request(app)
+      .get('/content-items')
+      .query({ type: 'filter' });
+    expect(search.body.items).toHaveLength(1);
+    expect(search.body.items[0].type).toBe('filter');
+    expect(
+      (await request(app).get(`/content-items/${fqcn}`)).body.variantCount,
+    ).toBe(3);
+  });
+});
 
 describe('documentation field normalisation', () => {
   it('coerces a string description to an array', async () => {
