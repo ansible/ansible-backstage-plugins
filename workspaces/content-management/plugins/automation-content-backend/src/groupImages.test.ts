@@ -15,6 +15,7 @@ const image = (
   tagTimestamps,
   pullReference: digest,
   contentsKnown: false,
+  signing: { state: 'undetermined', evidence: [] },
   classification: {
     type: 'execution-environment',
     signals: [],
