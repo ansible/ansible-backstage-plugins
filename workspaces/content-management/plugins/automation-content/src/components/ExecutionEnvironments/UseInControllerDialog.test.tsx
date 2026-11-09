@@ -13,10 +13,14 @@ expect.extend(toHaveNoViolations);
 
 it('has no accessibility violations in the loaded Controller dialog', async () => {
   renderDialog();
+  // The organization field starts blank and loads its options asynchronously;
+  // the select losing its disabled attribute is the loaded signal.
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: /organization/i }).textContent,
-    ).toContain('Default'),
+      screen
+        .getByRole('button', { name: /organization/i })
+        .hasAttribute('disabled'),
+    ).toBe(false),
   );
   // The dialog is portaled outside the render container.
   expect(await axe(document.body)).toHaveNoViolations();
