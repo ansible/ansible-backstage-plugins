@@ -18,7 +18,6 @@ import {
   Cell,
   CellText,
   Checkbox,
-  CheckboxGroup,
   ColumnConfig,
   Container,
   Flex,
@@ -102,8 +101,6 @@ export function ImagesCatalogPage({
   const base = useRouteRef(eeRouteRef)();
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const [starredOnly, setStarredOnly] = useState(false);
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
-  const [collectionFilterOpen, setCollectionFilterOpen] = useState(false);
   const [view, setView] = useState<'table' | 'grid'>('table');
   const [allTypes, setAllTypes] = useState(false);
   const [page, setPage] = useState(1);
@@ -167,24 +164,7 @@ export function ImagesCatalogPage({
     return linked;
   }, [data, entities.value]);
 
-  const collectionOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (data ?? [])
-            .filter(image => image.contentsKnown)
-            .flatMap(image =>
-              image.collections.map(collection => collection.fqcn),
-            ),
-        ),
-      ).sort((left, right) => left.localeCompare(right)),
-    [data],
-  );
-
-  const table = useTable<
-    ImageRow,
-    { starredOnly: boolean; collections: string[] }
-  >({
+  const table = useTable<ImageRow, { starredOnly: boolean }>({
     mode: 'complete',
     sort,
     onSortChange: descriptor => {
@@ -192,21 +172,12 @@ export function ImagesCatalogPage({
       setSort(descriptor);
     },
     data,
-    filter: { starredOnly, collections: selectedCollections },
+    filter: { starredOnly },
     filterFn: (rows, filters) =>
       rows.filter(row => {
         if (filters.starredOnly) {
           const entity = entityByImageRef.get(row.ref);
           if (!entity || !isStarredEntity(entity)) return false;
-        }
-        if (
-          filters.collections.length &&
-          (!row.contentsKnown ||
-            !row.collections.some(collection =>
-              filters.collections.includes(collection.fqcn),
-            ))
-        ) {
-          return false;
         }
         return true;
       }),
@@ -251,19 +222,12 @@ export function ImagesCatalogPage({
         const entity = entityByImageRef.get(row.ref);
         if (!entity || !isStarredEntity(entity)) return false;
       }
-      return (
-        !selectedCollections.length ||
-        (row.contentsKnown &&
-          row.collections.some(collection =>
-            selectedCollections.includes(collection.fqcn),
-          ))
-      );
+      return true;
     });
   }, [
     data,
     entityByImageRef,
     isStarredEntity,
-    selectedCollections,
     starredOnly,
     table.search.value,
   ]);
@@ -459,17 +423,6 @@ export function ImagesCatalogPage({
             <Checkbox isSelected={starredOnly} onChange={setStarredOnly}>
               Favorites only
             </Checkbox>
-            <Button
-              variant="tertiary"
-              aria-expanded={collectionFilterOpen}
-              aria-controls="image-collection-filter"
-              onPress={() => setCollectionFilterOpen(open => !open)}
-            >
-              Contains collection
-              {selectedCollections.length
-                ? ` (${selectedCollections.length})`
-                : ''}
-            </Button>
             <Checkbox
               isSelected={allTypes}
               onChange={value => {
@@ -526,28 +479,6 @@ export function ImagesCatalogPage({
               </MenuListBox>
             </MenuTrigger>
           </Flex>
-          {collectionFilterOpen && (
-            <CheckboxGroup
-              id="image-collection-filter"
-              className={catalogStyles.collectionFilter}
-              label="Contains collection"
-              orientation="horizontal"
-              value={selectedCollections}
-              onChange={setSelectedCollections}
-            >
-              {collectionOptions.length ? (
-                collectionOptions.map(collection => (
-                  <Checkbox key={collection} value={collection}>
-                    {collection}
-                  </Checkbox>
-                ))
-              ) : (
-                <Text color="secondary">
-                  No known collections on this page.
-                </Text>
-              )}
-            </CheckboxGroup>
-          )}
         </Flex>
         <Text as="h2" variant="title-medium">
           Execution environment images
@@ -605,7 +536,6 @@ export function ImagesCatalogPage({
                         onPress={() => {
                           table.search.onChange('');
                           setStarredOnly(false);
-                          setSelectedCollections([]);
                         }}
                       >
                         Clear search and filters
@@ -813,7 +743,6 @@ export function ImagesCatalogPage({
                         onPress={() => {
                           table.search.onChange('');
                           setStarredOnly(false);
-                          setSelectedCollections([]);
                         }}
                       >
                         Clear search and filters
