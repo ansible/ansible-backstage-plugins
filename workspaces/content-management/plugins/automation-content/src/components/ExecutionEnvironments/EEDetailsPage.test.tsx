@@ -1559,10 +1559,11 @@ describe('signing presentation', () => {
       state: 'signed',
       evidence: ['cosign signature referrer found'],
     });
-    expect(await screen.findByText('Signed')).toBeTruthy();
-    expect(
-      await screen.findByText('Cosign signature referrer found'),
-    ).toBeTruthy();
+    const signing = await screen.findByText(
+      'Signed — Cosign signature referrer found',
+    );
+    expect(signing.closest('dd')).toBeTruthy();
+    expect(signing.querySelector('[role="status"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Evidence' })).toBeNull();
   });
 
@@ -1571,9 +1572,11 @@ describe('signing presentation', () => {
       state: 'not-signed',
       evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
     });
-    expect(await screen.findByText('Not signed')).toBeTruthy();
-    expect(screen.getByText('No cosign signature referrer')).toBeTruthy();
-    expect(screen.getByText('No digest-derived .sig tag')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Not signed — No cosign signature referrer; No digest-derived .sig tag',
+      ),
+    ).toBeTruthy();
   });
 
   it('shows Not determined when a scheme could not be checked', async () => {
@@ -1581,9 +1584,10 @@ describe('signing presentation', () => {
       state: 'undetermined',
       evidence: ['a signature scheme could not be checked'],
     });
-    expect(await screen.findByText('Not determined')).toBeTruthy();
     expect(
-      screen.getByText('A signature scheme could not be checked'),
+      await screen.findByText(
+        'Not determined — A signature scheme could not be checked',
+      ),
     ).toBeTruthy();
   });
 

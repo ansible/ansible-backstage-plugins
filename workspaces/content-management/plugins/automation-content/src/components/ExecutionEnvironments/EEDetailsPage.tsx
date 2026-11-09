@@ -16,7 +16,6 @@ import {
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import {
-  Badge,
   Button,
   ButtonIcon,
   Card,
@@ -162,14 +161,6 @@ function signingLabel(state: string): string {
 
 function signingEvidenceLabel(evidence: string): string {
   return evidence.replace(/^[a-z]/, character => character.toUpperCase());
-}
-
-function signingTone(state: string): StatusBadgeTone {
-  // Strong signaling is reserved for states that change a decision; "Signed"
-  // is a quiet fact, and an undetermined lookup asks for attention, not alarm.
-  if (state === 'undetermined') return 'info';
-  if (state === 'not-signed') return 'warning';
-  return 'neutral';
 }
 
 function inventorySourceLabel(origin: string): string {
@@ -702,28 +693,16 @@ function EEDetailsContent(): ReactElement {
                       </StatusBadge>
                     </MetadataRow>
                     <MetadataRow label="Signing">
-                      {value.signing ? (
-                        <Flex direction="column" gap="1" align="start">
-                          <StatusBadge
-                            tone={signingTone(value.signing.state)}
-                            size="small"
-                            variant="outline"
-                          >
-                            {signingLabel(value.signing.state)}
-                          </StatusBadge>
-                          {value.signing.evidence.map(item => (
-                            <Text
-                              key={item}
-                              variant="body-small"
-                              color="secondary"
-                            >
-                              {signingEvidenceLabel(item)}
-                            </Text>
-                          ))}
-                        </Flex>
-                      ) : (
-                        <Text color="secondary">Unknown</Text>
-                      )}
+                      {value.signing
+                        ? [
+                            signingLabel(value.signing.state),
+                            value.signing.evidence
+                              .map(signingEvidenceLabel)
+                              .join('; '),
+                          ]
+                            .filter(Boolean)
+                            .join(' — ')
+                        : 'Unknown'}
                     </MetadataRow>
                     <MetadataRow label="Origin">
                       <Flex direction="column" align="start" gap="1">
