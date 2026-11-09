@@ -1,7 +1,12 @@
 import express from 'express';
 import request from 'supertest';
 import { CredentialRedactor } from '@ansible/automation-content-common';
-import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
+import {
+  type ArtifactListOptions,
+  ContentStore,
+  IndexedArtifact,
+  IndexedItem,
+} from './ContentStore';
 import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
 
 const logger = {
@@ -26,6 +31,7 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
       return { hits: 0, misses: 0, entries: 0 };
     },
     listArtifacts: async () => [],
+    listArtifactsPaginated: async () => ({ items: [], totalCount: 0 }),
     getArtifact: async () => undefined,
     listItems: async () => [],
     itemsIn: async () => [],
@@ -93,6 +99,10 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
 
   return stubDB({
     listArtifacts: async () => [DEFAULT_ARTIFACT],
+    listArtifactsPaginated: async () => ({
+      items: [DEFAULT_ARTIFACT],
+      totalCount: 1,
+    }),
     getArtifact: async (ref: string) =>
       ref === DEFAULT_ARTIFACT.ref ? DEFAULT_ARTIFACT : undefined,
     listItems: async () => seededItems,
@@ -196,6 +206,149 @@ describe('GET /health', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'ok' });
+  });
+});
+
+describe('GET /content pagination', () => {
+  function makeArtifact(n: number): IndexedArtifact {
+    return {
+      ref: `reg/repo-${n}@sha256:${String(n).padStart(3, '0')}`,
+      type: 'execution-environment',
+      registry: 'reg',
+      repository: `repo-${n}`,
+      digest: `sha256:${String(n).padStart(3, '0')}`,
+      tags: ['latest'],
+      pullReference: `reg/repo-${n}:latest`,
+      contentsKnown: true,
+      classification: {
+        type: 'execution-environment',
+        confidence: 'certain',
+        signals: [],
+      } as never,
+      manifest: { collections: [], generatedBy: {}, complete: true } as never,
+    };
+  }
+
+  const allArtifacts = Array.from({ length: 25 }, (_, i) => makeArtifact(i));
+
+  function paginatedDB(): ContentStore {
+    return stubDB({
+      listArtifacts: async () => allArtifacts,
+      listArtifactsPaginated: async (
+        opts: ArtifactListOptions & { limit: number; offset: number },
+      ) => ({
+        items: allArtifacts.slice(opts.offset, opts.offset + opts.limit),
+        totalCount: allArtifacts.length,
+      }),
+    });
+  }
+
+  it('returns the first page with default parameters', async () => {
+    const res = await request(await appWith(paginatedDB())).get('/content');
+
+    expect(res.status).toBe(200);
+    expect(res.body.page).toBe(1);
+    expect(res.body.pageSize).toBe(10);
+    expect(res.body.totalItems).toBe(25);
+    expect(res.body.items).toHaveLength(10);
+    expect(res.body.previous).toBeNull();
+    expect(res.body.next).toBe('?page=2');
+    expect(res.body.firstPage).toBe('?page=1');
+    expect(res.body.lastPage).toBe('?page=3');
+  });
+
+  it('returns a middle page with next and previous links', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?page=2',
+    );
+
+    expect(res.body.page).toBe(2);
+    expect(res.body.items).toHaveLength(10);
+    expect(res.body.previous).toBe('?page=1');
+    expect(res.body.next).toBe('?page=3');
+  });
+
+  it('returns the last page with no next link', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?page=3',
+    );
+
+    expect(res.body.page).toBe(3);
+    expect(res.body.items).toHaveLength(5);
+    expect(res.body.next).toBeNull();
+    expect(res.body.previous).toBe('?page=2');
+  });
+
+  it('accepts per_page=20', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?per_page=20',
+    );
+
+    expect(res.body.pageSize).toBe(20);
+    expect(res.body.items).toHaveLength(20);
+    expect(res.body.lastPage).toBe('?per_page=20&page=2');
+  });
+
+  it('accepts per_page=50', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?per_page=50',
+    );
+
+    expect(res.body.pageSize).toBe(50);
+    expect(res.body.items).toHaveLength(25);
+    expect(res.body.next).toBeNull();
+    expect(res.body.lastPage).toBe('?per_page=50&page=1');
+  });
+
+  it('falls back to 10 for invalid per_page values', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?per_page=15',
+    );
+
+    expect(res.body.pageSize).toBe(10);
+  });
+
+  it('clamps page to 1 for non-positive values', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?page=0',
+    );
+
+    expect(res.body.page).toBe(1);
+  });
+
+  it('works through the /execution-environments alias', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/execution-environments?per_page=20&page=2',
+    );
+
+    expect(res.body.page).toBe(2);
+    expect(res.body.pageSize).toBe(20);
+    expect(res.body.items).toHaveLength(5);
+    expect(res.body.totalItems).toBe(25);
+  });
+
+  it('preserves query parameters in pagination links', async () => {
+    const res = await request(await appWith(paginatedDB())).get(
+      '/content?type=execution-environment&registry=reg&per_page=10',
+    );
+
+    expect(res.body.next).toBe(
+      '?type=execution-environment&registry=reg&per_page=10&page=2',
+    );
+    expect(res.body.firstPage).toBe(
+      '?type=execution-environment&registry=reg&per_page=10&page=1',
+    );
+  });
+
+  it('returns page 1 and lastPage 1 when there are no results', async () => {
+    const res = await request(await appWith()).get('/content');
+
+    expect(res.body.page).toBe(1);
+    expect(res.body.totalItems).toBe(0);
+    expect(res.body.items).toHaveLength(0);
+    expect(res.body.next).toBeNull();
+    expect(res.body.previous).toBeNull();
+    expect(res.body.lastPage).toBe('?page=1');
   });
 });
 

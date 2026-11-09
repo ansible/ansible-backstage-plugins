@@ -11,7 +11,7 @@
  * here fails the suite rather than silently escaping the boundary.
  *
  * The sibling suites cover the layers below: CredentialRedactor.test.ts
- * (the utility), ContentIndex.test.ts and OCIClient.test.ts (discovery and
+ * (the utility), ContentStore.test.ts and OCIClient.test.ts (discovery and
  * the client), and the catalog module's credentialRedaction.test.ts
  * (entity publication).
  */
@@ -166,6 +166,11 @@ function seededStore(_logs: string[] = []): ContentStore {
     cacheStats: { hits: 0, misses: 0, entries: 0 },
     listArtifacts: async (type?: string) =>
       !type || type === artifact.type ? [artifact] : [],
+    listArtifactsPaginated: async (opts?: { type?: string }) => {
+      const filtered =
+        !opts?.type || opts.type === artifact.type ? [artifact] : [];
+      return { items: filtered, totalCount: filtered.length };
+    },
     getArtifact: async (ref: string) => (ref === REF ? artifact : undefined),
     listItems: async () => [...items.values()],
     itemsIn: async (ref: string) =>
