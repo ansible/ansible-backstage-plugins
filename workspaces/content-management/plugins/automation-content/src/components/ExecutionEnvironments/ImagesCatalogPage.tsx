@@ -410,6 +410,7 @@ export function ImagesCatalogPage({
             </Checkbox>
             <MenuTrigger isOpen={viewMenuOpen} onOpenChange={setViewMenuOpen}>
               <ButtonIcon
+                size="medium"
                 variant="tertiary"
                 aria-label={`View: ${view === 'table' ? 'Table' : 'Card'}`}
                 icon={
