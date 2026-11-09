@@ -395,7 +395,20 @@ it.each([
 ] as const)(
   'keeps collections scoped to %s',
   async (ref, enumeration, expectedContents) => {
-    const getEntities = jest.fn().mockResolvedValue({ items: [] });
+    const getEntities = jest.fn().mockResolvedValue({
+      items: [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { name: 'pah-published-ansible.posix-1.0.0' },
+          spec: {
+            type: 'ansible-collection',
+            collection_full_name: 'ansible.posix',
+            collection_version: '1.0.0',
+          },
+        },
+      ],
+    });
     const getContents = jest.fn().mockResolvedValue({
       enumeration,
       collections: [
@@ -437,7 +450,17 @@ it.each([
       </TestApiProvider>,
     );
     expect(await screen.findByText('ansible.posix')).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'ansible.posix' })).toBeNull();
+    await waitFor(() =>
+      expect(
+        screen
+          .queryByRole('link', { name: 'ansible.posix' })
+          ?.getAttribute('href') ?? null,
+      ).toBe(
+        enumeration.status === 'complete'
+          ? '/self-service/collections/pah-published-ansible.posix-1.0.0'
+          : null,
+      ),
+    );
     expect(getContents).toHaveBeenCalledWith(ref);
     expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
       'Overview',
@@ -457,7 +480,7 @@ it.each([
         .getAllByRole('columnheader')
         .map(header => header.textContent?.trim()),
     ).toEqual([
-      'Collection',
+      'Name',
       'Type',
       'Version',
       'Status',
