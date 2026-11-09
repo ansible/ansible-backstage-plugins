@@ -1127,12 +1127,14 @@ it('renders responsive image cards and toggles between grid and table views', as
   );
 
   await screen.findByRole('link', { name: 'repo' });
-  const gridButton = screen.getByRole('button', { name: 'Grid' });
-  await userEvent.click(gridButton);
-  expect(gridButton.getAttribute('aria-pressed')).toBe('true');
+  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
   expect(
-    screen.getByRole('button', { name: 'Table' }).getAttribute('aria-pressed'),
-  ).toBe('false');
+    screen
+      .getByRole('option', { name: 'Table view' })
+      .getAttribute('aria-selected'),
+  ).toBe('true');
+  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
+  expect(screen.getByRole('button', { name: 'View: Card' })).toBeTruthy();
   const card = screen.getByRole('link', { name: 'View repo details' });
   expect(card).toBeTruthy();
   expect(screen.getByText('External registry')).toBeTruthy();
@@ -1146,7 +1148,8 @@ it('renders responsive image cards and toggles between grid and table views', as
   expect(screen.getByTestId('current-path').textContent).toBe(
     '/content/ee/r%2Frepo%40sha256%3Aone',
   );
-  await userEvent.click(screen.getByRole('button', { name: 'Table' }));
+  await userEvent.click(screen.getByRole('button', { name: 'View: Card' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Table view' }));
   expect(
     await screen.findByRole('columnheader', { name: 'Status' }),
   ).toBeTruthy();
@@ -1196,7 +1199,8 @@ it('filters by any selected collection and combines the filter with search', asy
   );
 
   await screen.findByRole('link', { name: 'repo-one' });
-  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Contains collection' }),
   );
@@ -1257,7 +1261,8 @@ it('shows a six-month warning in the table and the grid card', async () => {
   expect(
     screen.getByRole('note', { name: 'Last verified over 6 months ago' }),
   ).toBeTruthy();
-  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
   expect(
     screen.getByRole('note', { name: 'Last verified over 6 months ago' }),
   ).toBeTruthy();
@@ -1286,7 +1291,8 @@ it('keeps card actions permission-gated', async () => {
     </TestApiProvider>,
   );
   await screen.findByRole('link', { name: 'repo' });
-  await userEvent.click(screen.getByRole('button', { name: 'Grid' }));
+  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
+  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Actions for repo' }),
   );
