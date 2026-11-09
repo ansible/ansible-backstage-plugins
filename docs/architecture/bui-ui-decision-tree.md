@@ -918,29 +918,33 @@ an incomplete ladder.
 
 The record for Appendix A, in full:
 
-- **Goal:** create an execution environment, entered from a Create action on the
-  page that lists existing execution environments.
-- **Level:** L3.
+- **Goal:** create an execution environment, entered from the Create tab of the
+  execution environments page.
+- **Level:** L4, with an L5 region — a page of ours carrying a bespoke list.
+  That is the current state, not a proposal; the proposal is to come back down.
 - **Alternatives, cheapest first:**
   - L0 with `groups` — sections the templates, but the page still lists them
     all.
   - L0 with `templateFilter` — the answer we want, unavailable in 1.54.9 and
     present on Backstage `main`.
   - L1 — the stock page and its stock nav item, which serves browsing the
-    product rather than the person who pressed a button on a list.
-  - L2 — nothing inside the page needs replacing.
-  - L4, a new execution-environment view — a route, a nav item and a page we
-    carry, to reach a form that already exists.
-  - L5, the same view with bespoke cards — it reproduces the stock template card
-    and drifts on the first change to `@backstage/ui`.
-- **Custom surfaces:** none. One action contribution.
-- **Revalidated per release:** the action contribution.
-- **Gap:** two. A missing slot — the collection page cannot host a create flow.
-  A missing input — `templateFilter`, already on Backstage `main`. Both filed
-  upstream; the L3 action is the interim.
-- **Author:** the plugin that owns the collection page.
-- **Reversal cost:** low. Removing an action and a predicate leaves no route and
-  no nav item behind.
+    product rather than the person who opened a page about execution
+    environments.
+  - L2 — one nested component is not the unit; the Create tab is a whole
+    section.
+  - L3 — contribute a group into the stock templates sub-page, which is the
+    correction proposed above.
+- **Custom surfaces:** the EE page shell and its tabs; the Create tab's template
+  list.
+- **Revalidated per release:** both, plus the `spec.type` predicate when
+  scaffolder changes how templates are selected.
+- **Gap:** a missing input — `templateFilter`, already on Backstage `main`. The
+  same input removes the second list, which is why the upstream issue is worth
+  filing even though the release is close.
+- **Author:** the plugin that owns the page — `portal-scaffolder` in this
+  repository.
+- **Reversal cost:** medium. The page has a route and a nav item, so removing it
+  leaves bookmarks that 404.
 
 ### 4.5 The review test
 
@@ -964,25 +968,28 @@ the argument was about a page and the decision was about a seam.
 
 ### A.1 Gate 0 — the journey, and where it starts
 
-Decomposed: browse the execution environments you have, press Create, choose one
+Decomposed: browse the execution environments you have, open Create, choose one
 of three templates, fill its form, run it, watch the task.
 
 Choose and run are Software Templates, the form is a scaffold template form, and
 progress is the stock task sub-page. Every step has an owner (section 2.4), so
 nothing here is a new product decision.
 
-The entry point is the interesting part, and it is not the sidebar. The journey
-starts at a Create action on the page that lists existing execution
-environments. That page belongs to a different journey — seeing what you have,
-which is "compare many things" (section 2.4) and a record of its own. The two
-journeys touch at exactly one place: the button.
+The entry point is the interesting part. Today it is a **tab**, not a sidebar
+entry and not a header action: `portal-scaffolder` declares a page (`page:ee`,
+`noHeader: true`) whose body is `EETabs`, with a Catalog tab and a Create tab,
+built from `@backstage/core-components` `Header` and `HeaderTabs`.
 
-That place is the seam UX was describing. Everything before the button happens
-on the collection page; everything after it happens in Software Templates. The
-person is reading a list of execution environments one moment and looking at a
-list of software templates the next, and the only thing carrying them across is
-a button label. Recorded this way, "the flow feels wrong" becomes something a
-reviewer can act on.
+- `Code:`
+  `workspaces/content-development/plugins/portal-scaffolder/src/alpha.tsx` for
+  the page; `components/ExecutionEnvironments/TabviewPage.tsx` for the tabs.
+- `In RHDH:` a page called "Execution Environments" with two tabs under it.
+
+So the seam UX was describing is the boundary between those two tabs. Everything
+before it is a catalog list of the environments you have; everything after it is
+a scaffolder template list. The person is reading one list and then another, and
+what carries them across is a tab label. Recorded this way, "the flow feels
+wrong" becomes something a reviewer can act on.
 
 ### A.2 Gate 1 — how far the stock surface goes
 
@@ -1003,37 +1010,46 @@ proposal, and it is the cheapest complete answer. Not adequate: it answers the
 person who is browsing the product rather than the person who was already
 looking at their execution environments and pressed a button there.
 
-**L2.** Nothing inside the page needs replacing, so this rung has no work.
+**L2.** One nested component is not the unit here: the Create tab is a whole
+section, not a replacement card.
 
-**L3.** A Create action on the collection page, pointing at the templates page.
+**L3.** Contribute the Create tab's content into the stock templates sub-page
+rather than rebuilding it.
 
-- `Code:` a header or context action contribution on the page that lists the
-  environments, routed to `sub-page:scaffolder/templates`.
-- Adequate as far as the release allows: one press, and the person is on the
-  templates list. It is not the filtered landing, because the release cannot
-  produce one.
+- `Code:` `groups: [{ title: 'Execution environments', filter }]` on
+  `sub-page:scaffolder/templates`, which files the three templates into their
+  own section of the stock page.
+- What exists instead: `create/CreateContent.tsx` renders its own catalog-style
+  list — `EntityListProvider`, `CatalogFilterLayout`, `EntityTypeFilter`,
+  `TagFilterPicker`, `TemplateGroups` and `WizardCard` — filtered on `spec.type`
+  containing `execution-environment`. That is a second template list, with its
+  own filters and its own card, kept in step with the scaffolder by hand.
 
-**What L3 does not fix.** Two things, and only one of them is ours. The person
-still changes page, because the collection page has nowhere to host a creation
-flow — a missing slot. And the landing page still shows every template, because
-the input that would filter it is not in the release — a missing input.
+**Where that leaves the tree.** Grouping does not filter, so on 2.1 the stock
+page cannot show only execution-environment templates. The Create tab's list
+can, because it is ours — and that is the whole cost. The tab is L5 surface (a
+bespoke list) inside an L4 page (a route and a nav item of ours), reproducing a
+sub-page the product already ships.
 
-**Stop at L3.** One action, no route of ours, nothing to revalidate beyond the
-action. The gap is filed upstream, and the interim costs a page change and a
-full template list. Both are honest to state; the alternative is an L4 page of
-our own, which adds a route, a nav item and tests, and still runs the stock
-form.
+**The cheap correction, stated honestly.** Delete the Create tab, keep the EE
+page as the browse surface, and let its Create entry point open the stock
+templates page with a group. The person lands on a page that also lists other
+templates: that is the trade, and it is smaller than maintaining a second list.
+When `templateFilter` reaches the release, the group becomes a filter and the
+trade disappears.
 
-### A.3 What was not built, and why
+### A.3 What the current implementation costs
 
-- **A new execution-environment view.** L4 at best, L5 if it carries its own
-  cards: a route, a nav item and a page we carry, to reach a form that already
-  exists, with its validation and task tracking forked from the scaffolder.
-- **A creation experience embedded in the collection page.** The right shape for
-  the continuity UX asked for, and not buildable locally: the collection page
-  offers no extension point for a create flow. Built here, it is a second create
-  path that must be kept in step with the scaffolder forever. It becomes the
-  upstream ask in the record instead.
+- **Two definitions of "an execution environment template".** `CreateContent`
+  filters on `spec.type` containing `execution-environment`; the stock sub-page
+  would filter on the same field through a predicate. They drift independently.
+- **A second template list.** Filters, empty state, grouping and the card are
+  ours, so every scaffolder release is a review of whether they still match.
+- **A page whose body is not a page.** `noHeader: true` plus `Header` and
+  `HeaderTabs` from `@backstage/core-components` means we draw the shell
+  ourselves, in MUI, inside a new-frontend-system page. That is the surface the
+  drift check exists to freeze, and it is the largest one attached to this
+  journey.
 
 ## Appendix B — APME quality workflow
 
