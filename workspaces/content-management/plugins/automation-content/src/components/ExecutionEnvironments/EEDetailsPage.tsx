@@ -373,6 +373,14 @@ function EEDetailsContent(): ReactElement {
     value?.contentsKnown ?? false,
     approximate,
   );
+  const collectionsEmpty =
+    !contents.loading && !contents.error && !data?.length;
+  const collectionsEmptyState = (
+    <EmptyState
+      title={emptyCollections.title}
+      description={emptyCollections.description}
+    />
+  );
   const itemFqcn = params.get('item');
   const syncImage = async (): Promise<void> => {
     if (!canSync || !value || syncing) return;
@@ -657,25 +665,24 @@ function EEDetailsContent(): ReactElement {
                   <Button onPress={contents.retry}>Retry</Button>
                 </div>
               )}
-              <Card className={styles.detailSurface}>
-                <CardBody className={styles.detailSurfaceBody}>
-                  <div aria-busy={contents.loading} className={styles.table}>
-                    {!contents.error && (
-                      <Table
-                        {...table.tableProps}
-                        isPending={contents.loading}
-                        columnConfig={columns}
-                        emptyState={
-                          <EmptyState
-                            title={emptyCollections.title}
-                            description={emptyCollections.description}
-                          />
-                        }
-                      />
-                    )}
-                  </div>
-                </CardBody>
-              </Card>
+              {collectionsEmpty ? (
+                collectionsEmptyState
+              ) : (
+                <Card className={styles.detailSurface}>
+                  <CardBody className={styles.detailSurfaceBody}>
+                    <div aria-busy={contents.loading} className={styles.table}>
+                      {!contents.error && (
+                        <Table
+                          {...table.tableProps}
+                          isPending={contents.loading}
+                          columnConfig={columns}
+                          emptyState={collectionsEmptyState}
+                        />
+                      )}
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
             </TabPanel>
           </Tabs>
         )}
