@@ -233,7 +233,10 @@ it('retains search controls when no images match and clears the filters', async 
       apis={[
         [
           automationContentApiRef,
-          { listExecutionEnvironments: async () => envelope([base]) },
+          {
+            listExecutionEnvironments: async (opts: { search?: string }) =>
+              envelope(opts.search ? [] : [base]),
+          },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
       ]}

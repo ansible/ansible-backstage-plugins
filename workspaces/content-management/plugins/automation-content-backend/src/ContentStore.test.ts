@@ -808,3 +808,68 @@ describe('strict latest-only artifact sync', () => {
     },
   );
 });
+
+describe('inventory search', () => {
+  it('searches all indexed fields before counting and pagination, combining filters and treating wildcards literally', async () => {
+    const db = await createTestDB();
+    try {
+      const store = new ContentStore([], db, silent);
+      for (let index = 0; index < 12; index++) {
+        await db('artifacts').insert({
+          ref: `ref-${index}`,
+          type: 'execution-environment',
+          registry: 'Source',
+          repository: index === 11 ? 'special_100%' : `repo-${index}`,
+          digest: `sha256:${index}`,
+          tags: '["Stable"]',
+          pull_reference: `ref-${index}`,
+          contents_known: true,
+          classification: '{"type":"execution-environment"}',
+          manifest:
+            '{"collections":[{"namespace":"Ansible","name":"Posix","version":"1.0.0"}]}',
+        });
+      }
+      for (const search of [
+        'SOURCE',
+        'stable',
+        'ANSIBLE.POSIX',
+        'execution-environment',
+        'sha256:',
+      ]) {
+        const result = await store.listArtifactsPaginated({
+          search,
+          limit: 10,
+          offset: 10,
+        });
+        expect(result.totalCount).toBe(12);
+        expect(result.items).toHaveLength(2);
+      }
+      expect(
+        (
+          await store.listArtifactsPaginated({
+            search: 'special_100%',
+            limit: 10,
+            offset: 0,
+          })
+        ).totalCount,
+      ).toBe(1);
+      expect(
+        (
+          await store.listArtifactsPaginated({
+            search: 'stable',
+            registry: 'absent',
+            limit: 10,
+            offset: 0,
+          })
+        ).totalCount,
+      ).toBe(0);
+      expect(
+        await store.listArtifacts('execution-environment', {
+          search: 'special',
+        }),
+      ).toHaveLength(1);
+    } finally {
+      await db.destroy();
+    }
+  });
+});
