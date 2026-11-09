@@ -54,14 +54,14 @@ export const automationContentPlugin = createBackendPlugin({
           warn: (m: string) => logger.warn(m),
           debug: (m: string) => logger.debug(m),
         };
-        const indexDB = new ContentStore(
+        const store = new ContentStore(
           registries,
           knex as any,
           loggerAdapter,
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ db: indexDB, logger, httpAuth }));
+        httpRouter.use(await createRouter({ db: store, logger, httpAuth }));
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
@@ -77,7 +77,7 @@ export const automationContentPlugin = createBackendPlugin({
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
           fn: async () => {
-            const { checked, refreshed, requests } = await indexDB.pollAll();
+            const { checked, refreshed, requests } = await store.pollAll();
             if (refreshed > 0) {
               logger.info(
                 `drift poll: ${refreshed}/${checked} registr(ies) refreshed ` +
@@ -92,14 +92,14 @@ export const automationContentPlugin = createBackendPlugin({
         });
 
         await scheduler.scheduleTask({
-          id: 'automation-content-index-refresh',
+          id: 'automation-content-store-refresh',
           frequency: { minutes: 30 },
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },
           fn: async () => {
-            const { artifacts, items } = await indexDB.refreshAll();
+            const { artifacts, items } = await store.refreshAll();
             logger.info(
-              `content index refreshed: ${artifacts} artifacts, ${items} content items`,
+              `content store refreshed: ${artifacts} artifacts, ${items} content items`,
             );
           },
         });

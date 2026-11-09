@@ -95,6 +95,19 @@ export interface ReconcileState {
   artifacts: number;
 }
 
+export interface ArtifactListOptions {
+  type?: string;
+  registry?: string;
+  contentsKnown?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  totalCount: number;
+}
+
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
@@ -164,18 +177,6 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
 }
 
 /**
- * An in-memory index of discovered content.
- *
- * Two levels: artifacts (execution environments and, in future, collections or skills
- * published in their own right) and the content items inside them.
- *
- * Items are keyed on **(artifact, FQCN)**, not FQCN alone. Two execution environments
- * may ship different versions of the same collection, in which case
- * `cisco.ios.ios_vlans` genuinely has different documentation in each. Collapsing them
- * on FQCN would serve one environment's argument specification while claiming the
- * module is available in both — the precise failure the provenance fields exist to
- * prevent.
- *
  * Database-backed content store.
  *
  * Artifacts and items are persisted in SQLite (dev) or PostgreSQL (production)
@@ -255,10 +256,38 @@ export class ContentStore {
   }
 
   async listArtifacts(type?: string): Promise<IndexedArtifact[]> {
-    const query = this.db('artifacts');
-    if (type) query.where('type', type);
+    const query = this.artifactQuery({ type });
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
+  async listArtifactsPaginated(
+    options: ArtifactListOptions & { limit: number; offset: number },
+  ): Promise<PaginatedResult<IndexedArtifact>> {
+    const base = this.artifactQuery(options);
+    const countRow = await base.clone().count('* as count').first();
+    const totalCount = Number(countRow?.count ?? 0);
+    const rows = await base
+      .clone()
+      .select('*')
+      .orderBy('ref')
+      .limit(options.limit)
+      .offset(options.offset);
+    return {
+      items: rows.map((row: Record<string, unknown>) =>
+        this.rowToArtifact(row),
+      ),
+      totalCount,
+    };
+  }
+
+  private artifactQuery(opts: ArtifactListOptions) {
+    const query = this.db('artifacts');
+    if (opts.type) query.where('type', opts.type);
+    if (opts.registry) query.where('registry', opts.registry);
+    if (opts.contentsKnown !== undefined)
+      query.where('contents_known', opts.contentsKnown);
+    return query;
   }
 
   async getArtifact(ref: string): Promise<IndexedArtifact | undefined> {

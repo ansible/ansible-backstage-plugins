@@ -38,6 +38,8 @@ type JsonCapableResponse = {
 
 const EE_TYPE = 'execution-environment';
 
+const ALLOWED_PAGE_SIZES = [10, 20, 50] as const;
+
 /**
  * What GET /registries reports about a failed reconciliation.
  *
@@ -258,27 +260,67 @@ export async function createRouter(
 
   const listContent = async (req: RouteRequest, res: RouteResponse) => {
     const { type, registry, collection, contentsKnown } = req.query;
-    let artifacts = await db.listArtifacts(
-      typeof type === 'string' ? type : undefined,
-    );
+    const page = Math.max(Math.floor(Number(req.query.page ?? 1)) || 1, 1);
+    const rawPerPage = Number(req.query.per_page);
+    const pageSize = ALLOWED_PAGE_SIZES.includes(rawPerPage as 10 | 20 | 50)
+      ? rawPerPage
+      : 10;
+    const offset = (page - 1) * pageSize;
 
-    if (typeof registry === 'string') {
-      artifacts = artifacts.filter(a => a.registry === registry);
-    }
-    if (typeof collection === 'string') {
+    const collectionFilter =
+      typeof collection === 'string' ? collection : undefined;
+
+    let items: ReturnType<typeof artifactView>[];
+    let totalItems: number;
+
+    if (collectionFilter) {
+      let artifacts = await db.listArtifacts(
+        typeof type === 'string' ? type : undefined,
+      );
+
+      if (typeof registry === 'string')
+        artifacts = artifacts.filter(a => a.registry === registry);
+      if (contentsKnown !== undefined) {
+        const want = contentsKnown === 'true';
+        artifacts = artifacts.filter(a => a.contentsKnown === want);
+      }
       artifacts = artifacts.filter(a =>
         (a.manifest?.collections ?? []).some(
           (c: { namespace: string; name: string }) =>
-            `${c.namespace}.${c.name}` === collection,
+            `${c.namespace}.${c.name}` === collectionFilter,
         ),
       );
-    }
-    if (contentsKnown !== undefined) {
-      const want = contentsKnown === 'true';
-      artifacts = artifacts.filter(a => a.contentsKnown === want);
+
+      totalItems = artifacts.length;
+      items = artifacts
+        .slice(offset, offset + pageSize)
+        .map(a => artifactView(db, a));
+    } else {
+      const result = await db.listArtifactsPaginated({
+        type: typeof type === 'string' ? type : undefined,
+        registry: typeof registry === 'string' ? registry : undefined,
+        contentsKnown:
+          contentsKnown !== undefined ? contentsKnown === 'true' : undefined,
+        limit: pageSize,
+        offset,
+      });
+
+      totalItems = result.totalCount;
+      items = result.items.map(a => artifactView(db, a));
     }
 
-    res.json({ items: artifacts.map(a => artifactView(db, a)) });
+    const lastPage = Math.max(Math.ceil(totalItems / pageSize), 1);
+
+    res.json({
+      page,
+      pageSize,
+      totalItems,
+      next: page < lastPage ? `?page=${page + 1}` : null,
+      previous: page > 1 ? `?page=${page - 1}` : null,
+      firstPage: '?page=1',
+      lastPage: `?page=${lastPage}`,
+      items,
+    });
   };
 
   /**
