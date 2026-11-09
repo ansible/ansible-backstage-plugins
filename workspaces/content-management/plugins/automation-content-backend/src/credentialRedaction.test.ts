@@ -265,7 +265,7 @@ const CASES: RouteCase[] = [
     },
   },
   {
-    route: 'GET /repositories/:registry/:repository/tags',
+    route: 'GET /repositories/:registry/:repository(*)/tags',
     run: app => request(app).get('/repositories/basic-reg/demo/ee/tags'),
     check: res => {
       expect(res.status).toBe(200);
