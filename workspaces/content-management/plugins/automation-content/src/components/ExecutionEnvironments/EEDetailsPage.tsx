@@ -153,14 +153,26 @@ function classificationLabel(type: string | undefined): string {
     .replace(/^\w/, first => first.toUpperCase());
 }
 
-function signingLabel(state: string): string {
-  if (state === 'signed') return 'Signed';
-  if (state === 'not-signed') return 'Not signed';
-  return 'Not determined';
-}
-
 function signingEvidenceLabel(evidence: string): string {
   return evidence.replace(/^[a-z]/, character => character.toUpperCase());
+}
+
+/**
+ * Quiet verdicts for determined states; the evidence checklist stays only
+ * for undetermined, where the ambiguity itself is the information the user
+ * needs (strong signaling is reserved for states that change a decision).
+ */
+function signingSummary(
+  signing: NonNullable<ExecutionEnvironment['signing']>,
+): string {
+  if (signing.state === 'undetermined') {
+    return [
+      'Not determined',
+      signing.evidence.map(signingEvidenceLabel).join('; '),
+    ].join(' — ');
+  }
+  if (signing.state === 'not-signed') return 'Not signed — no signature found';
+  return 'Signed';
 }
 
 function inventorySourceLabel(origin: string): string {
@@ -694,14 +706,7 @@ function EEDetailsContent(): ReactElement {
                     </MetadataRow>
                     <MetadataRow label="Signing">
                       {value.signing
-                        ? [
-                            signingLabel(value.signing.state),
-                            value.signing.evidence
-                              .map(signingEvidenceLabel)
-                              .join('; '),
-                          ]
-                            .filter(Boolean)
-                            .join(' — ')
+                        ? signingSummary(value.signing)
                         : 'Unknown'}
                     </MetadataRow>
                     <MetadataRow label="Origin">

@@ -1554,17 +1554,16 @@ describe('signing presentation', () => {
     );
   }
 
-  it('shows Signed with quiet inline evidence', async () => {
+  it('shows Signed as a quiet verdict without evidence detail', async () => {
     renderWithSigning({
       state: 'signed',
       evidence: ['cosign signature referrer found'],
     });
-    const signing = await screen.findByText(
-      'Signed — Cosign signature referrer found',
-    );
+    const signing = await screen.findByText('Signed');
     expect(signing.closest('dd')).toBeTruthy();
     expect(signing.querySelector('[role="status"]')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Evidence' })).toBeNull();
+    expect(screen.queryByText(/Cosign signature referrer/)).toBeNull();
   });
 
   it('shows Not signed and Not determined as distinct states', async () => {
@@ -1573,10 +1572,9 @@ describe('signing presentation', () => {
       evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
     });
     expect(
-      await screen.findByText(
-        'Not signed — No cosign signature referrer; No digest-derived .sig tag',
-      ),
+      await screen.findByText('Not signed — no signature found'),
     ).toBeTruthy();
+    expect(screen.queryByText(/No cosign signature referrer/)).toBeNull();
   });
 
   it('shows Not determined when a scheme could not be checked', async () => {
