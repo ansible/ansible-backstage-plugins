@@ -30,6 +30,9 @@ jest.mock('@ansible/portal-scaffolder/alpha', () => {
     default: jest
       .requireActual('@backstage/frontend-plugin-api')
       .createFrontendPlugin({ pluginId: 'portal-scaffolder', extensions: [] }),
+    portalScaffolderFormFieldsModule: jest
+      .requireActual('@backstage/frontend-plugin-api')
+      .createFrontendModule({ pluginId: 'scaffolder', extensions: [] }),
   };
 });
 jest.mock('@ansible/plugin-backstage-apme/alpha', () => {
@@ -79,9 +82,15 @@ describe('development contributor selection', () => {
   );
 
   it.each([
-    [undefined, ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
-    ['full', ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
-    ['scaffolder', ['portal-scaffolder'], 1, 0, 0],
+    [
+      undefined,
+      ['portal-scaffolder', 'scaffolder', 'apme', 'ansible'],
+      1,
+      1,
+      1,
+    ],
+    ['full', ['portal-scaffolder', 'scaffolder', 'apme', 'ansible'], 1, 1, 1],
+    ['scaffolder', ['portal-scaffolder', 'scaffolder'], 1, 0, 0],
     ['core', [], 0, 0, 0],
   ] as const)(
     'loads only selected contributor modules for %s',

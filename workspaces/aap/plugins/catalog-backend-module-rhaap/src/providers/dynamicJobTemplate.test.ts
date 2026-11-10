@@ -2,6 +2,8 @@ import {
   getPromptForm,
   getJobTypeProps,
   getInventoryProps,
+  getTagsProps,
+  getSkipTagsProps,
   getEEProps,
   getCredentialsProps,
   getLabelsProps,
@@ -70,6 +72,7 @@ describe('dynamicJobTemplate', () => {
         title: 'Inventory',
         description:
           'Please enter the inventory you want to use the services on',
+        type: 'object',
         resource: 'inventories',
         'ui:field': 'AAPResourcePicker',
         default: inventory,
@@ -81,6 +84,19 @@ describe('dynamicJobTemplate', () => {
 
       expect(result.default).toEqual({});
       expect(result.resource).toBe('inventories');
+    });
+  });
+
+  it('declares tag values as arrays of strings and normalizes empty selections', () => {
+    expect(getTagsProps([])).toMatchObject({
+      type: 'array',
+      items: { type: 'string' },
+      default: [],
+    });
+    expect(getSkipTagsProps(['never'])).toMatchObject({
+      type: 'array',
+      items: { type: 'string' },
+      default: ['never'],
     });
   });
 
@@ -1346,6 +1362,16 @@ describe('dynamicJobTemplate', () => {
       expect(result.spec?.owner).toBeUndefined();
 
       expect((result.spec as any).type).toBe('automation-template');
+      expect((result.spec as any).formDecorators).toEqual([
+        { id: 'ansible.aap-user-token' },
+      ]);
+      expect((result.spec as any).secrets.schema).toEqual({
+        type: 'object',
+        required: ['aapToken'],
+        properties: {
+          aapToken: { type: 'string', minLength: 1 },
+        },
+      });
       expect((result.spec as any).parameters).toHaveLength(1);
       expect((result.spec as any).parameters[0].title).toBe(
         'Please enter the following details',
@@ -1471,6 +1497,38 @@ describe('dynamicJobTemplate', () => {
       );
       expect((result.spec as any).steps[0].input.values.forks).toBe(
         '${{ parameters["forks"] }}',
+      );
+    });
+
+    it('generates string-array tag fields with empty defaults', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: {
+          ...mockJob,
+          ask_tags_on_launch: true,
+          ask_skip_tags_on_launch: true,
+        },
+        survey: null,
+        instanceGroup: [],
+      });
+      const properties = (result.spec as any).parameters[0].properties;
+
+      expect(properties.tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        default: [],
+      });
+      expect(properties.skip_tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        default: [],
+      });
+      expect((result.spec as any).steps[0].input.values.tags).toBe(
+        '${{ parameters["tags"] }}',
+      );
+      expect((result.spec as any).steps[0].input.values.skip_tags).toBe(
+        '${{ parameters["skip_tags"] }}',
       );
     });
 

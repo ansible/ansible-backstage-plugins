@@ -11,6 +11,10 @@ import {
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
+import { FormDecoratorBlueprint } from '@backstage/plugin-scaffolder-react/alpha';
+import { AAPResourcePickerFormFieldExtension } from './components/Scaffolder/AAResourcePicker/extensions';
+import { AAPUserTokenDecorator } from './components/Scaffolder/AAPTokenField/AAPUserTokenDecorator';
+import { portalScaffolderFormFieldsModule } from './components/Scaffolder/PortalScaffolderFormFieldsModule';
 import {
   rootRouteRef,
   collectionsRouteRef,
@@ -38,6 +42,11 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
   },
   extensions: [
     ApiBlueprint.make({ name: 'aap', params: define => define(AAPApis) }),
+    AAPResourcePickerFormFieldExtension,
+    FormDecoratorBlueprint.make({
+      name: 'aap-user-token',
+      params: { decorator: AAPUserTokenDecorator },
+    }),
     ApiBlueprint.make({
       name: 'ee-build',
       params: define => define(EEBuildApis),
@@ -117,3 +126,4 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
   ],
 });
 export default portalScaffolderPlugin;
+export { portalScaffolderFormFieldsModule };

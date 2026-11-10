@@ -7,6 +7,7 @@ export { useNativeEntityPage } from './nfs/useNativeEntityPage';
 export { NativeEntityActionMenu } from './nfs/NativeEntityActionMenu';
 export { NativeCatalogItemActions } from './nfs/NativeCatalogItemActions';
 export { createPortalScaffolderPage } from './nfs/createPortalScaffolderPage';
+export { createPortalScaffolderFormFieldsApi } from './nfs/createPortalScaffolderFormFieldsApi';
 export { NativeScaffolderFields } from './nfs/NativeScaffolderFields';
 export { createPortalCatalogPage } from './nfs/createPortalCatalogPage';
 export { PortalCatalogItemActions } from './nfs/PortalCatalogItemActions';

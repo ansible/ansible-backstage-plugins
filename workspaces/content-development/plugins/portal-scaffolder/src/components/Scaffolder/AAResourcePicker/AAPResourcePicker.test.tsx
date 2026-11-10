@@ -492,6 +492,47 @@ describe('AAPResourcePicker', () => {
 
       expect(onChangeSpy).toHaveBeenCalledWith([mockResources[0]]);
     });
+
+    it('uses resource names for tag arrays of strings', async () => {
+      const onChangeSpy = jest.fn();
+      renderComponent({
+        ...multipleProps,
+        schema: { ...multipleProps.schema, resource: 'tags' },
+        onChange: onChangeSpy,
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+      fireEvent.mouseDown(screen.getByRole('button'));
+      fireEvent.click(await screen.findByText('Inventory 1'));
+
+      expect(onChangeSpy).toHaveBeenCalledWith(['Inventory 1']);
+    });
+
+    it('restores string tag defaults after autocomplete options load', async () => {
+      const props = {
+        ...multipleProps,
+        schema: { ...multipleProps.schema, resource: 'skip_tags' },
+        formData: ['Inventory 2'],
+      };
+      const { rerender } = renderComponent(props);
+
+      expect(await screen.findByText('Inventory 2')).toBeInTheDocument();
+
+      rerender(
+        <TestApiProvider
+          apis={[
+            [rhAapAuthApiRef, mockRhAapAuthApi],
+            [scaffolderApiRef, mockScaffolderApi],
+          ]}
+        >
+          <AAPResourcePicker {...props} formData={['Inventory 1']} />
+        </TestApiProvider>,
+      );
+
+      expect(await screen.findByText('Inventory 1')).toBeInTheDocument();
+    });
   });
 
   describe('Form State', () => {

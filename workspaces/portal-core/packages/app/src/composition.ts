@@ -24,10 +24,17 @@ export function resolveDevelopmentProfile(
 export const optionalContributorLoader = createFrontendFeatureLoader({
   loader({ config }) {
     const profile = resolveDevelopmentProfile(config);
+    const portalScaffolderFeatures =
+      profile !== 'core'
+        ? createFrontendFeatureLoader({
+            loader: async () => {
+              const module = await import('@ansible/portal-scaffolder/alpha');
+              return [module.default, module.portalScaffolderFormFieldsModule];
+            },
+          })
+        : undefined;
     return [
-      ...(profile !== 'core'
-        ? [import('@ansible/portal-scaffolder/alpha')]
-        : []),
+      ...(portalScaffolderFeatures ? [portalScaffolderFeatures] : []),
       ...(profile === 'full'
         ? [
             import('@ansible/plugin-backstage-apme/alpha'),

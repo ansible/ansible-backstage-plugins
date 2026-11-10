@@ -27,7 +27,7 @@ import {
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
-type AapResourcePickerSelection = string | number | string[] | number[];
+type AapResourcePickerSelection = string | number | Array<string | number>;
 
 const useStyles = makeStyles(theme => ({
   formControl: {
@@ -94,7 +94,11 @@ function getSelectionFromFieldValue(
     return fd;
   }
   if (multiple && Array.isArray(fd)) {
-    return fd.map((item: { [x: string]: any }) => item[_idKey]);
+    return fd.map((item: unknown) =>
+      item !== null && typeof item === 'object'
+        ? (item as Record<string, unknown>)[_idKey]
+        : item,
+    ) as string[] | number[];
   }
   if (typeof fd === 'object' && !Array.isArray(fd)) {
     return (fd as Record<string, unknown>)[_idKey] as number;
@@ -131,8 +135,12 @@ function applyInitialSelectionAfterAutocomplete(options: {
     options.multiple,
     options.idKey,
   );
-  const lookupKey =
-    typeof currentInit === 'string' ? options.nameKey : options.idKey;
+  const usesNames =
+    typeof currentInit === 'string' ||
+    (Array.isArray(currentInit) &&
+      currentInit.length > 0 &&
+      currentInit.every(value => typeof value === 'string'));
+  const lookupKey = usesNames ? options.nameKey : options.idKey;
   const selectedArray = Array.isArray(currentInit)
     ? currentInit
     : [currentInit];
@@ -175,7 +183,15 @@ function stableSelectionFingerprint(
     return String(fd);
   }
   if (multiple && Array.isArray(fd)) {
-    return fd.map((item: any) => item[_idKey]).join(',');
+    return fd
+      .map((item: unknown) => {
+        const value =
+          item !== null && typeof item === 'object' && !Array.isArray(item)
+            ? (item as Record<string, unknown>)[_idKey]
+            : item;
+        return primitiveFieldToString(value);
+      })
+      .join(',');
   }
   if (typeof fd === 'object' && !Array.isArray(fd)) {
     return primitiveFieldToString((fd as Record<string, unknown>)[_idKey]);
@@ -227,6 +243,8 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const _idKey: string = idKey ?? 'id';
   const _nameKey: string = nameKey ?? 'name';
   const multiple = type === 'array';
+  const tagValuesAreNames =
+    multiple && (resource === 'tags' || resource === 'skip_tags');
 
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
@@ -253,10 +271,33 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
   const classes = useStyles();
 
   useEffect(() => {
-    setSelected(
-      getSelectionFromFieldValue(formDataRef.current, multiple, _idKey),
+    const selection = getSelectionFromFieldValue(
+      formDataRef.current,
+      multiple,
+      _idKey,
     );
-  }, [stableFieldSelectionKey, multiple, _idKey]);
+    if (
+      tagValuesAreNames &&
+      Array.isArray(selection) &&
+      availableResources.length > 0
+    ) {
+      const matched = resourcesMatchingSelectedKeys(
+        availableResources,
+        selection,
+        _nameKey,
+      );
+      setSelected(extractIdsFromRows(matched, _idKey));
+      return;
+    }
+    setSelected(selection);
+  }, [
+    stableFieldSelectionKey,
+    multiple,
+    _idKey,
+    _nameKey,
+    availableResources,
+    tagValuesAreNames,
+  ]);
 
   const getCredentialType = (item: any): string => {
     if (resource !== 'credentials') {
@@ -387,11 +428,14 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     let endValue: Object | Array<Object> | undefined;
     if (multiple) {
       value = value.map((e: any) => (e instanceof Object ? e[_idKey] : e));
-      endValue = filterResourcesMatchingAnyIdValue(
+      const selectedResources = filterResourcesMatchingAnyIdValue(
         availableResources,
         value,
         _idKey,
       );
+      endValue = tagValuesAreNames
+        ? selectedResources.map(item => item[_nameKey])
+        : selectedResources;
     } else {
       if (value === '' || value === undefined) {
         return;

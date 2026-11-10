@@ -201,6 +201,7 @@ export const getInventoryProps = (inventory: JsonObject) => {
   return {
     title: 'Inventory',
     description: 'Please enter the inventory you want to use the services on',
+    type: 'object',
     resource: 'inventories',
     'ui:field': 'AAPResourcePicker',
     default: inventory,
@@ -367,6 +368,7 @@ export const getTagsProps = (tags: string[]) => {
     title: 'Tags',
     description: 'Tags to use in job run.',
     type: 'array',
+    items: { type: 'string' },
     'ui:field': 'AAPResourcePicker',
     resource: 'tags',
     default: tags,
@@ -378,6 +380,7 @@ export const getSkipTagsProps = (skipTags: string[]) => {
     title: 'Skip Tags',
     description: 'Tags to skip in job run.',
     type: 'array',
+    items: { type: 'string' },
     'ui:field': 'AAPResourcePicker',
     resource: 'skip_tags',
     default: skipTags,
@@ -429,11 +432,15 @@ export const getPromptFormDetails = (
   }
 
   if (job.ask_tags_on_launch) {
-    properties.tags = getTagsProps(job.job_tags.split(',') ?? []);
+    properties.tags = getTagsProps(
+      job.job_tags.split(',').filter(tag => tag.length > 0),
+    );
   }
 
   if (job.ask_skip_tags_on_launch) {
-    properties.skip_tags = getSkipTagsProps(job.skip_tags.split(',') ?? []);
+    properties.skip_tags = getSkipTagsProps(
+      job.skip_tags.split(',').filter(tag => tag.length > 0),
+    );
   }
 
   if (job.ask_forks_on_launch) {
@@ -553,6 +560,16 @@ export const generateTemplate = (options: {
     },
     spec: {
       type: 'automation-template',
+      formDecorators: [{ id: 'ansible.aap-user-token' }],
+      secrets: {
+        schema: {
+          type: 'object',
+          required: ['aapToken'],
+          properties: {
+            aapToken: { type: 'string', minLength: 1 },
+          },
+        },
+      },
       ...((ownerOrgName ?? orgName) &&
         Number.isInteger(identity?.orgId) && {
           owner: toOrgGroupRef(

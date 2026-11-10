@@ -19,6 +19,18 @@ import { notificationStore } from './components/notifications';
 
 afterEach(() => notificationStore.clearAll());
 
+it('registers the AAP native field and token decorator without changing page routes', () => {
+  const extensions = (
+    plugin as unknown as { extensions: Array<{ id: string }> }
+  ).extensions;
+  expect(extensions.map(extension => extension.id)).toEqual(
+    expect.arrayContaining([
+      'scaffolder-form-field:portal-scaffolder/aap-resource-picker',
+      'scaffolder-form-decorator:portal-scaffolder/aap-user-token',
+    ]),
+  );
+});
+
 const portalHost = createFrontendPlugin({
   pluginId: 'portal',
   extensions: [createPortalContributionProvider()],
