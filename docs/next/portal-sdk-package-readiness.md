@@ -7,7 +7,8 @@ supported platform matrix, or authorize publishing.
 
 The inventory uses repository baseline `a3ee4523` plus the packaging changes in
 this branch, with Backstage `1.54.9`, Backstage CLI `0.36.5`, Yarn `4.12.0`,
-and RHDH CLI `1.10.8`.
+and RHDH CLI `1.10.8` for the original checks. Native export tooling on this
+branch now uses RHDH CLI `2.1.2`.
 
 ## Publication scope
 
@@ -79,13 +80,12 @@ package alone does not supply these host prerequisites.
 The `/api-module` entry registers the native AAP API without adding sign-in or
 profile UI. Hosts may opt into `/sign-in` and the `/profile` factory separately.
 The combined `/alpha` entry keeps its existing API/sign-in/profile declarations
-and remains automatically discovered for compatibility. The separate Settings
-loader adds the AAP provider row automatically when native user-settings is installed. Existing
+and remains automatically discovered for compatibility. It adds the AAP provider row automatically when native user-settings is installed. Existing
 dynamic hosts can disable its AAP sign-in/profile extensions to retain standard
 RHDH UI. Do not install combined and separate modules together.
 The `/settings` factory preserves standard provider rows and adds AAP connection
-controls. Dynamic hosts receive this through `/settings-loader` without a
-Settings enablement flag. The user-settings plugin is an optional peer,
+controls. Dynamic hosts receive this through `/alpha` without a Settings
+enablement flag. The user-settings plugin is an optional peer,
 required only when using that integration. Settings disconnects the AAP credential
 session without triggering full host or OIDC browser logout.
 
@@ -97,18 +97,38 @@ and packing alone do not establish live host compatibility.
 The API/UI separation was checked against upstream baseline `1ee4427d`: auth
 package tests, repository TypeScript, package build, clean dynamic export and
 packed subpath checks passed. The new auth tarball also installed, compiled and
-bundled in the separate consumer project. The current metadata lists `/alpha` and `/settings-loader`. The latter supplies the Settings module by default, and the frontend framework
-ignores it when the user-settings plugin is absent. The older ten-package consumer results
+bundled in the separate consumer project. The combined `/alpha` entry supplies Settings by default, and the frontend
+framework ignores the unattached Settings extension when user-settings is absent.
+Live RHDH validation exposed a limitation in RHDH CLI 1.10.8: additional feature
+loader metadata did not produce a federated loader export. Settings therefore
+uses the existing `/alpha` entry instead. Inspecting package metadata alone does
+not verify that the host can load every declared feature. The older ten-package consumer results
 below remain tied to their recorded baseline and must be repeated for release.
 
 The optional Settings integration adds coverage for default-on loading and absent-host handling, preserved
 standard/custom rows, missing AAP API, account display, provider sign-in,
-disconnection and error reporting. The auth suite now has 45 passing tests, and
+disconnection and error reporting. The auth suite now has 44 passing tests, and
 source-app composition tests pass. The AAP row was verified in the live source
 Settings page alongside GitHub and GitLab without disconnecting those sessions.
 Updated packed Settings entry points compile and bundle in the separate consumer,
-and the clean dynamic export passes. This does not establish live RHDH Settings
-or OAuth disconnection behavior.
+and the clean dynamic export passes.
+
+Local RHDH 2.1.0 validation on Backstage 1.54.9 used the
+`automation-portal-local` Compose harness and freshly exported dynamic artifacts.
+The AAP Settings row appeared automatically alongside the standard RHDH shell.
+Manual testing confirmed AAP login and, after enabling the Portal profile
+integration, full profile-menu Sign out. Settings Sign out remains a provider
+credential disconnect and intentionally leaves the AAP browser SSO session active.
+This instance used AAP as its host identity. Preserving an authenticated
+non-AAP host session during that disconnect needs a separate live check before
+claiming support for that configuration.
+
+The tested AAP authorization endpoint returned
+`Cross-Origin-Opener-Policy: same-origin`, and popup login reported a closed window
+after the callback completed. The validation host used Backstage's
+`enableExperimentalRedirectFlow: true` configuration to complete login through
+same-tab redirects without changing AAP's security headers. These results cover
+this local configuration, not a supported compatibility matrix.
 
 The backend provider is an existing host prerequisite, not part of the initial
 ten-package packing candidate set. If publishing that backend becomes necessary,
@@ -245,7 +265,50 @@ peer-range warnings against React 18 and its types. Record and review these
 warnings when choosing the release compatibility matrix; a successful install
 does not resolve that compatibility question.
 
+## RHDH CLI export tooling
+
+The root RHDH CLI is pinned to `2.1.2`, with its required `ts-morph` peer declared
+explicitly. CLI 2.1 uses native module federation and NFS feature metadata for
+frontend exports. Native scripts no longer pass the removed Scalprum generation
+flags, and native frontend package file lists no longer advertise `dist-scalprum`.
+Use `export-dynamic --clean` when switching export toolchains to remove stale
+outputs.
+
+The content-management frontend still requires its owners' NFS migration. Its
+three CLI-owning workspaces retain an explicit `1.10.8` pin and use their local
+CLI binary instead of the root binary. This preserves the legacy content export
+path without adding feature plugins to the SDK publication scope. Remove this
+exception after the content owners migrate and validate their frontend.
+
+Local checks with CLI `2.1.2` passed for six native frontend exports, the
+operations/health/AAP-auth backend exports, and a Node 24 AAP-auth export.
+Generated frontend feature declarations matched the federation exposes. The
+content frontend also exported successfully with its local CLI `1.10.8`, retaining
+the legacy Scalprum manifest. The root lockfile installs immutably. Existing
+heavy-dependency warnings for `core-app-api` remain in AAP auth and Portal
+scaffolder; these exports did not enable `--strict-deps`.
+
+The earlier live RHDH login/logout checks used artifacts exported before this
+CLI upgrade. Repeat live host validation with the selected release artifacts.
+
 ## Reproducing the candidate packing checks
+
+For the automated build, archive audit, and isolated-consumer check, run:
+
+```bash
+yarn validate:sdk-packages
+```
+
+The command uses the explicit candidate list in
+`scripts/sdk-package-validation/packages.json` and writes evidence outside the
+checkout. The SDK package validation workflow runs it on Node 22 and 24 for
+relevant pull requests. It does not publish packages or establish production
+readiness. See `scripts/sdk-package-validation/README.md` for checks, output, and
+limitations. The complete automated command passed locally on 2026-11-10 with
+Node `22.22.3` and `24.16.0` for all ten candidates. These runs include the auth
+composition and Settings federation fixes on this branch. Existing Material UI
+peer warnings remain documented limitations. The commands below are useful for
+inspecting individual archives.
 
 ### Prerequisites
 
@@ -292,11 +355,10 @@ does not remove the private publication guard or validate a real host install.
 1. **Approve the package allowlist.** Start with the five libraries, distinguish
    host-only consumers, and confirm which supporting plugins need npm delivery
    for the first external integration. Keep feature plugins excluded.
-   Freeze the intended public API before cutting artifacts. This inventory's
-   baseline still contains the experience-ID contract that
-   [the removal PR](https://github.com/ansible/ansible-backstage-plugins/pull/1061)
-   changes. Repeat packing and consumer checks on the selected merged release
-   revision rather than releasing these baseline artifacts unchanged.
+   Freeze the intended public API before cutting artifacts. The branch includes
+   the merged experience-ID removal, but the historical ten-package consumer
+   results predate it. Repeat packing and consumer checks on the selected merged
+   release revision rather than releasing those baseline artifacts unchanged.
 2. **Choose versions and tags.** Current `0.1.0` values are ordinary versions,
    not SemVer prereleases. Decide whether to use an explicit prerelease such as
    `0.1.0-alpha.0` with a `next` tag. Specify compatible internal ranges and the

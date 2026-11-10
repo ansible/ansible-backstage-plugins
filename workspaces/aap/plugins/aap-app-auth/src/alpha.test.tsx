@@ -53,6 +53,7 @@ describe('AAP app auth module', () => {
       'app-profile-menu-item:app/aap-logout',
       'api:app/rhaap-auth',
       'sign-in-page:app/rhaap',
+      'auth-provider-settings:app/rhaap',
     ]);
   });
 

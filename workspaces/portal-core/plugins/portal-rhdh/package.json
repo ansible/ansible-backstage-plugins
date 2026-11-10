@@ -34,7 +34,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --no-generate-scalprum-assets"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export"
   },
   "dependencies": {
     "@ansible/portal-extension-host": "workspace:^",

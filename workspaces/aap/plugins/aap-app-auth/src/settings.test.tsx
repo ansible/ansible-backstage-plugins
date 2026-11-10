@@ -1,7 +1,5 @@
 import { BehaviorSubject } from 'rxjs';
 import { PageBlueprint } from '@backstage/frontend-plugin-api';
-import { resolveAsyncFeatures } from '@backstage/frontend-defaults';
-import { MockConfigApi } from '@backstage/test-utils';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { renderTestApp } from '@backstage/frontend-test-utils';
 import {
@@ -12,7 +10,7 @@ import {
   errorApiRef,
 } from '@backstage/core-plugin-api';
 import userSettingsPlugin from '@backstage/plugin-user-settings/alpha';
-import settingsLoader from './settings-loader';
+import aapAppAuth from './alpha';
 import { createAapSettingsModule } from './settings';
 import { rhAapAuthApiRef } from './api';
 
@@ -55,17 +53,13 @@ async function compose({
     backend: { baseUrl: 'http://localhost:7007' },
     app: {
       extensions: hideSettings
-        ? [{ 'auth-provider-settings:user-settings/rhaap': false }]
+        ? [{ 'auth-provider-settings:app/rhaap': false }]
         : [],
     },
     auth: { providers: { github: {}, gitlab: {}, rhaap: {} } },
   };
-  const { features } = await resolveAsyncFeatures({
-    features: [userSettingsPlugin, settingsLoader],
-    config: new MockConfigApi(config),
-  });
   await renderTestApp({
-    features,
+    features: [userSettingsPlugin, aapAppAuth],
     config,
     apis: [
       [rhAapAuthApiRef, auth],
@@ -85,22 +79,9 @@ function aapRow() {
   return within(row);
 }
 
-it('loads Settings integration by default without an enablement flag', async () => {
-  const { features } = await resolveAsyncFeatures({
-    features: [settingsLoader],
-    config: new MockConfigApi({}),
-  });
-  expect(features).toHaveLength(1);
-  expect(features[0].pluginId).toBe('user-settings');
-});
-
 it('leaves a host without the user-settings plugin usable', async () => {
-  const { features } = await resolveAsyncFeatures({
-    features: [settingsLoader],
-    config: new MockConfigApi({}),
-  });
   await renderTestApp({
-    features,
+    features: [aapAppAuth],
     extensions: [
       PageBlueprint.make({
         name: 'host',

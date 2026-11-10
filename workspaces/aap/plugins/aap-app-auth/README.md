@@ -93,20 +93,19 @@ and connection controls. The source Portal app opts in explicitly.
 
 Native dynamic hosts automatically receive the AAP row when this package and
 the compatible native user-settings plugin are installed. No Settings enablement
-flag or YAML block is required. The loader does not register the AAP API or
-replace the host's sign-in page. Configure the existing API/sign-in choices below
-as appropriate for the host. Do not also register the explicit Settings factory
-when the settings loader is already discovered.
+flag or YAML block is required. The combined `/alpha` module supplies this
+contribution. Configure its API/sign-in choices below as appropriate for the host.
+Do not also register the explicit Settings factory when using the combined module.
 
 A host without the user-settings plugin has no Settings page to extend; the
-frontend framework ignores the Settings module in that case. API-only factory
+frontend framework ignores the unattached Settings extension in that case. API-only factory
 imports remain independent of the Settings integration.
 
 The native user-settings page has a singleton provider-list input. For explicitly
 composed source hosts, pass existing custom rows to
-`createAapSettingsModule({ providerSettings: existingRows })`. When the loader is
+`createAapSettingsModule({ providerSettings: existingRows })`. When the combined module is
 automatically discovered and a host already owns a custom list, disable
-`auth-provider-settings:user-settings/rhaap` through normal extension configuration
+`auth-provider-settings:app/rhaap` through normal extension configuration
 and append the exported `AapProviderSettings` component to that existing list.
 Do not register two competing list adapters. The module does not silently
 overwrite another extension's customization.
@@ -124,12 +123,12 @@ logout. A subsequent AAP connection may reuse the existing browser SSO session.
 ## Existing combined integration
 
 `@ansible/aap-app-auth/alpha` retains its existing behavior: AAP API registration,
-AAP-only sign-in page, and an AAP logout declaration disabled by default. Existing
+AAP-only sign-in page, and an AAP logout declaration disabled by default. It also
+adds the AAP Settings row through the native user-settings public input. Existing
 extension IDs and root exports are unchanged.
 
 Choose the combined entry or the separate modules. Do not install both, because
-they declare the same extensions. The combined `/alpha` entry remains automatically discovered. The additional
-`/settings-loader` entry supplies Settings integration automatically.
+they declare the same extensions. The combined `/alpha` entry remains automatically discovered. Settings is included in that same federated entry.
 The individual API/sign-in/profile factories are not automatically discovered. The separate entries expose named
 factories rather than default feature instances, so packaging does not add them
 to automatic discovery.
@@ -161,6 +160,7 @@ logs or catalog metadata.
 
 Run the package tests, repository TypeScript checks, package build and dynamic
 export. Verify packed root, `/alpha`, `/api-module`, `/sign-in`, `/profile`, `/settings`
-and `/settings-loader` imports from a separate consumer project. Before release, test actual standard
+imports from a separate consumer project. Inspect the generated federation
+manifest and verify that the discovered `/alpha` entry includes Settings. Before release, test actual standard
 RHDH API-only composition and the full Portal login/logout flow with configured
 AAP. Local module tests do not establish live RHDH/OAuth compatibility.

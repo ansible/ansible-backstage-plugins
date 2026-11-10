@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
 import { configApiRef, useApi, useApiHolder } from '@backstage/core-plugin-api';
 import {
-  coreExtensionData,
-  createExtension,
   createFrontendModule,
   type FrontendModule,
 } from '@backstage/frontend-plugin-api';
@@ -11,6 +9,7 @@ import {
   ProviderSettingsItem,
 } from '@backstage/plugin-user-settings';
 import { rhAapAuthApiRef } from './api';
+import { createAapSettingsExtension } from './extensions/settings';
 
 /** Provider-session controls only. Full Portal logout belongs to the host. */
 export function AapProviderSettings() {
@@ -51,27 +50,12 @@ export function AapProviderSettingsList({
   );
 }
 
-/** Opt-in adapter for the native user-settings provider-list singleton input. */
+/** Explicit adapter for source hosts that do not install the combined module. */
 export function createAapSettingsModule({
   providerSettings,
 }: { providerSettings?: ReactNode } = {}): FrontendModule {
   return createFrontendModule({
-    pluginId: 'user-settings',
-    extensions: [
-      createExtension({
-        kind: 'auth-provider-settings',
-        name: 'rhaap',
-        attachTo: {
-          id: 'sub-page:user-settings/auth-providers',
-          input: 'providerSettings',
-        },
-        output: [coreExtensionData.reactElement],
-        factory: () => [
-          coreExtensionData.reactElement(
-            <AapProviderSettingsList providerSettings={providerSettings} />,
-          ),
-        ],
-      }),
-    ],
+    pluginId: 'app',
+    extensions: [createAapSettingsExtension({ providerSettings })],
   });
 }
