@@ -431,6 +431,40 @@ describe('GET /content repository grouping', () => {
 });
 
 describe('GET /content sorting', () => {
+  it.each([
+    '/content?type=execution-environment',
+    '/execution-environments?search=old',
+  ])(
+    'keeps a type-matching representative with repository-wide tags on %s',
+    async path => {
+      const ee = {
+        ...DEFAULT_ARTIFACT,
+        tags: ['old'],
+        tagTimestamps: { old: '2025-01-01' },
+      };
+      const image = {
+        ...ee,
+        ref: 'new-image',
+        type: 'oci-image',
+        tags: ['new'],
+        tagTimestamps: { new: '2026-01-01' },
+      };
+      const response = await request(
+        await appWith(
+          stubDB({
+            listArtifactSummaries: async type => (type ? [ee] : [ee, image]),
+          }),
+        ),
+      )
+        .get(path)
+        .expect(200);
+      expect(response.body.items[0]).toMatchObject({
+        ref: ee.ref,
+        type: 'execution-environment',
+        tags: ['new', 'old'],
+      });
+    },
+  );
   it.each(['/content', '/execution-environments'])(
     'rejects search longer than 256 characters on %s before querying the store',
     async path => {

@@ -7,6 +7,7 @@ const groupKey = (artifact: IndexedArtifact): string =>
 export function groupImages(
   artifacts: IndexedArtifact[],
   matches: IndexedArtifact[],
+  type?: string,
 ): IndexedArtifact[] {
   const matchingGroups = new Set(matches.map(groupKey));
   const groups = new Map<string, IndexedArtifact[]>();
@@ -37,7 +38,9 @@ export function groupImages(
       });
     });
     return {
-      ...(tags[0]?.artifact ?? group[0]),
+      ...(tags.find(entry => !type || entry.artifact.type === type)?.artifact ??
+        group.find(artifact => !type || artifact.type === type) ??
+        group[0]),
       tags: [...new Set(tags.map(entry => entry.tag))],
     };
   });

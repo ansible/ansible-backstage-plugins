@@ -448,7 +448,11 @@ export async function createRouter(
       matches = matches.filter(
         a => a.contentsKnown === (contentsKnown === 'true'),
       );
-    const artifacts = groupImages(allArtifacts, matches);
+    const artifacts = groupImages(
+      allArtifacts,
+      matches,
+      typeof type === 'string' ? type : undefined,
+    );
 
     if (typeof sort === 'string') {
       const key = sort as (typeof SORT_KEYS)[number];
