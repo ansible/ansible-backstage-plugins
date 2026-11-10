@@ -24,13 +24,11 @@ export type {
   OperationLaunch,
 } from './types';
 
-// ── Manifest-level types (experience + capability + entry point model) ─────────
-// These are the production types from §6.3 of the Content Experience
-// Architecture. They supersede the PoC registry model for new plugins.
+// ── Manifest-level types (capability + entry point model) ──────────────────────
+// Shared public contract for Portal contributors and hosts.
 export type {
   PermissionRequirement,
   ContentPredicate,
-  ExperienceDefinition,
   ContributionKind,
   EntrySurface,
   CapabilityEntryPoint,
@@ -41,17 +39,9 @@ export type {
   PluginManifest,
 } from './manifest';
 
-// ── Extension point IDs, experience IDs, content type IDs ────────────────────
-export {
-  EXTENSION_POINTS,
-  EXPERIENCE_IDS,
-  CONTENT_TYPES,
-} from './extensionPoints';
-export type {
-  ExtensionPointId,
-  ExperienceId,
-  ContentTypeId,
-} from './extensionPoints';
+// ── Extension point IDs and content type IDs ────────────────────────────────
+export { EXTENSION_POINTS, CONTENT_TYPES } from './extensionPoints';
+export type { ExtensionPointId, ContentTypeId } from './extensionPoints';
 
 // ── Registry singleton + type ─────────────────────────────────────────────────
 export { contributionRegistry } from './registry';

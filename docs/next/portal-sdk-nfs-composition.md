@@ -50,13 +50,17 @@ not contributor-supplied URLs.
    `EntityContributionContext`. The host supplies the entity, canonical content
    type, and optional source observations. Wrap legacy component trees with
    `compatWrapper`, as demonstrated in the composition tests.
-4. Supply `availableExperiences` when an experience is disabled.
+4. The host selects which supported surfaces to compose. Disable individual
+   contributions through NFS extension configuration or their declared config
+   gates. There is no experience-membership filter.
 5. Supply `checkEntitlement` from host authorization. It receives the declared
    entitlement and subject; the host resolves trusted organization memberships.
    Missing resolvers, denied decisions, and failed checks suppress entitled tabs.
 6. Install the contributor's NFS feature through app discovery or dynamic
    loading. Do not import its legacy `index.ts` for side effects.
-7. Rebuild the host and contributors together. Earlier extension declarations
+7. Rebuild the host and contributors together. Remove the obsolete
+   `availableExperiences` renderer prop and experience constants from consumers.
+   Earlier extension declarations
    attached to `page:portal/entity`; they must use the shared provider attachment.
 
 ### Verification

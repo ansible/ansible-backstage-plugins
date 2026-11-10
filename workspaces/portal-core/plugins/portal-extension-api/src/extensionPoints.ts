@@ -7,11 +7,9 @@
  */
 export {
   CONTENT_TYPES,
-  EXPERIENCE_IDS,
   EXTENSION_POINTS,
 } from '@ansible/portal-extension-common';
 export type {
   ContentTypeId,
-  ExperienceId,
   ExtensionPointId,
 } from '@ansible/portal-extension-common';
