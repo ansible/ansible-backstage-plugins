@@ -1363,23 +1363,6 @@ export class ContentStore {
         ],
       };
     }
-    if (
-      referrers.some(descriptor =>
-        descriptor.artifactType?.startsWith(SIGSTORE_BUNDLE_PREFIX),
-      )
-    ) {
-      // A Sigstore bundle is cosign 3's signature format, but the same
-      // artifact type also carries attestations. Without reading the
-      // bundle's content neither a signature nor its absence can be
-      // claimed, so the honest state is undetermined.
-      return {
-        state: 'undetermined',
-        evidence: [
-          ...evidence,
-          'sigstore bundle referrer present; not identifiable as a signature',
-        ],
-      };
-    }
     if (referrersVia === 'none' || !signedByTag) {
       // One of the schemes could not be consulted; absence is not provable.
       return {
