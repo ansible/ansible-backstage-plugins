@@ -919,8 +919,7 @@ it('syncs only the selected artifact and refreshes to its new latest digest', as
   await waitFor(() =>
     expect(mockShowNotification).toHaveBeenCalledWith(
       expect.objectContaining({
-        description:
-          'Sync completed. The latest image changed and the catalog was refreshed.',
+        description: 'Synced repo.',
         severity: 'success',
       }),
     ),
@@ -1007,7 +1006,7 @@ it('marks only the syncing artifact row as in flight', async () => {
   await waitFor(() =>
     expect(mockShowNotification).toHaveBeenCalledWith({
       title: 'repo: sync complete',
-      description: 'Sync completed.',
+      description: 'Synced repo.',
       severity: 'success',
     }),
   );
@@ -1018,7 +1017,7 @@ it('marks only the syncing artifact row as in flight', async () => {
   });
   expect(mockShowNotification).toHaveBeenCalledWith({
     title: 'repo: sync complete',
-    description: 'Sync completed.',
+    description: 'Synced repo.',
     severity: 'success',
   });
 });
@@ -1073,7 +1072,7 @@ it('keeps the row on its current digest after a failed latest image sync', async
 });
 
 it.each([
-  [404, 'Latest image not found. This repository may not have a latest tag.'],
+  [404, 'Indexed image not found. Refresh the catalog and try again.'],
   [500, 'Unable to sync this image.'],
 ] as const)(
   'shows fixed feedback for an HTTP %s latest image sync failure',

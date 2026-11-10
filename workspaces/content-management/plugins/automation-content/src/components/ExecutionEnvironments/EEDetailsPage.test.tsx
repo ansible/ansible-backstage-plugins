@@ -309,7 +309,7 @@ it.each(['unknown', 'populated'] as const)(
     await waitFor(() =>
       expect(mockShowNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          description: 'Sync completed.',
+          description: 'Synced repo.',
           severity: 'success',
         }),
       ),
@@ -394,7 +394,7 @@ it('keeps the current detail after a failed latest image sync without exposing b
 
 it.each([
   [403, 'Sync access needed for this image.'],
-  [404, 'Latest image not found. This repository may not have a latest tag.'],
+  [404, 'Indexed image not found. Refresh the catalog and try again.'],
   [500, 'Unable to sync this image.'],
 ] as const)(
   'keeps HTTP %s feedback separate from a completed sync',
