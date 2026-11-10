@@ -30,6 +30,7 @@ import {
   MenuTrigger,
   SearchField,
   Table,
+  TablePagination,
   Text,
   Tooltip,
   TooltipTrigger,
@@ -788,31 +789,24 @@ export function ImagesCatalogPage({
                   gap="2"
                   className={catalogStyles.gridPagination}
                 >
-                  <Text color="secondary">
-                    {`${(page - 1) * perPage + 1}–${Math.min(
-                      page * perPage,
-                      images.value.totalItems,
-                    )} of ${images.value.totalItems}`}
-                  </Text>
-                  <Flex gap="2">
-                    <Button
-                      variant="secondary"
-                      isDisabled={images.loading || page <= 1}
-                      onPress={() => setPage(current => current - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      isDisabled={
-                        images.loading ||
-                        page * perPage >= images.value.totalItems
-                      }
-                      onPress={() => setPage(current => current + 1)}
-                    >
-                      Next
-                    </Button>
-                  </Flex>
+                  <TablePagination
+                    pageSize={perPage}
+                    pageSizeOptions={[10, 20, 50]}
+                    showPageSizeOptions
+                    onPageSizeChange={size => {
+                      setPerPage(size);
+                      setPage(1);
+                    }}
+                    offset={((images.value?.page ?? page) - 1) * perPage}
+                    totalCount={images.value?.totalItems ?? 0}
+                    hasNextPage={
+                      !images.loading &&
+                      page * perPage < (images.value?.totalItems ?? 0)
+                    }
+                    hasPreviousPage={!images.loading && page > 1}
+                    onNextPage={() => setPage(current => current + 1)}
+                    onPreviousPage={() => setPage(current => current - 1)}
+                  />
                 </Flex>
               )}
             </>

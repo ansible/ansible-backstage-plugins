@@ -412,47 +412,73 @@ it('keeps favorites filtering on the current page', async () => {
   expect(await screen.findByRole('link', { name: 'repo' })).toBeTruthy();
 });
 
-it('offers supported page sizes and resets to page one when the size changes', async () => {
-  const listExecutionEnvironments = jest.fn(
-    async ({ page, perPage }: { page: number; perPage: number }) =>
-      envelope([base], page, 60, perPage),
-  );
-  render(
-    <TestApiProvider
-      apis={[
-        [automationContentApiRef, { listExecutionEnvironments }],
-        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
-      ]}
-    >
-      <MemoryRouter>
-        <ImagesCatalogPage />
-      </MemoryRouter>
-    </TestApiProvider>,
-  );
-  await screen.findByText('1 - 10 of 60');
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Next table page' }),
-  );
-  await screen.findByText('11 - 20 of 60');
-  const pageSizeSelect = document.querySelector<HTMLSelectElement>(
-    'select[name="pageSize"]',
-  )!;
-  expect(
-    Array.from(pageSizeSelect.options)
-      .map(option => option.value)
-      .filter(Boolean),
-  ).toEqual(['10', '20', '50']);
-  fireEvent.change(pageSizeSelect, { target: { value: '20' } });
-  await waitFor(() =>
-    expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
-      allTypes: false,
-      page: 1,
-      perPage: 20,
-    }),
-  );
-  expect(await screen.findByText('1 - 20 of 60')).toBeTruthy();
-});
+it.each(['table', 'grid'])(
+  'offers supported page sizes and resets to page one when the size changes in %s view',
+  async view => {
+    const listExecutionEnvironments = jest.fn(
+      async ({ page, perPage }: { page: number; perPage: number }) =>
+        envelope([base], page, 60, perPage),
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, { listExecutionEnvironments }],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        ]}
+      >
+        <MemoryRouter>
+          <ImagesCatalogPage />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    await screen.findByText('1 - 10 of 60');
+    if (view === 'grid') {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'View: Table' }),
+      );
+      await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
+    }
+    expect(
+      screen
+        .getByRole('button', { name: 'Previous table page' })
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    expect(
+      screen.getByRole('button', { name: /Select table page size/ })
+        .textContent,
+    ).toContain('Show 10 results');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await screen.findByText('11 - 20 of 60');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Previous table page' }),
+    );
+    await screen.findByText('1 - 10 of 60');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await screen.findByText('11 - 20 of 60');
+    const pageSizeSelect = document.querySelector<HTMLSelectElement>(
+      'select[name="pageSize"]',
+    )!;
+    expect(
+      Array.from(pageSizeSelect.options)
+        .map(option => option.value)
+        .filter(Boolean),
+    ).toEqual(['10', '20', '50']);
+    fireEvent.change(pageSizeSelect, { target: { value: '20' } });
+    await waitFor(() =>
+      expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+        allTypes: false,
+        page: 1,
+        perPage: 20,
+      }),
+    );
+    expect(await screen.findByText('1 - 20 of 60')).toBeTruthy();
+  },
+);
 
 it('skips the catalog request for an empty page', async () => {
   const getEntities = jest.fn(async () => ({ items: [] }));
@@ -501,8 +527,10 @@ it('shows only the empty state in the image grid when there are no results', asy
 
   expect(screen.getByText('No execution environments discovered')).toBeTruthy();
   expectNoImageTableChrome();
-  expect(screen.queryByRole('button', { name: 'Previous' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Previous table page' }),
+  ).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Next table page' })).toBeNull();
 });
 
 it('keeps inventory visible when the filtered catalog request fails', async () => {
