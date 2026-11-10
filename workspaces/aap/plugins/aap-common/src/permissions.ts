@@ -1,10 +1,10 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
+import { executionEnvironmentsViewPermission } from '@ansible/automation-content-common/permissions';
 
-export const executionEnvironmentsViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.execution-environments.view',
-  attributes: {},
-};
+/**
+ * @deprecated Import from @ansible/automation-content-common/permissions instead.
+ */
+export { executionEnvironmentsViewPermission };
 
 export const gitRepositoriesViewPermission: BasicPermission = {
   type: 'basic',
