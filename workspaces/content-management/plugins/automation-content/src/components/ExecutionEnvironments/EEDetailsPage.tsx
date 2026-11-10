@@ -300,6 +300,7 @@ function EEDetailsContent(): ReactElement {
                 collection.metadata.name,
               )}`}
               color="info"
+              className={styles.infoLink}
             >
               {c.fqcn}
             </Link>
