@@ -439,6 +439,29 @@ it('keeps the current detail after a failed latest image sync without exposing b
   expect(screen.queryByText(/secret/)).toBeNull();
 });
 
+it('does not retain actionable image data after a same-repository digest returns 404', async () => {
+  const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
+    status: 'completed',
+    ref: 'registry/repo@sha256:missing',
+    tag: 'latest',
+    retainedPrevious: false,
+  }));
+  await screen.findByText('ansible.posix');
+  api.getExecutionEnvironment.mockRejectedValueOnce(
+    new ContentApiError(404, 'Not found'),
+  );
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole('button', { name: 'Actions for repo' }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(screen.queryByText('ansible.posix')).not.toBeInTheDocument();
+});
+
 it.each([
   [403, 'Sync access needed for this image.'],
   [404, 'Indexed image not found. Refresh the catalog and try again.'],

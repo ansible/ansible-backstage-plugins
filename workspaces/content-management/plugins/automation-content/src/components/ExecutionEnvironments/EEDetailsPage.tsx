@@ -438,7 +438,9 @@ function EEDetailsContent(): ReactElement {
   const routeRepository = ref.split('@')[0];
   const value =
     resolved ??
-    (retained &&
+    (!image.error &&
+    image.loading &&
+    retained &&
     `${retained.registry}/${retained.repository}` === routeRepository
       ? retained
       : undefined);
