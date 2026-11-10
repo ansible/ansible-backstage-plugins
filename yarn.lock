@@ -174,9 +174,11 @@ __metadata:
     "@backstage/core-compat-api": "npm:0.5.14"
     "@backstage/core-components": "npm:0.18.13"
     "@backstage/core-plugin-api": "npm:1.12.9"
+    "@backstage/frontend-defaults": "npm:0.5.5"
     "@backstage/frontend-plugin-api": "npm:0.18.0"
     "@backstage/frontend-test-utils": "npm:0.6.3"
     "@backstage/plugin-app-react": "npm:0.2.6"
+    "@backstage/plugin-user-settings": "npm:0.9.6"
     "@backstage/test-utils": "npm:1.7.21"
     "@mui/icons-material": "npm:5.18.0"
     "@mui/material": "npm:5.18.0"
@@ -185,10 +187,15 @@ __metadata:
     "@testing-library/user-event": "npm:14.6.1"
     "@types/jest": "npm:29.5.14"
     "@types/react": "npm:18.3.23"
+    rxjs: "npm:7.8.2"
     typescript: "npm:5.8.3"
   peerDependencies:
+    "@backstage/plugin-user-settings": ^0.9.6
     react: ^18.3.1
     react-dom: ^18.3.1
+  peerDependenciesMeta:
+    "@backstage/plugin-user-settings":
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -41525,7 +41532,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:^7.5.5":
+"rxjs@npm:7.8.2, rxjs@npm:^7.5.5":
   version: 7.8.2
   resolution: "rxjs@npm:7.8.2"
   dependencies:

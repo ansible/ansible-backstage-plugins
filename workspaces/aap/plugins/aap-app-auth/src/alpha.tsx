@@ -1,31 +1,18 @@
 import {
-  ApiBlueprint,
   createFrontendModule,
   type FrontendModule,
 } from '@backstage/frontend-plugin-api';
-import { SignInPageBlueprint } from '@backstage/plugin-app-react';
-import { compatWrapper } from '@backstage/core-compat-api';
-import { AapAuthApi } from './api';
+import { createAapAuthApiExtension } from './extensions/authApi';
+import { createAapSignInPageExtension } from './extensions/signInPage';
 import { createAapLogoutProfileItem } from './profile';
 
-/** The sign-in input is app-internal: a Portal plugin cannot attach to it. */
+/** Combined compatibility entry. Use /api-module for API-only host integration. */
 const aapAppAuth: FrontendModule = createFrontendModule({
   pluginId: 'app',
   extensions: [
     createAapLogoutProfileItem(),
-    ApiBlueprint.make({
-      name: 'rhaap-auth',
-      params: define => define(AapAuthApi),
-    }),
-    SignInPageBlueprint.make({
-      name: 'rhaap',
-      params: {
-        loader: async () => {
-          const { SignInPage } = await import('./components/SignInPage');
-          return props => compatWrapper(<SignInPage {...props} />);
-        },
-      },
-    }),
+    createAapAuthApiExtension(),
+    createAapSignInPageExtension(),
   ],
 });
 export default aapAppAuth;

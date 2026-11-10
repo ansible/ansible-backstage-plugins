@@ -286,6 +286,23 @@ After exporting and restarting the host, verify that `api:app/rhaap-auth` and
 unresolved `ansible.auth.rhaap` API is a reason to check the installed dynamic
 plugin list, not to restore authentication exports in portal-scaffolder.
 
+### AAP Authentication Providers settings
+
+The auth package automatically adds AAP to the native Settings provider list
+when the compatible native user-settings plugin is installed. No Settings
+feature flag or YAML block is required. Register the AAP frontend API as usual.
+The settings loader does not select an AAP sign-in page or change host login.
+
+The Settings Sign out control only disconnects AAP credentials. Full Portal
+identity and OIDC browser logout remain with the separate host logout integration.
+
+A host without native user-settings has no page to extend and the framework
+ignores the Settings module. Hosts already replacing the singleton provider-list
+input must compose the AAP row into that list and replace or disable the standard
+AAP adapter through normal extension configuration. See the auth package README
+for source composition and custom-list options. The source Portal app installs
+its adapter explicitly, including its legacy Settings page.
+
 ### Landing behavior
 
 The Portal host owns `/`. With no `portal.landingPage` override, it opens

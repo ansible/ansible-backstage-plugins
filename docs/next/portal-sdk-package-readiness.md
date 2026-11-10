@@ -76,11 +76,39 @@ configured frontend AAP auth API, the
 and `auth.providers.rhaap` configuration. Publishing or installing the frontend
 package alone does not supply these host prerequisites.
 
-The current `/alpha` module registers an AAP-only sign-in page as well as the
-API. Before release, make API registration usable independently and keep the
-Portal sign-in page and logout integration opt-in. Validate coexistence with
-standard RHDH sign-in. The packaging changes in this branch do not implement
-that UI separation.
+The `/api-module` entry registers the native AAP API without adding sign-in or
+profile UI. Hosts may opt into `/sign-in` and the `/profile` factory separately.
+The combined `/alpha` entry keeps its existing API/sign-in/profile declarations
+and remains automatically discovered for compatibility. The separate Settings
+loader adds the AAP provider row automatically when native user-settings is installed. Existing
+dynamic hosts can disable its AAP sign-in/profile extensions to retain standard
+RHDH UI. Do not install combined and separate modules together.
+The `/settings` factory preserves standard provider rows and adds AAP connection
+controls. Dynamic hosts receive this through `/settings-loader` without a
+Settings enablement flag. The user-settings plugin is an optional peer,
+required only when using that integration. Settings disconnects the AAP credential
+session without triggering full host or OIDC browser logout.
+
+See `workspaces/aap/plugins/aap-app-auth/README.md` for exact composition,
+configuration and backend prerequisites. Validate actual
+standard RHDH coexistence and Portal login/logout before release; package tests
+and packing alone do not establish live host compatibility.
+
+The API/UI separation was checked against upstream baseline `1ee4427d`: auth
+package tests, repository TypeScript, package build, clean dynamic export and
+packed subpath checks passed. The new auth tarball also installed, compiled and
+bundled in the separate consumer project. The current metadata lists `/alpha` and `/settings-loader`. The latter supplies the Settings module by default, and the frontend framework
+ignores it when the user-settings plugin is absent. The older ten-package consumer results
+below remain tied to their recorded baseline and must be repeated for release.
+
+The optional Settings integration adds coverage for default-on loading and absent-host handling, preserved
+standard/custom rows, missing AAP API, account display, provider sign-in,
+disconnection and error reporting. The auth suite now has 45 passing tests, and
+source-app composition tests pass. The AAP row was verified in the live source
+Settings page alongside GitHub and GitLab without disconnecting those sessions.
+Updated packed Settings entry points compile and bundle in the separate consumer,
+and the clean dynamic export passes. This does not establish live RHDH Settings
+or OAuth disconnection behavior.
 
 The backend provider is an existing host prerequisite, not part of the initial
 ten-package packing candidate set. If publishing that backend becomes necessary,
@@ -279,10 +307,11 @@ does not remove the private publication guard or validate a real host install.
    for approved packages, supply required plugin metadata, and include licenses
    and notices. Validate root and subpath imports and configuration schemas from
    the packed files.
-4. **Validate host authentication composition.** Separate AAP API registration
-   from opt-in sign-in and logout UI, document the required host backend module
-   and configuration, and test standard RHDH coexistence. Do not treat a
-   successful auth-package pack as proof of this behavior.
+4. **Validate host authentication composition.** API-only and opt-in UI entry
+   points are implemented, with the combined entry retained for compatibility.
+   Verify the documented backend prerequisites and test standard RHDH coexistence
+   and Portal login/logout using the release artifacts. A successful package
+   test or pack does not establish live OAuth behavior.
 5. **Complete separate-consumer runtime validation.** Packed installation,
    selected frontend/backend compilation, browser bundling and a backend SDK
    runtime smoke check have passed outside the monorepo. Next verify live host
