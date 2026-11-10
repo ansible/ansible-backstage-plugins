@@ -44,6 +44,7 @@ for (const range of [
   'workspace:^',
   'file:../other',
   'link:../other',
+  '~/other',
   'https://example.com/package.tgz',
 ]) {
   test(`rejects unpublished dependency reference ${range}`, () => {
@@ -94,4 +95,16 @@ test('rejects a license file that differs from the repository license', () => {
   const input = archive();
   input.license = 'wrong license';
   assert.throws(() => validateArchive(input), /repository license/);
+});
+
+test('accepts tilde semver ranges in published dependency fields', () => {
+  const input = archive();
+  for (const field of [
+    'dependencies',
+    'optionalDependencies',
+    'peerDependencies',
+  ]) {
+    input.manifest[field] = { dependency: '~1.2.3' };
+  }
+  validateArchive(input);
 });

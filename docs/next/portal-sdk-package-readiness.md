@@ -408,3 +408,19 @@ The author guide and out-of-tree ADR predate this publication work. Update their
 in-tree preview restrictions and provisional install instructions together with
 an accepted external-consumption contract, rather than treating this inventory
 as an already available npm installation path.
+
+## Validation artifact provenance
+
+CI generates an SPDX SBOM for each candidate archive with a pinned Syft version.
+PR validation remains read-only and uploads diagnostics and SBOMs without
+candidate tarballs. Trusted pushes or manual runs on `main` create Sigstore-backed
+build provenance covering archive, SBOM, index, and report digests before uploading
+the candidates. Attestation failure blocks candidate upload. Checkout credential
+persistence is disabled. These controls identify validation artifact origin and
+integrity; they do not approve npm publication or establish production readiness.
+
+SBOMs cover the delivered package contents, with cataloged npm identity and
+version checked against the validation report. External consumer dependency
+resolution and vulnerability/license review remain separate requirements. See
+`scripts/sdk-package-validation/README.md` for local generation and verification.
+The first trusted signing run can be exercised after these workflows reach `main`.

@@ -93,7 +93,7 @@ export function validateArchive({
   ]) {
     for (const [name, range] of Object.entries(manifest[field] ?? {})) {
       assert(
-        !/^(?:workspace:|file:|link:|portal:|patch:|git|https?:|[./~])/.test(
+        !/^(?:workspace:|file:|link:|portal:|patch:|git|https?:|[./]|~\/)/.test(
           range,
         ),
         `Non-registry ${field}: ${name}@${range}`,

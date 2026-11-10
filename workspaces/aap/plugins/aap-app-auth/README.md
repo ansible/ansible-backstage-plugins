@@ -79,6 +79,11 @@ registered AAP auth API. `@backstage/plugin-user-settings` is an optional peer:
 API-only consumers do not need to install it. Hosts using the Settings integration must
 provide a compatible version.
 
+The combined module loads its Settings UI lazily, so a dynamic host without the
+native user-settings page does not import that optional UI. Source bundlers must
+still resolve the library when bundling `/alpha` or `/settings`; use `/api-module`
+when only registering the AAP API and omitting the Settings library entirely.
+
 For source-built native hosts, add the explicit factory result to `features`:
 
 ```tsx

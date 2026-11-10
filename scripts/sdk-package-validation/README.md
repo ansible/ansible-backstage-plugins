@@ -34,11 +34,48 @@ Remove the temporary output when it is no longer needed.
 
 ## CI
 
-`sdk-package-validation.yml` runs on relevant pull requests and manual dispatches
-with Node 22 and 24. It has read-only repository permissions and does not request
-publishing credentials. Archives, logs, the consumer lockfile, and the report are
-retained as short-lived workflow artifacts. The workflow does not validate dynamic
-plugin federation assets or deploy RHDH.
+`sdk-package-validation.yml` runs on relevant pull requests, pushes to `main`,
+and manual dispatches with Node 22 and 24. Shared build steps live in
+`sdk-package-validation-run.yml`. Checkout does not persist Git credentials.
+
+PR runs and manual runs on other branches have read-only repository permissions.
+They generate SBOMs and upload diagnostics, but do not receive signing credentials
+or upload candidate archives. Pushes and manual runs on `main` additionally receive
+OIDC and attestation permissions. Those trusted runs sign provenance with GitHub's
+Sigstore-backed `actions/attest` before uploading archives, SBOMs, the report, and
+the signature bundle. A failed scan or attestation prevents candidate upload.
+No npm publishing credentials are required and no packages are published.
+
+Each archive gets an SPDX 2.3 SBOM from pinned Syft `1.57.1`, scanning its safely
+unpacked contents with the JavaScript package cataloger enabled. Archive hashes
+must still match the validation report. The SBOM must identify the expected npm
+package and version, not just the scanned directory. `sboms/index.json` maps each
+archive digest to its SBOM digest. Provenance covers every archive, SBOM, index,
+and report as signed subjects, recording the GitHub build origin.
+
+After downloading a trusted run's candidates, verify an archive against the
+included bundle using the GitHub CLI:
+
+```bash
+gh attestation verify artifacts/portal-extension-api.tgz \
+  --bundle attestations/provenance.sigstore.json \
+  --repo ansible/ansible-backstage-plugins \
+  --signer-workflow ansible/ansible-backstage-plugins/.github/workflows/sdk-package-validation-run.yml \
+  --cert-identity https://github.com/ansible/ansible-backstage-plugins/.github/workflows/sdk-package-validation-run.yml@refs/heads/main
+```
+
+For local SBOM checks, install the pinned Syft version, then use the directory
+printed by the completed validation command:
+
+```bash
+SDK_VALIDATION_DIR=/path/to/validation-output \
+  node scripts/sdk-package-validation/sbom.mjs
+```
+
+These SBOMs inventory the delivered archive contents. They do not claim to include
+all external dependencies that a consumer may subsequently install. The consumer
+lockfile remains separate evidence, and dependency/security review is still
+required. The workflow does not validate dynamic federation assets or deploy RHDH.
 
 ## Scope and limitations
 
@@ -61,5 +98,5 @@ plugin federation assets or deploy RHDH.
 Test the archive rejection rules without building packages:
 
 ```bash
-node --test scripts/sdk-package-validation/validate-archive.test.mjs
+node --test scripts/sdk-package-validation/validate-archive.test.mjs scripts/sdk-package-validation/sbom.test.mjs
 ```

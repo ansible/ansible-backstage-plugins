@@ -3,7 +3,7 @@ name: SDK package validation
 on:
   pull_request:
     paths:
-      - '.github/workflows/sdk-package-validation.yml'
+      - '.github/workflows/sdk-package-validation*.yml'
       - 'scripts/sdk-package-validation/**'
       - 'workspaces/portal-core/plugins/**'
       - 'workspaces/aap/plugins/aap-app-auth/**'
@@ -12,6 +12,18 @@ on:
       - '.yarnrc.yml'
       - 'tsconfig.json'
       - 'LICENSE'
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sdk-package-validation*.yml"
+      - "scripts/sdk-package-validation/**"
+      - "workspaces/portal-core/plugins/**"
+      - "workspaces/aap/plugins/aap-app-auth/**"
+      - "package.json"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+      - "tsconfig.json"
+      - "LICENSE"
   workflow_dispatch:
 
 permissions:
@@ -23,37 +35,31 @@ concurrency:
 
 jobs:
   packages:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
     name: Packed SDK consumer / Node ${{ matrix.node }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        node: [22, 24]
-    env:
-      NODE_OPTIONS: --max-old-space-size=8192
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
-        with:
-          node-version: ${{ matrix.node }}
-      - uses: backstage/actions/yarn-install@b3c1841fd69e1658ac631afafd0fb140a2309024 # v0.6.17
-      - name: Test archive validation rules
-        run: node --test scripts/sdk-package-validation/validate-archive.test.mjs
-      - name: Build, pack, audit, and exercise isolated consumers
-        env:
-          SDK_VALIDATION_DIR: ${{ runner.temp }}/sdk-package-validation
-        run: yarn validate:sdk-packages
-      - name: Upload validation evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: sdk-package-validation-node-${{ matrix.node }}
-          path: |
-            ${{ runner.temp }}/sdk-package-validation/report.json
-            ${{ runner.temp }}/sdk-package-validation/logs
-            ${{ runner.temp }}/sdk-package-validation/artifacts
-            ${{ runner.temp }}/sdk-package-validation/consumer/yarn.lock
-            ${{ runner.temp }}/sdk-package-validation/consumer/bundle-metafile.json
-          if-no-files-found: ignore
-          retention-days: 7
+        node: ['22', '24']
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sdk-package-validation-run.yml
+    with:
+      node-version: ${{ matrix.node }}
+      attest: false
+
+  attested-packages:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: Attested SDK candidates / Node ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/sdk-package-validation-run.yml
+    with:
+      node-version: ${{ matrix.node }}
+      attest: true

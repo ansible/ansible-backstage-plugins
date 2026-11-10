@@ -111,16 +111,20 @@ async function main() {
       repo,
       `license-${name}`,
     );
-    validateArchive({
-      manifest: packed,
-      files,
-      license,
-      expected: {
-        ...manifest,
-        license: readFileSync(join(repo, 'LICENSE'), 'utf8'),
-      },
-      candidates,
-    });
+    try {
+      validateArchive({
+        manifest: packed,
+        files,
+        license,
+        expected: {
+          ...manifest,
+          license: readFileSync(join(repo, 'LICENSE'), 'utf8'),
+        },
+        candidates,
+      });
+    } catch (error) {
+      throw new Error(`${manifest.name}: ${error.message}`, { cause: error });
+    }
     manifests.push(packed);
   }
 
