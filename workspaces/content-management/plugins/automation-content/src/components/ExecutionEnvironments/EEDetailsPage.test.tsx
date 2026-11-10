@@ -1340,7 +1340,7 @@ describe('tag selector', () => {
       await screen.findByRole('menuitem', { name: 'Use in Controller' }),
     );
     expect(
-      (await screen.findByRole('button', { name: /version/i })).textContent,
+      (await screen.findByRole('button', { name: /tags/i })).textContent,
     ).toContain('2.9');
   });
 

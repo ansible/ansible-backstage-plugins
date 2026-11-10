@@ -240,7 +240,7 @@ export function UseInControllerDialog({
       return;
     }
     if (!selectedImage || !selectedImageReference) {
-      setError('Choose an available image version before continuing.');
+      setError('Choose an available image tag before continuing.');
       return;
     }
     setSubmitting(true);
@@ -321,7 +321,7 @@ export function UseInControllerDialog({
           {tagMap.loading && <Skeleton width="100%" height="3rem" />}
           {tagsUnavailable && (
             <Text role="alert">
-              Unable to load image versions.{' '}
+              Unable to load image tags.{' '}
               <Button variant="secondary" onPress={tagMap.retry}>
                 Retry
               </Button>
@@ -329,13 +329,13 @@ export function UseInControllerDialog({
           )}
           {tagsEmpty && (
             <Text role="alert">
-              No versions are available for this repository, so this image
-              cannot be added to Controller.
+              No tags are available for this repository, so this image cannot be
+              added to Controller.
             </Text>
           )}
           {tagOptions.length > 0 && (
             <Select
-              label="Version"
+              label="Tags"
               value={activeTag}
               options={tagOptions}
               onChange={key => setSelectedTagOverride(String(key))}

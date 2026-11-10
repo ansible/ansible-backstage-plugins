@@ -151,7 +151,7 @@ it('loads the repository tag map and defaults to the newest pushed tag', async (
   expect(
     screen.getByText(/tags can move to a different image over time/i),
   ).toBeTruthy();
-  const trigger = await screen.findByRole('button', { name: /version/i });
+  const trigger = await screen.findByRole('button', { name: /tags/i });
   expect(trigger.textContent).toContain('3.0');
   await userEvent.click(trigger);
   expect(
@@ -171,7 +171,7 @@ it('resolves registry keys from registry URLs for existing catalog callers', asy
       },
     ],
   });
-  await screen.findByRole('button', { name: /version/i });
+  await screen.findByRole('button', { name: /tags/i });
   expect(getRepositoryTags).toHaveBeenCalledWith(
     'internal-registry',
     'team/ee',
@@ -181,7 +181,7 @@ it('resolves registry keys from registry URLs for existing catalog callers', asy
 it('uses the details-page tag as the default selection', async () => {
   renderDialog({ selectedTag: '2.9' });
   expect(
-    (await screen.findByRole('button', { name: /version/i })).textContent,
+    (await screen.findByRole('button', { name: /tags/i })).textContent,
   ).toContain('2.9');
   expect(screen.getByText('sha256:two')).toBeTruthy();
   expect(screen.getByText('registry/team/ee:2.9')).toBeTruthy();
@@ -195,9 +195,7 @@ it('keeps user input when the details-page tag arrives and keeps the chosen tag 
   });
   await userEvent.clear(name);
   await userEvent.type(name, 'custom-ee');
-  await userEvent.click(
-    await screen.findByRole('button', { name: /version/i }),
-  );
+  await userEvent.click(await screen.findByRole('button', { name: /tags/i }));
   await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
 
   rerenderDialog({ selectedTag: 'latest' });
@@ -205,15 +203,15 @@ it('keeps user input when the details-page tag arrives and keeps the chosen tag 
   expect(
     screen.getByRole('button', { name: /organization/i }).textContent,
   ).toContain('Default');
-  expect(
-    screen.getByRole('button', { name: /version/i }).textContent,
-  ).toContain('2.9');
+  expect(screen.getByRole('button', { name: /tags/i }).textContent).toContain(
+    '2.9',
+  );
 
   rerenderDialog({ imageName: 'team/renamed-ee', selectedTag: 'latest' });
   expect((name as HTMLInputElement).value).toBe('team/renamed-ee');
-  expect(
-    screen.getByRole('button', { name: /version/i }).textContent,
-  ).toContain('2.9');
+  expect(screen.getByRole('button', { name: /tags/i }).textContent).toContain(
+    '2.9',
+  );
 });
 
 it('resets the chosen tag and copy status on image changes and reopening', async () => {
@@ -235,9 +233,7 @@ it('resets the chosen tag and copy status on image changes and reopening', async
       });
     },
   ]) {
-    await userEvent.click(
-      await screen.findByRole('button', { name: /version/i }),
-    );
+    await userEvent.click(await screen.findByRole('button', { name: /tags/i }));
     await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
     await userEvent.click(screen.getByRole('button', { name: 'Copy digest' }));
     expect((await screen.findByRole('status')).textContent).toContain(
@@ -247,7 +243,7 @@ it('resets the chosen tag and copy status on image changes and reopening', async
     reset();
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: /version/i }).textContent,
+        screen.getByRole('button', { name: /tags/i }).textContent,
       ).toContain('3.0'),
     );
     expect(screen.queryByText('Digest copied')).toBeNull();
@@ -262,9 +258,7 @@ it('submits the selected tag, organization identity, and token secret, then foll
   });
   expect(organizationTrigger.textContent).not.toContain('Default');
   await selectDefaultOrganization();
-  await userEvent.click(
-    await screen.findByRole('button', { name: /version/i }),
-  );
+  await userEvent.click(await screen.findByRole('button', { name: /tags/i }));
   await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
