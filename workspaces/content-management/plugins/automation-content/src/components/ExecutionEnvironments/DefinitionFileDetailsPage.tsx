@@ -449,8 +449,11 @@ function DefinitionFileDetailsContent(): ReactElement {
 /** Catalog entity view reached only through an explicit definition-entity reference. */
 export function DefinitionFileDetailsPage(): ReactElement {
   return (
-    <NotificationProvider>
-      <DefinitionFileDetailsContent />
-    </NotificationProvider>
+    // Route-owned main landmark; see EEDetailsPage for the rationale.
+    <main>
+      <NotificationProvider>
+        <DefinitionFileDetailsContent />
+      </NotificationProvider>
+    </main>
   );
 }

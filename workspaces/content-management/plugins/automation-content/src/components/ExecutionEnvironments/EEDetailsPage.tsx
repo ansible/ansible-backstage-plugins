@@ -205,9 +205,14 @@ function MetadataRow({
 /** Artifact metadata and relationships, without definition-authoring or SCM actions. */
 export function EEDetailsPage(): ReactElement {
   return (
-    <NotificationProvider>
-      <EEDetailsContent />
-    </NotificationProvider>
+    // Each route-owned page provides its own main landmark; the BUI host
+    // layout has none, and the old Backstage Page component's <main> was
+    // lost in the migration.
+    <main>
+      <NotificationProvider>
+        <EEDetailsContent />
+      </NotificationProvider>
+    </main>
   );
 }
 
