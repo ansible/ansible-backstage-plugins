@@ -144,7 +144,10 @@ describe('listTags', () => {
 
 describe('manifests', () => {
   it('resolves a tag to an immutable digest via HEAD', async () => {
-    const image = makeImage({ tag: 'latest' });
+    const image = {
+      ...makeImage({ tag: 'latest' }),
+      lastModified: 'Mon, 09 Nov 2026 12:00:00 GMT',
+    };
     const registry = new MockRegistry({
       repositories: { 'ansible/ee': [image] },
     });
@@ -152,6 +155,7 @@ describe('manifests', () => {
     const head = await clientFor(registry).headManifest('ansible/ee', 'latest');
     expect(head.status).toBe(200);
     expect(head.digest).toBe(image.digest);
+    expect(head.lastModified).toBe(image.lastModified);
   });
 
   it('falls back to the reference when the digest header is omitted', async () => {

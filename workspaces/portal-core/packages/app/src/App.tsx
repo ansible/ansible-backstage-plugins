@@ -1,4 +1,4 @@
-import { Navigate, Route } from 'react-router-dom';
+import { Navigate, Route, useParams } from 'react-router-dom';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
 import {
   CatalogEntityPage,
@@ -44,7 +44,7 @@ import { AnsiblePage } from '@ansible/plugin-backstage-rhaap';
 // Local-testing mount for the content experience. In a dynamic (RHDH) deployment
 // the same page is mounted by `dynamicRoutes` config instead — see the plugin's
 // routes.ts.
-import { AutomationContentPage } from '@ansible/plugin-automation-content';
+import { AutomationContentEEPage } from '@ansible/plugin-automation-content';
 // Side-effect import: triggers registerManifest() + registerApmeExtensions() in plugin.ts
 import '@ansible/plugin-backstage-apme';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
@@ -62,6 +62,11 @@ import {
   ScmSelectorFieldExtension,
 } from '@ansible/portal-scaffolder';
 import { RbacPage } from '@backstage-community/plugin-rbac';
+
+function LegacyEEDetailsRedirect() {
+  const { ref } = useParams();
+  return <Navigate to={`/content/ee/${encodeURIComponent(ref!)}`} replace />;
+}
 
 const app = createApp({
   apis,
@@ -146,8 +151,21 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
-    <Route path="/automation-content" element={<AutomationContentPage />} />
+    <Route path="/content" element={<Navigate to="/content/ee" replace />} />
+    <Route path="/content/ee" element={<AutomationContentEEPage />} />
+    <Route
+      path="/automation-content"
+      element={<Navigate to="/content/ee" replace />}
+    />
+    <Route
+      path="/automation-content/execution-environments"
+      element={<Navigate to="/content/ee" replace />}
+    />
     <Route path="/self-service" element={<SelfServicePage />} />
+    <Route
+      path="/automation-content/execution-environments/:ref"
+      element={<LegacyEEDetailsRedirect />}
+    />
   </FlatRoutes>
 );
 

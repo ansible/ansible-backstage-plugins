@@ -29,6 +29,15 @@ import { EXECUTION_ENVIRONMENT_TYPE } from '@ansible/content-type-execution-envi
 import { Entity } from '@backstage/catalog-model';
 import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { defaultContentTypes } from './contentTypes';
+import * as contentCommon from '@ansible/automation-content-common';
+
+jest.mock('@ansible/automation-content-common', () => {
+  const actual = jest.requireActual('@ansible/automation-content-common');
+  return {
+    ...actual,
+    readContentManifest: jest.fn(actual.readContentManifest),
+  };
+});
 
 // ---------------------------------------------------------------------------
 // A third content type, invented here and nowhere else
@@ -163,6 +172,54 @@ const typeOf = (entities: Entity[], repository: string) =>
 // ---------------------------------------------------------------------------
 
 describe('a content type is added, not edited in', () => {
+  it.each([
+    // eslint-disable-next-line no-script-url -- malicious registry metadata regression fixture
+    ['javascript:alert(1)', undefined],
+    [
+      'https://example.com/ansible/utils',
+      [{ url: 'https://example.com/ansible/utils', title: 'Source' }],
+    ],
+  ])('guards collection source links from %s', async (repository, links) => {
+    const reader = jest
+      .spyOn(contentCommon, 'readContentManifest')
+      .mockResolvedValue({
+        via: 'native',
+        referrerDigest: 'sha256:manifest',
+        manifest: {
+          schemaVersion: '1.0.0',
+          generatedAt: '2026-09-14T00:00:00Z',
+          generatedBy: { tool: 'test', version: '1' },
+          complete: true,
+          collections: [
+            {
+              namespace: 'ansible',
+              name: 'utils',
+              version: '6.1.0',
+              repository,
+              plugins: [],
+              roles: [],
+              playbooks: [],
+              edaPlugins: [],
+              rulebooks: [],
+            },
+          ],
+        },
+      });
+    try {
+      const entities = await discover(defaultContentTypes());
+      const collection = entities.find(
+        entity => entity.spec?.type === 'ansible-collection',
+      );
+      expect(collection).toBeDefined();
+      expect(collection?.metadata.links).toEqual(links);
+    } finally {
+      reader.mockImplementation(
+        jest.requireActual('@ansible/automation-content-common')
+          .readContentManifest,
+      );
+    }
+  });
+
   it('recognises the shipped content type', async () => {
     const entities = await discover(defaultContentTypes());
     expect(typeOf(entities, 'demo/network-ee')).toBe(

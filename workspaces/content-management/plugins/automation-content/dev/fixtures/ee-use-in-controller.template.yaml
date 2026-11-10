@@ -1,0 +1,57 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: ee-use-in-controller
+  namespace: default
+  title: Use execution environment in Controller
+  description: >-
+    Creates an Ansible Automation Controller execution environment pointing at
+    the selected image. Started by the "Use in Controller" action on the
+    execution-environment pages; the AAP token is supplied by the caller as a
+    scaffolder secret and is never stored in task parameters.
+spec:
+  owner: group:default/ansible
+  type: workflow
+  parameters:
+    - title: Execution environment
+      required: [environmentName, organizationId, organizationName, image]
+      properties:
+        environmentName:
+          type: string
+          title: Execution environment name
+        environmentDescription:
+          type: string
+          title: Description
+        organizationId:
+          type: number
+          title: Organization ID
+        organizationName:
+          type: string
+          title: Organization name
+        image:
+          type: string
+          title: Image
+          description: Tagged or digest image reference Controller will pull.
+        pull:
+          type: string
+          title: Pull policy
+          default: always
+  steps:
+    - id: create-ee
+      name: Create execution environment
+      action: rhaap:create-execution-environment
+      input:
+        token: ${{ secrets.aapToken }}
+        deleteIfExist: true
+        values:
+          environmentName: ${{ parameters.environmentName }}
+          environmentDescription: ${{ parameters.environmentDescription }}
+          organization:
+            id: ${{ parameters.organizationId }}
+            name: ${{ parameters.organizationName }}
+          image: ${{ parameters.image }}
+          pull: ${{ parameters.pull }}
+  output:
+    text:
+      - title: Execution environment
+        content: Created in Ansible Automation Controller.

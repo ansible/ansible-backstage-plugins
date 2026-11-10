@@ -1,0 +1,52 @@
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  align-items: stretch;
+  gap: var(--bui-space-4);
+}
+
+.cardLink {
+  min-width: 0;
+  border-radius: var(--bui-radius-3);
+  cursor: pointer;
+}
+
+.cardLink:focus-visible {
+  outline: 2px solid var(--bui-border-info);
+  outline-offset: 3px;
+}
+
+.imageCard {
+  height: 100%;
+  border: 1px solid var(--bui-border-2);
+  transition: transform 160ms ease;
+}
+
+.cardLink:hover .imageCard {
+  border-color: var(--bui-border-info);
+  box-shadow: var(--bui-shadow);
+  transform: translateY(-2px);
+}
+
+.cardSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gridPagination {
+  margin-top: var(--bui-space-4);
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imageCard {
+    transition: none;
+  }
+
+  .cardLink:hover .imageCard {
+    transform: none;
+  }
+}

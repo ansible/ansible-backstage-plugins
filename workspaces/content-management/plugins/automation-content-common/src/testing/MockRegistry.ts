@@ -5,6 +5,8 @@ export interface MockImage {
   tag: string;
   digest: string;
   manifest: Manifest;
+  /** Optional registry Last-Modified response header for this tag. */
+  lastModified?: string;
   config?: ImageConfig;
   /** Referrers keyed by subject digest, exposed per the registry's referrer mode. */
   referrers?: Descriptor[];
@@ -279,6 +281,7 @@ export class MockRegistry {
     const headers: Record<string, string> = {
       'content-type': image.manifest.mediaType ?? MediaTypes.ociManifest,
     };
+    if (image.lastModified) headers['last-modified'] = image.lastModified;
     if (!this.options.omitDigestHeader) {
       headers['docker-content-digest'] = image.digest;
     }

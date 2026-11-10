@@ -21,6 +21,7 @@ import {
 } from '@backstage/backend-test-utils';
 import { MockRegistry } from '@ansible/automation-content-common';
 import { automationContentPlugin } from './plugin';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 /** Servers and backends started by a test, closed even when the test fails. */
 const teardown: Array<() => Promise<void>> = [];
@@ -63,7 +64,9 @@ async function serveRegistry() {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   state.registry = new MockRegistry(
-    { repositories: {}, auth: 'anonymous' },
+    // catalogEnabled: the registry is intentionally empty but enumerable,
+    // so a sync reports completion rather than a resolution failure.
+    { repositories: {}, auth: 'anonymous', catalogEnabled: true },
     `http://127.0.0.1:${port}`,
   );
 
@@ -78,10 +81,13 @@ async function serveRegistry() {
 }
 
 /** A test backend whose credential-less requests stay credential-less. */
-async function startBackend(registryUrl: string) {
+async function startBackend(registryUrl: string, allowed = true) {
   const backend = await startTestBackend({
     features: [
       automationContentPlugin,
+      mockServices.permissions.factory({
+        result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY,
+      }),
       // The mock httpAuth treats anonymous requests as the default mock user,
       // which would make the barrier invisible; `none` is the honest default
       // for a request that arrives carrying no credentials at all.
@@ -113,6 +119,42 @@ async function startBackend(registryUrl: string) {
 }
 
 describe('the sign-in barrier at the plugin boundary', () => {
+  it.each(['/sync', '/registries/e2e/sync', '/registries/e2e/poll'])(
+    'rejects service credentials on %s without registry work',
+    async path => {
+      const served = await serveRegistry();
+      const backend = await startBackend(served.url);
+      const response = await request(backend.server)
+        .post(`/api/automation-content${path}`)
+        .set('Authorization', mockCredentials.service.header());
+      expect(response.status).toBe(403);
+      expect(served.registry.requests).toHaveLength(0);
+    },
+  );
+
+  it('allows the signed-in Guest identity without catalog lookup', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(served.url);
+    const response = await request(backend.server)
+      .post('/api/automation-content/sync')
+      .set('Authorization', mockCredentials.user.header('user:default/guest'));
+    expect(response.status).toBe(200);
+    expect(served.registry.requests.length).toBeGreaterThan(0);
+  });
+
+  it('keeps read routes permission-gated for signed-in users', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(served.url, false);
+    const response = await request(backend.server)
+      .get('/api/automation-content/registries')
+      .set('Authorization', mockCredentials.user.header());
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      error: 'Forbidden: ansible.content.view permission required',
+    });
+    expect(served.registry.requests).toHaveLength(0);
+  });
+
   it('turns an anonymous global sync away before any registry work starts', async () => {
     const served = await serveRegistry();
     const backend = await startBackend(served.url);
@@ -127,7 +169,7 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(served.registry.requests.length).toBe(0);
   });
 
-  it('lets a signed-in caller run the global sync', async () => {
+  it('lets an ordinary permitted user run the global sync once signed in', async () => {
     const served = await serveRegistry();
     const backend = await startBackend(served.url);
 

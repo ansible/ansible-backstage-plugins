@@ -6,13 +6,14 @@ import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-auto
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
+  OCIClient,
   MediaTypes,
   RegistryConnection,
   fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
 } from '@ansible/automation-content-common';
-import { ContentStore } from './ContentStore';
+import { ContentStore, ArtifactSyncNotFoundError } from './ContentStore';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
 
@@ -29,9 +30,11 @@ async function createTestDB() {
     table.string('repository').notNullable();
     table.string('digest').notNullable();
     table.text('tags').notNullable().defaultTo('[]');
+    table.text('tag_timestamps').notNullable().defaultTo('{}');
     table.string('pull_reference').notNullable();
     table.boolean('contents_known').notNullable().defaultTo(false);
     table.text('classification').notNullable().defaultTo('{}');
+    table.text('signing');
     table.text('manifest');
     table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
@@ -68,10 +71,13 @@ function connection(): RegistryConnection {
   };
 }
 
-async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+async function storeOver(
+  registry: MockRegistry,
+  connectionOverride?: RegistryConnection,
+): Promise<ContentStore> {
   const db = await createTestDB();
   const store = new ContentStore(
-    [connection()],
+    [connectionOverride ?? connection()],
     db as never,
     silent,
     defaultContentTypes(),
@@ -85,6 +91,39 @@ async function storeOver(registry: MockRegistry): Promise<ContentStore> {
 }
 
 const EE_LABEL = 'ansible-execution-environment';
+
+describe('repository tag timestamps', () => {
+  it('stores the registry Last-Modified value for each tag', async () => {
+    const images = [
+      {
+        ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+        lastModified: 'Sat, 07 Nov 2026 12:00:00 GMT',
+      },
+      {
+        ...makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+        lastModified: 'Sun, 08 Nov 2026 12:00:00 GMT',
+      },
+    ];
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': images },
+    });
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
+
+    expect(await store.repositoryTags('mock', 'ansible/ee')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tag: 'v1',
+          lastModified: 'Sat, 07 Nov 2026 12:00:00 GMT',
+        }),
+        expect.objectContaining({
+          tag: 'v2',
+          lastModified: 'Sun, 08 Nov 2026 12:00:00 GMT',
+        }),
+      ]),
+    );
+  });
+});
 
 describe('drift detection', () => {
   it('reports no change when the registry matches the store', async () => {
@@ -516,5 +555,952 @@ describe('credential redaction', () => {
     expect(row?.manifest).toBeDefined();
     expect(row.manifest).not.toContain(SECRET);
     expect(row.manifest).toContain('[REDACTED]');
+  });
+});
+
+describe('repository-scoped artifact sync', () => {
+  async function fixture(
+    oldTags = ['latest', 'v1'],
+    originalInventory = false,
+  ) {
+    const inventory = {
+      schemaVersion: '1.0.0',
+      generatedAt: '2026-01-01',
+      generatedBy: { tool: 'test', version: '1' },
+      complete: true,
+      collections: [
+        {
+          namespace: 'ns',
+          name: 'shared',
+          version: '1',
+          plugins: [],
+          roles: [],
+          playbooks: [],
+          edaPlugins: [],
+          rulebooks: [],
+        },
+      ],
+    };
+    const withInventory = (image: ReturnType<typeof makeLabelledImage>) => ({
+      ...image,
+      referrers: [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: `sha256:${'f'.repeat(64)}`,
+          size: 200,
+          artifactType: CONTENT_MANIFEST_ARTIFACT_TYPE,
+        },
+      ],
+      referrerPayloads: { [`sha256:${'a'.repeat(64)}`]: inventory },
+    });
+    const base = makeLabelledImage(oldTags[0], { [EE_LABEL]: 'true' });
+    const old = originalInventory ? withInventory(base) : base;
+    const sibling = withInventory(
+      makeLabelledImage('stable', { [EE_LABEL]: 'true' }),
+    );
+    sibling.digest = `sha256:${'b'.repeat(64)}`;
+    const repositories = {
+      'ansible/ee': [...oldTags.map(tag => ({ ...old, tag })), sibling],
+      'other/repo': [makeImage({ tag: 'untouched' })],
+    };
+    const registry = new MockRegistry({
+      repositories,
+      referrersMode: 'native',
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+    const original = (await index.listArtifacts()).find(
+      a => a.digest === old.digest,
+    )!;
+    const other = (await index.listArtifacts()).find(
+      a => a.digest === sibling.digest,
+    )!;
+    const client = (
+      index as unknown as { clients: Map<string, OCIClient> }
+    ).clients.get('mock')!;
+    registry.requests.length = 0;
+    return { index, registry, repositories, old, original, other, client };
+  }
+
+  it('discovers a sixth tag and unions aliases on existing digests', async () => {
+    const { index, repositories, original, old } = await fixture([
+      'v1',
+      'v2',
+      'v3',
+      'v4',
+      'v5',
+    ]);
+    repositories['ansible/ee'].push({ ...old, tag: 'v6' });
+    const result = await index.syncArtifact(original.ref);
+    expect(result.summary).toEqual({
+      addedTags: 1,
+      removedTags: 0,
+      movedTags: 0,
+      refreshedDigests: 2,
+    });
+    expect((await index.getArtifact(original.ref))?.tags).toEqual(
+      expect.arrayContaining(['v1', 'v2', 'v3', 'v4', 'v5', 'v6']),
+    );
+  });
+
+  it('transfers moved aliases to an existing digest and deletes an empty digest', async () => {
+    const { index, repositories, original, other } = await fixture([
+      'latest',
+      'v1',
+    ]);
+    const sibling = repositories['ansible/ee'][2];
+    repositories['ansible/ee'] = [
+      sibling,
+      { ...sibling, tag: 'latest' },
+      { ...sibling, tag: 'v1' },
+    ];
+    const result = await index.syncArtifact(original.ref);
+    expect(result.summary).toEqual({
+      addedTags: 0,
+      removedTags: 0,
+      movedTags: 2,
+      refreshedDigests: 1,
+    });
+    expect((await index.getArtifact(other.ref))?.tags).toEqual(
+      expect.arrayContaining(['stable', 'latest', 'v1']),
+    );
+    expect(await index.getArtifact(original.ref)).toBeUndefined();
+  });
+
+  it('removes deleted tags and drops their digest when empty, without touching another repository', async () => {
+    const { index, repositories, original, registry } = await fixture(['v1']);
+    repositories['ansible/ee'] = [];
+    const result = await index.syncArtifact(original.ref);
+    expect(result).toMatchObject({ status: 'completed', removed: true });
+    expect(result.summary).toEqual({
+      addedTags: 0,
+      removedTags: 2,
+      movedTags: 0,
+      refreshedDigests: 0,
+    });
+    expect(await index.getArtifact(original.ref)).toBeUndefined();
+    expect(
+      registry.requests.every(request =>
+        request.path.startsWith('/v2/ansible/ee/'),
+      ),
+    ).toBe(true);
+  });
+
+  it('inserts a new digest when a tag moves while preserving the old alias', async () => {
+    const { index, repositories, original, old } = await fixture();
+    const next = { ...old, tag: 'latest', digest: `sha256:${'c'.repeat(64)}` };
+    repositories['ansible/ee'] = [
+      { ...old, tag: 'v1' },
+      repositories['ansible/ee'][2],
+      next,
+    ];
+    const result = await index.syncArtifact(original.ref);
+    expect(result.summary).toMatchObject({ movedTags: 1, refreshedDigests: 3 });
+    expect((await index.getArtifact(original.ref))?.tags).toEqual(['v1']);
+    expect(
+      (await index.getArtifact(`mock/ansible/ee@${next.digest}`))?.tags,
+    ).toEqual(['latest']);
+  });
+
+  it('preserves established signing when optional signature metadata is unavailable', async () => {
+    const { index, original, client } = await fixture();
+    expect(original.signing.state).toBe('not-signed');
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Unavailable'));
+    await index.syncArtifact(original.ref);
+    expect((await index.getArtifact(original.ref))?.signing).toEqual(
+      original.signing,
+    );
+  });
+
+  it('refreshes unchanged repositories without requiring latest', async () => {
+    const { index, original } = await fixture(['v1']);
+    expect((await index.syncArtifact(original.ref)).summary).toEqual({
+      addedTags: 0,
+      removedTags: 0,
+      movedTags: 0,
+      refreshedDigests: 2,
+    });
+  });
+
+  it('retains every row when tag enumeration fails after yielding a tag', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    jest
+      .spyOn(client, 'listTags')
+      .mockImplementation(async function* interruptedTags() {
+        yield 'latest';
+        throw new Error('Enumeration interrupted');
+      });
+    expect(await index.syncArtifact(original.ref)).toMatchObject({
+      status: 'failed',
+      retainedPrevious: true,
+    });
+    expect(await index.listArtifacts()).toEqual(before);
+  });
+
+  it.each([429, 500, 503])(
+    'retains the entire previous index on latest HTTP %s',
+    async status => {
+      const { index, original, client } = await fixture();
+      const before = await index.listArtifacts();
+      jest
+        .spyOn(client, 'request')
+        .mockResolvedValue(new Response('sensitive-secret', { status }));
+      const result = await index.syncArtifact(original.ref);
+      expect(result).toMatchObject({
+        status: 'failed',
+        ref: original.ref,
+        retainedPrevious: true,
+        error: 'Artifact reconciliation failed.',
+      });
+      // DB reads return fresh objects; compare the persisted snapshot.
+      expect(await index.listArtifacts()).toEqual(before);
+      expect(
+        index.reconcileStateOf(await index.getArtifact(original.ref))?.ok,
+      ).toBe(false);
+    },
+  );
+
+  it('retains old rows on transport failure or a failed latest config read', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    const read = jest
+      .spyOn(client, 'getManifest')
+      .mockRejectedValueOnce(new Error('TLS sensitive-secret'));
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'failed',
+      error: 'Artifact reconciliation failed.',
+    });
+    read.mockRestore();
+    jest.spyOn(client, 'getConfigBlob').mockResolvedValue(undefined);
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'failed',
+      retainedPrevious: true,
+    });
+    // DB reads return fresh objects; compare the persisted snapshot.
+    expect(await index.listArtifacts()).toEqual(before);
+  });
+
+  it('retains old rows for malformed latest manifests', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    const latest = await client.getManifest('ansible/ee', 'latest');
+    jest
+      .spyOn(client, 'getManifest')
+      .mockResolvedValue({ ...latest, manifest: {} as never });
+    await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+      status: 'completed',
+      summary: { refreshedDigests: 0 },
+    });
+    // DB reads return fresh objects; compare the persisted snapshot.
+    expect(await index.listArtifacts()).toEqual(before);
+  });
+
+  it('rejects unknown and out-of-config rows without any network access', async () => {
+    const { index, original, registry } = await fixture();
+    await expect(
+      index.syncArtifact('https://attacker.invalid/anything'),
+    ).rejects.toBeInstanceOf(ArtifactSyncNotFoundError);
+    index.getRegistry('mock')!.connection.repositories = ['different/repo'];
+    await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
+      code: 'ARTIFACT_NOT_FOUND',
+    });
+    expect(registry.requests).toHaveLength(0);
+  });
+
+  it('keeps a same-digest row in place after a row sync', async () => {
+    const { index, original } = await fixture();
+    const orderBefore = (await index.listArtifacts()).map(a => a.ref);
+    const result = await index.syncArtifact(original.ref);
+    expect(result).toMatchObject({
+      status: 'completed',
+      ref: original.ref,
+    });
+    // A row sync must not reshuffle paginated rows: when the digest is
+    // unchanged the artifact keeps its position in the index.
+    expect((await index.listArtifacts()).map(a => a.ref)).toEqual(orderBefore);
+    expect(index.reconcileStateOf(original)?.ok).toBe(true);
+  });
+
+  it('does not override a newer full reconciliation with older artifact freshness', async () => {
+    const { index, original } = await fixture();
+    await index.syncArtifact(original.ref);
+    await index.refreshRegistry('mock');
+    expect(index.reconcileStateOf(await index.getArtifact(original.ref))).toBe(
+      index.reconcileStateFor('mock'),
+    );
+  });
+
+  it('keeps same-digest known inventory when optional metadata is unavailable', async () => {
+    const { index, original, client } = await fixture(['latest', 'v1'], true);
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Optional metadata unavailable'));
+    const result = await index.syncArtifact(original.ref);
+    expect(result.status).toBe('completed');
+    expect((await index.getArtifact(result.ref))?.manifest).toEqual(
+      original.manifest,
+    );
+    expect((await index.getArtifact(result.ref))?.contentsKnown).toBe(true);
+  });
+
+  it('does not copy old inventory to a newly resolved digest with optional metadata missing', async () => {
+    const { index, original, client, repositories } = await fixture(
+      ['latest', 'v1'],
+      true,
+    );
+    const moved = {
+      ...repositories['ansible/ee'][0],
+      digest: `sha256:${'e'.repeat(64)}`,
+    };
+    repositories['ansible/ee'] = [moved];
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Optional metadata unavailable'));
+    const result = await index.syncArtifact(original.ref);
+    expect(result.status).toBe('completed');
+    expect(result.ref).not.toBe(original.ref);
+    expect((await index.getArtifact(result.ref))?.manifest).toBeUndefined();
+    expect((await index.getArtifact(result.ref))?.contentsKnown).toBe(false);
+  });
+
+  it.each([null, 'invalid', [], { config: 'invalid' }])(
+    'retains old data for malformed core config %p',
+    async config => {
+      const { index, original, client } = await fixture();
+      const before = await index.listArtifacts();
+      jest.spyOn(client, 'getConfigBlob').mockResolvedValue(config as never);
+      await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
+        status: 'completed',
+        summary: { refreshedDigests: 0 },
+      });
+      // DB reads return fresh objects; compare the persisted snapshot.
+      expect(await index.listArtifacts()).toEqual(before);
+    },
+  );
+
+  it('keeps only the invalid digest unchanged and refreshes its healthy sibling', async () => {
+    const { index, original, other, client, repositories } = await fixture();
+    const getManifest = client.getManifest.bind(client);
+    jest
+      .spyOn(client, 'getManifest')
+      .mockImplementation(async (repository, digest) => {
+        const artifact = await getManifest(repository, digest);
+        return digest === original.digest
+          ? { ...artifact, manifest: {} as never }
+          : artifact;
+      });
+    repositories['ansible/ee'].push({
+      ...repositories['ansible/ee'][2],
+      tag: 'new-alias',
+    });
+    expect(await index.syncArtifact(original.ref)).toMatchObject({
+      status: 'completed',
+      summary: { refreshedDigests: 1, addedTags: 1 },
+    });
+    expect(await index.getArtifact(original.ref)).toEqual(original);
+    expect((await index.getArtifact(other.ref))?.tags).toContain('new-alias');
+  });
+});
+
+describe('inventory search', () => {
+  it('searches all indexed fields before counting and pagination, combining filters and treating wildcards literally', async () => {
+    const db = await createTestDB();
+    try {
+      const store = new ContentStore([], db, silent);
+      for (let index = 0; index < 12; index++) {
+        await db('artifacts').insert({
+          ref: `ref-${index}`,
+          type: 'execution-environment',
+          registry: 'Source',
+          repository: index === 11 ? 'special_100%' : `repo-${index}`,
+          digest: `sha256:${index}`,
+          tags: '["Stable"]',
+          pull_reference: `ref-${index}`,
+          contents_known: true,
+          classification: '{"type":"execution-environment"}',
+          manifest:
+            '{"collections":[{"namespace":"Ansible","name":"Posix","version":"1.0.0"}]}',
+        });
+      }
+      for (const search of [
+        'SOURCE',
+        'stable',
+        'ANSIBLE.POSIX',
+        'execution-environment',
+        'sha256:',
+      ]) {
+        const result = await store.listArtifactsPaginated({
+          search,
+          limit: 10,
+          offset: 10,
+        });
+        expect(result.totalCount).toBe(12);
+        expect(result.items).toHaveLength(2);
+      }
+      const queries: string[] = [];
+      db.on('query', query => queries.push(query.sql));
+      const summaries = await store.listArtifactSummaries(
+        'execution-environment',
+        {
+          search: 'ANSIBLE.POSIX',
+          collection: 'Ansible.Posix',
+        },
+      );
+      expect(summaries).toHaveLength(12);
+      expect(summaries.every(artifact => artifact.manifest === undefined)).toBe(
+        true,
+      );
+      expect(queries[0].split(' from ')[0]).not.toMatch(/manifest|\*/);
+      expect(
+        (
+          await store.listArtifactsPaginated({
+            search: 'special_100%',
+            limit: 10,
+            offset: 0,
+          })
+        ).totalCount,
+      ).toBe(1);
+      expect(
+        (
+          await store.listArtifactsPaginated({
+            search: 'stable',
+            registry: 'absent',
+            limit: 10,
+            offset: 0,
+          })
+        ).totalCount,
+      ).toBe(0);
+      expect(
+        await store.listArtifacts('execution-environment', {
+          search: 'special',
+        }),
+      ).toHaveLength(1);
+    } finally {
+      await db.destroy();
+    }
+  });
+});
+
+describe('drift detection regression coverage', () => {
+  it('reports no change when the registry matches the index', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([]);
+  });
+
+  it('detects a newly added tag', async () => {
+    const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [v1] };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    repositories['ansible/ee'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toContain('ansible/ee:v2 added');
+  });
+
+  it('detects a tag moved to different content', async () => {
+    const v1 = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [v1] };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    // Same tag, different digest — the case that makes tag-keyed caching unsafe.
+    const moved = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    moved.digest = `sha256:${'moved'.padEnd(64, '9')}`;
+    repositories['ansible/ee'] = [moved];
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toMatch(/ansible\/ee:v1 moved/);
+  });
+
+  it('detects a removed tag', async () => {
+    const repositories = {
+      'ansible/ee': [
+        makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+        makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+      ],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    repositories['ansible/ee'] = [repositories['ansible/ee'][0]];
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(true);
+    expect(drift.details.join()).toContain('ansible/ee:v2 removed');
+  });
+
+  it('ignores referrer fallback tags, which are artifacts about images', async () => {
+    const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [image] },
+      referrersMode: 'tag-fallback',
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const drift = await index.detectDrift('mock');
+    expect(drift.details.join()).not.toContain('sha256-');
+  });
+
+  it('treats a failed check as "no change", not as everything being removed', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    // Break the transport the way an outage would.
+    const clients = (index as unknown as { clients: Map<string, unknown> })
+      .clients;
+    (clients.get('mock') as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(new Error('connection refused'));
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details.join()).toMatch(/check failed/);
+  });
+
+  it('refreshes only when drift is found', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const quiet = await index.pollRegistry('mock');
+    expect(quiet.refreshed).toBe(false);
+
+    repositories['ansible/ee'].push(makeImage({ tag: 'v2' }));
+    const noisy = await index.pollRegistry('mock');
+
+    expect(noisy.changed).toBe(true);
+    expect(noisy.refreshed).toBe(true);
+    // The new image carries no EE label, so it is catalogued as a plain image.
+    expect(await index.listArtifacts('oci-image')).toHaveLength(1);
+  });
+});
+
+describe('digest cache regression coverage', () => {
+  it('avoids re-reading unchanged content on a second refresh', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      },
+    });
+    const index = await storeOver(registry);
+
+    await index.refreshRegistry('mock');
+    const afterFirst = index.cacheStats.misses;
+
+    registry.reset();
+    await index.refreshRegistry('mock');
+
+    expect(index.cacheStats.hits).toBeGreaterThan(0);
+    // No new misses: everything digest-addressed was already cached.
+    expect(index.cacheStats.misses).toBe(afterFirst);
+    expect(registry.countRequests('/blobs/')).toBe(0);
+  });
+});
+
+describe('error cause traversal is bounded regression coverage', () => {
+  /**
+   * A cause chain is untrusted input: a registry's transport can produce — or
+   * a hostile one can deliberately produce — a cycle or an arbitrarily deep
+   * chain. These tests drive reconciliation with such failures, so they prove
+   * the walk terminates as well as what it reports.
+   */
+  async function indexFailingWith(error: unknown): Promise<ContentStore> {
+    const db = await createTestDB();
+    const index = new ContentStore(
+      [connection()] as never,
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl = () =>
+      Promise.reject(error);
+    return index;
+  }
+
+  it('unwraps a wrapped chain to the real message', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+
+    const outcome = await (
+      await indexFailingWith(wrapped)
+    ).refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('fetch failed');
+    expect(outcome.error).toContain('unable to get local issuer certificate');
+    expect(outcome.error).not.toContain('truncated');
+  });
+
+  it('terminates on a self-referencing cause', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+
+    const outcome = await (
+      await indexFailingWith(cyclic)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('loop');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('terminates on a two-object cause cycle', async () => {
+    const alpha: Error & { cause?: unknown } = new Error('alpha');
+    const beta: Error & { cause?: unknown } = new Error('beta');
+    alpha.cause = beta;
+    beta.cause = alpha;
+
+    const outcome = await (
+      await indexFailingWith(alpha)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('alpha');
+    expect(outcome.error).toContain('beta');
+    expect(outcome.error).toContain('truncated');
+  });
+
+  it('caps an excessively deep chain', async () => {
+    const head: Error & { cause?: unknown } = new Error('depth-0');
+    let tail = head;
+    for (let depth = 1; depth < 50; depth++) {
+      const next: Error & { cause?: unknown } = new Error(`depth-${depth}`);
+      tail.cause = next;
+      tail = next;
+    }
+
+    const outcome = await (
+      await indexFailingWith(head)
+    ).refreshRegistry('mock');
+
+    expect(outcome.error).toContain('depth-0');
+    expect(outcome.error).toContain('truncated');
+    expect(outcome.error).not.toContain('depth-49');
+  });
+
+  it('describes a non-Error rejection value', async () => {
+    const failing = await indexFailingWith('gateway gone');
+    const outcome = await failing.refreshRegistry('mock');
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.error).toContain('gateway gone');
+  });
+
+  it.each([
+    [{}, 'unknown error'],
+    [{ message: 42 }, 'unknown error'],
+    [new Error(''), 'unknown error'],
+    [null, 'null'],
+    [undefined, 'undefined'],
+    [42, '42'],
+    [false, 'false'],
+  ])(
+    'describes rejection %p without default object stringification',
+    async (error, message) => {
+      const outcome = await (
+        await indexFailingWith(error)
+      ).refreshRegistry('mock');
+      expect(outcome.ok).toBe(false);
+      expect(outcome.error).toBe(`capability probe failed: ${message}`);
+      expect(outcome.error).not.toContain('[object Object]');
+    },
+  );
+
+  it('reports the cause chain when a drift check fails', async () => {
+    const wrapped: Error & { cause?: unknown } = new Error('fetch failed');
+    wrapped.cause = new Error('unable to get local issuer certificate');
+    const index = await indexFailingWith(wrapped);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: fetch failed: unable to get local issuer certificate',
+    ]);
+    expect(index.driftStateFor('mock')).toEqual(drift);
+  });
+
+  it('describes non-Error drift-check failures', async () => {
+    const index = await indexFailingWith('gateway gone');
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual(['check failed: gateway gone']);
+  });
+
+  it('bounds cyclic drift-check failures', async () => {
+    const cyclic: Error & { cause?: unknown } = new Error('loop');
+    cyclic.cause = cyclic;
+    const index = await indexFailingWith(cyclic);
+
+    const drift = await index.detectDrift('mock');
+
+    expect(drift.changed).toBe(false);
+    expect(drift.details).toEqual([
+      'check failed: loop: (cause chain truncated)',
+    ]);
+  });
+});
+
+describe('signature detection', () => {
+  const COSIGN_TYPE = 'application/vnd.dev.cosign.simplesigning.v1+json';
+  const hex = 'a'.repeat(64);
+
+  async function indexOverRepositories(
+    repositories: Record<string, ReturnType<typeof makeImage>[]>,
+    referrersMode: 'native' | 'tag-fallback' | 'none' = 'native',
+  ) {
+    return storeOver(new MockRegistry({ repositories, referrersMode }));
+  }
+
+  it('reports signed from a cosign signature referrer', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    image.referrers = [
+      {
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        digest: `sha256:${'c'.repeat(64)}`,
+        size: 1042,
+        artifactType: COSIGN_TYPE,
+      },
+    ];
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    const artifact = (await index.listArtifacts()).find(
+      a => a.digest === image.digest,
+    )!;
+    expect(artifact.signing).toEqual({
+      state: 'signed',
+      evidence: ['cosign signature referrer found'],
+    });
+  });
+
+  it('reports signed from a digest-derived .sig tag when referrers are unavailable', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    // The signature tag names the signed image digest; its own content is
+    // irrelevant — it is skipped, never indexed.
+    const signatureTag = makeImage({ tag: `sha256-${hex}.sig` });
+    const index = await indexOverRepositories(
+      { 'ansible/ee': [image, signatureTag] },
+      'none',
+    );
+    await index.refreshRegistry('mock');
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].signing).toEqual({
+      state: 'signed',
+      evidence: [
+        'no cosign signature referrer',
+        'digest-derived .sig tag found',
+      ],
+    });
+  });
+
+  it('reports not-signed only when both schemes could be checked', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toEqual({
+      state: 'not-signed',
+      evidence: ['no cosign signature referrer', 'no digest-derived .sig tag'],
+    });
+  });
+
+  it('reports undetermined for a sigstore bundle referrer', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    image.digest = `sha256:${hex}`;
+    // Cosign 3 pushes Sigstore bundles; the artifact type is shared with
+    // attestations, so presence alone cannot claim a signature.
+    image.referrers = [
+      {
+        mediaType: 'application/vnd.oci.image.manifest.v1+json',
+        digest: `sha256:${'b'.repeat(64)}`,
+        size: 1042,
+        artifactType: 'application/vnd.dev.sigstore.bundle.v0.3+json',
+      },
+    ];
+    const index = await indexOverRepositories({ 'ansible/ee': [image] });
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toEqual({
+      state: 'undetermined',
+      evidence: [
+        'no cosign signature referrer',
+        'no digest-derived .sig tag',
+        'sigstore bundle referrer present; not identifiable as a signature',
+      ],
+    });
+  });
+
+  it('reports undetermined when a scheme could not be consulted', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const index = await indexOverRepositories(
+      { 'ansible/ee': [image] },
+      'none',
+    );
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing).toMatchObject({
+      state: 'undetermined',
+    });
+  });
+
+  it('never indexes .sig tags as artifacts', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const signatureTag = makeImage({ tag: `sha256-${hex}.sig` });
+    const index = await indexOverRepositories({
+      'ansible/ee': [image, signatureTag],
+    });
+    await index.refreshRegistry('mock');
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].digest).toBe(image.digest);
+  });
+
+  it('a row sync does not erase an established signing state', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [image] };
+    const index = await indexOverRepositories(repositories);
+    await index.refreshRegistry('mock');
+    expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
+    // Both full and row sync enumerate signatures and preserve the verdict.
+    await index.syncArtifact((await index.listArtifacts())[0].ref);
+    expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
+  });
+});
+
+describe('enumeration fail-soft behavior', () => {
+  // No explicit repository list: discovery depends on catalog enumeration,
+  // the configuration the startup race leaves unavailable.
+  const enumerated = (): RegistryConnection => ({
+    name: 'mock',
+    url: 'https://mock.registry',
+    auth: { type: 'anonymous' },
+  });
+
+  it('fails soft when enumeration is unavailable, then recovers by re-probing', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('latest', { [EE_LABEL]: 'true' })],
+    };
+    // A slow startup: the capability probe cannot reach _catalog, so
+    // catalogEnumeration reads false and no repository list is configured.
+    const registry = new MockRegistry({ repositories, catalogEnabled: false });
+    const index = await storeOver(registry, enumerated());
+    const first = await index.refreshRegistry('mock');
+    expect(first.ok).toBe(false);
+    expect(first.error).toMatch(/no repositories configured for mock/);
+    // The pessimistic probe must not be pinned for the process lifetime.
+    const states = (
+      index as unknown as {
+        registries: Map<string, { capabilities?: unknown }>;
+      }
+    ).registries;
+    expect(states.get('mock')?.capabilities).toBeUndefined();
+    // Enumeration returns; the next scheduled refresh recovers without a
+    // restart.
+    (
+      registry as unknown as { options: { catalogEnabled: boolean } }
+    ).options.catalogEnabled = true;
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+      discovered: 1,
+    });
+  });
+
+  it('keeps previously indexed artifacts when enumeration stays unavailable', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('latest', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const index = await storeOver(registry, enumerated());
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+      discovered: 1,
+    });
+    // The catalog goes away mid-process — the failure must retain, not wipe.
+    // Catalog enumeration itself now fails, while every other request still
+    // succeeds, which is exactly a registry that lost its _catalog endpoint.
+    const clients = (
+      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    const client = clients.get('mock')!;
+    const healthyFetch = client.fetchImpl as (
+      input: unknown,
+      init: unknown,
+    ) => Promise<unknown>;
+    (client as unknown as { fetchImpl: unknown }).fetchImpl = (
+      input: unknown,
+      init: unknown,
+    ) =>
+      String(input).includes('/v2/_catalog')
+        ? Promise.reject(new Error('catalog endpoint gone'))
+        : healthyFetch(input, init);
+    await expect(index.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    expect(await index.listArtifacts()).toHaveLength(1);
+  });
+});
+
+describe('cosign attachment tags', () => {
+  it('ignores cosign attachments during indexing and drift detection', async () => {
+    const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const hex = 'a'.repeat(64);
+    image.digest = `sha256:${hex}`;
+    const repositories = {
+      'ansible/ee': [
+        image,
+        makeImage({ tag: `sha256-${hex}.att` }),
+        makeImage({ tag: `sha256-${hex}.sbom` }),
+      ],
+    };
+    const registry = new MockRegistry({ repositories });
+    const index = await storeOver(registry);
+    await index.refreshRegistry('mock');
+
+    const artifacts = await index.listArtifacts();
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0].digest).toBe(image.digest);
+    expect(artifacts[0].signing?.state).not.toBe('signed');
+    expect((await index.detectDrift('mock')).changed).toBe(false);
+
+    repositories['ansible/ee'] = [image];
+    expect((await index.detectDrift('mock')).changed).toBe(false);
+    expect(registry.requests.map(r => r.path).join(' ')).not.toMatch(
+      /\.att|\.sbom/,
+    );
   });
 });

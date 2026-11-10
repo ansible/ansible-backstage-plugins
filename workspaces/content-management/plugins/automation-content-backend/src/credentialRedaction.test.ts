@@ -96,6 +96,10 @@ function seededStore(_logs: string[] = []): ContentStore {
       signals: [`label ${EE_LABEL}=true`, `config blob mentions ${SECRET}`],
       readsContentManifest: true,
     },
+    signing: {
+      state: 'not-signed',
+      evidence: ['no cosign signature referrer'],
+    },
     manifest: {
       schemaVersion: '1.0.0',
       collections: [
@@ -166,6 +170,8 @@ function seededStore(_logs: string[] = []): ContentStore {
     cacheStats: { hits: 0, misses: 0, entries: 0 },
     listArtifacts: async (type?: string) =>
       !type || type === artifact.type ? [artifact] : [],
+    listArtifactSummaries: async (type?: string) =>
+      !type || type === artifact.type ? [artifact] : [],
     listArtifactsPaginated: async (opts?: { type?: string }) => {
       const filtered =
         !opts?.type || opts.type === artifact.type ? [artifact] : [];
@@ -189,6 +195,19 @@ function seededStore(_logs: string[] = []): ContentStore {
       },
     ],
     countsFor: () => ({ collections: 1, plugins: 1 }),
+    repositoryTags: async () => [],
+    reconcileStateOf: () => ({
+      at: '2026-01-01T00:00:00.000Z',
+      ok: false,
+      error: redactor.redact(failureFor('basic-reg')),
+      artifacts: 1,
+    }),
+    syncArtifact: async () => ({
+      status: 'completed',
+      ref: REF,
+      tag: 'latest',
+      retainedPrevious: false,
+    }),
     refreshRegistry: async (name: string) => ({
       discovered: 0,
       ok: false,
@@ -225,6 +244,11 @@ async function appWith(store: ContentStore, logs: string[] = []) {
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
       } as never,
+      // Reads and syncs are authorized; the gating itself has coverage in
+      // router.test.ts.
+      permissions: {
+        authorize: async () => [{ result: 'ALLOW' as const }],
+      } as never,
     }),
   );
   return app;
@@ -247,6 +271,14 @@ const CASES: RouteCase[] = [
     },
   },
   {
+    route: 'GET /repositories/:registry/:repository(*)/tags',
+    run: app => request(app).get('/repositories/basic-reg/demo/ee/tags'),
+    check: res => {
+      expect(res.status).toBe(200);
+      expect(JSON.stringify(res.body)).not.toContain('secret');
+    },
+  },
+  {
     route: 'GET /registries',
     run: app => request(app).get('/registries'),
     check: res => {
@@ -259,6 +291,17 @@ const CASES: RouteCase[] = [
         'https://mock.registry',
         'https://mock.registry',
       ]);
+    },
+  },
+  {
+    route: 'POST /artifacts/:ref/sync',
+    run: app => request(app).post(`/artifacts/${encodeURIComponent(REF)}/sync`),
+    check: res => {
+      expect(res.status).toBe(202);
+      // A clean sync outcome carries no diagnostic text at all; the redactor
+      // boundary is still exercised because every JSON response passes
+      // through it on the way out.
+      expect(JSON.stringify(res.body)).not.toContain('secret');
     },
   },
   {

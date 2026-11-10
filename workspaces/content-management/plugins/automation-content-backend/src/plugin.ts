@@ -30,6 +30,7 @@ export const automationContentPlugin = createBackendPlugin({
         logger: coreServices.logger,
         httpRouter: coreServices.httpRouter,
         httpAuth: coreServices.httpAuth,
+        permissions: coreServices.permissions,
         scheduler: coreServices.scheduler,
       },
       async init({
@@ -38,6 +39,7 @@ export const automationContentPlugin = createBackendPlugin({
         logger,
         httpRouter,
         httpAuth,
+        permissions,
         scheduler,
       }) {
         const knex = await database.getClient();
@@ -61,7 +63,14 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ db: store, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({
+            db: store,
+            logger,
+            httpAuth,
+            permissions,
+          }),
+        );
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).

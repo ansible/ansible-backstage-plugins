@@ -1,41 +1,33 @@
 import {
-  configApiRef,
-  createApiFactory,
   createPlugin,
   createRoutableExtension,
-  discoveryApiRef,
-  fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { AutomationContentClient, automationContentApiRef } from './api';
-import { rootRouteRef } from './routes';
+import { automationContentApiFactory } from './apis';
+import { eeRouteRef } from './routes';
 
 export const automationContentPlugin = createPlugin({
   id: 'automation-content',
-  routes: {
-    root: rootRouteRef,
-  },
-  apis: [
-    createApiFactory({
-      api: automationContentApiRef,
-      deps: {
-        discoveryApi: discoveryApiRef,
-        fetchApi: fetchApiRef,
-        configApi: configApiRef,
-      },
-      factory: ({ discoveryApi, fetchApi }) =>
-        new AutomationContentClient({ discoveryApi, fetchApi }),
-    }),
-  ],
+  apis: [automationContentApiFactory],
 });
 
-/** Mounted by `dynamicRoutes` config — by default at /automation-content. */
-export const AutomationContentPage = automationContentPlugin.provide(
+/**
+ * The only legacy routable extension, and the only mount that binds the EE
+ * route refs its pages consume.
+ *
+ * There is deliberately no root-level "AutomationContentPage" extension: a
+ * host mounting only a plugin root leaves `eeRouteRef`/`eeDetailsRouteRef`
+ * unbound, and the pages inside crash on `useRouteRef` instead of rendering.
+ * Hosts mount this page (as the local app and the janus example do) or use
+ * the native entry point, whose `ee` PageBlueprint declares the same ref at
+ * `/content/ee`.
+ */
+export const AutomationContentEEPage = automationContentPlugin.provide(
   createRoutableExtension({
-    name: 'AutomationContentPage',
+    name: 'AutomationContentEEPage',
     component: () =>
-      import('./components/AutomationContentPage').then(
-        m => m.AutomationContentPage,
+      import('./components/ExecutionEnvironments/EERoutesPage').then(
+        m => m.EERoutesPage,
       ),
-    mountPoint: rootRouteRef,
+    mountPoint: eeRouteRef,
   }),
 );

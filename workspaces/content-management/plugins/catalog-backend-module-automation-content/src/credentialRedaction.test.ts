@@ -196,6 +196,11 @@ describe('credential redaction in the catalog provider', () => {
         'ansible-collection',
     );
     expect(collection).toBeDefined();
+    expect(collection!.spec).toMatchObject({
+      collection_namespace: 'demo',
+      collection_name: 'net',
+      collection_full_name: 'demo.net',
+    });
     expect(collection!.metadata.description).toContain('[REDACTED]');
     expect(collection!.metadata.description).toContain('networking collection');
     expect(collection!.metadata.links).toBeUndefined();

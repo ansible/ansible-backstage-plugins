@@ -1,0 +1,33 @@
+.pageFrame {
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--bui-space-3) var(--bui-space-6) var(--bui-space-3) 0;
+}
+
+.pageSurface {
+  /* Page-local counterpart to Ran's shell-scoped surface token. */
+  --rhdh-shell-surface: var(--bui-bg-neutral-1, #ffffff);
+  background-color: var(--rhdh-shell-surface);
+  min-width: 0;
+  border-radius: var(--bui-radius-5);
+}
+
+:global([data-theme-mode='dark']) .pageSurface {
+  /* Match the user-measured surface without changing the app-wide palette. */
+  --rhdh-shell-surface: #2d2d2d;
+}
+
+.pageContent {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .pageFrame {
+    padding-right: var(--bui-space-3);
+    padding-block: var(--bui-space-2);
+  }
+
+  .pageSurface {
+    border-radius: var(--bui-radius-3);
+  }
+}

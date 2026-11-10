@@ -9,6 +9,7 @@ import {
   CredentialRedactor,
   DigestCacheStats,
   ImageManifest,
+  ImageConfig,
   MemoryDigestCache,
   logSafeText,
   OCIClient,
@@ -48,10 +49,42 @@ export interface IndexedArtifact {
   repository: string;
   digest: string;
   tags: string[];
+  /** Registry Last-Modified timestamps keyed by tag, when available. */
+  tagTimestamps?: Record<string, string>;
   pullReference: string;
   contentsKnown: boolean;
   classification: IdentifiedType;
+  /**
+   * Signature presence in three states. Cosign 3 writes signatures as OCI
+   * referrers while older cosign and some registries use digest-derived
+   * `.sig` tags, so a tool that walks only one scheme finds nothing and
+   * calls the image unsigned — "not found" is not "not signed".
+   */
+  signing: SigningState;
   manifest?: AnsibleContentManifest;
+}
+
+/** What was checked and what was found; never a trust verdict. */
+export interface SigningState {
+  state: 'signed' | 'not-signed' | 'undetermined';
+  evidence: string[];
+}
+
+export interface ArtifactListOptions {
+  search?: string;
+  registry?: string;
+  collection?: string;
+  contentsKnown?: boolean;
+  sort?: 'repository' | 'registry' | 'sourceType' | 'lastReconciledAt';
+  order?: 'asc' | 'desc';
+}
+
+/** One tag of one repository, resolved to the digest the index last read. */
+export interface RepositoryTag {
+  tag: string;
+  digest: string;
+  ref: string;
+  lastModified?: string;
 }
 
 export interface IndexedItem {
@@ -108,8 +141,49 @@ export interface PaginatedResult<T> {
   totalCount: number;
 }
 
+/** Outcome of reconciling an indexed row's entire repository. */
+export interface ArtifactSyncResult {
+  status: 'completed' | 'failed';
+  /** No indexed digests remain for this repository after reconciliation. */
+  removed?: boolean;
+  ref: string;
+  /** Legacy field retained for older clients; sync now covers all tags. */
+  tag: 'latest';
+  summary?: {
+    addedTags: number;
+    removedTags: number;
+    movedTags: number;
+    refreshedDigests: number;
+  };
+  retainedPrevious: boolean;
+  lastReconciledAt?: string;
+  error?: string;
+}
+
+export class ArtifactSyncNotFoundError extends Error {
+  constructor(readonly code: 'ARTIFACT_NOT_FOUND' | 'LATEST_TAG_NOT_FOUND') {
+    super(
+      code === 'LATEST_TAG_NOT_FOUND'
+        ? 'Latest tag not found.'
+        : 'Indexed artifact not found.',
+    );
+  }
+}
+
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
+const COSIGN_ATTACHMENT_TAG = /^sha256-[0-9a-f]{64}\.(?:att|sbom)$/;
+/** Cosign tag-based signatures: the tag name carries the signed image digest. */
+const SIGNATURE_TAG = /^sha256-([0-9a-f]{64})\.sig$/;
+/** Cosign OCI-referrer signatures declare this artifact type. */
+const COSIGN_SIGNATURE_ARTIFACT_TYPE =
+  'application/vnd.dev.cosign.simplesigning.v1+json';
+/**
+ * Sigstore bundles — cosign 3's default — share their artifact type with
+ * attestations, so a bundle referrer proves neither a signature nor its
+ * absence. Versioned (`…bundle.v0.1`, `v0.2`, `v0.3`), hence the prefix.
+ */
+const SIGSTORE_BUNDLE_PREFIX = 'application/vnd.dev.sigstore.bundle.';
 
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
@@ -118,7 +192,10 @@ export function itemKey(artifactRef: string, fqcn: string): string {
 
 /** Flatten an artifact's manifest into content items. */
 function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
-  const items: IndexedItem[] = [];
+  // One row per key: a manifest can list the same FQCN more than once
+  // (the in-memory index this replaces keyed a Map, last write winning),
+  // and the database's unique primary key must not reject a re-listing.
+  const byKey = new Map<string, IndexedItem>();
   for (const collection of artifact.manifest?.collections ?? []) {
     const collectionFqcn = `${collection.namespace}.${collection.name}`;
     const base = {
@@ -128,7 +205,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     };
 
     for (const plugin of collection.plugins) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, plugin.fqcn), {
         ...base,
         key: itemKey(artifact.ref, plugin.fqcn),
         fqcn: plugin.fqcn,
@@ -141,7 +218,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const role of collection.roles) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, role.fqcn), {
         ...base,
         key: itemKey(artifact.ref, role.fqcn),
         fqcn: role.fqcn,
@@ -152,7 +229,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const playbook of collection.playbooks) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, playbook.fqcn), {
         ...base,
         key: itemKey(artifact.ref, playbook.fqcn),
         fqcn: playbook.fqcn,
@@ -162,7 +239,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
     for (const eda of collection.edaPlugins) {
-      items.push({
+      byKey.set(itemKey(artifact.ref, eda.fqcn), {
         ...base,
         key: itemKey(artifact.ref, eda.fqcn),
         fqcn: eda.fqcn,
@@ -173,7 +250,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
   }
-  return items;
+  return [...byKey.values()];
 }
 
 /**
@@ -186,6 +263,7 @@ export class ContentStore {
   private readonly registries = new Map<string, RegistryState>();
   private readonly clients = new Map<string, OCIClient>();
   private readonly reconcile = new Map<string, ReconcileState>();
+  private readonly artifactReconcile = new Map<string, ReconcileState>();
   private readonly drift = new Map<string, DriftState>();
   private readonly cache = new MemoryDigestCache();
   private lastRefreshed?: string;
@@ -243,6 +321,206 @@ export class ContentStore {
     return this.reconcile.get(registry);
   }
 
+  /**
+   * Freshness for an already-resolved row. Sorting and per-row views call
+   * this directly: resolving an artifact by ref is a linear scan, and doing
+   * it once per row turns a sort into a quadratic walk. A partial read
+   * never advances sibling rows or registry freshness.
+   */
+  reconcileStateOf(
+    artifact: IndexedArtifact | undefined,
+  ): ReconcileState | undefined {
+    if (!artifact) return undefined;
+    const full = this.reconcile.get(artifact.registry);
+    const partial = this.artifactReconcile.get(artifact.ref);
+    return partial && (!full || partial.at >= full.at) ? partial : full;
+  }
+
+  /** Reconcile current tags for exactly one indexed repository. */
+  async syncArtifact(ref: string): Promise<ArtifactSyncResult> {
+    const original = await this.getArtifact(ref);
+    const state = original && this.registries.get(original.registry);
+    const client = original && this.clients.get(original.registry);
+    const repository = original?.repository;
+    const connection = state?.connection;
+    const inScope =
+      connection &&
+      repository &&
+      (connection.repositories?.length
+        ? connection.repositories.includes(repository)
+        : !connection.namespaces?.length ||
+          connection.namespaces.some(ns => repository.startsWith(`${ns}/`)));
+    if (!original || !client || !inScope)
+      throw new ArtifactSyncNotFoundError('ARTIFACT_NOT_FOUND');
+
+    try {
+      // Complete enumeration and inspection before touching the persisted index.
+      const unchanged = new Set<string>();
+      const targets = await this.scanRepository(
+        original.registry,
+        original.repository,
+        client,
+        true,
+        unchanged,
+      );
+      const summary = {
+        addedTags: 0,
+        removedTags: 0,
+        movedTags: 0,
+        refreshedDigests: targets.length - unchanged.size,
+      };
+      await this.db.transaction(async trx => {
+        const rows = await trx('artifacts')
+          .where({
+            registry: original.registry,
+            repository: original.repository,
+          })
+          .select('*');
+        const existingByRef = new Map(
+          rows.map(row => {
+            const artifact = this.rowToArtifact(row);
+            return [artifact.ref, artifact] as const;
+          }),
+        );
+        const oldTags = new Map(
+          rows.flatMap(row => {
+            const artifact = this.rowToArtifact(row);
+            return artifact.tags.map(tag => [tag, artifact.digest] as const);
+          }),
+        );
+        const newTags = new Map(
+          targets.flatMap(target =>
+            target.tags.map(tag => [tag, target.digest] as const),
+          ),
+        );
+        for (const [tag, digest] of newTags) {
+          if (!oldTags.has(tag)) summary.addedTags++;
+          else if (oldTags.get(tag) !== digest) summary.movedTags++;
+        }
+        for (const tag of oldTags.keys())
+          if (!newTags.has(tag)) summary.removedTags++;
+        const surviving = new Set(targets.map(target => target.ref));
+        for (const previous of existingByRef.values()) {
+          if (!surviving.has(previous.ref)) {
+            await trx('items').where('artifact_ref', previous.ref).del();
+            await trx('artifacts').where('ref', previous.ref).del();
+          }
+        }
+        for (const target of targets) {
+          if (unchanged.has(target.ref)) continue;
+          const existing = existingByRef.get(target.ref);
+          if (!target.manifest && existing?.manifest) {
+            target.manifest = existing.manifest;
+            target.contentsKnown = existing.contentsKnown;
+          }
+          if (target.signing.state === 'undetermined' && existing?.signing) {
+            target.signing = existing.signing;
+          }
+          await trx('items').where('artifact_ref', target.ref).del();
+          // A same-ref row keeps its position: UPDATE in place rather than
+          // delete-and-reinsert, so a row sync never reshuffles paginated rows.
+          // A newly resolved digest is inserted.
+          if (existing) {
+            await trx('artifacts')
+              .where('ref', target.ref)
+              .update({
+                type: target.type,
+                registry: target.registry,
+                repository: target.repository,
+                digest: target.digest,
+                tags: JSON.stringify(target.tags),
+                tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+                pull_reference: target.pullReference,
+                contents_known: target.contentsKnown,
+                classification: JSON.stringify(target.classification),
+                signing: target.signing ? JSON.stringify(target.signing) : null,
+                manifest: target.manifest
+                  ? JSON.stringify(target.manifest)
+                  : null,
+              });
+          } else {
+            await trx('artifacts').insert({
+              ref: target.ref,
+              type: target.type,
+              registry: target.registry,
+              repository: target.repository,
+              digest: target.digest,
+              tags: JSON.stringify(target.tags),
+              tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+              pull_reference: target.pullReference,
+              contents_known: target.contentsKnown,
+              classification: JSON.stringify(target.classification),
+              signing: target.signing ? JSON.stringify(target.signing) : null,
+              manifest: target.manifest
+                ? JSON.stringify(target.manifest)
+                : null,
+            });
+          }
+          for (const item of flattenItems(target)) {
+            await trx('items').insert({
+              key: item.key,
+              fqcn: item.fqcn,
+              name: item.name,
+              type: item.type,
+              collection: item.collection,
+              collection_version: item.collectionVersion,
+              short_description: item.shortDescription ?? null,
+              version_added: item.versionAdded ?? null,
+              deprecated: item.deprecated ?? false,
+              artifact_ref: item.artifactRef,
+              detail: item.detail ? JSON.stringify(item.detail) : null,
+            });
+          }
+        }
+      });
+      for (const knownRef of this.artifactReconcile.keys()) {
+        if (!(await this.getArtifact(knownRef)))
+          this.artifactReconcile.delete(knownRef);
+      }
+      const at = new Date().toISOString();
+      for (const target of targets) {
+        if (unchanged.has(target.ref)) continue;
+        this.artifactReconcile.set(target.ref, {
+          at,
+          ok: true,
+          artifacts: targets.length,
+        });
+      }
+      const resultRef =
+        targets.find(target => target.ref === ref)?.ref ??
+        targets.find(target => target.tags.includes('latest'))?.ref ??
+        targets[0]?.ref ??
+        ref;
+      return {
+        status: 'completed',
+        removed: targets.length === 0,
+        ref: resultRef,
+        summary,
+        tag: 'latest',
+        retainedPrevious: false,
+        lastReconciledAt: at,
+      };
+    } catch (error) {
+      if (error instanceof ArtifactSyncNotFoundError) throw error;
+      const at = new Date().toISOString();
+      this.artifactReconcile.set(ref, { at, ok: false, artifacts: 1 });
+      this.logger.warn(
+        `[${original.registry}] artifact sync failed: ${logSafeText(
+          this.redactor.redactErrorText(error),
+        )}`,
+      );
+      return {
+        status: 'failed',
+        removed: false,
+        ref,
+        tag: 'latest',
+        retainedPrevious: true,
+        lastReconciledAt: at,
+        error: 'Artifact reconciliation failed.',
+      };
+    }
+  }
+
   driftStateFor(registry: string): DriftState | undefined {
     return this.drift.get(registry);
   }
@@ -255,10 +533,61 @@ export class ContentStore {
     return this.cache.stats;
   }
 
-  async listArtifacts(type?: string): Promise<IndexedArtifact[]> {
-    const query = this.artifactQuery({ type });
+  async listArtifacts(
+    type?: string,
+    options: ArtifactListOptions = {},
+  ): Promise<IndexedArtifact[]> {
+    const query = this.artifactQuery({ ...options, type });
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
+  /** Catalog grouping metadata only: never transfer or decode manifests. */
+  async listArtifactSummaries(
+    type?: string,
+    options: ArtifactListOptions = {},
+  ): Promise<IndexedArtifact[]> {
+    const rows = await this.artifactQuery({ ...options, type }).select(
+      'ref',
+      'registry',
+      'repository',
+      'digest',
+      'tags',
+      'tag_timestamps',
+      'type',
+      'contents_known',
+      'classification',
+    );
+    return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
+  /** Flattened tag→digest map for one repository across all its digests. */
+  async repositoryTags(
+    registry: string,
+    repository: string,
+  ): Promise<RepositoryTag[]> {
+    const rows = await this.db('artifacts')
+      .where({ registry, repository })
+      .select('ref', 'digest', 'tags', 'tag_timestamps');
+    return rows.flatMap(
+      (row: {
+        ref: string;
+        digest: string;
+        tags: string;
+        tag_timestamps?: string;
+      }) => {
+        const timestamps = JSON.parse(row.tag_timestamps ?? '{}') as Record<
+          string,
+          string
+        >;
+        return (JSON.parse(row.tags ?? '[]') as string[]).map(tag => ({
+          tag,
+          digest: row.digest,
+          ref: row.ref,
+          ...(timestamps[tag] ? { lastModified: timestamps[tag] } : {}),
+        }));
+      },
+    );
   }
 
   async listArtifactsPaginated(
@@ -283,10 +612,39 @@ export class ContentStore {
 
   private artifactQuery(opts: ArtifactListOptions) {
     const query = this.db('artifacts');
+    if (opts.collection) {
+      const postgres = this.db.client.config.client === 'pg';
+      const collections = postgres
+        ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE (c->>'namespace') || '.' || (c->>'name') = ?"
+        : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name') = ?";
+      query.whereRaw(`EXISTS (${collections})`, [opts.collection]);
+    }
     if (opts.type) query.where('type', opts.type);
     if (opts.registry) query.where('registry', opts.registry);
     if (opts.contentsKnown !== undefined)
       query.where('contents_known', opts.contentsKnown);
+    if (opts.search?.trim()) {
+      const pattern = `%${opts.search
+        .trim()
+        .toLowerCase()
+        .replace(/[\\%_]/g, '\\$&')}%`;
+      const postgres = this.db.client.config.client === 'pg';
+      query.where(function searchFields() {
+        for (const field of [
+          'repository',
+          'registry',
+          'digest',
+          'tags',
+          'type',
+        ]) {
+          this.orWhereRaw("LOWER(??) LIKE ? ESCAPE '\\'", [field, pattern]);
+        }
+        const collections = postgres
+          ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE LOWER((c->>'namespace') || '.' || (c->>'name')) LIKE ? ESCAPE '\\'"
+          : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE LOWER(json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name')) LIKE ? ESCAPE '\\'";
+        this.orWhereRaw(`EXISTS (${collections})`, [pattern]);
+      });
+    }
     return query;
   }
 
@@ -381,6 +739,14 @@ export class ContentStore {
     const outcome = await this.discoverRegistry(name);
     const at = new Date().toISOString();
 
+    // A later full attempt supersedes row attempts, including same-millisecond
+    // timestamps; partial attempts after this point may advance only their row.
+    for (const knownRef of [...this.artifactReconcile.keys()]) {
+      const artifact = await this.getArtifact(knownRef);
+      if (!artifact || artifact.registry === name)
+        this.artifactReconcile.delete(knownRef);
+    }
+
     if (!outcome.ok) {
       const retained = await this.db('artifacts')
         .where('registry', name)
@@ -410,9 +776,11 @@ export class ContentStore {
           repository: a.repository,
           digest: a.digest,
           tags: JSON.stringify(a.tags),
+          tag_timestamps: JSON.stringify(a.tagTimestamps ?? {}),
           pull_reference: a.pullReference,
           contents_known: a.contentsKnown,
           classification: JSON.stringify(a.classification),
+          signing: a.signing ? JSON.stringify(a.signing) : null,
           manifest: a.manifest ? JSON.stringify(a.manifest) : null,
         });
         const items = flattenItems(a);
@@ -470,7 +838,12 @@ export class ContentStore {
         const observed = new Map<string, string>();
         for await (const tag of client.listTags(repository)) {
           requests += 1;
-          if (REFERRER_TAG.test(tag)) continue;
+          if (
+            SIGNATURE_TAG.test(tag) ||
+            REFERRER_TAG.test(tag) ||
+            COSIGN_ATTACHMENT_TAG.test(tag)
+          )
+            continue;
           const head = await client.headManifest(repository, tag);
           requests += 1;
           if (head.digest) observed.set(tag, head.digest);
@@ -665,9 +1038,13 @@ export class ContentStore {
       repository: row.repository as string,
       digest: row.digest as string,
       tags: JSON.parse(row.tags as string),
+      tagTimestamps: JSON.parse(
+        (row.tag_timestamps as string | undefined) ?? '{}',
+      ),
       pullReference: row.pull_reference as string,
       contentsKnown: Boolean(row.contents_known),
       classification: JSON.parse(row.classification as string),
+      signing: row.signing ? JSON.parse(row.signing as string) : undefined,
       manifest: row.manifest ? JSON.parse(row.manifest as string) : undefined,
     };
   }
@@ -697,10 +1074,15 @@ export class ContentStore {
     if (configured.length > 0) return configured;
 
     if (!state.capabilities?.catalogEnumeration) {
-      this.logger.warn(
-        `[${name}] no repositories configured and catalog enumeration is unavailable`,
+      // An absent or pessimistic capability result is not evidence that the
+      // registry is empty. Fail this attempt — the caller keeps previously
+      // indexed artifacts — and drop the cached capabilities so the next
+      // cycle re-probes: a probe that raced slow startup traffic must not pin
+      // a false result for the lifetime of the process.
+      state.capabilities = undefined;
+      throw new Error(
+        `no repositories configured for ${name} and catalog enumeration is unavailable`,
       );
-      return [];
     }
 
     const namespaces = state.connection.namespaces;
@@ -716,20 +1098,46 @@ export class ContentStore {
     return discovered;
   }
 
+  /** Future configured tag restrictions plug in here, shared by full and row scans. */
+  private selectImageTag(tag: string): boolean {
+    return (
+      !SIGNATURE_TAG.test(tag) &&
+      !REFERRER_TAG.test(tag) &&
+      !COSIGN_ATTACHMENT_TAG.test(tag)
+    );
+  }
+
   private async scanRepository(
     registry: string,
     repository: string,
     client: OCIClient,
+    strict = false,
+    unchanged = new Set<string>(),
   ): Promise<IndexedArtifact[]> {
-    const byDigest = new Map<string, string[]>();
+    const byDigest = new Map<
+      string,
+      { tags: string[]; timestamps: Record<string, string> }
+    >();
+    // Image digests covered by a digest-derived `.sig` signature tag, keyed
+    // by the hex in the tag name. The tags themselves address signature
+    // artifacts, never images, so they are recorded and skipped.
+    const signedByTag = new Set<string>();
 
     for await (const tag of client.listTags(repository)) {
-      if (REFERRER_TAG.test(tag)) continue;
+      const signature = SIGNATURE_TAG.exec(tag);
+      if (signature) {
+        signedByTag.add(signature[1]);
+        continue;
+      }
+      if (!this.selectImageTag(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
         throw new Error(
           `rate-limited by registry while scanning ${repository}:${tag}`,
         );
+      }
+      if (strict && (head.status !== 200 || !head.digest)) {
+        throw new Error(`Unable to resolve repository tag ${tag}`);
       }
       if (!head.digest) {
         this.logger.debug(
@@ -737,13 +1145,81 @@ export class ContentStore {
         );
         continue;
       }
-      byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
+      const tagInfo = byDigest.get(head.digest) ?? {
+        tags: [],
+        timestamps: {},
+      };
+      tagInfo.tags.push(tag);
+      if (head.lastModified) tagInfo.timestamps[tag] = head.lastModified;
+      byDigest.set(head.digest, tagInfo);
     }
 
     const found: IndexedArtifact[] = [];
-    for (const [digest, tags] of byDigest) {
+    const retainInvalid = async (digest: string) => {
+      const existing = await this.getArtifact(
+        `${registry}/${repository}@${digest}`,
+      );
+      if (existing) {
+        found.push(existing);
+        unchanged.add(existing.ref);
+      }
+      this.logger.warn(
+        `[${registry}] Skipping invalid image metadata for ${repository}@${digest}`,
+      );
+    };
+    for (const [digest, tagInfo] of byDigest) {
+      let verified:
+        | { artifact: ResolvedArtifact; config?: ImageConfig }
+        | undefined;
+      if (strict) {
+        const artifact = await client.getManifest(repository, digest);
+        const manifest = artifact.manifest;
+        if (
+          !artifact.digest ||
+          manifest?.schemaVersion !== 2 ||
+          (!('manifests' in manifest && Array.isArray(manifest.manifests)) &&
+            !(
+              'config' in manifest &&
+              manifest.config?.digest &&
+              Array.isArray(manifest.layers)
+            ))
+        ) {
+          await retainInvalid(digest);
+          continue;
+        }
+        const config =
+          'config' in manifest
+            ? await client.getConfigBlob(repository, manifest.config)
+            : undefined;
+        if ('config' in manifest && config === undefined) {
+          throw new Error('Image config could not be read');
+        }
+        if (
+          'config' in manifest &&
+          (!config ||
+            typeof config !== 'object' ||
+            Array.isArray(config) ||
+            (config.config !== undefined &&
+              (!config.config ||
+                typeof config.config !== 'object' ||
+                Array.isArray(config.config))))
+        ) {
+          await retainInvalid(digest);
+          continue;
+        }
+        verified = { artifact, config };
+      }
       found.push(
-        await this.inspect(registry, repository, digest, tags, client),
+        await this.inspect(
+          registry,
+          repository,
+          digest,
+          tagInfo.tags,
+          client,
+          verified,
+          tagInfo.timestamps,
+          signedByTag,
+        ),
       );
     }
     return found;
@@ -755,6 +1231,9 @@ export class ContentStore {
     digest: string,
     tags: string[],
     client: OCIClient,
+    verified?: { artifact: ResolvedArtifact; config?: ImageConfig },
+    tagTimestamps: Record<string, string> = {},
+    signedByTag?: Set<string>,
   ): Promise<IndexedArtifact> {
     const base = {
       ref: `${registry}/${repository}@${digest}`,
@@ -762,6 +1241,7 @@ export class ContentStore {
       repository,
       digest,
       tags,
+      tagTimestamps,
       pullReference: client.pullReference({
         registry,
         repository,
@@ -769,17 +1249,21 @@ export class ContentStore {
       }),
     };
 
-    const { referrers } = await client
+    const { referrers, via } = await client
       .getReferrers(repository, digest)
       .catch(() => ({ referrers: [], via: 'none' as const }));
+    const signing = this.determineSigning(digest, referrers, via, signedByTag);
 
     let labels: Record<string, string> | undefined;
     let resolved: ResolvedArtifact | undefined;
     try {
-      resolved = await client.getManifest(repository, digest);
+      resolved =
+        verified?.artifact ?? (await client.getManifest(repository, digest));
       const config = (resolved.manifest as ImageManifest).config;
       if (config) {
-        const blob = await client.getConfigBlob(repository, config);
+        const blob = verified
+          ? verified.config
+          : await client.getConfigBlob(repository, config);
         labels = blob?.config?.Labels;
       }
     } catch (error) {
@@ -802,6 +1286,7 @@ export class ContentStore {
         type: classification.type,
         contentsKnown: false,
         classification,
+        signing,
       };
     }
 
@@ -821,10 +1306,80 @@ export class ContentStore {
       type: classification.type,
       contentsKnown: Boolean(manifest),
       classification,
+      signing,
       manifest,
     };
   }
 
+  /**
+   * Signature presence, checked across both schemes cosign has used.
+   *
+   * "Signed" reports that a signature artifact was found — it asserts nothing
+   * about who signed or whether the signature still verifies. "Not signed" is
+   * only reported when both schemes could be checked and neither had a
+   * signature; when a scheme was unavailable the state is "undetermined",
+   * because an unfindable signature is not proof of its absence.
+   */
+  private determineSigning(
+    digest: string,
+    referrers: Descriptor[],
+    referrersVia: string,
+    signedByTag?: Set<string>,
+  ): SigningState {
+    if (
+      referrers.some(
+        descriptor =>
+          descriptor.artifactType === COSIGN_SIGNATURE_ARTIFACT_TYPE,
+      )
+    ) {
+      return {
+        state: 'signed',
+        evidence: ['cosign signature referrer found'],
+      };
+    }
+    const evidence = ['no cosign signature referrer'];
+    const hex = digest.replace(/^sha256:/, '');
+    if (signedByTag?.has(hex)) {
+      return {
+        state: 'signed',
+        evidence: [...evidence, 'digest-derived .sig tag found'],
+      };
+    }
+    evidence.push('no digest-derived .sig tag');
+    if (
+      referrers.some(descriptor =>
+        descriptor.artifactType?.startsWith(SIGSTORE_BUNDLE_PREFIX),
+      )
+    ) {
+      // A Sigstore bundle is cosign 3's signature format, but the same
+      // artifact type also carries attestations. Without reading the
+      // bundle's content neither a signature nor its absence can be
+      // claimed, so the honest state is undetermined.
+      return {
+        state: 'undetermined',
+        evidence: [
+          ...evidence,
+          'sigstore bundle referrer present; not identifiable as a signature',
+        ],
+      };
+    }
+    if (referrersVia === 'none' || !signedByTag) {
+      // One of the schemes could not be consulted; absence is not provable.
+      return {
+        state: 'undetermined',
+        evidence: [...evidence, 'a signature scheme could not be checked'],
+      };
+    }
+    return { state: 'not-signed', evidence };
+  }
+
+  /**
+   * Ask the registered content types which one owns this artifact.
+   *
+   * The index knows no content type of its own. With an empty registry every artifact
+   * is reported as unidentified — honestly, with each adapter's reason — rather than
+   * silently dropped.
+   */
   private identify(
     artifact: ResolvedArtifact | undefined,
     signalsFrom: { labels?: Record<string, string>; referrers?: Descriptor[] },

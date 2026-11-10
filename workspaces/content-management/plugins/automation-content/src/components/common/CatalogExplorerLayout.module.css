@@ -1,0 +1,92 @@
+.explorer {
+  min-width: 0;
+}
+
+.pageLayout {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(0, 5fr);
+  min-width: 0;
+}
+
+.filterPanel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: start;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--bui-space-3) var(--bui-space-4) var(--bui-space-3)
+    var(--bui-space-3);
+}
+
+.filterStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bui-space-3);
+  min-width: 0;
+}
+
+.filterStack :global(.bui-SelectTrigger) {
+  box-shadow: inset 0 0 0 1px var(--bui-border-1);
+}
+
+.filterStack :global(.bui-Select[data-focused] .bui-SelectTrigger) {
+  box-shadow: inset 0 0 0 1px var(--bui-ring);
+}
+
+.results {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--bui-space-3);
+  padding-top: var(--bui-space-3);
+}
+
+.search {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 400px;
+  max-width: calc(100% - var(--bui-space-3) * 2);
+  margin-inline: var(--bui-space-3);
+}
+
+/* Theme tokens keep control outlines legible in both light and dark themes. */
+.search :global(.bui-SearchFieldInputWrapper) {
+  box-shadow: inset 0 0 0 1px var(--bui-border-1);
+}
+
+.search :global(.bui-SearchFieldInputWrapper:has([data-focused])) {
+  box-shadow: inset 0 0 0 1px var(--bui-ring);
+}
+
+.tableInset {
+  min-width: 0;
+  padding-inline: var(--bui-space-3);
+}
+
+.mobileFilterButton {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .pageLayout {
+    grid-template-columns: 1fr;
+    gap: var(--bui-space-3);
+  }
+
+  .mobileFilterButton {
+    display: inline-flex;
+  }
+
+  .filterPanel:not([data-open='true']) {
+    display: none;
+  }
+
+  .filterStack {
+    width: 100%;
+  }
+
+  .search {
+    width: calc(100% - var(--bui-space-3) * 2);
+  }
+}

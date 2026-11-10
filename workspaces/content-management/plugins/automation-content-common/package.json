@@ -24,6 +24,7 @@
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
+    "@backstage/plugin-permission-common": "^0.9.7",
     "undici": "6.29.1"
   },
   "devDependencies": {
@@ -36,5 +37,12 @@
     "istanbul-lib-instrument": "^6.0.3",
     "msw": "^2.11.4",
     "node-forge": "1.4.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./url": "./src/url.ts",
+    "./tlsCertificates": "./src/testing/tlsCertificates.ts",
+    "./package.json": "./package.json"
   }
 }
