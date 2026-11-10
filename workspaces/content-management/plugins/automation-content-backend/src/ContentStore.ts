@@ -27,6 +27,7 @@ import type {
 } from '@ansible/automation-content-common';
 
 import { Knex } from 'knex';
+import { compareTags } from './groupImages';
 
 /** What the index concluded about an artifact, and why. */
 export interface IdentifiedType {
@@ -142,11 +143,11 @@ export interface PaginatedResult<T> {
   totalCount: number;
 }
 
-/** Outcome of reconciling only one indexed row's repository latest tag. */
+/** Outcome of reconciling latest, or the newest available indexed alias. */
 export interface ArtifactSyncResult {
   status: 'completed' | 'failed';
   ref: string;
-  tag: 'latest';
+  tag: string;
   retainedPrevious: boolean;
   lastReconciledAt?: string;
   error?: string;
@@ -325,7 +326,7 @@ export class ContentStore {
     return partial && (!full || partial.at >= full.at) ? partial : full;
   }
 
-  /** Resolve only latest for an indexed row; never enumerate repositories or tags. */
+  /** Resolve latest or an indexed fallback; never enumerate repositories or tags. */
   async syncArtifact(ref: string): Promise<ArtifactSyncResult> {
     const original = await this.getArtifact(ref);
     const state = original && this.registries.get(original.registry);
@@ -342,15 +343,26 @@ export class ContentStore {
     if (!original || !client || !inScope)
       throw new ArtifactSyncNotFoundError('ARTIFACT_NOT_FOUND');
 
+    let selectedTag = 'latest';
     try {
       // Mutable tag lookups are never digest-cached by OCIClient.
       let latest: ResolvedArtifact;
       try {
         latest = await client.getManifest(original.repository, 'latest');
       } catch (error) {
-        if (error instanceof RegistryError && error.status === 404)
+        if (!(error instanceof RegistryError && error.status === 404))
+          throw error;
+        const fallback = original.tags
+          .filter(tag => tag !== 'latest')
+          .map(tag => ({
+            tag,
+            timestamp: Date.parse(original.tagTimestamps?.[tag] ?? ''),
+          }))
+          .sort(compareTags)[0];
+        if (!fallback)
           throw new ArtifactSyncNotFoundError('LATEST_TAG_NOT_FOUND');
-        throw error;
+        selectedTag = fallback.tag;
+        latest = await client.getManifest(original.repository, selectedTag);
       }
       const manifest = latest.manifest;
       if (
@@ -364,7 +376,7 @@ export class ContentStore {
             Array.isArray(manifest.layers)
           ))
       ) {
-        throw new Error('Latest manifest is invalid');
+        throw new Error('Selected manifest is invalid');
       }
       let config: ImageConfig | undefined;
       if ('config' in manifest) {
@@ -388,16 +400,16 @@ export class ContentStore {
         original.registry,
         original.repository,
         latest.digest,
-        ['latest'],
+        [selectedTag],
         client,
         { artifact: latest, config },
       );
       const existing = await this.getArtifact(target.ref);
-      target.tags = [...new Set([...(existing?.tags ?? []), 'latest'])];
+      target.tags = [...new Set([...(existing?.tags ?? []), selectedTag])];
       target.tagTimestamps = {
         ...(existing?.tagTimestamps ?? {}),
         ...(target.tagTimestamps ?? {}),
-        ...(latest.lastModified ? { latest: latest.lastModified } : {}),
+        ...(latest.lastModified ? { [selectedTag]: latest.lastModified } : {}),
       };
       if (!target.manifest && existing?.manifest) {
         target.manifest = existing.manifest;
@@ -409,7 +421,7 @@ export class ContentStore {
         target.signing = existing.signing;
       }
       // Commit after core reads succeed, using current rows rather than a
-      // pre-await snapshot. Older digests keep their data and non-latest aliases.
+      // pre-await snapshot. Only reconcile ownership of the selected alias.
       await this.db.transaction(async trx => {
         const rows = await trx('artifacts')
           .where({
@@ -420,10 +432,10 @@ export class ContentStore {
         for (const row of rows) {
           const artifact = this.rowToArtifact(row);
           if (artifact.ref === target.ref) continue;
-          if (!artifact.tags.includes('latest')) continue;
-          const tags = artifact.tags.filter(tag => tag !== 'latest');
+          if (!artifact.tags.includes(selectedTag)) continue;
+          const tags = artifact.tags.filter(tag => tag !== selectedTag);
           const tagTimestamps = { ...(artifact.tagTimestamps ?? {}) };
-          delete tagTimestamps.latest;
+          delete tagTimestamps[selectedTag];
           if (tags.length) {
             await trx('artifacts')
               .where('ref', artifact.ref)
@@ -499,7 +511,7 @@ export class ContentStore {
       return {
         status: 'completed',
         ref: target.ref,
-        tag: 'latest',
+        tag: selectedTag,
         retainedPrevious: false,
         lastReconciledAt: at,
       };
@@ -515,7 +527,7 @@ export class ContentStore {
       return {
         status: 'failed',
         ref,
-        tag: 'latest',
+        tag: selectedTag,
         retainedPrevious: true,
         lastReconciledAt: at,
         error: 'Artifact reconciliation failed.',

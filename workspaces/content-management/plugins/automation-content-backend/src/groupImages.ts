@@ -3,6 +3,22 @@ import type { IndexedArtifact } from './ContentStore';
 const groupKey = (artifact: IndexedArtifact): string =>
   JSON.stringify([artifact.registry, artifact.repository]);
 
+/** Newest timestamp first, latest last on ties, then natural descending tag. */
+export function compareTags(
+  a: { tag: string; timestamp: number },
+  b: { tag: string; timestamp: number },
+): number {
+  const left = Number.isFinite(a.timestamp) ? a.timestamp : -Infinity;
+  const right = Number.isFinite(b.timestamp) ? b.timestamp : -Infinity;
+  if (left !== right) return right > left ? 1 : -1;
+  if (a.tag === 'latest' && b.tag !== 'latest') return 1;
+  if (b.tag === 'latest' && a.tag !== 'latest') return -1;
+  return b.tag.localeCompare(a.tag, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
+
 /** Catalog-only projection; the index and all digest-level operations stay intact. */
 export function groupImages(
   artifacts: IndexedArtifact[],
@@ -25,17 +41,7 @@ export function groupImages(
         timestamp: Date.parse(artifact.tagTimestamps?.[tag] ?? ''),
       })),
     );
-    tags.sort((a, b) => {
-      const left = Number.isFinite(a.timestamp) ? a.timestamp : -Infinity;
-      const right = Number.isFinite(b.timestamp) ? b.timestamp : -Infinity;
-      if (left !== right) return right > left ? 1 : -1;
-      if (a.tag === 'latest' && b.tag !== 'latest') return 1;
-      if (b.tag === 'latest' && a.tag !== 'latest') return -1;
-      return b.tag.localeCompare(a.tag, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
+    tags.sort(compareTags);
     return {
       ...(tags[0]?.artifact ?? group[0]),
       tags: [...new Set(tags.map(entry => entry.tag))],
