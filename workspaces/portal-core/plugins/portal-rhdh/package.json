@@ -21,7 +21,10 @@
     "pluginId": "portal-rhdh",
     "features": {
       "./alpha": "@backstage/FrontendPlugin"
-    }
+    },
+    "pluginPackages": [
+      "@ansible/portal-rhdh"
+    ]
   },
   "sideEffects": false,
   "scripts": {

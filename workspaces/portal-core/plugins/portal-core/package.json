@@ -19,7 +19,10 @@
   },
   "backstage": {
     "role": "frontend-plugin",
-    "pluginId": "portal-core"
+    "pluginId": "portal-core",
+    "pluginPackages": [
+      "@ansible/portal-core"
+    ]
   },
   "sideEffects": false,
   "scripts": {

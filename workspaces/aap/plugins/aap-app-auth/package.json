@@ -23,9 +23,7 @@
     "features": {
       "./alpha": "@backstage/FrontendModule"
     },
-    "pluginPackages": [
-      "@ansible/aap-app-auth"
-    ]
+    "pluginPackage": "@backstage/plugin-app"
   },
   "sideEffects": false,
   "scripts": {
