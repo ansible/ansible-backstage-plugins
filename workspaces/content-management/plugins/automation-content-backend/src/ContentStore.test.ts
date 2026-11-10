@@ -558,7 +558,7 @@ describe('credential redaction', () => {
   });
 });
 
-describe('strict latest-only artifact sync', () => {
+describe('repository-scoped artifact sync', () => {
   async function fixture(
     oldTags = ['latest', 'v1'],
     originalInventory = false,
@@ -622,102 +622,120 @@ describe('strict latest-only artifact sync', () => {
     return { index, registry, repositories, old, original, other, client };
   }
 
-  it('freshly resolves moved latest only, preserving sibling aliases, data, providers and freshness', async () => {
-    const { index, registry, repositories, old, original, other } =
-      await fixture();
-    const before = index.reconcileStateFor('mock');
-    const siblingState = index.reconcileStateOf(
-      await index.getArtifact(other.ref),
+  it('discovers a sixth tag and unions aliases on existing digests', async () => {
+    const { index, repositories, original, old } = await fixture([
+      'v1',
+      'v2',
+      'v3',
+      'v4',
+      'v5',
+    ]);
+    repositories['ansible/ee'].push({ ...old, tag: 'v6' });
+    const result = await index.syncArtifact(original.ref);
+    expect(result.summary).toEqual({
+      addedTags: 1,
+      removedTags: 0,
+      movedTags: 0,
+      refreshedDigests: 2,
+    });
+    expect((await index.getArtifact(original.ref))?.tags).toEqual(
+      expect.arrayContaining(['v1', 'v2', 'v3', 'v4', 'v5', 'v6']),
     );
-    const next = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
-    next.digest = `sha256:${'c'.repeat(64)}`;
+  });
+
+  it('transfers moved aliases to an existing digest and deletes an empty digest', async () => {
+    const { index, repositories, original, other } = await fixture([
+      'latest',
+      'v1',
+    ]);
+    const sibling = repositories['ansible/ee'][2];
+    repositories['ansible/ee'] = [
+      sibling,
+      { ...sibling, tag: 'latest' },
+      { ...sibling, tag: 'v1' },
+    ];
+    const result = await index.syncArtifact(original.ref);
+    expect(result.summary).toEqual({
+      addedTags: 0,
+      removedTags: 0,
+      movedTags: 2,
+      refreshedDigests: 1,
+    });
+    expect((await index.getArtifact(other.ref))?.tags).toEqual(
+      expect.arrayContaining(['stable', 'latest', 'v1']),
+    );
+    expect(await index.getArtifact(original.ref)).toBeUndefined();
+  });
+
+  it('removes deleted tags and drops their digest when empty, without touching another repository', async () => {
+    const { index, repositories, original, registry } = await fixture(['v1']);
+    repositories['ansible/ee'] = [];
+    expect((await index.syncArtifact(original.ref)).summary).toEqual({
+      addedTags: 0,
+      removedTags: 2,
+      movedTags: 0,
+      refreshedDigests: 0,
+    });
+    expect(await index.getArtifact(original.ref)).toBeUndefined();
+    expect(
+      registry.requests.every(request =>
+        request.path.startsWith('/v2/ansible/ee/'),
+      ),
+    ).toBe(true);
+  });
+
+  it('inserts a new digest when a tag moves while preserving the old alias', async () => {
+    const { index, repositories, original, old } = await fixture();
+    const next = { ...old, tag: 'latest', digest: `sha256:${'c'.repeat(64)}` };
     repositories['ansible/ee'] = [
       { ...old, tag: 'v1' },
       repositories['ansible/ee'][2],
       next,
     ];
-    const refresh = jest.spyOn(index, 'refreshRegistry');
     const result = await index.syncArtifact(original.ref);
-    expect(result).toMatchObject({
-      status: 'completed',
-      ref: `mock/ansible/ee@${next.digest}`,
-      tag: 'latest',
-      retainedPrevious: false,
-    });
+    expect(result.summary).toMatchObject({ movedTags: 1, refreshedDigests: 3 });
     expect((await index.getArtifact(original.ref))?.tags).toEqual(['v1']);
-    // DB round-trips preserve fields, not object identity.
-    expect(await index.getArtifact(other.ref)).toEqual(other);
-    expect((await index.listCollections())[0].providedBy).toEqual([other.ref]);
-    expect(index.reconcileStateFor('mock')).toBe(before);
-    expect(index.reconcileStateOf(await index.getArtifact(other.ref))).toBe(
-      siblingState,
-    );
-    expect(index.reconcileStateOf(await index.getArtifact(original.ref))).toBe(
-      before,
-    );
     expect(
-      index.reconcileStateOf(await index.getArtifact(result.ref))?.ok,
-    ).toBe(true);
-    expect(refresh).not.toHaveBeenCalled();
-    const paths = registry.requests.map(r => r.path);
-    expect(paths).toContain('/v2/ansible/ee/manifests/latest');
-    expect(paths.every(path => path.startsWith('/v2/ansible/ee/'))).toBe(true);
-    expect(paths.join(' ')).not.toMatch(
-      /tags\/list|_catalog|manifests\/v1|manifests\/stable/,
-    );
-    expect(
-      paths
-        .filter(path => path.includes('/referrers/'))
-        .every(path => path === `/v2/ansible/ee/referrers/${next.digest}`),
-    ).toBe(true);
-    // Mutable latest must be read again despite cached immutable manifests.
-    const moved = { ...next, digest: `sha256:${'d'.repeat(64)}` };
-    repositories['ansible/ee'] = [{ ...old, tag: 'v1' }, moved];
-    const second = await index.syncArtifact(result.ref);
-    expect(second.ref).toBe(`mock/ansible/ee@${moved.digest}`);
-    expect(await index.getArtifact(result.ref)).toBeUndefined();
-    expect(
-      index.reconcileStateOf(await index.getArtifact(result.ref)),
-    ).toBeUndefined();
-    expect(
-      (
-        index as unknown as { artifactReconcile: Map<string, unknown> }
-      ).artifactReconcile.has(result.ref),
-    ).toBe(false);
-    expect(
-      registry.requests.filter(r => r.path.endsWith('/manifests/latest')),
-    ).toHaveLength(2);
+      (await index.getArtifact(`mock/ansible/ee@${next.digest}`))?.tags,
+    ).toEqual(['latest']);
   });
 
-  it('merges latest into an already-indexed digest without dropping its aliases', async () => {
-    const { index, repositories, original, other } = await fixture(['latest']);
-    repositories['ansible/ee'] = [
-      { ...repositories['ansible/ee'][1], tag: 'latest' },
-      repositories['ansible/ee'][1],
-    ];
-    const result = await index.syncArtifact(original.ref);
-    expect(result.ref).toBe(other.ref);
-    expect((await index.getArtifact(other.ref))?.tags).toEqual([
-      'stable',
-      'latest',
-    ]);
-    expect(await index.getArtifact(original.ref)).toBeUndefined();
+  it('preserves established signing when optional signature metadata is unavailable', async () => {
+    const { index, original, client } = await fixture();
+    expect(original.signing.state).toBe('not-signed');
+    jest
+      .spyOn(client, 'getReferrers')
+      .mockRejectedValue(new Error('Unavailable'));
+    await index.syncArtifact(original.ref);
+    expect((await index.getArtifact(original.ref))?.signing).toEqual(
+      original.signing,
+    );
   });
 
-  it('preserves reconcile state and never falls back to the clicked digest when latest is absent', async () => {
-    const { index, registry, original, repositories } = await fixture(['v1']);
-    const before = await index.listArtifacts();
-    const reconcileBefore = index.reconcileStateOf(original);
-    await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
-      code: 'LATEST_TAG_NOT_FOUND',
+  it('refreshes unchanged repositories without requiring latest', async () => {
+    const { index, original } = await fixture(['v1']);
+    expect((await index.syncArtifact(original.ref)).summary).toEqual({
+      addedTags: 0,
+      removedTags: 0,
+      movedTags: 0,
+      refreshedDigests: 2,
     });
-    // DB reads return fresh objects; compare the persisted snapshot.
+  });
+
+  it('retains every row when tag enumeration fails after yielding a tag', async () => {
+    const { index, original, client } = await fixture();
+    const before = await index.listArtifacts();
+    jest
+      .spyOn(client, 'listTags')
+      .mockImplementation(async function* interruptedTags() {
+        yield 'latest';
+        throw new Error('Enumeration interrupted');
+      });
+    expect(await index.syncArtifact(original.ref)).toMatchObject({
+      status: 'failed',
+      retainedPrevious: true,
+    });
     expect(await index.listArtifacts()).toEqual(before);
-    expect(index.reconcileStateOf(original)).toBe(reconcileBefore);
-    expect(registry.requests.map(r => r.path)).toEqual([
-      '/v2/ansible/ee/manifests/latest',
-    ]);
-    expect(repositories['ansible/ee']).toHaveLength(2);
   });
 
   it.each([429, 500, 503])(
@@ -927,7 +945,7 @@ describe('inventory search', () => {
   });
 });
 
-describe('drift detection', () => {
+describe('drift detection regression coverage', () => {
   it('reports no change when the registry matches the index', async () => {
     const registry = new MockRegistry({
       repositories: {
@@ -1050,7 +1068,7 @@ describe('drift detection', () => {
   });
 });
 
-describe('digest cache', () => {
+describe('digest cache regression coverage', () => {
   it('avoids re-reading unchanged content on a second refresh', async () => {
     const registry = new MockRegistry({
       repositories: {
@@ -1072,7 +1090,7 @@ describe('digest cache', () => {
   });
 });
 
-describe('error cause traversal is bounded', () => {
+describe('error cause traversal is bounded regression coverage', () => {
   /**
    * A cause chain is untrusted input: a registry's transport can produce — or
    * a hostile one can deliberately produce — a cycle or an arbitrarily deep
@@ -1339,8 +1357,7 @@ describe('signature detection', () => {
     const index = await indexOverRepositories(repositories);
     await index.refreshRegistry('mock');
     expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
-    // A row sync cannot enumerate tags, so its own determination is weaker;
-    // the full scan's verdict must survive.
+    // Both full and row sync enumerate signatures and preserve the verdict.
     await index.syncArtifact((await index.listArtifacts())[0].ref);
     expect((await index.listArtifacts())[0].signing.state).toBe('not-signed');
   });

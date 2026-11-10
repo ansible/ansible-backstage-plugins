@@ -182,6 +182,12 @@ export interface AutomationContentApi {
 
 /** Latest-row reconciliation; successful ref may name a new digest. */
 export interface ArtifactSyncResult {
+  summary?: {
+    addedTags: number;
+    removedTags: number;
+    movedTags: number;
+    refreshedDigests: number;
+  };
   status: 'completed' | 'failed';
   ref: string;
   tag: 'latest';

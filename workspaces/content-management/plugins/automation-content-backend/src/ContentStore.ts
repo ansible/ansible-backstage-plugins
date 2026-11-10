@@ -14,7 +14,6 @@ import {
   logSafeText,
   OCIClient,
   RegistryConnection,
-  RegistryError,
   UNKNOWN_IMAGE_TYPE,
   readContentManifest,
   redactorForConnections,
@@ -142,11 +141,18 @@ export interface PaginatedResult<T> {
   totalCount: number;
 }
 
-/** Outcome of reconciling only one indexed row's repository latest tag. */
+/** Outcome of reconciling an indexed row's entire repository. */
 export interface ArtifactSyncResult {
   status: 'completed' | 'failed';
   ref: string;
+  /** Legacy field retained for older clients; sync now covers all tags. */
   tag: 'latest';
+  summary?: {
+    addedTags: number;
+    removedTags: number;
+    movedTags: number;
+    refreshedDigests: number;
+  };
   retainedPrevious: boolean;
   lastReconciledAt?: string;
   error?: string;
@@ -325,7 +331,7 @@ export class ContentStore {
     return partial && (!full || partial.at >= full.at) ? partial : full;
   }
 
-  /** Resolve only latest for an indexed row; never enumerate repositories or tags. */
+  /** Reconcile current tags for exactly one indexed repository. */
   async syncArtifact(ref: string): Promise<ArtifactSyncResult> {
     const original = await this.getArtifact(ref);
     const state = original && this.registries.get(original.registry);
@@ -343,73 +349,19 @@ export class ContentStore {
       throw new ArtifactSyncNotFoundError('ARTIFACT_NOT_FOUND');
 
     try {
-      // Mutable tag lookups are never digest-cached by OCIClient.
-      let latest: ResolvedArtifact;
-      try {
-        latest = await client.getManifest(original.repository, 'latest');
-      } catch (error) {
-        if (error instanceof RegistryError && error.status === 404)
-          throw new ArtifactSyncNotFoundError('LATEST_TAG_NOT_FOUND');
-        throw error;
-      }
-      const manifest = latest.manifest;
-      if (
-        !latest.digest ||
-        !manifest ||
-        manifest.schemaVersion !== 2 ||
-        (!('manifests' in manifest && Array.isArray(manifest.manifests)) &&
-          !(
-            'config' in manifest &&
-            manifest.config?.digest &&
-            Array.isArray(manifest.layers)
-          ))
-      ) {
-        throw new Error('Latest manifest is invalid');
-      }
-      let config: ImageConfig | undefined;
-      if ('config' in manifest) {
-        config = await client.getConfigBlob(
-          original.repository,
-          manifest.config,
-        );
-        if (
-          !config ||
-          typeof config !== 'object' ||
-          Array.isArray(config) ||
-          (config.config !== undefined &&
-            (!config.config ||
-              typeof config.config !== 'object' ||
-              Array.isArray(config.config)))
-        ) {
-          throw new Error('Image config could not be read');
-        }
-      }
-      const target = await this.inspect(
+      // Complete enumeration and inspection before touching the persisted index.
+      const targets = await this.scanRepository(
         original.registry,
         original.repository,
-        latest.digest,
-        ['latest'],
         client,
-        { artifact: latest, config },
+        true,
       );
-      const existing = await this.getArtifact(target.ref);
-      target.tags = [...new Set([...(existing?.tags ?? []), 'latest'])];
-      target.tagTimestamps = {
-        ...(existing?.tagTimestamps ?? {}),
-        ...(target.tagTimestamps ?? {}),
-        ...(latest.lastModified ? { latest: latest.lastModified } : {}),
+      const summary = {
+        addedTags: 0,
+        removedTags: 0,
+        movedTags: 0,
+        refreshedDigests: targets.length,
       };
-      if (!target.manifest && existing?.manifest) {
-        target.manifest = existing.manifest;
-        target.contentsKnown = existing.contentsKnown;
-      }
-      // A row sync never enumerates tags, so the .sig scheme stays unchecked;
-      // an undetermined result must not erase what a full scan established.
-      if (target.signing.state === 'undetermined' && existing?.signing) {
-        target.signing = existing.signing;
-      }
-      // Commit after core reads succeed, using current rows rather than a
-      // pre-await snapshot. Older digests keep their data and non-latest aliases.
       await this.db.transaction(async trx => {
         const rows = await trx('artifacts')
           .where({
@@ -417,33 +369,70 @@ export class ContentStore {
             repository: original.repository,
           })
           .select('*');
-        for (const row of rows) {
-          const artifact = this.rowToArtifact(row);
-          if (artifact.ref === target.ref) continue;
-          if (!artifact.tags.includes('latest')) continue;
-          const tags = artifact.tags.filter(tag => tag !== 'latest');
-          const tagTimestamps = { ...(artifact.tagTimestamps ?? {}) };
-          delete tagTimestamps.latest;
-          if (tags.length) {
-            await trx('artifacts')
-              .where('ref', artifact.ref)
-              .update({
-                tags: JSON.stringify(tags),
-                tag_timestamps: JSON.stringify(tagTimestamps),
-              });
-          } else {
-            await trx('items').where('artifact_ref', artifact.ref).del();
-            await trx('artifacts').where('ref', artifact.ref).del();
+        const existingByRef = new Map(
+          rows.map(row => {
+            const artifact = this.rowToArtifact(row);
+            return [artifact.ref, artifact] as const;
+          }),
+        );
+        const oldTags = new Map(
+          rows.flatMap(row => {
+            const artifact = this.rowToArtifact(row);
+            return artifact.tags.map(tag => [tag, artifact.digest] as const);
+          }),
+        );
+        const newTags = new Map(
+          targets.flatMap(target =>
+            target.tags.map(tag => [tag, target.digest] as const),
+          ),
+        );
+        for (const [tag, digest] of newTags) {
+          if (!oldTags.has(tag)) summary.addedTags++;
+          else if (oldTags.get(tag) !== digest) summary.movedTags++;
+        }
+        for (const tag of oldTags.keys())
+          if (!newTags.has(tag)) summary.removedTags++;
+        const surviving = new Set(targets.map(target => target.ref));
+        for (const previous of existingByRef.values()) {
+          if (!surviving.has(previous.ref)) {
+            await trx('items').where('artifact_ref', previous.ref).del();
+            await trx('artifacts').where('ref', previous.ref).del();
           }
         }
-        await trx('items').where('artifact_ref', target.ref).del();
-        // A same-ref row keeps its position: UPDATE in place rather than
-        // delete-and-reinsert, so a row sync never reshuffles paginated rows.
-        // A newly resolved digest is inserted.
-        if (existing) {
-          await trx('artifacts')
-            .where('ref', target.ref)
-            .update({
+        for (const target of targets) {
+          const existing = existingByRef.get(target.ref);
+          if (!target.manifest && existing?.manifest) {
+            target.manifest = existing.manifest;
+            target.contentsKnown = existing.contentsKnown;
+          }
+          if (target.signing.state === 'undetermined' && existing?.signing) {
+            target.signing = existing.signing;
+          }
+          await trx('items').where('artifact_ref', target.ref).del();
+          // A same-ref row keeps its position: UPDATE in place rather than
+          // delete-and-reinsert, so a row sync never reshuffles paginated rows.
+          // A newly resolved digest is inserted.
+          if (existing) {
+            await trx('artifacts')
+              .where('ref', target.ref)
+              .update({
+                type: target.type,
+                registry: target.registry,
+                repository: target.repository,
+                digest: target.digest,
+                tags: JSON.stringify(target.tags),
+                tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+                pull_reference: target.pullReference,
+                contents_known: target.contentsKnown,
+                classification: JSON.stringify(target.classification),
+                signing: target.signing ? JSON.stringify(target.signing) : null,
+                manifest: target.manifest
+                  ? JSON.stringify(target.manifest)
+                  : null,
+              });
+          } else {
+            await trx('artifacts').insert({
+              ref: target.ref,
               type: target.type,
               registry: target.registry,
               repository: target.repository,
@@ -458,36 +447,22 @@ export class ContentStore {
                 ? JSON.stringify(target.manifest)
                 : null,
             });
-        } else {
-          await trx('artifacts').insert({
-            ref: target.ref,
-            type: target.type,
-            registry: target.registry,
-            repository: target.repository,
-            digest: target.digest,
-            tags: JSON.stringify(target.tags),
-            tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
-            pull_reference: target.pullReference,
-            contents_known: target.contentsKnown,
-            classification: JSON.stringify(target.classification),
-            signing: target.signing ? JSON.stringify(target.signing) : null,
-            manifest: target.manifest ? JSON.stringify(target.manifest) : null,
-          });
-        }
-        for (const item of flattenItems(target)) {
-          await trx('items').insert({
-            key: item.key,
-            fqcn: item.fqcn,
-            name: item.name,
-            type: item.type,
-            collection: item.collection,
-            collection_version: item.collectionVersion,
-            short_description: item.shortDescription ?? null,
-            version_added: item.versionAdded ?? null,
-            deprecated: item.deprecated ?? false,
-            artifact_ref: item.artifactRef,
-            detail: item.detail ? JSON.stringify(item.detail) : null,
-          });
+          }
+          for (const item of flattenItems(target)) {
+            await trx('items').insert({
+              key: item.key,
+              fqcn: item.fqcn,
+              name: item.name,
+              type: item.type,
+              collection: item.collection,
+              collection_version: item.collectionVersion,
+              short_description: item.shortDescription ?? null,
+              version_added: item.versionAdded ?? null,
+              deprecated: item.deprecated ?? false,
+              artifact_ref: item.artifactRef,
+              detail: item.detail ? JSON.stringify(item.detail) : null,
+            });
+          }
         }
       });
       for (const knownRef of this.artifactReconcile.keys()) {
@@ -495,10 +470,22 @@ export class ContentStore {
           this.artifactReconcile.delete(knownRef);
       }
       const at = new Date().toISOString();
-      this.artifactReconcile.set(target.ref, { at, ok: true, artifacts: 1 });
+      for (const target of targets) {
+        this.artifactReconcile.set(target.ref, {
+          at,
+          ok: true,
+          artifacts: targets.length,
+        });
+      }
+      const resultRef =
+        targets.find(target => target.ref === ref)?.ref ??
+        targets.find(target => target.tags.includes('latest'))?.ref ??
+        targets[0]?.ref ??
+        ref;
       return {
         status: 'completed',
-        ref: target.ref,
+        ref: resultRef,
+        summary,
         tag: 'latest',
         retainedPrevious: false,
         lastReconciledAt: at,
@@ -1074,10 +1061,20 @@ export class ContentStore {
     return discovered;
   }
 
+  /** Future configured tag restrictions plug in here, shared by full and row scans. */
+  private selectImageTag(tag: string): boolean {
+    return (
+      !SIGNATURE_TAG.test(tag) &&
+      !REFERRER_TAG.test(tag) &&
+      !COSIGN_ATTACHMENT_TAG.test(tag)
+    );
+  }
+
   private async scanRepository(
     registry: string,
     repository: string,
     client: OCIClient,
+    strict = false,
   ): Promise<IndexedArtifact[]> {
     const byDigest = new Map<
       string,
@@ -1094,12 +1091,15 @@ export class ContentStore {
         signedByTag.add(signature[1]);
         continue;
       }
-      if (REFERRER_TAG.test(tag) || COSIGN_ATTACHMENT_TAG.test(tag)) continue;
+      if (!this.selectImageTag(tag)) continue;
       const head = await client.headManifest(repository, tag);
       if (head.status === 429) {
         throw new Error(
           `rate-limited by registry while scanning ${repository}:${tag}`,
         );
+      }
+      if (strict && (head.status !== 200 || !head.digest)) {
+        throw new Error(`Unable to resolve repository tag ${tag}`);
       }
       if (!head.digest) {
         this.logger.debug(
@@ -1118,6 +1118,42 @@ export class ContentStore {
 
     const found: IndexedArtifact[] = [];
     for (const [digest, tagInfo] of byDigest) {
+      let verified:
+        | { artifact: ResolvedArtifact; config?: ImageConfig }
+        | undefined;
+      if (strict) {
+        const artifact = await client.getManifest(repository, digest);
+        const manifest = artifact.manifest;
+        if (
+          !artifact.digest ||
+          manifest?.schemaVersion !== 2 ||
+          (!('manifests' in manifest && Array.isArray(manifest.manifests)) &&
+            !(
+              'config' in manifest &&
+              manifest.config?.digest &&
+              Array.isArray(manifest.layers)
+            ))
+        ) {
+          throw new Error('Image manifest is invalid');
+        }
+        const config =
+          'config' in manifest
+            ? await client.getConfigBlob(repository, manifest.config)
+            : undefined;
+        if (
+          'config' in manifest &&
+          (!config ||
+            typeof config !== 'object' ||
+            Array.isArray(config) ||
+            (config.config !== undefined &&
+              (!config.config ||
+                typeof config.config !== 'object' ||
+                Array.isArray(config.config))))
+        ) {
+          throw new Error('Image config could not be read');
+        }
+        verified = { artifact, config };
+      }
       found.push(
         await this.inspect(
           registry,
@@ -1125,7 +1161,7 @@ export class ContentStore {
           digest,
           tagInfo.tags,
           client,
-          undefined,
+          verified,
           tagInfo.timestamps,
           signedByTag,
         ),

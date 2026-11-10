@@ -2,14 +2,8 @@ import { ContentApiError, type AutomationContentApi } from '../../api';
 import { syncImageWithNotifications } from './imageSyncNotifications';
 
 it.each([
-  ['completed', false, 'old', 'Sync completed.', 'success'],
-  [
-    'completed',
-    false,
-    'new',
-    'Sync completed. The latest image changed and the catalog was refreshed.',
-    'success',
-  ],
+  ['completed', false, 'old', 'Synced image.', 'success'],
+  ['completed', false, 'new', 'Synced image.', 'success'],
   [
     'failed',
     true,
@@ -43,7 +37,7 @@ it.each([
   [new ContentApiError(403, 'secret'), 'Sync access needed for this image.'],
   [
     new ContentApiError(404, 'secret'),
-    'Latest image not found. This repository may not have a latest tag.',
+    'Indexed image not found. Refresh the catalog and try again.',
   ],
   [new Error('secret'), 'Unable to sync this image.'],
 ])(
@@ -63,3 +57,28 @@ it.each([
     });
   },
 );
+
+it.each([
+  [
+    { addedTags: 1, removedTags: 1, movedTags: 1, refreshedDigests: 2 },
+    'Synced demo/jona — 1 new tag, 1 removed, 1 moved.',
+  ],
+  [
+    { addedTags: 0, removedTags: 0, movedTags: 0, refreshedDigests: 2 },
+    'Synced demo/jona — no tag changes.',
+  ],
+])('describes repository changes %p', async (summary, description) => {
+  const api = {
+    syncArtifact: jest.fn().mockResolvedValue({
+      status: 'completed',
+      ref: 'old',
+      retainedPrevious: false,
+      summary,
+    }),
+  } as unknown as AutomationContentApi;
+  const notify = jest.fn();
+  await syncImageWithNotifications(api, 'old', 'demo/jona', notify);
+  expect(notify).toHaveBeenLastCalledWith(
+    expect.objectContaining({ description }),
+  );
+});

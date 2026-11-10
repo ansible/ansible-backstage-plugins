@@ -20,10 +20,23 @@ export async function syncImageWithNotifications(
   try {
     const result = await api.syncArtifact(ref);
     const failed = result.status === 'failed';
-    let description =
-      result.ref !== ref
-        ? 'Sync completed. The latest image changed and the catalog was refreshed.'
-        : 'Sync completed.';
+    const summary = result.summary;
+    const changes = summary
+      ? [
+          summary.addedTags
+            ? `${summary.addedTags} new tag${
+                summary.addedTags === 1 ? '' : 's'
+              }`
+            : '',
+          summary.removedTags ? `${summary.removedTags} removed` : '',
+          summary.movedTags ? `${summary.movedTags} moved` : '',
+        ].filter(Boolean)
+      : [];
+    let description = summary
+      ? `Synced ${name} — ${
+          changes.length ? changes.join(', ') : 'no tag changes'
+        }.`
+      : `Synced ${name}.`;
     if (failed) {
       description = result.retainedPrevious
         ? 'Sync failed. Previously indexed content is still shown.'
@@ -41,7 +54,7 @@ export async function syncImageWithNotifications(
       description = 'Sync access needed for this image.';
     } else if (error instanceof ContentApiError && error.status === 404) {
       description =
-        'Latest image not found. This repository may not have a latest tag.';
+        'Indexed image not found. Refresh the catalog and try again.';
     }
     showNotification({
       title: `${name}: sync failed`,
