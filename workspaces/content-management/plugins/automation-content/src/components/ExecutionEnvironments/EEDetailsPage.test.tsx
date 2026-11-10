@@ -140,6 +140,7 @@ function renderSyncDetails(
         ]}
       >
         <Routes>
+          <Route path="/content/catalog" element={<div>Image catalog</div>} />
           <Route path="/content/:ref" element={<EEDetailsPage />} />
         </Routes>
         <CurrentLocation />
@@ -457,9 +458,9 @@ it('does not retain actionable image data after a same-repository digest returns
   await waitFor(() =>
     expect(
       screen.queryByRole('button', { name: 'Actions for repo' }),
-    ).not.toBeInTheDocument(),
+    ).toBeNull(),
   );
-  expect(screen.queryByText('ansible.posix')).not.toBeInTheDocument();
+  expect(screen.queryByText('ansible.posix')).toBeNull();
 });
 
 it.each([

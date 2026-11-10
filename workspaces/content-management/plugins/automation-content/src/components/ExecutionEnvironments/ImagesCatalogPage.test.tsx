@@ -486,8 +486,10 @@ it.each(['table', 'grid'])(
     );
     await screen.findByText('41 - 60 of 60');
     expect(
-      screen.getByRole('button', { name: 'Next table page' }),
-    ).toBeDisabled();
+      screen
+        .getByRole('button', { name: 'Next table page' })
+        .hasAttribute('disabled'),
+    ).toBe(true);
   },
 );
 
