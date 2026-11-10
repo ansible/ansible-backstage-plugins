@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useNavigate } from 'react-router-dom';
+import FileCopyIcon from '@material-ui/icons/FileCopy';
 import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
@@ -368,35 +369,7 @@ export function UseInControllerDialog({
                         <ButtonIcon
                           size="medium"
                           variant="tertiary"
-                          icon={
-                            <svg
-                              aria-hidden="true"
-                              focusable="false"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <rect
-                                x="8"
-                                y="4"
-                                width="12"
-                                height="15"
-                                rx="2"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                              />
-                              <rect
-                                x="4"
-                                y="8"
-                                width="12"
-                                height="12"
-                                rx="2"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                              />
-                            </svg>
-                          }
+                          icon={<FileCopyIcon />}
                           onPress={copyDigest}
                           aria-label="Copy digest"
                         />
