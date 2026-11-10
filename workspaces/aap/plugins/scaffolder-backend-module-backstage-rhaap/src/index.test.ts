@@ -1,5 +1,4 @@
-import scaffolderFeatureLoader from './index';
-import { scaffolderModuleAnsible } from './module';
+import scaffolderFeatureLoader, { scaffolderModuleAnsible } from './index';
 
 type BackendFeatureLoader = {
   featureType: string;

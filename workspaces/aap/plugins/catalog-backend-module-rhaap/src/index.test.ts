@@ -1,6 +1,5 @@
 import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
-import catalogFeatureLoader from './index';
-import { catalogModuleRhaap } from './module';
+import catalogFeatureLoader, { catalogModuleRhaap } from './index';
 
 type BackendFeatureLoader = {
   featureType: string;

@@ -1,5 +1,4 @@
-import authFeatureLoader from './index';
-import { authModuleRhaapProvider } from './module';
+import authFeatureLoader, { authModuleRhaapProvider } from './index';
 
 type BackendFeatureLoader = {
   featureType: string;

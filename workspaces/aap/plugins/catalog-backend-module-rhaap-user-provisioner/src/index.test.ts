@@ -1,5 +1,6 @@
-import userProvisionerFeatureLoader from './index';
-import { catalogModuleRhaapUserProvisioner } from './module';
+import userProvisionerFeatureLoader, {
+  catalogModuleRhaapUserProvisioner,
+} from './index';
 
 type BackendFeatureLoader = {
   featureType: string;
