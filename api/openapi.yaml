@@ -2903,6 +2903,9 @@ paths:
                         ref:
                           type: string
                           description: The digest-based artifact ref the tag resolves to.
+                        lastModified:
+                          type: string
+                          description: Registry Last-Modified header value for the tag, when the registry exposes one.
 
   /registries:
     servers:
@@ -3245,6 +3248,9 @@ paths:
                     description: Resolved latest digest reference on success; original reference on failure.
                   tag: { type: string, enum: [latest] }
                   retainedPrevious: { type: boolean }
+                  removed:
+                    type: boolean
+                    description: True when reconciliation removed all indexed digests for this repository.
                   lastReconciledAt: { type: string, format: date-time }
                   error:
                     type: string
