@@ -1,6 +1,5 @@
 import {
   CONTENT_TYPES,
-  EXPERIENCE_IDS,
   type PluginManifest,
 } from '@ansible/portal-extension-api';
 
@@ -14,7 +13,6 @@ export const automationContentManifest: PluginManifest = {
     {
       id: 'automation-content.discovery',
       ownerPlugin: 'automation-content',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Automation Content Discovery',
       description:
         'Discover execution environment images in the content catalog.',
