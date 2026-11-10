@@ -43,6 +43,8 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
       return { hits: 0, misses: 0, entries: 0 };
     },
     listArtifacts: async () => [],
+    listArtifactSummaries: async (type, options) =>
+      overrides.listArtifacts?.(type, options) ?? [],
     listArtifactsPaginated: async () => ({ items: [], totalCount: 0 }),
     getArtifact: async () => undefined,
     listItems: async () => [],
@@ -389,6 +391,8 @@ describe('GET /content repository grouping', () => {
       const db = stubDB({
         listArtifacts: async () => [older, newer, ...others],
       });
+      const getArtifact = jest.spyOn(db, 'getArtifact');
+      const listArtifacts = jest.spyOn(db, 'listArtifacts');
       const app = await appWith(db);
       const first = await request(app)
         .get(`/content?per_page=10${sort}`)
@@ -402,6 +406,8 @@ describe('GET /content repository grouping', () => {
       const row = rows.find(a => a.ref === newer.ref);
       expect(row.tags).toEqual(['2.0', '10.0', 'latest']);
       expect(rows.some(a => a.ref === older.ref)).toBe(false);
+      expect(getArtifact).toHaveBeenCalledTimes(11);
+      expect(listArtifacts).not.toHaveBeenCalled();
     },
   );
 
@@ -466,6 +472,9 @@ describe('GET /content sorting', () => {
           search: 'example',
           registry: 'reg',
           contentsKnown: contentsKnown === 'true',
+          collection: branch.startsWith('collection=')
+            ? 'ns.example'
+            : undefined,
         });
       }
     },

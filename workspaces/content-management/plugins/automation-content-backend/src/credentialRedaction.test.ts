@@ -170,6 +170,8 @@ function seededStore(_logs: string[] = []): ContentStore {
     cacheStats: { hits: 0, misses: 0, entries: 0 },
     listArtifacts: async (type?: string) =>
       !type || type === artifact.type ? [artifact] : [],
+    listArtifactSummaries: async (type?: string) =>
+      !type || type === artifact.type ? [artifact] : [],
     listArtifactsPaginated: async (opts?: { type?: string }) => {
       const filtered =
         !opts?.type || opts.type === artifact.type ? [artifact] : [];

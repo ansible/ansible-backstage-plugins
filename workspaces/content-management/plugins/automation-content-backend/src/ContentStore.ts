@@ -534,6 +534,25 @@ export class ContentStore {
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
   }
 
+  /** Catalog grouping metadata only: never transfer or decode manifests. */
+  async listArtifactSummaries(
+    type?: string,
+    options: ArtifactListOptions = {},
+  ): Promise<IndexedArtifact[]> {
+    const rows = await this.artifactQuery({ ...options, type }).select(
+      'ref',
+      'registry',
+      'repository',
+      'digest',
+      'tags',
+      'tag_timestamps',
+      'type',
+      'contents_known',
+      'classification',
+    );
+    return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
+  }
+
   /** Flattened tag→digest map for one repository across all its digests. */
   async repositoryTags(
     registry: string,
@@ -585,6 +604,13 @@ export class ContentStore {
 
   private artifactQuery(opts: ArtifactListOptions) {
     const query = this.db('artifacts');
+    if (opts.collection) {
+      const postgres = this.db.client.config.client === 'pg';
+      const collections = postgres
+        ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE (c->>'namespace') || '.' || (c->>'name') = ?"
+        : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name') = ?";
+      query.whereRaw(`EXISTS (${collections})`, [opts.collection]);
+    }
     if (opts.type) query.where('type', opts.type);
     if (opts.registry) query.where('registry', opts.registry);
     if (opts.contentsKnown !== undefined)

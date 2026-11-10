@@ -915,6 +915,20 @@ describe('inventory search', () => {
         expect(result.totalCount).toBe(12);
         expect(result.items).toHaveLength(2);
       }
+      const queries: string[] = [];
+      db.on('query', query => queries.push(query.sql));
+      const summaries = await store.listArtifactSummaries(
+        'execution-environment',
+        {
+          search: 'ANSIBLE.POSIX',
+          collection: 'Ansible.Posix',
+        },
+      );
+      expect(summaries).toHaveLength(12);
+      expect(summaries.every(artifact => artifact.manifest === undefined)).toBe(
+        true,
+      );
+      expect(queries[0].split(' from ')[0]).not.toMatch(/manifest|\*/);
       expect(
         (
           await store.listArtifactsPaginated({

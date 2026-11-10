@@ -437,22 +437,16 @@ export async function createRouter(
     let totalItems: number;
 
     // Match digests first, then select from the complete repository group.
-    const allArtifacts = await db.listArtifacts();
-    let matches = await db.listArtifacts(
+    const allArtifacts = await db.listArtifactSummaries();
+    let matches = await db.listArtifactSummaries(
       typeof type === 'string' ? type : undefined,
-      filters,
+      { ...filters, collection: collectionFilter },
     );
     if (typeof registry === 'string')
       matches = matches.filter(a => a.registry === registry);
     if (contentsKnown !== undefined)
       matches = matches.filter(
         a => a.contentsKnown === (contentsKnown === 'true'),
-      );
-    if (collectionFilter)
-      matches = matches.filter(a =>
-        (a.manifest?.collections ?? []).some(
-          c => `${c.namespace}.${c.name}` === collectionFilter,
-        ),
       );
     const artifacts = groupImages(allArtifacts, matches);
 
@@ -500,6 +494,14 @@ export async function createRouter(
         .slice(offset, offset + pageSize)
         .map(a => artifactView(db, a));
     }
+
+    // Only the selected page needs full rows (including potentially large manifests).
+    items = await Promise.all(
+      items.map(async item => {
+        const full = await db.getArtifact(item.ref);
+        return full ? artifactView(db, { ...full, tags: item.tags }) : item;
+      }),
+    );
 
     const lastPage = Math.max(Math.ceil(totalItems / pageSize), 1);
 
