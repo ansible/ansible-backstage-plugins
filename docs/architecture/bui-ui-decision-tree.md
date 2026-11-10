@@ -40,6 +40,9 @@ until they move into sections A to F. Metaphors count as terms: a coined word
 such as a ladder or a rung is either defined in section 1 or replaced with plain
 language.
 
+The rule applies to the word used on its own. A blueprint's own name, such as
+`PageBlueprint` or `EntityContentBlueprint`, is a proper name and is used bare.
+
 All examples are drawn from shipped RHDH and Backstage code, verified against
 `redhat-developer/rhdh@0ebef90` and `backstage/backstage@d8ca292`.
 
@@ -308,6 +311,25 @@ entry.
 - `In RHDH:` the Templates / Tasks / Actions tabs under Software Templates; the
   General tab in Settings.
 - `Store:` an alcove inside a room.
+
+**Entity page** — the page that shows one catalog entity. Its tabs come from
+plugins rather than from the page itself.
+
+- `Code:` the `entity-page` extension; tabs arrive through its contents input,
+  and in the Portal through the shared contributions attachment.
+- `In RHDH:` what you get after clicking a component in Catalog — Overview, and
+  whatever tabs other plugins have added.
+- `Store:` a room several sellers stock; each one adds their own alcove.
+
+**Entity tab** — a region of an entity page with its own address under that
+entity. Contributed, not owned.
+
+- `Code:` `EntityDetailTabBlueprint` in the Portal, `EntityContentBlueprint`
+  upstream. The host supplies the navigation; a contribution never supplies a
+  route.
+- `In RHDH:` the Quality tab APME adds to a component's page.
+- `Store:` an alcove in someone else's room — you can label it and link to it,
+  but the room is not yours.
 
 **Route** — the address a surface answers to.
 
@@ -769,12 +791,12 @@ When it is, the seam between the two journeys is the thing to look at in review
 Stay inside the owning surface and exhaust it before leaving it. The order is
 carrying cost (section 2.2); only the levels inside a surface are in play here.
 
-| Level | What you try                                                                    | Good enough when                                                       |
-| ----- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| L0    | configuration: title, icon, order, filter predicates                            | the surface already does it, with different settings                   |
-| L1    | the whole stock page, with its stock nav item                                   | the stock page is the right page for the journey                       |
-| L2    | a stock sub-page, or one swapped nested component                               | one part of the page needs replacing, not the page                     |
-| L3    | a contribution into someone else's surface: tab, card, widget, nav item, action | the goal is one block of content or one action inside an existing page |
+| Level | What you try                                                                                           | Good enough when                                                       |
+| ----- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| L0    | configuration: title, icon, order, filter predicates                                                   | the surface already does it, with different settings                   |
+| L1    | the whole stock page, with its stock nav item                                                          | the stock page is the right page for the journey                       |
+| L2    | a stock sub-page, or one swapped nested component                                                      | one part of the page needs replacing, not the page                     |
+| L3    | a contribution into someone else's surface: entity tab, card, widget, nav item, action, catalog column | the goal is one block of content or one action inside an existing page |
 
 Walk the rows in order and stop at the first that is good enough. A change that
 stops at L0 or L1 adds no surface of ours and carries only configuration.
@@ -1239,25 +1261,14 @@ section 1.C, and the cheapest way to change each.
 | App shell and sidebar     | `NavContentBlueprint`, or the page's own title and icon                  | low           |
 | Page                      | `withOverrides` on the owning plugin: title, icon, path                  | none          |
 | Sub-page                  | its configuration inputs, for example `groups` on the templates sub-page | none          |
-| Entity tab                | `EntityDetailTabBlueprint`                                               | low           |
-| Entity card               | `EntityCardBlueprint`                                                    | low           |
-| Home widget               | `HomePageWidgetBlueprint`                                                | low           |
-| Catalog column            | `CatalogTableColumnBlueprint`                                            | low           |
-| Header or context action  | `PluginHeaderActionBlueprint`, `EntityContextMenuItemBlueprint`          | low           |
-| Form field                | `FormFieldBlueprint`                                                     | low           |
 | One nested component      | `SwappableComponentBlueprint`, where the owner offers one                | low           |
 | Theme and language        | `ThemeBlueprint`, `IconBundleBlueprint`, `TranslationBlueprint`          | low           |
 | A new page of stock parts | `PageBlueprint` composed from the primitives above                       | medium        |
 | A copy of a stock page    | forking it into our own plugin                                           | high          |
 
-Two naming worlds meet in this table, and one does not imply the other. The
-Portal's own extension API (`@ansible/portal-extension-api/alpha`) provides
-`EntityDetailTabBlueprint`, `EntityOverviewCardBlueprint`,
-`CatalogTableColumnBlueprint` and the scaffolder blueprints. Upstream Backstage
-provides `EntityContentBlueprint` for the same job as an entity tab, and has no
-catalog-column blueprint at all — upstream customises columns by replacing the
-`page:catalog` extension. Use the Portal name when contributing to the Portal
-and the upstream name when contributing upstream.
+For how to attach a contribution to a surface you do not own — an entity tab,
+card, action, catalog column or form field — see Appendix D, which names the
+blueprint for each and the two layers that provide them.
 
 Two of these deserve a second look. **Swap before fork**:
 `SwappableComponentBlueprint` exists so a host can replace one nested component
@@ -1326,6 +1337,99 @@ Two cautions. Search results are a floor, not a total: pages are occasionally
 declared indirectly, and a code search is capped. And a page existing in a
 package is not the same as it being enabled in a deployment, which is why step 1
 comes first.
+
+## Appendix D — Which blueprint expresses this contribution?
+
+This appendix answers one question: for the thing you are adding, which
+extension blueprint expresses it, and what does that commit you to?
+
+A blueprint determines **attachment**, never **appearance**. Every row below
+says where a contribution lands in the extension tree and nothing about what it
+looks like; that is the surface axis in section 2.1, decided separately.
+Blueprint names are proper names and appear bare here; section 1.A defines the
+construct.
+
+Two layers provide these, and the choice is not stylistic. The Portal's own
+extension API (`@ansible/portal-extension-api/alpha`) attaches every
+contribution to one shared extension point, with an input per kind of
+contribution, and a contribution never supplies a route — the host owns
+navigation. Upstream Backstage declares a separate extension point per surface.
+Use the Portal blueprint when contributing to the Automation Portal and the
+upstream blueprint when contributing upstream. Where a column says `none`, that
+layer does not offer the construct, and section C.2 gives the workaround.
+
+### D.1 Contributing into a surface you do not own — L3
+
+These sit at L3. You are a module, not a host: you add to someone else's surface
+without owning its page. Carrying cost is your contribution, plus revalidating
+it against a host that can change underneath you.
+
+| What you contribute            | Portal                         | Upstream                         |
+| ------------------------------ | ------------------------------ | -------------------------------- |
+| A tab on an entity page        | `EntityDetailTabBlueprint`     | `EntityContentBlueprint`         |
+| A card on an entity page       | `EntityOverviewCardBlueprint`  | `EntityCardBlueprint`            |
+| An action on an entity page    | `EntityActionBlueprint`        | `EntityContextMenuItemBlueprint` |
+| A tab on the Catalog page      | `CatalogTabBlueprint`          | none                             |
+| A column in the Catalog table  | `CatalogTableColumnBlueprint`  | none                             |
+| A header action on the Catalog | `CatalogHeaderActionBlueprint` | none                             |
+| An action on one Catalog row   | `CatalogItemActionBlueprint`   | none                             |
+| An item in the profile menu    | `AppProfileMenuItemBlueprint`  | none                             |
+| A field in a template form     | `ScaffolderFieldBlueprint`     | `FormFieldBlueprint`             |
+| A workflow in the create flow  | `ScaffolderWorkflowBlueprint`  | none                             |
+| A widget on Home               | none                           | `HomePageWidgetBlueprint`        |
+| A button in the app header     | none                           | `PluginHeaderActionBlueprint`    |
+| A search result item           | none                           | `SearchResultListItemBlueprint`  |
+| Nav content beyond the page    | none                           | `NavContentBlueprint`            |
+| Translations                   | none                           | `TranslationBlueprint`           |
+| Icons                          | none                           | `IconBundleBlueprint`            |
+
+A Catalog column is the clearest `none` in the table: upstream has no blueprint
+for it, and customises columns by replacing the `page:catalog` extension — which
+is a feature override of a page you do not own, and carries accordingly.
+
+An entity tab is not a sub-page, and the difference is not routing: both have an
+address. A tab's address is relative to one entity, inside a page you do not
+own. A sub-page is a routed child of a page you do own. If you want your own nav
+item, you have left D.1.
+
+### D.2 Creating a surface — L4 and above
+
+| Blueprint                     | What it makes                      | Lowest level |
+| ----------------------------- | ---------------------------------- | ------------ |
+| `PageBlueprint`               | A page with a route and a nav item | L4           |
+| `SubPageBlueprint`            | A routed child of a page           | L4           |
+| `SignInPageBlueprint`         | The sign-in surface                | L4           |
+| `SwappableComponentBlueprint` | A replaceable rendering            | L2           |
+| `ApiBlueprint`                | A service                          | L4           |
+| `ThemeBlueprint`              | Design values for the whole app    | L5           |
+| `RouterBlueprint`             | The app's router                   | architecture |
+
+"Lowest level" is a floor, not a verdict. A `PageBlueprint` whose loader returns
+stock components is L4; the same blueprint over a bespoke screen is L5. The
+blueprint cannot tell you which, which is D.3.
+
+### D.3 What the code tells you, and what it cannot
+
+Composition is visible in code; appearance is not. That gives two independent
+lower bounds, each checkable by grep:
+
+- **From composition.** `createFrontendModule` with only D.1 blueprints means
+  _at least_ L3. A `PageBlueprint` or `SubPageBlueprint` in the diff means _at
+  least_ L4. A `withOverrides(` on someone else's extension means a slot
+  workaround, and wants an upstream issue.
+- **From imports.** The non-BUI imports counted by the drift check give the
+  floor for `custom_surfaces`.
+
+Neither is a decision, and together they bracket one. A record claiming L3 while
+the diff contains a `PageBlueprint` is wrong in a way anyone can check. A record
+claiming no custom surface while the diff imports `@material-ui/core` is wrong
+the same way.
+
+Nothing reads blueprint usage automatically today: the advisory drift check
+counts imports, not composition. So this section describes a **reviewer step**,
+not a gate. Grep the diff for the names in D.1 and D.2, and send back a record
+whose `level` sits below what the diff shows. The bottom of the bracket is
+mechanical; the judgement above it is what the record is for.
 
 ## References
 
