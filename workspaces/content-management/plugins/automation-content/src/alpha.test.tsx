@@ -9,7 +9,7 @@ import {
   createFrontendPlugin,
   PageBlueprint,
 } from '@backstage/frontend-plugin-api';
-import { CONTENT_TYPES, EXPERIENCE_IDS } from '@ansible/portal-extension-api';
+import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 import { portalContributionsApiRef } from '@ansible/portal-extension-api/alpha';
 import {
   createPortalContributionProvider,
@@ -90,7 +90,6 @@ it('declares the Images catalog entry without an entity applicability predicate'
       {
         id: 'automation-content.discovery',
         ownerPlugin: 'automation-content',
-        experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
         minimumHostApiVersion: '0.1.0',
         appliesToContentTypes: [CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE],
         entryPoints: [
