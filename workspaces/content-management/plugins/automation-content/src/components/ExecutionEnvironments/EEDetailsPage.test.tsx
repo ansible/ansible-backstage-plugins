@@ -380,6 +380,33 @@ it('stays on the current tab when sync changes the artifact digest', async () =>
   );
 });
 
+it('returns to the catalog without refetching when sync removes the image', async () => {
+  const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
+    status: 'completed',
+    ref: image.ref,
+    tag: 'latest',
+    retainedPrevious: false,
+    removed: true,
+  }));
+  await screen.findByText('ansible.posix');
+  const calls = api.getExecutionEnvironment.mock.calls.length;
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(screen.getByRole('menuitem', { name: 'Sync' }));
+  await waitFor(() =>
+    expect(screen.getByTestId('current-location').textContent).toMatch(
+      /\/catalog$/,
+    ),
+  );
+  expect(api.getExecutionEnvironment).toHaveBeenCalledTimes(calls);
+  expect(mockShowNotification).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      description: 'repo is no longer available. Removed from the catalog.',
+    }),
+  );
+});
+
 it('keeps the current detail after a failed latest image sync without exposing backend errors', async () => {
   const api = renderSyncDetails(syncedContents, syncedContents, async () => ({
     status: 'failed',

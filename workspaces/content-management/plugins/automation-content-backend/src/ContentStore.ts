@@ -144,6 +144,8 @@ export interface PaginatedResult<T> {
 /** Outcome of reconciling an indexed row's entire repository. */
 export interface ArtifactSyncResult {
   status: 'completed' | 'failed';
+  /** No indexed digests remain for this repository after reconciliation. */
+  removed?: boolean;
   ref: string;
   /** Legacy field retained for older clients; sync now covers all tags. */
   tag: 'latest';
@@ -487,6 +489,7 @@ export class ContentStore {
         ref;
       return {
         status: 'completed',
+        removed: targets.length === 0,
         ref: resultRef,
         summary,
         tag: 'latest',
@@ -504,6 +507,7 @@ export class ContentStore {
       );
       return {
         status: 'failed',
+        removed: false,
         ref,
         tag: 'latest',
         retainedPrevious: true,

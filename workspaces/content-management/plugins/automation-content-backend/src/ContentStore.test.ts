@@ -670,7 +670,9 @@ describe('repository-scoped artifact sync', () => {
   it('removes deleted tags and drops their digest when empty, without touching another repository', async () => {
     const { index, repositories, original, registry } = await fixture(['v1']);
     repositories['ansible/ee'] = [];
-    expect((await index.syncArtifact(original.ref)).summary).toEqual({
+    const result = await index.syncArtifact(original.ref);
+    expect(result).toMatchObject({ status: 'completed', removed: true });
+    expect(result.summary).toEqual({
       addedTags: 0,
       removedTags: 2,
       movedTags: 0,

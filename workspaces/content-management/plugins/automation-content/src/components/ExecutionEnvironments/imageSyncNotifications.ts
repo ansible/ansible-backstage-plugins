@@ -41,6 +41,8 @@ export async function syncImageWithNotifications(
       description = result.retainedPrevious
         ? 'Sync failed. Previously indexed content is still shown.'
         : 'Unable to sync this image.';
+    } else if (result.removed) {
+      description = `${name} is no longer available. Removed from the catalog.`;
     }
     showNotification({
       title: `${name}: ${failed ? 'sync failed' : 'sync complete'}`,

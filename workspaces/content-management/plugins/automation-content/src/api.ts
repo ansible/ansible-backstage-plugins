@@ -182,6 +182,8 @@ export interface AutomationContentApi {
 
 /** Latest-row reconciliation; successful ref may name a new digest. */
 export interface ArtifactSyncResult {
+  /** Absent on older servers; true when the repository was removed. */
+  removed?: boolean;
   summary?: {
     addedTags: number;
     removedTags: number;

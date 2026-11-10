@@ -501,6 +501,10 @@ function EEDetailsContent(): ReactElement {
         showNotification,
       );
       if (result.status === 'failed') return;
+      if (result.removed) {
+        navigate(`${base}/catalog`, { replace: true });
+        return;
+      }
       if (result.ref !== value.ref) {
         navigate(hrefKeepingTab(result.ref), { replace: true });
         return;
