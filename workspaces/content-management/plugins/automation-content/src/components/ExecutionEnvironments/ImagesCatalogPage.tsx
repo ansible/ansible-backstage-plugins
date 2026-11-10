@@ -476,6 +476,24 @@ export function ImagesCatalogPage({
     />
   );
 
+  const pagination = {
+    type: 'page' as const,
+    pageSize: perPage,
+    pageSizeOptions: [10, 20, 50],
+    showPageSizeOptions: true,
+    onPageSizeChange: (size: number) => {
+      setPerPage(size);
+      setPage(1);
+    },
+    offset: ((images.value?.page ?? page) - 1) * perPage,
+    totalCount: images.value?.totalItems ?? 0,
+    hasNextPage:
+      !images.loading && page * perPage < (images.value?.totalItems ?? 0),
+    hasPreviousPage: !images.loading && page > 1,
+    onNextPage: () => setPage(current => current + 1),
+    onPreviousPage: () => setPage(current => current - 1),
+  };
+
   const content = (
     <Flex direction="column" gap="4">
       {showHeader && (
@@ -573,24 +591,7 @@ export function ImagesCatalogPage({
             ) : (
               <Table
                 {...table.tableProps}
-                pagination={{
-                  type: 'page',
-                  pageSize: perPage,
-                  pageSizeOptions: [10, 20, 50],
-                  showPageSizeOptions: true,
-                  onPageSizeChange: size => {
-                    setPerPage(size);
-                    setPage(1);
-                  },
-                  offset: ((images.value?.page ?? page) - 1) * perPage,
-                  totalCount: images.value?.totalItems ?? 0,
-                  hasNextPage:
-                    !images.loading &&
-                    page * perPage < (images.value?.totalItems ?? 0),
-                  hasPreviousPage: !images.loading && page > 1,
-                  onNextPage: () => setPage(current => current + 1),
-                  onPreviousPage: () => setPage(current => current - 1),
-                }}
+                pagination={pagination}
                 isPending={images.loading}
                 columnConfig={columns}
                 emptyState={emptyState}
@@ -789,24 +790,7 @@ export function ImagesCatalogPage({
                   gap="2"
                   className={catalogStyles.gridPagination}
                 >
-                  <TablePagination
-                    pageSize={perPage}
-                    pageSizeOptions={[10, 20, 50]}
-                    showPageSizeOptions
-                    onPageSizeChange={size => {
-                      setPerPage(size);
-                      setPage(1);
-                    }}
-                    offset={((images.value?.page ?? page) - 1) * perPage}
-                    totalCount={images.value?.totalItems ?? 0}
-                    hasNextPage={
-                      !images.loading &&
-                      page * perPage < (images.value?.totalItems ?? 0)
-                    }
-                    hasPreviousPage={!images.loading && page > 1}
-                    onNextPage={() => setPage(current => current + 1)}
-                    onPreviousPage={() => setPage(current => current - 1)}
-                  />
+                  <TablePagination {...pagination} />
                 </Flex>
               )}
             </>

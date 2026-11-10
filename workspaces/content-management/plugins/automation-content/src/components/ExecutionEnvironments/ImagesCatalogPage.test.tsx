@@ -477,6 +477,17 @@ it.each(['table', 'grid'])(
       }),
     );
     expect(await screen.findByText('1 - 20 of 60')).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await screen.findByText('21 - 40 of 60');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await screen.findByText('41 - 60 of 60');
+    expect(
+      screen.getByRole('button', { name: 'Next table page' }),
+    ).toBeDisabled();
   },
 );
 
