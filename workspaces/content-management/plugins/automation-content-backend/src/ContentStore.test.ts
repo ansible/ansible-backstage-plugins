@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import knexFactory, { Knex } from 'knex';
+import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
@@ -125,7 +125,7 @@ describe('repository tag timestamps', () => {
   });
 });
 
-describe('registry drift detection', () => {
+describe('drift detection', () => {
   it('reports no change when the registry matches the store', async () => {
     const registry = new MockRegistry({
       repositories: {
@@ -245,7 +245,7 @@ describe('registry drift detection', () => {
   });
 });
 
-describe('registry digest cache', () => {
+describe('digest cache', () => {
   it('avoids re-reading unchanged content on a second refresh', async () => {
     const registry = new MockRegistry({
       repositories: {
@@ -266,7 +266,7 @@ describe('registry digest cache', () => {
   });
 });
 
-describe('registry error cause traversal is bounded', () => {
+describe('error cause traversal is bounded', () => {
   async function storeFailingWith(error: unknown): Promise<ContentStore> {
     const db = await createTestDB();
     const store = new ContentStore(
@@ -558,7 +558,7 @@ describe('credential redaction', () => {
   });
 });
 
-describe('artifact tag sync', () => {
+describe('strict latest-only artifact sync', () => {
   async function fixture(
     oldTags = ['latest', 'v1'],
     originalInventory = false,
@@ -704,44 +704,8 @@ describe('artifact tag sync', () => {
     expect(await index.getArtifact(original.ref)).toBeUndefined();
   });
 
-  it.each([true, false])(
-    'syncs and reports the newest indexed tag (timestamps: %s)',
-    async timestamps => {
-      const { index, registry, original } = await fixture(['v2', 'v10']);
-      const db = (index as unknown as { db: Knex }).db;
-      if (timestamps) {
-        await db('artifacts')
-          .where('ref', original.ref)
-          .update({
-            tag_timestamps: JSON.stringify({
-              v2: '2026-11-10T00:00:00Z',
-              v10: '2026-01-01T00:00:00Z',
-            }),
-          });
-      }
-      const selectedTag = timestamps ? 'v2' : 'v10';
-      await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
-        status: 'completed',
-        ref: original.ref,
-        tag: selectedTag,
-      });
-      const paths = registry.requests.map(r => r.path);
-      expect(paths).toContain('/v2/ansible/ee/manifests/latest');
-      expect(paths).toContain(`/v2/ansible/ee/manifests/${selectedTag}`);
-      expect((await index.getArtifact(original.ref))?.tags).toEqual([
-        'v2',
-        'v10',
-      ]);
-    },
-  );
-
-  it('preserves reconcile state and the not-found failure when no indexed tags exist', async () => {
-    const { index, registry, original, repositories } = await fixture([
-      'latest',
-    ]);
-    repositories['ansible/ee'] = [repositories['ansible/ee'][1]];
-    const db = (index as unknown as { db: Knex }).db;
-    await db('artifacts').where('ref', original.ref).update({ tags: '[]' });
+  it('preserves reconcile state and never falls back to the clicked digest when latest is absent', async () => {
+    const { index, registry, original, repositories } = await fixture(['v1']);
     const before = await index.listArtifacts();
     const reconcileBefore = index.reconcileStateOf(original);
     await expect(index.syncArtifact(original.ref)).rejects.toMatchObject({
@@ -753,29 +717,7 @@ describe('artifact tag sync', () => {
     expect(registry.requests.map(r => r.path)).toEqual([
       '/v2/ansible/ee/manifests/latest',
     ]);
-    expect(repositories['ansible/ee']).toHaveLength(1);
-  });
-
-  it('only moves the fallback alias, preserving latest and other old aliases', async () => {
-    const { index, original, repositories } = await fixture([
-      'latest',
-      'v10',
-      'v2',
-    ]);
-    const moved = {
-      ...repositories['ansible/ee'][0],
-      tag: 'v10',
-      digest: `sha256:${'c'.repeat(64)}`,
-    };
-    repositories['ansible/ee'] = [moved, repositories['ansible/ee'][3]];
-    const result = await index.syncArtifact(original.ref);
-    expect(result).toMatchObject({ status: 'completed', tag: 'v10' });
-    expect(result.ref).not.toBe(original.ref);
-    expect((await index.getArtifact(original.ref))?.tags).toEqual([
-      'latest',
-      'v2',
-    ]);
-    expect((await index.getArtifact(result.ref))?.tags).toEqual(['v10']);
+    expect(repositories['ansible/ee']).toHaveLength(2);
   });
 
   it.each([429, 500, 503])(
