@@ -27,3 +27,7 @@ backend.add(
 Install with the [AAP shared library](backstage-rhaap-common.md) and
 [AAP authentication module](auth.md). User provisioning is separate from the
 periodic [AAP catalog synchronization](catalog.md).
+
+The catalog package loader or host must register the AAP service factory.
+See [AAP service registration](backstage-rhaap-common.md#aap-service-registration-during-the-package-split)
+for native and RHDH installation requirements.

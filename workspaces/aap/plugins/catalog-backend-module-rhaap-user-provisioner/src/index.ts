@@ -6,15 +6,13 @@
  * @packageDocumentation
  */
 import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import { catalogModuleRhaapUserProvisioner } from './module';
 
 export { catalogModuleRhaapUserProvisioner };
 
-/** Register the transitional AAP client factory alongside the user-provisioner module. */
+/** Load the provisioner module; the catalog loader or host provides the AAP service. */
 export default createBackendFeatureLoader({
   loader: function* () {
-    yield ansibleServiceFactory;
     yield catalogModuleRhaapUserProvisioner;
   },
 });

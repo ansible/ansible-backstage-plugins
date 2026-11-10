@@ -15,16 +15,14 @@
  */
 
 import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import { scaffolderModuleAnsible } from './module';
 
 export * from './actions';
 export { scaffolderModuleAnsible };
 
-/** Register the transitional AAP client factory alongside the scaffolder module. */
+/** Load the scaffolder module; the catalog loader or host provides the AAP service. */
 export default createBackendFeatureLoader({
   loader: function* () {
-    yield ansibleServiceFactory;
     yield scaffolderModuleAnsible;
   },
 });

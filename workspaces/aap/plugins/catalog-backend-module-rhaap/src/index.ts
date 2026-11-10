@@ -12,7 +12,7 @@ import { catalogModuleRhaap } from './module';
 export { catalogModuleRhaap };
 export * from './router';
 
-/** Register the transitional AAP client factory alongside the catalog module. */
+/** The catalog loader owns transitional AAP service registration for dynamic installs. */
 export default createBackendFeatureLoader({
   loader: function* () {
     yield ansibleServiceFactory;

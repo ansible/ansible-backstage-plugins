@@ -64,7 +64,10 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "@backstage/cli": "0.36.5"
+    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/cli": "0.36.5",
+    "@backstage/plugin-catalog-node": "2.2.4",
+    "@backstage/plugin-scaffolder-node": "0.13.6"
   },
   "files": [
     "dist"

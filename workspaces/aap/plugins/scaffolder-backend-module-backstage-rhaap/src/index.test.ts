@@ -1,4 +1,3 @@
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import scaffolderFeatureLoader from './index';
 import { scaffolderModuleAnsible } from './module';
 
@@ -8,12 +7,12 @@ type BackendFeatureLoader = {
 };
 
 describe('scaffolder backend feature loader', () => {
-  it('yields the AAP client factory and scaffolder module', async () => {
+  it('yields only the scaffolder module', async () => {
     const loader = scaffolderFeatureLoader as unknown as BackendFeatureLoader;
 
     expect(loader.featureType).toBe('loader');
 
     const features = await loader.loader({});
-    expect(features).toEqual([ansibleServiceFactory, scaffolderModuleAnsible]);
+    expect(features).toEqual([scaffolderModuleAnsible]);
   });
 });
