@@ -30,6 +30,8 @@ import {
   SearchField,
   Table,
   Text,
+  Tooltip,
+  TooltipTrigger,
   useTable,
   type SortDescriptor,
 } from '@backstage/ui';
@@ -81,6 +83,40 @@ function imageSourceLabel(
 ): string {
   if (definitionEntityRef) return 'Definition file';
   return sourceLabel(registry);
+}
+
+function ViewIcon({
+  view,
+  size,
+}: {
+  view: 'table' | 'grid';
+  size?: number;
+}): ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      {view === 'table' ? (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="1" />
+          <path d="M3 9h18M3 14h18M9 4v16" />
+        </>
+      ) : (
+        <>
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </>
+      )}
+    </svg>
+  );
 }
 
 /** Registry inventory with server-side search and optional catalog-owned stars. */
@@ -437,34 +473,15 @@ export function ImagesCatalogPage({
               Show all images
             </Checkbox>
             <MenuTrigger isOpen={viewMenuOpen} onOpenChange={setViewMenuOpen}>
-              <ButtonIcon
-                size="medium"
-                variant="tertiary"
-                aria-label={`View: ${view === 'table' ? 'Table' : 'Card'}`}
-                icon={
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden="true"
-                  >
-                    {view === 'table' ? (
-                      <>
-                        <rect x="3" y="4" width="18" height="16" rx="1" />
-                        <path d="M3 9h18M3 14h18M9 4v16" />
-                      </>
-                    ) : (
-                      <>
-                        <rect x="3" y="3" width="7" height="7" rx="1" />
-                        <rect x="14" y="3" width="7" height="7" rx="1" />
-                        <rect x="3" y="14" width="7" height="7" rx="1" />
-                        <rect x="14" y="14" width="7" height="7" rx="1" />
-                      </>
-                    )}
-                  </svg>
-                }
-              />
+              <TooltipTrigger>
+                <ButtonIcon
+                  size="medium"
+                  variant="tertiary"
+                  aria-label={`View: ${view === 'table' ? 'Table' : 'Card'}`}
+                  icon={<ViewIcon view={view} />}
+                />
+                <Tooltip>Change view</Tooltip>
+              </TooltipTrigger>
               <MenuListBox
                 aria-label="Image view"
                 selectionMode="single"
@@ -481,8 +498,18 @@ export function ImagesCatalogPage({
                   }
                 }}
               >
-                <MenuListBoxItem id="table">Table view</MenuListBoxItem>
-                <MenuListBoxItem id="grid">Card view</MenuListBoxItem>
+                <MenuListBoxItem id="table" textValue="Table view">
+                  <Flex align="center" gap="2">
+                    <ViewIcon view="table" size={16} />
+                    <span>Table view</span>
+                  </Flex>
+                </MenuListBoxItem>
+                <MenuListBoxItem id="grid" textValue="Card view">
+                  <Flex align="center" gap="2">
+                    <ViewIcon view="grid" size={16} />
+                    <span>Card view</span>
+                  </Flex>
+                </MenuListBoxItem>
               </MenuListBox>
             </MenuTrigger>
           </Flex>

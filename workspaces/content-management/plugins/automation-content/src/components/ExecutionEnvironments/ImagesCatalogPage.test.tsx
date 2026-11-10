@@ -1170,13 +1170,25 @@ it('renders responsive image cards and toggles between grid and table views', as
   );
 
   await screen.findByRole('link', { name: 'repo' });
-  await userEvent.click(screen.getByRole('button', { name: 'View: Table' }));
+  const tableViewButton = screen.getByRole('button', { name: 'View: Table' });
+  await userEvent.hover(tableViewButton);
+  expect((await screen.findByRole('tooltip')).textContent).toBe('Change view');
+  await userEvent.unhover(tableViewButton);
+  await userEvent.click(tableViewButton);
+  const tableViewOption = screen.getByRole('option', { name: 'Table view' });
   expect(
-    screen
-      .getByRole('option', { name: 'Table view' })
-      .getAttribute('aria-selected'),
+    tableViewOption
+      .querySelector('svg[aria-hidden="true"]')
+      ?.getAttribute('aria-hidden'),
   ).toBe('true');
-  await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
+  expect(tableViewOption.getAttribute('aria-selected')).toBe('true');
+  const cardViewOption = screen.getByRole('option', { name: 'Card view' });
+  expect(
+    cardViewOption
+      .querySelector('svg[aria-hidden="true"]')
+      ?.getAttribute('aria-hidden'),
+  ).toBe('true');
+  await userEvent.click(cardViewOption);
   expect(screen.getByRole('button', { name: 'View: Card' })).toBeTruthy();
   const card = screen.getByRole('link', { name: 'View repo details' });
   expect(card).toBeTruthy();
