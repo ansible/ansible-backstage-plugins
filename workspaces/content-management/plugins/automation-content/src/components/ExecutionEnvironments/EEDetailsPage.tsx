@@ -65,7 +65,6 @@ import {
   syncStateLabel,
 } from './catalogHelpers';
 import styles from './details.module.css';
-import { ContentItemDocumentation } from '../ContentItemDocumentation';
 import { UseInControllerDialog } from './UseInControllerDialog';
 import { VerificationWarning } from './VerificationWarning';
 
@@ -392,7 +391,6 @@ function EEDetailsContent(): ReactElement {
       description={emptyCollections.description}
     />
   );
-  const itemFqcn = params.get('item');
   const syncImage = async (): Promise<void> => {
     if (!canSync || !value || syncing) return;
     setSyncing(true);
@@ -427,26 +425,6 @@ function EEDetailsContent(): ReactElement {
       );
     }
   };
-  if (itemFqcn) {
-    return (
-      <Container>
-        <Flex direction="column" gap="4">
-          <BreadcrumbsNavigation
-            items={[
-              { label: 'Execution environments', href: base },
-              { label: 'Images', href: `${base}/images` },
-              {
-                label: value?.repository ?? ref,
-                href: `${environmentHref(base, ref)}?tab=collections`,
-              },
-              { label: itemFqcn },
-            ]}
-          />
-          <ContentItemDocumentation fqcn={itemFqcn} inArtifact={ref} />
-        </Flex>
-      </Container>
-    );
-  }
   return (
     <Container className={styles.detailContainer}>
       <NotificationStack

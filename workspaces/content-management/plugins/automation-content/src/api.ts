@@ -77,29 +77,6 @@ export interface ContentItemSummary {
   deprecated?: boolean;
 }
 
-export interface OptionSpec {
-  type?: string;
-  elements?: string;
-  required?: boolean;
-  default?: unknown;
-  choices?: unknown[];
-  description?: string[];
-  suboptions?: Record<string, OptionSpec>;
-}
-
-export interface ContentItem extends ContentItemSummary {
-  // Normalised to arrays by the backend — ansible-doc emits either shape depending on
-  // how each collection author wrote the YAML.
-  description?: string[];
-  author?: string[];
-  notes?: string[];
-  options?: Record<string, OptionSpec>;
-  examples?: string;
-  returns?: Record<string, unknown>;
-  providedBy: string[];
-  enumeration: Enumeration;
-}
-
 export interface RegistryCapabilities {
   referrers: 'native' | 'tag-fallback' | 'none';
   catalogEnumeration: boolean;
@@ -169,15 +146,6 @@ export interface AutomationContentApi {
     opts?: { depth?: 'direct' | 'flat'; type?: string },
   ): Promise<ArtifactContents>;
   listCollections(query?: string): Promise<Collection[]>;
-  searchContentItems(params: {
-    q?: string;
-    type?: string;
-    collection?: string;
-    /** Scope to one artifact. */
-    in?: string;
-    limit?: number;
-  }): Promise<{ totalItems: number; items: ContentItemSummary[] }>;
-  getContentItem(fqcn: string, inArtifact?: string): Promise<ContentItem>;
   /** Reconcile only the named registry, retaining its previous index on failure. */
   syncRegistry(name: string): Promise<RegistrySyncResult>;
   /** Resolve and inspect only latest in the indexed row's repository. */
@@ -331,43 +299,5 @@ export class AutomationContentClient implements AutomationContentApi {
       `/collections${suffix}`,
     );
     return items;
-  }
-
-  async searchContentItems(params: {
-    q?: string;
-    type?: string;
-    collection?: string;
-    in?: string;
-    limit?: number;
-  }): Promise<{ totalItems: number; items: ContentItemSummary[] }> {
-    const search = new URLSearchParams();
-    if (params.q) search.set('q', params.q);
-    if (params.type) search.set('type', params.type);
-    if (params.collection) search.set('collection', params.collection);
-    if (params.in) search.set('in', params.in);
-    search.set('limit', String(params.limit ?? 100));
-    return this.get(`/content-items?${search.toString()}`);
-  }
-
-  async getContentItem(
-    fqcn: string,
-    inArtifact?: string,
-  ): Promise<ContentItem> {
-    // Scope to the artifact wherever possible: two environments may ship different
-    // versions of the same collection, so the documentation genuinely differs.
-    const suffix = inArtifact ? `?in=${encodeURIComponent(inArtifact)}` : '';
-    const body = await this.get<ContentItem | { variants: ContentItem[] }>(
-      `/content-items/${encodeURIComponent(fqcn)}${suffix}`,
-    );
-    // The backend returns a variants object when the unscoped name matches in
-    // more than one artifact — pick the first rather than render an item with
-    // no type, options or documentation.
-    if ('variants' in body) {
-      if (!body.variants.length) {
-        throw new Error(`No documentation found for ${fqcn}`);
-      }
-      return body.variants[0];
-    }
-    return body;
   }
 }

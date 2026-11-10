@@ -163,10 +163,6 @@ function createLiveApi(image?: ExecutionEnvironment): {
       items: [],
     }),
     listCollections: async () => [],
-    searchContentItems: async () => ({ items: [], totalItems: 0 }),
-    getContentItem: async fqcn => {
-      throw new ContentApiError(404, `No content item for ${fqcn}`);
-    },
     syncRegistry,
     syncArtifact,
   };

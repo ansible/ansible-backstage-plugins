@@ -560,15 +560,6 @@ it.each([
 );
 
 function renderLegacyContentLink(query: string) {
-  const getContentItem = jest.fn().mockResolvedValue({
-    fqcn: 'ansible.posix.mount',
-    type: 'module',
-    collection: 'ansible.posix',
-    collectionVersion: '1.0.0',
-    description: ['Retained direct documentation'],
-    enumeration: image.enumeration,
-    providedBy: [image.ref],
-  });
   render(
     <TestApiProvider
       apis={[
@@ -582,7 +573,6 @@ function renderLegacyContentLink(query: string) {
               collections: [],
               items: [],
             }),
-            getContentItem,
           },
         ],
       ]}
@@ -596,28 +586,15 @@ function renderLegacyContentLink(query: string) {
       </MemoryRouter>
     </TestApiProvider>,
   );
-  return getContentItem;
 }
 
 it('falls back to Overview for the removed content tab', async () => {
-  const getContentItem = renderLegacyContentLink('?tab=content');
+  renderLegacyContentLink('?tab=content');
   expect(
     await screen.findByRole('tab', { name: 'Overview', selected: true }),
   ).toBeTruthy();
   expect(screen.getAllByRole('tab')).toHaveLength(2);
   expect(screen.queryByRole('tab', { name: 'Content items' })).toBeNull();
-  expect(getContentItem).not.toHaveBeenCalled();
-});
-
-it('retains direct documentation links with a Collections back link', async () => {
-  const getContentItem = renderLegacyContentLink(
-    '?tab=content&item=ansible.posix.mount',
-  );
-  await screen.findByText('Retained direct documentation');
-  expect(getContentItem).toHaveBeenCalledWith('ansible.posix.mount', image.ref);
-  expect(
-    screen.getByRole('link', { name: 'repo' }).getAttribute('href'),
-  ).toContain('?tab=collections');
 });
 
 it('shows populated image metadata without leaking missing classification confidence', async () => {

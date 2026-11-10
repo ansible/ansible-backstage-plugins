@@ -63,16 +63,6 @@ function createLiveApi(): AutomationContentApi {
       items: [],
     }),
     listCollections: async () => [],
-    searchContentItems: async () => ({ items: [], totalItems: 0 }),
-    getContentItem: async fqcn => ({
-      fqcn,
-      name: 'mount',
-      type: 'module',
-      collection: 'ansible.posix',
-      collectionVersion: '2.2.2',
-      providedBy: [imageRef],
-      enumeration,
-    }),
     syncRegistry: async () => ({
       status: 'completed',
       discovered: 0,
@@ -110,14 +100,10 @@ it('renders the registry image catalog route', async () => {
   expect(await screen.findByText('Image catalog route')).toBeTruthy();
 });
 
-it('renders deep content documentation for a registry image', async () => {
-  await renderRoute(
-    `/content/ee/${encodeURIComponent(
-      imageRef,
-    )}?tab=collections&item=ansible.posix.mount`,
-  );
+it('renders the registry image details route', async () => {
+  await renderRoute(`/content/ee/${encodeURIComponent(imageRef)}`);
 
   expect(
-    await screen.findByRole('heading', { name: 'ansible.posix.mount' }),
+    await screen.findByRole('heading', { name: 'demo/utopia-ee' }),
   ).toBeTruthy();
 });
