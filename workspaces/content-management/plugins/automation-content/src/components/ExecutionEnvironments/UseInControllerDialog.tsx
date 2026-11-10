@@ -6,6 +6,7 @@ import { useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { copyText } from '../common/clipboard';
 import {
   Button,
   ButtonIcon,
@@ -284,10 +285,9 @@ export function UseInControllerDialog({
 
   const copyDigest = async (): Promise<void> => {
     if (!selectedImage) return;
-    try {
-      await navigator.clipboard.writeText(selectedImage.digest);
+    if (await copyText(selectedImage.digest)) {
       setCopyStatus('Digest copied');
-    } catch {
+    } else {
       setCopyStatus('Unable to copy. Select and copy the digest.');
     }
   };
