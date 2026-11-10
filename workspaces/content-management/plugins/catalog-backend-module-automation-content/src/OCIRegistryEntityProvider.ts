@@ -698,6 +698,9 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         },
         spec: {
           type: 'ansible-collection',
+          collection_namespace: collection.namespace,
+          collection_name: collection.name,
+          collection_full_name: `${collection.namespace}.${collection.name}`,
           lifecycle: 'production',
           owner,
           ...(system ? { system } : {}),
