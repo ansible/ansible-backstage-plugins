@@ -36,6 +36,8 @@ where versioned packages apply.
 
 - **Portal capability placement** no longer requires `experienceId` or a fixed host experience taxonomy. The host selects supported surfaces using contribution attachments and applicability. Removed experience constants/types and the `availableExperiences` renderer prop, without adding recommendation metadata. Existing serialized experience fields are ignored, while source consumers must remove the obsolete fields/imports/props and rebuild with the updated SDK. Permission, entitlement, ownership and configuration checks remain independent.
 
+- **Backend authentication configuration** removes deprecated `backend.auth.keys` and its unused `BACKEND_SECRET` setup. Plugin-to-plugin authentication uses Backstage's built-in auth services. Existing local overrides must also remove `backend.auth.keys`; external caller credentials remain configured separately under `backend.auth.externalAccess`.
+
 - **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
 
 - **Automation content custom transports:** injected `FetchLike` implementations
