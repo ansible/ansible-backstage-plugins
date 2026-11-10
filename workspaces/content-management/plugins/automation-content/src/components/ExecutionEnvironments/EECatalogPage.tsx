@@ -185,8 +185,11 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
 /** Route-bound port of the prototype tab view. */
 export function EECatalogPage({ view }: { view: EECatalogView }): ReactElement {
   return (
-    <NotificationProvider>
-      <EETabs view={view} />
-    </NotificationProvider>
+    // Route-owned main landmark; see EEDetailsPage for the rationale.
+    <main>
+      <NotificationProvider>
+        <EETabs view={view} />
+      </NotificationProvider>
+    </main>
   );
 }
