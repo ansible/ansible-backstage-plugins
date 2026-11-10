@@ -47,6 +47,7 @@ import {
 import { automationContentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { eeRouteRef } from '../../routes';
 import { EmptyState, StatusBadge, syncStatusIcon } from '../common';
+import { copyText } from '../common/clipboard';
 import type { StatusBadgeTone } from '../common';
 import { BreadcrumbsNavigation } from '../common/BreadcrumbsNavigation';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
@@ -413,10 +414,9 @@ function EEDetailsContent(): ReactElement {
   };
   const copyPullReference = async (): Promise<void> => {
     if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value.pullReference);
+    if (await copyText(value.pullReference)) {
       setCopyStatus('Pull reference copied');
-    } catch {
+    } else {
       setCopyStatus(
         'Unable to copy. Select and copy the pull reference above.',
       );
