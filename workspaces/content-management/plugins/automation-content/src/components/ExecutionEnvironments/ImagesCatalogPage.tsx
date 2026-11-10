@@ -701,16 +701,6 @@ export function ImagesCatalogPage({
                               </Text>
                               <div className={catalogStyles.cardSection}>
                                 <Text variant="body-medium" weight="bold">
-                                  Tags
-                                </Text>
-                                <Text color="secondary">
-                                  {image.tags.length
-                                    ? image.tags.join(', ')
-                                    : 'Untagged'}
-                                </Text>
-                              </div>
-                              <div className={catalogStyles.cardSection}>
-                                <Text variant="body-medium" weight="bold">
                                   Contents
                                 </Text>
                                 <Text color="secondary">

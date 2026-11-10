@@ -1189,7 +1189,8 @@ it('renders responsive image cards and toggles between grid and table views', as
   const card = screen.getByRole('link', { name: 'View repo details' });
   expect(card).toBeTruthy();
   expect(screen.getByText('External registry')).toBeTruthy();
-  expect(screen.getByText('latest, stable')).toBeTruthy();
+  expect(screen.queryByText('Tags')).toBeNull();
+  expect(screen.queryByText('latest, stable')).toBeNull();
   expect(
     screen.getByText('Approximate: 2 collections / 3 plugins'),
   ).toBeTruthy();
