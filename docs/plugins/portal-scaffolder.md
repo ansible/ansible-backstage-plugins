@@ -1,4 +1,4 @@
---8<-- "workspaces/portal-scaffolder/plugins/portal-scaffolder/README.md"
+--8<-- "workspaces/content-development/plugins/portal-scaffolder/README.md"
 
 ## Related packages
 

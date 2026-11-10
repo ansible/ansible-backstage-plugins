@@ -57,4 +57,4 @@ flowchart TD
 
 - Research: 002 (research not published in this repository), 003 (research not published in this repository), 006 (research not published in this repository), 007 (research not published in this repository)
 - ADR-002 (base URL in wizard Step 2)
-- `workspaces/self-service/plugins/portal-scaffolder/` — wizard and admin page UI
+- `workspaces/content-development/plugins/portal-scaffolder/` — wizard and admin page UI

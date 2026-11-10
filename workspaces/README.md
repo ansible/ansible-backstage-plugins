@@ -1,7 +1,7 @@
 # Workspaces — Portal plugin architecture
 
 Packages are grouped by ownership under one root Yarn workspace configuration
-and lockfile. These directories are not independently installed Yarn projects.
+and lockfile. These directories are not independently installed Yarn projects. s
 
 ```text
 workspaces/
@@ -28,7 +28,7 @@ flowchart TB
     SDK["Frontend and backend toolkits<br/>plugin-sdk, plugin-node"]
     Services["Backend services<br/>operations-backend, health-backend"]
   end
-  Self["Self-service workspace<br/>portal-scaffolder and host surfaces"]
+  ContentDevelopment["Content development workspace<br/>portal-scaffolder and content pages"]
   APME["APME workspace<br/>Frontend, shared domain library,<br/>catalog and scaffolder backend modules"]
   AAP["AAP workspace<br/>Clients, permissions, authentication,<br/>catalog providers and scaffolder actions"]
 
@@ -71,11 +71,12 @@ Native composition does not depend on a shared mutable
 `ContributionRegistry`, module-load registration, or a `portal-core` MF
 singleton. Library packages are not standalone page plugins.
 
-### Self-service
+### Content development
 
-`@ansible/portal-scaffolder` owns templates, tasks, authoring and picker
-integration. It also currently hosts collection, repository and execution-
-environment browsing/detail pages pending content extraction.
+`@ansible/content-development-workspace` groups the Portal scaffolder frontend
+plugin (`@ansible/portal-scaffolder`), shared contracts and validation schemas
+(`@ansible/portal-scaffolder-common`), and reusable React field widgets
+(`@ansible/portal-scaffolder-react`).
 
 ### APME
 

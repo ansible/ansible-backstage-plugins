@@ -73,4 +73,4 @@ flowchart LR
 ## Related
 
 - Research: 002 (research not published in this repository), 005 (research not published in this repository), 006 (research not published in this repository)
-- `workspaces/self-service/plugins/portal-scaffolder/`, `workspaces/aap/plugins/backstage-rhaap/`, `workspaces/aap/plugins/backstage-rhaap-common/`, `workspaces/aap/plugins/auth-backend-module-rhaap-provider/`
+- `workspaces/content-development/plugins/portal-scaffolder/`, `workspaces/aap/plugins/backstage-rhaap/`, `workspaces/aap/plugins/backstage-rhaap-common/`, `workspaces/aap/plugins/auth-backend-module-rhaap-provider/`

@@ -251,7 +251,7 @@ ansible-backstage-plugins/
 │   │   ├── packages/app/      # Source frontend development harness
 │   │   ├── packages/backend/  # Source backend development harness
 │   │   └── plugins/           # Portal host, SDK, operations, and health
-│   ├── self-service/plugins/  # Templates, tasks, and current content pages
+│   ├── content-development/plugins/  # Portal scaffolder and content pages
 │   ├── aap/plugins/           # AAP clients, authentication, catalog, actions
 │   └── apme/plugins/          # Third-party contribution example and backend modules
 │
@@ -297,10 +297,10 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner`](./docs/plugins/catalog-user-provisioner.md): on-demand catalog user provisioning.
 - [`@ansible/plugin-scaffolder-backend-module-backstage-rhaap`](./docs/plugins/scaffolder.md): AAP scaffolder actions.
 
-### Self-service
+### Content development
 
-- [`@ansible/portal-scaffolder`](./docs/plugins/portal-scaffolder.md): templates, tasks/history,
-  native fields, and current collection/EE/repository pages awaiting content extraction.
+- `@ansible/content-development-workspace`: Portal scaffolder plugin, shared
+  scaffolder contracts, and reusable React field widgets.
 
 ### APME integration
 

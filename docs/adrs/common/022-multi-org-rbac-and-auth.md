@@ -79,7 +79,7 @@ SCM tokens are acquired on demand via `scmAuthApi.getCredentials({ url: repoUrl 
 
 - PR #402 — `issueTokenWithOwnership` (merged)
 - ADR-020 — Multi-org namespace isolation
-- `workspaces/self-service/plugins/portal-scaffolder/src/components/Home/createHomeCatalogApi.ts` — `queryEntities` visibility predicate
-- `workspaces/self-service/plugins/portal-scaffolder/src/components/Home/buildVisibilityPredicate.ts`
+- `workspaces/content-development/plugins/portal-scaffolder/src/components/Home/createHomeCatalogApi.ts` — `queryEntities` visibility predicate
+- `workspaces/content-development/plugins/portal-scaffolder/src/components/Home/buildVisibilityPredicate.ts`
 - `workspaces/aap/plugins/auth-backend-module-rhaap-provider/src/resolvers.ts` — `issueTokenWithOwnership()`
 - Backstage RBAC plugin: `workspaces/rbac/plugins/rbac-backend/src/policies/permission-policy.ts`

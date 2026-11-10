@@ -1,7 +1,7 @@
 # `@ansible/portal-scaffolder-common`
 
 Shared contract library for frontend and backend Portal scaffolder packages.
-Source: `workspaces/portal-scaffolder/plugins/portal-scaffolder-common`.
+Source: `workspaces/content-development/plugins/portal-scaffolder-common`.
 
 ## Responsibilities
 
