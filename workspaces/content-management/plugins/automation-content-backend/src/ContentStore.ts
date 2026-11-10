@@ -355,17 +355,19 @@ export class ContentStore {
 
     try {
       // Complete enumeration and inspection before touching the persisted index.
+      const unchanged = new Set<string>();
       const targets = await this.scanRepository(
         original.registry,
         original.repository,
         client,
         true,
+        unchanged,
       );
       const summary = {
         addedTags: 0,
         removedTags: 0,
         movedTags: 0,
-        refreshedDigests: targets.length,
+        refreshedDigests: targets.length - unchanged.size,
       };
       await this.db.transaction(async trx => {
         const rows = await trx('artifacts')
@@ -405,6 +407,7 @@ export class ContentStore {
           }
         }
         for (const target of targets) {
+          if (unchanged.has(target.ref)) continue;
           const existing = existingByRef.get(target.ref);
           if (!target.manifest && existing?.manifest) {
             target.manifest = existing.manifest;
@@ -476,6 +479,7 @@ export class ContentStore {
       }
       const at = new Date().toISOString();
       for (const target of targets) {
+        if (unchanged.has(target.ref)) continue;
         this.artifactReconcile.set(target.ref, {
           at,
           ok: true,
@@ -1108,6 +1112,7 @@ export class ContentStore {
     repository: string,
     client: OCIClient,
     strict = false,
+    unchanged = new Set<string>(),
   ): Promise<IndexedArtifact[]> {
     const byDigest = new Map<
       string,
@@ -1150,6 +1155,18 @@ export class ContentStore {
     }
 
     const found: IndexedArtifact[] = [];
+    const retainInvalid = async (digest: string) => {
+      const existing = await this.getArtifact(
+        `${registry}/${repository}@${digest}`,
+      );
+      if (existing) {
+        found.push(existing);
+        unchanged.add(existing.ref);
+      }
+      this.logger.warn(
+        `[${registry}] Skipping invalid image metadata for ${repository}@${digest}`,
+      );
+    };
     for (const [digest, tagInfo] of byDigest) {
       let verified:
         | { artifact: ResolvedArtifact; config?: ImageConfig }
@@ -1167,12 +1184,16 @@ export class ContentStore {
               Array.isArray(manifest.layers)
             ))
         ) {
-          throw new Error('Image manifest is invalid');
+          await retainInvalid(digest);
+          continue;
         }
         const config =
           'config' in manifest
             ? await client.getConfigBlob(repository, manifest.config)
             : undefined;
+        if ('config' in manifest && config === undefined) {
+          throw new Error('Image config could not be read');
+        }
         if (
           'config' in manifest &&
           (!config ||
@@ -1183,7 +1204,8 @@ export class ContentStore {
                 typeof config.config !== 'object' ||
                 Array.isArray(config.config))))
         ) {
-          throw new Error('Image config could not be read');
+          await retainInvalid(digest);
+          continue;
         }
         verified = { artifact, config };
       }

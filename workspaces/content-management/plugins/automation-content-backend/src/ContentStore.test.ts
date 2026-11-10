@@ -791,8 +791,8 @@ describe('repository-scoped artifact sync', () => {
       .spyOn(client, 'getManifest')
       .mockResolvedValue({ ...latest, manifest: {} as never });
     await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
-      status: 'failed',
-      retainedPrevious: true,
+      status: 'completed',
+      summary: { refreshedDigests: 0 },
     });
     // DB reads return fresh objects; compare the persisted snapshot.
     expect(await index.listArtifacts()).toEqual(before);
@@ -873,13 +873,36 @@ describe('repository-scoped artifact sync', () => {
       const before = await index.listArtifacts();
       jest.spyOn(client, 'getConfigBlob').mockResolvedValue(config as never);
       await expect(index.syncArtifact(original.ref)).resolves.toMatchObject({
-        status: 'failed',
-        retainedPrevious: true,
+        status: 'completed',
+        summary: { refreshedDigests: 0 },
       });
       // DB reads return fresh objects; compare the persisted snapshot.
       expect(await index.listArtifacts()).toEqual(before);
     },
   );
+
+  it('keeps only the invalid digest unchanged and refreshes its healthy sibling', async () => {
+    const { index, original, other, client, repositories } = await fixture();
+    const getManifest = client.getManifest.bind(client);
+    jest
+      .spyOn(client, 'getManifest')
+      .mockImplementation(async (repository, digest) => {
+        const artifact = await getManifest(repository, digest);
+        return digest === original.digest
+          ? { ...artifact, manifest: {} as never }
+          : artifact;
+      });
+    repositories['ansible/ee'].push({
+      ...repositories['ansible/ee'][2],
+      tag: 'new-alias',
+    });
+    expect(await index.syncArtifact(original.ref)).toMatchObject({
+      status: 'completed',
+      summary: { refreshedDigests: 1, addedTags: 1 },
+    });
+    expect(await index.getArtifact(original.ref)).toEqual(original);
+    expect((await index.getArtifact(other.ref))?.tags).toContain('new-alias');
+  });
 });
 
 describe('inventory search', () => {
