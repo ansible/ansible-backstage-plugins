@@ -336,7 +336,12 @@ describe('createRouter', () => {
         const legacyResponse = await request(sliceApp).get(
           '/ansible/sync/status',
         );
-        expect(legacyResponse.status).toBe(404);
+        if (slice === 'content') {
+          expect(legacyResponse.status).toBe(200);
+          expect(legacyResponse.body).toHaveProperty('content');
+        } else {
+          expect(legacyResponse.status).toBe(404);
+        }
       },
     );
   });
