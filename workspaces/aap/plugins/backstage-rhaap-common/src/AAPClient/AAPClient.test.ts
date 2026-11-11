@@ -1041,7 +1041,9 @@ describe('AAPClient', () => {
             },
             'test-token',
           ),
-        ).rejects.toThrow('Job execution failed due to Task failed');
+        ).rejects.toThrow(
+          'Job execution failed due to Job output is available in the RHAAP portal.',
+        );
       });
 
       it('should handle failed job execution with stdout error', async () => {
@@ -1142,7 +1144,7 @@ describe('AAPClient', () => {
         expect(result.status).toBe('successful');
       });
 
-      it('should log stdout messages including array format', async () => {
+      it('should not log stdout messages including array format', async () => {
         const infoSpy = jest.spyOn(mockLogger, 'info');
         const mockTemplateResponse = {
           ok: true,
@@ -1189,9 +1191,9 @@ describe('AAPClient', () => {
         );
 
         expect(result.status).toBe('successful');
-        expect(infoSpy).toHaveBeenCalledWith('Single message');
-        expect(infoSpy).toHaveBeenCalledWith('Message item 1');
-        expect(infoSpy).toHaveBeenCalledWith('Message item 2');
+        expect(infoSpy).not.toHaveBeenCalledWith('Single message');
+        expect(infoSpy).not.toHaveBeenCalledWith('Message item 1');
+        expect(infoSpy).not.toHaveBeenCalledWith('Message item 2');
       });
 
       it('should return successful result when stdout retrieval fails', async () => {
@@ -5172,7 +5174,7 @@ describe('AAPClient', () => {
       mockFetch = fetch as jest.Mock;
     });
 
-    it('should fetch stdout and log msg values at info level', async () => {
+    it('should fetch stdout without logging its contents', async () => {
       const infoSpy = jest.spyOn(mockLogger, 'info');
       mockFetch.mockResolvedValue({
         ok: true,
@@ -5189,10 +5191,10 @@ describe('AAPClient', () => {
         expect.stringContaining('/jobs/123/stdout/?format=txt'),
         expect.any(Object),
       );
-      expect(infoSpy).toHaveBeenCalledWith('Single message');
-      expect(infoSpy).toHaveBeenCalledWith('Message item 1');
-      expect(infoSpy).toHaveBeenCalledWith('Message item 2');
-      expect(lastMessage).toBe('Message item 2');
+      expect(infoSpy).not.toHaveBeenCalledWith('Single message');
+      expect(infoSpy).not.toHaveBeenCalledWith('Message item 1');
+      expect(infoSpy).not.toHaveBeenCalledWith('Message item 2');
+      expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
   });
 });
