@@ -4,10 +4,14 @@
 import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
-import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
+import {
+  createServiceFactory,
+  SchedulerServiceTaskScheduleDefinition,
+} from '@backstage/backend-plugin-api';
+import { ansibleServiceRef } from '@ansible/aap-node';
 
 import { createCatalogModule } from './registerModule';
-import { MOCK_CONFIG } from './mock';
+import { MOCK_CONFIG, mockAnsibleService } from './mock';
 import { resetCatalogModuleSliceGuardForTests } from './sliceGuard';
 
 jest.mock('./router', () => ({
@@ -48,6 +52,11 @@ describe('createCatalogModule', () => {
       ],
       features: [
         createCatalogModule({ moduleId: 'aap', slice: 'aap' }),
+        createServiceFactory({
+          service: ansibleServiceRef,
+          deps: {},
+          factory: async () => mockAnsibleService,
+        }),
         mockServices.rootConfig.factory(MOCK_CONFIG),
         scheduler.factory,
       ],
