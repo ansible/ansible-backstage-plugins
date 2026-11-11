@@ -1005,25 +1005,38 @@ recorded the same way, so the proposal is answered rather than absorbed.
 
 ### 3.3 Gate 2 — what is actually missing?
 
-Classify the gap with section 2.3 — wiring, slot or primitive — and take the
-outcome that matches. There are three, and each one ends somewhere different.
+Enter this gate only when both passes of gate 1 are recorded: the experience
+pass and the reuse pass. Classify the gap with section 2.3 — wiring, slot or
+primitive — and take the outcome that matches.
 
-- **Fix and continue.** A wiring gap: the capability is installed and not
+Before slot or primitive classification, rule out the two wiring cases, because
+both look like a missing capability and neither is:
+
+- **Installed but not wired.** The blueprint is registered and the loader is
+  mounted nowhere: a `features` or `app.extensions` gap, fixed in configuration.
+- **Still on legacy mount points.** The surface works through legacy
+  configuration today and the fix is to move it to the new frontend system. That
+  is a wiring or migration gap, not a missing slot.
+
+There are three outcomes, and each ends somewhere different.
+
+- **Fix and continue.** A wiring gap: the extension is installed and not
   registered. Fix the configuration and return to gate 1's level. Nothing is
   carried.
-- **Ask upstream and wait.** A slot or primitive gap with a deadline. The
-  repository is decided by authorship, not by preference, and the deadline is
+- **File and wait.** A slot or primitive gap with a deadline. The repository is
+  decided by the filing stream (`1.B`), not by preference, and the deadline is
   what stops the wait from becoming the plan.
-- **Ask upstream and work around.** The workaround needs one sentence of
-  justification, and the upstream issue is filed anyway. The issue is what makes
-  the workaround deletable; without it, the workaround is inherited.
+- **File and work around.** The workaround needs one sentence of justification,
+  and the upstream issue is filed anyway. The issue is what makes the workaround
+  deletable; without it, the workaround is inherited.
 
 **Present before building.** The gap analysis and the proposed workaround go to
-the journey owner together, as a proposal, before any code. Reviewing a gap
-analysis is cheap, and reviewing a built page is not.
+the UX journey owner together, as a proposal, before any code. The carrying cost
+is estimated jointly: experience by UX, revalidation by engineering. Reviewing a
+gap analysis is cheap; reviewing a built page is not.
 
-**Recorded:** the gap, the author, the upstream issue, and either the deadline
-or the justification.
+**Recorded:** the gap, the filing stream, the upstream issue, and either the
+deadline or the justification.
 
 ### 3.4 Gate 3 — which primitive, if the level reaches L4?
 
@@ -1061,19 +1074,23 @@ the case it came from.
 
 ### 4.1 Fields
 
-| Field                  | Holds                                                                  | From      |
-| ---------------------- | ---------------------------------------------------------------------- | --------- |
-| `job_to_be_done`       | the outcome in one sentence, and the surface the person enters it from | gate 0    |
-| `continuity`           | continuous or discrete, and where the seam is                          | gate 0    |
-| `level`                | the level the change stops at, L0 to L6                                | gate 1    |
-| `alternatives`         | levels, cheapest first, each with why it was not adequate              | gates 1–3 |
-| `custom_surfaces`      | every surface we now own, named                                        | gate 3    |
-| `revalidation_surface` | what has to be retested on each RHDH release                           | gate 1    |
-| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits         | gate 1    |
-| `gap`                  | wiring, slot or primitive, or none                                     | gate 2    |
-| `author`               | Backstage upstream, the RHDH product stream, or the Automation portal  | gate 2    |
-| `upstream_issue`       | the issue that makes a workaround deletable, or none                   | gate 2    |
-| `justification`        | one sentence, wherever a level was skipped or a component written      | gates 1–3 |
+| Field                  | Holds                                                                  | From       |
+| ---------------------- | ---------------------------------------------------------------------- | ---------- |
+| `job_to_be_done`       | the outcome in one sentence, and the surface the person enters it from | gate 0     |
+| `navigation`           | labels, sidebar versus tab versus deep link; UX owns it                | gate 0     |
+| `workflow_continuity`  | one surface plus configuration, or a multi-hop flow; UX owns it        | gate 1 (A) |
+| `business_fit`         | the product objective, and whether the work is in scope                | gate 1 (A) |
+| `experience_cost`      | the nav pattern's carry and reversal cost, estimated with UX           | gate 1 (A) |
+| `architecture`         | NFS, blueprint registration and a stock loader, yes or no              | gate 1 (B) |
+| `level`                | the level the change stops at, L0 to L6                                | gate 1     |
+| `alternatives`         | levels, cheapest first, each with why it was not adequate              | gates 1–3  |
+| `custom_surfaces`      | every surface we now own, named                                        | gate 3     |
+| `revalidation_surface` | what has to be retested on each RHDH release                           | gate 1     |
+| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits         | gate 1     |
+| `gap`                  | wiring, slot or primitive, or none                                     | gate 2     |
+| `filing_stream`        | Backstage upstream, the RHDH product stream, or the Automation portal  | gate 2     |
+| `upstream_issue`       | the issue that makes a workaround deletable, or none                   | gate 2     |
+| `justification`        | one sentence, wherever a level was skipped or a component written      | gates 1–3  |
 
 When the levels disagree — a contribution into someone else's page that carries
 a bespoke region inside it — `level` records the highest level any part of the
@@ -1134,8 +1151,15 @@ The record for Appendix A, in full:
 
 - **Job to be done:** create an execution environment. Entered from the Create
   button on the execution environments page.
-- **Continuity:** discrete. Creating an environment is a separate job from
-  browsing the list, and the seam between them is the Create button.
+- **Workflow continuity:** discrete. Creating an environment is a separate job
+  from browsing the list, and the seam between them is the Create button.
+- **Navigation:** the sidebar entry stays and the Create button stays on the
+  collection page. The `L3` correction removes a route rather than adding one.
+- **Business fit:** in scope: an existing journey under the portal adoption.
+- **Experience cost:** one press from the list to the grouped templates, and no
+  new nav pattern.
+- **Architecture:** stock page extensions registered through `app.extensions`,
+  with no legacy mount points.
 - **Level:** L5 — the Create tab renders its own template list, and section 4.1
   records the highest level any part of the change occupies. `custom_surfaces`
   says where that part sits; the page around it is L4, and the proposal is to
@@ -1162,20 +1186,26 @@ The record for Appendix A, in full:
 - **Gap:** a missing input — `templateFilter`, already on Backstage `main`. The
   same input removes the second list, which is why the upstream issue is worth
   filing even though the release is close.
-- **Author:** upstream Backstage. `sub-page:scaffolder/templates` is Backstage's
-  page and `templateFilter` is the input it lacks; `portal-scaffolder` in this
-  repository owns the page to be deleted, not the gap.
+- **Filing stream:** Backstage upstream. `sub-page:scaffolder/templates` is
+  Backstage's page and `templateFilter` is the input it lacks;
+  `portal-scaffolder` in this repository owns the page to be deleted, not the
+  gap.
 - **Reversal cost:** medium. The page has a route and a nav item, so removing it
   leaves bookmarks that 404.
 
+The form fields the execution environment templates use are a separate record.
+They are `FormFieldBlueprint` contributions into the stock template form, not
+part of this seam.
+
 ### 4.5 The review test
 
-A reviewer needs three answers, and the record supplies them in this order:
+A reviewer needs four answers, and the record supplies them in this order:
 
 - What is the cheapest level this change could have stopped at, and why did it
   not?
 - Which surface does this team now own that it did not own before?
 - If this ships and the product moves, what does it cost to take back out?
+- Who owned navigation and continuity, and is that in the record?
 
 A record that cannot answer those three is not ready to merge, and the answer is
 more analysis rather than more code.
