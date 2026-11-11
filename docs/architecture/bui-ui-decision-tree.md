@@ -856,14 +856,24 @@ No journey is new in shape; it is new in content. Decompose the journey into
 steps, then ask for each step whether a native surface already performs that
 kind of step.
 
-| Journey shape                  | Native surface that performs it | Extension kind                                  |
-| ------------------------------ | ------------------------------- | ----------------------------------------------- |
-| Find or pick something you own | Catalog                         | stock page                                      |
-| Run a job from a repository    | Software Templates              | stock page and sub-pages                        |
-| See the status of one thing    | entity page tab or card         | `EntityContentBlueprint`, `EntityCardBlueprint` |
-| Compare many things            | Catalog-like collection page    | `PageBlueprint` over stock components           |
-| Change account or org settings | Settings                        | stock sub-page                                  |
-| Guided multi-step input        | scaffold template form          | `FormFieldBlueprint`                            |
+| Journey shape                  | Job to be done                                      | Native surface                  | Portal example                  | Stock sufficient?                                | Blueprint today?                                |
+| ------------------------------ | --------------------------------------------------- | ------------------------------- | ------------------------------- | ------------------------------------------------ | ----------------------------------------------- |
+| Find or pick something you own | find the thing I can act on                         | Catalog                         | the execution environments list | partial: a collection page, not a list of EEs    | `PageBlueprint` over stock components           |
+| Run a job from a repository    | get this repository converted, and know it finished | Software Templates              | X2Ansible                       | yes: the stock page and task sub-page            | stock page and sub-pages                        |
+| See the status of one thing    | know whether one item is healthy                    | entity page tab or card         | the APME quality tab            | yes: one tab and one card                        | `EntityContentBlueprint`, `EntityCardBlueprint` |
+| Compare many things            | see which items need attention                      | Catalog-like collection page    | the APME findings list          | partial: Catalog is a catalog, not a status view | `PageBlueprint` over stock components           |
+| Fleet health                   | know the health of everything at once               | none: no stock dashboard shape  | the APME fleet view             | no                                               | partial: custom region (Appendix B)             |
+| Review proposed changes        | approve or reject each proposed change              | none: no stock review workbench | the APME workflow               | no                                               | partial: custom region (Appendix B)             |
+| Change account or org settings | change my own settings                              | Settings                        | not used yet                    | yes                                              | stock sub-page                                  |
+| Guided multi-step input        | supply the inputs a job needs                       | scaffold template form          | the EE create form              | yes                                              | `FormFieldBlueprint`                            |
+
+**A Catalog page is a catalog, not a status dashboard.** Mapping a fleet-health
+view onto `L1` rests on the stock page being the right journey for the job, and
+that needs a record like any other claim (`4.1`). `Stock sufficient?` says
+`partial` where the stock shape covers the content but not the job.
+
+Compass is the UX audit that produces this inventory (`1.E`). It informs what to
+migrate; it does not define production UI without a per-journey sign-off.
 
 **Continuous and discrete jobs.** A job someone moves through in one sitting is
 continuous: prefer one stock surface with a filter or configuration over a
@@ -935,11 +945,11 @@ step has one.
   as backend code and data, and the UI question becomes how to show its result,
   which returns to the first case.
 
-**Recorded:** the surface that owns each step, where the person enters the
-journey, and any step that no surface owns. The entry point is part of the
-decision, because it is often another journey's surface reached by an action.
-When it is, the seam between the two journeys is the thing to look at in review
-(Appendix A).
+**Recorded:** the job to be done in one sentence, whether it is continuous or
+discrete, the surface that owns each step, and where the person enters the
+journey. The entry point is part of the decision, because it is often another
+journey's surface reached by an action. When it is, the seam between the two
+journeys is the thing to look at in review (Appendix A).
 
 ### 3.2 Gate 1 — what is the lowest level that is good enough?
 
@@ -1051,18 +1061,19 @@ the case it came from.
 
 ### 4.1 Fields
 
-| Field                  | Holds                                                                 | From      |
-| ---------------------- | --------------------------------------------------------------------- | --------- |
-| `goal`                 | the journey, and the surface the person enters it from                | gate 0    |
-| `level`                | the level the change stops at, L0 to L6                               | gate 1    |
-| `alternatives`         | levels, cheapest first, each with why it was not adequate             | gates 1–3 |
-| `custom_surfaces`      | every surface we now own, named                                       | gate 3    |
-| `revalidation_surface` | what has to be retested on each RHDH release                          | gate 1    |
-| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits        | gate 1    |
-| `gap`                  | wiring, slot or primitive, or none                                    | gate 2    |
-| `author`               | Backstage upstream, the RHDH product stream, or the Automation portal | gate 2    |
-| `upstream_issue`       | the issue that makes a workaround deletable, or none                  | gate 2    |
-| `justification`        | one sentence, wherever a level was skipped or a component written     | gates 1–3 |
+| Field                  | Holds                                                                  | From      |
+| ---------------------- | ---------------------------------------------------------------------- | --------- |
+| `job_to_be_done`       | the outcome in one sentence, and the surface the person enters it from | gate 0    |
+| `continuity`           | continuous or discrete, and where the seam is                          | gate 0    |
+| `level`                | the level the change stops at, L0 to L6                                | gate 1    |
+| `alternatives`         | levels, cheapest first, each with why it was not adequate              | gates 1–3 |
+| `custom_surfaces`      | every surface we now own, named                                        | gate 3    |
+| `revalidation_surface` | what has to be retested on each RHDH release                           | gate 1    |
+| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits         | gate 1    |
+| `gap`                  | wiring, slot or primitive, or none                                     | gate 2    |
+| `author`               | Backstage upstream, the RHDH product stream, or the Automation portal  | gate 2    |
+| `upstream_issue`       | the issue that makes a workaround deletable, or none                   | gate 2    |
+| `justification`        | one sentence, wherever a level was skipped or a component written      | gates 1–3 |
 
 When the levels disagree — a contribution into someone else's page that carries
 a bespoke region inside it — `level` records the highest level any part of the
@@ -1095,7 +1106,7 @@ stock page with one configuration predicate produces no finding either. The
 record exists precisely to hold what the check cannot:
 
 - **`level`** is a claim about reuse, not about libraries.
-- **`goal`** is a claim about a journey, which exists in no file.
+- **`job_to_be_done`** is a claim about a journey, which exists in no file.
 - **`gap`** is a claim about what the product is missing, which is what makes an
   upstream ask possible at all.
 
@@ -1121,8 +1132,10 @@ misses, which is an incomplete alternatives list.
 
 The record for Appendix A, in full:
 
-- **Goal:** create an execution environment, entered from the Create tab of the
-  execution environments page.
+- **Job to be done:** create an execution environment. Entered from the Create
+  button on the execution environments page.
+- **Continuity:** discrete. Creating an environment is a separate job from
+  browsing the list, and the seam between them is the Create button.
 - **Level:** L5 — the Create tab renders its own template list, and section 4.1
   records the highest level any part of the change occupies. `custom_surfaces`
   says where that part sits; the page around it is L4, and the proposal is to
