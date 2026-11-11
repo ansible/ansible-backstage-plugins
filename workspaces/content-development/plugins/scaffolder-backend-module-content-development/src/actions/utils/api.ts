@@ -22,7 +22,7 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import type { FileHandle } from 'node:fs/promises';
 
 export class BackendServiceAPI {
-  static pluginLogName = 'portal-scaffolder-backend-module';
+  static pluginLogName = 'scaffolder-backend-module-content-development';
 
   private async sendPostRequest(
     url: string,
