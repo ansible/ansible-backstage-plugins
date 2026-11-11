@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
