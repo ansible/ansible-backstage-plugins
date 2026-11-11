@@ -771,10 +771,34 @@ measures only one of them rewards the other, which is why an entry records
 covers the components inside them (section 4).
 
 **The order is walked, not negotiated.** A decision that skips a level states,
-in one sentence, why the skipped level is not good enough. That sentence is the
-record. Without it, "we considered it" and "we did not think of it" are
-indistinguishable, which is the state the execution-environment discussion
-started in.
+in one sentence, why the skipped level is not good enough, and brings the
+evidence that sentence rests on. Both go in the record. Without them, "we
+considered it" and "we did not think of it" are indistinguishable, which is the
+state the execution-environment discussion started in.
+
+**Exit criteria.** Each rung has an artifact that has to exist before the next
+one is a legitimate answer. These are not permissions — the shelf is priced, not
+prohibited (`0`) — they are the price of the skip: a level may be left, but the
+receipt comes with it, and the receipt lands in `alternatives` (`4.2`).
+
+| Rung | Before leaving it                                                                | Artifact                              | Owner                                   |
+| ---- | -------------------------------------------------------------------------------- | ------------------------------------- | --------------------------------------- |
+| L0   | every config key read, alpha schema included, and the predicates tried           | the keys, in one line                 | engineering                             |
+| L1   | the page walked in a running host, not the storybook (`C.5`)                     | one sentence on the journey gap       | UX                                      |
+| L2   | the swap prop or input named, its absence shown in the page's source             | the prop and the line it is hardcoded | engineering                             |
+| L3   | the page's `inputs` read, the missing one filed or already an issue              | `upstream_issue`, `filing_stream`     | engineering, product for the stream     |
+| L4   | a stakeholder saw it in a running build, not a mock, with the receipts           | the review and its date               | UX and the product owner                |
+| L5   | each bespoke component names the primitive it needed; upstream filed or declined | `custom_surfaces`, a reason each      | engineering lead, product for a decline |
+| L6   | intake accepted the plugin: owner, name, lifecycle, delivery stream              | the intake decision                   | intake                                  |
+
+Three properties make the criteria work rather than become a ritual. **They are
+dated, not permanent:** when the blocker clears — the input lands, the issue is
+fixed — the criterion is met after the fact, and the decision goes back down the
+ladder. Appendix F's exit section is that rule applied. **They name a person, not
+a committee,** because a receipt nobody owns is a sentence nobody checked.
+**They are cheap at the bottom and expensive at the top,** which is the point:
+L0 costs a reading, L5 costs a pull request. The rungs are priced; the criteria
+are what the price buys.
 
 ### 2.3 Gap classification
 
@@ -1013,7 +1037,8 @@ added where the page allows it. That is L3 plus an override, and it is the only
 local move that keeps the stock surface's carrying cost.
 
 **Recorded:** the level, and for every level below it, in order, one line saying
-why it was not adequate (section 4). That list is what section 2.2 means by the
+why it was not adequate plus the artifact that licensed leaving it (`2.2`, and
+section 4). That list is what section 2.2 means by the
 sentence a skipped level requires; a level with no named inadequacy is one
 nobody considered. A more expensive level that somebody proposes later is
 recorded the same way, so the proposal is answered rather than absorbed.
@@ -1091,23 +1116,23 @@ the case it came from.
 
 ### 4.1 Fields
 
-| Field                  | Holds                                                                  | From       |
-| ---------------------- | ---------------------------------------------------------------------- | ---------- |
-| `job_to_be_done`       | the outcome in one sentence, and the surface the person enters it from | gate 0     |
-| `navigation`           | labels, sidebar versus tab versus deep link; UX owns it                | gate 0     |
-| `workflow_continuity`  | one surface plus configuration, or a multi-hop flow; UX owns it        | gate 1 (A) |
-| `business_fit`         | the product objective, and whether the work is in scope                | gate 1 (A) |
-| `experience_cost`      | the nav pattern's carry and reversal cost, estimated with UX           | gate 1 (A) |
-| `architecture`         | NFS, blueprint registration and a stock loader, yes or no              | gate 1 (B) |
-| `level`                | the level the change stops at, L0 to L6                                | gate 1     |
-| `alternatives`         | levels, cheapest first, each with why it was not adequate              | gates 1–3  |
-| `custom_surfaces`      | every surface we now own, named                                        | gate 3     |
-| `revalidation_surface` | what has to be retested on each RHDH release                           | gate 1     |
-| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits         | gate 1     |
-| `gap`                  | wiring, slot or primitive, or none                                     | gate 2     |
-| `filing_stream`        | Backstage upstream, the RHDH product stream, or the Automation portal  | gate 2     |
-| `upstream_issue`       | the issue that makes a workaround deletable, or none                   | gate 2     |
-| `justification`        | one sentence, wherever a level was skipped or a component written      | gates 1–3  |
+| Field                  | Holds                                                                                                        | From       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ---------- |
+| `job_to_be_done`       | the outcome in one sentence, and the surface the person enters it from                                       | gate 0     |
+| `navigation`           | labels, sidebar versus tab versus deep link; UX owns it                                                      | gate 0     |
+| `workflow_continuity`  | one surface plus configuration, or a multi-hop flow; UX owns it                                              | gate 1 (A) |
+| `business_fit`         | the product objective, and whether the work is in scope                                                      | gate 1 (A) |
+| `experience_cost`      | the nav pattern's carry and reversal cost, estimated with UX                                                 | gate 1 (A) |
+| `architecture`         | NFS, blueprint registration and a stock loader, yes or no                                                    | gate 1 (B) |
+| `level`                | the level the change stops at, L0 to L6                                                                      | gate 1     |
+| `alternatives`         | levels, cheapest first, each with why it was not adequate, and the artifact that licensed leaving it (`2.2`) | gates 1–3  |
+| `custom_surfaces`      | every surface we now own, named                                                                              | gate 3     |
+| `revalidation_surface` | what has to be retested on each RHDH release                                                                 | gate 1     |
+| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits                                               | gate 1     |
+| `gap`                  | wiring, slot or primitive, or none                                                                           | gate 2     |
+| `filing_stream`        | Backstage upstream, the RHDH product stream, or the Automation portal                                        | gate 2     |
+| `upstream_issue`       | the issue that makes a workaround deletable, or none                                                         | gate 2     |
+| `justification`        | one sentence, wherever a level was skipped or a component written                                            | gates 1–3  |
 
 When the levels disagree — a contribution into someone else's page that carries
 a bespoke region inside it — `level` records the highest level any part of the
@@ -1121,8 +1146,10 @@ cheapest first, so the levels were walked rather than sampled. Every level below
 the chosen level appears, because skipping one is what this document exists to
 surface. Every level above it that somebody actually proposed appears too,
 because "we could just build a page" is a proposal to answer rather than absorb.
-Each line carries its reason, so "we did not think of it" cannot be written in
-the same words as "we considered it".
+Each line carries its reason and, where a rung was left, the artifact `2.2`
+asks for — the keys read, the page walked, the prop named, the issue filed. A
+reason without an artifact reads like consideration and is usually its absence,
+which is the failure mode this field exists to catch.
 
 ### 4.3 What the check can and cannot validate
 
@@ -2006,7 +2033,8 @@ the upstream issue.
   action menus inside it. Those are named in `custom_surfaces` rather than
   raising the level, because the page, the table, the filter panel, the search
   and the pagination are not ours.
-- **Alternatives, cheapest first:**
+- **Alternatives, cheapest first.** Each line carries the artifact `2.2` asks
+  for, not only the reason:
   - L0 — configure the stock catalog page: `pagination` and the filter set. Not
     adequate: stock columns, no row actions, no tabs.
   - L1 — the stock page with a kind filter, which is the closest thing to "a
