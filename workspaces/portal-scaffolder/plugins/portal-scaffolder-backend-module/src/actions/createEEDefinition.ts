@@ -121,8 +121,6 @@ export function createEEDefinitionAction(options: {
       const ansibleConfigPath = path.join(eeDir, 'ansible.cfg');
       const readmePath = path.join(eeDir, 'README.md');
 
-      logger.info(`[ansible:create:ee-definition] EE base image: ${baseImage}`);
-
       const decodedPythonRequirementsContent = parseUploadedFileContent(
         pythonRequirementsFile,
       );
@@ -150,32 +148,6 @@ export function createEEDefinitionAction(options: {
           parsedPythonRequirements,
         );
         const allPackages = mergePackages(systemPackages, parsedSystemPackages);
-
-        logger.debug(
-          `[ansible:create:ee-definition] collections: ${JSON.stringify(
-            allCollections,
-          )}`,
-        );
-        logger.debug(
-          `[ansible:create:ee-definition] scmCollections: ${JSON.stringify(
-            transformedScmCollections,
-          )}`,
-        );
-        logger.debug(
-          `[ansible:create:ee-definition] pythonRequirements: ${JSON.stringify(
-            allRequirements,
-          )}`,
-        );
-        logger.debug(
-          `[ansible:create:ee-definition] systemPackages: ${JSON.stringify(
-            allPackages,
-          )}`,
-        );
-        logger.debug(
-          `[ansible:create:ee-definition] additionalBuildSteps: ${JSON.stringify(
-            additionalBuildSteps,
-          )}`,
-        );
 
         const pahBaseUrl =
           config.getOptionalString('ansible.rhaap.baseUrl') ?? '';
