@@ -53,6 +53,29 @@ describe('EEEntityLifecycleAdapter', () => {
     expect(provider.register).toHaveBeenCalled();
   });
 
+  it('denies registration when the caller lacks create permission', async () => {
+    permissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.registerExecutionEnvironment(
+        { kind: 'Component', metadata: { name: 'my-ee' } },
+        credentials,
+      ),
+    ).rejects.toThrow('Forbidden: insufficient permissions to create entity');
+
+    expect(catalog.getEntityByRef).not.toHaveBeenCalled();
+    expect(provider.register).not.toHaveBeenCalled();
+  });
+
   it('requires caller delete permission before replacing an entity hidden from that caller', async () => {
     catalog.getEntityByRef
       .mockResolvedValueOnce(undefined)
@@ -97,6 +120,32 @@ describe('EEEntityLifecycleAdapter', () => {
       { credentials },
     );
     expect(provider.register).not.toHaveBeenCalled();
+  });
+
+  it('denies cleanup when the caller lacks delete permission', async () => {
+    catalog.getEntityByRef.mockResolvedValue({
+      kind: 'Component',
+      spec: { type: 'execution-environment' },
+      metadata: { name: 'my-ee', uid: 'uid' },
+    });
+    permissions.authorize.mockResolvedValueOnce([
+      { result: AuthorizeResult.DENY },
+    ]);
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials),
+    ).rejects.toThrow('Forbidden: insufficient permissions to delete entity');
+
+    expect(provider.unregister).not.toHaveBeenCalled();
+    expect(catalog.getLocationByEntity).not.toHaveBeenCalled();
+    expect(catalog.removeEntityByUid).not.toHaveBeenCalled();
   });
 
   it('does not report noop when cleanup cannot read an existing entity', async () => {
