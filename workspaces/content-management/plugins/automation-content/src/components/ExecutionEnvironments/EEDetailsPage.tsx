@@ -445,13 +445,22 @@ function EEDetailsContent(): ReactElement {
       ? retained
       : undefined);
   // Tag order uses registry timestamps where available and natural descending
-  // version order otherwise. The selected tag is the first listed entry that
-  // resolves to the displayed digest.
+  // version order otherwise. Preserve an explicit choice even when several
+  // tags resolve to the same digest-scoped route.
   const orderedTags = useMemo(() => {
     return sortRepositoryTagsNewestFirst(tagMap.value?.tags ?? []);
   }, [tagMap.value]);
+  const [tagSelection, setTagSelection] = useState<{
+    ref: string;
+    tag: string;
+  }>();
   const defaultTag = value
-    ? orderedTags.find(entry => entry.digest === value.digest)?.tag
+    ? (orderedTags.find(
+        entry =>
+          entry.digest === value.digest &&
+          entry.ref === tagSelection?.ref &&
+          entry.tag === tagSelection.tag,
+      )?.tag ?? orderedTags.find(entry => entry.digest === value.digest)?.tag)
     : undefined;
   const status = syncStateLabel(
     value?.lastReconciledAt,
@@ -572,6 +581,7 @@ function EEDetailsContent(): ReactElement {
                   }))}
                   onChange={key => {
                     const next = orderedTags.find(entry => entry.tag === key);
+                    if (next) setTagSelection({ ref: next.ref, tag: next.tag });
                     // Selecting a tag is navigating to the artifact of the
                     // digest that tag last resolved to; the whole page —
                     // overview and All Content — then shows that tag's data.

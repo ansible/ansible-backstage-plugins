@@ -32,8 +32,11 @@ export const optionalContributorLoader = createFrontendFeatureLoader({
         ? [
             import('@ansible/plugin-backstage-apme/alpha'),
             import('@ansible/plugin-backstage-rhaap/alpha'),
-            import('@ansible/plugin-automation-content/alpha'),
           ]
+        : []),
+      // The EE cutover made portal-scaffolder's EE surfaces depend on these pages.
+      ...(profile !== 'core'
+        ? [import('@ansible/plugin-automation-content/alpha')]
         : []),
     ];
   },

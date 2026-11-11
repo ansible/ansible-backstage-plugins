@@ -230,7 +230,7 @@ describe('EEBuilderSidebarItem', () => {
     expect(link).toHaveAttribute('href', '/content/ee');
   });
 
-  it('calls usePermission with execution environments view permission', async () => {
+  it('calls usePermission with the destination content view permission', async () => {
     mockUsePermission.mockReturnValue({ loading: false, allowed: true });
 
     await renderInTestApp(
@@ -241,7 +241,7 @@ describe('EEBuilderSidebarItem', () => {
 
     expect(mockUsePermission).toHaveBeenCalledWith({
       permission: expect.objectContaining({
-        name: 'ansible.execution-environments.view',
+        name: 'ansible.content.view',
         type: 'basic',
       }),
     });

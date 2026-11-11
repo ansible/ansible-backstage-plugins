@@ -1,5 +1,5 @@
 import { screen } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import {
@@ -29,7 +29,15 @@ jest.mock('@backstage/plugin-catalog-react', () => ({
 }));
 
 jest.mock('./EECatalogPage', () => ({
-  EECatalogPage: () => <div>Image catalog route</div>,
+  EECatalogPage: () => {
+    const location = useLocation();
+    return (
+      <>
+        <div>Image catalog route</div>
+        <div>{`${location.pathname}${location.search}${location.hash}`}</div>
+      </>
+    );
+  },
 }));
 
 const imageRef = 'zot/demo/utopia-ee@sha256:123';
@@ -106,6 +114,16 @@ it('renders the registry image catalog route', async () => {
   await renderRoute('/content/ee/images');
 
   expect(await screen.findByText('Image catalog route')).toBeTruthy();
+});
+
+it('preserves query and hash when redirecting the index to images', async () => {
+  await renderRoute('/content/ee?registry=zot&search=demo#favorites');
+
+  expect(
+    await screen.findByText(
+      '/content/ee/images?registry=zot&search=demo#favorites',
+    ),
+  ).toBeTruthy();
 });
 
 it('redirects retired Create tab bookmarks to stock Software Templates', async () => {

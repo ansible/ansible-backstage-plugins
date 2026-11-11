@@ -413,6 +413,52 @@ it('keeps favorites filtering on the current page', async () => {
 });
 
 it.each(['table', 'grid'])(
+  'keeps pagination reachable when favorites empty the current %s page',
+  async view => {
+    const listExecutionEnvironments = jest.fn(
+      async ({ page }: { page: number }) => envelope([base], page, 20),
+    );
+    render(
+      <TestApiProvider
+        apis={[
+          [automationContentApiRef, { listExecutionEnvironments }],
+          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        ]}
+      >
+        <MemoryRouter>
+          <ImagesCatalogPage />
+        </MemoryRouter>
+      </TestApiProvider>,
+    );
+    await screen.findByText('1 - 10 of 20');
+    if (view === 'grid') {
+      await userEvent.click(
+        screen.getByRole('button', { name: 'View: Table' }),
+      );
+      await userEvent.click(screen.getByRole('option', { name: 'Card view' }));
+    }
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Favorites only' }),
+    );
+    await screen.findByText('No images match your search or filters');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Next table page' }),
+    );
+    await screen.findByText('11 - 20 of 20');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Previous table page' }),
+    );
+    await screen.findByText('1 - 10 of 20');
+    expect(listExecutionEnvironments).toHaveBeenLastCalledWith({
+      allTypes: false,
+      page: 1,
+      perPage: 10,
+    });
+  },
+);
+
+it.each(['table', 'grid'])(
   'offers supported page sizes and resets to page one when the size changes in %s view',
   async view => {
     const listExecutionEnvironments = jest.fn(
@@ -777,6 +823,56 @@ it('allows sync with the content permission without a matching catalog entity', 
   expect(mockUsePermission).toHaveBeenCalledWith({
     permission: automationContentSyncPermission,
   });
+});
+
+it('uses structured registry identity for Controller with overlapping URL prefixes', async () => {
+  const getRepositoryTags = jest.fn().mockResolvedValue({
+    registry: 'nested',
+    repository: 'repo',
+    tags: [{ tag: 'latest', digest: base.digest, ref: base.ref }],
+  });
+  render(
+    <TestApiProvider
+      apis={[
+        [
+          automationContentApiRef,
+          {
+            listExecutionEnvironments: async () =>
+              envelope([
+                {
+                  ...base,
+                  registry: 'nested',
+                  pullReference: 'host/team/repo@sha256:one',
+                },
+              ]),
+            listRegistries: async () => [
+              { name: 'root', url: 'https://host' },
+              { name: 'nested', url: 'https://host/team' },
+            ],
+            getRepositoryTags,
+          },
+        ],
+        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
+        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [scaffolderApiRef, { scaffold: jest.fn() }],
+      ]}
+    >
+      <MemoryRouter>
+        <ImagesCatalogPage />
+      </MemoryRouter>
+    </TestApiProvider>,
+  );
+  await screen.findByRole('link', { name: 'repo' });
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  await userEvent.click(
+    screen.getByRole('menuitem', { name: 'Use in Controller' }),
+  );
+  await screen.findByRole('dialog');
+  await waitFor(() =>
+    expect(getRepositoryTags).toHaveBeenCalledWith('nested', 'repo'),
+  );
 });
 
 it('shows the star toggle and reviewed row actions, including the unavailable controller action', async () => {
@@ -1362,8 +1458,19 @@ it('renders responsive image cards and toggles between grid and table views', as
   ).toBe('true');
   await userEvent.click(cardViewOption);
   expect(screen.getByRole('button', { name: 'View: Card' })).toBeTruthy();
-  const card = screen.getByRole('link', { name: 'View repo details' });
+  const card = screen.getByRole('link', { name: 'repo' });
   expect(card).toBeTruthy();
+  expect(card.querySelector('button, a, [role="button"]')).toBeNull();
+  card.focus();
+  await userEvent.tab();
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Add repo to favorites' }),
+  );
+  await userEvent.tab();
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Actions for repo' }),
+  );
+  expect(await axe(container)).toHaveNoViolations();
   expect(screen.getByText('External registry')).toBeTruthy();
   expect(screen.queryByText('Tags')).toBeNull();
   expect(screen.queryByText('latest, stable')).toBeNull();

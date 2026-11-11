@@ -1415,6 +1415,29 @@ describe('tag selector', () => {
     ).toContain('2.9');
   });
 
+  it('preserves a selected alias on the same digest in the Controller dialog', async () => {
+    renderWithTagMap(image, {
+      ...tagMap,
+      tags: [tagMap.tags[0], { ...tagMap.tags[0], tag: 'stable' }],
+    });
+    await userEvent.click(await screen.findByRole('button', { name: /tags/i }));
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'stable' }),
+    );
+    expect(screen.getByRole('button', { name: /tags/i }).textContent).toContain(
+      'stable',
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: /actions for repo/i }),
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Use in Controller' }),
+    );
+    expect(
+      (await screen.findByRole('button', { name: /tags/i })).textContent,
+    ).toContain('stable');
+  });
+
   it('lists tags by their Last-Modified time, without pinning latest', async () => {
     renderWithTagMap({ ...image, tags: ['latest'] }, tagMap);
     const trigger = await screen.findByRole('button', { name: /tags/i });

@@ -417,6 +417,7 @@ export function UseInControllerDialog({
                 setOrganizationError('');
               }}
               isRequired
+              isInvalid={Boolean(organizationError)}
               description={organizationError || undefined}
             />
           )}

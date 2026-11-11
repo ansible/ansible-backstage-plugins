@@ -105,7 +105,7 @@ describe('development contributor selection', () => {
       1,
       1,
     ],
-    ['scaffolder', ['portal-scaffolder'], 1, 0, 0, 0],
+    ['scaffolder', ['portal-scaffolder', 'automation-content'], 1, 0, 0, 1],
     ['core', [], 0, 0, 0, 0],
   ] as const)(
     'loads only selected contributor modules for %s',

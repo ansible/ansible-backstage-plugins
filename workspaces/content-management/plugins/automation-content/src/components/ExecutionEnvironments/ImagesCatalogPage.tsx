@@ -67,7 +67,6 @@ import {
 } from './catalogHelpers';
 import styles from './details.module.css';
 import catalogStyles from './ImagesCatalogPage.module.css';
-import { useNavigate } from 'react-router-dom';
 import { VerificationWarning } from './VerificationWarning';
 
 interface ImageRow extends ExecutionEnvironment {
@@ -124,7 +123,6 @@ export function ImagesCatalogPage({
   const aapAuth = useApi(rhAapAuthApiRef);
   const { showNotification } = useNotifications();
   const catalog = useApi(catalogApiRef);
-  const navigate = useNavigate();
   const { allowed: canSync } = usePermission({
     permission: automationContentSyncPermission,
   });
@@ -587,7 +585,12 @@ export function ImagesCatalogPage({
           {!images.error &&
             view === 'table' &&
             (!images.loading && !visibleImages.length ? (
-              emptyState
+              <>
+                {emptyState}
+                {pagination.totalCount > perPage && (
+                  <TablePagination {...pagination} />
+                )}
+              </>
             ) : (
               <Table
                 {...table.tableProps}
@@ -606,23 +609,7 @@ export function ImagesCatalogPage({
                     const starred = entity ? isStarredEntity(entity) : false;
                     const detailHref = environmentHref(base, image.ref);
                     return (
-                      <div
-                        key={image.ref}
-                        className={catalogStyles.cardLink}
-                        role="link"
-                        tabIndex={0}
-                        aria-label={`View ${image.repository} details`}
-                        onClick={() => navigate(detailHref)}
-                        onKeyDown={event => {
-                          if (
-                            event.target === event.currentTarget &&
-                            (event.key === 'Enter' || event.key === ' ')
-                          ) {
-                            event.preventDefault();
-                            navigate(detailHref);
-                          }
-                        }}
-                      >
+                      <div key={image.ref} className={catalogStyles.cardLink}>
                         <Card className={catalogStyles.imageCard}>
                           <CardBody>
                             <Flex direction="column" gap="3">
@@ -636,16 +623,10 @@ export function ImagesCatalogPage({
                                   href={detailHref}
                                   color="info"
                                   className={styles.infoLink}
-                                  onClick={event => event.stopPropagation()}
                                 >
                                   {image.repository}
                                 </Link>
-                                <Flex
-                                  align="center"
-                                  gap="1"
-                                  onClick={event => event.stopPropagation()}
-                                  onKeyDown={event => event.stopPropagation()}
-                                >
+                                <Flex align="center" gap="1">
                                   {entity && (
                                     <ButtonIcon
                                       variant="tertiary"
@@ -783,7 +764,7 @@ export function ImagesCatalogPage({
                 </div>
               )}
               {!visibleImages.length && !images.loading && emptyState}
-              {visibleImages.length > 0 && !!images.value?.totalItems && (
+              {pagination.totalCount > perPage && (
                 <Flex
                   align="center"
                   justify="between"
@@ -802,6 +783,8 @@ export function ImagesCatalogPage({
           open
           imageName={controllerImage.repository}
           pullReference={controllerImage.pullReference}
+          registry={controllerImage.registry}
+          repository={controllerImage.repository}
           onClose={() => setControllerImage(null)}
         />
       )}

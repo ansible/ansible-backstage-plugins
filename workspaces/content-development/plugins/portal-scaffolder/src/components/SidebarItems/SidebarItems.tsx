@@ -8,12 +8,12 @@ import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import HistoryIcon from '@material-ui/icons/History';
 import {
-  executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
   templatesViewPermission,
   historyViewPermission,
 } from '@ansible/aap-common/permissions';
+import { automationContentViewPermission } from '@ansible/automation-content-common/permissions';
 
 import { rootRouteRef } from '../../routes';
 
@@ -49,7 +49,7 @@ export const PermissionGatedSidebarItem = ({
 export const EEBuilderSidebarItem = () => {
   return (
     <PermissionGatedSidebarItem
-      permission={executionEnvironmentsViewPermission}
+      permission={automationContentViewPermission}
       icon={BuildIcon}
       to="/content/ee"
       text="Execution Environments"

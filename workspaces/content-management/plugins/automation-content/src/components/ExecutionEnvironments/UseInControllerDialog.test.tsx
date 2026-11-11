@@ -312,6 +312,24 @@ it('communicates the required organization when submitting a blank selection', a
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
   expect(await screen.findByText('Select an organization.')).toBeTruthy();
+  const organizationField = screen
+    .getByRole('button', { name: /organization/i })
+    .closest('[data-invalid]');
+  expect(organizationField).not.toBeNull();
+  const descriptionIds =
+    screen
+      .getByRole('button', { name: /organization/i })
+      .getAttribute('aria-describedby')
+      ?.split(' ') ?? [];
+  expect(
+    descriptionIds.some(id =>
+      document
+        .getElementById(id)
+        ?.textContent?.includes('Select an organization.'),
+    ),
+  ).toBe(true);
+  await waitFor(() => expect(screen.queryByRole('img')).toBeNull());
+  expect(await axe(document.body)).toHaveNoViolations();
   expect(scaffold).not.toHaveBeenCalled();
 });
 
