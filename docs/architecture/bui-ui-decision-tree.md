@@ -1838,10 +1838,10 @@ columns, filters, page size and tabs, instead of four.
 
 ### F.1 What the four have in common
 
-Subtract what varies — columns, filter set, page size, tabs — and what remains is
-identical in all four: a filter panel on the left, a search field above the
-table, a table, a star and an overflow menu per row, and pagination beneath. Four
-instances of one component with four parameters.
+Subtract what varies — columns, filter set, page size, tabs — and what remains
+is identical in all four: a filter panel on the left, a search field above the
+table, a table, a star and an overflow menu per row, and pagination beneath.
+Four instances of one component with four parameters.
 
 And three are already ours, in MUI:
 
@@ -1852,9 +1852,9 @@ And three are already ours, in MUI:
   `components/GitRepositories/GitRepositoriesPage.tsx:93`.
 - Execution Environments is `page:ee` with `EETabs`, recorded in Appendix A.
 
-So the change is a step down the ladder, not up it: three `L5` pages replaced
-by one `L4` archetype. That is the strongest argument in the proposal, and it is the
-one a reviewer should hold on to.
+So the change is a step down the ladder, not up it: three `L5` pages replaced by
+one `L4` archetype. That is the strongest argument in the proposal, and it is
+the one a reviewer should hold on to.
 
 The fourth mock — the one labelled "Blueprint", with a Catalog tab and an
 Activity tab — is the archetype displayed on itself. It is a gallery entry, not
@@ -1939,19 +1939,27 @@ addition.
 re-declares it; filing there would bounce to the same place. RHDH is a consumer
 of the fix and should delete its fork when the inputs land.
 
-**Upstream issue:** `backstage/backstage#33438`, "Add extendable columns and
-actions for catalog page", open since March 2026 and unstale twice by its author.
-It describes this case almost exactly — overriding `page:catalog` to get columns
-and actions, and wanting the same extension treatment filters already get — so
-this repository added its evidence to that thread rather than opening a
-duplicate: the RHDH fork, the lost `filters` input, and the sub-page
-restructure.
+**Upstream issues:** two, because the fixes land in different places and one
+issue cannot be triaged as both.
 
-Two pull requests have attempted it and neither merged: `#34350`, a `v2` catalog
-page on the `@backstage/ui` Table with a `CatalogColumnBlueprint`, and `#34397`,
-a narrower `CatalogColumnBlueprint` with a `columns` input. The shape is
-therefore agreed in outline and the blocker is design sign-off, not demand. That
-changes what this record needs from the issue: not another vote, but a reviewer.
+- `backstage/backstage#33438` — columns and actions on `page:catalog`, titled
+  "Add extendable columns and actions for catalog page". Open since March 2026,
+  labelled `type:suggestion` and `needs:triage`, with no assignee and no
+  milestone. It describes this case closely enough that a second issue would
+  have been a duplicate, so this repository added its evidence to that thread
+  instead. Two pull requests have attempted it and neither merged: `#34350`, a
+  `v2` catalog page on the `@backstage/ui` Table with a `CatalogColumnBlueprint`
+  (25 files, +1902/−18), and `#34397`, a narrower `CatalogColumnBlueprint` with a
+  `columns` input (14 files, +974/−7). The shape is agreed in outline; the
+  blocker is design sign-off, not demand.
+- `backstage/backstage#36767` — a page with a `loader` silently ignores attached
+  sub-pages, with the catalog consequence and the loader-less restructure
+  spelled out. Filed separately because it is `frontend-plugin-api` behaviour
+  rather than a catalog input: the reviewers differ, the fix differs, and a
+  second issue costs nothing while a misplaced fix costs a review cycle.
+
+Both are untriaged, which is the honest state of this record's exit. An issue
+that has not been triaged is a door, not a plan.
 
 **The shape of the ask,** which is small and has an in-tree template:
 
@@ -1962,12 +1970,14 @@ changes what this record needs from the issue: not another vote, but a reviewer.
   request has attempted yet;
 - drop the catalog page's `loader` and make the list its first sub-page, which
   is the structure `scaffolderPage` already uses. Tabs then work, and the list
-  becomes a sub-page anything else can sit beside.
+  becomes a sub-page anything else can sit beside. This one is filed as `#36767`
+  rather than grouped with the other two, because it is page structure and not a
+  catalog input.
 
 **Not part of this ask:** "show latest version only". That is a data-shape
 question wearing a filter's clothes. Either the catalog emits one entity per
-collection with versions as children, or the list aggregates — and aggregating on
-the client is the one thing a stock table structurally cannot do. It belongs
+collection with versions as children, or the list aggregates — and aggregating
+on the client is the one thing a stock table structurally cannot do. It belongs
 with the content model, not with this record, and it decides whether the
 checkbox is needed at all.
 
@@ -2023,11 +2033,12 @@ the upstream issue.
   and the loader-less restructure for tabs.
 - **Filing stream:** Backstage upstream, with RHDH as the consumer that should
   delete its fork.
-- **Upstream issue:** `backstage/backstage#33438`, with this repository's case
-  added to the thread. The implementation PRs so far (`#34350`, `#34397`) were
-  closed unmerged, so what the issue needs now is design review rather than more
-  demand. Until one lands, this workaround's exit depends on somebody other than
-  us.
+- **Upstream issue:** `backstage/backstage#33438` for columns and actions, and
+  `#36767` for the sub-page restructure. Both are untriaged and unowned, and both
+  need a merged pull request rather than more agreement. That makes the exit a
+  commitment of ours, not a wait on someone else — `F.6` prices it, and the
+  priority call between that work and this workaround's carrying cost is not made
+  by this record.
 - **Justification:** the page is ours only for the columns, actions and tabs
   `page:catalog` does not expose; when those inputs land, the archetype collapses
   into configuration and a column contribution, and RHDH's fork collapses with
@@ -2035,26 +2046,37 @@ the upstream issue.
 
 ### F.6 The exit
 
-This appendix is written to be deleted from. The issue to watch is
-`backstage/backstage#33438`; `#34397` is the shape that would satisfy it. The
-moment `tableColumns` and `tableActions` exist upstream, three things happen
-together:
+This appendix is written to be deleted from. The issues to watch are
+`backstage/backstage#33438` for columns and actions and `#36767` for the tab
+structure; `#34397` is the pull request shape that would satisfy the first. The
+moment a `columns` input and a loader-less catalog page exist upstream, three
+things happen together:
 
 - the shared list component is replaced by configuration on the stock page plus
   a columns contribution, and `custom_surfaces` drops to the cells;
 - RHDH's re-declaration in `packages/app/src/modules/catalog` is removed, and
   its filter input comes back with it;
 - every page that adopted the archetype is a candidate to move back to `L1`,
-  which is the point at which the four mocks become four configurations.
+  which is the point at which the mocks become configurations.
 
-Until then, the honest position is that this is a workaround with a named owner
-and a filed ask. A reviewer should reject an `L4` record here whose
-`upstream_issue` is `none`, because a workaround with no exit is how a gap
-becomes house style.
+**What the pull request would cost.** The two attempts measure the work: 25
+files, +1902/−18 and 51 commits for the version that included the table itself,
+14 files, +974/−7 and 5 commits for the narrower blueprint. The smaller one is
+the realistic shape — a blueprint in `plugin-catalog-react`, a `columns` input
+on the page, a changeset, and a docs page. What it buys is the deletion of this
+archetype and of RHDH's fork. Whether that is worth the staff time against the
+carrying cost of one `L4` archetype is a priority decision for the people paying
+for both, and it is deliberately not decided here: the record records the
+trade-off, the decision gets made above it.
 
-One open question belongs to RHDH rather than to us: whether losing the `filters`
-input was deliberate — a decision that third-party catalog filters are not
-supported in the product — or accidental. If it was accidental it is a bug
+Until then, the honest position is that this is a workaround with two filed
+asks, no exit yet, and a price attached to earning one. A reviewer should reject
+an `L4` record here whose `upstream_issue` is `none`, because a workaround with
+no exit is how a gap becomes house style.
+
+One open question belongs to RHDH rather than to us: whether losing the
+`filters` input was deliberate — a decision that third-party catalog filters are
+not supported in the product — or accidental. If it was accidental it is a bug
 report, and it is worth filing either way, because the answer decides whether a
 portal can contribute a filter to the stock page at all.
 
@@ -2076,7 +2098,9 @@ portal can contribute a filter to the stock page at all.
   `scripts/check-bui-drift.mjs` in this repository
 - Catalog page columns and actions, the open issue this appendix files against:
   <https://github.com/backstage/backstage/issues/33438>
-- The two unmerged attempts at it:
+- A page with a loader ignoring attached sub-pages, filed separately:
+  <https://github.com/backstage/backstage/issues/36767>
+- The two unmerged attempts at columns and actions:
   <https://github.com/backstage/backstage/pull/34350> and
   <https://github.com/backstage/backstage/pull/34397>
 - RHDH's catalog page fork:
