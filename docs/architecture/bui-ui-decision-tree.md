@@ -721,8 +721,10 @@ both costs are recorded rather than collapsed into one number.
 
 The levels, expressed as carrying cost:
 
-- **L0** — configure an existing extension: title, icon, order, filter
-  predicates. Nothing to carry; the surface is not ours.
+- **L0** — an existing extension, unchanged in behaviour and ownership: only its
+  declared metadata or configuration changes — title, icon, order, filter
+  predicates. Nothing of ours renders, and the surface is not ours. Appendix E
+  is a shipped example.
 - **L1** — reuse a whole stock page with its stock nav item. Nothing to carry
   but the configuration that enables it.
 - **L2** — reuse a stock sub-page, or swap one nested component. Carry the
@@ -1717,8 +1719,11 @@ Composition is visible in code; appearance is not. That gives two independent
 lower bounds, each checkable by grep:
 
 - **From composition.** `createFrontendModule` with only D.1 blueprints means
-  _at least_ L3. A `PageBlueprint` or `SubPageBlueprint` in the diff means _at
-  least_ L4. A `withOverrides(` on someone else's extension means a slot
+  _at least_ L3. A `PageBlueprint` or `SubPageBlueprint` with a **new**
+  extension id and path means _at least_ L4. A `makeWithOverrides` that
+  re-declares an existing id and calls the original factory is not L4: same id,
+  same route, same loader, so it is L0 in effect (Appendix E). A
+  `withOverrides(` that swaps an extension's loader or behaviour is a slot
   workaround, and wants an upstream issue.
 - **From imports.** The non-BUI imports counted by the drift check give a floor
   on the custom components. They say nothing about which surfaces those
@@ -1734,6 +1739,54 @@ counts imports, not composition. So this section describes a **reviewer step**,
 not a gate. Grep the diff for the names in D.1 and D.2, and send back a record
 whose `level` sits below what the diff shows. The bottom of the bracket is
 mechanical; the judgement above it is what the record is for.
+
+## Appendix E — L0 in shipped code: RHDH renames the scaffolder page
+
+The cheapest level has a real example, and it is not ours. RHDH ships the stock
+scaffolder plugin and wants its page called "Self-service"; upstream hardcodes
+"Create". The user-visible change is a title and an icon.
+
+- `Code:` `packages/app/src/modules/scaffolder/index.tsx` in
+  `redhat-developer/rhdh`, added in `82caca3` for RHDHBUGS-3676.
+
+```tsx
+const scaffolderPage = PageBlueprint.makeWithOverrides({
+  inputs: {
+    formFields: createExtensionInput([
+      FormFieldBlueprint.dataRefs.formFieldLoader,
+    ]),
+  },
+  factory(originalFactory) {
+    return originalFactory({
+      path: "/create",
+      title: "Self-service",
+      routeRef: createRouteRef({ aliasFor: "scaffolder.root" }),
+      icon: <CreateComponentIcon fontSize="inherit" />,
+    });
+  },
+});
+
+export const rhdhScaffolderPlugin = scaffolderPlugin.withOverrides({
+  title: "Self-service",
+  extensions: [scaffolderPage],
+});
+```
+
+**Why this is L0 and not L4.** The extension id is unchanged — RHDH's own test
+asserts `getExtension("page:scaffolder")` — as are the `/create` path, the
+`formFields` input and the loader, because the factory calls `originalFactory`.
+Nothing new is owned. The route ref alias keeps other plugins' links resolving
+after the re-declaration.
+
+**Why it is an override rather than configuration.** Upstream hardcodes the
+title, so there was no configuration key to set. The mechanism is a
+re-declaration; the effect is a label. That is the distinction L0 turns on, and
+the reason `D.3` cannot use "a `PageBlueprint` appears in the diff" as its test.
+
+**What it costs.** One label, plus tracking the upstream page's inputs: if
+Backstage adds an input to `page:scaffolder`, RHDH's copy must declare it or the
+page silently loses that capability. Small, but not zero, and it is the kind of
+cost a record makes visible.
 
 ## References
 
