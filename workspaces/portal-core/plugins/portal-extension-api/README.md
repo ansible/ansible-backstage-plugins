@@ -6,13 +6,21 @@ Frontend extension API for Automation Portal. Provides the `ContributionRegistry
 
 The `./alpha` entry point exports `EntityDetailTabBlueprint`,
 `EntityOverviewCardBlueprint`, `EntityActionBlueprint`,
-`CatalogItemActionBlueprint`, and `ScaffolderFieldBlueprint`.
+`CatalogItemActionBlueprint`, `ScaffolderFieldBlueprint`, and
+`createPortalScaffolderFieldBlueprints`.
 Entity, catalog, and scaffolder-field descriptors attach to the host-owned
 `api:portal/contributions` provider, consumed through `portalContributionsApiRef`.
 Validated field declarations are exposed as `scaffolderFields`; declaring a field
 does not require portal-scaffolder or load its widget implementation. An installed
-templates adapter consumes the declarations when needed. Native declarations do
-not register with the singleton.
+templates adapter consumes the declarations when needed. For native Scaffolder
+forms, contributors should spread `createPortalScaffolderFieldBlueprints(name,
+params)` into their plugin extensions. It pairs the Portal descriptor with a
+static `FormFieldBlueprint` registered through Backstage's
+`api:scaffolder/form-fields` extension point. The native field adapter preserves
+the legacy value/UI schemas and validates config and permission eligibility at
+render and submission time. The Portal collector remains the compatibility
+path for the current custom wizard; constructing a `FormField` at runtime does
+not register it with the native Scaffolder.
 
 `AppProfileMenuItemBlueprint` declares profile rows in `appProfileMenuItems`.
 Use `type: 'navigation'` with an owned `targetPage`, or `type: 'action'` with

@@ -18,8 +18,10 @@ optional templates-page adapter that reads its validated `scaffolderFields`
 snapshot. `NativeScaffolderFields` applies configuration, experience, permission,
 and reserved-name checks before loading widgets, preserving their value/UI
 schemas and asynchronous validators. Without a templates consumer, declarations
-remain inspectable and widget loaders do not run. The collector does not import
-the optional portal-scaffolder implementation. See
+remain inspectable and widget loaders do not run. Native Scaffolder form fields
+are registered by contributors with paired `FormFieldBlueprint`s from the
+Portal API. The collector does not import the optional portal-scaffolder
+implementation. See
 the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md).
 The registry/discovery examples below are legacy migration APIs.
 

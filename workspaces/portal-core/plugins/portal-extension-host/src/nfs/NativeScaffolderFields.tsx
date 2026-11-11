@@ -90,15 +90,20 @@ export function NativeScaffolderFields({
                 const entry = capability?.entryPoints.find(
                   item => item.id === declaration.entryPointId,
                 );
-                if (
-                  !capability ||
-                  !entry ||
-                  reservedNames.includes(declaration.fieldName) ||
-                  (declaration.enabledByConfig &&
-                    config.getOptionalBoolean(declaration.enabledByConfig) !==
-                      true)
-                )
+                if (!capability || !entry) {
+                  failedNames.push(declaration.fieldName);
                   return undefined;
+                }
+                if (reservedNames.includes(declaration.fieldName))
+                  return undefined;
+                if (
+                  declaration.enabledByConfig &&
+                  config.getOptionalBoolean(declaration.enabledByConfig) !==
+                    true
+                ) {
+                  failedNames.push(declaration.fieldName);
+                  return undefined;
+                }
                 if (entry.requiredPermission) {
                   const requirement = entry.requiredPermission;
                   const decision = await permissions.authorize(
@@ -106,8 +111,10 @@ export function NativeScaffolderFields({
                       ? requirement
                       : { permission: requirement },
                   );
-                  if (decision.result !== AuthorizeResult.ALLOW)
+                  if (decision.result !== AuthorizeResult.ALLOW) {
+                    failedNames.push(declaration.fieldName);
                     return undefined;
+                  }
                 }
                 const field = await declaration.loader();
                 if (
@@ -167,9 +174,8 @@ export function NativeScaffolderFields({
     <>
       {!!state.failedNames?.length && (
         <p role="alert">
-          Some template fields could not be loaded:{' '}
-          {state.failedNames.join(', ')}. Templates requiring them are
-          unavailable.
+          Some template fields are unavailable: {state.failedNames.join(', ')}.
+          Templates requiring them are unavailable.
         </p>
       )}
       {children(state.fields)}

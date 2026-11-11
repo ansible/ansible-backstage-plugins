@@ -654,6 +654,7 @@ __metadata:
     "@backstage/core-plugin-api": "npm:1.12.9"
     "@backstage/frontend-plugin-api": "npm:0.18.0"
     "@backstage/plugin-permission-common": "npm:0.9.10"
+    "@backstage/plugin-permission-react": "npm:0.5.4"
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
     "@backstage/test-utils": "npm:1.7.21"
     "@testing-library/jest-dom": "npm:^6.0.0"
@@ -664,6 +665,7 @@ __metadata:
     "@backstage/catalog-model": ^1.10.0
     "@backstage/core-plugin-api": ^1.12.9
     "@backstage/plugin-permission-common": ^0.9.10
+    "@backstage/plugin-permission-react": ^0.5.4
     "@backstage/plugin-scaffolder-react": ^2.0.3
     react: ^18.3.1
   languageName: unknown

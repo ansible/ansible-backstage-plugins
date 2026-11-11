@@ -371,12 +371,10 @@ describe('native scaffolder field discovery', () => {
     ).toBeInTheDocument();
     expect(loader).toHaveBeenCalledTimes(1);
   });
-  it.each(['config', 'permission', 'owner', 'reserved'] as const)(
+  it.each(['owner', 'reserved'] as const)(
     'filters %s before importing the widget',
     async gate => {
       await compose({
-        enabled: gate !== 'config',
-        deny: gate === 'permission',
         owner: gate === 'owner' ? 'other' : undefined,
         reserved: gate === 'reserved' ? ['RepositoryInput'] : undefined,
       });
@@ -384,11 +382,24 @@ describe('native scaffolder field discovery', () => {
       expect(loader).not.toHaveBeenCalled();
     },
   );
+  it.each(['config', 'permission'] as const)(
+    'reports a %s-ineligible field without loading its widget',
+    async gate => {
+      await compose({
+        enabled: gate !== 'config',
+        deny: gate === 'permission',
+      });
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Some template fields are unavailable: RepositoryInput',
+      );
+      expect(loader).not.toHaveBeenCalled();
+    },
+  );
   it('isolates a failed loader and omits its widget rather than falling back', async () => {
     loader.mockRejectedValue(new Error('Federation unavailable'));
     await compose();
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Some template fields could not be loaded',
+      'Some template fields are unavailable',
     );
     expect(screen.getByText('Wizard ready')).toBeInTheDocument();
     expect(
@@ -403,7 +414,7 @@ describe('native scaffolder field discovery', () => {
     });
     await compose();
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Some template fields could not be loaded',
+      'Some template fields are unavailable',
     );
   });
   it('stops the active form when a mounted widget throws', async () => {
