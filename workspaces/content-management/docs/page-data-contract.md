@@ -72,20 +72,26 @@ EEFileNamePicker registrations are retained for the stock wizard.
 
 ### Compatibility redirect map
 
-All redirects replace the history entry. Namespace-qualified definition paths
-retain their identity; old unqualified names have no guaranteed namespace or
-digest mapping and return to the catalog rather than guessing an image ref.
+All redirects replace the history entry. Legacy self-service EE redirects preserve
+query strings and fragments. Namespace-qualified definition paths retain their
+identity with encoded path segments. Name-only details perform a read-only catalog
+lookup for a Component with `spec.type: execution-environment` and the old name.
+Exactly one match opens its actual namespace/name (namespace defaults to `default`
+only if omitted by the entity). No match, multiple matches, or lookup failure
+returns to `/content/ee`; pending lookups do not redirect. These are definition
+files, not registry images: no namespace or digest is guessed.
 
-| Old URL                                                                   | Destination                                              |
-| ------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `/content`, `/automation-content`                                         | `/content/ee`                                            |
-| `/automation-content/execution-environments`                              | `/content/ee`                                            |
-| `/automation-content/execution-environments/:ref`                         | `/content/ee/:ref` (encoded digest-scoped ref preserved) |
-| `/self-service/ee`, `/self-service/ee/catalog`, `/self-service/ee/create` | `/content/ee`                                            |
-| `/self-service/ee/catalog/:namespace/:name`                               | `/content/ee/catalog/:namespace/:name`                   |
-| `/self-service/ee/*` (including unqualified details and unknown subpaths) | `/content/ee`                                            |
-| `/self-service/catalog/:templateName` (old EE definition detail)          | `/content/ee`                                            |
-| `/content/ee/create` (retired Create tab bookmark)                        | `/create`                                                |
+| Old URL                                                                   | Destination                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `/content`, `/automation-content`                                         | `/content/ee`                                                            |
+| `/automation-content/execution-environments`                              | `/content/ee`                                                            |
+| `/automation-content/execution-environments/:ref`                         | `/content/ee/:ref` (encoded digest-scoped ref preserved)                 |
+| `/self-service/ee`, `/self-service/ee/catalog`, `/self-service/ee/create` | `/content/ee`                                                            |
+| `/self-service/ee/catalog/:namespace/:name`                               | `/content/ee/catalog/:namespace/:name`                                   |
+| `/self-service/ee/catalog/:name` (old EE definition detail)               | Resolved `/content/ee/catalog/:namespace/:name`, otherwise `/content/ee` |
+| `/self-service/ee/*` (unknown subpaths)                                   | `/content/ee`                                                            |
+| `/self-service/catalog/:templateName` (old EE definition detail)          | Resolved `/content/ee/catalog/:namespace/:name`, otherwise `/content/ee` |
+| `/content/ee/create` (retired Create tab bookmark)                        | `/create`                                                                |
 
 `/content/ee` selects the Images browse tab; `/content/ee/catalog` selects
 Definition files. Collection, repository, template, and history pages remain

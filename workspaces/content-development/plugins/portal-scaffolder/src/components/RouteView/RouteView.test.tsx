@@ -107,18 +107,34 @@ jest.mock('../../hooks', () => ({
   useIsSuperuser: () => mockUseIsSuperuser(),
 }));
 
-jest.mock('@backstage/core-plugin-api', () => ({
-  ...jest.requireActual('@backstage/core-plugin-api'),
-  useApi: () => ({
+jest.mock('@backstage/core-plugin-api', () => {
+  const api = {
+    getEntities: jest.fn().mockResolvedValue({
+      items: [
+        {
+          apiVersion: 'backstage.io/v1alpha1',
+          kind: 'Component',
+          metadata: { namespace: 'actual-team', name: 'my-ee' },
+          spec: { type: 'execution-environment' },
+        },
+      ],
+    }),
     getBaseUrl: jest.fn().mockResolvedValue('http://localhost'),
     fetch: jest
       .fn()
       .mockResolvedValue({ ok: true, json: () => Promise.resolve({}) }),
-  }),
-}));
+  };
+  return {
+    ...jest.requireActual('@backstage/core-plugin-api'),
+    useApi: () => api,
+  };
+});
 
 function ContentDestination() {
-  return <div data-testid="content-destination">{useLocation().pathname}</div>;
+  const { pathname, search, hash } = useLocation();
+  return (
+    <div data-testid="content-destination">{pathname + search + hash}</div>
+  );
 }
 
 describe('RouteView', () => {
@@ -151,7 +167,12 @@ describe('RouteView', () => {
     ['/self-service/ee/catalog', '/content/ee'],
     ['/self-service/ee/create', '/content/ee'],
     ['/self-service/ee/catalog/team/my-ee', '/content/ee/catalog/team/my-ee'],
-    ['/self-service/catalog/my-ee', '/content/ee'],
+    ['/self-service/catalog/my-ee', '/content/ee/catalog/actual-team/my-ee'],
+    ['/self-service/ee/catalog/my-ee', '/content/ee/catalog/actual-team/my-ee'],
+    [
+      '/self-service/catalog/my-ee?tab=source#file',
+      '/content/ee/catalog/actual-team/my-ee?tab=source#file',
+    ],
   ])('redirects retired EE route %s to %s', async (path, destination) => {
     render(
       <MemoryRouter initialEntries={[path]}>

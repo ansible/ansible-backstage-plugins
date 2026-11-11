@@ -30,8 +30,10 @@ const portalHost = createFrontendPlugin({
 });
 
 function ContentDestination() {
-  const { pathname } = useLocation();
-  return <div data-testid="content-destination">{pathname}</div>;
+  const { pathname, search, hash } = useLocation();
+  return (
+    <div data-testid="content-destination">{pathname + search + hash}</div>
+  );
 }
 
 const contentDestination = createFrontendPlugin({
@@ -51,12 +53,40 @@ it.each([
   ['/self-service/ee/catalog', '/content/ee'],
   ['/self-service/ee/create', '/content/ee'],
   ['/self-service/ee/catalog/team/example', '/content/ee/catalog/team/example'],
-  ['/self-service/catalog/example-ee', '/content/ee'],
+  [
+    '/self-service/catalog/example-ee',
+    '/content/ee/catalog/actual-team/example-ee',
+  ],
+  [
+    '/self-service/ee/catalog/example-ee',
+    '/content/ee/catalog/actual-team/example-ee',
+  ],
+  [
+    '/self-service/catalog/example-ee?tab=source#file',
+    '/content/ee/catalog/actual-team/example-ee?tab=source#file',
+  ],
 ])('redirects native legacy route %s to %s', async (path, destination) => {
   await renderTestApp({
     features: [portalHost, plugin, contentDestination],
     initialRouteEntries: [path],
-    apis: [mockApis.permission()],
+    apis: [
+      mockApis.permission(),
+      [
+        catalogApiRef,
+        {
+          getEntities: async () => ({
+            items: [
+              {
+                apiVersion: 'backstage.io/v1alpha1',
+                kind: 'Component',
+                metadata: { name: 'example-ee', namespace: 'actual-team' },
+                spec: { type: 'execution-environment' },
+              },
+            ],
+          }),
+        },
+      ],
+    ],
   });
   expect(await screen.findByTestId('content-destination')).toHaveTextContent(
     destination,

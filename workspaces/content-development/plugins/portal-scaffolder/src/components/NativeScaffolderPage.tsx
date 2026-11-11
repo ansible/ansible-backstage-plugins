@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import { templatesViewPermission } from '@ansible/aap-common/permissions';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
@@ -10,7 +10,10 @@ import { TemplatesRoutesPage } from './Home';
 import { HistoryRoutesPage } from './TaskList';
 import { CatalogImport } from './CatalogImport';
 import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
-import { LegacyEERedirects } from './LegacyEERedirects';
+import {
+  LegacyDefinitionRedirect,
+  LegacyEERedirects,
+} from './LegacyEERedirects';
 
 const reservedNames = formExtraFields.map(field => field.name);
 
@@ -25,7 +28,7 @@ export function NativeScaffolderPage({
       <Route path="ee/*" element={<LegacyEERedirects />} />
       <Route
         path="catalog/:templateName"
-        element={<Navigate to="/content/ee" replace />}
+        element={<LegacyDefinitionRedirect />}
       />
       <Route
         path="catalog-import"

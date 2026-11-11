@@ -23,7 +23,10 @@ import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
-import { LegacyEERedirects } from '../LegacyEERedirects';
+import {
+  LegacyDefinitionRedirect,
+  LegacyEERedirects,
+} from '../LegacyEERedirects';
 import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
@@ -126,7 +129,7 @@ const RouteViewContent = () => {
         <Route path="ee/*" element={<LegacyEERedirects />} />
         <Route
           path="catalog/:templateName"
-          element={<Navigate to="/content/ee" replace />}
+          element={<LegacyDefinitionRedirect />}
         />
         <Route
           path="collections"
