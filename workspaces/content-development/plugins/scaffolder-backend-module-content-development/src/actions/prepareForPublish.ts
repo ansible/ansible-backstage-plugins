@@ -103,7 +103,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         );
 
         logger.info(
-          `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} exists: ${exists}`,
+          `${sourceControlProvider} repository existence check completed: ${exists}`,
         );
 
         if (!exists) {
@@ -113,7 +113,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
             );
           }
           logger.info(
-            `A new ${sourceControlProvider} repository ${repositoryOwner}/${repositoryName} will be created.`,
+            `A new ${sourceControlProvider} repository will be created.`,
           );
           createNewRepo = true;
         }
@@ -126,13 +126,9 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
             repositoryName,
           );
           if (numericProjectId === undefined) {
-            logger.warn(
-              `Could not resolve GitLab numeric project ID for ${repositoryOwner}/${repositoryName}`,
-            );
+            logger.warn('Could not resolve GitLab numeric project ID');
           } else {
-            logger.info(
-              `Resolved GitLab numeric project ID: ${numericProjectId} for ${repositoryOwner}/${repositoryName}`,
-            );
+            logger.info('Resolved GitLab numeric project ID');
             ctx.output('gitlabProjectId', numericProjectId);
           }
         }
@@ -143,11 +139,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           owner: repositoryOwner,
         });
         const generatedRepoUrl = `${host}?${query.toString()}`;
-        logger.info(`Generated repository URL: ${generatedRepoUrl}`);
+        logger.info('Generated repository URL for publishing');
         ctx.output('generatedRepoUrl', generatedRepoUrl);
 
         const normalizedRepoUrl = `${host}/${repositoryOwner}/${repositoryName}`;
-        logger.info(`Normalized repository URL: ${normalizedRepoUrl}`);
+        logger.info('Normalized repository URL for publishing');
         ctx.output('normalizedRepoUrl', normalizedRepoUrl);
 
         if (!createNewRepo) {
@@ -175,7 +171,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           repositoryName,
           contextDirName,
         );
-        logger.info(`Generated repository contents URL: ${catalogInfoUrl}`);
+        logger.info('Generated repository contents URL');
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);
         if (createNewRepo) {
           ctx.output('generatedFullRepoUrl', fullRepoUrl);
