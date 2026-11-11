@@ -209,6 +209,7 @@ __metadata:
   dependencies:
     "@ansible/aap-common": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/plugin-auth-node": "npm:0.7.5"
     "@jest/globals": "npm:^30.1.2"
