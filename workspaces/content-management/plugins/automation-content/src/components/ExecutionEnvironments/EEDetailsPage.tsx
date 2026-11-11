@@ -778,7 +778,7 @@ function EEDetailsContent(): ReactElement {
                       </code>
                       <ButtonIcon
                         variant="tertiary"
-                        icon={<FileCopyIcon />}
+                        icon={<FileCopyIcon fontSize="small" />}
                         aria-label="Copy pull reference"
                         onPress={copyPullReference}
                       />

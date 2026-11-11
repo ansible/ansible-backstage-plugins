@@ -369,7 +369,7 @@ export function UseInControllerDialog({
                         <ButtonIcon
                           size="medium"
                           variant="tertiary"
-                          icon={<FileCopyIcon />}
+                          icon={<FileCopyIcon fontSize="small" />}
                           onPress={copyDigest}
                           aria-label="Copy digest"
                         />
