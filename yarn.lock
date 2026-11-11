@@ -389,6 +389,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/content-development-common@workspace:^, @ansible/content-development-common@workspace:workspaces/content-development/plugins/content-development-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-development-common@workspace:workspaces/content-development/plugins/content-development-common"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/cli": "npm:0.36.2"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/content-model@workspace:^, @ansible/content-model@workspace:workspaces/content-management/plugins/content-model":
   version: 0.0.0-use.local
   resolution: "@ansible/content-model@workspace:workspaces/content-management/plugins/content-model"
@@ -625,6 +635,37 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/plugin-scaffolder-backend-module-content-development@workspace:workspaces/content-development/plugins/scaffolder-backend-module-content-development":
+  version: 0.0.0-use.local
+  resolution: "@ansible/plugin-scaffolder-backend-module-content-development@workspace:workspaces/content-development/plugins/scaffolder-backend-module-content-development"
+  dependencies:
+    "@ansible/content-development-common": "workspace:^"
+    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
+    "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
+    "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.1"
+    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/cli": "npm:0.36.2"
+    "@backstage/config": "npm:1.3.8"
+    "@backstage/errors": "npm:1.3.1"
+    "@backstage/plugin-scaffolder-node": "npm:0.13.6"
+    "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.11"
+    "@backstage/types": "npm:1.2.2"
+    "@types/jest": "npm:29.5.14"
+    "@types/js-yaml": "npm:^4"
+    "@types/node-fetch": "npm:2.6.11"
+    "@types/semver": "npm:^7"
+    dedent: "npm:^1.7.0"
+    js-yaml: "npm:4.3.2"
+    msw: "npm:2.4.9"
+    node-fetch: "npm:2.7.0"
+    semver: "npm:7.7.3"
+    zod: "npm:3.25.76"
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0
+  languageName: unknown
+  linkType: soft
+
 "@ansible/portal-core@workspace:^, @ansible/portal-core@workspace:workspaces/portal-core/plugins/portal-core":
   version: 0.0.0-use.local
   resolution: "@ansible/portal-core@workspace:workspaces/portal-core/plugins/portal-core"
@@ -856,37 +897,6 @@ __metadata:
   peerDependencies:
     react: ^18.3.1
     react-dom: ^18.3.1
-  languageName: unknown
-  linkType: soft
-
-"@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module":
-  version: 0.0.0-use.local
-  resolution: "@ansible/portal-scaffolder-backend-module@workspace:workspaces/portal-scaffolder/plugins/portal-scaffolder-backend-module"
-  dependencies:
-    "@ansible/backstage-rhaap-common": "workspace:^"
-    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
-    "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
-    "@backstage/backend-plugin-api": "npm:1.10.0"
-    "@backstage/backend-test-utils": "npm:1.11.1"
-    "@backstage/catalog-model": "npm:1.10.0"
-    "@backstage/cli": "npm:0.36.2"
-    "@backstage/config": "npm:1.3.8"
-    "@backstage/errors": "npm:1.3.1"
-    "@backstage/plugin-scaffolder-node": "npm:0.13.6"
-    "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.11"
-    "@backstage/types": "npm:1.2.2"
-    "@types/jest": "npm:29.5.14"
-    "@types/js-yaml": "npm:^4"
-    "@types/node-fetch": "npm:2.6.11"
-    "@types/semver": "npm:^7"
-    dedent: "npm:^1.7.0"
-    js-yaml: "npm:4.3.2"
-    msw: "npm:2.4.9"
-    node-fetch: "npm:2.7.0"
-    semver: "npm:7.7.3"
-    zod: "npm:3.25.76"
-  peerDependencies:
-    react: ^17.0.0 || ^18.0.0
   languageName: unknown
   linkType: soft
 

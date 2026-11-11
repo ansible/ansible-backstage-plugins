@@ -34,7 +34,6 @@
     "packages": [
       "workspaces/portal-core/packages/*",
       "workspaces/portal-core/plugins/*",
-      "workspaces/portal-scaffolder/plugins/*",
       "workspaces/content-development/plugins/*",
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
