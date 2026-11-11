@@ -6,7 +6,7 @@ export * from './actions';
 export { scaffolderModuleContentDevelopment } from './module';
 
 export default createBackendFeatureLoader({
-  loader: function* () {
+  loader: function* loader() {
     yield eeEntityLifecycleServiceFactory;
     yield scaffolderModuleContentDevelopment;
   },

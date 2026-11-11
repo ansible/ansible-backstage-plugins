@@ -5,7 +5,6 @@ import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugi
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { MOCK_CONFIG } from './mock';
 import { createRouter } from './router';
-import { eeEntityLifecycleServiceFactory } from './eeEntityLifecycleService';
 
 jest.mock('./router', () => ({
   createRouter: jest
@@ -40,7 +39,6 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
-        eeEntityLifecycleServiceFactory,
         mockServices.rootConfig.factory(MOCK_CONFIG),
         scheduler.factory,
       ],
@@ -48,9 +46,6 @@ describe('catalogModuleRHAAPEntityProvider', () => {
 
     expect(usedSchedule?.frequency).toEqual({ months: 1 });
     expect(usedSchedule?.timeout).toEqual({ minutes: 3 });
-    expect(
-      addedProviders?.some(p => p.getProviderName() === 'EEEntityProvider'),
-    ).toBe(true);
     expect(
       addedProviders
         ?.find(p => p.getProviderName().startsWith('AapEntityProvider'))
@@ -96,7 +91,6 @@ describe('catalogModuleRHAAPEntityProvider', () => {
       ],
       features: [
         catalogModuleRhaap,
-        eeEntityLifecycleServiceFactory,
         mockServices.rootConfig.factory(configWithExternalAccess),
         scheduler.factory,
       ],

@@ -4,7 +4,6 @@ import {
   userProvisionerRef,
   UserProvisioner,
 } from '@ansible/backstage-rhaap-common';
-import { eeEntityLifecycleServiceFactory } from './eeEntityLifecycleService';
 import { catalogModuleRhaap } from './module';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 
@@ -26,7 +25,6 @@ export default createBackendFeatureLoader({
       deps: {},
       factory: () => new UserProvisioner(),
     });
-    yield eeEntityLifecycleServiceFactory;
     yield catalogModuleRhaap;
   },
 });

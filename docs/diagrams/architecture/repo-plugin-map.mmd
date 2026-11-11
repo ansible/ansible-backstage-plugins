@@ -7,17 +7,19 @@ flowchart TD
 
   subgraph Common["Shared library"]
     Common1["backstage-rhaap-common<br/>AAPClient, ansibleServiceRef,<br/>types, permissions"]
+    ContentCommon["content-development-common<br/>SCM client and EE lifecycle contracts"]
   end
 
   subgraph FrontendPlugins["Frontend plugins"]
     RhaapFE["backstage-rhaap<br/>AnsiblePage sidebar/pages"]
-    SelfService["self-service<br/>Job templates, EE builder,<br/>Collections, Git repos"]
+    SelfService["portal-scaffolder<br/>Templates, EE builder,<br/>Collections, Git repos"]
   end
 
   subgraph BackendModules["Backend modules"]
     CatalogMod["catalog-backend-module-rhaap<br/>Entity providers"]
     AapScaffolderMod["scaffolder-backend-module-aap<br/>AAP actions and autocomplete"]
-    PortalScaffolderMod["portal-scaffolder-backend-module<br/>Creator and EE actions"]
+    ContentDevelopmentScaffolderMod["content-development scaffolder module<br/>Creator and EE actions"]
+    ContentDevelopmentCatalogMod["content-development catalog module<br/>EE provider"]
     AuthMod["auth-backend-module-rhaap-provider<br/>AAP OAuth"]
   end
 
@@ -25,7 +27,8 @@ flowchart TD
 
   Backend --> CatalogMod
   Backend --> AapScaffolderMod
-  Backend --> PortalScaffolderMod
+  Backend --> ContentDevelopmentScaffolderMod
+  Backend --> ContentDevelopmentCatalogMod
   Backend --> AuthMod
 
   RhaapFE -. proxy/API routes .-> Backend
@@ -35,7 +38,9 @@ flowchart TD
 
   CatalogMod --> Common1
   AapScaffolderMod --> Common1
-  PortalScaffolderMod --> Common1
+  CatalogMod --> ContentCommon
+  ContentDevelopmentScaffolderMod --> ContentCommon
+  ContentDevelopmentCatalogMod --> ContentCommon
   AuthMod --> Common1
 
   Common1 -->|HTTP| AAP

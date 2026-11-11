@@ -4,11 +4,12 @@ import {
 } from '@backstage/backend-plugin-api';
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type { EntityProviderConnection } from '@backstage/plugin-catalog-node';
-import type { EEEntityProviderService } from '@ansible/backstage-rhaap-common';
-import { eeEntityProviderServiceRef } from '@ansible/backstage-rhaap-common';
+import type { Entity } from '@backstage/catalog-model';
+import type { EEEntityProviderService } from '@ansible/content-development-common';
+import { eeEntityProviderServiceRef } from '@ansible/content-development-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 
-export class EELifecycleService implements EEEntityProviderService {
+export class EEEntityProviderServiceImpl implements EEEntityProviderService {
   private readonly provider: EEEntityProvider;
 
   constructor(logger: LoggerService) {
@@ -23,7 +24,7 @@ export class EELifecycleService implements EEEntityProviderService {
     return this.provider.connect(connection);
   }
 
-  async register(entity: any): Promise<void> {
+  async register(entity: Entity): Promise<void> {
     await this.provider.registerExecutionEnvironment(entity);
   }
 
@@ -32,12 +33,12 @@ export class EELifecycleService implements EEEntityProviderService {
   }
 }
 
-export const eeEntityLifecycleServiceFactory = createServiceFactory({
+export const eeEntityProviderServiceFactory = createServiceFactory({
   service: eeEntityProviderServiceRef,
   deps: {
     logger: coreServices.rootLogger,
   },
   factory({ logger }) {
-    return new EELifecycleService(logger);
+    return new EEEntityProviderServiceImpl(logger);
   },
 });

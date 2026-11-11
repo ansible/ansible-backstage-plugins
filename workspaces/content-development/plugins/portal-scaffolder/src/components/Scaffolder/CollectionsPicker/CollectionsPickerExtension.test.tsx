@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CollectionsPickerExtension } from './CollectionsPickerExtension';
 import { CollectionItem } from './types';
-import { useApi } from '@backstage/core-plugin-api';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
@@ -41,6 +41,7 @@ function mockVersionOption(
 describe('CollectionsPickerExtension', () => {
   let mockScaffolderApi: { autocomplete: jest.Mock };
   let mockAapAuth: { getAccessToken: jest.Mock };
+  let mockIdentityApi: { getCredentials: jest.Mock };
 
   beforeEach(() => {
     mockScaffolderApi = {
@@ -49,6 +50,11 @@ describe('CollectionsPickerExtension', () => {
 
     mockAapAuth = {
       getAccessToken: jest.fn().mockResolvedValue('test-token'),
+    };
+    mockIdentityApi = {
+      getCredentials: jest
+        .fn()
+        .mockResolvedValue({ token: 'backstage-user-token' }),
     };
 
     jest.clearAllMocks();
@@ -59,6 +65,9 @@ describe('CollectionsPickerExtension', () => {
       }
       if (ref === rhAapAuthApiRef) {
         return mockAapAuth;
+      }
+      if (ref === identityApiRef) {
+        return mockIdentityApi;
       }
       return {};
     });
@@ -186,6 +195,7 @@ describe('CollectionsPickerExtension', () => {
           provider: 'portal-catalog',
           context: {
             searchQuery: 'spec.type=ansible-collection',
+            backstageIdentityToken: 'backstage-user-token',
           },
         });
       });
