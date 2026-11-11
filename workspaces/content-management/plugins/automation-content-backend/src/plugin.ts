@@ -6,7 +6,7 @@ import {
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentStore } from './ContentStore';
-import { createRouter } from './router';
+import { createRouter, STORE_REFRESH_TASK_ID } from './router';
 
 const migrationsDir = resolvePackagePath(
   '@ansible/plugin-automation-content-backend',
@@ -61,7 +61,9 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ db: store, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({ db: store, logger, httpAuth, scheduler }),
+        );
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
@@ -92,7 +94,7 @@ export const automationContentPlugin = createBackendPlugin({
         });
 
         await scheduler.scheduleTask({
-          id: 'content-management-store-refresh',
+          id: STORE_REFRESH_TASK_ID,
           frequency: { minutes: 30 },
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },
