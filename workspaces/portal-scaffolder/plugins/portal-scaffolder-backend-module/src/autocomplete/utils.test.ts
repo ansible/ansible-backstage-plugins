@@ -3,7 +3,9 @@ import { clearCollectionsCache, getCollections } from './utils';
 describe('getCollections catalog filters', () => {
   const auth = {
     getOwnServiceCredentials: jest.fn().mockResolvedValue({}),
-    getPluginRequestToken: jest.fn().mockResolvedValue({ token: 'catalog-token' }),
+    getPluginRequestToken: jest
+      .fn()
+      .mockResolvedValue({ token: 'catalog-token' }),
   } as any;
   const discovery = {
     getBaseUrl: jest.fn().mockResolvedValue('http://catalog.example.com'),
@@ -49,8 +51,8 @@ describe('getCollections catalog filters', () => {
   });
 
   it('drops client-supplied spec.type filters and retains the required type', async () => {
-    await expect(
-      requestedFilter('spec.type=ansible-collection'),
-    ).resolves.toBe('spec.type=ansible-collection');
+    await expect(requestedFilter('spec.type=ansible-collection')).resolves.toBe(
+      'spec.type=ansible-collection',
+    );
   });
 });
