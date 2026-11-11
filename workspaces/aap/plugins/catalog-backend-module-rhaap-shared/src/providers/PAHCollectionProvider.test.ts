@@ -7,7 +7,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { PAHCollectionProvider } from './PAHCollectionProvider';
 import { mockAnsibleService } from '../mock/mockIAAPService';
-import { Collection } from '@ansible/backstage-rhaap-common';
+import { Collection } from '@ansible/aap-common';
 
 // Mock the entityParser module for testing parser errors
 jest.mock('./entityParser', () => {

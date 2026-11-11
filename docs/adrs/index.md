@@ -37,6 +37,6 @@ Numbers are **global** (001, 002, …). Folders are the **audience**, not a seco
 | [024](host/024-sync-ux-backstage-signals.md)               | Sync UX — Backstage Signals                    | host        | Accepted |
 | [026](common/026-multi-org-architecture-overview.md)       | Multi-Org Architecture Overview                | common      | Accepted |
 | [027](common/027-catalog-entity-naming-and-namespaces.md)  | Catalog Entity Naming and Namespaces           | common      | Accepted |
-| [028](third-party/028-out-of-tree-plugin-obligations.md)   | Out-of-Tree Plugin Obligations                 | third-party | Proposed |
+| [028](third-party/028-out-of-tree-plugin-obligations.md)   | Out-of-Tree Plugin Obligations                 | third-party | Accepted |
 
 Some `common` ADRs still mention `packages/app` or in-tree paths. Those **location sentences** are host details. The **rules** (zero footprint, config namespace, no cross-plugin implementation deps) still bind out-of-tree plugins. See [ADR-028](third-party/028-out-of-tree-plugin-obligations.md).

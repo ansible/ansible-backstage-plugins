@@ -2,7 +2,7 @@ import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-
 import { MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
 import { createExecutionEnvironment } from './aapCreateEEEnv';
 import { mockAnsibleService } from './mockIAAPService';
-import { ExecutionEnvironment } from '@ansible/backstage-rhaap-common';
+import { ExecutionEnvironment } from '@ansible/aap-common';
 
 describe('ansible-aap:eEnv:create', () => {
   const action = createExecutionEnvironment(mockAnsibleService);

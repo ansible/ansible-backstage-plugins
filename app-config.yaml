@@ -60,8 +60,6 @@ organization:
   name: Automation Portal
 backend:
   auth:
-    keys:
-      - secret: ${BACKEND_SECRET}
     sessions:
       # Persistent signing key prevents JWT token invalidation on backend restarts
       # This is essential for dynamic RBAC automation and service-to-service authentication
@@ -226,7 +224,7 @@ catalog:
                   timeout: { minutes: 15 }
 
     # Automation content discovery from OCI-compliant registries
-    # (workspaces/content — catalog-backend-module-automation-content).
+    # (workspaces/content-management — catalog-backend-module-automation-content).
     # Presence of a registries list enables the provider; there is no separate
     # `enabled` flag. Uncomment and fill in to activate.
     # automationContent:
@@ -234,15 +232,26 @@ catalog:
     #   registries:
     #     - name: local-registry
     #       url: https://registry.example.com
+    #       # Registry connections verify TLS by default and refuse plain HTTP.
+    #       # A plain-HTTP registry (a local Quay or registry:2) must opt out
+    #       # explicitly; that also disables certificate verification for this
+    #       # registry and is warned about at startup. A registry behind a
+    #       # private CA keeps verification on via caFile instead:
+    #       #   caFile: /path/to/ca-bundle.pem
     #       # Repositories are listed explicitly rather than enumerated. Many
     #       # registries disable the _catalog endpoint, so this is the path that
     #       # always works — the capability probe reports what the registry
     #       # supports and the provider degrades to this list rather than failing.
     #       repositories:
     #         - demo/network-ee
-    #       # Credentials come from the environment, never from this file. For a
-    #       # registry that needs none — a local zot or registry:2 — use
-    #       # `type: anonymous` and drop the three lines below.
+    #       # Credentials come from the environment, never from this file:
+    #       # an OpenShift Secret → container env → ${VAR} substitution here.
+    #       # See workspaces/content-management/docs/guides/registry-credentials.md for
+    #       # delivery, rotation and the RBAC boundary. For a registry that
+    #       # needs none — a local zot or registry:2 — use `type: anonymous`
+    #       # and drop the three lines below. A pre-issued registry token is
+    #       # `type: bearer` with a single `token: ${CONTENT_REGISTRY_TOKEN}`
+    #       # line in place of username/password.
     #       auth:
     #         type: basic
     #         username: ${CONTENT_REGISTRY_USERNAME}

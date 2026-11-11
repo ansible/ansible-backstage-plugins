@@ -28,6 +28,7 @@
     "clean": "backstage-cli package clean"
   },
   "dependencies": {
+    "@ansible/aap-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-plugin-api": "1.10.0",

@@ -45,7 +45,7 @@ function includesContent(slice: CatalogModuleSlice): boolean {
 }
 
 function includesEe(slice: CatalogModuleSlice): boolean {
-  return slice === 'all' || slice === 'ee';
+  return slice === 'all' || slice === 'ee' || slice === 'content';
 }
 
 export interface CreateCatalogModuleOptions {
@@ -99,8 +99,7 @@ export function createCatalogModule(options: CreateCatalogModuleOptions) {
           if (deprecated) {
             logger.warn(
               '[catalog-backend-module-rhaap] This module is deprecated. ' +
-                'Migrate to catalog-backend-module-aap, catalog-backend-module-content, ' +
-                'and catalog-backend-module-ee per AAP-98845.',
+                'Migrate to catalog-backend-module-aap and catalog-backend-module-content per AAP-98845.',
             );
           }
 

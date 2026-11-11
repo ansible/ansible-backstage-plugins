@@ -20,6 +20,8 @@ where versioned packages apply.
 
 - **Portal development harness** supports optional full/scaffolder/core source-app composition and explicit additional workspace frontend discovery. Local RHDH development uses matching export/install selections and isolated installation roots; these conveniences do not introduce production profiles or npm publication requirements. The source header has no Create shortcut.
 
+- **Automation content registry endpoint validation** (AAP-96689): configured OCI registry URLs under `catalog.providers.automationContent.registries` are validated at backend startup — they must be absolute `http`/`https` URLs with no embedded credentials, query, or fragment, and are normalized to canonical form. A malformed endpoint now fails startup with an error naming the registry (a _missing_ `url` already did). `POST /automation-content/config/validate` enforces the same rule as the loader, so a preflight-approved registry URL can no longer prevent startup; it also reports non-object registry entries and non-string URLs as validation errors instead of crashing. The SSRF refusal branches in the OCI client (non-HTTP(S) auth realms, plaintext realms for HTTPS registries, and pagination `Link` targets pointing away from the configured registry) are now covered by tests, and the origin check now authorizes the **parsed** target of any Link form — including hostname-suffixed and scheme-relative links, which previously concatenated onto the configured host and could redirect credential-bearing requests to an attacker-controlled origin.
+
 - **Portal landing route** supports `portal.landingPage` for an exact installed NFS page path. Without an override, `/` opens Templates only when installed; invalid or unavailable destinations show a neutral host fallback. Destination permission checks remain unchanged.
 
 - **Portal NFS** native composition for self-service pages and third-party tabs, cards, actions, catalog extensions, and scaffolder fields, with configurable sidebar links and groups.
@@ -30,6 +32,20 @@ where versioned packages apply.
 
 ### Changed
 
+- **Content development workspace** renames `workspaces/portal-scaffolder` to `workspaces/content-development` and its workspace manifest to `@ansible/content-development-workspace`, with matching configuration, CI, lockfile, ownership, and documentation paths. Plugin directories, package names, and runtime identifiers remain unchanged.
+
+- **Portal capability placement** no longer requires `experienceId` or a fixed host experience taxonomy. The host selects supported surfaces using contribution attachments and applicability. Removed experience constants/types and the `availableExperiences` renderer prop, without adding recommendation metadata. Existing serialized experience fields are ignored, while source consumers must remove the obsolete fields/imports/props and rebuild with the updated SDK. Permission, entitlement, ownership and configuration checks remain independent.
+
+- **Backend authentication configuration** removes deprecated `backend.auth.keys` and its unused `BACKEND_SECRET` setup. Plugin-to-plugin authentication uses Backstage's built-in auth services. Existing local overrides must also remove `backend.auth.keys`; external caller credentials remain configured separately under `backend.auth.externalAccess`.
+
+- **Content management workspace** moves `workspaces/content` to `workspaces/content-management`. Workspace discovery, TypeScript includes, code ownership, Sonar analysis and OpenAPI drift checks use the new directory. Package names, plugin IDs, configuration keys and application routes are unchanged.
+
+- **Automation content custom transports:** injected `FetchLike` implementations
+  now receive `redirect: 'manual'` and must return redirect responses without
+  following them. Update wrappers that automatically follow redirects to forward
+  this option to the underlying transport. `OCIClient` checks each redirect's
+  scheme and removes Authorization headers when crossing origins; redirects
+  followed inside a custom transport bypass those checks.
 - **Portal global header** removes the Create shortcut from both native and legacy source-app composition. Profile-menu access and logout remain available. No global Create-contribution API is introduced.
 
 - **Portal native fields** attach to the shared contribution provider instead of requiring portal-scaffolder's templates-page input. Optional templates adapters consume validated declarations; without a consumer, widget loaders do not run.
@@ -48,6 +64,8 @@ where versioned packages apply.
 
 ### Fixed
 
+- **Job template catalog sync** requests `/api/controller/v2/job_templates/` with a trailing slash. AAP redirects the slash-less list URL with 301, and that redirect returns 503 once the organization filter query is large (reproduced at 137 organizations, about 6 KB). The slash-terminated URL returns 200 for the same filter. There is no configuration workaround; other job-template list calls already used the slash.
+
 - **AAP logout** shares one source/RHDH handler that waits for Portal identity sign-out, then uses AAP's OIDC end-session endpoint and the OAuth application's registered Post Logout Redirect URI to return to Portal sign-in after AAP confirmation. The public client ID and browser host are exposed through the auth module's frontend schema, while client secrets stay backend-only. Requires an AAP deployment advertising `/o/logout/`. Deployments configured only with `ansible.rhaap.baseUrl` must also set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl` as described in the upgrade notes. This does not bypass redirect validation or fix token-revocation transport errors.
 
 - **Portal backend authorization** resolves trusted AAP memberships consistently across operation and registration transports, enforces declared entitlements server-side, and authorizes APME interactive workflows before gateway forwarding or SCM credential resolution. Any granted membership enables shared capabilities, subject to RBAC. Git repositories no longer require AAP ownership annotations or catalog namespace mappings; new manual entries use `default`, without rewriting existing records.
@@ -65,6 +83,11 @@ where versioned packages apply.
 
 ### Upgrade notes
 
+1. **Automation content custom transport authors:** forward `TransportInit`,
+   including `redirect: 'manual'`, and return the original redirect status and
+   Location header to `OCIClient`. Remove automatic redirect loops from injected
+   `FetchLike` adapters. The client now owns redirect following and applies its
+   transport and credential policy to each hop.
 1. **AAP browser logout:** set `auth.providers.rhaap.<environment>.clientId` and `app.baseUrl`, using `auth.environment` to select the provider environment (default `development`). Set `auth.providers.rhaap.<environment>.host` or retain `ansible.rhaap.baseUrl` as the host fallback. Register the serialized value of `app.baseUrl` (`new URL(appBaseUrl).href`) in the matching OAuth application's Post Logout Redirect URIs. For example, `http://localhost:3000` serializes to `http://localhost:3000/`, and the registered URI must include that trailing slash. A host without the required client ID or valid Portal URL reports a configuration error and clears Portal auth without ending the AAP browser session.
 
 1. **Native field contributors and templates hosts:** rebuild/re-export the shared SDK, Portal host, templates adapter, and contributors together. Remove explicit field attachment overrides to `page:portal-scaffolder/templates`; the Blueprint now attaches to `api:portal/contributions`, input `scaffolderFields`. Keep field names, manifests, template values, UI schemas, and validators unchanged. Custom templates composition tests must install the Portal contribution provider. Existing routes are unchanged; no legacy registration fallback is added.

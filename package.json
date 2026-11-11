@@ -20,6 +20,7 @@
     "test:watch": "NODE_OPTIONS=\"${NODE_OPTIONS:-} --experimental-vm-modules\" backstage-cli repo test",
     "test:all": "bash scripts/test-with-console-log.sh --coverage",
     "test:composition": "node --test scripts/portal-development.test.cjs",
+    "test:credential-guards": "node --test scripts/eslint-credential-guards.test.cjs",
     "test:e2e": "playwright test",
     "fix": "backstage-cli repo fix",
     "lint": "backstage-cli repo lint --since origin/main",
@@ -27,16 +28,16 @@
     "prettier:check": "prettier --check .",
     "new": "backstage-cli new",
     "openapi:lint": "spectral lint api/openapi.yaml --ruleset api/.spectral.yaml",
-    "openapi:check-drift": "node api/scripts/check-drift.mjs"
+    "openapi:check-drift": "node --test api/scripts/check-drift.test.mjs && node api/scripts/check-drift.mjs"
   },
   "workspaces": {
     "packages": [
       "workspaces/portal-core/packages/*",
       "workspaces/portal-core/plugins/*",
-      "workspaces/portal-scaffolder/plugins/*",
+      "workspaces/content-development/plugins/*",
       "workspaces/aap/plugins/*",
       "workspaces/apme/plugins/*",
-      "workspaces/content/plugins/*",
+      "workspaces/content-management/plugins/*",
       "e2e-tests/*"
     ]
   },
@@ -80,7 +81,7 @@
     "follow-redirects": "^1.16.0",
     "lodash": "^4.18.0",
     "protobufjs": "7.6.5",
-    "undici": "^6.29.0",
+    "undici": "6.29.1",
     "fast-xml-parser": "^5.5.6",
     "immutable": "^4.0.0",
     "rollup": "^4.59.0",

@@ -1,6 +1,6 @@
 # catalog-backend-module-rhaap-shared
 
-Shared provider library for the AAP catalog backend split. Houses all entity providers, the sync router, slice-guard, and `createCatalogModule()`. Consumed by `catalog-backend-module-aap`, `catalog-backend-module-content`, `catalog-backend-module-ee`, and the legacy `catalog-backend-module-rhaap` shim.
+Shared provider library for the AAP catalog backend split. Houses all entity providers, the sync router, slice-guard, and `createCatalogModule()`. Consumed by `catalog-backend-module-aap`, `catalog-backend-module-content`, and the legacy `catalog-backend-module-rhaap` shim.
 
 ## Installation
 

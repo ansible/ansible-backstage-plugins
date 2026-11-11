@@ -42,7 +42,6 @@ const manifest: EntityDetailTabDescriptor['manifest'] = {
     {
       id: 'discovered-example.quality',
       ownerPlugin: 'discovered-example',
-      experienceId: 'content-quality-assessment',
       displayName: 'Discovered quality',
       description: 'Independent native contribution',
       minimumHostApiVersion: '0.1.0',

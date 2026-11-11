@@ -44,7 +44,7 @@ tags:
   - name: Automation Content Resolution
     description: Match requirements against available content
   - name: Automation Content Configuration
-    description: Declarative configuration export and validation
+    description: Declarative configuration validation
 
 components:
   securitySchemes:
@@ -347,12 +347,52 @@ components:
           items: { type: string }
           description: Human-readable observations from probing, including why a capability was not determined.
 
+    CatalogHealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+      additionalProperties: false
+
+    ContentSyncTriggerResponse:
+      type: object
+      required: [status, taskId, triggeredAt]
+      properties:
+        status: { type: string, enum: [scheduled] }
+        taskId: { type: string }
+        triggeredAt: { type: string, format: date-time }
+
     ContentRegistry:
       type: object
       required: [name, url]
       properties:
         name: { type: string }
-        url: { type: string }
+        url:
+          type: string
+          description: |
+            Absolute http(s) URL of the registry, with no embedded credentials,
+            query, or fragment. Validated at backend startup and by
+            POST /config/validate; valid URLs are stored in canonical form.
+            A registry may be mounted under a sub-path (https://host/prefix).
+            The public form strips any userinfo, query or fragment the
+            configured URL carried, so credentials cannot reach an API response.
+        lastReconciledAt:
+          type: string
+          format: date-time
+          description: When the registry was last read, successfully or not.
+        lastReconcileOk: { type: boolean }
+        lastReconcileError:
+          type: string
+          description: |
+            Fixed failure summary. The listing stays conservative — the detailed
+            cause, which can quote internal hostnames from certificate
+            validation, is kept to backend logs and sync responses. Credentials
+            never appear in either: they are redacted ([REDACTED]) from every
+            log line, error and response.
+        lastCheckedAt:
+          type: string
+          format: date-time
+          description: When the registry was last cheaply checked for changes.
         namespaces:
           type: array
           items: { type: string }
@@ -578,8 +618,7 @@ components:
     ContentConfig:
       type: object
       description: |
-        Declarative content configuration. Round-trips: what `/config/export` emits can
-        be committed to Git and fed back to `/config/validate`.
+        Declarative content configuration for `/config/validate`.
       required: [apiVersion, kind, registries]
       properties:
         apiVersion:
@@ -591,6 +630,42 @@ components:
         registries:
           type: array
           items: { $ref: '#/components/schemas/ContentRegistry' }
+
+    PaginatedContentResponse:
+      type: object
+      required: [page, pageSize, totalItems, next, previous, firstPage, lastPage, items]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number (1-indexed).
+        pageSize:
+          type: integer
+          enum: [10, 20, 50]
+          description: Number of items per page.
+        totalItems:
+          type: integer
+          minimum: 0
+          description: Total number of items matching the filters.
+        next:
+          type: [string, 'null']
+          description: Relative query string for the next page, or null on the last page.
+          examples: ['?page=2']
+        previous:
+          type: [string, 'null']
+          description: Relative query string for the previous page, or null on the first page.
+          examples: ['?page=1']
+        firstPage:
+          type: string
+          description: Relative query string for the first page.
+          examples: ['?page=1']
+        lastPage:
+          type: string
+          description: Relative query string for the last page.
+          examples: ['?page=5']
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ExecutionEnvironment' }
 
     ValidationResult:
       type: object
@@ -773,28 +848,45 @@ paths:
           description: Request exceeds the 64 KiB payload limit
         '500':
           description: Handler or output validation failure
-  /health:
+  /api/catalog/health:
     get:
       operationId: getHealth
-      summary: Health check
-      description: Returns the health status of the plugin backend.
+      summary: Catalog backend health
+      description: |
+        Returns a bare status for the catalog backend. Requires a valid Backstage
+        user or service token under the catalog plugin's default authentication policy.
       tags:
         - Health
+      security:
+        - JWT: []
       responses:
         '200':
-          description: Service is healthy
+          description: Catalog backend is running.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    enum:
-                      - ok
-                additionalProperties: false
+                $ref: '#/components/schemas/CatalogHealthResponse'
+        '401':
+          description: Missing or invalid Backstage credentials.
+
+  /api/automation-content/health:
+    get:
+      operationId: getAutomationContentHealth
+      summary: Automation content liveness probe
+      description: |
+        An unauthenticated liveness probe that returns a bare status. It does not
+        describe registries, cache state, or failure causes and does not contact
+        upstream registries.
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Automation content backend is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogHealthResponse'
 
   /ansible/sync/from-aap/orgs_users_teams:
     post:
@@ -1057,7 +1149,7 @@ paths:
       summary: Get self-service EE catalog sync status (split module)
       description: |
         Returns the current synchronization status for execution environment
-        (EE) providers. Exposed by `catalog-backend-module-ee`.
+        (EE) providers. Exposed by `catalog-backend-module-content`.
         **Permissions**: Requires the Backstage catalog **entity read** permission (`catalog.entity.read`).
       tags:
         - Ansible Content Sync
@@ -2848,6 +2940,9 @@ paths:
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
+
+        Reconciliation failures are reported as a fixed summary; the detailed cause
+        is kept to backend logs and sync responses.
       responses:
         '401':
           description: Authentication required
@@ -2872,30 +2967,34 @@ paths:
       tags: [Automation Content Registries]
       security:
         - JWT: []
-      summary: Trigger discovery for all configured registries
-      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      summary: Trigger a background refresh of all configured registries
+      description: |
+        Cancels any in-progress refresh and triggers the scheduled
+        content-management-store-refresh task. Returns immediately with
+        task metadata; the actual discovery runs in the background.
+        Credential values are redacted ([REDACTED]) from every diagnostic path.
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
-        '200':
-          description: Sync result per registry
+        '202':
+          description: Refresh task scheduled successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentSyncTriggerResponse'
+        '409':
+          description: A refresh is already in progress and could not be pre-empted.
           content:
             application/json:
               schema:
                 type: object
+                required: [status, message, taskId]
                 properties:
-                  durationMs: { type: integer }
-                  registries:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        registry: { type: string }
-                        ok: { type: boolean }
-                        discovered: { type: integer }
-                        error: { type: string }
+                  status: { type: string, enum: [conflict] }
+                  message: { type: string }
+                  taskId: { type: string }
 
   /registries/{name}/poll:
     servers:
@@ -2953,6 +3052,9 @@ paths:
                 properties:
                   status: { type: string }
                   discovered: { type: integer }
+                  error:
+                    type: string
+                    description: Detailed failure cause, credentials redacted; this route requires authentication.
         '404':
           description: No such registry
           content:
@@ -2986,21 +3088,25 @@ paths:
         - name: contentsKnown
           in: query
           schema: { type: boolean }
+        - name: page
+          in: query
+          description: Page number (1-indexed, defaults to 1).
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Items per page. Only 10, 20, or 50 are accepted; invalid values fall back to 10.
+          schema: { type: integer, enum: [10, 20, 50], default: 10 }
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
         '200':
-          description: Matching artifacts
+          description: Paginated matching artifacts
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+                $ref: '#/components/schemas/PaginatedContentResponse'
 
   /content/{ref}(*):
     servers:
@@ -3108,21 +3214,25 @@ paths:
           in: query
           description: Filter by whether the contents could be determined.
           schema: { type: boolean }
+        - name: page
+          in: query
+          description: Page number (1-indexed, defaults to 1).
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          description: Items per page. Only 10, 20, or 50 are accepted; invalid values fall back to 10.
+          schema: { type: integer, enum: [10, 20, 50], default: 10 }
       responses:
         '401':
           description: Authentication required
         '403':
           description: Insufficient permissions
         '200':
-          description: Matching environments
+          description: Paginated matching environments
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/ExecutionEnvironment' }
+                $ref: '#/components/schemas/PaginatedContentResponse'
 
   /execution-environments/{ref}(*):
     servers:
@@ -3488,40 +3598,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RequirementsResolution' }
-
-  /config/export:
-    servers:
-      - url: /api/automation-content
-    get:
-      operationId: exportContentConfig
-      tags: [Automation Content Configuration]
-      security:
-        - JWT: []
-      summary: Export the live content configuration as a declarative document
-      description: |
-        Emits configuration suitable for committing to Git. Secrets are never included;
-        credential fields are emitted as environment-variable references so the exported
-        document is safe to store in version control.
-      parameters:
-        - name: format
-          in: query
-          schema:
-            type: string
-            enum: [json, yaml]
-            default: json
-      responses:
-        '401':
-          description: Authentication required
-        '403':
-          description: Insufficient permissions
-        '200':
-          description: The configuration
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ContentConfig' }
-            application/yaml:
-              schema:
-                type: string
 
   /config/validate:
     servers:

@@ -1158,14 +1158,14 @@ export class AAPClient implements IAAPService {
     return sanitizeAapName(name);
   }
 
-  private async executeCatalogRequest(
+  private async executeCatalogRequest<T = never>(
     endPoint: string,
     token: string | null,
-    results?: never[],
-  ): Promise<never[]> {
+    results?: T[],
+  ): Promise<T[]> {
     let result = results ?? [];
     const response = await this.executeGetRequest(endPoint, token);
-    const jsonResponse = (await response.json()) as PaginatedResponse;
+    const jsonResponse = (await response.json()) as PaginatedResponse<T>;
     result = [...result, ...jsonResponse.results];
     if (jsonResponse.next) {
       return await this.executeCatalogRequest(jsonResponse.next, token, result);
@@ -1434,7 +1434,7 @@ export class AAPClient implements IAAPService {
       instanceGroup: InstanceGroup[];
     }[]
   > {
-    const endPoint = '/api/controller/v2/job_templates';
+    const endPoint = '/api/controller/v2/job_templates/';
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('page_size', '100');
     if (this.catalogConfig.organizations.length === 1) {

@@ -171,7 +171,7 @@ export function createRouter(options: {
   } = options;
   const includeAap = slice === 'all' || slice === 'aap';
   const includeContent = slice === 'all' || slice === 'content';
-  const includeEe = slice === 'all' || slice === 'ee';
+  const includeEe = slice === 'all' || slice === 'ee' || slice === 'content';
   // eslint-disable-next-line new-cap
   const router = Router();
   const scmClientFactory = new ScmClientFactory({ rootConfig: config, logger });

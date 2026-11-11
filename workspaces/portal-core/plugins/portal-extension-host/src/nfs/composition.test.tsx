@@ -68,7 +68,6 @@ function descriptor(
         {
           id: 'scanner.quality',
           ownerPlugin: 'scanner',
-          experienceId: 'content-quality-assessment',
           displayName: 'Quality',
           description: 'Scan quality',
           minimumHostApiVersion: '0.1.0',
@@ -102,7 +101,6 @@ function compose(
     context?: EntityContributionContext;
     disabled?: boolean;
     deny?: boolean;
-    availableExperiences?: readonly string[];
     extraTabs?: EntityDetailTabDescriptor[];
   } = {},
 ) {
@@ -112,11 +110,7 @@ function compose(
       compatWrapper(
         <>
           <div>Host overview</div>
-          <PortalEntityTabs
-            tabs={tabs}
-            context={options.context ?? context}
-            availableExperiences={options.availableExperiences}
-          />
+          <PortalEntityTabs tabs={tabs} context={options.context ?? context} />
         </>,
       ),
   });
@@ -214,20 +208,28 @@ describe('Portal NFS composition', () => {
     },
   );
 
-  it('discovers a separately declared plugin without singleton registration', async () => {
-    const before = contributionRegistry.getManifests();
-    const tab = descriptor();
-    compose(tab);
-    expect(
-      await screen.findByText('Quality for test-repo'),
-    ).toBeInTheDocument();
-    expect(tab.loader).toHaveBeenCalledWith(context);
-    expect(contributionRegistry.getManifests()).toEqual(before);
-    expect(screen.getByRole('tab', { name: 'Quality' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-  });
+  it.each([false, true])(
+    'activates an independently declared tab with obsolete placement metadata: %s',
+    async legacyMetadata => {
+      const before = contributionRegistry.getManifests();
+      const tab = descriptor();
+      if (legacyMetadata) {
+        Object.assign(tab.manifest.capabilities[0], {
+          experienceId: 'retired-host-group',
+        });
+      }
+      compose(tab);
+      expect(
+        await screen.findByText('Quality for test-repo'),
+      ).toBeInTheDocument();
+      expect(tab.loader).toHaveBeenCalledWith(context);
+      expect(contributionRegistry.getManifests()).toEqual(before);
+      expect(screen.getByRole('tab', { name: 'Quality' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      );
+    },
+  );
 
   it.each([
     [
@@ -241,7 +243,6 @@ describe('Portal NFS composition', () => {
       {},
     ],
     ['disabled extension', { disabled: true }, {}],
-    ['disabled experience', { availableExperiences: [] }, {}],
     ['unsupported source', {}, { appliesToSourceKinds: ['hub'] }],
     ['disabled config', {}, { enabledByConfig: 'missing.enabled' }],
     ['false predicate', {}, { isApplicable: async () => false }],

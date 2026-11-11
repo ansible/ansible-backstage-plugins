@@ -959,7 +959,7 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
 - The `rhaap.*.detail.tabs` IDs become **compatibility aliases** for current pages during the transition, not the primary contract.
 - No new extension point IDs should follow the `rhaap.*` frozen-ID pattern.
-- New capability registrations should target `experienceId` once `portal-core` defines experiences.
+- New native capability registrations declare supported attachments and content applicability. The host owns layout and placement, without an experience ID in contributor manifests.
 - The `EXTENSION_POINTS` constants in extension contracts are still the right step for the earlier implementation — just documented as aliases.
 
 ### 12.4 `filter?` vs `appliesToContentTypes`
@@ -1009,8 +1009,8 @@ Per Brad's analysis — the plugin today bundles four distinct concerns:
 | Cluster                | What it does                                                    | Target home                                                        |
 | ---------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Portal chrome          | `SignInPage`, `AAPLogoutButton`, `AppThemeFixer`, `LandingPage` | `portal-core` / `aap`                                              |
-| Content catalogs       | Collections, Git repos, EE catalog, sync                        | `workspaces/content/automation-content`                            |
-| Create / run templates | Templates catalog, `CreateTask`, `RunTask`, task history        | `workspaces/portal-scaffolder/` (done)                             |
+| Content catalogs       | Collections, Git repos, EE catalog, sync                        | `workspaces/content-management/plugins/automation-content`         |
+| Create / run templates | Templates catalog, `CreateTask`, `RunTask`, task history        | `workspaces/content-development/` (done)                           |
 | Scaffolder fields      | 11 field extensions                                             | Stay in `self-service` or `scaffolder-backend-module-self-service` |
 
 After content discovery extraction, the remaining plugin (templates + tasks + fields) should
