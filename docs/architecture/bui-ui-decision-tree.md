@@ -1043,7 +1043,9 @@ There are three outcomes, and each ends somewhere different.
   what stops the wait from becoming the plan.
 - **File and work around.** The workaround needs one sentence of justification,
   and the upstream issue is filed anyway. The issue is what makes the workaround
-  deletable; without it, the workaround is inherited.
+  deletable; without it, the workaround is inherited. Appendix F is this outcome
+  worked end to end: a slot on the stock catalog page, an ask upstream, and an
+  exit written into the record.
 
 **Present before building.** The gap analysis and the proposed workaround go to
 the UX journey owner together, as a proposal, before any code. The carrying cost
@@ -1822,6 +1824,221 @@ the reason `D.3` cannot use "a `PageBlueprint` appears in the diff" as its test.
 Backstage adds an input to `page:scaffolder`, RHDH's copy must declare it or the
 page silently loses that capability. Small, but not zero, and it is the kind of
 cost a record makes visible.
+
+## Appendix F — Four list pages, one archetype
+
+The case where a workaround is justified and temporary at the same time, and
+where the justification is a gap upstream rather than a preference here.
+
+Four mocks, one shape: a catalog list, an execution environment list, a
+collection list and a git repository list. Three of the four exist in this
+repository today, in MUI; the fourth is the archetype's own gallery entry. What
+is new is not the surface but the implementation: one list, parameterised by
+columns, filters, page size and tabs, instead of four.
+
+### F.1 What the four have in common
+
+Subtract what varies — columns, filter set, page size, tabs — and what remains is
+identical in all four: a filter panel on the left, a search field above the
+table, a table, a star and an overflow menu per row, and pagination beneath. Four
+instances of one component with four parameters.
+
+And three are already ours, in MUI:
+
+- Collections mounts `EntityListProvider`, `CatalogFilterLayout` and
+  `UserListPicker`, and already carries the latest-version checkbox —
+  `workspaces/content-development/plugins/portal-scaffolder/src/components/CollectionsCatalog/CollectionsListPage.tsx`.
+- Git Repositories already declares its `CI Activity` tab —
+  `components/GitRepositories/GitRepositoriesPage.tsx:93`.
+- Execution Environments is `page:ee` with `EETabs`, recorded in Appendix A.
+
+So the change is a step down the ladder, not up it: three `L5` pages replaced
+by one `L4` archetype. That is the strongest argument in the proposal, and it is the
+one a reviewer should hold on to.
+
+The fourth mock — the one labelled "Blueprint", with a Catalog tab and an
+Activity tab — is the archetype displayed on itself. It is a gallery entry, not
+a page we ship, and it should not be read as a request for a second catalog.
+
+### F.2 The stock page: two inputs, four closed surfaces
+
+`page:catalog` accepts exactly two contributions and exactly two config keys
+(`plugins/catalog/src/alpha/pages.tsx`):
+
+- inputs — `filters` (any React element) and `exportConfig`;
+- config — `pagination` (`true`, or `{ mode, limit, offset }`) and
+  `exportSettings`.
+
+Everything else the mocks are built from is closed:
+
+| Mock element                     | Surface | Why                                                      |
+| -------------------------------- | ------- | -------------------------------------------------------- |
+| Filter panel, search, pagination | open    | `filters` input; `pagination` config; stock toolbar      |
+| Personal, Tags, Owner, Kind      | open    | stock filter extensions in `alpha/filters.tsx`           |
+| A checkbox filter                | open    | the `filters` input takes any element, not only a picker |
+| Columns                          | closed  | `columns` is a prop on `CatalogTable`, not an input      |
+| Row actions                      | closed  | `actions` is a prop on `CatalogTable`, not an input      |
+| Sub-page tabs                    | closed  | tabs render only for a page with no loader               |
+| Row aggregation                  | closed  | needs a predicate over the result set; the page owns it  |
+
+Three of those deserve their evidence:
+
+- **Columns.** `CatalogTable` takes `columns` and `actions` as props
+  (`components/CatalogTable/CatalogTable.tsx`), defaulting to Name, Description,
+  Tags, System, Owner, Type and Lifecycle. The page's loader hardcodes
+  `<CatalogTable />` and passes neither.
+- **Tabs.** `PageBlueprint` renders tabs only in the branch where a page
+  supplies no `loader` (`packages/frontend-plugin-api/src/blueprints/PageBlueprint.tsx`).
+  That is why `scaffolderPage` declares none and its sub-pages appear as tabs,
+  and why the catalog page cannot host one.
+- **Aggregation.** Our catalog emits one entity per owning execution
+  environment, per collection, per version — `OCIRegistryEntityProvider.ts:657`
+  scopes the entity name by environment for exactly that reason. "Show latest
+  version only" is therefore a dedupe across rows, not a filter. See `F.4`.
+
+So the stock page is configurable or replaceable, with nothing in between. That
+gap is the whole of the justification for F.5.
+
+### F.3 RHDH hit it too, and what the fork cost
+
+RHDH re-declares the page to add one column (`Created At`) and an OR-logic tag
+picker: `packages/app/src/modules/catalog/index.tsx` in
+<https://github.com/redhat-developer/rhdh>, with `createdAtColumns.tsx` and
+`CustomCatalogFilters.tsx` beside it. The column func is one line of
+composition — `[...CatalogTable.defaultColumnsFunc(ctx), { title, customSort,
+render }]`. The page is fifteen lines.
+
+Two things about that are worth recording, because both are arguments.
+
+The first is that RHDH could do it at all only because RHDH is the app: it owns
+`packages/app`. A portal delivered on top of RHDH consumes the app, and an
+override there replaces RHDH's declaration rather than adding to it.
+
+The second is the cost nobody prices. RHDH declares the page with
+`PageBlueprint.make`, not with `catalogPage.makeWithOverrides`. The `filters`
+input belongs to `catalogPage`, not to `PageBlueprint`, so the replacement page
+has no such input — which is why `CustomCatalogFilters` is passed as a prop. The
+stock filter extensions in `alpha/filters.tsx` no longer attach to anything, and
+neither does any third-party filter contribution aimed at `page:catalog`. A
+re-declaration does not copy a page's extension points; it deletes them.
+
+The asymmetry is worth stating in one line, because it explains why the list
+pages are where the pressure lands. The entity detail page takes contributions
+through four inputs — `headerLayouts`, `headers`, `contents`,
+`contextMenuItems` — with blueprints for tabs, cards, headers, context menus and
+icon links. The entity list page takes one. The most extensible part of the
+platform is the part these four mocks do not touch.
+
+### F.4 The gap, and where it is filed
+
+**Gap:** a slot. `page:catalog` needs two more inputs — a columns contribution
+and a row-actions contribution — and its tabs need the restructure, not an
+addition.
+
+**Filing stream:** Backstage upstream. RHDH does not define the catalog page, it
+re-declares it; filing there would bounce to the same place. RHDH is a consumer
+of the fix and should delete its fork when the inputs land.
+
+**The shape of the ask,** which is small and has an in-tree template:
+
+- a `CatalogTableColumnsBlueprint` attaching to a new `tableColumns` input,
+  modelled on the existing `CatalogExportConfigBlueprint` in the same file —
+  `attachTo: { id: 'page:catalog', input: 'exportConfig' }` is already the
+  pattern;
+- the same for row actions as a `tableActions` input;
+- drop the catalog page's `loader` and make the list its first sub-page, which
+  is the structure `scaffolderPage` already uses. Tabs then work, and the list
+  becomes a sub-page anything else can sit beside.
+
+**Not part of this ask:** "show latest version only". That is a data-shape
+question wearing a filter's clothes. Either the catalog emits one entity per
+collection with versions as children, or the list aggregates — and aggregating on
+the client is the one thing a stock table structurally cannot do. It belongs
+with the content model, not with this record, and it decides whether the
+checkbox is needed at all.
+
+### F.5 The record
+
+The record for the archetype. Each of the three shipped pages keeps its own
+record for its journey; this one is what they cite for the level, the gap and
+the upstream issue.
+
+- **Job to be done:** find the thing of a known type — a collection, an
+  execution environment, a repository — among many of that type, and open or act
+  on it. Entered from a sidebar entry per type.
+- **Workflow continuity:** one surface plus configuration. Filtering, searching
+  and paging happen in place; the only hop is into a row's detail page, which is
+  the stock entity page.
+- **Navigation:** one sidebar entry per type, and the tab labels under it. UX
+  owns the grouping; this change adds no route and removes none, which is why
+  `experience_cost` is about the labels rather than the page.
+- **Business fit:** in scope. It reduces code we own, which is the objective
+  the portal adoption is measured against, rather than adding to it.
+- **Experience cost:** no new nav pattern and no new entry point. The cost of
+  the grouping is carried by the sidebar decision, not by this record.
+- **Architecture:** NFS, registered through an extension blueprint, yes;
+  `createPortalCatalogPage` supplies our own content, so a stock loader, no.
+- **Level:** L4 — a page composed of stock primitives, with bespoke cells and
+  action menus inside it. Those are named in `custom_surfaces` rather than
+  raising the level, because the page, the table, the filter panel, the search
+  and the pagination are not ours.
+- **Alternatives, cheapest first:**
+  - L0 — configure the stock catalog page: `pagination` and the filter set. Not
+    adequate: stock columns, no row actions, no tabs.
+  - L1 — the stock page with a kind filter, which is the closest thing to "a
+    list of things of a type". Not adequate for the same reason, and it collapses
+    three destinations into one.
+  - L2 — reuse the stock sub-page, or swap the one nested component. The swap is
+    `CatalogTable`'s `columns` and `actions`; the page's loader does not expose
+    them. Blocked by the page, not by the component.
+  - L3 — contribute into `page:catalog`. Filters work today; columns and actions
+    have no input (`F.2`).
+  - L4 — compose the page from stock primitives. Chosen.
+  - L5 — the current state: four bespoke MUI implementations. The change is a
+    step down from here, which is why the alternative above it is not a
+    proposal.
+  - L6 — a new plugin. Proposed by nobody: each page already has a home plugin.
+- **Custom surfaces:** the Collections, Execution Environments and Git
+  Repositories routes; the shared list component; and per page, the cell
+  renderers and action menus.
+- **Revalidated per release:** the three routes, the shared component, and the
+  cell renderers, against the catalog and BUI packages.
+- **Reversal cost:** medium. Three routes and three nav items, with bookmarks
+  behind them; moving off them again breaks URLs rather than code.
+- **Gap:** slot — `tableColumns` and `tableActions` inputs on `page:catalog`,
+  and the loader-less restructure for tabs.
+- **Filing stream:** Backstage upstream, with RHDH as the consumer that should
+  delete its fork.
+- **Upstream issue:** not yet filed. The shape is in `F.4`; until it is filed,
+  this workaround has no exit and the record should not be approved as a
+  standing pattern.
+- **Justification:** the page is ours only for the columns, actions and tabs
+  `page:catalog` does not expose; when those inputs land, the archetype collapses
+  into configuration and a column contribution, and RHDH's fork collapses with
+  it.
+
+### F.6 The exit
+
+This appendix is written to be deleted from. The moment `tableColumns` and
+`tableActions` exist upstream, three things happen together:
+
+- the shared list component is replaced by configuration on the stock page plus
+  a columns contribution, and `custom_surfaces` drops to the cells;
+- RHDH's re-declaration in `packages/app/src/modules/catalog` is removed, and
+  its filter input comes back with it;
+- every page that adopted the archetype is a candidate to move back to `L1`,
+  which is the point at which the four mocks become four configurations.
+
+Until then, the honest position is that this is a workaround with a named owner
+and a filed ask. A reviewer should reject an `L4` record here whose
+`upstream_issue` is `none`, because a workaround with no exit is how a gap
+becomes house style.
+
+One open question belongs to RHDH rather than to us: whether losing the `filters`
+input was deliberate — a decision that third-party catalog filters are not
+supported in the product — or accidental. If it was accidental it is a bug
+report, and it is worth filing either way, because the answer decides whether a
+portal can contribute a filter to the stock page at all.
 
 ## References
 
