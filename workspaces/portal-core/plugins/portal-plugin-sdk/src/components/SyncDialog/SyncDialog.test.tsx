@@ -94,8 +94,15 @@ describe('SDK SyncDialog', () => {
   const loaded = async () => {
     await screen.findByText('GitHub');
   };
-  const submit = () =>
-    fireEvent.click(screen.getByRole('button', { name: 'Sync Selected' }));
+  const actionButton = (name: string) => {
+    // Scope role queries to the footer instead of every expandable source row.
+    const actions = screen
+      .getByText('Sync Selected')
+      .closest('button')?.parentElement;
+    if (!actions) throw new Error('Sync dialog actions not found');
+    return within(actions).getByRole('button', { name });
+  };
+  const submit = () => fireEvent.click(actionButton('Sync Selected'));
 
   it('does not load sources while closed', () => {
     mount(false);
@@ -108,9 +115,7 @@ describe('SDK SyncDialog', () => {
     expect(screen.getByText('Private Automation Hub')).toBeInTheDocument();
     expect(screen.getByText('GitLab')).toBeInTheDocument();
     expect(screen.getByText('CUSTOM')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Sync Selected' }),
-    ).toBeDisabled();
+    expect(actionButton('Sync Selected')).toBeDisabled();
   });
 
   it.each(['empty', 'failed'] as const)(
@@ -123,20 +128,18 @@ describe('SDK SyncDialog', () => {
       expect(
         await screen.findByText(/No sources configured/),
       ).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Select All' })).toBeDisabled();
+      expect(actionButton('Select All')).toBeDisabled();
     },
   );
 
   it('selects and deselects all sources and allows cancellation', async () => {
     mount();
     await loaded();
-    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
-    expect(screen.getByRole('button', { name: 'Sync Selected' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Deselect All' }));
-    expect(
-      screen.getByRole('button', { name: 'Sync Selected' }),
-    ).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(actionButton('Select All'));
+    expect(actionButton('Sync Selected')).toBeEnabled();
+    fireEvent.click(actionButton('Deselect All'));
+    expect(actionButton('Sync Selected')).toBeDisabled();
+    fireEvent.click(actionButton('Cancel'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -293,7 +296,7 @@ describe('SDK SyncDialog', () => {
     }));
     mount();
     await loaded();
-    fireEvent.click(screen.getByRole('button', { name: 'Select All' }));
+    fireEvent.click(actionButton('Select All'));
     submit();
     await waitFor(() => expect(onSyncsStarted).toHaveBeenCalled());
     expect(onSyncsStarted.mock.calls[0][0]).not.toEqual(
