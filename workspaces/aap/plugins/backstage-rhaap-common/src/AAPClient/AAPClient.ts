@@ -422,6 +422,7 @@ export class AAPClient implements IAAPService {
 
   public async deleteExecutionEnvironmentExists(
     name: string,
+    organization: number,
     token: string,
   ): Promise<void> {
     this.logger.info(
@@ -433,15 +434,18 @@ export class AAPClient implements IAAPService {
     const environments = await this.executeGetRequest(endPoint, token);
     const environmentsList = await environments.json();
     if (environmentsList.results.length === 1) {
+      const match = environmentsList.results[0];
+      if (match.organization !== organization) {
+        // Never delete another organization's environment, even when
+        // replacement was explicitly requested.
+        throw new InputError(
+          'An execution environment with this name already exists in another organization. Choose a different name. No existing execution environment was modified.',
+        );
+      }
+      this.logger.info(`Delete execution environment with id: ${match.id}.`);
+      await this.deleteExecutionEnvironment(match.id, token);
       this.logger.info(
-        `Delete execution environment with id: ${environmentsList.results[0].id}.`,
-      );
-      await this.deleteExecutionEnvironment(
-        environmentsList.results[0].id,
-        token,
-      );
-      this.logger.info(
-        `End delete execution environment with id: ${environmentsList.results[0].id}.`,
+        `End delete execution environment with id: ${match.id}.`,
       );
     }
   }
@@ -454,6 +458,7 @@ export class AAPClient implements IAAPService {
     if (deleteIfExist) {
       await this.deleteExecutionEnvironmentExists(
         payload.environmentName,
+        payload.organization.id,
         token,
       );
     } else {
@@ -466,7 +471,7 @@ export class AAPClient implements IAAPService {
       const environments = await response.json();
       if (environments.count > 0 || environments.results.length > 0) {
         throw new InputError(
-          'An execution environment with this name already exists. Choose a different name or explicitly opt in to replacement. No existing execution environment was modified.',
+          'An execution environment with this name already exists. Choose a different name. No existing execution environment was modified.',
         );
       }
     }

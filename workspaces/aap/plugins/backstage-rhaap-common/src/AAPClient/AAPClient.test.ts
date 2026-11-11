@@ -1877,7 +1877,9 @@ describe('AAPClient', () => {
         mockFetch
           .mockResolvedValueOnce({
             ok: true,
-            json: async () => ({ results: [{ id: 123 }] }),
+            json: async () => ({
+              results: [{ id: 123, organization: 1 }],
+            }),
           })
           .mockResolvedValueOnce({ ok: true })
           .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 456 }) });
@@ -1898,6 +1900,33 @@ describe('AAPClient', () => {
           'DELETE',
           'POST',
         ]);
+      });
+
+      it('refuses explicit replacement of another organization environment', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            count: 1,
+            results: [{ id: 123, organization: 999 }],
+          }),
+        });
+        await expect(
+          client.createExecutionEnvironment(
+            {
+              environmentName: 'shared',
+              organization: { id: 1, name: 'ours' },
+              image: 'registry.example/ee',
+              pull: 'always',
+            },
+            'test-token',
+            true,
+          ),
+        ).rejects.toThrow('already exists in another organization');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+          'https://test.example.com/api/controller/v2/execution_environments/?name=shared',
+          expect.objectContaining({ method: 'GET' }),
+        );
       });
 
       it('should create an execution environment', async () => {
@@ -1966,6 +1995,7 @@ describe('AAPClient', () => {
               {
                 id: 123,
                 name: 'test-env',
+                organization: 1,
               },
             ],
           }),
@@ -1980,6 +2010,7 @@ describe('AAPClient', () => {
 
         const deletePromise = client.deleteExecutionEnvironmentExists(
           'test-env',
+          1,
           'test-token',
         );
 
@@ -2021,6 +2052,7 @@ describe('AAPClient', () => {
 
         const deletePromise = client.deleteExecutionEnvironmentExists(
           'test-env',
+          1,
           'test-token',
         );
 
@@ -2051,6 +2083,7 @@ describe('AAPClient', () => {
               {
                 id: 123,
                 name: 'test-env',
+                organization: 1,
               },
             ],
           }),
@@ -2060,7 +2093,7 @@ describe('AAPClient', () => {
         mockFetch.mockRejectedValueOnce(new Error('Delete failed'));
 
         await expect(
-          client.deleteExecutionEnvironmentExists('test-env', 'test-token'),
+          client.deleteExecutionEnvironmentExists('test-env', 1, 'test-token'),
         ).rejects.toThrow('Failed to send delete: Delete failed');
 
         expect(mockFetch).toHaveBeenCalledTimes(2);
