@@ -302,26 +302,31 @@ describe('createRouter', () => {
     it.each([
       [
         'aap',
-        '/ansible/sync/status/aap',
+        ['/ansible/sync/status/aap'],
         ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
       ],
       [
         'content',
-        '/ansible/sync/status/content',
-        ['/ansible/sync/status/aap', '/ansible/sync/status/self-service'],
+        [
+          '/ansible/sync/status/content',
+          '/ansible/sync/status/self-service',
+        ],
+        ['/ansible/sync/status/aap'],
       ],
       [
         'ee',
-        '/ansible/sync/status/self-service',
+        ['/ansible/sync/status/self-service'],
         ['/ansible/sync/status/aap', '/ansible/sync/status/content'],
       ],
     ] as const)(
       'slice %s mounts only its own status route',
-      async (slice, ownRoute, otherRoutes) => {
+      async (slice, ownRoutes, otherRoutes) => {
         const sliceApp = await buildSliceApp(slice);
 
-        const ownResponse = await request(sliceApp).get(ownRoute);
-        expect(ownResponse.status).toBe(200);
+        for (const ownRoute of ownRoutes) {
+          const ownResponse = await request(sliceApp).get(ownRoute);
+          expect(ownResponse.status).toBe(200);
+        }
 
         for (const route of otherRoutes) {
           const otherResponse = await request(sliceApp).get(route);
