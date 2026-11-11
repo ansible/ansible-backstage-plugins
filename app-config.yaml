@@ -161,7 +161,12 @@ catalog:
         - Template
         - API
         - Users
-  # Note: No static locations needed - aap-admins group is dynamically managed by AAPEntityProvider
+  locations:
+    # File locations are relative to the backend package in development.
+    - type: file
+      target: ../../../../examples/ee-use-in-controller/template.yaml
+      rules:
+        - allow: [Template]
   useUrlReadersSearch: true
   providers:
     rhaap:

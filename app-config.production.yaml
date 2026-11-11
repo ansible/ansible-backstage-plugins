@@ -37,6 +37,12 @@ catalog:
   # See https://backstage.io/docs/features/software-catalog/#adding-components-to-the-catalog for more details
   # on how to get entities into the catalog.
   locations:
+    # Built-in workflow used by the execution-environment Use in Controller dialog.
+    - type: file
+      target: ./examples/ee-use-in-controller/template.yaml
+      rules:
+        - allow: [Template]
+
     # Local example data, replace this with your production config, these are intended for demo use only.
     # File locations are relative to the backend process, typically in a deployed context, such as in a Docker container, this will be the root
     - type: file
