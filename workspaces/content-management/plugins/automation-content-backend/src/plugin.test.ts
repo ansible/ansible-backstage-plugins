@@ -138,8 +138,9 @@ describe('the sign-in barrier at the plugin boundary', () => {
     const response = await request(backend.server)
       .post('/api/automation-content/sync')
       .set('Authorization', mockCredentials.user.header('user:default/guest'));
-    expect(response.status).toBe(200);
-    expect(served.registry.requests.length).toBeGreaterThan(0);
+    expect(response.status).toBe(202);
+    expect(response.body.status).toBe('scheduled');
+    expect(response.body.taskId).toBeDefined();
   });
 
   it('keeps read routes permission-gated for signed-in users', async () => {
@@ -169,7 +170,7 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(served.registry.requests.length).toBe(0);
   });
 
-  it('lets an ordinary permitted user run the global sync once signed in', async () => {
+  it('lets an ordinary permitted user trigger a global sync once signed in', async () => {
     const served = await serveRegistry();
     const backend = await startBackend(served.url);
 
@@ -177,9 +178,9 @@ describe('the sign-in barrier at the plugin boundary', () => {
       .post('/api/automation-content/sync')
       .set('Authorization', mockCredentials.user.header());
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('completed');
-    expect(served.registry.requests.length).toBeGreaterThan(0);
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBeDefined();
   });
 
   it('keeps the liveness probe reachable without credentials', async () => {

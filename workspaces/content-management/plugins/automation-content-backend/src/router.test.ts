@@ -11,7 +11,11 @@ import {
   IndexedItem,
   ArtifactSyncNotFoundError,
 } from './ContentStore';
-import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
+import {
+  createRouter,
+  RECONCILE_FAILURE_SUMMARY,
+  STORE_REFRESH_TASK_ID,
+} from './router';
 import {
   mockCredentials,
   mockServices,
@@ -21,8 +25,9 @@ import { automationContentSyncPermission } from '@ansible/automation-content-com
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 
 const warn = jest.fn();
+const info = jest.fn();
 const logger = {
-  info: () => {},
+  info,
   warn,
   debug: () => {},
   error: () => {},
@@ -73,6 +78,17 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
   } as ContentStore;
 }
 
+function stubScheduler(overrides: Record<string, unknown> = {}) {
+  return {
+    triggerTask: async () => {},
+    cancelTask: async () => {},
+    scheduleTask: async () => {},
+    createScheduledTaskRunner: () => ({ run: async () => {} }),
+    getScheduledTasks: async () => [],
+    ...overrides,
+  } as never;
+}
+
 async function appWith(
   db?: ContentStore,
   httpAuth = mockServices.httpAuth(),
@@ -82,6 +98,7 @@ async function appWith(
     .mockResolvedValue([
       { result: allowed ? AuthorizeResult.ALLOW : AuthorizeResult.DENY },
     ]),
+  scheduler = stubScheduler(),
 ) {
   const app = express();
   app.use(
@@ -90,6 +107,7 @@ async function appWith(
       logger,
       permissions: { authorize } as never,
       httpAuth: httpAuth as never,
+      scheduler,
     }),
   );
   app.use(mockErrorHandler());
@@ -673,11 +691,13 @@ describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
         const authorize = jest
           .fn()
           .mockResolvedValue([{ result: AuthorizeResult.ALLOW }]);
+        const triggerTask = jest.fn();
+        const scheduler = stubScheduler({ triggerTask });
         const response = await request(
-          await appWith(index, httpAuth, true, authorize),
+          await appWith(index, httpAuth, true, authorize, scheduler),
         ).post(path);
         expect(response.status).toBe(
-          path === '/registries/reg/sync' ? 202 : 200,
+          path === '/registries/reg/poll' ? 200 : 202,
         );
         expect(httpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
           allow: ['user'],
@@ -686,7 +706,11 @@ describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
           [{ permission: automationContentSyncPermission }],
           { credentials },
         );
-        expect(refresh.mock.calls.length + poll.mock.calls.length).toBe(1);
+        expect(
+          refresh.mock.calls.length +
+            poll.mock.calls.length +
+            triggerTask.mock.calls.length,
+        ).toBe(1);
       },
     );
 
@@ -714,8 +738,10 @@ describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
           return decisions;
         });
         const { index, refresh, poll } = syncIndex();
+        const triggerTask = jest.fn();
+        const scheduler = stubScheduler({ triggerTask });
         const response = await request(
-          await appWith(index, undefined, true, authorize),
+          await appWith(index, undefined, true, authorize, scheduler),
         )
           .post(path)
           .expect(403);
@@ -724,6 +750,7 @@ describe.each(['/sync', '/registries/reg/sync', '/registries/reg/poll'])(
         });
         expect(refresh).not.toHaveBeenCalled();
         expect(poll).not.toHaveBeenCalled();
+        expect(triggerTask).not.toHaveBeenCalled();
         expect(warn.mock.calls).toEqual(
           throws ? [['Unable to authorize content registry sync']] : [],
         );
@@ -1213,6 +1240,7 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 
   it('keeps the detailed cause on the per-registry sync response', async () => {
+    info.mockClear();
     const index = await indexWithFailedReconcile();
     // A live sync of the same registry fails with a detailed cause, the way
     // a TLS rejection would: the caller explicitly asked for the refresh, so
@@ -1230,43 +1258,66 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(res.status).toBe(202);
     expect(res.body.status).toBe('failed');
     expect(res.body.error).toContain('certificate has expired');
+    expect(info).toHaveBeenCalledWith('sync corporate: 0 artifacts, ok=false');
+    expect(inspect(info.mock.calls)).not.toContain('certificate has expired');
   });
 
-  it('keeps the detailed cause on the global sync response', async () => {
-    const index = await indexWithFailedReconcile();
-    const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-    ).clients;
-    const detail = 'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
-    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
-      () => Promise.reject(new Error(detail));
-
-    const res = await request(await appWith(index)).post('/sync');
-
-    expect(res.status).toBe(207);
-    expect(res.body.status).toBe('partial');
-    const outcome = res.body.registries[0];
-    expect(outcome.ok).toBe(false);
-    expect(outcome.error).toContain(detail);
-    // Response detail must not erase the operator's diagnostic state.
-    expect(index.reconcileStateFor('corporate')?.error).toContain(detail);
-  });
-
-  it('completes a global sync of healthy registries', async () => {
-    const index = await indexWithFailedReconcile();
-    const refresh = jest.spyOn(index, 'refreshRegistry').mockResolvedValue({
-      ok: true,
-      discovered: 3,
+  it('triggers a scheduled refresh and returns 202', async () => {
+    const triggered: string[] = [];
+    const scheduler = stubScheduler({
+      triggerTask: async (id: string) => {
+        triggered.push(id);
+      },
     });
 
-    const res = await request(await appWith(index)).post('/sync');
+    const res = await request(
+      await appWith(undefined, undefined, true, undefined, scheduler),
+    ).post('/sync');
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('completed');
-    expect(res.body.registries).toEqual([
-      { registry: 'corporate', ok: true, discovered: 3 },
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBe(STORE_REFRESH_TASK_ID);
+    expect(res.body.triggeredAt).toBeDefined();
+    expect(triggered).toEqual([STORE_REFRESH_TASK_ID]);
+  });
+
+  it('cancels a running refresh before triggering a new one', async () => {
+    const calls: string[] = [];
+    const scheduler = stubScheduler({
+      cancelTask: async (id: string) => {
+        calls.push(`cancel:${id}`);
+      },
+      triggerTask: async (id: string) => {
+        calls.push(`trigger:${id}`);
+      },
+    });
+
+    await request(
+      await appWith(undefined, undefined, true, undefined, scheduler),
+    ).post('/sync');
+
+    expect(calls).toEqual([
+      `cancel:${STORE_REFRESH_TASK_ID}`,
+      `trigger:${STORE_REFRESH_TASK_ID}`,
     ]);
-    expect(refresh).toHaveBeenCalledWith('corporate');
+  });
+
+  it('returns 409 when the refresh task cannot be triggered', async () => {
+    const scheduler = stubScheduler({
+      triggerTask: async () => {
+        const err = new Error('Conflict');
+        err.name = 'ConflictError';
+        throw err;
+      },
+    });
+
+    const res = await request(
+      await appWith(undefined, undefined, true, undefined, scheduler),
+    ).post('/sync');
+
+    expect(res.status).toBe(409);
+    expect(res.body.status).toBe('conflict');
+    expect(res.body.taskId).toBe(STORE_REFRESH_TASK_ID);
   });
 });
 
