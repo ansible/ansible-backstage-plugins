@@ -939,6 +939,7 @@ __metadata:
   dependencies:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/aap-common": "workspace:^"
+    "@ansible/automation-content-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder-common": "workspace:^"
