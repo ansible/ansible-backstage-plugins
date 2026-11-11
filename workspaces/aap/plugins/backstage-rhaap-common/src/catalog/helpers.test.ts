@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 const mockGetPipelines = jest.fn();
 const mockTriggerPipeline = jest.fn();
 const mockDispatchActionsWorkflow = jest.fn();

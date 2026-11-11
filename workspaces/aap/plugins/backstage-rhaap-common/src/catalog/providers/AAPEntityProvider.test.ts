@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { ConfigReader } from '@backstage/config';
 import {
   MOCK_BASE_URL,

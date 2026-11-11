@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
 import { ScmClientFactory } from '@ansible/backstage-rhaap-common';

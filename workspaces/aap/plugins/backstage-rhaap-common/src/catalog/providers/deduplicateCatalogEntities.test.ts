@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { mockServices } from '@backstage/backend-test-utils';
 import type { Entity } from '@backstage/catalog-model';
 import { deduplicateCatalogEntities } from './deduplicateCatalogEntities';

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { Entity } from '@backstage/catalog-model';
 import { compareVersions, stampLatestVersionAnnotations } from './versionUtils';
 

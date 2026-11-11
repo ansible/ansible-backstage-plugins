@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { TEAM_MEMBER, ORGANIZATION_MEMBER } from './constants';
 
 describe('roles constants', () => {

@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type {
   ScmClient,

@@ -1,4 +1,4 @@
-import { createCatalogModule } from '@ansible/backstage-plugin-catalog-backend-module-rhaap-shared';
+import { createCatalogModule } from '@ansible/backstage-rhaap-common/catalog';
 
 export const catalogModuleRhaap = createCatalogModule({
   moduleId: 'rhaap',

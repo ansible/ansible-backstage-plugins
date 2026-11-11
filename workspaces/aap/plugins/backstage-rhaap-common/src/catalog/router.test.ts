@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 /*
  * Copyright 2025 The Ansible plugin Authors
  *

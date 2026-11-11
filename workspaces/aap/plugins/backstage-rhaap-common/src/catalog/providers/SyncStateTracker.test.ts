@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { SyncStateTracker } from './SyncStateTracker';
 import { mockServices } from '@backstage/backend-test-utils';
 

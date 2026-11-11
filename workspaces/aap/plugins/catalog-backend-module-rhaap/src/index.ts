@@ -10,7 +10,7 @@ import {
   createCatalogModule,
   createRouter as createSharedRouter,
   type CatalogModuleSlice,
-} from '@ansible/backstage-plugin-catalog-backend-module-rhaap-shared';
+} from '@ansible/backstage-rhaap-common/catalog';
 
 export { createCatalogModule };
 

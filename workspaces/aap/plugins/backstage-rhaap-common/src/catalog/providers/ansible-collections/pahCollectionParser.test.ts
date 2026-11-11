@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { Collection } from '@ansible/aap-common';
 import { pahCollectionParser } from '../entityParser';
 
