@@ -68,7 +68,7 @@ Tina's `ImagesCatalogPage` layout, artifact data:
 | Classification           | `classification.type` when available; never append a missing confidence value                                                                                                                                                   |
 | Search / filter          | client-side search over the loaded page, plus the all-images toggle; no facet sidebar                                                                                                                                           |
 | Favourites               | catalog stars (matching rules above)                                                                                                                                                                                            |
-| Row actions              | Visible favourite star; menu with Use in Controller and Sync. The image name links to details. Sync resolves only this repository's current `latest` image and requires a signed-in user with `ansible.content.sync`.           |
+| Row actions              | Visible favourite star; menu with Use in Controller and Sync. The image name links to details. Sync reconciles all image tags in this repository and requires a signed-in user with `ansible.content.sync`.                     |
 
 Tags and digests are displayed in image details, not in the catalog table.
 The client uses server pagination with 10, 20, or 50 rows per page. Changing the
@@ -102,13 +102,18 @@ supported. Contents that are unknown or partial must be explained, but the
 routine raw `complete inventory · build-time-manifest` readout is not part of
 the reviewed design.
 
-Row and detail-page Sync wait for targeted reconciliation of the selected
-repository's current `latest` image, refreshing its metadata and collection
-contents. Other repositories and sibling image contents are not scanned, and
-unrelated images retain their existing freshness timestamps. If `latest` moves,
-the response identifies the new digest and image details follow that reference.
-A missing `latest` tag is reported explicitly. Core manifest/config failures
-preserve the previous index. Unavailable optional inventory remains unknown;
+Row and detail-page Sync reconcile the selected image's entire repository:
+enumerate image tags, HEAD each, inspect manifests/configs and reconcile added,
+moved and deleted tags in one transaction. Signature/attachment tags are excluded
+from image discovery. Other repositories and registry-wide freshness are unchanged.
+The response includes added/removed/moved tag and refreshed digest counts; its
+`ref` selects the original digest if it survives, otherwise `latest`'s digest,
+otherwise a remaining digest (or the original ref if the repository is empty).
+The `tag: latest` field is legacy compatibility, not a restriction on sync.
+No `latest` tag is required. A missing or out-of-scope indexed reference returns
+a structured 404 with `ARTIFACT_NOT_FOUND`. Core manifest/config read failures
+preserve the previous index; invalid metadata retains existing same-digest rows.
+Unavailable optional inventory remains unknown;
 verified inventory may be retained for the same digest, never copied to a new
 digest. Header and registry-selection Sync remain registry-wide actions.
 

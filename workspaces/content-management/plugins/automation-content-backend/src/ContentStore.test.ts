@@ -267,6 +267,38 @@ describe('digest cache', () => {
 });
 
 describe('error cause traversal is bounded', () => {
+  it('logs a fixed category without leaking hostnames from failure causes', async () => {
+    const db = await createTestDB();
+    const warn = jest.fn();
+    const store = new ContentStore(
+      [connection()],
+      db as never,
+      { ...silent, warn },
+      defaultContentTypes(),
+    );
+    const error = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(
+        new Error('ENOTFOUND registry.internal.example.com'),
+        {
+          code: 'ENOTFOUND',
+        },
+      ),
+    });
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    clients.get('mock')!.fetchImpl = () => Promise.reject(error);
+
+    await store.refreshRegistry('mock');
+
+    expect(warn).toHaveBeenCalledWith(
+      '[mock] discovery failed (network); keeping 0 previously known artifact(s)',
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(
+      'registry.internal.example.com',
+    );
+  });
+
   async function storeFailingWith(error: unknown): Promise<ContentStore> {
     const db = await createTestDB();
     const store = new ContentStore(
@@ -954,6 +986,28 @@ describe('inventory search', () => {
         true,
       );
       expect(queries[0].split(' from ')[0]).not.toMatch(/manifest|\*/);
+      expect(
+        await store.listArtifactSummaries(undefined, { repositories: [] }),
+      ).toEqual([]);
+      const scoped = await store.listArtifactSummaries(undefined, {
+        repositories: [{ registry: 'Source', repository: 'repo-1' }],
+      });
+      expect(scoped.map(artifact => artifact.ref)).toEqual(['ref-1']);
+      expect(
+        (
+          await store.listArtifactSummaries(undefined, {
+            repositories: [
+              { registry: 'Source', repository: 'repo-1' },
+              { registry: 'Source', repository: 'repo-2' },
+            ],
+          })
+        ).map(artifact => artifact.ref),
+      ).toEqual(['ref-1', 'ref-2']);
+      expect(
+        await store.listArtifactSummaries(undefined, {
+          repositories: [{ registry: 'Other', repository: 'repo-1' }],
+        }),
+      ).toEqual([]);
       expect(
         (
           await store.listArtifactsPaginated({

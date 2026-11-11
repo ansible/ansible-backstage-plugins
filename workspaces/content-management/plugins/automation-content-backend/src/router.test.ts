@@ -138,7 +138,7 @@ it('fails closed with fixed copy when the view permission service is unavailable
   const listArtifacts = jest.spyOn(index, 'listArtifacts');
   const syncArtifact = jest.spyOn(index, 'syncArtifact');
   const response = await request(
-    await appWith(seedDB([]), undefined, true, authorize),
+    await appWith(index, undefined, true, authorize),
   )
     .get('/content')
     .expect(403);
@@ -426,6 +426,12 @@ describe('GET /content repository grouping', () => {
         undefined,
         expect.objectContaining({ search: 'old' }),
       );
+      expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
+        repositories: [
+          { registry: older.registry, repository: older.repository },
+        ],
+      });
+      expect(listArtifacts).not.toHaveBeenCalledWith();
     },
   );
 });
@@ -497,18 +503,22 @@ describe('GET /content sorting', () => {
       const listArtifacts = jest.fn().mockResolvedValue([]);
       const app = await appWith(stubDB({ listArtifacts }));
       for (const contentsKnown of ['true', 'false']) {
+        listArtifacts.mockClear();
         await request(app)
           .get(
             `/content?${branch}&search=example&registry=reg&contentsKnown=${contentsKnown}`,
           )
           .expect(200);
-        expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
+        expect(listArtifacts).toHaveBeenNthCalledWith(1, undefined, {
           search: 'example',
           registry: 'reg',
           contentsKnown: contentsKnown === 'true',
           collection: branch.startsWith('collection=')
             ? 'ns.example'
             : undefined,
+        });
+        expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
+          repositories: [],
         });
       }
     },

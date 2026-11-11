@@ -3209,15 +3209,18 @@ paths:
       tags: [Automation Content Registries]
       security:
         - JWT: []
-      summary: Sync the latest image for one indexed artifact's repository
+      summary: Reconcile all image tags in one indexed artifact's repository
       description: |
         Requires a user identity and ansible.content.sync. The indexed reference
-        identifies the configured registry and repository. Only its current
-        latest tag is resolved and inspected; other repositories and sibling
-        image contents are not scanned. Registry-wide freshness is unchanged.
-        A moved latest tag returns its new digest reference. Core manifest/config
-        failures retain the previous indexed content. Optional inventory can be
-        unknown; a missing latest tag is reported explicitly.
+        identifies the configured registry and repository. Enumerates all image
+        tags, HEADs each and reads manifests/configs before reconciling added,
+        moved and deleted tags in one transaction, with a change summary.
+        Signature/attachment tags are excluded from image discovery. Other
+        repositories and registry-wide freshness are unchanged. No latest tag
+        is required. Core manifest/config read failures retain the previous index;
+        invalid metadata retains existing same-digest rows. Optional inventory
+        can be unknown. A missing or out-of-scope indexed reference returns a
+        structured not-found response, not a reconciliation result.
       parameters:
         - name: ref
           in: path
@@ -3230,7 +3233,7 @@ paths:
         '403':
           description: User credentials and ansible.content.sync are required.
         '404':
-          description: The indexed artifact or its repository's latest tag was not found.
+          description: The indexed artifact was not found or is outside configured repository scope (ARTIFACT_NOT_FOUND).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
@@ -3245,8 +3248,19 @@ paths:
                   status: { type: string, enum: [completed, failed] }
                   ref:
                     type: string
-                    description: Resolved latest digest reference on success; original reference on failure.
-                  tag: { type: string, enum: [latest] }
+                    description: Original ref if it survives; otherwise latest's digest, another remaining digest, or the original ref if empty. Original ref on failure.
+                  tag:
+                    type: string
+                    enum: [latest]
+                    description: Legacy compatibility field; the reconciled state and summary cover all image tags, not only latest.
+                  summary:
+                    type: object
+                    description: Repository-wide tag changes and refreshed digests.
+                    properties:
+                      addedTags: { type: integer }
+                      removedTags: { type: integer }
+                      movedTags: { type: integer }
+                      refreshedDigests: { type: integer }
                   retainedPrevious: { type: boolean }
                   removed:
                     type: boolean

@@ -72,6 +72,8 @@ export interface SigningState {
 
 export interface ArtifactListOptions {
   search?: string;
+  /** Complete repository groups, scoped by registry as well as repository. */
+  repositories?: Array<{ registry: string; repository: string }>;
   registry?: string;
   collection?: string;
   contentsKnown?: boolean;
@@ -184,6 +186,43 @@ const COSIGN_SIGNATURE_ARTIFACT_TYPE =
  * absence. Versioned (`…bundle.v0.1`, `v0.2`, `v0.3`), hence the prefix.
  */
 const SIGSTORE_BUNDLE_PREFIX = 'application/vnd.dev.sigstore.bundle.';
+
+const COLLECTION_EXISTS_PG =
+  "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE (c->>'namespace') || '.' || (c->>'name') = ?)";
+const COLLECTION_EXISTS_SQLITE =
+  "EXISTS (SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name') = ?)";
+const COLLECTION_SEARCH_PG =
+  "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE LOWER((c->>'namespace') || '.' || (c->>'name')) LIKE ? ESCAPE '\\')";
+const COLLECTION_SEARCH_SQLITE =
+  "EXISTS (SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE LOWER(json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name')) LIKE ? ESCAPE '\\')";
+
+/** Only allowlisted categories enter logs; never inspect exception messages. */
+function failureCategory(error: unknown): 'network' | 'not-found' | 'unknown' {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === 'object' && seen.size < 8) {
+    if (seen.has(current)) break;
+    seen.add(current);
+    const failure = current as {
+      code?: unknown;
+      status?: unknown;
+      cause?: unknown;
+    };
+    if (failure.status === 404) return 'not-found';
+    if (
+      [
+        'ENOTFOUND',
+        'ECONNREFUSED',
+        'ECONNRESET',
+        'ETIMEDOUT',
+        'EAI_AGAIN',
+      ].includes(typeof failure.code === 'string' ? failure.code : '')
+    )
+      return 'network';
+    current = failure.cause;
+  }
+  return error instanceof TypeError ? 'network' : 'unknown';
+}
 
 /** Composite key for a content item. */
 export function itemKey(artifactRef: string, fqcn: string): string {
@@ -505,9 +544,9 @@ export class ContentStore {
       const at = new Date().toISOString();
       this.artifactReconcile.set(ref, { at, ok: false, artifacts: 1 });
       this.logger.warn(
-        `[${original.registry}] artifact sync failed: ${logSafeText(
-          this.redactor.redactErrorText(error),
-        )}`,
+        `[${original.registry}] artifact sync failed (${failureCategory(
+          error,
+        )}); keeping previous indexed content`,
       );
       return {
         status: 'failed',
@@ -612,12 +651,21 @@ export class ContentStore {
 
   private artifactQuery(opts: ArtifactListOptions) {
     const query = this.db('artifacts');
+    if (opts.repositories) {
+      query.whereIn(
+        ['registry', 'repository'],
+        opts.repositories.map(({ registry, repository }) => [
+          registry,
+          repository,
+        ]),
+      );
+    }
     if (opts.collection) {
       const postgres = this.db.client.config.client === 'pg';
-      const collections = postgres
-        ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE (c->>'namespace') || '.' || (c->>'name') = ?"
-        : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name') = ?";
-      query.whereRaw(`EXISTS (${collections})`, [opts.collection]);
+      query.whereRaw(
+        postgres ? COLLECTION_EXISTS_PG : COLLECTION_EXISTS_SQLITE,
+        [opts.collection],
+      );
     }
     if (opts.type) query.where('type', opts.type);
     if (opts.registry) query.where('registry', opts.registry);
@@ -639,10 +687,10 @@ export class ContentStore {
         ]) {
           this.orWhereRaw("LOWER(??) LIKE ? ESCAPE '\\'", [field, pattern]);
         }
-        const collections = postgres
-          ? "SELECT 1 FROM jsonb_array_elements(COALESCE(manifest::jsonb->'collections', '[]'::jsonb)) AS c WHERE LOWER((c->>'namespace') || '.' || (c->>'name')) LIKE ? ESCAPE '\\'"
-          : "SELECT 1 FROM json_each(manifest, '$.collections') AS c WHERE LOWER(json_extract(c.value, '$.namespace') || '.' || json_extract(c.value, '$.name')) LIKE ? ESCAPE '\\'";
-        this.orWhereRaw(`EXISTS (${collections})`, [pattern]);
+        this.orWhereRaw(
+          postgres ? COLLECTION_SEARCH_PG : COLLECTION_SEARCH_SQLITE,
+          [pattern],
+        );
       });
     }
     return query;
@@ -760,7 +808,9 @@ export class ContentStore {
         artifacts: retainedCount,
       });
       this.logger.warn(
-        `[${name}] discovery failed (${outcome.error}); keeping ${retainedCount} previously known artifact(s)`,
+        `[${name}] discovery failed (${
+          outcome.failureCategory ?? 'unknown'
+        }); keeping ${retainedCount} previously known artifact(s)`,
       );
       return { discovered: retainedCount, ok: false, error: outcome.error };
     }
@@ -938,6 +988,7 @@ export class ContentStore {
   private async discoverRegistry(name: string): Promise<{
     ok: boolean;
     error?: string;
+    failureCategory?: ReturnType<typeof failureCategory>;
     artifacts: IndexedArtifact[];
   }> {
     const state = this.registries.get(name);
@@ -960,6 +1011,7 @@ export class ContentStore {
       } catch (error) {
         return {
           ok: false,
+          failureCategory: failureCategory(error),
           error: `capability probe failed: ${this.redactor.redactErrorText(
             error,
           )}`,
@@ -977,6 +1029,7 @@ export class ContentStore {
     } catch (error) {
       return {
         ok: false,
+        failureCategory: failureCategory(error),
         error: `repository listing failed: ${this.redactor.redactErrorText(
           error,
         )}`,
@@ -986,6 +1039,7 @@ export class ContentStore {
 
     const found: IndexedArtifact[] = [];
     const failures: string[] = [];
+    let category: ReturnType<typeof failureCategory> = 'unknown';
 
     for (const repository of repositories) {
       // The repository name is registry-controlled; control characters are
@@ -998,6 +1052,7 @@ export class ContentStore {
           `[${name}] scanned ${repo}: ${found.length} artifact(s)`,
         );
       } catch (error) {
+        category = failureCategory(error);
         failures.push(
           `${this.redactor.redact(repo)}: ${this.redactor.redactErrorText(
             error,
@@ -1009,13 +1064,7 @@ export class ContentStore {
         const retainedArtifacts = retained.map(row => this.rowToArtifact(row));
         found.push(...retainedArtifacts);
         this.logger.warn(
-          `[${name}] ${this.redactor.redact(
-            repo,
-          )}: ${this.redactor.redactErrorText(error)}${
-            retainedArtifacts.length
-              ? `; keeping ${retainedArtifacts.length} previously known artifact(s)`
-              : ''
-          }`,
+          `[${name}] repository scan failed (${category}); keeping ${retainedArtifacts.length} previously known artifact(s)`,
         );
       }
     }
@@ -1024,6 +1073,7 @@ export class ContentStore {
       return {
         ok: false,
         error: `all ${repositories.length} repositor(ies) failed: ${failures[0]}`,
+        failureCategory: category,
         artifacts: [],
       };
     }
