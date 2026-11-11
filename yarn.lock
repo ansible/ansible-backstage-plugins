@@ -389,6 +389,16 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/content-development-common@workspace:^, @ansible/content-development-common@workspace:workspaces/content-development/plugins/content-development-common":
+  version: 0.0.0-use.local
+  resolution: "@ansible/content-development-common@workspace:workspaces/content-development/plugins/content-development-common"
+  dependencies:
+    "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/cli": "npm:0.36.2"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/content-model@workspace:^, @ansible/content-model@workspace:workspaces/content-management/plugins/content-model":
   version: 0.0.0-use.local
   resolution: "@ansible/content-model@workspace:workspaces/content-management/plugins/content-model"
@@ -629,7 +639,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-content-development@workspace:workspaces/content-development/plugins/scaffolder-backend-module-content-development"
   dependencies:
-    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/content-development-common": "workspace:^"
     "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
