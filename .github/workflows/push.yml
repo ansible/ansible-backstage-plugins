@@ -72,6 +72,9 @@ jobs:
       - name: Run Lint
         run: yarn lint:all
 
+      - name: Test coverage workflow coordination
+        run: node --test scripts/code-quality-workflow.test.mjs
+
       - name: Check credential-boundary lint guards
         run: yarn test:credential-guards
 

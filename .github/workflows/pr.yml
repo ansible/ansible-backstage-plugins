@@ -77,6 +77,9 @@ jobs:
       - name: Lint OpenAPI spec
         run: yarn openapi:lint
 
+      - name: Test coverage workflow coordination
+        run: node --test scripts/code-quality-workflow.test.mjs
+
       - name: Check OpenAPI spec drift against router
         run: yarn openapi:check-drift
 
