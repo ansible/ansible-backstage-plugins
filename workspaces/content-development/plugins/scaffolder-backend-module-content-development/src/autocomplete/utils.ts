@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   AuthService,
   DiscoveryService,
@@ -196,7 +197,10 @@ export async function getCollections(options: {
   }
 
   const filter = buildCatalogFilter(searchQuery);
-  const cacheKey = `${callerCredentials.principal.userEntityRef}:${filter}`;
+  const visibilityKey = createHash('sha256')
+    .update(identityToken)
+    .digest('hex');
+  const cacheKey = `${visibilityKey}:${filter}`;
 
   if (
     collectionsCache?.key === cacheKey &&

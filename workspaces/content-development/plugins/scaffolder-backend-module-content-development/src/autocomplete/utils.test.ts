@@ -117,6 +117,33 @@ describe('getCollections catalog filters', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('does not share cached results across visibility tokens for one user', async () => {
+    const credentials = {
+      principal: {
+        type: 'user',
+        userEntityRef: 'user:default/alice',
+      },
+    };
+    auth.authenticate
+      .mockResolvedValueOnce(credentials)
+      .mockResolvedValueOnce(credentials);
+
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      identityToken: 'alice-with-visibility-a',
+    });
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      identityToken: 'alice-with-visibility-b',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('does not share in-flight lookups between users', async () => {
     const finishFetches: Array<(response: Response) => void> = [];
     let resolveBothFetches!: () => void;
@@ -153,5 +180,57 @@ describe('getCollections catalog filters', () => {
     } as Response;
     finishFetches.forEach(finishFetch => finishFetch(response));
     await Promise.all([aliceRequest, bobRequest]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not share in-flight lookups across visibility tokens for one user', async () => {
+    const credentials = {
+      principal: {
+        type: 'user',
+        userEntityRef: 'user:default/alice',
+      },
+    };
+    auth.authenticate
+      .mockResolvedValueOnce(credentials)
+      .mockResolvedValueOnce(credentials);
+
+    const finishFetches: Array<(response: Response) => void> = [];
+    let resolveBothFetches!: () => void;
+    const bothFetchesStarted = new Promise<void>(resolve => {
+      resolveBothFetches = resolve;
+    });
+    fetchMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishFetches.push(resolve);
+          if (finishFetches.length === 2) resolveBothFetches();
+        }),
+    );
+
+    const firstRequest = getCollections({
+      auth,
+      discovery,
+      logger,
+      identityToken: 'alice-with-visibility-a',
+    });
+    const secondRequest = getCollections({
+      auth,
+      discovery,
+      logger,
+      identityToken: 'alice-with-visibility-b',
+    });
+
+    await bothFetchesStarted;
+    const response = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => [],
+    } as Response;
+    finishFetches.forEach(finishFetch => finishFetch(response));
+    await Promise.all([firstRequest, secondRequest]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
