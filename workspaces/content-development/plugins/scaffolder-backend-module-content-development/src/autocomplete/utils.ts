@@ -11,6 +11,7 @@ import type {
 } from '@ansible/content-development-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
+const COLLECTIONS_CACHE_MAX_ENTRIES = 100;
 const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';
 const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'kind',
@@ -18,16 +19,18 @@ const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'metadata.namespace',
 ]);
 
-let collectionsCache: {
-  key: string;
-  result: { results: Collections[] };
-  timestamp: number;
-} | null = null;
+const collectionsCache = new Map<
+  string,
+  {
+    result: { results: Collections[] };
+    timestamp: number;
+  }
+>();
 
 const inflightRequests = new Map<string, Promise<{ results: Collections[] }>>();
 
 export function clearCollectionsCache(): void {
-  collectionsCache = null;
+  collectionsCache.clear();
   inflightRequests.clear();
 }
 
@@ -125,7 +128,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version ?? ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -202,11 +205,15 @@ export async function getCollections(options: {
     .digest('hex');
   const cacheKey = `${visibilityKey}:${filter}`;
 
-  if (
-    collectionsCache?.key === cacheKey &&
-    Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
-  ) {
-    return collectionsCache.result;
+  const cached = collectionsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < COLLECTIONS_CACHE_TTL_MS) {
+    // Refresh insertion order so frequently used visibility scopes stay cached.
+    collectionsCache.delete(cacheKey);
+    collectionsCache.set(cacheKey, cached);
+    return cached.result;
+  }
+  if (cached) {
+    collectionsCache.delete(cacheKey);
   }
 
   if (inflightRequests.has(cacheKey)) {
@@ -238,12 +245,18 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
-    collectionsCache = { key: cacheKey, result, timestamp: Date.now() };
+    if (collectionsCache.size >= COLLECTIONS_CACHE_MAX_ENTRIES) {
+      const oldestKey = collectionsCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        collectionsCache.delete(oldestKey);
+      }
+    }
+    collectionsCache.set(cacheKey, { result, timestamp: Date.now() });
 
     return result;
   })();

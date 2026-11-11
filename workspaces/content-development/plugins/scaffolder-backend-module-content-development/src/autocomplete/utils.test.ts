@@ -117,6 +117,28 @@ describe('getCollections catalog filters', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('retains cached results for multiple visibility scopes', async () => {
+    await getCollections({ auth, discovery, logger, identityToken: 'alice' });
+    await getCollections({ auth, discovery, logger, identityToken: 'bob' });
+    await getCollections({ auth, discovery, logger, identityToken: 'alice' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('bounds cached visibility scopes and evicts the least recently used', async () => {
+    for (let i = 0; i <= 100; i++) {
+      await getCollections({
+        auth,
+        discovery,
+        logger,
+        identityToken: `user-${i}`,
+      });
+    }
+    await getCollections({ auth, discovery, logger, identityToken: 'user-0' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(102);
+  });
+
   it('does not share cached results across visibility tokens for one user', async () => {
     const credentials = {
       principal: {
