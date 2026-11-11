@@ -1,5 +1,5 @@
 {
-  "name": "@ansible/portal-scaffolder-backend-module",
+  "name": "@ansible/plugin-scaffolder-backend-module-content-development",
   "version": "2.2.9",
   "main": "src/index.ts",
   "types": "src/index.ts",

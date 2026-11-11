@@ -26,7 +26,7 @@ jest.mock('./utils/api', () => {
     downloadDevfileProject: jest.fn(),
   }));
   (MockBackendServiceAPI as any).pluginLogName =
-    'portal-scaffolder-backend-module';
+    'scaffolder-backend-module-content-development';
   return {
     BackendServiceAPI: MockBackendServiceAPI,
   };
@@ -246,7 +246,7 @@ describe('ansibleContentCreate', () => {
       ).rejects.toThrow(downloadError);
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[portal-scaffolder-backend-module] Error occurred while downloading the project tar at:',
+        '[scaffolder-backend-module-content-development] Error occurred while downloading the project tar at:',
         downloadError,
       );
     });
@@ -269,7 +269,7 @@ describe('ansibleContentCreate', () => {
       ).rejects.toThrow('Tar extraction failed');
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[portal-scaffolder-backend-module] Error while un-tar',
+        '[scaffolder-backend-module-content-development] Error while un-tar',
         tarError,
       );
     });
@@ -294,7 +294,7 @@ describe('ansibleContentCreate', () => {
       ).rejects.toThrow('Cleanup failed');
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[portal-scaffolder-backend-module] Error while deleting tarball: ',
+        '[scaffolder-backend-module-content-development] Error while deleting tarball: ',
         cleanupError,
       );
     });
