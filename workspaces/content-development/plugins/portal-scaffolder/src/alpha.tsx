@@ -11,6 +11,7 @@ import {
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
+import { nativeEEFields } from './nativeEEFields';
 import {
   rootRouteRef,
   collectionsRouteRef,
@@ -34,6 +35,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     history: convertLegacyRouteRef(historyRouteRef),
   },
   extensions: [
+    ...nativeEEFields,
     ApiBlueprint.make({ name: 'aap', params: define => define(AAPApis) }),
     ApiBlueprint.make({
       name: 'ee-build',
