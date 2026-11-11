@@ -35,55 +35,42 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0 # Shallow clones should be disabled for better SonarCloud analysis
 
-      # Select the run that actually produced Node 22 coverage. Other jobs in
-      # that run may still be running or have failed independently.
-      - name: Wait for Node 22 coverage artifact
+      # PR and main push workflows already upload coverage for this commit.
+      - name: Wait for coverage-producing tests
+        if: github.event_name == 'pull_request_target' || github.event_name == 'push'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-regexp: 'Test with Node.js 22'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Get coverage workflow run ID
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
         id: get-run-id
-        timeout-minutes: 65
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          COVERAGE_WAIT_SECONDS: 3600
         run: |
-          set -euo pipefail
-          if [ "$GITHUB_EVENT_NAME" = 'push' ]; then
+          if [ "${{ github.event_name }}" = 'push' ]; then
             WORKFLOW_FILE=push.yml
             WORKFLOW_EVENT=push
           else
             WORKFLOW_FILE=pr.yml
             WORKFLOW_EVENT=pull_request
           fi
-          RUNS_URL="/repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW_FILE}/runs"
-          QUERY="head_sha=${HEAD_SHA}&event=${WORKFLOW_EVENT}&per_page=100"
-          DEADLINE=$((SECONDS + ${COVERAGE_WAIT_SECONDS:-3600}))
-          echo "Waiting for Node 22 coverage for ${HEAD_SHA} (up to ${COVERAGE_WAIT_SECONDS:-3600}s)"
-          while true; do
-            RUN_IDS=$(gh api -H "Accept: application/vnd.github+json" "${RUNS_URL}?${QUERY}" |
-              jq -r --arg sha "$HEAD_SHA" --arg event "$WORKFLOW_EVENT" \
-                '.workflow_runs | map(select(.head_sha == $sha and .event == $event)) | sort_by(.id) | reverse | .[].id')
-            for RUN_ID in $RUN_IDS; do
-              JOBS=$(gh api -H "Accept: application/vnd.github+json" \
-                "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?filter=latest&per_page=100")
-              SUCCESS_COUNT=$(jq '[.jobs[] | select(.name == "Test with Node.js 22" and .status == "completed" and .conclusion == "success")] | length' <<< "$JOBS")
-              if [ "$SUCCESS_COUNT" -eq 0 ]; then
-                continue
-              fi
-              ARTIFACT_COUNT=$(gh api -H "Accept: application/vnd.github+json" \
-                "/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" |
-                jq '[.artifacts[] | select(.name == "coverage-report-22" and .expired == false)] | length')
-              if [ "$ARTIFACT_COUNT" -gt 0 ]; then
-                echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-                echo "Found Node 22 coverage in workflow run $RUN_ID"
-                exit 0
-              fi
-            done
-            if [ "$SECONDS" -ge "$DEADLINE" ]; then
-              echo "Timed out waiting for Node 22 coverage for ${HEAD_SHA}" >&2
-              exit 1
-            fi
-            sleep "${COVERAGE_POLL_INTERVAL_SECONDS:-30}"
-          done
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          RUNS_URL="/repos/${{ github.repository }}/actions/workflows/${WORKFLOW_FILE}/runs"
+          QUERY="head_sha=${HEAD_SHA}&event=${WORKFLOW_EVENT}&per_page=1"
+          RUN_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "${RUNS_URL}?${QUERY}" \
+            --jq '.workflow_runs[0].id')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = 'null' ]; then
+            echo "No ${WORKFLOW_FILE} run found for this commit" >&2
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Found coverage workflow run ID: $RUN_ID"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download coverage artifacts
         if: github.event_name == 'pull_request_target' || github.event_name == 'push'
