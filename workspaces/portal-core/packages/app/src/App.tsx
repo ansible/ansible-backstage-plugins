@@ -1,4 +1,4 @@
-import { Navigate, Route, useParams } from 'react-router-dom';
+import { Navigate, Route, useLocation, useParams } from 'react-router-dom';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
 import {
   CatalogEntityPage,
@@ -65,7 +65,14 @@ import { RbacPage } from '@backstage-community/plugin-rbac';
 
 function LegacyEEDetailsRedirect() {
   const { ref } = useParams();
-  return <Navigate to={`/content/ee/${encodeURIComponent(ref!)}`} replace />;
+  return (
+    <LegacyEERedirect pathname={`/content/ee/${encodeURIComponent(ref!)}`} />
+  );
+}
+
+function LegacyEERedirect({ pathname = '/content/ee' }: { pathname?: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname, search, hash }} replace />;
 }
 
 const app = createApp({
@@ -151,15 +158,12 @@ const routes = (
     <Route path="/settings" element={<UserSettingsPage />} />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
-    <Route path="/content" element={<Navigate to="/content/ee" replace />} />
+    <Route path="/content" element={<LegacyEERedirect />} />
     <Route path="/content/ee" element={<AutomationContentEEPage />} />
-    <Route
-      path="/automation-content"
-      element={<Navigate to="/content/ee" replace />}
-    />
+    <Route path="/automation-content" element={<LegacyEERedirect />} />
     <Route
       path="/automation-content/execution-environments"
-      element={<Navigate to="/content/ee" replace />}
+      element={<LegacyEERedirect />}
     />
     <Route path="/self-service" element={<SelfServicePage />} />
     <Route

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
@@ -51,6 +51,12 @@ it('uses the real EE widgets and submits their values from the stock native temp
               title: 'EE file name',
               'ui:field': 'EEFileNamePicker',
             },
+            pythonRequirements: {
+              type: 'array',
+              title: 'Python requirements',
+              items: { type: 'string', title: 'Python package' },
+              'ui:field': 'PackagesPicker',
+            },
           },
         },
       },
@@ -101,6 +107,19 @@ it('uses the real EE widgets and submits their values from the stock native temp
   expect(screen.getByText('Selected collections (1)')).toBeInTheDocument();
   expect(screen.queryByText(/unsupported.*array/i)).not.toBeInTheDocument();
 
+  await user.click(
+    screen.getByRole('button', { name: 'Add Packages Manually' }),
+  );
+  await user.type(
+    within(screen.getByRole('dialog')).getByRole('textbox'),
+    'requests>=2.28.0',
+  );
+  await user.click(screen.getByRole('button', { name: 'Add Package' }));
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  );
+  expect(await screen.findByText('requests>=2.28.0')).toBeInTheDocument();
+
   // The existing picker draws its title separately, without an input label/id.
   const fileName = screen.getByRole('textbox', { name: '' });
   fireEvent.change(fileName, { target: { value: 'native-ee.yaml' } });
@@ -120,6 +139,7 @@ it('uses the real EE widgets and submits their values from the stock native temp
           { name: 'community.general', source: 'galaxy', version: '10.0.0' },
         ],
         fileName: 'native-ee',
+        pythonRequirements: ['requests>=2.28.0'],
       },
       secrets: {},
     }),

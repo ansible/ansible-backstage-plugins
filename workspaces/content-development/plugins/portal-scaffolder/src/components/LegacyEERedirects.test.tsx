@@ -61,7 +61,7 @@ it.each([
   ['/self-service/ee/create?x=1#top', '/content/ee?x=1#top'],
 ])('redirects %s to %s', async (path, destination) => {
   renderRedirect(path);
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     destination,
   );
   expect(screen.getByTestId('destination')).toHaveAttribute(
@@ -86,7 +86,7 @@ it.each([
 ])('resolves the actual definition namespace and name for %s', async path => {
   getEntities.mockResolvedValue({ items: [definition('team-one')] });
   renderRedirect(`${path}?tab=source%20file#definition`);
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee/catalog/team-one/actual-ee?tab=source%20file#definition',
   );
   expect(getEntities).toHaveBeenCalledWith({
@@ -105,7 +105,7 @@ it.each([
 it('defaults the namespace only when the matching entity omits it', async () => {
   getEntities.mockResolvedValue({ items: [definition()] });
   renderRedirect('/self-service/ee/catalog/old-name');
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee/catalog/default/actual-ee',
   );
 });
@@ -116,7 +116,7 @@ it.each([
 ])('falls back without guessing when %s', async (_label, items) => {
   getEntities.mockResolvedValue({ items });
   renderRedirect('/self-service/catalog/old-name?x=1#top');
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee?x=1#top',
   );
 });
@@ -124,7 +124,7 @@ it.each([
 it('falls back on catalog API errors', async () => {
   getEntities.mockRejectedValue(new Error('Catalog unavailable'));
   renderRedirect('/self-service/ee/catalog/old-name');
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee',
   );
 });
@@ -140,7 +140,7 @@ it('encodes the resolved identity as individual path segments', async () => {
   entity.metadata.name = 'my#ee';
   getEntities.mockResolvedValue({ items: [entity] });
   renderRedirect('/self-service/catalog/old%20name');
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee/catalog/team%20one/my%23ee',
   );
   expect(getEntities.mock.calls[0][0].filter['metadata.name']).toBe('old name');
@@ -183,7 +183,7 @@ it('waits for the current lookup and ignores an older name result', async () => 
   await act(async () => resolveOld({ items: [definition('old-team')] }));
   expect(screen.queryByTestId('destination')).not.toBeInTheDocument();
   await act(async () => resolveNew({ items: [definition('new-team')] }));
-  expect(await screen.findByTestId('destination')).toHaveTextContent(
+  expect((await screen.findByTestId('destination')).textContent).toBe(
     '/content/ee/catalog/new-team/actual-ee',
   );
 });

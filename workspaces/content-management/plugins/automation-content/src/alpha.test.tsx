@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import { renderTestApp } from '@backstage/frontend-test-utils';
 import plugin from './alpha';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigationType, useParams } from 'react-router-dom';
 import { Suspense, useMemo } from 'react';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { useApi } from '@backstage/core-plugin-api';
@@ -16,6 +16,33 @@ import {
   useNativeCatalogTabs,
 } from '@ansible/portal-extension-host/alpha';
 import { automationContentManifest } from './pluginManifest';
+
+function LocationProbe() {
+  const { pathname, search, hash } = useLocation();
+  return (
+    <div data-testid="destination" data-navigation={useNavigationType()}>
+      {pathname + search + hash}
+    </div>
+  );
+}
+
+// Isolate the legacy mount from destination-page internal index redirects.
+jest.mock('./components/ExecutionEnvironments/EERoutesPage', () => ({
+  EERoutesPage: () => {
+    const { pathname } = useLocation();
+    const ref = pathname.slice('/content/ee/'.length);
+    return (
+      <>
+        <h1>
+          {pathname === '/content/ee'
+            ? 'Execution Environments'
+            : `EE details ${decodeURIComponent(ref)}`}
+        </h1>
+        <LocationProbe />
+      </>
+    );
+  },
+}));
 
 jest.mock('@ansible/portal-plugin-sdk', () => ({
   ...jest.requireActual('@ansible/portal-plugin-sdk'),
@@ -32,13 +59,23 @@ jest.mock('./components/ExecutionEnvironments/ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => <h1>Images</h1>,
 }));
 jest.mock('./components/ExecutionEnvironments/EECatalogPage', () => ({
-  EECatalogPage: () => <h1>Execution Environments</h1>,
+  EECatalogPage: () => (
+    <>
+      <h1>Execution Environments</h1>
+      <LocationProbe />
+    </>
+  ),
   ImagesTabContent: () => <h2>Native images content</h2>,
 }));
 jest.mock('./components/ExecutionEnvironments/EEDetailsPage', () => ({
   EEDetailsPage: () => {
     const { ref } = useParams();
-    return <h1>EE details {ref}</h1>;
+    return (
+      <>
+        <h1>EE details {ref}</h1>
+        <LocationProbe />
+      </>
+    );
   },
 }));
 
@@ -59,6 +96,24 @@ it.each([
   },
   15000,
 );
+
+it.each([
+  ['/content', '/content/ee'],
+  ['/automation-content', '/content/ee'],
+  ['/automation-content/execution-environments', '/content/ee'],
+  [
+    '/automation-content/execution-environments/registry%2Fdemo%40sha256%3A123',
+    '/content/ee/registry%2Fdemo%40sha256%3A123',
+  ],
+])('preserves query/hash with replace at %s', async (path, destination) => {
+  await renderTestApp({
+    features: [plugin],
+    initialRouteEntries: [`${path}?tag=latest%20tag#details`],
+  });
+  const target = await screen.findByTestId('destination');
+  expect(target.textContent).toBe(`${destination}?tag=latest%20tag#details`);
+  expect(target.getAttribute('data-navigation')).toBe('REPLACE');
+});
 
 function NativeCatalogProbe({ contentType }: { contentType: string }) {
   const provider = useApi(portalContributionsApiRef);

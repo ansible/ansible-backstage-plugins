@@ -11,13 +11,20 @@ import {
 import { automationContentApiFactory } from './apis';
 import { CatalogTabBlueprint } from '@ansible/portal-extension-api/alpha';
 import { automationContentManifest } from './pluginManifest';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import BuildIcon from '@material-ui/icons/Build';
 import { eeRouteRef, eeDetailsRouteRef } from './routes';
 
 function LegacyEEDetailsRedirect() {
   const { ref } = useParams();
-  return <Navigate to={`/content/ee/${encodeURIComponent(ref!)}`} replace />;
+  return (
+    <LegacyEERedirect pathname={`/content/ee/${encodeURIComponent(ref!)}`} />
+  );
+}
+
+function LegacyEERedirect({ pathname = '/content/ee' }: { pathname?: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname, search, hash }} replace />;
 }
 
 /** Native discovery lets hosts mount content catalogs without legacy app wiring. */
@@ -62,8 +69,7 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'content-redirect',
       params: {
         path: '/content',
-        loader: async () =>
-          compatWrapper(<Navigate to="/content/ee" replace />),
+        loader: async () => compatWrapper(<LegacyEERedirect />),
       },
     }),
     PageBlueprint.make({
@@ -71,8 +77,7 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       params: {
         // Compatibility redirect: the plugin's original mount prefix.
         path: '/automation-content',
-        loader: async () =>
-          compatWrapper(<Navigate to="/content/ee" replace />),
+        loader: async () => compatWrapper(<LegacyEERedirect />),
       },
     }),
     PageBlueprint.make({
@@ -97,8 +102,7 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'ee-redirect',
       params: {
         path: '/automation-content/execution-environments',
-        loader: async () =>
-          compatWrapper(<Navigate to="/content/ee" replace />),
+        loader: async () => compatWrapper(<LegacyEERedirect />),
       },
     }),
     PageBlueprint.make({
