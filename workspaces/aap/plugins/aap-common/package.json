@@ -42,7 +42,8 @@
   },
   "dependencies": {
     "@backstage/integration": "^2.0.0",
-    "@backstage/plugin-permission-common": "^0.9.7"
+    "@backstage/plugin-permission-common": "^0.9.7",
+    "@ansible/content-development-common": "workspace:^"
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.0",

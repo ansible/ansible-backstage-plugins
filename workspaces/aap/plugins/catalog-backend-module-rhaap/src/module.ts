@@ -12,7 +12,6 @@ import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node'
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
-import { eeEntityProviderServiceRef } from '@ansible/backstage-rhaap-common';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
@@ -37,7 +36,6 @@ export const catalogModuleRhaap = createBackendModule({
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
         signals: signalsServiceRef,
-        eeProvider: eeEntityProviderServiceRef,
       },
       async init({
         logger,
@@ -54,7 +52,6 @@ export const catalogModuleRhaap = createBackendModule({
         discovery,
         auth,
         signals,
-        eeProvider,
       }) {
         permissionsRegistry.addPermissions(ansiblePermissions);
         catalogModel.setFieldValidators(
@@ -110,7 +107,6 @@ export const catalogModuleRhaap = createBackendModule({
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
           jobTemplateProvider,
-          eeProvider,
           ...pahCollectionProviders,
           ansibleGitContentsProviders,
         );

@@ -8,7 +8,6 @@ import {
 } from '@ansible/backstage-rhaap-common';
 import { catalogModuleRhaap } from './module';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
-import { eeEntityLifecycleServiceFactory } from './eeEntityLifecycleService';
 
 /** Dynamic deployments need the same organization adapter as the development backend. */
 export default createBackendFeatureLoader({
@@ -21,7 +20,6 @@ export default createBackendFeatureLoader({
       deps: {},
       factory: () => new UserProvisioner(),
     });
-    yield eeEntityLifecycleServiceFactory;
     yield catalogModuleRhaap;
   },
 });

@@ -21,7 +21,6 @@
     "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts",
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
-    "./EEEntityLifecycle": "./src/EEEntityLifecycle.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -46,9 +45,6 @@
       ],
       "catalogEntity": [
         "src/catalogEntity.ts"
-      ],
-      "EEEntityLifecycle": [
-        "src/EEEntityLifecycle.ts"
       ]
     }
   },
@@ -67,6 +63,7 @@
   },
   "dependencies": {
     "@ansible/aap-common": "workspace:^",
+    "@ansible/content-development-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-model": "1.10.0",
