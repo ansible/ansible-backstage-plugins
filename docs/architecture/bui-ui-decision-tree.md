@@ -880,7 +880,9 @@ continuous: prefer one stock surface with a filter or configuration over a
 second list or tab, and make the extra surface justify itself. A job someone
 does at different times is discrete: separate surfaces are fine, and the mapping
 above is the test. Either way the seam is recorded at gate 0, because that is
-where the person enters.
+where the person enters. A discrete job still pays at the seam: a second list on
+the far side of a button is a context switch even when the two jobs are
+separate.
 
 **Converting a repository from another tool.** X2Ansible is this journey, built
 as a page we own. Read that page against the decomposition rather than treating
@@ -1151,8 +1153,9 @@ The record for Appendix A, in full:
 
 - **Job to be done:** create an execution environment. Entered from the Create
   button on the execution environments page.
-- **Workflow continuity:** discrete. Creating an environment is a separate job
-  from browsing the list, and the seam between them is the Create button.
+- **Workflow continuity:** two discrete jobs with one handoff. The seam is the
+  Create button, and a second template list on the far side of it is the context
+  switch UX rejected.
 - **Navigation:** the sidebar entry stays and the Create button stays on the
   collection page. The `L3` correction removes a route rather than adding one.
 - **Business fit:** in scope: an existing journey under the portal adoption.
@@ -1193,9 +1196,9 @@ The record for Appendix A, in full:
 - **Reversal cost:** medium. The page has a route and a nav item, so removing it
   leaves bookmarks that 404.
 
-The form fields the execution environment templates use are a separate record.
-They are `FormFieldBlueprint` contributions into the stock template form, not
-part of this seam.
+The form fields the execution environment templates use are a separate record
+(`A.4`). They are `FormFieldBlueprint` contributions into the stock template
+form, not part of this seam.
 
 ### 4.5 The review test
 
@@ -1237,11 +1240,25 @@ built from `@backstage/core-components` `Header` and `HeaderTabs`.
   the page; `components/ExecutionEnvironments/TabviewPage.tsx` for the tabs.
 - `In RHDH:` a page called "Execution Environments" with two tabs under it.
 
+**Navigation here is a UX journey decision.** Whether the Create entry is a tab,
+a header action, a sidebar route or a deep link into the stock templates page
+decides how often the person changes context. UX owns that call and engineering
+implements it; the carrying and reversal cost of the chosen pattern is estimated
+jointly and recorded (`4.1`).
+
 So the seam UX was describing is the boundary between those two tabs. Everything
 before it is a catalog list of the environments you have; everything after it is
 a scaffolder template list. The person is reading one list and then another, and
 what carries them across is a tab label. Recorded this way, "the flow feels
 wrong" becomes something a reviewer can act on.
+
+Read as a workflow-continuity case, this is exactly what the tree exists to
+record. Engineering may reasonably propose `L1`: the stock templates page and
+its nav item, unchanged. UX can reject it on context-switch grounds, because it
+takes someone who pressed Create on a list of their environments to a page that
+lists the whole product's templates. Both positions belong in `alternatives`,
+and the rejection carries a UX sign-off against the `L1` line rather than a
+preference stated in a meeting.
 
 ### A.2 Gate 1 — how far the stock surface goes
 
@@ -1312,6 +1329,24 @@ trade disappears.
   ourselves, in MUI, inside a new-frontend-system page. That is the surface the
   drift check exists to freeze, and it is the largest one attached to this
   journey.
+
+### A.4 A second record: the execution environment form fields
+
+Removing the Create tab's template list does not answer the separate question of
+what happens after a template is chosen. That is its own record, and the two
+must not be folded into one "custom UI" story.
+
+- **Job to be done:** choose an execution environment base image, and the
+  related domain inputs, while completing the execution environment scaffolder
+  form. Not "browse or pick which template card to run", which is record A.
+- **Mechanism:** scaffolder form field extensions — `FormFieldBlueprint` and the
+  template's own `ui:field` references, as in `BaseImagePicker`,
+  `CollectionsPicker` and `EEFileNamePicker` — mounted on the stock wizard host.
+- **Policy:** these domain pickers may stay `Keep`, as custom components, until
+  stock primitives exist for them. Registering them as extensions reduces the
+  plumbing; it does not remove the domain UX.
+- **Out of scope here:** removing the duplicate list does not replace this
+  record, and this record does not justify keeping the list.
 
 ## Appendix B — APME quality workflow
 
