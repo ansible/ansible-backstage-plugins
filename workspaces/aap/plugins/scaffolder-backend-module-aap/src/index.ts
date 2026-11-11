@@ -1,2 +1,2 @@
 export * from './actions';
-export { scaffolderModuleAap as default } from './module';
+export { scaffolderModuleAap, scaffolderModuleAap as default } from './module';
