@@ -462,6 +462,16 @@ it looks like."
   adoption actually changes.
 - `Store:` the raw stock and standard fittings everything else is made from.
 
+**Stock primitive** — an approved drawing unit for the release pin: a component
+from `@backstage/ui` on RHDH 2.1 and later, or one from a package named in
+Appendix C. A React component from anywhere else is not a stock primitive,
+however ordinary it looks.
+
+- `Code:` an import from `@backstage/ui`, or from a package named in C.1.
+- `In RHDH:` `Card`, `Table` and `Button` from `@backstage/ui`; a stock page's
+  own components, named in C.2 by the surface they belong to.
+- `Store:` a part the store stocks, as against one you machined yourself.
+
 **PatternFly** _(program)_ — not part of the RHDH visual language, and not a
 supported choice for new Automation Portal UI. New work uses the new frontend
 system, `@backstage/ui` and the RHDH theme. PatternFly survives only where
@@ -625,32 +635,44 @@ None at present.
 Every UI change has three independent properties. Most arguments in this area
 are two people answering different ones, each correctly.
 
-**Architecture** — how it attaches to the host. Two options: a legacy mount
-point, or an extension produced by a blueprint. This is not a design decision;
-it is a migration requirement set by the host. The consequence: "it's just a
+**Architecture** — how it attaches to the host. On RHDH 2.1 and later that means
+the new frontend system plus blueprint registration; the alternative is legacy
+mount-point configuration, which is retiring. Nobody chooses this: it is a host
+requirement set by the release we ship on. The consequence: "it's just a
 blueprint" answers this axis and no other, so it can be true while the change is
 entirely custom in appearance.
 
-**Surface** — what it looks like, and who owns that look. From stock to bespoke:
-a stock primitive, then a composition of stock primitives, then a stock
-primitive with CSS overrides, then a bespoke component. A stock primitive with
-non-trivial CSS is a custom component; a surface is custom when we own it,
-whether or not its parts are stock. This is why the axis is measured by
-ownership rather than by who wrote the code. The drift check measures only the
-component part of it.
+**Surface** — what it looks and feels like, and how it is built. This axis is
+asked twice, usually by different people. _Experience_ — visual and interaction
+intent, and whether it is good enough for the customer — is UX's judgment, made
+at a reuse level. _Implementation_ — loader, blueprint, stock components, tests
+and the carrying cost that follows — is engineering's. From stock to bespoke the
+same options apply: a stock primitive, a composition of stock primitives, a
+stock primitive with CSS overrides, then a bespoke component. A stock primitive
+with non-trivial CSS is a custom component; a surface is custom when we own it,
+whether or not its parts are stock. The drift check measures only the
+implementation part.
 
-**Journey** — how a person gets there. From embedded to a new page: a
-contribution inside an existing surface with no `Route` of its own, then a stock
-page with a stock `Nav item`, then a stock page with a custom `Nav item` or
-`Action`, then a new page with a new `Nav item`. This is the axis UX owns, and
-the most expensive one to reverse, because people bookmark routes and learn nav
-items.
+A UX objection can send a decision back down the ladder. An engineering
+objection rejects the build, not the journey.
 
-| Axis         | Question             | Decided by                       | Carrying cost | Measured by     |
-| ------------ | -------------------- | -------------------------------- | ------------- | --------------- |
-| Architecture | how does it attach   | nobody; it is a host requirement | none          | not measured    |
-| Surface      | who owns the look    | engineering                      | low to high   | the drift check |
-| Journey      | how people get there | UX                               | highest       | registry level  |
+**Journey** — steps, entry and navigation: how a person gets there. From
+embedded to a new page: a contribution inside an existing surface with no
+`Route` of its own, then a stock page with a stock `Nav item`, then a stock page
+with a custom `Nav item` or `Action`, then a new page with a new `Nav item`.
+This is the axis UX owns, and the most expensive one to reverse, because people
+bookmark routes and learn nav items.
+
+| Axis         | Question                                          | Decided by                                        | Carrying cost | Measured by                         |
+| ------------ | ------------------------------------------------- | ------------------------------------------------- | ------------- | ----------------------------------- |
+| Architecture | how does it attach                                | the host; not negotiable                          | none          | not measured                        |
+| Surface      | what it looks and feels like, and how it is built | UX for experience; engineering for implementation | low to high   | the drift check, for implementation |
+| Journey      | steps, entry and navigation                       | UX                                                | highest       | registry level                      |
+
+**Scope is not an axis.** Product and the business unit own the objective, the
+scope, and whether the work is taken on at all; a product manager can veto or
+defer intake to Plugin Factory. That is a layer above the three axes, not a
+fourth one: it decides whether a decision gets made, not how.
 
 **Every decision states a position on all three axes.** A complete position has
 no adjectives in it, for example: stock page, stock components, stock nav item,
@@ -827,6 +849,13 @@ kind of step.
 | Change account or org settings | Settings                        | stock sub-page                                  |
 | Guided multi-step input        | scaffold template form          | `FormFieldBlueprint`                            |
 
+**Continuous and discrete jobs.** A job someone moves through in one sitting is
+continuous: prefer one stock surface with a filter or configuration over a
+second list or tab, and make the extra surface justify itself. A job someone
+does at different times is discrete: separate surfaces are fine, and the mapping
+above is the test. Either way the seam is recorded at gate 0, because that is
+where the person enters.
+
 **Converting a repository from another tool.** X2Ansible is this journey, built
 as a page we own. Read that page against the decomposition rather than treating
 it as a precedent: the steps are choose a repository, run a conversion, follow
@@ -860,8 +889,10 @@ earlier one settled.
 surface we do not already own being created, and without visiting a surface that
 exists only to hand them to another one. Moving between surfaces we already own
 is normal — Appendix A does exactly that — and what the tree forbids is
-inventing a doorway. Whether it is good enough on the journey is UX's call;
-whether it is good enough on the surface is engineering's (section 2.1).
+inventing a doorway. Experience quality inside the journey — context, flow,
+completion — is UX's call. Whether the chosen reuse level is built correctly —
+NFS, blueprint registration, stock components, tests — is engineering's (section
+2.1).
 
 The tree is per change, not per programme. One journey routinely produces
 several records, and the execution-environment work is three templates, one
