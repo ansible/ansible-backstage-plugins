@@ -59,7 +59,7 @@ export const AppThemeFixer = selfServicePlugin.provide(
 );
 
 /**
- * EE Page component for mounting at /self-service/ee
+ * Compatibility redirect for hosts still mounting EEPage at /self-service/ee.
  * Contains its own routing for the EE section.
  *
  * @public
@@ -68,7 +68,7 @@ export const EEPage = selfServicePlugin.provide(
   createRoutableExtension({
     name: 'EEPage',
     component: () =>
-      import('./components/ExecutionEnvironments').then(m => m.EERoutesPage),
+      import('./components/LegacyEERedirects').then(m => m.LegacyEERedirects),
     mountPoint: eeRouteRef,
   }),
 );

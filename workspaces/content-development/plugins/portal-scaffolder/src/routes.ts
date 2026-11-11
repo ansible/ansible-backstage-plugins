@@ -5,6 +5,7 @@ export const rootRouteRef = createRouteRef({
   id: 'self-service',
 });
 
+// Retained for static/dynamic hosts mounting the legacy EE redirect extension.
 export const eeRouteRef = createRouteRef({
   id: 'self-service/ee',
 });

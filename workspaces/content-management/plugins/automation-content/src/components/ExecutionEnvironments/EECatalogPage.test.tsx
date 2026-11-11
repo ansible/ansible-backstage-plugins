@@ -52,7 +52,6 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
 jest.mock('./DefinitionFilesCatalogPage', () => ({
   DefinitionFilesCatalogPage: () => 'Mocked definition files',
 }));
-jest.mock('./CreateContent', () => ({ CreateContent: () => 'Mocked create' }));
 jest.mock('./ImagesCatalogPage', () => ({
   ImagesCatalogPage: () => 'Fallback images',
 }));
@@ -142,10 +141,6 @@ function renderCatalogTabs(descriptor?: CatalogTabDescriptor | null) {
           path="/content/ee/catalog"
           element={<EECatalogPage view="catalog" />}
         />
-        <Route
-          path="/content/ee/create"
-          element={<EECatalogPage view="create" />}
-        />
       </Routes>
     </MemoryRouter>
   );
@@ -183,12 +178,13 @@ it('renders native Images through the SDK pipeline and retains the built-in rout
   expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
     'Images',
     'Definition files',
-    'Create',
   ]);
   await userEvent.click(screen.getByRole('tab', { name: 'Definition files' }));
   expect(await screen.findByText('Mocked definition files')).toBeTruthy();
-  await userEvent.click(screen.getByRole('tab', { name: 'Create' }));
-  expect(await screen.findByText('Mocked create')).toBeTruthy();
+  expect(screen.queryByRole('tab', { name: 'Create' })).toBeNull();
+  expect(
+    screen.getByRole('link', { name: 'Create' }).getAttribute('href'),
+  ).toBe('/create');
   await userEvent.click(screen.getByRole('tab', { name: 'Images' }));
   expect(await screen.findByText('SDK Images panel')).toBeTruthy();
   expect(loader).toHaveBeenCalledWith(

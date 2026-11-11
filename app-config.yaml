@@ -36,7 +36,7 @@ portal:
         path: /self-service/create/tasks
         title: History
       - id: execution-environments
-        path: /self-service/ee
+        path: /content/ee
         title: Execution Environments
       - id: collections
         path: /self-service/collections

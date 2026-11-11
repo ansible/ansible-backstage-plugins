@@ -79,7 +79,7 @@ export const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'ee',
       params: {
         // Content-workspace mount at /content/ee per the 2026-11-02 sync,
-        // endorsed by Ganesh; portal-scaffolder remains untouched.
+        // endorsed by Ganesh; portal-scaffolder's old EE mounts now redirect here.
         path: '/content/ee',
         title: 'Execution Environments',
         icon: <BuildIcon />,

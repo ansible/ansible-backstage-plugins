@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { RouteView } from './RouteView';
 
 // Mock page components
@@ -25,12 +25,6 @@ jest.mock('../CatalogItemDetails', () => ({
 }));
 jest.mock('../feedback/FeedbackFooter', () => ({
   FeedbackFooter: () => <div data-testid="feedback-footer">FeedbackFooter</div>,
-}));
-jest.mock('../ExecutionEnvironments', () => ({
-  EETabs: () => <div data-testid="ee-tabs">EETabs</div>,
-}));
-jest.mock('../ExecutionEnvironments/catalog/EEDetailsPage', () => ({
-  EEDetailsPage: () => <div data-testid="ee-details">EEDetails</div>,
 }));
 jest.mock('../CollectionsCatalog', () => ({
   CollectionsCatalogPage: () => (
@@ -123,6 +117,10 @@ jest.mock('@backstage/core-plugin-api', () => ({
   }),
 }));
 
+function ContentDestination() {
+  return <div data-testid="content-destination">{useLocation().pathname}</div>;
+}
+
 describe('RouteView', () => {
   beforeEach(() => {
     mockRequirePermission.mockReset();
@@ -146,6 +144,26 @@ describe('RouteView', () => {
     // Check that home component renders
     expect(screen.getByTestId('home')).toBeInTheDocument();
     expect(screen.getByTestId('feedback-footer')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/self-service/ee', '/content/ee'],
+    ['/self-service/ee/catalog', '/content/ee'],
+    ['/self-service/ee/create', '/content/ee'],
+    ['/self-service/ee/catalog/team/my-ee', '/content/ee/catalog/team/my-ee'],
+    ['/self-service/catalog/my-ee', '/content/ee'],
+  ])('redirects retired EE route %s to %s', async (path, destination) => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/self-service/*" element={<RouteView />} />
+          <Route path="/content/ee/*" element={<ContentDestination />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId('content-destination')).toHaveTextContent(
+      destination,
+    );
   });
 
   it('renders CatalogImport with permission wrapper', () => {
@@ -211,16 +229,6 @@ describe('RouteView', () => {
         permissionName: 'history.view',
       },
       {
-        path: '/ee/catalog',
-        childTestId: 'ee-tabs',
-        permissionName: 'ee.view',
-      },
-      {
-        path: '/catalog/my-ee',
-        childTestId: 'ee-details',
-        permissionName: 'ee.view',
-      },
-      {
         path: '/collections',
         childTestId: 'collections-catalog',
         permissionName: 'collections.view',
@@ -268,7 +276,6 @@ describe('RouteView', () => {
     it.each([
       { path: '/catalog', childTestId: 'home' },
       { path: '/create/tasks', childTestId: 'task-list' },
-      { path: '/ee/catalog', childTestId: 'ee-tabs' },
       { path: '/collections', childTestId: 'collections-catalog' },
       { path: '/repositories/catalog', childTestId: 'git-repositories' },
     ])('blocks $childTestId at $path', ({ path, childTestId }) => {

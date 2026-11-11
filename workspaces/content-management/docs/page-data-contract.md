@@ -44,16 +44,54 @@ Three data sources, in priority order:
 ### EE catalog (`/content/ee`)
 
 Mounted at the content workspace's own endpoint per the 2026-11-02 sync
-decision endorsed by Ganesh. The content workspace owns the discovery view;
-portal-scaffolder is untouched, and its legacy pages coexist unconfigured.
-The old `/automation-content/execution-environments` path redirects here in
-both hosts.
+decision endorsed by Ganesh. The content workspace owns EE browsing, image
+details, and definition-file management. The former portal-scaffolder EE UI
+is retired; its static, dynamic-plugin, and native mounts are redirects only.
+The existing permission-gated Execution Environments sidebar item now links to
+`/content/ee`, retaining `executionEnvironmentsViewPermission`; the configured
+native portal navigation links there too. Destination pages enforce
+`ansible.content.view`, and sync still requires `ansible.content.sync`.
 `/content` and `/automation-content` redirect to `/content/ee`; there is no
 separate content landing page or Content navigation item.
 The EE catalog header owns the manual Sync action ("Sync registries"), which
 opens the existing registry-selection dialog on every view — images,
-definition files, and create. Per-registry results surface as portal
+definition files. Per-registry results surface as portal
 notifications.
+
+The bespoke Create tab, template list, and WizardCard are deleted. The header's
+**Create** link opens the stock Software Templates page at `/create` (the
+legacy app's `ScaffolderPage` mount and the native scaffolder page's default
+path), not the Portal's bespoke `/self-service` list. This uses the accepted
+plain-link fallback: the pinned templates sub-page validates `groups` with
+`createZodV4FilterPredicateSchema()` from `@backstage/filter-predicates`, but its
+`$contains` operator matches array elements, not substrings in string
+`spec.type`. `$hasPrefix` would not preserve the old substring predicate.
+No approximate group or unsupported page-wide `templateFilter` is configured;
+other templates remain visible. BaseImagePicker, CollectionsPicker, and
+EEFileNamePicker registrations are retained for the stock wizard.
+
+### Compatibility redirect map
+
+All redirects replace the history entry. Namespace-qualified definition paths
+retain their identity; old unqualified names have no guaranteed namespace or
+digest mapping and return to the catalog rather than guessing an image ref.
+
+| Old URL                                                                   | Destination                                              |
+| ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `/content`, `/automation-content`                                         | `/content/ee`                                            |
+| `/automation-content/execution-environments`                              | `/content/ee`                                            |
+| `/automation-content/execution-environments/:ref`                         | `/content/ee/:ref` (encoded digest-scoped ref preserved) |
+| `/self-service/ee`, `/self-service/ee/catalog`, `/self-service/ee/create` | `/content/ee`                                            |
+| `/self-service/ee/catalog/:namespace/:name`                               | `/content/ee/catalog/:namespace/:name`                   |
+| `/self-service/ee/*` (including unqualified details and unknown subpaths) | `/content/ee`                                            |
+| `/self-service/catalog/:templateName` (old EE definition detail)          | `/content/ee`                                            |
+| `/content/ee/create` (retired Create tab bookmark)                        | `/create`                                                |
+
+`/content/ee` selects the Images browse tab; `/content/ee/catalog` selects
+Definition files. Collection, repository, template, and history pages remain
+owned by portal-scaffolder and are not retired by this cutover. `EEPage` and
+`eeRouteRef` remain public compatibility mounts for existing host configuration,
+not management UI.
 
 Tina's `ImagesCatalogPage` layout, artifact data:
 

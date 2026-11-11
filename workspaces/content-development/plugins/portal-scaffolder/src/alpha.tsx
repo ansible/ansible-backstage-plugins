@@ -14,13 +14,11 @@ import { AAPApis, EEBuildApis } from './apis';
 import {
   rootRouteRef,
   collectionsRouteRef,
-  eeRouteRef,
   gitRepositoriesRouteRef,
   historyRouteRef,
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
 import HistoryIcon from '@material-ui/icons/History';
-import BuildIcon from '@material-ui/icons/Build';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 
@@ -32,7 +30,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
   routes: {
     root: convertLegacyRouteRef(rootRouteRef),
     collections: convertLegacyRouteRef(collectionsRouteRef),
-    ee: convertLegacyRouteRef(eeRouteRef),
     repositories: convertLegacyRouteRef(gitRepositoriesRouteRef),
     history: convertLegacyRouteRef(historyRouteRef),
   },
@@ -62,15 +59,12 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'ee',
       params: {
         path: portalScaffolderRoutePaths.executionEnvironments,
-        title: 'Execution Environments',
-        icon: <BuildIcon />,
         noHeader: true,
-        routeRef: convertLegacyRouteRef(eeRouteRef),
         loader: async () => {
-          const { EERoutesPage } = await import(
-            './components/ExecutionEnvironments'
+          const { LegacyEERedirects } = await import(
+            './components/LegacyEERedirects'
           );
-          return compatWrapper(<EERoutesPage />);
+          return compatWrapper(<LegacyEERedirects />);
         },
       },
     }),

@@ -169,7 +169,7 @@ describe('EEBuilderSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Execution Environments/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/ee');
+    expect(link).toHaveAttribute('href', '/content/ee');
   });
 
   it('renders sidebar item when permission.enabled is undefined (framework off)', async () => {
@@ -227,7 +227,7 @@ describe('EEBuilderSidebarItem', () => {
 
     const link = screen.getByRole('link', { name: /Execution Environments/i });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/self-service/ee');
+    expect(link).toHaveAttribute('href', '/content/ee');
   });
 
   it('calls usePermission with execution environments view permission', async () => {

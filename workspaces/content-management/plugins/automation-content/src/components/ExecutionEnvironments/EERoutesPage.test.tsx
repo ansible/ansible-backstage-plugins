@@ -95,6 +95,7 @@ async function renderRoute(path: string): Promise<void> {
     >
       <Routes>
         <Route path="/content/ee/*" element={<EERoutesPage />} />
+        <Route path="/create" element={<div>Stock Software Templates</div>} />
       </Routes>
     </TestApiProvider>,
     { routeEntries: [path] },
@@ -105,6 +106,11 @@ it('renders the registry image catalog route', async () => {
   await renderRoute('/content/ee/images');
 
   expect(await screen.findByText('Image catalog route')).toBeTruthy();
+});
+
+it('redirects retired Create tab bookmarks to stock Software Templates', async () => {
+  await renderRoute('/content/ee/create');
+  expect(await screen.findByText('Stock Software Templates')).toBeTruthy();
 });
 
 it('renders the registry image details route', async () => {

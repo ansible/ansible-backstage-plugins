@@ -19,7 +19,7 @@ export function EERoutesPage(): ReactElement {
           />
           <Route path="images" element={<EECatalogPage view="images" />} />
           <Route path="catalog" element={<EECatalogPage view="catalog" />} />
-          <Route path="create" element={<EECatalogPage view="create" />} />
+          <Route path="create" element={<Navigate to="/create" replace />} />
           <Route path=":ref" element={<EEDetailsPage />} />
           <Route path="*" element={<Navigate to="images" replace />} />
         </Routes>

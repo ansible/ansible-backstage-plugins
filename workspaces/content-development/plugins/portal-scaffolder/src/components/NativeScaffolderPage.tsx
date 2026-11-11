@@ -1,11 +1,6 @@
-import { lazy, Suspense } from 'react';
-import { Progress } from '@backstage/core-components';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import {
-  templatesViewPermission,
-  executionEnvironmentsViewPermission,
-} from '@ansible/aap-common/permissions';
+import { templatesViewPermission } from '@ansible/aap-common/permissions';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
 import { NativeScaffolderFields } from '@ansible/portal-extension-host/alpha';
@@ -15,13 +10,7 @@ import { TemplatesRoutesPage } from './Home';
 import { HistoryRoutesPage } from './TaskList';
 import { CatalogImport } from './CatalogImport';
 import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
-import { EENotificationBoundary } from './ExecutionEnvironments/EENotificationBoundary';
-
-const EEDetailsPage = lazy(() =>
-  import('./ExecutionEnvironments/catalog/EEDetailsPage').then(module => ({
-    default: module.EEDetailsPage,
-  })),
-);
+import { LegacyEERedirects } from './LegacyEERedirects';
 
 const reservedNames = formExtraFields.map(field => field.name);
 
@@ -33,17 +22,10 @@ export function NativeScaffolderPage({
 }>) {
   return (
     <Routes>
+      <Route path="ee/*" element={<LegacyEERedirects />} />
       <Route
         path="catalog/:templateName"
-        element={
-          <RequirePermission permission={executionEnvironmentsViewPermission}>
-            <EENotificationBoundary>
-              <Suspense fallback={<Progress />}>
-                <EEDetailsPage />
-              </Suspense>
-            </EENotificationBoundary>
-          </RequirePermission>
-        }
+        element={<Navigate to="/content/ee" replace />}
       />
       <Route
         path="catalog-import"

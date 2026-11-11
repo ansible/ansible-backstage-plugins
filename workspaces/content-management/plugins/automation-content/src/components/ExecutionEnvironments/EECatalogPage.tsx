@@ -6,7 +6,16 @@ import {
   type ReactElement,
 } from 'react';
 import SyncIcon from '@material-ui/icons/Sync';
-import { Box, Button, Flex, Tab, TabList, TabPanel, Tabs } from '@backstage/ui';
+import {
+  Box,
+  Button,
+  ButtonLink,
+  Flex,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+} from '@backstage/ui';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
@@ -20,13 +29,12 @@ import { automationContentSyncPermission } from '@ansible/automation-content-com
 import { ImageSyncDialog } from './catalog/ImageSyncDialog';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { eeDetailsRouteRef, eeRouteRef } from '../../routes';
-import { CreateContent } from './CreateContent';
 import { DefinitionFilesCatalogPage } from './DefinitionFilesCatalogPage';
 import { ImagesCatalogPage } from './ImagesCatalogPage';
 import { PageHeaderSection } from '../common';
 import styles from './EECatalogPage.module.css';
 
-export type EECatalogView = 'images' | 'catalog' | 'create';
+export type EECatalogView = 'images' | 'catalog';
 
 /** Panel shared by the native SDK contribution and the legacy-host fallback. */
 export function ImagesTabContent(): ReactElement {
@@ -80,7 +88,6 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
       label: 'Definition files',
       component: DefinitionFilesCatalogPage,
     },
-    { id: 'create', label: 'Create', component: CreateContent },
   ];
   const requestedTab = searchParams.get('catalogTab');
   const selectedTab =
@@ -98,9 +105,7 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
   useEffect(() => {
     const tabIndex = (location.state as { tabIndex?: number })?.tabIndex;
     const path =
-      tabIndex === undefined
-        ? undefined
-        : ['images', 'catalog', 'create'][tabIndex];
+      tabIndex === undefined ? undefined : ['images', 'catalog'][tabIndex];
     if (path) navigate(`${eeBase}/${path}`, { replace: true, state: {} });
   }, [location.state, navigate, eeBase]);
 
@@ -124,6 +129,9 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
             tooltip="Execution environment images and definition files available to the portal."
             actions={
               <>
+                <ButtonLink href="/create" variant="primary">
+                  Create
+                </ButtonLink>
                 {canSync && (
                   <Flex align="center" gap="2">
                     <Button
@@ -141,7 +149,7 @@ function EETabs({ view }: { view: EECatalogView }): ReactElement {
           <Tabs
             selectedKey={selectedTab}
             onSelectionChange={key => {
-              if (key === 'images' || key === 'catalog' || key === 'create') {
+              if (key === 'images' || key === 'catalog') {
                 navigate(`${eeBase}/${key}`);
               } else {
                 navigate(

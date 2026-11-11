@@ -8,7 +8,6 @@ import {
   fetchApiRef,
 } from '@backstage/core-plugin-api';
 import {
-  executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
   templatesViewPermission,
@@ -24,8 +23,7 @@ import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
-import { EETabs } from '../ExecutionEnvironments';
-import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
+import { LegacyEERedirects } from '../LegacyEERedirects';
 import { CollectionsCatalogPage } from '../CollectionsCatalog';
 import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
 import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
@@ -125,26 +123,10 @@ const RouteViewContent = () => {
             }
           />
         </Route>
-        <Route
-          path="ee"
-          element={
-            <RequirePermission permission={executionEnvironmentsViewPermission}>
-              <Outlet />
-            </RequirePermission>
-          }
-        >
-          <Route index element={<Navigate to="catalog" replace />} />
-          <Route path="catalog" element={<EETabs />} />
-          <Route path="create" element={<EETabs />} />
-          <Route path="*" element={<Navigate to="catalog" replace />} />
-        </Route>
+        <Route path="ee/*" element={<LegacyEERedirects />} />
         <Route
           path="catalog/:templateName"
-          element={
-            <RequirePermission permission={executionEnvironmentsViewPermission}>
-              <EEDetailsPage />
-            </RequirePermission>
-          }
+          element={<Navigate to="/content/ee" replace />}
         />
         <Route
           path="collections"

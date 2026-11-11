@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
-import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
+import {
+  createFrontendPlugin,
+  PageBlueprint,
+} from '@backstage/frontend-plugin-api';
+import { compatWrapper } from '@backstage/core-compat-api';
+import { useLocation } from 'react-router-dom';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
@@ -24,6 +29,41 @@ const portalHost = createFrontendPlugin({
   extensions: [createPortalContributionProvider()],
 });
 
+function ContentDestination() {
+  const { pathname } = useLocation();
+  return <div data-testid="content-destination">{pathname}</div>;
+}
+
+const contentDestination = createFrontendPlugin({
+  pluginId: 'cutover-destination',
+  extensions: [
+    PageBlueprint.make({
+      params: {
+        path: '/content/ee',
+        loader: async () => compatWrapper(<ContentDestination />),
+      },
+    }),
+  ],
+});
+
+it.each([
+  ['/self-service/ee', '/content/ee'],
+  ['/self-service/ee/catalog', '/content/ee'],
+  ['/self-service/ee/create', '/content/ee'],
+  ['/self-service/ee/catalog/team/example', '/content/ee/catalog/team/example'],
+  ['/self-service/catalog/example-ee', '/content/ee'],
+])('redirects native legacy route %s to %s', async (path, destination) => {
+  await renderTestApp({
+    features: [portalHost, plugin, contentDestination],
+    initialRouteEntries: [path],
+    apis: [mockApis.permission()],
+  });
+  expect(await screen.findByTestId('content-destination')).toHaveTextContent(
+    destination,
+  );
+  expect(screen.queryByTestId('templates-content')).not.toBeInTheDocument();
+});
+
 const mockSuperuser = jest.fn(() => ({ isSuperuser: true, loading: false }));
 jest.mock('./hooks', () => ({
   ...jest.requireActual('./hooks'),
@@ -31,31 +71,6 @@ jest.mock('./hooks', () => ({
 }));
 jest.mock('./components/CatalogImport', () => ({
   CatalogImport: () => <div>Native catalog import</div>,
-}));
-jest.mock('./components/ExecutionEnvironments/catalog/EEDetailsPage', () => ({
-  EEDetailsPage: () => {
-    const { useNotifications } = jest.requireActual(
-      './components/notifications',
-    );
-    const { showNotification } = useNotifications();
-    return (
-      <>
-        <div>Native execution environment details</div>
-        <button
-          onClick={() =>
-            showNotification({
-              title: 'EE build notification',
-              description: 'Build progress is available.',
-              severity: 'info',
-              autoHideDuration: 0,
-            })
-          }
-        >
-          Show EE build notification
-        </button>
-      </>
-    );
-  },
 }));
 
 jest.mock('./components/CreateTask/formExtraFields', () => ({
@@ -71,9 +86,6 @@ jest.mock('./components/TaskList', () => ({
 }));
 jest.mock('./components/CollectionsCatalog', () => ({
   CollectionsRoutesPage: () => <div>Native collections section</div>,
-}));
-jest.mock('./components/ExecutionEnvironments', () => ({
-  EERoutesPage: () => <div>Native execution environments section</div>,
 }));
 jest.mock('./components/GitRepositories', () => ({
   GitRepositoriesRoutesPage: () => <div>Native repositories section</div>,
@@ -149,20 +161,15 @@ it('provides distinct native sidebar icons for the existing self-service section
     apis: [mockApis.permission()],
   });
   await screen.findByTestId('templates-content', {}, { timeout: 10000 });
-  const paths = [
-    'Templates',
-    'History',
-    'Execution Environments',
-    'Collections',
-    'Git repositories',
-  ].map(name =>
-    screen
-      .getByRole('link', { name })
-      .querySelector('svg path')
-      ?.getAttribute('d'),
+  const paths = ['Templates', 'History', 'Collections', 'Git repositories'].map(
+    name =>
+      screen
+        .getByRole('link', { name })
+        .querySelector('svg path')
+        ?.getAttribute('d'),
   );
   expect(paths.every(Boolean)).toBe(true);
-  expect(new Set(paths).size).toBe(5);
+  expect(new Set(paths).size).toBe(4);
 });
 
 it('discovers native fields on the real Portal wizard route and keeps the existing task/secrets flow', async () => {
@@ -225,8 +232,6 @@ it('discovers native fields on the real Portal wizard route and keeps the existi
 it.each([
   ['/self-service/collections', 'Native collections section'],
   ['/self-service/collections/example', 'Native collections section'],
-  ['/self-service/ee/catalog', 'Native execution environments section'],
-  ['/self-service/ee/create', 'Native execution environments section'],
   ['/self-service/repositories/catalog', 'Native repositories section'],
   ['/self-service/repositories/example', 'Native repositories section'],
   ['/self-service/repositories/ci-activity', 'Native repositories section'],
@@ -235,7 +240,6 @@ it.each([
   ['/self-service/catalog', 'Portal templates'],
   ['/self-service/catalog/default/example', 'Portal templates'],
   ['/self-service/catalog-import', 'Native catalog import'],
-  ['/self-service/catalog/example-ee', 'Native execution environment details'],
 ])(
   'discovers the section route %s without falling back to templates',
   async (path, title) => {
@@ -252,19 +256,6 @@ it.each([
     );
   },
 );
-
-it('provides the real notification context and visible stack when opening EE details directly', async () => {
-  await renderTestApp({
-    features: [portalHost, plugin],
-    initialRouteEntries: ['/self-service/catalog/newly-created-ee'],
-    apis: [mockApis.permission()],
-  });
-  fireEvent.click(
-    await screen.findByRole('button', { name: 'Show EE build notification' }),
-  );
-  expect(await screen.findByText('EE build notification')).toBeInTheDocument();
-  expect(screen.getByText('Build progress is available.')).toBeInTheDocument();
-});
 
 it('does not expose catalog import to a non-superuser', async () => {
   mockSuperuser.mockReturnValueOnce({ isSuperuser: false, loading: false });

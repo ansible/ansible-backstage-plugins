@@ -22,7 +22,7 @@ dynamicPlugins:
         execution-environments:
           title: Execution Environments
           icon: extension
-          to: /self-service/ee
+          to: /content/ee
       mountPoints:
         - mountPoint: application/listener
           importName: AppThemeFixer

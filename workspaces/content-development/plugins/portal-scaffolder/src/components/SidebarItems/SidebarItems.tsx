@@ -47,13 +47,11 @@ export const PermissionGatedSidebarItem = ({
 };
 
 export const EEBuilderSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
-
   return (
     <PermissionGatedSidebarItem
       permission={executionEnvironmentsViewPermission}
       icon={BuildIcon}
-      to={`${rootLink()}/ee`}
+      to="/content/ee"
       text="Execution Environments"
     />
   );

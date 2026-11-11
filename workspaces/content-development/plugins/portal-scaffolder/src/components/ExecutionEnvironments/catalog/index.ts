@@ -1,1 +1,0 @@
-export { EntityCatalogContent } from './CatalogContent';
