@@ -225,6 +225,13 @@ async function appWith(store: ContentStore, logs: string[] = []) {
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
       } as never,
+      scheduler: {
+        triggerTask: async () => {},
+        cancelTask: async () => {},
+        scheduleTask: async () => {},
+        createScheduledTaskRunner: () => ({ run: async () => {} }),
+        getScheduledTasks: async () => [],
+      } as never,
     }),
   );
   return app;
@@ -265,13 +272,9 @@ const CASES: RouteCase[] = [
     route: 'POST /sync',
     run: app => request(app).post('/sync'),
     check: res => {
-      expect(res.status).toBe(207);
-      expect(res.body.status).toBe('partial');
-      expect(res.body.registries).toHaveLength(3);
-      for (const outcome of res.body.registries) {
-        expect(outcome.ok).toBe(false);
-        expect(outcome.error).toContain('[REDACTED]');
-      }
+      expect(res.status).toBe(202);
+      expect(res.body.status).toBe('scheduled');
+      expect(res.body.taskId).toBeDefined();
     },
   },
   {
@@ -502,8 +505,8 @@ describe('log lines the sync path writes', () => {
       '/sync',
     );
 
-    expect(res.status).toBe(207);
-    expect(logs.length).toBeGreaterThan(0);
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('scheduled');
     expectCredentialFree(logs.join('\n'));
   });
 });

@@ -7,7 +7,11 @@ import {
   IndexedArtifact,
   IndexedItem,
 } from './ContentStore';
-import { createRouter, RECONCILE_FAILURE_SUMMARY } from './router';
+import {
+  createRouter,
+  RECONCILE_FAILURE_SUMMARY,
+  STORE_REFRESH_TASK_ID,
+} from './router';
 
 const logger = {
   info: () => {},
@@ -51,7 +55,21 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
   } as ContentStore;
 }
 
-async function appWith(db?: ContentStore) {
+function stubScheduler(overrides: Record<string, unknown> = {}) {
+  return {
+    triggerTask: async () => {},
+    cancelTask: async () => {},
+    scheduleTask: async () => {},
+    createScheduledTaskRunner: () => ({ run: async () => {} }),
+    getScheduledTasks: async () => [],
+    ...overrides,
+  } as never;
+}
+
+async function appWith(
+  db?: ContentStore,
+  scheduler?: ReturnType<typeof stubScheduler>,
+) {
   const app = express();
   app.use(
     await createRouter({
@@ -63,6 +81,7 @@ async function appWith(db?: ContentStore) {
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
       } as never,
+      scheduler: scheduler ?? stubScheduler(),
     }),
   );
   return app;
@@ -423,40 +442,60 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(res.body.error).toContain('certificate has expired');
   });
 
-  it('keeps the detailed cause on the global sync response', async () => {
-    const detail = 'certificate altnames: DNS:secret-host.internal (10.1.2.3)';
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        discovered: 0,
-        ok: false,
-        error: detail,
-      }),
+  it('triggers a scheduled refresh and returns 202', async () => {
+    const triggered: string[] = [];
+    const scheduler = stubScheduler({
+      triggerTask: async (id: string) => {
+        triggered.push(id);
+      },
     });
 
-    const res = await request(await appWith(db)).post('/sync');
+    const res = await request(await appWith(undefined, scheduler)).post(
+      '/sync',
+    );
 
-    expect(res.status).toBe(207);
-    expect(res.body.status).toBe('partial');
-    const outcome = res.body.registries[0];
-    expect(outcome.ok).toBe(false);
-    expect(outcome.error).toContain(detail);
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBe(STORE_REFRESH_TASK_ID);
+    expect(res.body.triggeredAt).toBeDefined();
+    expect(triggered).toEqual([STORE_REFRESH_TASK_ID]);
   });
 
-  it('completes a global sync of healthy registries', async () => {
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        ok: true,
-        discovered: 3,
-      }),
+  it('cancels a running refresh before triggering a new one', async () => {
+    const calls: string[] = [];
+    const scheduler = stubScheduler({
+      cancelTask: async (id: string) => {
+        calls.push(`cancel:${id}`);
+      },
+      triggerTask: async (id: string) => {
+        calls.push(`trigger:${id}`);
+      },
     });
 
-    const res = await request(await appWith(db)).post('/sync');
+    await request(await appWith(undefined, scheduler)).post('/sync');
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('completed');
-    expect(res.body.registries).toEqual([
-      { registry: 'corporate', ok: true, discovered: 3 },
+    expect(calls).toEqual([
+      `cancel:${STORE_REFRESH_TASK_ID}`,
+      `trigger:${STORE_REFRESH_TASK_ID}`,
     ]);
+  });
+
+  it('returns 409 when the refresh task cannot be triggered', async () => {
+    const scheduler = stubScheduler({
+      triggerTask: async () => {
+        const err = new Error('Conflict');
+        err.name = 'ConflictError';
+        throw err;
+      },
+    });
+
+    const res = await request(await appWith(undefined, scheduler)).post(
+      '/sync',
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.status).toBe('conflict');
+    expect(res.body.taskId).toBe(STORE_REFRESH_TASK_ID);
   });
 });
 
