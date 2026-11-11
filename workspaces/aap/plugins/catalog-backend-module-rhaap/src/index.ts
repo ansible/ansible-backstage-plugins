@@ -18,7 +18,7 @@ export { catalogModuleRhaap };
 export * from './router';
 
 export default createBackendFeatureLoader({
-  loader: function* () {
+  loader: function* loader() {
     yield rhaapOrganizationServiceFactory;
     yield createServiceFactory({
       service: userProvisionerRef,
