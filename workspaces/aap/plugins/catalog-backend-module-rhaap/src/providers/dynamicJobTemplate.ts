@@ -582,7 +582,7 @@ export const generateTemplate = (options: {
           type: 'object',
           required: ['aapToken'],
           properties: {
-            aapToken: { type: 'string', minLength: 1 },
+            aapToken: { type: 'string', minLength: 1, pattern: '\\S' },
           },
         },
       },

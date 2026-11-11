@@ -45,7 +45,7 @@ and retargeted to `main` as its predecessor merges:
    submission with an actionable error if auth is unavailable, cancelled,
    rejected, or returns an empty token. Generic templates must not acquire AAP
    credentials.
-4. **Backend secret enforcement:** Use a supported backend extension point to
+4. **Backend secret enforcement:** Use the backend's public template contracts to
    forward form decorators and validate the required secret before task
    creation. Keep the launch action's existing token requirement and reject
    missing or empty credentials before any AAP launch side effect. Do not
@@ -138,6 +138,34 @@ templates do not request or receive AAP credentials. Confirm the backend hook
 before coding; if no supported hook exists, record a blocker instead of
 importing private internals.
 
+**Verified implementation baseline:** The source host in
+`workspaces/portal-core/packages/backend/src/index.ts` installs the public
+`@backstage/plugin-scaffolder-backend` plugin at version `4.1.0`. That version
+already forwards `spec.formDecorators` through the parameter-schema endpoint
+and validates `spec.secrets.schema` before dispatching tasks. Use those built-in
+capabilities; no custom backend router, middleware, or private extension is
+needed for this baseline.
+
+Generated AAP templates require a string `aapToken` with `minLength: 1` and a
+`\S` pattern so whitespace-only credentials are also rejected. The launch
+action retains its independent token guard, extended to reject whitespace-only
+values before any AAP side effect. Initial launch continues to use the submitted
+user token; the separate polling credential policy is unchanged.
+
+Backend integration tests exercise the generated templates through the real
+public Scaffolder plugin. They verify decorator forwarding, rejection before
+task dispatch for absent/empty/blank secrets (including requests from skipped
+decorators), valid secret forwarding without adding credentials to parameters
+or logs, and generic-template independence. The public task-broker extension
+point is used only to observe dispatch in tests. Action tests separately verify
+that the launch API receives the submitted user token and rejects blank tokens.
+
+Target RHDH validation remains a deployment gate: confirm its Scaffolder backend
+supports both capabilities, sync the updated generated templates, and rerun
+these acceptance cases before changing default navigation. An older backend
+that lacks either capability requires a supported upgrade or backport; this
+PR does not introduce a private-internal fallback.
+
 ### Dependencies and sequencing
 
 PR 1 establishes the generic bridge. PR 2 depends on PR 1. PR 3 can proceed
@@ -177,10 +205,10 @@ the contracts above updates this ADR before the affected PR proceeds.
 - If required custom filters or in-list panels are unsupported by the public
   APIs, should the project request an upstream hook, upgrade, or backport, or
   choose another supported composition?
-- Which supported Scaffolder backend extension point can forward declared form
-  decorators and validate `spec.secrets.schema` before task creation? If no
-  supported hook exists, record a blocker before implementing private-internal
-  integration.
+- The source host's Scaffolder backend `4.1.0` provides decorator forwarding and
+  secret-schema validation directly. Does the target RHDH image provide the
+  same capabilities? Confirm that deployment baseline before native cutover;
+  use a supported upgrade or backport if it does not.
 - What is the expected user-visible behavior when the current-user auth flow
   is cancelled or unavailable in the target RHDH deployment?
 
@@ -210,3 +238,5 @@ the contracts above updates this ADR before the affected PR proceeds.
 
 - Native Templates and Tasks implementation plan PDF (source, pages 5–7)
 - `.sdlc/research/scaffolder-implementation-guide.md`
+
+- [Backstage template secret schemas](https://backstage.io/docs/features/software-templates/writing-templates/#defining-a-secrets-schema)
