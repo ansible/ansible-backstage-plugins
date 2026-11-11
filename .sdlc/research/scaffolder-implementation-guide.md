@@ -198,7 +198,7 @@ Capture a machine-readable inventory before changing anything.
 | Register all `ansible:*` and `rhaap:*` action IDs                                  | ✅     |
 | Register autocomplete resources (`collections`, `collection_sources`, …)           | ✅     |
 | Document provider migration from `aap-api-cloud` to `aap-api` and `portal-catalog` | ✅     |
-| Capture the picker↔action source-string format as an explicit contract (§1.4)      | ✅     |
+| Capture the picker↔action source-string format as an explicit contract (§1.4)     | ✅     |
 
 ### Phase 1 PR series — Final ownership split and EE lifecycle replacement (#992–#999)
 
