@@ -86,7 +86,12 @@ and its tests.
 tag and skip-tag item schemas and empty values; supported picker variants; and
 loading, error, and selection-change behavior. Validate the selected value
 shape and its conversion to the existing launch payload. A successful template
-with no prompted fields is not sufficient evidence.
+with no prompted fields is not sufficient evidence. The current provider and
+launch action establish the working value contract: inventory is an object
+default; tags and skip-tags are arrays of tag-name strings, with empty values
+represented as empty arrays. The AAP picker therefore emits tag names for those
+two resources while keeping object values for inventory and other resource
+pickers.
 
 #### PR 3: AAP form decorator and generated-template contract
 

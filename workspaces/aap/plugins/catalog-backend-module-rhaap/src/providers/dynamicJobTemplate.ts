@@ -201,6 +201,7 @@ export const getInventoryProps = (inventory: JsonObject) => {
   return {
     title: 'Inventory',
     description: 'Please enter the inventory you want to use the services on',
+    type: 'object',
     resource: 'inventories',
     'ui:field': 'AAPResourcePicker',
     default: inventory,
@@ -367,8 +368,11 @@ export const getTagsProps = (tags: string[]) => {
     title: 'Tags',
     description: 'Tags to use in job run.',
     type: 'array',
+    items: { type: 'string' },
     'ui:field': 'AAPResourcePicker',
     resource: 'tags',
+    idKey: 'name',
+    nameKey: 'name',
     default: tags,
   };
 };
@@ -378,11 +382,20 @@ export const getSkipTagsProps = (skipTags: string[]) => {
     title: 'Skip Tags',
     description: 'Tags to skip in job run.',
     type: 'array',
+    items: { type: 'string' },
     'ui:field': 'AAPResourcePicker',
     resource: 'skip_tags',
+    idKey: 'name',
+    nameKey: 'name',
     default: skipTags,
   };
 };
+
+const splitTagNames = (value: string): string[] =>
+  value
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean);
 
 export const getPromptFormDetails = (
   job: IJobTemplate,
@@ -429,11 +442,11 @@ export const getPromptFormDetails = (
   }
 
   if (job.ask_tags_on_launch) {
-    properties.tags = getTagsProps(job.job_tags.split(',') ?? []);
+    properties.tags = getTagsProps(splitTagNames(job.job_tags));
   }
 
   if (job.ask_skip_tags_on_launch) {
-    properties.skip_tags = getSkipTagsProps(job.skip_tags.split(',') ?? []);
+    properties.skip_tags = getSkipTagsProps(splitTagNames(job.skip_tags));
   }
 
   if (job.ask_forks_on_launch) {

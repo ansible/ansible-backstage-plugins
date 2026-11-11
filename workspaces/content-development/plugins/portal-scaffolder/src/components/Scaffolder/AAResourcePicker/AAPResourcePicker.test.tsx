@@ -492,6 +492,32 @@ describe('AAPResourcePicker', () => {
 
       expect(onChangeSpy).toHaveBeenCalledWith([mockResources[0]]);
     });
+
+    it('keeps tag selections as strings for the launch payload', async () => {
+      const onChangeSpy = jest.fn();
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: [{ id: 'deploy', name: 'deploy' }],
+      });
+      renderComponent({
+        ...multipleProps,
+        schema: {
+          ...multipleProps.schema,
+          resource: 'tags',
+          idKey: 'name',
+          nameKey: 'name',
+          items: { type: 'string' },
+        },
+        onChange: onChangeSpy,
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      });
+      fireEvent.mouseDown(screen.getByRole('button'));
+      fireEvent.click(await screen.findByText('deploy'));
+
+      expect(onChangeSpy).toHaveBeenCalledWith(['deploy']);
+    });
   });
 
   describe('Form State', () => {

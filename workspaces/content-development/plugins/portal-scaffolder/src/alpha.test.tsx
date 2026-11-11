@@ -1,10 +1,19 @@
 import '@testing-library/jest-dom';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
-import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
+import {
+  createFrontendPlugin,
+  PageBlueprint,
+  type FrontendFeature,
+} from '@backstage/frontend-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
+import { useEffect, useState } from 'react';
+import { compatWrapper } from '@backstage/core-compat-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
+import scaffolderFrontendPlugin from '@backstage/plugin-scaffolder/alpha';
+import { formFieldsApiRef } from '@backstage/plugin-scaffolder-react/alpha';
 import {
   contributionRegistry,
   CONTENT_TYPES,
@@ -22,6 +31,31 @@ afterEach(() => notificationStore.clearAll());
 const portalHost = createFrontendPlugin({
   pluginId: 'portal',
   extensions: [createPortalContributionProvider()],
+});
+
+function NativeFormFieldsProbe() {
+  const formFieldsApi = useApi(formFieldsApiRef);
+  const [fieldCount, setFieldCount] = useState<number>();
+  useEffect(() => {
+    void formFieldsApi
+      .loadFormFields()
+      .then(fields => setFieldCount(fields.length));
+  }, [formFieldsApi]);
+  return <div data-testid="native-form-fields">{fieldCount ?? 'loading'}</div>;
+}
+
+const nativeFormFieldsProbePlugin = createFrontendPlugin({
+  pluginId: 'native-form-fields-probe',
+  extensions: [
+    PageBlueprint.make({
+      name: 'native-form-fields-probe',
+      params: {
+        path: '/native-form-fields-probe',
+        title: 'Native form fields probe',
+        loader: async () => compatWrapper(<NativeFormFieldsProbe />),
+      },
+    }),
+  ],
 });
 
 const mockSuperuser = jest.fn(() => ({ isSuperuser: true, loading: false }));
@@ -163,6 +197,34 @@ it('provides distinct native sidebar icons for the existing self-service section
   );
   expect(paths.every(Boolean)).toBe(true);
   expect(new Set(paths).size).toBe(5);
+});
+
+it('loads contributed AAP fields through Backstage formFieldsApiRef', async () => {
+  async function loadFieldCount(features: FrontendFeature[]) {
+    cleanup();
+    await renderTestApp({
+      features,
+      initialRouteEntries: ['/native-form-fields-probe'],
+      apis: [mockApis.permission()],
+    });
+    const fieldCount = await screen.findByTestId('native-form-fields');
+    await waitFor(() => expect(fieldCount.textContent).toMatch(/^\d+$/));
+    return Number(fieldCount.textContent);
+  }
+
+  const baseFieldCount = await loadFieldCount([
+    portalHost,
+    scaffolderFrontendPlugin,
+    nativeFormFieldsProbePlugin,
+  ]);
+  const contributedFieldCount = await loadFieldCount([
+    portalHost,
+    scaffolderFrontendPlugin,
+    plugin,
+    nativeFormFieldsProbePlugin,
+  ]);
+
+  expect(contributedFieldCount).toBe(baseFieldCount + 2);
 });
 
 it('discovers native fields on the real Portal wizard route and keeps the existing task/secrets flow', async () => {

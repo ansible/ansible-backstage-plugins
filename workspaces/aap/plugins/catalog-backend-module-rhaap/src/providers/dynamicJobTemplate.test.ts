@@ -70,6 +70,7 @@ describe('dynamicJobTemplate', () => {
         title: 'Inventory',
         description:
           'Please enter the inventory you want to use the services on',
+        type: 'object',
         resource: 'inventories',
         'ui:field': 'AAPResourcePicker',
         default: inventory,
@@ -634,6 +635,45 @@ describe('dynamicJobTemplate', () => {
       expect((inputVars as any).diff_mode).toBe(
         '${{ parameters["diff_mode"] }}',
       );
+    });
+
+    it('declares inventory and tag picker schemas with launch-compatible values', () => {
+      const job = {
+        ...mockJob,
+        ask_inventory_on_launch: true,
+        ask_tags_on_launch: true,
+        ask_skip_tags_on_launch: true,
+        job_tags: ' configure, , deploy ',
+        skip_tags: '',
+      };
+
+      const [promptForm, inputVars] = getPromptFormDetails(job, []);
+      const properties = promptForm.properties as Record<string, unknown>;
+
+      expect(properties.inventory).toMatchObject({
+        type: 'object',
+        resource: 'inventories',
+        default: job.summary_fields.inventory,
+      });
+      expect(properties.tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        idKey: 'name',
+        nameKey: 'name',
+        default: ['configure', 'deploy'],
+      });
+      expect(properties.skip_tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        idKey: 'name',
+        nameKey: 'name',
+        default: [],
+      });
+      expect(promptForm.required).toContain('inventory');
+      expect(inputVars).toMatchObject({
+        tags: '${{ parameters["tags"] }}',
+        skip_tags: '${{ parameters["skip_tags"] }}',
+      });
     });
 
     it('should return minimal prompt form for job with no ask_on_launch flags', () => {
