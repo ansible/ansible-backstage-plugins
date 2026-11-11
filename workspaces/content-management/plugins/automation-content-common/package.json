@@ -24,7 +24,7 @@
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
-    "@backstage/plugin-permission-common": "^0.9.7",
+    "@backstage/plugin-permission-common": "0.9.7",
     "undici": "6.29.1"
   },
   "devDependencies": {
