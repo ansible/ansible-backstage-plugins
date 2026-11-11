@@ -130,6 +130,39 @@ describe('createEEDefinition', () => {
     );
   });
 
+  it('does not log EE input values that may contain customer data or secrets', async () => {
+    const action = makeAction();
+    const privateBaseImage = 'registry.example.com/team/base:secret-tag';
+    const customerEmail = 'alice@example.com';
+    const unlabeledSecret = 'unlabeled-secret-value-123';
+    const privateBuildCommand = `RUN echo ${customerEmail} ${unlabeledSecret}`;
+    const ctx = makeCtx({
+      eeFileName: 'private-ee',
+      baseImage: privateBaseImage,
+      publishToSCM: true,
+      pythonRequirements: [customerEmail, unlabeledSecret],
+      systemPackages: [unlabeledSecret],
+      additionalBuildSteps: [
+        { stepType: 'prepend_base', commands: [privateBuildCommand] },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const logOutput = [logger.debug, logger.info, logger.warn, logger.error]
+      .flatMap(mock => mock.mock.calls)
+      .flat()
+      .join(' ');
+    for (const privateValue of [
+      privateBaseImage,
+      customerEmail,
+      unlabeledSecret,
+      privateBuildCommand,
+    ]) {
+      expect(logOutput).not.toContain(privateValue);
+    }
+  });
+
   it.each([
     ['special characters', 'My EE @v2!', 'my-ee-v2'],
     ['NUL bytes', 'bad\0name', 'bad-name'],

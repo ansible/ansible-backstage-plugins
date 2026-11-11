@@ -9,6 +9,12 @@ import type {
 } from '@ansible/backstage-rhaap-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
+const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';
+const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
+  'kind',
+  'metadata.name',
+  'metadata.namespace',
+]);
 
 let collectionsCache: {
   result: { results: Collections[] };
@@ -174,12 +180,7 @@ export async function getCollections(options: {
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
-  const trimmed = searchQuery?.trim();
-  const baseFilter = 'spec.type=ansible-collection';
-  const filter =
-    trimmed && trimmed.length > 0 && !trimmed.includes(baseFilter)
-      ? `${trimmed},${baseFilter}`
-      : trimmed || baseFilter;
+  const filter = buildCatalogFilter(searchQuery);
 
   if (
     collectionsCache?.filter === filter &&
@@ -237,4 +238,26 @@ export async function getCollections(options: {
       inflightRequests.delete(filter);
     }
   }
+}
+
+function buildCatalogFilter(searchQuery?: string): string {
+  const userFilters = (searchQuery ?? '')
+    .split(',')
+    .map(term => term.trim())
+    .filter(term => {
+      const separator = term.indexOf('=');
+      if (separator <= 0 || term.indexOf('=', separator + 1) !== -1) {
+        return false;
+      }
+
+      const field = term.slice(0, separator).trim();
+      const value = term.slice(separator + 1).trim();
+      return (
+        ALLOWED_CATALOG_FILTER_FIELDS.has(field) &&
+        value.length > 0 &&
+        /^[A-Za-z0-9_.:*\-/]+$/.test(value)
+      );
+    });
+
+  return [...new Set(userFilters), COLLECTION_TYPE_FILTER].join(',');
 }
