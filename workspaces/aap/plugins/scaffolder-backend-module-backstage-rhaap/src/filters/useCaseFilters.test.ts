@@ -15,4 +15,8 @@ describe('ansible-aap:useCaseFilters', () => {
     const result = useCaseNameFilter();
     expect(result).toEqual([]);
   });
+
+  it('should return an empty array when the input is not an array', () => {
+    expect(useCaseNameFilter({ name: 'not-an-array' } as any)).toEqual([]);
+  });
 });
