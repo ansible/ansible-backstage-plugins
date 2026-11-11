@@ -526,8 +526,8 @@ detail, wizard, dashboard).
   collection page (Appendix A).
 
 **Level of reuse (L0–L6)** — how much existing product a change reuses, from
-configuration only up to a new plugin. Enumerated in section 2.2. Each level is
-a rung, and the ordered set of rungs is the ladder; both words mean only this.
+configuration only up to a new plugin. Defined in section 2.2, which is the only
+place the order is stated.
 
 - `Code:` not a construct; the gate this document adds.
 - `In RHDH (stock):` RHDH renames and re-declares stock pages —
@@ -653,7 +653,7 @@ with non-trivial CSS is a custom component; a surface is custom when we own it,
 whether or not its parts are stock. The drift check measures only the
 implementation part.
 
-A UX objection can send a decision back down the ladder. An engineering
+A UX objection can send a decision back to a lower reuse level. An engineering
 objection rejects the build, not the journey.
 
 **Journey** — steps, entry and navigation: how a person gets there. From
@@ -690,8 +690,20 @@ Three common partial statements:
 
 ### 2.2 Ordering by carrying cost
 
-The tree walks a fixed order of options and stops at the first one that is good
-enough. The order is carrying cost.
+**Reuse levels (L0–L6)** are a fixed order, cheapest first: how much UI we own
+and retest on every RHDH release, from configuration only at L0 to a new plugin
+at L6. The order is carrying cost, and later sections say _level_ and mean this
+list.
+
+| Reuse level | Create execution environment                                          |
+| ----------- | --------------------------------------------------------------------- |
+| L0–L1       | the stock templates page and its nav item, unchanged                  |
+| L3 (target) | `templateFilter` on the stock templates sub-page, with no second list |
+| L5 (today)  | the Create tab's own template list, which we carry                    |
+
+A page can pass the import scan and still stop at L4 or L5, because we own its
+route and shell. The record's `level` and `alternatives` are authoritative over
+the scan (`4.3`), and Appendix A is the full case.
 
 A stock surface is maintained and tested upstream. A surface we build is
 maintained and tested by us, on every RHDH release, with whatever staff we have
@@ -707,7 +719,7 @@ ways: adopting a stock page that upstream later deprecates carries nothing while
 it lasts, yet is expensive to reverse once users depend on it. That case is why
 both costs are recorded rather than collapsed into one number.
 
-The ladder, expressed as carrying cost:
+The levels, expressed as carrying cost:
 
 - **L0** — configure an existing extension: title, icon, order, filter
   predicates. Nothing to carry; the surface is not ours.
@@ -763,11 +775,11 @@ are not vocabulary from section 1.
 
 The three labels map onto terms defined in section 1:
 
-| Gap label         | Term that defines it              | Section |
-| ----------------- | --------------------------------- | ------- |
-| missing wiring    | Wiring; Installed vs registered   | A       |
-| missing slot      | Extension input / extension point | A       |
-| missing primitive | Primitive / kit                   | D       |
+| Gap label         | Term that defines it              | Section | Classified at | Recorded as      |
+| ----------------- | --------------------------------- | ------- | ------------- | ---------------- |
+| missing wiring    | Wiring; Installed vs registered   | A       | gate 2        | `gap: wiring`    |
+| missing slot      | Extension input / extension point | A       | gate 2        | `gap: slot`      |
+| missing primitive | Primitive / kit                   | D       | gate 2        | `gap: primitive` |
 
 **Missing wiring** — the extension exists in the installed package, but the app
 has not registered or enabled it.
@@ -812,9 +824,13 @@ component.
 Two misclassifications cause most of the damage:
 
 - **Wiring treated as a primitive.** A component is written for something the
-  product already ships, and is then maintained forever.
-- **Slot treated as a primitive.** A whole page is forked to add a banner, when
-  the honest request was one extension input upstream.
+  product already ships, and is then maintained forever. The execution
+  environments case sits next to this: a duplicate templates page, when
+  `templateFilter` was a configuration input on the stock scaffolder.
+- **Slot treated as a primitive.** A whole page is forked to add something the
+  owning surface could accept, when the honest request was one extension input
+  upstream. Appendix A is this case: the stock templates sub-page has no input
+  for the grouped list, and a fork buys a permanent second list.
 
 The classification also answers the question the tree asks at this point. It is
 not "should we open a BUI pull request" but "which of the three is absent, and
@@ -973,7 +989,7 @@ local move that keeps the stock surface's carrying cost.
 
 **Recorded:** the level, and for every level below it, in order, one line saying
 why it was not adequate (section 4). That list is what section 2.2 means by the
-sentence a skipped level requires; a rung with no named inadequacy is a rung
+sentence a skipped level requires; a level with no named inadequacy is one
 nobody considered. A more expensive level that somebody proposes later is
 recorded the same way, so the proposal is answered rather than absorbed.
 
@@ -1038,27 +1054,27 @@ the case it came from.
 | Field                  | Holds                                                                 | From      |
 | ---------------------- | --------------------------------------------------------------------- | --------- |
 | `goal`                 | the journey, and the surface the person enters it from                | gate 0    |
-| `level`                | the rung the change stops at, L0 to L6                                | gate 1    |
-| `alternatives`         | rungs, cheapest first, each with why it was not adequate              | gates 1–3 |
+| `level`                | the level the change stops at, L0 to L6                               | gate 1    |
+| `alternatives`         | levels, cheapest first, each with why it was not adequate             | gates 1–3 |
 | `custom_surfaces`      | every surface we now own, named                                       | gate 3    |
 | `revalidation_surface` | what has to be retested on each RHDH release                          | gate 1    |
 | `reversal_cost`        | what removing it later costs: routes, nav items, links, habits        | gate 1    |
 | `gap`                  | wiring, slot or primitive, or none                                    | gate 2    |
 | `author`               | Backstage upstream, the RHDH product stream, or the Automation portal | gate 2    |
 | `upstream_issue`       | the issue that makes a workaround deletable, or none                  | gate 2    |
-| `justification`        | one sentence, wherever a rung was skipped or a component written      | gates 1–3 |
+| `justification`        | one sentence, wherever a level was skipped or a component written     | gates 1–3 |
 
 When the levels disagree — a contribution into someone else's page that carries
-a bespoke region inside it — `level` records the highest rung any part of the
+a bespoke region inside it — `level` records the highest level any part of the
 change occupies, and `custom_surfaces` says where the bespoke part actually
 sits. Appendix B.6 is that case.
 
 ### 4.2 The alternatives list
 
 `alternatives` is the field that makes the rest reviewable. It is ordered
-cheapest first, so the ladder was walked rather than sampled. Every rung below
+cheapest first, so the levels were walked rather than sampled. Every level below
 the chosen level appears, because skipping one is what this document exists to
-surface. Every rung above it that somebody actually proposed appears too,
+surface. Every level above it that somebody actually proposed appears too,
 because "we could just build a page" is a proposal to answer rather than absorb.
 Each line carries its reason, so "we did not think of it" cannot be written in
 the same words as "we considered it".
@@ -1097,9 +1113,9 @@ whether the decision was a good one.
 
 There is a cheap enforcement left for the record itself, and it is worth doing
 once there are enough records to be worth parsing: a schema check that fails
-when a record omits a rung below its chosen level, or when an alternative has no
-reason. That catches the one failure mode a reviewer reliably misses, which is
-an incomplete ladder.
+when a record omits a cheaper level than the one it chose, or when an
+alternative has no reason. That catches the one failure mode a reviewer reliably
+misses, which is an incomplete alternatives list.
 
 ### 4.4 A filled record
 
@@ -1108,7 +1124,7 @@ The record for Appendix A, in full:
 - **Goal:** create an execution environment, entered from the Create tab of the
   execution environments page.
 - **Level:** L5 — the Create tab renders its own template list, and section 4.1
-  records the highest rung any part of the change occupies. `custom_surfaces`
+  records the highest level any part of the change occupies. `custom_surfaces`
   says where that part sits; the page around it is L4, and the proposal is to
   come back down to L3.
 - **Alternatives, cheapest first:**
@@ -1143,7 +1159,7 @@ The record for Appendix A, in full:
 
 A reviewer needs three answers, and the record supplies them in this order:
 
-- What is the cheapest rung this change could have stopped at, and why did it
+- What is the cheapest level this change could have stopped at, and why did it
   not?
 - Which surface does this team now own that it did not own before?
 - If this ships and the product moves, what does it cost to take back out?
@@ -1335,7 +1351,7 @@ the dependency graph are already kit-independent.
   the surrounding plugin as well.
 - **Packaging:** L6. Its own repository, its own release, consumed as a tarball.
 
-One rung cannot say this. It is why the record carries `level` and
+One level cannot say this. It is why the record carries `level` and
 `custom_surfaces` separately, and it is why the tree is applied per region: a
 change can contribute into someone else's page and still carry a bespoke region
 inside it.
