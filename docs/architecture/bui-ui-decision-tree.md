@@ -29,8 +29,9 @@ those terms are about how we decide and talk, not about things on a shelf.
 Provenance is stated once per section: _upstream_ (Backstage), _RHDH_ (Red Hat
 Developer Hub), or _program_ (our own vocabulary, with no construct behind it).
 Where a term differs from its section, a tag follows the name, for example
-**Surface** _(program)_. Program terms are the dangerous ones: they sound
-technical and are not.
+**Surface** _(program)_. A qualifier may follow the provenance: _(program +
+scan)_ marks a term the drift check can detect in source. Program terms are the
+dangerous ones: they sound technical and are not.
 
 A term is defined once, in section 1. Sections 2 onward use only those terms;
 when a new one is needed, it is added to section 1 first. If a sentence in this
@@ -64,22 +65,30 @@ statement about who they are for. Adopt the constructs; compose your own
 experience.
 
 That is the ambition for the Automation Portal: a composition of RHDH
-constructs, not a fork of RHDH. Same product underneath, assembled into an
-experience for automation content.
+constructs, not a fork of RHDH.
 
-**The hardware store.** Think of RHDH as a hardware store that already has a
-specific set of tools and materials on the shelf. That shelf is the initial
-limit: solve the problem with something on it where you can. Assembling those
-materials into a project the store has never sold is composition, and it is the
-usual answer. Section 1 lists what is on the shelf, construct by construct, with
-the store's counterpart beside each one.
+**The hardware store.** Think of RHDH as a hardware store with a specific set of
+things on the shelf. Some of it is loose tools and materials: primitives,
+blueprints, extension points, host services. Some of it is already assembled:
+the Catalog page, the global header, the Software Templates route. Buying the
+assembled thing is the cheapest item in the store. Composing a project the store
+has never sold is the usual answer when nothing assembled fits, and it costs
+more than buying what already exists. That shelf is the initial limit.
+
+As of RHDH 2.1 — the versions Appendix C pins — the shelf includes the new
+frontend system, `@backstage/ui` and the RHDH theme. Legacy mount-point
+configuration is still on it, but it is being retired rather than extended.
+
+The Automation Portal is that shelf put to work for automation content. Section
+1 lists what is on the shelf, construct by construct, with the store's
+counterpart beside each one.
 
 What you should not do is go to a different store: a second design system beside
 the platform's, or a separate app that only looks like RHDH. If a tool is
-genuinely missing, order it, which means filing upstream, and use the closest
-available item until it arrives. If you must fabricate a part, say in one
-sentence why, and offer the design back to the store so that nobody fabricates
-it twice.
+genuinely missing, order it from the right place — Backstage upstream, the RHDH
+product stream, or the Automation portal — and use the closest available item
+until it arrives. If you must fabricate a part, say in one sentence why, and
+offer the design back to the store so nobody fabricates it twice.
 
 For a third-party plugin author this is the exchange being offered: use the
 platform's materials and you inherit the platform's maintenance; bring your own
@@ -89,6 +98,18 @@ The metaphor stops here. "Store" and "shelf" are not terms in this document;
 they only help place the real terms, which begin in section 1.
 
 ## 1. Vocabulary
+
+Groups A to D name constructs. Groups E and F name terms this document uses to
+decide, and to keep apart from things that only sound like UI. Group G holds
+words still waiting for a definition.
+
+One construct causes more misunderstanding than any other. An **extension
+blueprint** is defined below in `A` as a typed factory that produces an
+extension: it registers a UI contribution in the extension tree and decides
+nothing about how that contribution renders. Everything else in this document
+follows from that. "It's just a blueprint" is a claim about the architecture
+axis only (`2.1`), and says nothing about the surface axis, where the same
+contribution can be stock, composed, overridden or bespoke.
 
 ### A. Composition — the parts list
 
@@ -141,7 +162,8 @@ extensions are produced from blueprints. Everything in this section is
 - `Store:` one part, already fitted into the assembly.
 
 **Extension blueprint** — a typed template for making an extension; it carries a
-contract and defaults, and no visuals.
+contract and defaults, and no visuals. It registers a contribution; it does not
+render it.
 
 - `Code:` `PageBlueprint.makeWithOverrides({ inputs, factory })`,
   `SubPageBlueprint.make({...})`.
@@ -213,22 +235,37 @@ build or image; registered means the app has actually mounted its extensions.
 Same constructs, different packaging, hosting and ownership. Everything in this
 section is **RHDH**, except where a term is marked otherwise.
 
+**Stream** _(program)_ — which of three supply lines a construct comes from. The
+name matters in filing instructions, where "upstream" on its own is ambiguous.
+
+- `Code:` the package scope names the stream: `@backstage/*`,
+  `@red-hat-developer-hub/*` or `@ansible/*`.
+- `In RHDH:` RHDH consumes all three; only the second is Red Hat's own code.
+- `Store:` which supplier the part came from, which decides who accepts a
+  return.
+
+| Stream              | Package scope              | What it contains                                            |
+| ------------------- | -------------------------- | ----------------------------------------------------------- |
+| Backstage upstream  | `@backstage/*`             | community primitives and core blueprints                    |
+| RHDH product stream | `@red-hat-developer-hub/*` | `rhdh` and `rhdh-plugins`: the distribution and its plugins |
+| Automation portal   | `@ansible/*`               | the portal's host wiring and plugins                        |
+
 **Authorship** _(program)_ — who wrote the code that declares an extension. It
 is a separate question from who ships it and who composes the app, and only
 authorship determines where a fix can be filed.
 
-- `Code:` the package scope is the first hint: `@backstage/*` is upstream,
-  `@red-hat-developer-hub/*` is Red Hat, `@ansible/*` is ours.
+- `Code:` the package scope names the stream, as above. Only the stream that
+  authors the code can accept a fix.
 - `In RHDH:` RHDH ships `@backstage/plugin-scaffolder` but does not author it;
   it ships the global header, which it does author.
 - `Store:` the maker's stamp on the part, which decides who honours the
   warranty.
 
-| Question         | Values                              | What it decides                   |
-| ---------------- | ----------------------------------- | --------------------------------- |
-| Who ships it?    | the RHDH image, or a dynamic plugin | how it is updated                 |
-| Who authors it?  | Backstage upstream, Red Hat, or us  | which repository an issue goes to |
-| Who composes it? | the RHDH host app, or a portal app  | who can override it               |
+| Question         | Values                                                                | What it decides                   |
+| ---------------- | --------------------------------------------------------------------- | --------------------------------- |
+| Who ships it?    | the RHDH image, or a dynamic plugin                                   | how it is updated                 |
+| Who authors it?  | Backstage upstream, the RHDH product stream, or the Automation portal | which repository an issue goes to |
+| Who composes it? | the RHDH host app, or a portal app                                    | who can override it               |
 
 **RHDH host app** — Red Hat's own assembled app.
 
@@ -243,6 +280,14 @@ authorship determines where a fix can be filed.
 - `In RHDH:` the plugins a customer adds after installation; same UI, delivered
   differently.
 - `Store:` a part delivered after the store was built.
+
+**How RHDH 2.1 attaches UI** _(RHDH)_ — the construct set behind "2.1 and later
+attach new UI through the new frontend system". A package exports a plugin or a
+module from its `alpha.tsx` entry point (`createFrontendPlugin`,
+`createFrontendModule`); the host enables it through `app.extensions`; the
+dynamic feature loader adds dynamic plugins to the same extension tree at
+runtime. The constructs are `A`'s and the delivery is this section's. Legacy
+mount-point configuration is transitional: still loaded, not extended.
 
 **Legacy mount-point configuration** — the retiring YAML model.
 
@@ -378,10 +423,21 @@ entity. Contributed, not owned.
   when you start a template.
 - `Store:` a small window that opens over the counter and then closes.
 
+**Toast / transient notification** — a short, self-dismissing message that
+confirms or rejects an action. It is raised by whatever surface triggered it,
+has no route, and is owned by no extension of its own. It is not the
+Notifications page, which is a persistent inbox with a route.
+
+- `Code:` a component rendered by the code that triggered it. `@backstage/ui`
+  0.17.1 ships none; the nearest stock piece is `Alert`.
+- `In RHDH:` the confirmation after a scaffolder run, gone a few seconds later —
+  versus the bell icon that keeps a history.
+- `Store:` the bell at the counter: one moment, then nothing.
+
 ### D. Rendering — what becomes pixels
 
 Below the loader, none of the composition constructs apply. **Upstream**, plus
-**RHDH** for the theme.
+**RHDH** for the theme, plus one _program_ note on PatternFly.
 
 **Loader** — the lazy handoff between "the extension exists" and "this is what
 it looks like."
@@ -406,6 +462,17 @@ it looks like."
   adoption actually changes.
 - `Store:` the raw stock and standard fittings everything else is made from.
 
+**PatternFly** _(program)_ — not part of the RHDH visual language, and not a
+supported choice for new Automation Portal UI. New work uses the new frontend
+system, `@backstage/ui` and the RHDH theme. PatternFly survives only where
+Appendix B records an exception, and what remains is custom surface that we
+carry: flagged in review, narrowed over time, never a default path.
+
+- `Code:` `@patternfly/react-core` in a `@ansible/*` package.
+- `In RHDH:` a page whose controls do not follow the host theme, because its
+  components are built to a different design system.
+- `Store:` stock ordered from a different supplier.
+
 **Swappable component** — a named rendering decision someone else can replace.
 
 - `Code:` `TemplateCardComponent`, `SwappableComponentBlueprint`.
@@ -427,90 +494,129 @@ language assets.
 These have no construct behind them. They are how we make and record decisions,
 and they must not be used as if they were implementation terms. **Program**.
 
+Terms here are ours, so their example bullet reads `In the automation portal:`.
+Where a stock RHDH counterpart exists it is given as `In RHDH (stock):`; where
+none exists, the bullet is omitted rather than filled with an invented one.
+
 **Journey** — the user's task end to end.
 
 - `Code:` not a construct; measured across pages.
-- `In RHDH:` "create an execution environment", from the sidebar entry to the
-  finished job.
+- `In RHDH (stock):` "create something from a template", from the Create page to
+  the finished task.
+- `In the automation portal:` "create an execution environment", from the Create
+  button on the execution environments page to the finished job.
 
 **Page archetype** — the agreed layout pattern for a page type (collection,
 detail, wizard, dashboard).
 
 - `Code:` not a construct; a design decision recorded before engineering.
-- `In RHDH:` the familiar "filters on the left, results on the right" collection
+- `In RHDH (stock):` the "filters on the left, results on the right" collection
   layout used by Catalog.
+- `In the automation portal:` the execution environments list, which is a
+  collection page (Appendix A).
 
 **Level of reuse (L0–L6)** — how much existing product a change reuses, from
 configuration only up to a new plugin. Enumerated in section 2.2. Each level is
 a rung, and the ordered set of rungs is the ladder; both words mean only this.
 
 - `Code:` not a construct; the gate this document adds.
-- `In RHDH:` renaming a page, re-declaring a page, and downloading a new plugin
-  are all everyday visible things — they just cost very different amounts.
+- `In RHDH (stock):` RHDH renames and re-declares stock pages —
+  `page:scaffolder` becomes "Self-service" — without forking them.
+- `In the automation portal:` renaming a page, re-declaring a page, and
+  downloading a new plugin are all everyday visible things; they just cost very
+  different amounts.
 
 **Carrying cost** — the recurring cost of owning a surface: revalidating it
 against each release, triaging breakage, maintaining its tests, and supporting
 its users. _program_
 
 - `Code:` no construct; it is revalidation work repeated over time.
-- `In RHDH:` the custom cards that must be retested on every upgrade, while the
-  stock Catalog page does not.
+- `In the automation portal:` the custom cards that must be retested on every
+  upgrade, while the stock Catalog page does not.
 
 **Reversal cost** — the one-time cost of removing a surface after it ships:
 routes, nav items, user habits, and any code that links to it. _program_
 
 - `Code:` no construct; it is a retirement estimate.
-- `In RHDH:` telling users that a page they bookmarked is going away.
+- `In the automation portal:` telling users that a page they bookmarked is going
+  away.
 
 **Disposition** — the decision about one piece of existing UI: Replace, Wrap,
 Keep, or Contribute upstream.
 
 - `Code:` a registry field.
-- `In RHDH:` replacing a hand-built table with the stock catalog table is
-  Replace; keeping a bespoke dialog is Keep, justified.
+- `In the automation portal:` replacing a hand-built table with the stock
+  catalog table is Replace; keeping a bespoke dialog is Keep, justified.
 
-**Custom surface** — UI whose look we own and must maintain across upgrades.
+**Custom component** _(program + scan)_ — one component whose rendering we own:
+hand-written visual React, a stock component under non-trivial CSS, or one from
+a second design system. It is the unit the scan counts and the unit a review
+flags. It is not the unit the decision is made in.
 
-- `Code:` not a construct; measured by visual ownership, not by who wrote the
-  code.
-- `In RHDH:` a page built from stock cards is not custom; a stock card buried
-  under heavy CSS is.
+- `Code:` an import of `@material-ui/*` or `@patternfly/*` in a `@ansible/*`
+  file, or a `makeStyles` or `styled` block that goes beyond the theme's values.
+- `In the automation portal:` the flagged components inside a page that
+  otherwise uses stock cards.
+
+**Custom surface** — a surface we own and must maintain across upgrades: its
+route and nav item if it has them, its tests, and its look where we wrote it. It
+is the unit of carrying cost, and the record sets it, not the scan.
+
+- **Not a custom surface:** blueprints and stock primitives, theme values only,
+  no CSS we own, and no route or loader tree of our own. That is an `L3`
+  contribution into someone else's surface.
+- **A custom surface:** CSS we own, a loader tree that is not stock, meaning a
+  page or sub-page of our own, a component from a second kit, or domain chrome
+  we cannot revalidate upstream.
+- `Code:` not a construct; measured by ownership, not by who wrote the code.
+- `In the automation portal:` a page of ours built from stock cards is a custom
+  surface, because we own the route; a stock card buried under heavy CSS is a
+  custom component, which makes the surface custom only if we own the page it
+  sits in.
 
 **Registry entry / tier** — the written record and the measurement bucket.
 
 - `Code:` audit record fields.
-- `In RHDH:` the answer to "how much of our UI is bespoke, and is it going
-  down?"
+- `In the automation portal:` the answer to "how much of our UI is bespoke, and
+  is it going down?"
+
+**Compass** _(program)_ — the UX-owned workflow for auditing the Automation
+Portal's UI from its legacy journeys and planning the new frontend system and
+BUI targets: a journey inventory and page archetypes. It is a tool, not a
+construct, and it has no runtime presence.
+
+| Compass is                                | Compass is not                                        |
+| ----------------------------------------- | ----------------------------------------------------- |
+| UX-owned audit and migration planning     | an engineering deliverable or a runtime artifact      |
+| input to disposition and journey sign-off | a feature mockup or an implementation source of truth |
+| may reference prototypes under UX control | a shipped product route until separately productized  |
+
+- `Code:` none; no package, no export.
+- `In the automation portal:` Compass says what to migrate and when a journey is
+  signed off. It does not define production UI without that sign-off.
 
 ### F. Sounds like UI, isn't
 
 **Software template** — the catalog entity the page lists.
 
 - `Code:` kind `Template`, `v1beta3`.
-- `In RHDH:` each card you click on the Software Templates page is a template;
-  the page itself is not one.
+- `In RHDH (stock):` each card you click on the Software Templates page is a
+  template; the page itself is not one.
 
 **Scaffolder action / task** — a step in a template, and a run of one.
 
 - `Code:` a backend action; a task record.
-- `In RHDH:` the "Tasks" tab showing the runs you started, which is a different
-  tab from Templates.
+- `In RHDH (stock):` the "Tasks" tab showing the runs you started, which is a
+  different tab from Templates.
 
 ### G. Terms awaiting definition
 
-Words that have appeared in program discussion without an agreed meaning. They
-are recorded here so that nobody invents a definition for them mid-argument.
-None of them may be used in a decision in this document until it is defined and
-moved into sections A to F.
+Words that appear in program discussion without an agreed meaning are recorded
+here, so that nobody invents a definition for them mid-argument. None may be
+used in a decision in this document until it is defined and moved into sections
+A to F.
 
-**Compass** — _awaiting definition_. The word has been used without saying what
-it refers to. It has not been established whether it names a product capability,
-a screen, or a section of a UX prototype, and in discussion it was not qualified
-as "PR Compass".
-
-- `Code:` none.
-- `In RHDH:` unknown. Prototype paths such as `/pr-compass/mvp/prototype` exist,
-  but a path is not a definition.
+None at present.
 
 ## 2. Framing
 
@@ -528,9 +634,10 @@ entirely custom in appearance.
 **Surface** — what it looks like, and who owns that look. From stock to bespoke:
 a stock primitive, then a composition of stock primitives, then a stock
 primitive with CSS overrides, then a bespoke component. A stock primitive with
-non-trivial CSS is custom surface, which is why this axis is measured by who
-owns the look rather than by who wrote the code. This is the axis the drift
-check measures.
+non-trivial CSS is a custom component; a surface is custom when we own it,
+whether or not its parts are stock. This is why the axis is measured by
+ownership rather than by who wrote the code. The drift check measures only the
+component part of it.
 
 **Journey** — how a person gets there. From embedded to a new page: a
 contribution inside an existing surface with no `Route` of its own, then a stock
@@ -610,11 +717,11 @@ product. The comparison is always between two carrying costs, never between
 
 **Both directions are drift.** There are two ways to avoid a cheap answer:
 customise the stock surface until it is bespoke, or leave the stock surface
-alone and build a new one. The first adds custom surface without adding a route;
-the second adds a route without adding custom surface. A registry that measures
-only one of them rewards the other, which is why an entry records `level`, the
-number of custom surfaces the change introduces, and the surface that must be
-revalidated (section 4).
+alone and build a new one. The first adds custom components without adding a
+route; the second adds a route, and with it a surface we own. A registry that
+measures only one of them rewards the other, which is why an entry records
+`level`, every surface we now own, and what must be revalidated, while the scan
+covers the components inside them (section 4).
 
 **The order is walked, not negotiated.** A decision that skips a level states,
 in one sentence, why the skipped level is not good enough. That sentence is the
@@ -654,7 +761,7 @@ plugin that owns it declares no extension point for content of that kind.
 - `Code:` the owning extension has no `createExtensionInput(...)` accepting the
   extension data ref you need to supply.
 - `In RHDH:` the templates sub-page accepts `formFields` and a template filter,
-  but has no input for a banner or a notification.
+  but has no input for a banner or a toast (`1.C`).
 - `Fix lives in:` the repository that authors the plugin declaring that surface
   — `backstage/backstage`, `redhat-developer/rhdh-plugins`, or this repository.
 
@@ -664,7 +771,8 @@ arrangement of existing components reproduces it.
 - `Code:` no `@backstage/ui` export matches the need, and no composition of
   existing components plus the theme's values (colour, spacing, type) reproduces
   the behaviour.
-- `In RHDH:` there is no notification component to compose from at all.
+- `In RHDH:` there is no toast component to compose from at all (`1.C`);
+  `@backstage/ui` 0.17.1 ships none.
 - `Fix lives in:` `backstage/backstage` for `@backstage/ui`, or
   `redhat-developer/rhdh-plugins` for the theme.
 
@@ -878,18 +986,18 @@ the case it came from.
 
 ### 4.1 Fields
 
-| Field                  | Holds                                                            | From      |
-| ---------------------- | ---------------------------------------------------------------- | --------- |
-| `goal`                 | the journey, and the surface the person enters it from           | gate 0    |
-| `level`                | the rung the change stops at, L0 to L6                           | gate 1    |
-| `alternatives`         | rungs, cheapest first, each with why it was not adequate         | gates 1–3 |
-| `custom_surfaces`      | every surface we now own, named                                  | gate 3    |
-| `revalidation_surface` | what has to be retested on each RHDH release                     | gate 1    |
-| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits   | gate 1    |
-| `gap`                  | wiring, slot or primitive, or none                               | gate 2    |
-| `author`               | upstream Backstage, Red Hat, or us                               | gate 2    |
-| `upstream_issue`       | the issue that makes a workaround deletable, or none             | gate 2    |
-| `justification`        | one sentence, wherever a rung was skipped or a component written | gates 1–3 |
+| Field                  | Holds                                                                 | From      |
+| ---------------------- | --------------------------------------------------------------------- | --------- |
+| `goal`                 | the journey, and the surface the person enters it from                | gate 0    |
+| `level`                | the rung the change stops at, L0 to L6                                | gate 1    |
+| `alternatives`         | rungs, cheapest first, each with why it was not adequate              | gates 1–3 |
+| `custom_surfaces`      | every surface we now own, named                                       | gate 3    |
+| `revalidation_surface` | what has to be retested on each RHDH release                          | gate 1    |
+| `reversal_cost`        | what removing it later costs: routes, nav items, links, habits        | gate 1    |
+| `gap`                  | wiring, slot or primitive, or none                                    | gate 2    |
+| `author`               | Backstage upstream, the RHDH product stream, or the Automation portal | gate 2    |
+| `upstream_issue`       | the issue that makes a workaround deletable, or none                  | gate 2    |
+| `justification`        | one sentence, wherever a rung was skipped or a component written      | gates 1–3 |
 
 When the levels disagree — a contribution into someone else's page that carries
 a bespoke region inside it — `level` records the highest rung any part of the
@@ -911,9 +1019,10 @@ the same words as "we considered it".
 The advisory drift check proposed in #1040 (`bui-baseline.yaml`,
 `scripts/check-bui-drift.mjs`) reads source. It is not in CI yet; what follows
 is what it will and will not prove once it lands. It covers one field only:
-whether new non-BUI imports appeared, and whether the baseline grew. That is the
-`custom_surfaces` ceiling, and it is a good ceiling, because it is the one
-signal a machine can read honestly.
+whether new non-BUI imports appeared, and whether the baseline grew. That is a
+floor on custom components, not a count of `custom_surfaces`, because a surface
+can be ours while every component in it is stock. The scan approximates the
+component rule; it does not decide it.
 
 Everything else in the table is a claim about intent, and imports cannot see it.
 A bespoke page written entirely in `@backstage/ui` produces no finding, and a
@@ -925,10 +1034,17 @@ record exists precisely to hold what the check cannot:
 - **`gap`** is a claim about what the product is missing, which is what makes an
   upstream ask possible at all.
 
-So the two artefacts divide the work. The check enforces the ceiling on surface;
-the record explains the position on the journey and on the gap. Neither
-substitutes for the other, and a green check says nothing about whether the
-decision was a good one.
+The two measurements answer different questions and are expected to disagree. A
+low flagged percentage against an `L5` record means the bespoke part is
+composition rather than imports: the Create tab's template list in Appendix A is
+that case. A high flagged percentage against an `L4` record means we own a route
+built largely from other people's parts. In both cases the record is
+authoritative, and the disagreement earns one sentence in the record.
+
+So the two artefacts divide the work. The check enforces the ceiling on custom
+components; the record explains the position on the surface, the journey and the
+gap. Neither substitutes for the other, and a green check says nothing about
+whether the decision was a good one.
 
 There is a cheap enforcement left for the record itself, and it is worth doing
 once there are enough records to be worth parsing: a schema check that fails
@@ -1240,12 +1356,12 @@ The middle column says what a component is for, not where you can see it today.
 **Cost is a property of how you change a component, not of which one you pick.**
 Every row above can be changed three ways, and they cost different amounts:
 
-| Way                | What it means                                                           | Carrying cost |
-| ------------------ | ----------------------------------------------------------------------- | ------------- |
-| props              | you pass what the component already accepts                             | none          |
-| theme values       | colour, spacing and type from the theme, applied to every instance      | low           |
-| `className` or CSS | you own the look from that point on: it is custom surface and it drifts | medium        |
-| your own component | you replace it rather than change it                                    | high          |
+| Way                | What it means                                                                | Carrying cost |
+| ------------------ | ---------------------------------------------------------------------------- | ------------- |
+| props              | you pass what the component already accepts                                  | none          |
+| theme values       | colour, spacing and type from the theme, applied to every instance           | low           |
+| `className` or CSS | you own the look from that point on: it is a custom component, and it drifts | medium        |
+| your own component | you replace it rather than change it                                         | high          |
 
 The step from theme values to CSS is the one that matters. Above it, the
 component is still upstream's and the drift check leaves you alone. Below it,
@@ -1299,7 +1415,7 @@ full set is larger and changes between releases.
 | Search             | `/search`            | stock                                                                     |
 | Settings           | `/settings`          | stock, with General, Authentication Providers and Feature Flags sub-pages |
 | Docs               | `/docs`              | stock                                                                     |
-| Notifications      | `/notifications`     | stock                                                                     |
+| Notifications      | `/notifications`     | stock — a persistent inbox, not a toast (`1.C`)                           |
 | Home               | `/home`              | replaced in RHDH by the dynamic home page                                 |
 | X2Ansible          | `/x2a`               | ours, in `rhdh-plugins`                                                   |
 | Orchestrator       | `/orchestrator`      | ours, in `rhdh-plugins`                                                   |
@@ -1417,12 +1533,13 @@ lower bounds, each checkable by grep:
   _at least_ L3. A `PageBlueprint` or `SubPageBlueprint` in the diff means _at
   least_ L4. A `withOverrides(` on someone else's extension means a slot
   workaround, and wants an upstream issue.
-- **From imports.** The non-BUI imports counted by the drift check give the
-  floor for `custom_surfaces`.
+- **From imports.** The non-BUI imports counted by the drift check give a floor
+  on the custom components. They say nothing about which surfaces those
+  components sit in.
 
 Neither is a decision, and together they bracket one. A record claiming L3 while
 the diff contains a `PageBlueprint` is wrong in a way anyone can check. A record
-claiming no custom surface while the diff imports `@material-ui/core` is wrong
+claiming no custom component while the diff imports `@material-ui/core` is wrong
 the same way.
 
 Nothing reads blueprint usage automatically today: the advisory drift check
