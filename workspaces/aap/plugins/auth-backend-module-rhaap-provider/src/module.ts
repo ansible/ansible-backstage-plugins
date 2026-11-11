@@ -6,10 +6,8 @@ import {
   authProvidersExtensionPoint,
   createOAuthProviderFactory,
 } from '@backstage/plugin-auth-node';
-import {
-  ansibleServiceRef,
-  userProvisionerRef,
-} from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/aap-node';
+import { userProvisionerRef } from '@ansible/backstage-rhaap-common';
 import { AAPAuthSignInResolvers } from './resolvers';
 import { aapAuthAuthenticator } from './authenticator';
 import { createUserJobTemplatesRouter } from './userJobTemplatesRouter';

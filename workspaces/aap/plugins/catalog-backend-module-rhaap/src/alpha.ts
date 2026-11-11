@@ -5,6 +5,7 @@ import {
 import {
   userProvisionerRef,
   UserProvisioner,
+  ansibleServiceFactory,
 } from '@ansible/backstage-rhaap-common';
 import { catalogModuleRhaap } from './module';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
@@ -12,6 +13,7 @@ import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 /** Dynamic deployments need the same organization adapter as the development backend. */
 export default createBackendFeatureLoader({
   loader: function* () {
+    yield ansibleServiceFactory;
     yield rhaapOrganizationServiceFactory;
     // Embedded packages carry distinct service-ref objects; explicitly register
     // the factory by service ID so auth and catalog share one provisioner.
