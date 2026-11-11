@@ -1939,13 +1939,27 @@ addition.
 re-declares it; filing there would bounce to the same place. RHDH is a consumer
 of the fix and should delete its fork when the inputs land.
 
+**Upstream issue:** `backstage/backstage#33438`, "Add extendable columns and
+actions for catalog page", open since March 2026 and unstale twice by its author.
+It describes this case almost exactly — overriding `page:catalog` to get columns
+and actions, and wanting the same extension treatment filters already get — so
+this repository added its evidence to that thread rather than opening a
+duplicate: the RHDH fork, the lost `filters` input, and the sub-page
+restructure.
+
+Two pull requests have attempted it and neither merged: `#34350`, a `v2` catalog
+page on the `@backstage/ui` Table with a `CatalogColumnBlueprint`, and `#34397`,
+a narrower `CatalogColumnBlueprint` with a `columns` input. The shape is
+therefore agreed in outline and the blocker is design sign-off, not demand. That
+changes what this record needs from the issue: not another vote, but a reviewer.
+
 **The shape of the ask,** which is small and has an in-tree template:
 
-- a `CatalogTableColumnsBlueprint` attaching to a new `tableColumns` input,
-  modelled on the existing `CatalogExportConfigBlueprint` in the same file —
-  `attachTo: { id: 'page:catalog', input: 'exportConfig' }` is already the
-  pattern;
-- the same for row actions as a `tableActions` input;
+- a `columns` input on `page:catalog`, fed by the `CatalogColumnBlueprint` that
+  `#34397` already proposes, attached the way `CatalogExportConfigBlueprint` is
+  in the same file — `attachTo: { id: 'page:catalog', input: 'exportConfig' }`;
+- the same treatment for row actions, as an `actions` input, which no pull
+  request has attempted yet;
 - drop the catalog page's `loader` and make the list its first sub-page, which
   is the structure `scaffolderPage` already uses. Tabs then work, and the list
   becomes a sub-page anything else can sit beside.
@@ -2009,9 +2023,11 @@ the upstream issue.
   and the loader-less restructure for tabs.
 - **Filing stream:** Backstage upstream, with RHDH as the consumer that should
   delete its fork.
-- **Upstream issue:** not yet filed. The shape is in `F.4`; until it is filed,
-  this workaround has no exit and the record should not be approved as a
-  standing pattern.
+- **Upstream issue:** `backstage/backstage#33438`, with this repository's case
+  added to the thread. The implementation PRs so far (`#34350`, `#34397`) were
+  closed unmerged, so what the issue needs now is design review rather than more
+  demand. Until one lands, this workaround's exit depends on somebody other than
+  us.
 - **Justification:** the page is ours only for the columns, actions and tabs
   `page:catalog` does not expose; when those inputs land, the archetype collapses
   into configuration and a column contribution, and RHDH's fork collapses with
@@ -2019,8 +2035,10 @@ the upstream issue.
 
 ### F.6 The exit
 
-This appendix is written to be deleted from. The moment `tableColumns` and
-`tableActions` exist upstream, three things happen together:
+This appendix is written to be deleted from. The issue to watch is
+`backstage/backstage#33438`; `#34397` is the shape that would satisfy it. The
+moment `tableColumns` and `tableActions` exist upstream, three things happen
+together:
 
 - the shared list component is replaced by configuration on the stock page plus
   a columns contribution, and `custom_surfaces` drops to the cells;
@@ -2056,5 +2074,12 @@ portal can contribute a filter to the stock page at all.
   `redhat-developer/rhdh`
 - The advisory BUI drift check: `bui-baseline.yaml` and
   `scripts/check-bui-drift.mjs` in this repository
+- Catalog page columns and actions, the open issue this appendix files against:
+  <https://github.com/backstage/backstage/issues/33438>
+- The two unmerged attempts at it:
+  <https://github.com/backstage/backstage/pull/34350> and
+  <https://github.com/backstage/backstage/pull/34397>
+- RHDH's catalog page fork:
+  <https://github.com/redhat-developer/rhdh/blob/main/packages/app/src/modules/catalog/index.tsx>
 - Backstage UI storybook, including the `Recipes/` and `Guidelines/` stories:
   <https://backstage.io/storybook>
