@@ -307,10 +307,7 @@ describe('createRouter', () => {
       ],
       [
         'content',
-        [
-          '/ansible/sync/status/content',
-          '/ansible/sync/status/self-service',
-        ],
+        ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
         ['/ansible/sync/status/aap'],
       ],
       [

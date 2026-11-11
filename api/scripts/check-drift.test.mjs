@@ -5,7 +5,7 @@ import { checkRouteDrift } from './check-drift.mjs';
 
 const healthRoutes = [
   {
-    file: 'workspaces/aap/plugins/catalog-backend-module-rhaap/src/router.ts',
+    file: 'workspaces/aap/plugins/catalog-backend-module-rhaap-shared/src/router.ts',
     path: '/api/catalog/health',
   },
   {
