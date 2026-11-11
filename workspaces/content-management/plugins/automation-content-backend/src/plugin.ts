@@ -72,7 +72,7 @@ export const automationContentPlugin = createBackendPlugin({
         // tag-to-digest map actually differs. Without this, a push into the registry
         // is invisible for up to a full refresh interval.
         await scheduler.scheduleTask({
-          id: 'automation-content-drift-poll',
+          id: 'content-management-drift-poll',
           frequency: { seconds: 120 },
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
@@ -92,7 +92,7 @@ export const automationContentPlugin = createBackendPlugin({
         });
 
         await scheduler.scheduleTask({
-          id: 'automation-content-store-refresh',
+          id: 'content-management-store-refresh',
           frequency: { minutes: 30 },
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },
