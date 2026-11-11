@@ -1354,6 +1354,10 @@ The other end of the range. Where Appendix A stops at L3 with nothing of ours to
 carry, this one carries a region of bespoke UI — and the interesting part is
 that most of its surface was never justified by a missing shape.
 
+For the execution environment template form fields — base image selection and
+the rest — see `A.4`. They are not this appendix's subject, and the two records
+must not be read as one.
+
 ### B.1 The journey, and the shape that is genuinely absent
 
 APME scans a repository, pauses for a choice, reviews findings and proposed
@@ -1366,7 +1370,10 @@ approval gates — has no native surface. Nothing in RHDH performs that shape, a
 it is the kind section 2.4 names as the exception: a review workbench with
 side-by-side diffs.
 
-The exception is granted, and it is granted for that region.
+The exception is granted, and it is granted for that region. Restated plainly:
+**granted** for the review workbench — findings, per-node proposals, diffs and
+approval gates; **not granted** for the tab it sits in, the page hosting the
+tab, the lists beside it, the settings, or the repository field in a template.
 
 ### B.2 What the exception does not buy
 
@@ -1377,7 +1384,9 @@ plugin they were largely built as bespoke surfaces anyway: 40 files importing
 on `@backstage/ui`, with several rendering through the `compatWrapper` bridge
 that mounts an old-style component inside a new-frontend-system extension. That
 is migration debt rather than a missing shape, and the two are easy to confuse
-when a plugin is written quickly.
+when a plugin is written quickly. Read this section as a debt inventory, not a
+precedent: every item is a shape the product already performs and was built
+anyway.
 
 ### B.3 The constraint that shaped the kit
 
@@ -1392,6 +1401,10 @@ and toggles a PatternFly class on `document.documentElement`, with refcounting,
 so that PatternFly tokens follow Backstage dark mode. It exists only because two
 kits meet, and it stops working the day RHDH stops providing a MUI theme.
 
+Read historically, this is context, not a pattern to extend. `1.D` states the
+rule for new work: PatternFly is not part of the RHDH visual language, and it
+survives only where an exception like this one is recorded and narrowed.
+
 ### B.4 A missing slot, worked around locally
 
 The Portal needed one control beside "View pull request". The shared component
@@ -1403,6 +1416,11 @@ the query once the upstream input exists.
 That is section 2.3's missing slot, and the workaround is what such a workaround
 costs: it reads the DOM of a component it does not own, and it breaks when that
 markup changes. The upstream ask was cheap by comparison.
+
+**Filing stream:** the input request belongs with the package's authors in
+`ansible/apme`; the fork is Portal debt in this repository. Neither is a
+Backstage or RHDH ask, which is why the field names a repository and not only an
+organisation.
 
 ### B.5 Where it is now
 
@@ -1443,7 +1461,9 @@ like this is only worth having while it is true.
 
 One honest note before the tables: RHDH 2.1 imports `@backstage/ui` in a single
 file, so most of these components do not yet appear in the product's own pages.
-The middle column says what a component is for, not where you can see it today.
+That is a fact about adoption, not about availability: they are supported shelf
+in 2.1. The middle column says what a component is for, not where you can see it
+today.
 
 ### C.1 Primitives
 
@@ -1536,6 +1556,11 @@ promises to keep working. **A new page of stock parts** is not expensive because
 of the components; it is expensive because of the route, the nav item and the
 tests that come with it.
 
+The **Sub-page** row is not an upstream-only construct. Sub-pages are
+first-class in RHDH 2.1's new frontend system, and the stock pages above are
+shipped inside RHDH even where Backstage authored them: authorship decides who
+accepts a fix, not what the product supports (`1.B`).
+
 ### C.3 Regenerating this appendix
 
 - The primitive list comes from the published package: RHDH's pin in
@@ -1545,6 +1570,9 @@ tests that come with it.
   consumes.
 - Both lists are checked in the same way as the drift baseline: regenerate,
   diff, commit. If the diff is large, that is the release note.
+- A pin move also revalidates every open decision record whose
+  `revalidation_surface` cites a primitive here. The appendix and the records go
+  stale together, so they are refreshed together.
 
 ### C.4 Pages and sub-pages, by example
 
@@ -1585,12 +1613,24 @@ the choice between them is the journey question in section 2.4.
    is how RHDH re-declares the Scaffolder page. The extension id defaults to
    `page:<pluginId>` and `sub-page:<pluginId>/<name>`; `path` is the route and
    `title` is the nav label.
-3. **What is RHDH's own?** The `redhat-developer/rhdh-plugins` workspaces. As of
-   2.1 they add pages and no sub-pages, so sub-pages are effectively an upstream
-   construct.
+3. **Who authored it?** Three answers, and authorship is not the same as what
+   the product supports:
+   - **Backstage-authored sub-pages**, shipped inside RHDH and native to the new
+     frontend system: Software Templates' `templates`, `tasks` and `actions`.
+   - **RHDH-authored pages** in `redhat-developer/rhdh-plugins`: mostly pages
+     today, with few sub-pages in that monorepo's inventory.
+   - **Portal-authored** pages and sub-pages in `@ansible/*`.
+
+   Sub-pages may be Backstage-authored and still be RHDH-supported shelf. File
+   slot and primitive gaps with the authoring stream; file wiring with the host
+   configuration.
+
 4. **What about tabs?** Entity page tabs are a separate list: search for
    `EntityContentBlueprint` and `EntityDetailTabBlueprint`. They are not pages
    and do not appear in any route list.
+
+Upstream is an authorship word, not a shelf word: a construct can be
+upstream-authored and still be supported and shipped in RHDH.
 
 Two cautions. Search results are a floor, not a total: pages are occasionally
 declared indirectly, and a code search is capped. And a page existing in a
@@ -1614,8 +1654,12 @@ contribution to one shared extension point, with an input per kind of
 contribution, and a contribution never supplies a route — the host owns
 navigation. Upstream Backstage declares a separate extension point per surface.
 Use the Portal blueprint when contributing to the Automation Portal and the
-upstream blueprint when contributing upstream. Where a column says `none`, that
-layer does not offer the construct, and section C.2 gives the workaround.
+upstream blueprint when contributing upstream. What a blueprint name proves is
+narrow: attachment to that layer's extension point. It proves nothing about the
+loader's contents, and a `PageBlueprint` over a hand-written screen is still a
+custom surface (`2.1`). Record what it proves and what it does not. Where a
+column says `none`, that layer does not offer the construct, and section C.2
+gives the workaround.
 
 ### D.1 Contributing into a surface you do not own — L3
 
