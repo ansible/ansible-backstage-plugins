@@ -5,14 +5,16 @@
  * @packageDocumentation
  */
 
-export { catalogModuleRhaap as default } from './module';
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import {
   createCatalogModule,
   createRouter as createSharedRouter,
   type CatalogModuleSlice,
 } from '@ansible/backstage-rhaap-common/catalog';
+import { catalogModuleRhaap } from './module';
 
-export { createCatalogModule };
+export { catalogModuleRhaap, createCatalogModule };
 
 /** Backward-compatible wrapper: defaults `slice` to `'all'` for legacy callers. */
 export function createRouter(
@@ -25,3 +27,13 @@ export function createRouter(
     slice: options.slice ?? 'all',
   });
 }
+
+/** The catalog loader owns transitional AAP service registration for dynamic installs. */
+const catalogFeatureLoader = createBackendFeatureLoader({
+  loader: function* () {
+    yield ansibleServiceFactory;
+    yield catalogModuleRhaap;
+  },
+});
+
+export default catalogFeatureLoader;

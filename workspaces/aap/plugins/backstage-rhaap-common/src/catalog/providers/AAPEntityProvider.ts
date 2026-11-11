@@ -24,10 +24,8 @@ import {
   toTeamGroupRef,
   toUserEntityRef,
 } from '@ansible/aap-common';
-import {
-  IAAPService,
-  findMissingConfiguredOrganizations,
-} from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
+import { findMissingConfiguredOrganizations } from '@ansible/backstage-rhaap-common';
 import { readAapApiEntityConfigs } from './config';
 import { organizationParser, teamParser, userParser } from './entityParser';
 import { resolveTaskRunner } from './helpers';

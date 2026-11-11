@@ -38,6 +38,9 @@ export function assertCatalogModuleSliceAllowed(
   slice: CatalogModuleSlice,
 ): void {
   if (slice === 'all') {
+    if (activeSlices.has('all')) {
+      return;
+    }
     const splitSlices = [...activeSlices].filter(s => s !== 'all');
     if (splitSlices.length > 0) {
       throw new Error(

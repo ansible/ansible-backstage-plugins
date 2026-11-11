@@ -437,6 +437,37 @@ export function createRouter(options: {
     );
   }
 
+  // Preserve legacy combined URL for content-only deployments (§4.4 / UI polling).
+  if (includeContent && slice === 'content') {
+    router.get(
+      '/ansible/sync/status',
+      syncStatusPermissionMiddleware,
+      (request, response) => {
+        const perms = response.locals.permissions as Record<string, boolean>;
+        if (!perms[catalogEntityReadPermission.name]) {
+          response
+            .status(403)
+            .json({ error: 'Forbidden: insufficient permissions' });
+          return;
+        }
+
+        const ansibleContents = request.query.ansible_contents === 'true';
+        const noQueryParams =
+          request.query.aap_entities === undefined &&
+          request.query.ansible_contents === undefined;
+
+        if (!ansibleContents && !noQueryParams) {
+          response.status(404).json({ error: 'Not found' });
+          return;
+        }
+
+        response.status(200).json({
+          content: buildContentSyncStatusPayload(),
+        });
+      },
+    );
+  }
+
   if (includeEe && eeEntityProvider) {
     router.get(
       '/ansible/sync/status/self-service',
