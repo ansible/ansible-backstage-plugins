@@ -72,8 +72,8 @@ export interface SigningState {
 
 export interface ArtifactListOptions {
   search?: string;
-  /** Complete repository groups, scoped by registry as well as repository. */
-  repositories?: Array<{ registry: string; repository: string }>;
+  /** Include every digest in the registry/repository groups matching the filters. */
+  expandRepositoryGroups?: boolean;
   registry?: string;
   collection?: string;
   contentsKnown?: boolean;
@@ -586,7 +586,7 @@ export class ContentStore {
     type?: string,
     options: ArtifactListOptions = {},
   ): Promise<IndexedArtifact[]> {
-    const rows = await this.artifactQuery({ ...options, type }).select(
+    const columns = [
       'ref',
       'registry',
       'repository',
@@ -596,6 +596,13 @@ export class ContentStore {
       'type',
       'contents_known',
       'classification',
+    ];
+    const rows = await this.artifactQuery({ ...options, type }).select(
+      columns.map(column =>
+        options.expandRepositoryGroups
+          ? `repository_artifacts.${column}`
+          : column,
+      ),
     );
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
   }
@@ -649,17 +656,34 @@ export class ContentStore {
     };
   }
 
-  private artifactQuery(opts: ArtifactListOptions) {
-    const query = this.db('artifacts');
-    if (opts.repositories) {
-      query.whereIn(
-        ['registry', 'repository'],
-        opts.repositories.map(({ registry, repository }) => [
-          registry,
-          repository,
-        ]),
+  private artifactQuery(opts: ArtifactListOptions): Knex.QueryBuilder {
+    if (opts.expandRepositoryGroups) {
+      // Join both identity columns inside SQL: binding a pair for every
+      // matching repository can exceed PostgreSQL and SQLite parameter limits.
+      const matches = this.artifactQuery({
+        ...opts,
+        expandRepositoryGroups: false,
+      }).distinct('registry', 'repository');
+      const groups = this.db({ repository_artifacts: 'artifacts' }).join(
+        matches.as('matching_repositories'),
+        function joinRepositoryGroups() {
+          this.on(
+            'repository_artifacts.registry',
+            '=',
+            'matching_repositories.registry',
+          ).andOn(
+            'repository_artifacts.repository',
+            '=',
+            'matching_repositories.repository',
+          );
+        },
       );
+      // Preserve the explicit registry restriction on the outer query too.
+      if (opts.registry)
+        groups.where('repository_artifacts.registry', opts.registry);
+      return groups;
     }
+    const query = this.db('artifacts');
     if (opts.collection) {
       const postgres = this.db.client.config.client === 'pg';
       query.whereRaw(

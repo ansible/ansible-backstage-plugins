@@ -987,25 +987,31 @@ describe('inventory search', () => {
       );
       expect(queries[0].split(' from ')[0]).not.toMatch(/manifest|\*/);
       expect(
-        await store.listArtifactSummaries(undefined, { repositories: [] }),
+        await store.listArtifactSummaries(undefined, {
+          registry: 'absent',
+          expandRepositoryGroups: true,
+        }),
       ).toEqual([]);
       const scoped = await store.listArtifactSummaries(undefined, {
-        repositories: [{ registry: 'Source', repository: 'repo-1' }],
+        registry: 'Source',
+        search: 'special_100%',
+        expandRepositoryGroups: true,
       });
-      expect(scoped.map(artifact => artifact.ref)).toEqual(['ref-1']);
+      expect(scoped.map(artifact => artifact.ref)).toEqual(['ref-11']);
       expect(
         (
           await store.listArtifactSummaries(undefined, {
-            repositories: [
-              { registry: 'Source', repository: 'repo-1' },
-              { registry: 'Source', repository: 'repo-2' },
-            ],
+            registry: 'Source',
+            search: 'repo-1',
+            expandRepositoryGroups: true,
           })
         ).map(artifact => artifact.ref),
-      ).toEqual(['ref-1', 'ref-2']);
+      ).toEqual(['ref-1', 'ref-10']);
       expect(
         await store.listArtifactSummaries(undefined, {
-          repositories: [{ registry: 'Other', repository: 'repo-1' }],
+          registry: 'Other',
+          search: 'repo-1',
+          expandRepositoryGroups: true,
         }),
       ).toEqual([]);
       expect(

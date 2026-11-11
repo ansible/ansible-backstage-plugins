@@ -439,19 +439,15 @@ export async function createRouter(
     let totalItems: number;
 
     // Match digests first, then select from the complete repository group.
+    const matchingType = typeof type === 'string' ? type : undefined;
+    const matchingFilters = { ...filters, collection: collectionFilter };
     const matches = await db.listArtifactSummaries(
-      typeof type === 'string' ? type : undefined,
-      { ...filters, collection: collectionFilter },
+      matchingType,
+      matchingFilters,
     );
-    const allArtifacts = await db.listArtifactSummaries(undefined, {
-      repositories: [
-        ...new Map(
-          matches.map(({ registry: source, repository }) => [
-            JSON.stringify([source, repository]),
-            { registry: source, repository },
-          ]),
-        ).values(),
-      ],
+    const allArtifacts = await db.listArtifactSummaries(matchingType, {
+      ...matchingFilters,
+      expandRepositoryGroups: true,
     });
     const artifacts = groupImages(
       allArtifacts,

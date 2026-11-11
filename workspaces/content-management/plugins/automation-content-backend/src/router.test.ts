@@ -1,4 +1,5 @@
 import express from 'express';
+import { resolve } from 'node:path';
 import { inspect } from 'node:util';
 import request from 'supertest';
 import { CredentialRedactor } from '@ansible/automation-content-common';
@@ -385,6 +386,113 @@ function seedArtifacts(count: number): ContentStore {
 }
 
 describe('GET /content repository grouping', () => {
+  it('keeps group-selection bindings constant from one to 1200 repositories with real SQL and pagination', async () => {
+    const db = knexFactory({
+      client: 'better-sqlite3',
+      connection: { filename: ':memory:' },
+      useNullAsDefault: true,
+    });
+    try {
+      await db.migrate.latest({
+        directory: resolve(__dirname, '../migrations'),
+      });
+      const store = new ContentStore([], db, {
+        info() {},
+        warn() {},
+        debug() {},
+      });
+      const app = await appWith(store);
+      const queries: Array<{ sql: string; bindings: readonly unknown[] }> = [];
+      db.on('query', query => {
+        if (
+          query.sql.startsWith('select') &&
+          query.sql.includes('tag_timestamps')
+        ) {
+          queries.push({ sql: query.sql, bindings: query.bindings });
+        }
+      });
+      const rowsFor = (index: number) => {
+        const repository = `repo-${String(index).padStart(4, '0')}`;
+        const base = {
+          type: 'execution-environment',
+          registry: 'Source',
+          repository,
+          contents_known: true,
+          classification: '{}',
+          manifest:
+            '{"collections":[{"namespace":"ns","name":"target"}],"generatedBy":{},"complete":true}',
+        };
+        return [
+          {
+            ...base,
+            ref: `Source/${repository}@old`,
+            digest: 'sha256:old',
+            tags: '["match"]',
+            tag_timestamps: '{"match":"2025-01-01"}',
+            pull_reference: `Source/${repository}:match`,
+          },
+          {
+            ...base,
+            ref: `Source/${repository}@new`,
+            digest: 'sha256:new',
+            tags: '["new"]',
+            tag_timestamps: '{"new":"2026-01-01"}',
+            pull_reference: `Source/${repository}:new`,
+            contents_known: false,
+            manifest: '{"collections":[],"generatedBy":{},"complete":true}',
+          },
+          {
+            ...base,
+            registry: 'Other',
+            ref: `Other/${repository}@other`,
+            digest: 'sha256:other',
+            tags: '["other"]',
+            tag_timestamps: '{"other":"2027-01-01"}',
+            pull_reference: `Other/${repository}:other`,
+            manifest: '{"collections":[],"generatedBy":{},"complete":true}',
+          },
+        ];
+      };
+      await db('artifacts').insert(rowsFor(0));
+      const path =
+        '/content?type=execution-environment&collection=ns.target&search=match&contentsKnown=true&sort=repository&per_page=10';
+      const small = await request(app).get(path).expect(200);
+      expect(small.body.totalItems).toBe(1);
+      const smallGroupQuery = queries[1];
+      const rows = Array.from({ length: 1199 }, (_, i) =>
+        rowsFor(i + 1),
+      ).flat();
+      await db.batchInsert('artifacts', rows, 50);
+      queries.length = 0;
+      const large = await request(app).get(`${path}&page=120`).expect(200);
+      expect(large.body.totalItems).toBe(1200);
+      expect(large.body.items).toHaveLength(10);
+      expect(large.body.next).toBeNull();
+      expect(
+        large.body.items.map((item: { repository: string }) => item.repository),
+      ).toEqual(Array.from({ length: 10 }, (_, i) => `repo-${1190 + i}`));
+      for (const item of large.body.items) {
+        expect(item.registry).toBe('Source');
+        expect(item.ref).toBe(`Source/${item.repository}@new`);
+        expect(item.tags).toEqual(['new', 'match']);
+      }
+      const largeGroupQuery = queries[1];
+      expect(largeGroupQuery.sql).toMatch(/inner join \(select distinct/i);
+      expect(largeGroupQuery.sql).toContain(
+        '`repository_artifacts`.`registry` = `matching_repositories`.`registry`',
+      );
+      expect(largeGroupQuery.sql).toContain(
+        '`repository_artifacts`.`repository` = `matching_repositories`.`repository`',
+      );
+      expect(largeGroupQuery.sql).toBe(smallGroupQuery.sql);
+      // Prove independence from group count without seeding tens of thousands
+      // of rows merely to hit a dialect-specific bind-parameter ceiling.
+      expect(largeGroupQuery.bindings).toEqual(smallGroupQuery.bindings);
+      expect(largeGroupQuery.bindings.length).toBeLessThan(12);
+    } finally {
+      await db.destroy();
+    }
+  });
   const older = {
     ...DEFAULT_ARTIFACT,
     tags: ['10.0', 'latest'],
@@ -433,7 +541,7 @@ describe('GET /content repository grouping', () => {
     'returns the representative when another digest matches %s',
     async query => {
       const listArtifacts = jest.fn(async (_type, options) =>
-        options?.search ? [older] : [older, newer],
+        options?.expandRepositoryGroups ? [older, newer] : [older],
       );
       const response = await request(await appWith(stubDB({ listArtifacts })))
         .get(`/content?${query}`)
@@ -444,11 +552,13 @@ describe('GET /content repository grouping', () => {
         undefined,
         expect.objectContaining({ search: 'old' }),
       );
-      expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
-        repositories: [
-          { registry: older.registry, repository: older.repository },
-        ],
-      });
+      expect(listArtifacts).toHaveBeenLastCalledWith(
+        undefined,
+        expect.objectContaining({
+          search: 'old',
+          expandRepositoryGroups: true,
+        }),
+      );
       expect(listArtifacts).not.toHaveBeenCalledWith();
     },
   );
@@ -476,7 +586,8 @@ describe('GET /content sorting', () => {
       const response = await request(
         await appWith(
           stubDB({
-            listArtifactSummaries: async type => (type ? [ee] : [ee, image]),
+            listArtifactSummaries: async (_type, options) =>
+              options?.expandRepositoryGroups ? [ee, image] : [ee],
           }),
         ),
       )
@@ -536,7 +647,13 @@ describe('GET /content sorting', () => {
             : undefined,
         });
         expect(listArtifacts).toHaveBeenLastCalledWith(undefined, {
-          repositories: [],
+          search: 'example',
+          registry: 'reg',
+          contentsKnown: contentsKnown === 'true',
+          collection: branch.startsWith('collection=')
+            ? 'ns.example'
+            : undefined,
+          expandRepositoryGroups: true,
         });
       }
     },
