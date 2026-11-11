@@ -446,3 +446,33 @@ EE-related config moves under self-service catalog module keys (e.g. `catalog.pr
 | §7.7 URLs / no self-service regression        | Required                                                     | Phase 1 verification (§5)                               | **Planned**                                     |
 | §1.3 catalog as projection                    | Content service canonical                                    | Documented §4.3, §6                                     | **Match**                                       |
 | §2.5 rules 9–10 (workspace imports)           | Enforced in CI                                               | Phase 1 verification                                    | **Planned**                                     |
+
+---
+
+## 13. Implementation alignment (AAP-98845 stack — as built)
+
+This section records **what shipped** in the [catalog split stack](https://github.com/ansible/ansible-backstage-plugins/stack/1006) (Nov 2026). It does not replace §1–§12 (interim peel intent); it reconciles research names with the current repo after `main` workspace renames.
+
+### 13.1 Package and workspace mapping
+
+| Research / interim name (§1.1) | As built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981)) |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Shared provider library (was discussed as a separate package) | **`@ansible/backstage-rhaap-common/catalog`** — providers, sync router, `createCatalogModule()`, slice guard (`workspaces/aap/plugins/backstage-rhaap-common/src/catalog/`) |
+| `catalog-backend-module-interim-content` | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`** |
+| `catalog-backend-module-aap` | Unchanged — **`workspaces/aap/plugins/`** |
+| Separate EE catalog module (`self-service-ee`) | **Folded into `catalog-backend-module-content`** (content slice registers PAH, Git SCM, and EE) |
+| `workspaces/portal-scaffolder/` peel | **Removed** on `main`; portal UI is **`workspaces/content-development/`** |
+| Monolith migration | **`catalog-backend-module-rhaap`** remains a **deprecated shim** (`slice: 'all'`) |
+
+### 13.2 Preserved contracts (still match §4 / §6)
+
+- Public **URL paths** and entity ref shapes unchanged.
+- **§4.8** slice guard: shim cannot load with any split slice module.
+- Split sync status: `/ansible/sync/status/aap`, `/ansible/sync/status/content`, `/ansible/sync/status/self-service` (EE status via content module router slice).
+- Config peel (PR 2): `catalog.providers.aap` / `catalog.providers.content` with **`catalog.providers.rhaap` fallback**.
+
+### 13.3 Open / follow-up (unchanged from §12)
+
+- Terminal **L2/L3 content service** ownership (source modules, `automation-content-backend` canonical sync state).
+- Moving content-side implementation out of **`aap`** `backstage-rhaap-common/catalog` into a **content-management** common library (workspace boundary; pending pod alignment).
+- EE **scaffolder actions** remain in scaffolder modules; EE **catalog entities** are registered by the content catalog module.
