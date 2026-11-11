@@ -576,6 +576,16 @@ export const generateTemplate = (options: {
             identity,
           ),
         }),
+      formDecorators: [{ id: 'ansible.aap-user-token' }],
+      secrets: {
+        schema: {
+          type: 'object',
+          required: ['aapToken'],
+          properties: {
+            aapToken: { type: 'string', minLength: 1 },
+          },
+        },
+      },
       parameters: [finalPromptForm],
       steps: [
         {

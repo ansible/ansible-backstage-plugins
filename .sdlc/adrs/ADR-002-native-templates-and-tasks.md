@@ -2,7 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-11
-- **Related work:** Native Templates and Tasks implementation plan, Step 2
+- **Related work:** Native Templates and Tasks implementation plan, Step 2;
+  [AAP-101935](https://redhat.atlassian.net/browse/AAP-101935)
 
 ## Context
 
@@ -106,6 +107,21 @@ and provider tests.
 preservation of existing secrets, and failure-before-submit for unavailable
 authentication, cancellation or rejection, and an empty token. Provider tests
 must verify the declared decorator and required secret schema.
+
+The decorator declares `rhAapAuthApiRef` and requests a token only when the
+native wizard submits a template that names it. Provider errors are replaced
+with actionable messages without exposing their details. The native wizard
+currently requires a template reload after a failed submission; the error
+message includes that recovery step.
+
+The installed Scaffolder skips decorators with unresolved declared API
+dependencies. Decorator extensions are instantiated as children of an API
+extension with an empty factory API holder, so that holder cannot support a
+submission-time auth lookup. Missing auth registration and missing or disabled
+decorators therefore require PR 4's backend guard before the native-page
+cutover. PR 3 blocks token acquisition failures and empty tokens when the
+decorator is active; the complete fail-closed boundary remains PR 4's review
+gate.
 
 #### PR 4: Backend secret enforcement
 
