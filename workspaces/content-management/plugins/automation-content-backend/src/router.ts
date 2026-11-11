@@ -616,7 +616,7 @@ export async function createRouter(
   // type-agnostic handlers, not parallel implementations.
   router.get('/execution-environments', requireContentView, (req, res) => {
     req.query.type = EE_TYPE;
-    listContent(req, res);
+    return listContent(req, res);
   });
   router.get(
     '/execution-environments/:ref(*)/contents',
