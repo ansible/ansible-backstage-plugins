@@ -1843,6 +1843,63 @@ describe('AAPClient', () => {
 
   describe('Execution Environment Operations', () => {
     describe('createExecutionEnvironment', () => {
+      it.each([undefined, false])(
+        'does not modify a same-name environment in another organization when replacement is %s',
+        async deleteIfExist => {
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              count: 1,
+              results: [{ id: 123, organization: 999 }],
+            }),
+          });
+          await expect(
+            client.createExecutionEnvironment(
+              {
+                environmentName: 'shared & name',
+                organization: { id: 1, name: 'ours' },
+                image: 'registry.example/ee',
+                pull: 'always',
+              },
+              'test-token',
+              deleteIfExist,
+            ),
+          ).rejects.toThrow('No existing execution environment was modified');
+          expect(mockFetch).toHaveBeenCalledTimes(1);
+          expect(mockFetch).toHaveBeenCalledWith(
+            'https://test.example.com/api/controller/v2/execution_environments/?name=shared%20%26%20name',
+            expect.objectContaining({ method: 'GET' }),
+          );
+        },
+      );
+
+      it('keeps destructive replacement available only as an explicit opt-in', async () => {
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ results: [{ id: 123 }] }),
+          })
+          .mockResolvedValueOnce({ ok: true })
+          .mockResolvedValueOnce({ ok: true, json: async () => ({ id: 456 }) });
+        await expect(
+          client.createExecutionEnvironment(
+            {
+              environmentName: 'shared',
+              organization: { id: 1, name: 'ours' },
+              image: 'registry.example/ee',
+              pull: 'always',
+            },
+            'test-token',
+            true,
+          ),
+        ).resolves.toMatchObject({ id: 456 });
+        expect(mockFetch.mock.calls.map(call => call[1].method)).toEqual([
+          'GET',
+          'DELETE',
+          'POST',
+        ]);
+      });
+
       it('should create an execution environment', async () => {
         const mockCreateResponse = {
           ok: true,
@@ -1852,7 +1909,12 @@ describe('AAPClient', () => {
             status: 'successful',
           }),
         };
-        mockFetch.mockResolvedValue(mockCreateResponse);
+        mockFetch
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ count: 0, results: [] }),
+          })
+          .mockResolvedValueOnce(mockCreateResponse);
 
         const eePayload = {
           environmentName: 'test-ee',

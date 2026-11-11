@@ -7,7 +7,7 @@ import {
   OAuthAuthenticatorResult,
   PassportProfile,
 } from '@backstage/plugin-auth-node';
-import { AuthenticationError } from '@backstage/errors';
+import { AuthenticationError, InputError } from '@backstage/errors';
 import uniqBy from 'lodash.uniqby';
 import { sanitizeAapName } from '../utils/nameFormatting';
 import {
@@ -427,7 +427,9 @@ export class AAPClient implements IAAPService {
     this.logger.info(
       `Check if execution environment with name ${name} exist in organization.`,
     );
-    const endPoint = `api/controller/v2/execution_environments/?name=${name}`;
+    const endPoint = `api/controller/v2/execution_environments/?name=${encodeURIComponent(
+      name,
+    )}`;
     const environments = await this.executeGetRequest(endPoint, token);
     const environmentsList = await environments.json();
     if (environmentsList.results.length === 1) {
@@ -454,6 +456,19 @@ export class AAPClient implements IAAPService {
         payload.environmentName,
         token,
       );
+    } else {
+      const response = await this.executeGetRequest(
+        `api/controller/v2/execution_environments/?name=${encodeURIComponent(
+          payload.environmentName,
+        )}`,
+        token,
+      );
+      const environments = await response.json();
+      if (environments.count > 0 || environments.results.length > 0) {
+        throw new InputError(
+          'An execution environment with this name already exists. Choose a different name or explicitly opt in to replacement. No existing execution environment was modified.',
+        );
+      }
     }
     const endPoint = 'api/controller/v2/execution_environments/';
     const data = {

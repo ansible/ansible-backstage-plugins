@@ -446,13 +446,27 @@ export class ContentStore {
           }
         }
         for (const target of targets) {
-          if (unchanged.has(target.ref)) continue;
+          if (unchanged.has(target.ref)) {
+            // Retain valid metadata/items, but tags must reflect this scan so a
+            // tag moved to a healthy digest cannot remain owned by both rows.
+            await trx('artifacts')
+              .where('ref', target.ref)
+              .update({
+                tags: JSON.stringify(target.tags),
+                tag_timestamps: JSON.stringify(target.tagTimestamps ?? {}),
+              });
+            continue;
+          }
           const existing = existingByRef.get(target.ref);
           if (!target.manifest && existing?.manifest) {
             target.manifest = existing.manifest;
             target.contentsKnown = existing.contentsKnown;
           }
-          if (target.signing.state === 'undetermined' && existing?.signing) {
+          if (
+            target.signing.state === 'undetermined' &&
+            target.signing.evidence.length === 0 &&
+            existing?.signing
+          ) {
             target.signing = existing.signing;
           }
           await trx('items').where('artifact_ref', target.ref).del();
@@ -1234,12 +1248,21 @@ export class ContentStore {
         `${registry}/${repository}@${digest}`,
       );
       if (existing) {
-        found.push(existing);
+        const observed = byDigest.get(digest)!;
+        found.push({
+          ...existing,
+          tags: observed.tags,
+          tagTimestamps: Object.fromEntries(
+            observed.tags.flatMap(tag => {
+              const timestamp =
+                observed.timestamps[tag] ?? existing.tagTimestamps?.[tag];
+              return timestamp ? [[tag, timestamp]] : [];
+            }),
+          ),
+        });
         unchanged.add(existing.ref);
       }
-      this.logger.warn(
-        `[${registry}] Skipping invalid image metadata for ${repository}@${digest}`,
-      );
+      this.logger.warn('Skipping invalid image metadata (invalid-metadata)');
     };
     for (const [digest, tagInfo] of byDigest) {
       let verified:

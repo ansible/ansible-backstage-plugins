@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:http';
@@ -13,9 +14,14 @@ import scaffolder from '@backstage/plugin-scaffolder-backend';
 import ansible from '@ansible/plugin-scaffolder-backend-module-backstage-rhaap';
 
 describe('shipped Use in Controller workflow', () => {
-  it.each(['development', 'production'] as const)(
-    'resolves the shipped catalog template and executes its registered AAP action in %s',
-    async mode => {
+  it.each([
+    { mode: 'development', exists: false },
+    { mode: 'production', exists: false },
+    { mode: 'development', exists: true },
+    { mode: 'production', exists: true },
+  ])(
+    'runs the shipped workflow in $mode without implicit replacement (existing: $exists)',
+    async ({ mode, exists }) => {
       const root = resolve(__dirname, '../../../../..');
       const defaults = parse(
         await readFile(resolve(root, 'app-config.yaml'), 'utf8'),
@@ -24,10 +30,14 @@ describe('shipped Use in Controller workflow', () => {
         await readFile(resolve(root, 'app-config.production.yaml'), 'utf8'),
       );
       const originalCwd = process.cwd();
+      const serviceToken = randomBytes(32).toString('hex');
+      const callerToken = randomBytes(32).toString('hex');
       let backend: Awaited<ReturnType<typeof startTestBackend>> | undefined;
       const received: Array<{ authorization?: string; body: unknown }> = [];
+      const methods: Array<string | undefined> = [];
       // Only the external Controller HTTP boundary is replaced.
       const controller = createServer(async (req, res) => {
+        methods.push(req.method);
         res.setHeader('content-type', 'application/json');
         if (req.method === 'POST') {
           let body = '';
@@ -38,7 +48,12 @@ describe('shipped Use in Controller workflow', () => {
           });
           res.end(JSON.stringify({ id: 42 }));
         } else {
-          res.end(JSON.stringify({ count: 0, results: [] }));
+          res.end(
+            JSON.stringify({
+              count: exists ? 1 : 0,
+              results: exists ? [{ id: 99, organization: 999 }] : [],
+            }),
+          );
         }
       });
       await new Promise<void>(done => controller.listen(0, '127.0.0.1', done));
@@ -67,7 +82,7 @@ describe('shipped Use in Controller workflow', () => {
                 ansible: {
                   rhaap: {
                     baseUrl: `http://127.0.0.1:${port}`,
-                    token: 'service-token',
+                    token: serviceToken,
                     checkSSL: false,
                   },
                 },
@@ -100,7 +115,7 @@ describe('shipped Use in Controller workflow', () => {
               image: 'registry.example/team/ee:latest',
               pull: 'always',
             },
-            secrets: { aapToken: 'caller-token' },
+            secrets: { aapToken: callerToken },
           });
         expect(submitted.status).toBe(201);
         let task;
@@ -111,24 +126,32 @@ describe('shipped Use in Controller workflow', () => {
           if (['completed', 'failed'].includes(task.body.status)) break;
           await delay(100);
         }
-        if (task?.body.status !== 'completed') {
-          const events = await request(server).get(
-            `/api/scaffolder/v2/tasks/${submitted.body.id}/events`,
-          );
-          throw new Error(JSON.stringify(events.body));
-        }
-        expect(received).toEqual([
-          {
-            authorization: 'Bearer caller-token',
-            body: {
-              name: 'Reviewed EE',
-              description: 'Selected image',
-              organization: 7,
-              image: 'registry.example/team/ee:latest',
-              pull: 'always',
-            },
-          },
-        ]);
+        const events = await request(server).get(
+          `/api/scaffolder/v2/tasks/${submitted.body.id}/events`,
+        );
+        expect(task?.body.status).toBe(exists ? 'failed' : 'completed');
+        expect(
+          JSON.stringify(events.body).includes(
+            'No existing execution environment was modified',
+          ),
+        ).toBe(exists);
+        expect(received).toEqual(
+          exists
+            ? []
+            : [
+                {
+                  authorization: `Bearer ${callerToken}`,
+                  body: {
+                    name: 'Reviewed EE',
+                    description: 'Selected image',
+                    organization: 7,
+                    image: 'registry.example/team/ee:latest',
+                    pull: 'always',
+                  },
+                },
+              ],
+        );
+        expect(methods).toEqual(exists ? ['GET'] : ['GET', 'POST']);
       } finally {
         try {
           await backend?.stop();

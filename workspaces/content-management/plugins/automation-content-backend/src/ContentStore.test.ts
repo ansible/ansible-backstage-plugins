@@ -734,16 +734,85 @@ describe('repository-scoped artifact sync', () => {
     ).toEqual(['latest']);
   });
 
-  it('preserves established signing when optional signature metadata is unavailable', async () => {
+  it('uses fresh unavailable-scheme evidence instead of an established signing verdict', async () => {
     const { index, original, client } = await fixture();
     expect(original.signing.state).toBe('not-signed');
     jest
       .spyOn(client, 'getReferrers')
       .mockRejectedValue(new Error('Unavailable'));
     await index.syncArtifact(original.ref);
+    expect((await index.getArtifact(original.ref))?.signing).toMatchObject({
+      state: 'undetermined',
+      evidence: expect.arrayContaining([
+        'a signature scheme could not be checked',
+      ]),
+    });
+  });
+
+  it('preserves established signing only when an undetermined result has no evidence', async () => {
+    const { index, original } = await fixture();
+    jest
+      .spyOn(
+        index as unknown as {
+          determineSigning: () => { state: 'undetermined'; evidence: string[] };
+        },
+        'determineSigning',
+      )
+      .mockReturnValue({ state: 'undetermined', evidence: [] });
+    await index.syncArtifact(original.ref);
     expect((await index.getArtifact(original.ref))?.signing).toEqual(
       original.signing,
     );
+  });
+
+  it('reconciles moved tags on retained invalid metadata without leaking identifiers in the warning', async () => {
+    const { index, original, other, client, repositories, old } = await fixture(
+      ['latest', 'v1'],
+      true,
+    );
+    const beforeItems = await index.itemsIn(original.ref);
+    const getManifest = client.getManifest.bind(client);
+    jest
+      .spyOn(client, 'getManifest')
+      .mockImplementation(async (repository, digest) => {
+        const artifact = await getManifest(repository, digest);
+        return digest === original.digest
+          ? { ...artifact, manifest: {} as never }
+          : artifact;
+      });
+    const sibling = repositories['ansible/ee'][2];
+    repositories['ansible/ee'] = [
+      { ...old, tag: 'v1' },
+      sibling,
+      { ...sibling, tag: 'latest' },
+    ];
+    const warn = jest.spyOn(silent, 'warn');
+    try {
+      const result = await index.syncArtifact(original.ref);
+      expect(result.summary).toMatchObject({
+        movedTags: 1,
+        refreshedDigests: 1,
+      });
+      expect(await index.getArtifact(original.ref)).toMatchObject({
+        tags: ['v1'],
+        manifest: original.manifest,
+        classification: original.classification,
+      });
+      expect(await index.itemsIn(original.ref)).toEqual(beforeItems);
+      const tags = await index.repositoryTags('mock', 'ansible/ee');
+      expect(tags.filter(tag => tag.tag === 'latest')).toEqual([
+        expect.objectContaining({ digest: other.digest, ref: other.ref }),
+      ]);
+      expect(new Set(tags.map(tag => tag.tag)).size).toBe(tags.length);
+      expect(warn).toHaveBeenCalledWith(
+        'Skipping invalid image metadata (invalid-metadata)',
+      );
+      const messages = warn.mock.calls.flat().join(' ');
+      for (const identifier of ['mock', 'ansible/ee', original.digest])
+        expect(messages).not.toContain(identifier);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('refreshes unchanged repositories without requiring latest', async () => {
@@ -1425,6 +1494,43 @@ describe('signature detection', () => {
       ],
     });
   });
+
+  it.each(['signed', 'not-signed'] as const)(
+    'uses newly observed bundle evidence instead of the previous %s verdict',
+    async previous => {
+      const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+      image.referrers =
+        previous === 'signed'
+          ? [
+              {
+                mediaType: MediaTypes.ociManifest,
+                digest: `sha256:${'c'.repeat(64)}`,
+                size: 100,
+                artifactType: COSIGN_TYPE,
+              },
+            ]
+          : [];
+      const index = await indexOverRepositories({ 'ansible/ee': [image] });
+      await index.refreshRegistry('mock');
+      const original = (await index.listArtifacts())[0];
+      expect(original.signing.state).toBe(previous);
+      image.referrers = [
+        {
+          mediaType: MediaTypes.ociManifest,
+          digest: `sha256:${'b'.repeat(64)}`,
+          size: 100,
+          artifactType: 'application/vnd.dev.sigstore.bundle.v0.3+json',
+        },
+      ];
+      await index.syncArtifact(original.ref);
+      expect((await index.getArtifact(original.ref))?.signing).toMatchObject({
+        state: 'undetermined',
+        evidence: expect.arrayContaining([
+          'sigstore bundle referrer present; not identifiable as a signature',
+        ]),
+      });
+    },
+  );
 
   it('reports undetermined when a scheme could not be consulted', async () => {
     const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });

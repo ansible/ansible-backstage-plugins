@@ -42,7 +42,7 @@ spec:
       action: rhaap:create-execution-environment
       input:
         token: ${{ secrets.aapToken }}
-        deleteIfExist: true
+        deleteIfExist: false
         values:
           environmentName: ${{ parameters.environmentName }}
           environmentDescription: ${{ parameters.environmentDescription }}
