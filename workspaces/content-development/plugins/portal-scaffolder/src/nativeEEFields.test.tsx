@@ -11,6 +11,9 @@ import portalScaffolderPlugin from './alpha';
 beforeEach(() => jest.spyOn(window, 'scrollTo').mockImplementation(() => {}));
 afterEach(() => jest.restoreAllMocks());
 
+// Heavy composition test: it lazily imports the real stock scaffolder and
+// renders the full wizard, which can exceed Jest's 30s default under CI's
+// parallel full-suite load (observed ~36s locally in a batch run).
 it('uses the real EE widgets and submits their values from the stock native template route', async () => {
   // Keep the API request pending: task execution/navigation is outside this test.
   const scaffold = jest.fn(() => new Promise<never>(() => {}));
@@ -131,4 +134,4 @@ it('uses the real EE widgets and submits their values from the stock native temp
       provider: 'aap-api-cloud',
     }),
   );
-}, 30000);
+}, 60000);
