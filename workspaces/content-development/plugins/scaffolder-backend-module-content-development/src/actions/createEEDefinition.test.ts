@@ -29,7 +29,7 @@ import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
-import { buildCollectionsFromCatalogEntities } from '@ansible/plugin-scaffolder-backend-module-aap';
+import { buildCollectionsFromCatalogEntities } from '../autocomplete';
 
 const mockMkdir = fs.mkdir as jest.MockedFunction<typeof fs.mkdir>;
 const mockWriteFile = fs.writeFile as jest.MockedFunction<typeof fs.writeFile>;

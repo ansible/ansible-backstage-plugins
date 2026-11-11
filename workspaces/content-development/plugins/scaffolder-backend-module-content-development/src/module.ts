@@ -3,7 +3,7 @@ import {
   createBackendModule,
 } from '@backstage/backend-plugin-api';
 import type { ExtensionPoint } from '@backstage/backend-plugin-api';
-import { eeEntityLifecycleServiceRef } from '@ansible/backstage-rhaap-common';
+import { eeEntityLifecycleServiceRef } from '@ansible/content-development-common';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
@@ -24,9 +24,9 @@ const scaffolderAutocompleteExtensionPoint = ((
 ).scaffolderAutocompleteExtensionPoint ??
   (scaffolderNodeAlpha as Record<string, unknown>)
     .scaffolderAutocompleteExtensionPoint) as ExtensionPoint<any>;
-export const scaffolderModulePortalScaffolder = createBackendModule({
+export const scaffolderModuleContentDevelopment = createBackendModule({
   pluginId: 'scaffolder',
-  moduleId: 'portal-scaffolder',
+  moduleId: 'content-development',
   register(env) {
     env.registerInit({
       deps: {

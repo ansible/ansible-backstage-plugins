@@ -6,7 +6,7 @@ import {
 import type {
   Collections,
   SourceVersionDetail,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/content-development-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
 const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';

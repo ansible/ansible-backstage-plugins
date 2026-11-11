@@ -1,3 +1,4 @@
+export { buildCollectionsFromCatalogEntities } from './utils';
 import type {
   DiscoveryService,
   AuthService,

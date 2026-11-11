@@ -1,12 +1,12 @@
-import { scaffolderModulePortalScaffolder } from './module';
+import { scaffolderModuleContentDevelopment } from './module';
 import {
   createAnsibleContentAction,
   createEEDefinitionAction,
   prepareForPublishAction,
 } from './actions';
 
-describe('scaffolderModulePortalScaffolder', () => {
-  it('registers the three portal-scaffolder actions', async () => {
+describe('scaffolderModuleContentDevelopment', () => {
+  it('registers the three content-development actions', async () => {
     const config: any = {
       getString: (key: string) =>
         key === 'app.baseUrl' ? 'http://localhost:3000' : '',
@@ -27,7 +27,7 @@ describe('scaffolderModulePortalScaffolder', () => {
     };
 
     const registrations = (
-      scaffolderModulePortalScaffolder as any
+      scaffolderModuleContentDevelopment as any
     ).getRegistrations();
     for (const registration of registrations) {
       await registration.init.func(env);
@@ -67,7 +67,7 @@ describe('scaffolderModulePortalScaffolder', () => {
       logger: { debug: jest.fn() },
     };
     const registrations = (
-      scaffolderModulePortalScaffolder as any
+      scaffolderModuleContentDevelopment as any
     ).getRegistrations();
     for (const registration of registrations) {
       await registration.init.func(env);

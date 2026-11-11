@@ -1,13 +1,13 @@
 import { dynamicPluginInstaller } from './index';
-import { scaffolderModulePortalScaffolder } from '../module';
+import { scaffolderModuleContentDevelopment } from '../module';
 
 describe('dynamicPluginInstaller', () => {
   it('has kind "new"', () => {
     expect(dynamicPluginInstaller.kind).toBe('new');
   });
 
-  it('install() returns scaffolderModulePortalScaffolder', () => {
+  it('install() returns scaffolderModuleContentDevelopment', () => {
     const result = dynamicPluginInstaller.install();
-    expect(result).toBe(scaffolderModulePortalScaffolder);
+    expect(result).toBe(scaffolderModuleContentDevelopment);
   });
 });

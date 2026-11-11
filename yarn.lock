@@ -362,6 +362,7 @@ __metadata:
   resolution: "@ansible/backstage-rhaap-common@workspace:workspaces/aap/plugins/backstage-rhaap-common"
   dependencies:
     "@ansible/aap-common": "workspace:^"
+    "@ansible/content-development-common": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.6"
@@ -396,6 +397,9 @@ __metadata:
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/catalog-model": "npm:1.10.0"
     "@backstage/cli": "npm:0.36.2"
+    "@backstage/config": "npm:1.3.8"
+    "@backstage/integration": "npm:2.1.1"
+    undici: "npm:^6.26.0"
   languageName: unknown
   linkType: soft
 
@@ -569,7 +573,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-scaffolder-backend-module-aap@workspace:^, @ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
+"@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap"
   dependencies:
@@ -640,7 +644,6 @@ __metadata:
   resolution: "@ansible/plugin-scaffolder-backend-module-content-development@workspace:workspaces/content-development/plugins/scaffolder-backend-module-content-development"
   dependencies:
     "@ansible/content-development-common": "workspace:^"
-    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.1"

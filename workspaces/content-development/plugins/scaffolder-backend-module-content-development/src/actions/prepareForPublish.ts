@@ -1,6 +1,6 @@
 import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import type { Config } from '@backstage/config';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { ScmClientFactory } from '@ansible/content-development-common';
 import { randomBytes } from 'node:crypto';
 
 interface CheckRepositoryExistsInput {
