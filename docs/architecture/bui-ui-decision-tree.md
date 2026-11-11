@@ -1793,16 +1793,16 @@ const scaffolderPage = PageBlueprint.makeWithOverrides({
   },
   factory(originalFactory) {
     return originalFactory({
-      path: "/create",
-      title: "Self-service",
-      routeRef: createRouteRef({ aliasFor: "scaffolder.root" }),
+      path: '/create',
+      title: 'Self-service',
+      routeRef: createRouteRef({ aliasFor: 'scaffolder.root' }),
       icon: <CreateComponentIcon fontSize="inherit" />,
     });
   },
 });
 
 export const rhdhScaffolderPlugin = scaffolderPlugin.withOverrides({
-  title: "Self-service",
+  title: 'Self-service',
   extensions: [scaffolderPage],
 });
 ```
