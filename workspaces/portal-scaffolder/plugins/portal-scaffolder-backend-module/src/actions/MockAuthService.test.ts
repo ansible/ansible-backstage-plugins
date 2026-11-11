@@ -175,11 +175,15 @@ describe('MockAuthService', () => {
       await expect(service.authenticate(token)).resolves.toEqual(credentials);
     });
     it('returns a service token for user principal', async () => {
+      const credentials = mockCredentials.user('user:default/alice');
       const tokenObj = await service.getPluginRequestToken({
-        onBehalfOf: mockCredentials.user(),
-        targetPluginId: 'some-plugin',
+        onBehalfOf: credentials,
+        targetPluginId: pluginId,
       });
-      expect(tokenObj.token).toBeDefined();
+      expect(tokenObj.token.startsWith(MOCK_SERVICE_TOKEN_PREFIX)).toBe(true);
+      await expect(service.authenticate(tokenObj.token)).resolves.toEqual(
+        credentials,
+      );
     });
 
     it('returns empty token for none principal with disableDefaultAuthPolicy', async () => {
