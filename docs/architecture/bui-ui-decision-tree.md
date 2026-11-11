@@ -751,6 +751,17 @@ its own recurring cost: support load, workarounds, and users going around the
 product. The comparison is always between two carrying costs, never between
 "some custom UI" and "no custom UI".
 
+**Browsing starts you low.** The Backstage UI storybook is the only rendered
+catalogue upstream publishes, and it is a catalogue of parts: components, layout
+primitives, home-page widgets, search parts, and three stories under `Recipes/`
+and `Guidelines/`. A story renders one thing in isolation. It carries no route
+and no nav item, so it cannot show an assembled surface, and L1 and L2 — reuse a
+whole page, reuse a sub-page — have nowhere to appear in it at all. Widgets and
+components are what L3 contributions and L4 compositions are _made of_, which is
+why a gallery makes those rungs easy to imagine and makes every journey look
+like something to compose. `C.4` and `C.5` are the other half of the shelf; read
+them before the gallery, not after.
+
 **Both directions are drift.** There are two ways to avoid a cheap answer:
 customise the stock surface until it is bespoke, or leave the stock surface
 alone and build a new one. The first adds custom components without adding a
@@ -1639,6 +1650,30 @@ declared indirectly, and a code search is capped. And a page existing in a
 package is not the same as it being enabled in a deployment, which is why step 1
 comes first.
 
+### C.5 Where each rung is visible
+
+Nobody publishes a rendered catalogue of stock surfaces, so the reuse levels are
+not equally visible. Knowing which ones are is the difference between "there is
+nothing to reuse" and "nobody showed me it".
+
+| Reuse level | Where you can see it                                      |
+| ----------- | --------------------------------------------------------- |
+| L0          | A running deployment, in its `app.extensions` config      |
+| L1–L2       | A running deployment only; the host composes them         |
+| L3          | Storybook, partly: the widget, never the host it lands in |
+| L4          | The `Recipes/` and `Guidelines/` stories, partly          |
+
+Two consequences. The storybook renders, so it is the default way to answer
+"what could this look like?" — and it answers with a lower rung. And the
+surfaces that are cheapest to reuse are the ones with no rendering at all, which
+makes "nothing suitable exists" the likely conclusion of anyone reading only the
+gallery. A record that starts at L4 is therefore worth a sentence on what it was
+compared against: the surfaces in `C.4`, not the components in the gallery.
+
+The fix is a tour rather than an argument: a running host with the plugins a
+deployment actually mounts, walked page by page, is the only artifact that shows
+L1 to L3 at all.
+
 ## Appendix D — Which blueprint expresses this contribution?
 
 This appendix answers one question: for the thing you are adding, which
@@ -1804,3 +1839,5 @@ cost a record makes visible.
   `redhat-developer/rhdh`
 - The advisory BUI drift check: `bui-baseline.yaml` and
   `scripts/check-bui-drift.mjs` in this repository
+- Backstage UI storybook, including the `Recipes/` and `Guidelines/` stories:
+  <https://backstage.io/storybook>
