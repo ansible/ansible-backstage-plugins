@@ -17,5 +17,6 @@ export function handleCollectionsAutocompleteRequest(options: {
     discovery: options.discovery,
     logger: options.logger,
     searchQuery: options.context?.searchQuery,
+    identityToken: options.context?.backstageIdentityToken,
   });
 }

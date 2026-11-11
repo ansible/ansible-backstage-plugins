@@ -3,6 +3,7 @@ import {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 import type {
   Collections,
   SourceVersionDetail,
@@ -17,8 +18,8 @@ const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
 ]);
 
 let collectionsCache: {
+  key: string;
   result: { results: Collections[] };
-  filter: string;
   timestamp: number;
 } | null = null;
 
@@ -123,7 +124,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : version ?? ref,
+        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -178,25 +179,40 @@ export async function getCollections(options: {
   discovery: DiscoveryService;
   logger: LoggerService;
   searchQuery?: string;
+  identityToken?: string;
 }): Promise<{ results: Collections[] }> {
-  const { auth, discovery, logger, searchQuery } = options;
+  const { auth, discovery, logger, searchQuery, identityToken } = options;
+  if (!identityToken) {
+    throw new AuthenticationError(
+      'Authenticated user credentials are required for collection autocomplete',
+    );
+  }
+
+  const callerCredentials = await auth.authenticate(identityToken);
+  if (!auth.isPrincipal(callerCredentials, 'user')) {
+    throw new NotAllowedError(
+      'Only an authenticated user can request collection autocomplete',
+    );
+  }
+
   const filter = buildCatalogFilter(searchQuery);
+  const cacheKey = `${callerCredentials.principal.userEntityRef}:${filter}`;
 
   if (
-    collectionsCache?.filter === filter &&
+    collectionsCache?.key === cacheKey &&
     Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
   ) {
     return collectionsCache.result;
   }
 
-  if (inflightRequests.has(filter)) {
-    return inflightRequests.get(filter)!;
+  if (inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey)!;
   }
 
   const fetchPromise = (async () => {
     const baseUrl = await discovery.getBaseUrl('catalog');
     const { token: catalogToken } = await auth.getPluginRequestToken({
-      onBehalfOf: await auth.getOwnServiceCredentials(),
+      onBehalfOf: callerCredentials,
       targetPluginId: 'catalog',
     });
     const encodedFilter = encodeURIComponent(filter);
@@ -218,24 +234,24 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : body?.items ?? [];
+    const entities = Array.isArray(body) ? body : (body?.items ?? []);
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
-    collectionsCache = { result, filter, timestamp: Date.now() };
+    collectionsCache = { key: cacheKey, result, timestamp: Date.now() };
 
     return result;
   })();
 
-  inflightRequests.set(filter, fetchPromise);
+  inflightRequests.set(cacheKey, fetchPromise);
 
   try {
     return await fetchPromise;
   } finally {
-    const currentInflight = inflightRequests.get(filter);
+    const currentInflight = inflightRequests.get(cacheKey);
     if (currentInflight === fetchPromise) {
-      inflightRequests.delete(filter);
+      inflightRequests.delete(cacheKey);
     }
   }
 }
