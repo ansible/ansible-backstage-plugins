@@ -417,7 +417,7 @@ export function UseInControllerDialog({
                 setOrganizationError('');
               }}
               isRequired
-              description={organizationError || 'Required'}
+              description={organizationError || undefined}
             />
           )}
         </Flex>
