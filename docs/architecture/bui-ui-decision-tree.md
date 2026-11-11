@@ -927,8 +927,20 @@ When it is, the seam between the two journeys is the thing to look at in review
 
 ### 3.2 Gate 1 — what is the lowest level that is good enough?
 
-Stay inside the owning surface and exhaust it before leaving it. The order is
-carrying cost (section 2.2); only the levels inside a surface are in play here.
+Gate 1 runs twice. The same four rows, asked by different people: once for
+experience, once for reuse. Neither pass substitutes for the other.
+
+**(A) Experience pass — UX, with product for business fit.** What is the job to
+be done, does the workflow stay continuous, how often does the person switch
+context, and does the outcome match what the customer asked for? When the job is
+continuous, one stock surface plus configuration beats a second list or nav item
+(`2.4`).
+
+**(B) Reuse pass — engineering.** Walk L0 to L3 on the owning surface, in
+carrying-cost order (`2.2`). The extension must be declared through a blueprint,
+and its loader must draw on approved stock (`1.D`); a legacy mount point or a
+default legacy MUI tree is not an option. L4 and above are absent from this
+table on purpose: they are priced in `2.2` and entered only through gate 3.
 
 | Level | What you try                                                                                           | Good enough when                                                       |
 | ----- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
@@ -937,10 +949,16 @@ carrying cost (section 2.2); only the levels inside a surface are in play here.
 | L2    | a stock sub-page, or one swapped nested component                                                      | one part of the page needs replacing, not the page                     |
 | L3    | a contribution into someone else's surface: entity tab, card, widget, nav item, action, catalog column | the goal is one block of content or one action inside an existing page |
 
-Walk the rows in order and stop at the first that is good enough. A change that
-stops at L0 or L1 adds no surface of ours and carries only configuration.
-Anything that stops at L3 carries one contribution, revalidated against the
-host's releases.
+Walk the rows in order and stop at the first row that passes both passes. A
+change that stops at L0 or L1 adds no surface of ours and carries only
+configuration. Anything that stops at L3 carries one contribution, revalidated
+against the host's releases.
+
+**If the experience fails, reuse does not rescue it.** A surface that is cheap
+to reuse and wrong for the journey is still wrong. Record the UX inadequacy
+against the lower levels in `alternatives`, so a cheaper option is rejected for
+a stated reason rather than left out: Appendix A does exactly this, `L3` with
+`templateFilter` against `L5` with the Create tab.
 
 **When the surface is not good enough, do not jump to a new surface.** Go to
 gate 2 and name what is missing. "Ship with the gap" is a legitimate outcome
