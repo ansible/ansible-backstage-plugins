@@ -1,4 +1,1 @@
-export const MOCK_ORGANIZATION = {
-  id: 1,
-  name: 'Default organization',
-};
+export * from '@ansible/plugin-scaffolder-backend-module-aap/testUtils';

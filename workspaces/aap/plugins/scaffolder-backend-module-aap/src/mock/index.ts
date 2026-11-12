@@ -5,3 +5,4 @@ export * from './mockOrganization';
 export * from './mockInevnory';
 export * from './mockExecutionEnvironment';
 export * from './mockJobTemplate';
+export * from './mockScmCredential';

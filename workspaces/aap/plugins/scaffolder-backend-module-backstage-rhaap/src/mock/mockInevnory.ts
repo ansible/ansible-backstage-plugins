@@ -1,4 +1,1 @@
-export const MOCK_INVENTORY = {
-  id: 1,
-  name: 'Test inventory',
-};
+export * from '@ansible/plugin-scaffolder-backend-module-aap/testUtils';

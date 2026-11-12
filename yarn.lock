@@ -576,7 +576,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
+"@ansible/plugin-scaffolder-backend-module-aap@workspace:^, @ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap"
   dependencies:
@@ -600,6 +600,7 @@ __metadata:
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^"
     "@ansible/portal-scaffolder-common": "workspace:^"
     "@backstage/backend-defaults": "npm:0.17.8"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
