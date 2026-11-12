@@ -250,27 +250,32 @@ ok: [localhost] => {
   });
 
   describe('parseAndLogStdoutMessages', () => {
-    it('logs safe string msg values and returns the last one', () => {
+    it('does not log stdout content and returns a generic summary', () => {
       const stdout = '{"msg": "First message"}\n{"msg": "Second message"}';
 
       const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
 
-      expect(mockLogger.info).toHaveBeenCalledWith('First message');
-      expect(mockLogger.info).toHaveBeenCalledWith('Second message');
-      expect(lastMessage).toBe('Second message');
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Playbook stdout messages were omitted from logs because they may contain sensitive data.',
+      );
+      expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
 
-    it('logs redacted values instead of raw secrets', () => {
-      const stdout = '{"msg": "password=SuperSecret123"}';
+    it.each([
+      'user@example.com',
+      'unlabeled-secret-value-123',
+      'password=SuperSecret123',
+    ])('does not expose potentially sensitive output: %s', message => {
+      const stdout = JSON.stringify({ msg: message });
 
-      parseAndLogStdoutMessages(stdout, mockLogger);
+      const result = parseAndLogStdoutMessages(stdout, mockLogger);
 
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        `password=${REDACTION_PLACEHOLDER}`,
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(mockLogger.debug).not.toHaveBeenCalledWith(
+        expect.stringContaining(message),
       );
-      expect(mockLogger.info).not.toHaveBeenCalledWith(
-        'password=SuperSecret123',
-      );
+      expect(result).toBe('Job output is available in the RHAAP portal.');
     });
 
     it('does not log messages from no_log tasks', () => {
@@ -282,7 +287,7 @@ ok: [localhost] => {
       expect(lastMessage).toBeUndefined();
     });
 
-    it('preserves interleaved msg order and returns the final message', () => {
+    it('does not expose interleaved stdout messages', () => {
       const stdout = `
 "msg": "first"
 "msg": ["second-a", "second-b"]
@@ -291,16 +296,11 @@ ok: [localhost] => {
 
       const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
 
-      expect(mockLogger.info.mock.calls.map(call => call[0])).toEqual([
-        'first',
-        'second-a',
-        'second-b',
-        'third',
-      ]);
-      expect(lastMessage).toBe('third');
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
 
-    it('returns the final msg when a quoted array item contains ]', () => {
+    it('does not expose quoted array items', () => {
       const stdout = `
 ok: [localhost] => {
     "msg": ["step ] completed", "next"]
@@ -309,11 +309,8 @@ ok: [localhost] => {
 
       const lastMessage = parseAndLogStdoutMessages(stdout, mockLogger);
 
-      expect(mockLogger.info.mock.calls.map(call => call[0])).toEqual([
-        'step ] completed',
-        'next',
-      ]);
-      expect(lastMessage).toBe('next');
+      expect(mockLogger.info).not.toHaveBeenCalled();
+      expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
   });
 });
