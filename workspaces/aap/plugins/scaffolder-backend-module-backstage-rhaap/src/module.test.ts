@@ -29,9 +29,13 @@ jest.mock('./autocomplete', () => ({
   handleAutocompleteRequest: jest.fn(() => Promise.resolve({ results: [] })),
 }));
 
+jest.mock('@ansible/aap-node', () => ({
+  ansibleServiceRef: Symbol('ansibleServiceRef'),
+}));
+
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   getAnsibleConfig: jest.fn(() => ({ ansible: 'config' })),
-  ansibleServiceRef: Symbol('ansibleServiceRef'),
+  assertAapScaffolderModuleIsUnique: jest.fn(),
 }));
 
 // import mocks for assertions

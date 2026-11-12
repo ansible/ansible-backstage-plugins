@@ -26,7 +26,8 @@ import {
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/aap-node';
+import { assertAapScaffolderModuleIsUnique } from '@ansible/backstage-rhaap-common';
 import {
   createAnsibleContentAction,
   cleanUp,
@@ -83,6 +84,10 @@ export const scaffolderModuleAnsible = createBackendModule({
         auth,
         discovery,
       }) {
+        assertAapScaffolderModuleIsUnique(
+          scaffolder,
+          'scaffolderModuleAnsible',
+        );
         return Promise.resolve().then(() => {
           const frontendUrl = config.getString('app.baseUrl');
           scaffolder.addActions(

@@ -1,5 +1,5 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { MOCK_TOKEN } from '../mock';
+import { MOCK_TOKEN } from '../mockFixtures.test';
 import { LaunchJobTemplate } from '@ansible/aap-common';
 import { launchJobTemplate } from './aapLaunchJobTemplate';
 import { mockAnsibleService } from './mockIAAPService';
