@@ -75,6 +75,22 @@ validators, duplicate field names, denied permissions, absent or disabled
 contributors, and explicit failure reporting on the legacy Portal path.
 Unsupported widgets must never fall back silently.
 
+The native host installs `createPortalScaffolderPlugin()` from
+`@ansible/portal-extension-host/alpha` in place of the unadapted Scaffolder
+plugin. Its public API extension collects both native API-attached and
+compatibility/page-attached fields, validates their complete name set, and
+rejects collisions before the wizard mounts. It preserves the loaded field
+objects, including their components, schemas and validators.
+
+The installed `FormField` return type is opaque. The adapter runtime-checks
+the creation-time `name` property and rejects unknown shapes; it does not
+import or unwrap private Backstage internals. Scaffolder `1.38.2` adds built-in
+fallback fields after API loading, so the adapter reserves their names for
+upstream built-in extension IDs, including the fallback-only `Secret` field.
+Disabling a built-in native extension does not make its fallback name available
+to contributors. Revalidate this compatibility boundary and fallback-name list
+when upgrading Scaffolder. Dynamic hosts must install the same adapter.
+
 #### PR 2: AAP resource fields and generated schemas
 
 **Scope:** Add AAP-owned native adapters beside existing widgets under
