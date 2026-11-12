@@ -9,6 +9,7 @@ import {
   convertLegacyRouteRef,
 } from '@backstage/core-compat-api';
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
+import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension-api/alpha';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
 import {
@@ -23,6 +24,7 @@ import HistoryIcon from '@material-ui/icons/History';
 import BuildIcon from '@material-ui/icons/Build';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import { selfServiceManifest } from './selfServiceManifest';
 
 /** Native discovery and lifecycle around the existing Portal wizard. */
 const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
@@ -41,6 +43,35 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     ApiBlueprint.make({
       name: 'ee-build',
       params: define => define(EEBuildApis),
+    }),
+    ...createPortalScaffolderFieldBlueprints('aap-resource-picker', {
+      manifest: selfServiceManifest,
+      capabilityId: 'portal-scaffolder.scaffolder-fields',
+      entryPointId: 'portal-scaffolder.aap-resource-picker',
+      attachment: 'scaffolder.fields',
+      fieldName: 'AAPResourcePicker',
+      loader: async () => {
+        const { AAPResourcePicker } = await import(
+          './components/Scaffolder/AAResourcePicker/AAPResourcePicker'
+        );
+        return { name: 'AAPResourcePicker', component: AAPResourcePicker };
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('collections-picker', {
+      manifest: selfServiceManifest,
+      capabilityId: 'portal-scaffolder.scaffolder-fields',
+      entryPointId: 'portal-scaffolder.collections-picker',
+      attachment: 'scaffolder.fields',
+      fieldName: 'CollectionsPicker',
+      loader: async () => {
+        const { CollectionsPickerExtension } = await import(
+          './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
+        );
+        return {
+          name: 'CollectionsPicker',
+          component: CollectionsPickerExtension,
+        };
+      },
     }),
     PageBlueprint.make({
       name: 'collections',

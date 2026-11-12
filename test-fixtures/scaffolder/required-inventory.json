@@ -1,0 +1,30 @@
+{
+  "title": "Inventory launch",
+  "steps": [
+    {
+      "title": "Launch details",
+      "schema": {
+        "type": "object",
+        "required": ["inventory"],
+        "properties": {
+          "inventory": {
+            "title": "Inventory",
+            "description": "Please enter the inventory you want to use the services on",
+            "type": "object",
+            "resource": "inventories",
+            "ui:field": "AAPResourcePicker",
+            "default": {},
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}
