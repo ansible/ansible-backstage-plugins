@@ -7,8 +7,8 @@ import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node'
 import {
   ansibleServiceRef,
   userProvisionerRef,
-  IUserProvisionerConnectable,
-} from '@ansible/backstage-rhaap-common';
+  type IUserProvisionerConnectable,
+} from '@ansible/aap-node';
 import { UserProvisionerProvider } from './UserProvisionerProvider';
 
 export const catalogModuleRhaapUserProvisioner = createBackendModule({

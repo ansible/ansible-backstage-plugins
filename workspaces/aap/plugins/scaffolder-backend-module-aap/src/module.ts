@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Ansible plugin Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import {
   coreServices,
   createBackendModule,
@@ -31,11 +47,13 @@ const scaffolderActionsExtensionPoint = ((
 ).scaffolderActionsExtensionPoint ??
   (scaffolderNodeAlpha as Record<string, unknown>)
     .scaffolderActionsExtensionPoint) as ExtensionPoint<ScaffolderActionsExtensionPoint>;
+
+/** Registers AAP actions, template filters and autocomplete support. */
 export const scaffolderModuleAap = createBackendModule({
   pluginId: 'scaffolder',
   moduleId: 'aap',
-  register(env) {
-    env.registerInit({
+  register(reg) {
+    reg.registerInit({
       deps: {
         scaffolder: scaffolderActionsExtensionPoint,
         config: coreServices.rootConfig,
@@ -46,7 +64,7 @@ export const scaffolderModuleAap = createBackendModule({
         auth: coreServices.auth,
         discovery: coreServices.discovery,
       },
-      init({
+      async init({
         scaffolder,
         config,
         logger,
@@ -56,35 +74,33 @@ export const scaffolderModuleAap = createBackendModule({
         auth,
         discovery,
       }) {
-        return Promise.resolve().then(() => {
-          scaffolder.addActions(
-            createProjectAction(ansibleService),
-            createExecutionEnvironment(ansibleService),
-            createJobTemplate(ansibleService),
-            launchJobTemplate(ansibleService, config),
-            cleanUp(ansibleService),
-          );
-          scaffolderTemplating.addTemplateFilters({
-            useCaseNameFilter,
-            resourceFilter,
-            multiResourceFilter,
-            uuidFilter,
-          });
-          autocomplete.addAutocompleteProvider({
-            id: 'aap-api',
-            handler: ({ resource, token, context }) =>
-              handleAutocompleteRequest({
-                resource,
-                token,
-                context,
-                config,
-                logger,
-                ansibleService,
-                auth,
-                discovery,
-                includeCollections: false,
-              }),
-          });
+        scaffolder.addActions(
+          createProjectAction(ansibleService),
+          createExecutionEnvironment(ansibleService),
+          createJobTemplate(ansibleService),
+          launchJobTemplate(ansibleService, config),
+          cleanUp(ansibleService),
+        );
+        scaffolderTemplating.addTemplateFilters({
+          useCaseNameFilter,
+          resourceFilter,
+          multiResourceFilter,
+          uuidFilter,
+        });
+        autocomplete.addAutocompleteProvider({
+          id: 'aap-api',
+          handler: ({ resource, token, context }) =>
+            handleAutocompleteRequest({
+              resource,
+              token,
+              context,
+              config,
+              logger,
+              ansibleService,
+              auth,
+              discovery,
+              includeCollections: false,
+            }),
         });
       },
     });

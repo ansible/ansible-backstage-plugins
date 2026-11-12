@@ -60,16 +60,19 @@ async function pollJobCompletion(
 
       if (pollCount >= MAX_POLLS) {
         const error = new Error(
-          `Job ${result.id} polling timeout after ${MAX_POLLS * (POLL_INTERVAL_MS / 1000)} seconds. Last status: ${currentStatus}`,
+          `Job ${result.id} polling timeout after ${
+            MAX_POLLS * (POLL_INTERVAL_MS / 1000)
+          } seconds. Last status: ${currentStatus}`,
         );
         logger.error(error.message);
         throw error;
       }
 
-      await sleepMs(POLL_INTERVAL_MS, signal);
+      // Polling stays sequential because each response determines whether to continue.
+      await sleepMs(POLL_INTERVAL_MS, signal); // NOSONAR
       pollCount++;
 
-      const statusUpdate = await service.getJobStatus(result.id, token);
+      const statusUpdate = await service.getJobStatus(result.id, token); // NOSONAR
       currentStatus = statusUpdate.status?.toLowerCase();
       logger.debug(`Job ${result.id} status: ${currentStatus}`);
       result = { ...result, ...statusUpdate };
@@ -90,7 +93,9 @@ async function pollJobCompletion(
 
   logger.info(`Job ${result.id} completed with status: ${currentStatus}`);
   logger.debug(
-    `Polling completed after ${pollCount} polls (${pollCount * (POLL_INTERVAL_MS / 1000)}s)`,
+    `Polling completed after ${pollCount} polls (${
+      pollCount * (POLL_INTERVAL_MS / 1000)
+    }s)`,
   );
 
   try {
@@ -175,7 +180,9 @@ export const launchJobTemplate = (
             );
           }
           logger.debug(
-            `Polling job ${jobResult.id} with ${serviceToken ? 'service' : 'user'} token`,
+            `Polling job ${jobResult.id} with ${
+              serviceToken ? 'service' : 'user'
+            } token`,
           );
 
           jobResult = await pollJobCompletion(

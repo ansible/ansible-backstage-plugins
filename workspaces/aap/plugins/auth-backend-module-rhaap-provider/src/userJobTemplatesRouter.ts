@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
 import { Config } from '@backstage/config';
 import { AuthenticationError, InputError } from '@backstage/errors';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import { readRhaapRefreshToken } from './readRefreshToken';
 import { readRhaapProviderConfig } from './rhaapProviderConfig';
 
