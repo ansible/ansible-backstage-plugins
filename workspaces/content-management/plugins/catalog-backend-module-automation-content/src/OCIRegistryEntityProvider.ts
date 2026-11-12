@@ -141,6 +141,7 @@ export interface OCIRegistryEntityProviderOptions {
   taskRunner?: SchedulerServiceTaskRunner;
   /** Owner applied to emitted entities. */
   owner?: string;
+  repositoryTags?: ReadonlyMap<string, readonly string[]>;
   /** System entities are grouped under. */
   system?: string;
   /**
@@ -448,12 +449,16 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     }
     const name = eeRepositoryEntityName(registry.name, repository);
     const location = `${LOCATION_TYPE}:${registry.name}/${repository}`;
+    const tags = this.options.repositoryTags
+      ?.get(repository)
+      ?.filter(tag => this.redactor.redact(tag) === tag);
     return {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
       metadata: {
         name,
         title: repository,
+        ...(tags?.length ? { tags } : {}),
         annotations: {
           'backstage.io/managed-by-location': location,
           'backstage.io/managed-by-origin-location': location,

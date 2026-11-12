@@ -107,6 +107,7 @@ describe('EE repository projection', () => {
           ['mock', 'group:default/platform'],
           ['second', 'group:default/automation'],
         ]),
+        new Map([['mock', new Map([['team/image-21', ['networking']]])]]),
       );
       const insert = (
         repository: string,
@@ -164,17 +165,31 @@ describe('EE repository projection', () => {
       });
       expect(first.facets).toEqual({
         tags: ['latest', 'release', 'v2', 'v2-alias'],
+        descriptiveTags: ['networking'],
         owners: ['group:default/automation', 'group:default/platform'],
         totalImages: 24,
       });
       const filtered = await store.queryEERepositories({
         tag: 'v2-alias',
+        descriptiveTag: 'networking',
         owner: 'group:default/platform',
         latestOnly: true,
       });
       expect(filtered.totalItems).toBe(1);
       expect(filtered.items[0].repository).toBe('team/image-21');
       expect(filtered.facets).toEqual(first.facets);
+      expect(
+        (await store.queryEERepositories({ descriptiveTag: 'v2-alias' }))
+          .totalItems,
+      ).toBe(0);
+      expect(
+        (
+          await store.queryEERepositories({
+            descriptiveTag: 'networking',
+            tag: 'release',
+          })
+        ).items.map(item => item.registry),
+      ).toEqual(['mock']);
       expect(
         (
           await store.queryEERepositories({

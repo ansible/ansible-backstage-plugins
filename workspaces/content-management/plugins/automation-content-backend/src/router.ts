@@ -85,6 +85,7 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
     query,
     registry,
     tag,
+    descriptiveTag,
     latestOnly,
     owner,
     sort,
@@ -106,6 +107,9 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
       (typeof tag === 'string' && tag.length > 0 && tag.length <= 128)) &&
     (owner === undefined ||
       (typeof owner === 'string' && owner.length > 0 && owner.length <= 256)) &&
+    (descriptiveTag === undefined ||
+      (typeof descriptiveTag === 'string' &&
+        /^[a-z0-9:+#-]{1,63}$/.test(descriptiveTag))) &&
     (latestOnly === undefined || typeof latestOnly === 'boolean') &&
     (sort === undefined ||
       ['repository', 'registry', 'lastSuccessfulReconcileAt'].some(

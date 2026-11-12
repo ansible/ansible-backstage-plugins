@@ -42,12 +42,19 @@ export const catalogModuleAutomationContent = createBackendModule({
           registries.map(registry => registry.connection),
         );
 
-        for (const { connection, schedule, owner, system } of registries) {
+        for (const {
+          connection,
+          schedule,
+          owner,
+          system,
+          repositoryTags,
+        } of registries) {
           const provider = new OCIRegistryEntityProvider({
             connection,
             contentTypes,
             logger,
             owner,
+            repositoryTags,
             system,
             taskRunner: scheduler.createScheduledTaskRunner(schedule),
             redactor,

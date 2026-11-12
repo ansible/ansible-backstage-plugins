@@ -12,6 +12,7 @@ export interface RegistryProviderEntry {
   schedule: SchedulerServiceTaskScheduleDefinition;
   owner?: string;
   system?: string;
+  repositoryTags: ReadonlyMap<string, readonly string[]>;
 }
 
 const DEFAULT_SCHEDULE: SchedulerServiceTaskScheduleDefinition = {
@@ -122,6 +123,22 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
       );
     }
 
+    const repositoryTags = new Map<string, readonly string[]>();
+    for (const entry of registry.getOptionalConfigArray('repositoryTags') ??
+      []) {
+      const repository = entry.getString('repository');
+      const tags = entry.getStringArray('tags');
+      if (
+        repositoryTags.has(repository) ||
+        tags.some(tag => !/^[a-z0-9:+#-]{1,63}$/.test(tag))
+      ) {
+        throw new Error(
+          `automation-content registry "${name}": repositoryTags requires unique repository entries and valid Catalog tags`,
+        );
+      }
+      repositoryTags.set(repository, [...new Set(tags)]);
+    }
+
     return {
       connection: {
         name,
@@ -154,6 +171,7 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
         registry.getOptionalString('owner') ??
         providers.getOptionalString('owner'),
       system: registry.getOptionalString('system'),
+      repositoryTags,
     };
   });
 }

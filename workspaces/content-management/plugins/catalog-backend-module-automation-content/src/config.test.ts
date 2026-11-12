@@ -243,6 +243,9 @@ describe('readRegistryConfigs', () => {
           name: 'quay',
           url: 'https://quay.io',
           repositories: ['ansible/ee'],
+          repositoryTags: [
+            { repository: 'ansible/ee', tags: ['networking', 'networking'] },
+          ],
         },
       ]),
     );
@@ -253,6 +256,7 @@ describe('readRegistryConfigs', () => {
       url: 'https://quay.io/',
     });
     expect(entry.connection.repositories).toEqual(['ansible/ee']);
+    expect(entry.repositoryTags.get('ansible/ee')).toEqual(['networking']);
   });
 
   it('normalizes scheme case and surrounding whitespace to a usable endpoint', () => {

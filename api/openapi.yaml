@@ -370,7 +370,15 @@ components:
         pageSize: { type: integer, enum: [10, 20, 50], default: 10 }
         query: { type: string, maxLength: 256 }
         registry: { type: string }
-        tag: { type: string, minLength: 1, maxLength: 128 }
+        tag:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Exact OCI container tag used by the Version filter.
+        descriptiveTag:
+          type: string
+          pattern: '^[a-z0-9:+#-]{1,63}$'
+          description: Exact configured descriptive repository tag.
         latestOnly:
           type: boolean
           description: Select repositories with a literal latest tag.
@@ -420,6 +428,10 @@ components:
           properties:
             tags:
               type: array
+              items: { type: string }
+            descriptiveTags:
+              type: array
+              description: Descriptive tags configured for indexed repositories.
               items: { type: string }
             owners:
               type: array

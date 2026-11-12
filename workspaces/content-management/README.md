@@ -57,7 +57,16 @@ catalog:
         - name: quay
           url: https://quay.io
           repositories: [ansible/ee]
+          repositoryTags:
+            - repository: ansible/ee
+              tags: [networking, production]
 ```
+
+The optional `repositoryTags` entries add descriptive tags to exact
+repositories in that registry. They appear in the Images **Tag** filter and
+the repository's Catalog metadata. The **Version** filter uses OCI container
+tags. Repositories without configured descriptive tags still appear when
+**All tags** is selected.
 
 A registry `url` must be an absolute `http`/`https` URL with **no** embedded
 credentials, query, or fragment. Anything else — including `file://`,

@@ -83,6 +83,12 @@ export const automationContentPlugin = createBackendPlugin({
           new Map(
             registries.map(({ connection, owner }) => [connection.name, owner]),
           ),
+          new Map(
+            registries.map(({ connection, repositoryTags }) => [
+              connection.name,
+              repositoryTags,
+            ]),
+          ),
         );
 
         const scheduler = createContentScheduler({

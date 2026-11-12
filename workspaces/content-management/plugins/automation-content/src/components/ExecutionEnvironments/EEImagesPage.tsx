@@ -153,9 +153,9 @@ function EEInventory(): JSX.Element {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [registry, setRegistry] = useState<string>();
-  const [tag, setTag] = useState<string>();
+  const [descriptiveTag, setDescriptiveTag] = useState<string>();
   const [owner, setOwner] = useState<string>();
-  const [latestOnly, setLatestOnly] = useState(false);
+  const [version, setVersion] = useState<string>();
   const [sort, setSort] =
     useState<NonNullable<EERepositoryQuery['sort']>>('repository');
   const [order, setOrder] =
@@ -196,9 +196,9 @@ function EEInventory(): JSX.Element {
             pageSize,
             query: query || undefined,
             registry,
-            tag,
+            tag: version,
+            descriptiveTag,
             owner,
-            latestOnly: latestOnly || undefined,
             sort,
             order,
             favoriteEntityRefs,
@@ -206,7 +206,7 @@ function EEInventory(): JSX.Element {
     [
       api,
       favoriteEntityRefs,
-      latestOnly,
+      descriptiveTag,
       order,
       owner,
       page,
@@ -214,7 +214,7 @@ function EEInventory(): JSX.Element {
       query,
       registry,
       sort,
-      tag,
+      version,
       tooManyFavorites,
     ],
   );
@@ -507,25 +507,26 @@ function EEInventory(): JSX.Element {
               <InventoryFilter
                 label={t('inventory.filterTag')}
                 allLabel={t('inventory.allTags')}
-                value={tag}
-                options={(facets?.tags ?? []).map(value => ({
+                value={descriptiveTag}
+                options={(facets?.descriptiveTags ?? []).map(value => ({
                   value,
                   label: value,
                 }))}
                 onChange={value => {
-                  setTag(value);
+                  setDescriptiveTag(value);
                   setPage(1);
                 }}
               />
               <InventoryFilter
                 label={t('inventory.version')}
                 allLabel={t('inventory.allVersions')}
-                value={latestOnly ? 'latest' : undefined}
-                options={[
-                  { value: 'latest', label: t('inventory.latestOnly') },
-                ]}
+                value={version}
+                options={(facets?.tags ?? []).map(value => ({
+                  value,
+                  label: value === 'latest' ? t('inventory.latestOnly') : value,
+                }))}
                 onChange={value => {
-                  setLatestOnly(value === 'latest');
+                  setVersion(value);
                   setPage(1);
                 }}
               />

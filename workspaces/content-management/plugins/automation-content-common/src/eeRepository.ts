@@ -21,6 +21,7 @@ export interface EERepositoryQuery {
   query?: string;
   registry?: string;
   tag?: string;
+  descriptiveTag?: string;
   latestOnly?: boolean;
   owner?: string;
   sort?: 'repository' | 'registry' | 'lastSuccessfulReconcileAt';
@@ -46,7 +47,12 @@ export interface EERepositoryQueryResult {
   pageSize: number;
   totalItems: number;
   /** Facets from the whole inventory before filtering or pagination. */
-  facets?: { tags: string[]; owners: string[]; totalImages: number };
+  facets?: {
+    tags: string[];
+    descriptiveTags?: string[];
+    owners: string[];
+    totalImages: number;
+  };
 }
 
 export interface EERepositoryDigest {

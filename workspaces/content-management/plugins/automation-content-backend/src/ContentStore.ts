@@ -362,6 +362,10 @@ export class ContentStore {
     },
     private readonly contentTypes?: ContentTypeRegistry,
     private readonly registryOwners?: ReadonlyMap<string, string | undefined>,
+    private readonly repositoryTags?: ReadonlyMap<
+      string,
+      ReadonlyMap<string, readonly string[]>
+    >,
   ) {
     this.db = db;
     this.redactor = redactorForConnections(connections);
@@ -554,6 +558,7 @@ export class ContentStore {
 
     const summaries: EERepositorySummary[] = [];
     const availableTags = new Set<string>();
+    const availableDescriptiveTags = new Set<string>();
     const availableOwners = new Set<string>();
     for (const artifacts of groups.values()) {
       const { registry, repository } = artifacts[0];
@@ -564,12 +569,21 @@ export class ContentStore {
         this.registryOwners?.get(registry) ?? 'unknown',
       );
       const tagNames = tags.map(({ tag }) => tag);
+      const descriptiveTags = (
+        this.repositoryTags?.get(registry)?.get(repository) ?? []
+      ).filter(tag => this.redactor.redact(tag) === tag);
+      descriptiveTags.forEach(tag => availableDescriptiveTags.add(tag));
       availableOwners.add(owner);
       tagNames.forEach(tag => availableTags.add(tag));
       if (favorites && !favorites.has(entityRef)) continue;
       if (query.registry !== undefined && query.registry !== registry) continue;
       if (query.owner !== undefined && query.owner !== owner) continue;
       if (query.tag !== undefined && !tagNames.includes(query.tag)) continue;
+      if (
+        query.descriptiveTag !== undefined &&
+        !descriptiveTags.includes(query.descriptiveTag)
+      )
+        continue;
       if (query.latestOnly && !tagNames.includes('latest')) continue;
       if (
         needle &&
@@ -637,6 +651,7 @@ export class ContentStore {
       })),
       facets: {
         tags: Array.from(availableTags).sort(compareText),
+        descriptiveTags: Array.from(availableDescriptiveTags).sort(compareText),
         owners: Array.from(availableOwners).sort(compareText),
         totalImages: groups.size,
       },
