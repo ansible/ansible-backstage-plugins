@@ -169,6 +169,43 @@ test('opens a native repository favorite and preserves exact tag aliases through
       await chooseTag(page, otherDigestTag);
       await page.getByRole('tab', { name: 'Overview', exact: true }).click();
       await expect(digest).not.toHaveText(initialDigest!);
+      const currentDigest = await digest.textContent();
+      expect(currentDigest).toBeTruthy();
+
+      const matchesOlderArtifact = (url: URL) =>
+        decodeURIComponent(url.pathname).startsWith(
+          '/api/automation-content/execution-environments/',
+        ) && decodeURIComponent(url.pathname).endsWith(`@${initialDigest}`);
+      let release = () => {};
+      let held = false;
+      const delay = new Promise<void>(resolve => {
+        release = resolve;
+      });
+      await page.route(matchesOlderArtifact, async route => {
+        held = true;
+        await delay;
+        await route.continue();
+      });
+
+      try {
+        await chooseTag(page, secondAlias);
+        await expect.poll(() => held).toBe(true);
+        await chooseTag(page, otherDigestTag);
+        await expect(digest).toHaveText(currentDigest!);
+        const olderResponse = page.waitForResponse(
+          response =>
+            matchesOlderArtifact(new URL(response.url())) && response.ok(),
+        );
+        release();
+        await olderResponse;
+        await expect(digest).toHaveText(currentDigest!);
+        await expect
+          .poll(() => new URL(page.url()).searchParams.get('tag'))
+          .toBe(otherDigestTag);
+      } finally {
+        release();
+        await page.unroute(matchesOlderArtifact);
+      }
     }
     await expect(stockStar).toBeVisible();
   } finally {
