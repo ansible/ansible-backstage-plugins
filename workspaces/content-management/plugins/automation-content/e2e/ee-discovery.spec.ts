@@ -39,7 +39,18 @@ async function scan(
   selector: string,
   name: string,
 ): Promise<void> {
-  await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
+  const script = new URL('/__ee-discovery-test__/axe.js', page.url()).href;
+  await page.route(script, route =>
+    route.fulfill({
+      path: require.resolve('axe-core/axe.min.js'),
+      contentType: 'application/javascript',
+    }),
+  );
+  try {
+    await page.addScriptTag({ url: script });
+  } finally {
+    await page.unroute(script);
+  }
   const results = await page.evaluate(async target => {
     const { axe } = window as Window & {
       axe: { run(context: string): Promise<AxeResults> };
@@ -77,8 +88,16 @@ test('opens a native repository favorite and preserves exact tag aliases through
   });
   const wasStarred = await remove.isVisible();
   if (!wasStarred) {
-    await add.focus();
+    // The BUI grid uses arrow keys to move focus from the row into its cells.
+    await row.focus();
+    for (let step = 0; step < 8; step += 1) {
+      if (await add.evaluate(button => document.activeElement === button))
+        break;
+      await page.keyboard.press('ArrowRight');
+    }
+    await expect(add).toBeFocused();
     await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/content\/ee$/);
     await expect(remove).toBeVisible();
   }
   const favoritesOnly = page.getByRole('checkbox', { name: 'Favorites only' });

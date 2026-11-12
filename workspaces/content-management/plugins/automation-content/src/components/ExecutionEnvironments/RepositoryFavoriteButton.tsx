@@ -35,7 +35,17 @@ export function RepositoryFavoriteButton({
   }
 
   return (
-    <Flex direction="column" gap="1" align="start">
+    <Flex
+      direction="column"
+      gap="1"
+      align="start"
+      onKeyDown={event => {
+        // The surrounding table row also has an Enter action.
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.stopPropagation();
+        }
+      }}
+    >
       <ButtonIcon
         aria-label={t(
           isStarredEntity
