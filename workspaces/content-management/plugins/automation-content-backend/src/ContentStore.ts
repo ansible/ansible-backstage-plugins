@@ -8,6 +8,11 @@ import {
   CapabilityProbe,
   CredentialRedactor,
   DigestCacheStats,
+  eeRepositoryEntityRef,
+  isOciAttachmentTag,
+  isOciImageConfig,
+  isOciManifest,
+  MediaTypes,
   ImageManifest,
   MemoryDigestCache,
   logSafeText,
@@ -20,6 +25,14 @@ import {
 import type {
   ContentTypeRegistry,
   Descriptor,
+  EERepositoryDetails,
+  EERepositoryDigest,
+  EERepositoryQuery,
+  EERepositoryQueryResult,
+  EERepositorySummary,
+  EERepositorySyncResult,
+  EERepositoryTag,
+  SigningObservation,
   MetadataBundle,
   ResolvedArtifact,
 } from '@ansible/automation-content-common';
@@ -48,10 +61,68 @@ export interface IndexedArtifact {
   repository: string;
   digest: string;
   tags: string[];
+  tagTimestamps?: Record<string, string>;
+  signing?: SigningObservation;
   pullReference: string;
   contentsKnown: boolean;
   classification: IdentifiedType;
   manifest?: AnsibleContentManifest;
+}
+
+export class RegistryWriterBusy extends Error {}
+export class RegistryScanIncomplete extends Error {}
+
+export interface TagChange {
+  repository: string;
+  tag: string;
+  before?: string;
+  after?: string;
+}
+
+interface RepositoryInventory {
+  byDigest: Map<string, string[]>;
+  tagTimestamps: Map<string, string>;
+  completeTags: Set<string>;
+}
+
+interface RegistryRefresh {
+  discovered: number;
+  ok: boolean;
+  error?: string;
+  changes?: TagChange[];
+}
+
+interface RegistryPoll {
+  changed: boolean;
+  refreshed: boolean;
+  details: string[];
+  requests: number;
+  changes?: TagChange[];
+}
+
+function tagChanges(
+  previous: IndexedArtifact[],
+  current: IndexedArtifact[],
+): TagChange[] {
+  const bindings = (artifacts: IndexedArtifact[]) =>
+    new Map(
+      artifacts.flatMap(({ repository, digest, tags }) =>
+        tags
+          .filter(tag => !isOciAttachmentTag(tag))
+          .map(tag => [JSON.stringify([repository, tag]), digest] as const),
+      ),
+    );
+  const before = bindings(previous);
+  const after = bindings(current);
+  return Array.from(new Set([...before.keys(), ...after.keys()])).flatMap(
+    key => {
+      const oldDigest = before.get(key);
+      const newDigest = after.get(key);
+      if (oldDigest === newDigest) return [];
+      const [repository, tag] = JSON.parse(key) as [string, string];
+      return [{ repository, tag, before: oldDigest, after: newDigest }];
+    },
+  );
 }
 
 export interface IndexedItem {
@@ -97,6 +168,7 @@ export interface ReconcileState {
 
 export interface ArtifactListOptions {
   type?: string;
+  excludeType?: string;
   registry?: string;
   contentsKnown?: boolean;
   limit?: number;
@@ -108,12 +180,85 @@ export interface PaginatedResult<T> {
   totalCount: number;
 }
 
+type RepositoryArtifact = Pick<
+  IndexedArtifact,
+  | 'ref'
+  | 'digest'
+  | 'registry'
+  | 'repository'
+  | 'tags'
+  | 'tagTimestamps'
+  | 'signing'
+>;
+
+const repositoryTagCollator = new Intl.Collator('en', {
+  numeric: true,
+  sensitivity: 'base',
+});
+
+function compareText(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function compareRepositoryTags(
+  a: Omit<EERepositoryTag, 'taggedPullReference'>,
+  b: Omit<EERepositoryTag, 'taggedPullReference'>,
+): number {
+  const aTime = Date.parse(a.lastModified ?? '') || -Infinity;
+  const bTime = Date.parse(b.lastModified ?? '') || -Infinity;
+  if (aTime !== bTime) return bTime - aTime;
+  if (a.tag !== b.tag) {
+    if (a.tag === 'latest') return 1;
+    if (b.tag === 'latest') return -1;
+  }
+  return (
+    repositoryTagCollator.compare(b.tag, a.tag) ||
+    compareText(b.tag, a.tag) ||
+    compareText(a.artifactRef, b.artifactRef)
+  );
+}
+
+function repositoryVersions(artifacts: RepositoryArtifact[]) {
+  const digests: EERepositoryDigest[] = artifacts
+    .map(artifact => ({ digest: artifact.digest, artifactRef: artifact.ref }))
+    .sort((a, b) => compareText(a.artifactRef, b.artifactRef));
+  const sortedTags = artifacts
+    .flatMap(artifact =>
+      artifact.tags.map(tag => ({
+        tag,
+        digest: artifact.digest,
+        artifactRef: artifact.ref,
+        lastModified: artifact.tagTimestamps?.[tag],
+      })),
+    )
+    .sort(compareRepositoryTags);
+  const tags = new Map<string, (typeof sortedTags)[number]>();
+  for (const tag of sortedTags) {
+    if (!tags.has(tag.tag)) tags.set(tag.tag, tag);
+  }
+  const representative = sortedTags[0] ?? digests[0];
+  return {
+    representative,
+    representativeTag: sortedTags[0]?.tag,
+    digests,
+    tags: [...tags.values()],
+  };
+}
+
 /** Referrer fallback tags address artifacts about an image, not images. */
 const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
 
 /** Composite key for a content item. */
-export function itemKey(artifactRef: string, fqcn: string): string {
-  return `${artifactRef}::${fqcn}`;
+export function itemKey(
+  artifactRef: string,
+  fqcn: string,
+  type?: string,
+): string {
+  return type === undefined
+    ? `${artifactRef}::${fqcn}`
+    : JSON.stringify([artifactRef, type, fqcn]);
 }
 
 /** Flatten an artifact's manifest into content items. */
@@ -130,7 +275,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const plugin of collection.plugins) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, plugin.fqcn),
+        key: itemKey(artifact.ref, plugin.fqcn, plugin.type),
         fqcn: plugin.fqcn,
         name: plugin.name,
         type: plugin.type,
@@ -143,7 +288,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const role of collection.roles) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, role.fqcn),
+        key: itemKey(artifact.ref, role.fqcn, 'role'),
         fqcn: role.fqcn,
         name: role.name,
         type: 'role',
@@ -154,7 +299,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const playbook of collection.playbooks) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, playbook.fqcn),
+        key: itemKey(artifact.ref, playbook.fqcn, 'playbook'),
         fqcn: playbook.fqcn,
         name: playbook.name,
         type: 'playbook',
@@ -164,7 +309,7 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
     for (const eda of collection.edaPlugins) {
       items.push({
         ...base,
-        key: itemKey(artifact.ref, eda.fqcn),
+        key: itemKey(artifact.ref, eda.fqcn, eda.type),
         fqcn: eda.fqcn,
         name: eda.name,
         type: eda.type,
@@ -173,7 +318,14 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
       });
     }
   }
-  return items;
+  // A manifest can repeat an entry. Preserve the first document for an
+  // identical type and FQCN while indexing different plugin types separately.
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (seen.has(item.key)) return false;
+    seen.add(item.key);
+    return true;
+  });
 }
 
 /**
@@ -186,6 +338,9 @@ export class ContentStore {
   private readonly registries = new Map<string, RegistryState>();
   private readonly clients = new Map<string, OCIClient>();
   private readonly reconcile = new Map<string, ReconcileState>();
+  private readonly writers = new Map<string, Promise<unknown>>();
+  private readonly registrySuccess = new Map<string, string>();
+  private readonly repositorySuccess = new Map<string, string>();
   private readonly drift = new Map<string, DriftState>();
   private readonly cache = new MemoryDigestCache();
   private lastRefreshed?: string;
@@ -243,6 +398,35 @@ export class ContentStore {
     return this.reconcile.get(registry);
   }
 
+  lastSuccessfulReconcileAt(
+    registry: string,
+    repository?: string,
+  ): string | undefined {
+    return repository === undefined
+      ? this.registrySuccess.get(registry)
+      : this.repositorySuccess.get(JSON.stringify([registry, repository]));
+  }
+
+  private async writeRegistry<T>(
+    name: string,
+    wait: boolean,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    for (;;) {
+      const previous = this.writers.get(name);
+      if (!previous) break;
+      if (!wait) throw new RegistryWriterBusy();
+      await previous.catch(() => {});
+    }
+    const operation = Promise.resolve().then(run);
+    this.writers.set(name, operation);
+    try {
+      return await operation;
+    } finally {
+      if (this.writers.get(name) === operation) this.writers.delete(name);
+    }
+  }
+
   driftStateFor(registry: string): DriftState | undefined {
     return this.drift.get(registry);
   }
@@ -255,8 +439,11 @@ export class ContentStore {
     return this.cache.stats;
   }
 
-  async listArtifacts(type?: string): Promise<IndexedArtifact[]> {
-    const query = this.artifactQuery({ type });
+  async listArtifacts(
+    type?: string,
+    excludeType?: string,
+  ): Promise<IndexedArtifact[]> {
+    const query = this.artifactQuery({ type, excludeType });
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToArtifact(row));
   }
@@ -284,10 +471,167 @@ export class ContentStore {
   private artifactQuery(opts: ArtifactListOptions) {
     const query = this.db('artifacts');
     if (opts.type) query.where('type', opts.type);
+    if (opts.excludeType) query.whereNot('type', opts.excludeType);
     if (opts.registry) query.where('registry', opts.registry);
     if (opts.contentsKnown !== undefined)
       query.where('contents_known', opts.contentsKnown);
     return query;
+  }
+
+  private async repositoryArtifacts(
+    registry?: string,
+    repository?: string,
+  ): Promise<RepositoryArtifact[]> {
+    const query = this.artifactQuery({
+      type: 'execution-environment',
+      registry,
+    });
+    if (repository !== undefined) query.where('repository', repository);
+    const rows = await query.select(
+      'ref',
+      'digest',
+      'registry',
+      'repository',
+      'tags',
+      'signing',
+      'tag_timestamps',
+    );
+    const artifacts: RepositoryArtifact[] = [];
+    for (const row of rows) {
+      const {
+        ref,
+        digest,
+        registry: registryName,
+        repository: repositoryName,
+      } = row;
+      if (
+        !this.clients.has(registryName) ||
+        this.redactor.redact(registryName) !== registryName ||
+        this.redactor.redact(repositoryName) !== repositoryName
+      ) {
+        continue;
+      }
+      const indexedTags: string[] = JSON.parse(row.tags);
+      const tags = indexedTags.filter(
+        tag => !isOciAttachmentTag(tag) && this.redactor.redact(tag) === tag,
+      );
+      if (indexedTags.length && !tags.length) continue;
+      artifacts.push({
+        ref,
+        digest,
+        registry: registryName,
+        repository: repositoryName,
+        tags,
+        signing: row.signing ? JSON.parse(row.signing) : undefined,
+        tagTimestamps: row.tag_timestamps
+          ? JSON.parse(row.tag_timestamps)
+          : undefined,
+      });
+    }
+    return artifacts;
+  }
+
+  async queryEERepositories(
+    query: EERepositoryQuery,
+  ): Promise<EERepositoryQueryResult> {
+    const {
+      page = 1,
+      pageSize = 10,
+      sort = 'repository',
+      order = 'asc',
+    } = query;
+    const favorites =
+      query.favoriteEntityRefs && new Set(query.favoriteEntityRefs);
+    const needle = query.query?.trim().toLowerCase();
+    const groups = new Map<string, RepositoryArtifact[]>();
+    for (const artifact of await this.repositoryArtifacts(query.registry)) {
+      const key = JSON.stringify([artifact.registry, artifact.repository]);
+      const group = groups.get(key);
+      if (group) group.push(artifact);
+      else groups.set(key, [artifact]);
+    }
+
+    const summaries: EERepositorySummary[] = [];
+    for (const artifacts of groups.values()) {
+      const { registry, repository } = artifacts[0];
+      const entityRef = eeRepositoryEntityRef(registry, repository);
+      if (favorites && !favorites.has(entityRef)) continue;
+      const { representative, representativeTag, tags } =
+        repositoryVersions(artifacts);
+      if (
+        needle &&
+        ![registry, repository, ...tags.map(({ tag }) => tag)].some(value =>
+          value.toLowerCase().includes(needle),
+        )
+      ) {
+        continue;
+      }
+      const signingState = artifacts.find(
+        artifact => artifact.ref === representative.artifactRef,
+      )?.signing?.state;
+      summaries.push({
+        registry,
+        repository,
+        entityRef,
+        representativeDigest: representative.digest,
+        representativeRef: representative.artifactRef,
+        representativeTag,
+        tagCount: tags.length,
+        signingState,
+        lastSuccessfulReconcileAt: this.lastSuccessfulReconcileAt(
+          registry,
+          repository,
+        ),
+      });
+    }
+    summaries.sort((a, b) => {
+      const left = a[sort];
+      const right = b[sort];
+      if (left === undefined && right !== undefined) return 1;
+      if (right === undefined && left !== undefined) return -1;
+      const sorted =
+        left === undefined || right === undefined
+          ? 0
+          : compareText(left, right);
+      return (
+        (order === 'asc' ? sorted : -sorted) ||
+        compareText(a.registry, b.registry) ||
+        compareText(a.repository, b.repository)
+      );
+    });
+    const offset = (page - 1) * pageSize;
+    return {
+      page,
+      pageSize,
+      totalItems: summaries.length,
+      items: summaries.slice(offset, offset + pageSize),
+    };
+  }
+
+  async getEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<EERepositoryDetails | undefined> {
+    const client = this.clients.get(registry);
+    if (!client) return undefined;
+    const artifacts = await this.repositoryArtifacts(registry, repository);
+    if (!artifacts.length) return undefined;
+    const { representative, tags, digests } = repositoryVersions(artifacts);
+    return {
+      registry,
+      repository,
+      entityRef: eeRepositoryEntityRef(registry, repository),
+      representativeRef: representative.artifactRef,
+      tags: tags.map(tag => ({
+        ...tag,
+        taggedPullReference: client.pullReference({
+          registry,
+          repository,
+          reference: tag.tag,
+        }),
+      })),
+      digests,
+    };
   }
 
   async getArtifact(ref: string): Promise<IndexedArtifact | undefined> {
@@ -295,8 +639,19 @@ export class ContentStore {
     return row ? this.rowToArtifact(row) : undefined;
   }
 
-  async listItems(): Promise<IndexedItem[]> {
-    const rows = await this.db('items').select('*');
+  private itemQuery(excludeArtifactType?: string) {
+    const query = this.db('items');
+    if (excludeArtifactType) {
+      query.whereIn(
+        'artifact_ref',
+        this.artifactQuery({ excludeType: excludeArtifactType }).select('ref'),
+      );
+    }
+    return query;
+  }
+
+  async listItems(excludeArtifactType?: string): Promise<IndexedItem[]> {
+    const rows = await this.itemQuery(excludeArtifactType).select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
   }
 
@@ -307,17 +662,23 @@ export class ContentStore {
     return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
   }
 
-  async findItems(fqcn: string, artifactRef?: string): Promise<IndexedItem[]> {
-    const query = this.db('items').where('fqcn', fqcn);
+  async findItems(
+    fqcn: string,
+    artifactRef?: string,
+    excludeArtifactType?: string,
+  ): Promise<IndexedItem[]> {
+    const query = this.itemQuery(excludeArtifactType).where('fqcn', fqcn);
     if (artifactRef) query.where('artifact_ref', artifactRef);
     const rows = await query.select('*');
     return rows.map((row: Record<string, unknown>) => this.rowToItem(row));
   }
 
-  async listCollections(): Promise<
+  async listCollections(
+    excludeArtifactType?: string,
+  ): Promise<
     Array<ManifestCollectionEntry & { fqcn: string; providedBy: string[] }>
   > {
-    const artifacts = await this.listArtifacts();
+    const artifacts = await this.listArtifacts(undefined, excludeArtifactType);
     const byKey = new Map<
       string,
       ManifestCollectionEntry & { fqcn: string; providedBy: string[] }
@@ -358,9 +719,12 @@ export class ContentStore {
     return removed;
   }
 
-  async refreshAll(): Promise<{ artifacts: number; items: number }> {
+  async refreshAll(
+    observe?: (name: string, result: RegistryRefresh) => Promise<void>,
+  ): Promise<{ artifacts: number; items: number }> {
     for (const name of this.registries.keys()) {
-      await this.refreshRegistry(name);
+      const result = await this.refreshRegistry(name);
+      await observe?.(name, result);
     }
 
     await this.pruneRemovedRegistries();
@@ -375,10 +739,15 @@ export class ContentStore {
     };
   }
 
-  async refreshRegistry(
+  async refreshRegistry(name: string, wait = true): Promise<RegistryRefresh> {
+    return this.writeRegistry(name, wait, () => this.reconcileRegistry(name));
+  }
+
+  private async reconcileRegistry(
     name: string,
-  ): Promise<{ discovered: number; ok: boolean; error?: string }> {
-    const outcome = await this.discoverRegistry(name);
+    inventory?: ReadonlyMap<string, RepositoryInventory>,
+  ): Promise<RegistryRefresh> {
+    const outcome = await this.discoverRegistry(name, inventory);
     const at = new Date().toISOString();
 
     if (!outcome.ok) {
@@ -399,47 +768,14 @@ export class ContentStore {
       return { discovered: retainedCount, ok: false, error: outcome.error };
     }
 
-    await this.db.transaction(async trx => {
-      await trx('artifacts').where('registry', name).del();
-      let totalItems = 0;
-      for (const a of outcome.artifacts) {
-        await trx('artifacts').insert({
-          ref: a.ref,
-          type: a.type,
-          registry: a.registry,
-          repository: a.repository,
-          digest: a.digest,
-          tags: JSON.stringify(a.tags),
-          pull_reference: a.pullReference,
-          contents_known: a.contentsKnown,
-          classification: JSON.stringify(a.classification),
-          manifest: a.manifest ? JSON.stringify(a.manifest) : null,
-        });
-        const items = flattenItems(a);
-        totalItems += items.length;
-        for (const item of items) {
-          await trx('items').insert({
-            key: item.key,
-            fqcn: item.fqcn,
-            name: item.name,
-            type: item.type,
-            collection: item.collection,
-            collection_version: item.collectionVersion,
-            short_description: item.shortDescription ?? null,
-            version_added: item.versionAdded ?? null,
-            deprecated: item.deprecated ?? false,
-            artifact_ref: item.artifactRef,
-            detail: item.detail ? JSON.stringify(item.detail) : null,
-          });
-        }
-      }
-      this.logger.info(
-        `[${name}] persisted ${outcome.artifacts.length} artifact(s), ${totalItems} item(s)` +
-          ` (contentsKnown: ${
-            outcome.artifacts.filter(a => a.contentsKnown).length
-          })`,
+    const changes = await this.persistReconcile(name, outcome.artifacts);
+    this.registrySuccess.set(name, at);
+    for (const artifact of outcome.artifacts) {
+      this.repositorySuccess.set(
+        JSON.stringify([name, artifact.repository]),
+        at,
       );
-    });
+    }
 
     this.lastRefreshed = at;
     this.reconcile.set(name, {
@@ -447,10 +783,131 @@ export class ContentStore {
       ok: true,
       artifacts: outcome.artifacts.length,
     });
-    return { discovered: outcome.artifacts.length, ok: true };
+    return { discovered: outcome.artifacts.length, ok: true, changes };
+  }
+
+  /** Replaces the indexed scope and computes material deltas from its prior committed state. */
+  private async persistReconcile(
+    registry: string,
+    artifacts: IndexedArtifact[],
+    repository?: string,
+  ): Promise<TagChange[]> {
+    return this.db
+      .transaction(async trx => {
+        const scope = () => {
+          const query = trx('artifacts').where({ registry });
+          if (repository !== undefined) query.andWhere({ repository });
+          return query;
+        };
+        const previous = (await scope().select('*')).map(row =>
+          this.rowToArtifact(row),
+        );
+        const previousByRef = new Map(
+          previous.map(artifact => [artifact.ref, artifact]),
+        );
+        for (const artifact of artifacts) {
+          const old = previousByRef.get(artifact.ref);
+          if (
+            !artifact.manifest &&
+            old?.manifest &&
+            artifact.type === old.type
+          ) {
+            artifact.manifest = old.manifest;
+            artifact.contentsKnown = old.contentsKnown;
+          }
+        }
+        const changes = tagChanges(previous, artifacts);
+        await scope().del();
+        for (const a of artifacts) {
+          await trx('artifacts').insert({
+            ref: a.ref,
+            type: a.type,
+            registry: a.registry,
+            repository: a.repository,
+            digest: a.digest,
+            tags: JSON.stringify(a.tags),
+            pull_reference: a.pullReference,
+            contents_known: a.contentsKnown,
+            classification: JSON.stringify(a.classification),
+            manifest: a.manifest ? JSON.stringify(a.manifest) : null,
+            tag_timestamps: a.tagTimestamps
+              ? JSON.stringify(a.tagTimestamps)
+              : null,
+            signing: a.signing ? JSON.stringify(a.signing) : null,
+          });
+          const items = flattenItems(a);
+          for (const item of items) {
+            await trx('items').insert({
+              key: item.key,
+              fqcn: item.fqcn,
+              name: item.name,
+              type: item.type,
+              collection: item.collection,
+              collection_version: item.collectionVersion,
+              short_description: item.shortDescription ?? null,
+              version_added: item.versionAdded ?? null,
+              deprecated: item.deprecated ?? false,
+              artifact_ref: item.artifactRef,
+              detail: item.detail ? JSON.stringify(item.detail) : null,
+            });
+          }
+        }
+        return changes;
+      })
+      .catch(() => {
+        // Database errors can include the full inserted manifest and item docs.
+        throw new Error('Unable to persist registry reconciliation');
+      });
+  }
+
+  async refreshEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<
+    { result: EERepositorySyncResult; changes: TagChange[] } | undefined
+  > {
+    return this.writeRegistry(registry, false, async () => {
+      const client = this.clients.get(registry);
+      if (!client || !(await this.getEERepository(registry, repository)))
+        return undefined;
+      let artifacts: IndexedArtifact[];
+      try {
+        artifacts = await this.scanRepository(registry, repository, client);
+      } catch {
+        throw new RegistryScanIncomplete();
+      }
+      const changes = await this.persistReconcile(
+        registry,
+        artifacts,
+        repository,
+      );
+      const at = new Date().toISOString();
+      this.repositorySuccess.set(JSON.stringify([registry, repository]), at);
+      return {
+        result: {
+          status: 'completed',
+          registry,
+          repository,
+          addedTags: changes.filter(change => !change.before).length,
+          movedTags: changes.filter(change => change.before && change.after)
+            .length,
+          removedTags: changes.filter(change => !change.after).length,
+          retainedPrevious: false,
+          lastSuccessfulReconcileAt: at,
+        },
+        changes,
+      };
+    });
   }
 
   async detectDrift(name: string): Promise<DriftState> {
+    return this.checkDrift(name, new Map());
+  }
+
+  private async checkDrift(
+    name: string,
+    inventory: Map<string, RepositoryInventory>,
+  ): Promise<DriftState> {
     const state = this.registries.get(name);
     const client = this.clients.get(name);
     const at = new Date().toISOString();
@@ -463,18 +920,18 @@ export class ContentStore {
     let requests = 0;
 
     try {
-      const repositories = await this.resolveRepositories(name, state, client);
+      const repositories = await this.resolveRepositories(state, client);
       requests += 1;
 
       for (const repository of repositories) {
-        const observed = new Map<string, string>();
-        for await (const tag of client.listTags(repository)) {
-          requests += 1;
-          if (REFERRER_TAG.test(tag)) continue;
-          const head = await client.headManifest(repository, tag);
-          requests += 1;
-          if (head.digest) observed.set(tag, head.digest);
-        }
+        const snapshot = await this.readRepositoryInventory(repository, client);
+        inventory.set(repository, snapshot);
+        requests += 2 * snapshot.completeTags.size;
+        const observed = new Map(
+          [...snapshot.byDigest].flatMap(([digest, tags]) =>
+            tags.map(tag => [tag, digest] as const),
+          ),
+        );
 
         const rows = await this.db('artifacts')
           .where({ registry: name, repository })
@@ -501,6 +958,13 @@ export class ContentStore {
           if (!observed.has(tag)) details.push(`${repository}:${tag} removed`);
         }
       }
+      const knownRepositories: string[] = await this.db('artifacts')
+        .where({ registry: name })
+        .distinct()
+        .pluck('repository');
+      for (const repository of knownRepositories) {
+        if (!inventory.has(repository)) details.push(`${repository} removed`);
+      }
     } catch (error) {
       const failure: DriftState = {
         at,
@@ -522,13 +986,13 @@ export class ContentStore {
     return result;
   }
 
-  async pollRegistry(name: string): Promise<{
-    changed: boolean;
-    refreshed: boolean;
-    details: string[];
-    requests: number;
-  }> {
-    const drift = await this.detectDrift(name);
+  async pollRegistry(name: string, wait = true): Promise<RegistryPoll> {
+    return this.writeRegistry(name, wait, () => this.reconcileDrift(name));
+  }
+
+  private async reconcileDrift(name: string): Promise<RegistryPoll> {
+    const inventory = new Map<string, RepositoryInventory>();
+    const drift = await this.checkDrift(name, inventory);
     if (!drift.changed) {
       return {
         changed: false,
@@ -538,16 +1002,19 @@ export class ContentStore {
       };
     }
     this.logger.info(`[${name}] drift detected: ${drift.details.join('; ')}`);
-    await this.refreshRegistry(name);
+    const outcome = await this.reconcileRegistry(name, inventory);
     return {
       changed: true,
-      refreshed: true,
+      refreshed: outcome.ok,
+      changes: outcome.changes,
       details: drift.details,
       requests: drift.requests,
     };
   }
 
-  async pollAll(): Promise<{
+  async pollAll(
+    observe?: (name: string, result: RegistryPoll) => Promise<void>,
+  ): Promise<{
     checked: number;
     refreshed: number;
     requests: number;
@@ -556,13 +1023,17 @@ export class ContentStore {
     let requests = 0;
     for (const name of this.registries.keys()) {
       const result = await this.pollRegistry(name);
+      await observe?.(name, result);
       requests += result.requests;
       if (result.refreshed) refreshed += 1;
     }
     return { checked: this.registries.size, refreshed, requests };
   }
 
-  private async discoverRegistry(name: string): Promise<{
+  private async discoverRegistry(
+    name: string,
+    inventory?: ReadonlyMap<string, RepositoryInventory>,
+  ): Promise<{
     ok: boolean;
     error?: string;
     artifacts: IndexedArtifact[];
@@ -597,7 +1068,9 @@ export class ContentStore {
 
     let repositories: string[];
     try {
-      repositories = await this.resolveRepositories(name, state, client);
+      repositories = inventory
+        ? [...inventory.keys()]
+        : await this.resolveRepositories(state, client);
       this.logger.info(
         `[${name}] resolved ${repositories.length} repositor(ies)`,
       );
@@ -620,7 +1093,14 @@ export class ContentStore {
       const repo = logSafeText(repository);
       try {
         this.logger.info(`[${name}] scanning ${repo}`);
-        found.push(...(await this.scanRepository(name, repository, client)));
+        found.push(
+          ...(await this.scanRepository(
+            name,
+            repository,
+            client,
+            inventory?.get(repository),
+          )),
+        );
         this.logger.info(
           `[${name}] scanned ${repo}: ${found.length} artifact(s)`,
         );
@@ -630,27 +1110,16 @@ export class ContentStore {
             error,
           )}`,
         );
-        const retained = await this.db('artifacts')
-          .where({ registry: name, repository })
-          .select('*');
-        const retainedArtifacts = retained.map(row => this.rowToArtifact(row));
-        found.push(...retainedArtifacts);
         this.logger.warn(
-          `[${name}] ${this.redactor.redact(
-            repo,
-          )}: ${this.redactor.redactErrorText(error)}${
-            retainedArtifacts.length
-              ? `; keeping ${retainedArtifacts.length} previously known artifact(s)`
-              : ''
-          }`,
+          `[${name}] incomplete repository inspection; keeping prior registry view`,
         );
       }
     }
 
-    if (repositories.length > 0 && failures.length === repositories.length) {
+    if (failures.length > 0) {
       return {
         ok: false,
-        error: `all ${repositories.length} repositor(ies) failed: ${failures[0]}`,
+        error: `incomplete registry scan: ${failures[0]}`,
         artifacts: [],
       };
     }
@@ -665,6 +1134,10 @@ export class ContentStore {
       repository: row.repository as string,
       digest: row.digest as string,
       tags: JSON.parse(row.tags as string),
+      tagTimestamps: row.tag_timestamps
+        ? JSON.parse(row.tag_timestamps as string)
+        : undefined,
+      signing: row.signing ? JSON.parse(row.signing as string) : undefined,
       pullReference: row.pull_reference as string,
       contentsKnown: Boolean(row.contents_known),
       classification: JSON.parse(row.classification as string),
@@ -689,23 +1162,17 @@ export class ContentStore {
   }
 
   private async resolveRepositories(
-    name: string,
     state: RegistryState,
     client: OCIClient,
   ): Promise<string[]> {
     const configured = state.connection.repositories ?? [];
     if (configured.length > 0) return configured;
 
-    if (!state.capabilities?.catalogEnumeration) {
-      this.logger.warn(
-        `[${name}] no repositories configured and catalog enumeration is unavailable`,
-      );
-      return [];
-    }
-
     const namespaces = state.connection.namespaces;
     const discovered: string[] = [];
-    for await (const repository of client.listRepositories()) {
+    for await (const repository of client.listRepositories(100, {
+      strict: true,
+    })) {
       if (
         !namespaces?.length ||
         namespaces.some(ns => repository.startsWith(`${ns}/`))
@@ -716,35 +1183,51 @@ export class ContentStore {
     return discovered;
   }
 
+  private async readRepositoryInventory(
+    repository: string,
+    client: OCIClient,
+  ): Promise<RepositoryInventory> {
+    const byDigest = new Map<string, string[]>();
+    const tagTimestamps = new Map<string, string>();
+    const completeTags = new Set<string>();
+
+    for await (const tag of client.listTags(repository, 100, {
+      strict: true,
+    })) {
+      completeTags.add(tag);
+      if (REFERRER_TAG.test(tag)) continue;
+      const head = await client.headManifest(repository, tag, { strict: true });
+      if (!head.digest) throw new RegistryScanIncomplete();
+      byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
+      if (head.lastModified) tagTimestamps.set(tag, head.lastModified);
+    }
+    return { byDigest, tagTimestamps, completeTags };
+  }
+
   private async scanRepository(
     registry: string,
     repository: string,
     client: OCIClient,
+    inventory?: RepositoryInventory,
   ): Promise<IndexedArtifact[]> {
-    const byDigest = new Map<string, string[]>();
-
-    for await (const tag of client.listTags(repository)) {
-      if (REFERRER_TAG.test(tag)) continue;
-      const head = await client.headManifest(repository, tag);
-      if (head.status === 429) {
-        throw new Error(
-          `rate-limited by registry while scanning ${repository}:${tag}`,
-        );
-      }
-      if (!head.digest) {
-        this.logger.debug(
-          `[${registry}] HEAD ${repository}:${tag} returned status ${head.status} with no digest; skipping`,
-        );
-        continue;
-      }
-      byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
-    }
-
+    const { byDigest, tagTimestamps, completeTags } =
+      inventory ?? (await this.readRepositoryInventory(repository, client));
     const found: IndexedArtifact[] = [];
     for (const [digest, tags] of byDigest) {
-      found.push(
-        await this.inspect(registry, repository, digest, tags, client),
+      const artifact = await this.inspect(
+        registry,
+        repository,
+        digest,
+        tags,
+        client,
+        completeTags,
       );
+      artifact.tagTimestamps = Object.fromEntries(
+        tags.flatMap(tag =>
+          tagTimestamps.has(tag) ? [[tag, tagTimestamps.get(tag)!]] : [],
+        ),
+      );
+      found.push(artifact);
     }
     return found;
   }
@@ -755,6 +1238,7 @@ export class ContentStore {
     digest: string,
     tags: string[],
     client: OCIClient,
+    completeTags: ReadonlySet<string>,
   ): Promise<IndexedArtifact> {
     const base = {
       ref: `${registry}/${repository}@${digest}`,
@@ -769,28 +1253,42 @@ export class ContentStore {
       }),
     };
 
-    const { referrers } = await client
-      .getReferrers(repository, digest)
-      .catch(() => ({ referrers: [], via: 'none' as const }));
-
-    let labels: Record<string, string> | undefined;
-    let resolved: ResolvedArtifact | undefined;
-    try {
-      resolved = await client.getManifest(repository, digest);
-      const config = (resolved.manifest as ImageManifest).config;
-      if (config) {
-        const blob = await client.getConfigBlob(repository, config);
-        labels = blob?.config?.Labels;
-      }
-    } catch (error) {
-      this.logger.debug(
-        `[${registry}] ${this.redactor.redact(
-          logSafeText(repository),
-        )}@${digest}: ${this.redactor.redactErrorText(error)}`,
-      );
+    const resolved = await client.getManifest(repository, digest);
+    if (resolved.digest !== digest || !isOciManifest(resolved.manifest))
+      throw new RegistryScanIncomplete();
+    const config = (resolved.manifest as ImageManifest).config;
+    const blob = config
+      ? await client.getConfigBlob(repository, config)
+      : undefined;
+    if (
+      (blob !== undefined ||
+        config?.mediaType === MediaTypes.ociConfig ||
+        config?.mediaType === MediaTypes.dockerConfig) &&
+      !isOciImageConfig(blob)
+    ) {
+      throw new RegistryScanIncomplete();
     }
-
-    const classification = this.identify(resolved, { labels, referrers });
+    const { referrers, signing } = await client.inspectReferrersAndSigning(
+      repository,
+      digest,
+      completeTags,
+    );
+    const classification = this.identify(resolved, {
+      labels: blob?.config?.Labels,
+      referrers,
+    });
+    if (
+      classification.type !== 'execution-environment' &&
+      signing.mechanisms.some(
+        evidence =>
+          evidence.mechanism === 'oci-referrers' &&
+          evidence.outcome === 'failed',
+      )
+    ) {
+      throw new RegistryScanIncomplete();
+    }
+    const evidence =
+      classification.type === 'execution-environment' ? signing : undefined;
 
     if (!classification.readsContentManifest) {
       this.logger.debug(
@@ -801,6 +1299,7 @@ export class ContentStore {
         ...base,
         type: classification.type,
         contentsKnown: false,
+        signing: evidence,
         classification,
       };
     }
@@ -820,6 +1319,7 @@ export class ContentStore {
       ...base,
       type: classification.type,
       contentsKnown: Boolean(manifest),
+      signing: evidence,
       classification,
       manifest,
     };

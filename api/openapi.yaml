@@ -362,6 +362,106 @@ components:
         taskId: { type: string }
         triggeredAt: { type: string, format: date-time }
 
+    EERepositoryQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        page: { type: integer, minimum: 1, default: 1 }
+        pageSize: { type: integer, enum: [10, 20, 50], default: 10 }
+        query: { type: string, maxLength: 256 }
+        registry: { type: string }
+        sort: { type: string, enum: [repository, registry, lastSuccessfulReconcileAt] }
+        order: { type: string, enum: [asc, desc] }
+        favoriteEntityRefs:
+          type: array
+          description: Omit to search all images. An empty array selects none.
+          maxItems: 1000
+          items:
+            type: string
+            pattern: '^component:default/ee-repo-[0-9a-f]{48}$'
+
+    EERepositorySummary:
+      type: object
+      required: [registry, repository, entityRef, representativeDigest, representativeRef, tagCount]
+      properties:
+        registry: { type: string }
+        repository: { type: string }
+        entityRef: { type: string }
+        representativeDigest: { type: string }
+        representativeRef: { type: string }
+        representativeTag: { type: string }
+        tagCount: { type: integer, minimum: 0 }
+        signingState: { type: string, enum: [signed, not-signed, undetermined] }
+        lastSuccessfulReconcileAt: { type: string, format: date-time }
+
+    EERepositoryQueryResult:
+      type: object
+      required: [items, page, pageSize, totalItems]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/EERepositorySummary' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, enum: [10, 20, 50] }
+        totalItems: { type: integer, minimum: 0 }
+
+    EERepositoryDetails:
+      type: object
+      required: [registry, repository, entityRef, representativeRef, digests, tags]
+      properties:
+        registry: { type: string }
+        repository: { type: string }
+        entityRef: { type: string }
+        representativeRef: { type: string }
+        digests:
+          type: array
+          items:
+            type: object
+            required: [digest, artifactRef]
+            properties:
+              digest: { type: string }
+              artifactRef: { type: string }
+        tags:
+          type: array
+          items:
+            type: object
+            required: [digest, artifactRef, tag, taggedPullReference]
+            properties:
+              digest: { type: string }
+              artifactRef: { type: string }
+              tag: { type: string }
+              taggedPullReference: { type: string }
+              lastModified: { type: string, format: date-time }
+
+    EERepositorySyncResult:
+      type: object
+      required: [status, registry, repository, addedTags, movedTags, removedTags, retainedPrevious, lastSuccessfulReconcileAt]
+      properties:
+        status: { type: string, enum: [completed] }
+        registry: { type: string }
+        repository: { type: string }
+        addedTags: { type: integer, minimum: 0 }
+        movedTags: { type: integer, minimum: 0 }
+        removedTags: { type: integer, minimum: 0 }
+        retainedPrevious: { type: boolean, enum: [false] }
+        lastSuccessfulReconcileAt: { type: string, format: date-time }
+
+    SigningObservation:
+      type: object
+      description: Registry discovery evidence. A signature finding does not establish cryptographic verification.
+      required: [state, observedAt, mechanisms]
+      properties:
+        state: { type: string, enum: [signed, not-signed, undetermined] }
+        observedAt: { type: string, format: date-time }
+        mechanisms:
+          type: array
+          items:
+            type: object
+            required: [mechanism, outcome]
+            properties:
+              mechanism: { type: string, enum: [oci-referrers, cosign-signature-tag] }
+              outcome: { type: string, enum: [found, absent, ambiguous, unavailable, failed] }
+
     ContentRegistry:
       type: object
       required: [name, url]
@@ -386,9 +486,13 @@ components:
           description: |
             Fixed failure summary. The listing stays conservative — the detailed
             cause, which can quote internal hostnames from certificate
-            validation, is kept to backend logs and sync responses. Credentials
+            validation, is kept to backend logs. Credentials
             never appear in either: they are redacted ([REDACTED]) from every
             log line, error and response.
+        lastSuccessfulReconcileAt:
+          type: string
+          format: date-time
+          description: Most recent successful reconciliation, independent of manual scheduling requests.
         lastCheckedAt:
           type: string
           format: date-time
@@ -488,6 +592,8 @@ components:
         contentsKnown:
           type: boolean
           description: False when no content manifest is published. Distinct from containing nothing.
+        signing:
+          $ref: '#/components/schemas/SigningObservation'
         enumeration:
           $ref: '#/components/schemas/Enumeration'
         counts:
@@ -2808,7 +2914,7 @@ paths:
         delete is not offered.
 
         Reconciliation failures are reported as a fixed summary; the detailed cause
-        is kept to backend logs and sync responses.
+        is kept to backend logs.
       responses:
         '401':
           description: Authentication required
@@ -2821,6 +2927,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  manualSyncEnabled:
+                    type: boolean
+                    description: Deployment capability. A user also needs the sync grant.
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentRegistry' }
@@ -2835,10 +2944,9 @@ paths:
         - JWT: []
       summary: Trigger a background refresh of all configured registries
       description: |
-        Cancels any in-progress refresh and triggers the scheduled
-        content-management-store-refresh task. Returns immediately with
-        task metadata; the actual discovery runs in the background.
-        Credential values are redacted ([REDACTED]) from every diagnostic path.
+        Requires a user with `ansible.content.sync` and explicit manual enablement.
+        Schedules background reconciliation without cancelling a running task.
+        An accepted request may join a pending run. The response confirms scheduling only.
       responses:
         '401':
           description: Authentication required
@@ -2851,7 +2959,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ContentSyncTriggerResponse'
         '409':
-          description: A refresh is already in progress and could not be pre-empted.
+          description: A refresh is already running.
           content:
             application/json:
               schema:
@@ -2861,6 +2969,11 @@ paths:
                   status: { type: string, enum: [conflict] }
                   message: { type: string }
                   taskId: { type: string }
+        '503':
+          description: Manual refresh disabled or authorization, scheduling or audit unavailable
+        '500':
+          description: Refresh scheduled but audit confirmation failed
+
 
   /registries/{name}/poll:
     servers:
@@ -2871,7 +2984,7 @@ paths:
       security:
         - JWT: []
       summary: Poll one registry for changes detected by digest comparison
-      description: For registries that cannot push change events; drift is detected by comparing digests.
+      description: Requires an enabled manual sync capability and a user with `ansible.content.sync`. Detected drift can reconcile and write registry data.
       parameters:
         - name: name
           in: path
@@ -2888,6 +3001,13 @@ paths:
             application/json:
               schema:
                 type: object
+        '503':
+          description: Manual refresh disabled or authorization, scheduling or audit unavailable
+        '409':
+          description: The registry already has an active writer
+        '500':
+          description: Refresh or audit confirmation failed
+
 
   /registries/{name}/sync:
     servers:
@@ -2897,16 +3017,20 @@ paths:
       tags: [Automation Content Registries]
       security:
         - JWT: []
-      summary: Trigger a background refresh of one registry
+      summary: Trigger a refresh of one registry
       description: |
-        Cancels any in-progress refresh for the named registry and triggers
-        its scheduled task. Returns immediately with task metadata; the
-        actual discovery runs in the background.
+        Requires enabled manual sync and a user with ansible.content.sync.
+        Returns a background scheduling receipt by default. Use wait=true
+        to receive the observed reconciliation result.
       parameters:
         - name: name
           in: path
           required: true
           schema: { type: string }
+        - name: wait
+          in: query
+          schema: { type: boolean, default: false }
+          description: Wait for the observed reconciliation result.
       responses:
         '401':
           description: Authentication required
@@ -2917,7 +3041,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ContentSyncTriggerResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ContentSyncTriggerResponse'
+                  - type: object
+                    required: [status, discovered, retainedPrevious]
+                    properties:
+                      status: { type: string, enum: [completed, failed] }
+                      discovered: { type: integer }
+                      retainedPrevious: { type: boolean }
+                      error: { type: string }
+                      lastReconciledAt: { type: string, format: date-time }
         '404':
           description: No such registry
           content:
@@ -2925,15 +3058,10 @@ paths:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
         '409':
           description: A refresh is already in progress for this registry.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [status, message, taskId]
-                properties:
-                  status: { type: string, enum: [conflict] }
-                  message: { type: string }
-                  taskId: { type: string }
+        '500':
+          description: Refresh or audit confirmation failed.
+        '503':
+          description: Manual refresh disabled or authorization, scheduling or audit unavailable.
 
   /content:
     servers:
@@ -3066,6 +3194,122 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
 
+  /execution-environment-repositories/query:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: queryExecutionEnvironmentRepositories
+      tags: [Automation Content]
+      security:
+        - JWT: []
+      summary: Search and page through execution environment repositories
+      description: |
+        Read-only query requiring `ansible.execution-environments.view`.
+        Filters apply before pagination. The maximum request body is 256 KiB.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EERepositoryQuery' }
+      responses:
+        '200':
+          description: Matching repository page
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EERepositoryQueryResult' }
+        '400':
+          description: Invalid query
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
+        '413':
+          description: Query body exceeds 256 KiB
+        '503':
+          description: Authorization temporarily unavailable
+
+  /execution-environment-repositories/by-name/{registry}/{repository}(*):
+    servers:
+      - url: /api/automation-content
+    get:
+      operationId: getExecutionEnvironmentRepository
+      tags: [Automation Content]
+      security:
+        - JWT: []
+      summary: Get an execution environment repository and its current tags
+      description: Requires `ansible.execution-environments.view`. The repository path can contain slashes.
+      parameters:
+        - name: registry
+          in: path
+          required: true
+          schema: { type: string }
+        - name: repository
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Indexed repository, digests and exact tag bindings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EERepositoryDetails' }
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: No indexed execution environment for this repository
+        '503':
+          description: Authorization temporarily unavailable
+
+  /execution-environment-repositories/sync:
+    servers:
+      - url: /api/automation-content
+    post:
+      operationId: syncExecutionEnvironmentRepository
+      tags: [Automation Content]
+      security:
+        - JWT: []
+      summary: Reconcile one indexed execution environment repository
+      description: |
+        Requires a user principal with `ansible.content.sync` and
+        `ansible.execution-environments.view` and explicit manual enablement.
+        Reconciles all image types in the configured repository and reports
+        the actual tag changes after commit. Incomplete scans retain prior data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [registry, repository]
+              additionalProperties: false
+              properties:
+                registry: { type: string }
+                repository: { type: string }
+      responses:
+        '200':
+          description: Reconciliation committed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EERepositorySyncResult' }
+        '400':
+          description: Invalid repository selection
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions or non-user principal
+        '404':
+          description: No indexed execution environment for this repository
+        '409':
+          description: The registry already has an active writer
+        '500':
+          description: Persistence failed, or the committed result could not be confirmed in the audit trail
+        '502':
+          description: Registry scan incomplete. Previous data retained.
+        '503':
+          description: Manual sync disabled, authorization unavailable, or audit unavailable before work
+
   /execution-environments:
     servers:
       - url: /api/automation-content
@@ -3075,7 +3319,7 @@ paths:
       security:
         - JWT: []
       summary: List execution environments
-      description: Thin alias over `/content?type=execution-environment`.
+      description: Requires `ansible.execution-environments.view`. Thin alias over `/content?type=execution-environment`.
       parameters:
         - name: registry
           in: query
@@ -3107,6 +3351,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedContentResponse'
+        '503':
+          description: Authorization temporarily unavailable
+
 
   /execution-environments/{ref}(*):
     servers:
@@ -3117,7 +3364,7 @@ paths:
       security:
         - JWT: []
       summary: Get one execution environment
-      description: Thin alias over `/content/{ref}`.
+      description: Requires `ansible.execution-environments.view`. Thin alias over `/content/{ref}`.
       parameters:
         - name: ref
           in: path
@@ -3138,6 +3385,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '503':
+          description: Authorization temporarily unavailable
+
 
   /execution-environments/{ref}(*)/contents:
     servers:
@@ -3149,6 +3399,7 @@ paths:
         - JWT: []
       summary: List everything inside an environment
       description: |
+        Requires `ansible.execution-environments.view`.
         Returns content items, not artifacts. When contents could not be determined the
         response reports `status: unknown` rather than an empty list.
       parameters:
@@ -3176,6 +3427,9 @@ paths:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
+        '503':
+          description: Authorization temporarily unavailable
+
 
   /collections:
     servers:
@@ -3438,6 +3692,7 @@ paths:
         - JWT: []
       summary: Find environments satisfying a set of collection requirements
       description: |
+        Requires `ansible.execution-environments.view`.
         Accepts the same shape as a Galaxy `requirements.yml`. Use it to answer "which
         execution environment can run this project?" before a job is scheduled, rather
         than discovering a missing collection at runtime.
@@ -3472,6 +3727,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RequirementsResolution' }
+        '503':
+          description: Authorization temporarily unavailable
+
 
   /config/validate:
     servers:

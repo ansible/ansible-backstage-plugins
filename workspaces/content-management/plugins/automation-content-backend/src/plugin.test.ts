@@ -14,6 +14,7 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import {
   mockCredentials,
   mockServices,
@@ -78,10 +79,23 @@ async function serveRegistry() {
 }
 
 /** A test backend whose credential-less requests stay credential-less. */
-async function startBackend(registryUrl: string) {
+async function startBackend(
+  registryUrl: string,
+  grantedPermissions: string[] = ['ansible.content.sync'],
+  manualSyncEnabled = true,
+) {
+  const permissions = mockServices.permissions.mock();
+  permissions.authorize.mockImplementation(async queries =>
+    queries.map(query => ({
+      result: grantedPermissions.includes(query.permission.name)
+        ? AuthorizeResult.ALLOW
+        : AuthorizeResult.DENY,
+    })),
+  );
   const backend = await startTestBackend({
     features: [
       automationContentPlugin,
+      permissions.factory,
       // The mock httpAuth treats anonymous requests as the default mock user,
       // which would make the barrier invisible; `none` is the honest default
       // for a request that arrives carrying no credentials at all.
@@ -90,6 +104,7 @@ async function startBackend(registryUrl: string) {
       }),
       mockServices.rootConfig.factory({
         data: {
+          automationContent: { manualSync: { enabled: manualSyncEnabled } },
           catalog: {
             providers: {
               automationContent: {
@@ -138,6 +153,73 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(res.status).toBe(202);
     expect(res.body.status).toBe('scheduled');
     expect(res.body.taskId).toBeDefined();
+  });
+
+  it('honors the deployed EE view grant without granting sync', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(served.url, [
+      'ansible.execution-environments.view',
+    ]);
+    await request(backend.server)
+      .get('/api/automation-content/execution-environments')
+      .set('Authorization', mockCredentials.user.header())
+      .expect(200);
+    await request(backend.server)
+      .post('/api/automation-content/sync')
+      .set('Authorization', mockCredentials.user.header())
+      .expect(403);
+    expect(served.registry.requests).toHaveLength(0);
+  });
+
+  it('rejects service-principal sync even when the permission service allows it', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(served.url);
+    await request(backend.server)
+      .post('/api/automation-content/sync')
+      .set('Authorization', mockCredentials.service.header())
+      .expect(403);
+    expect(served.registry.requests).toHaveLength(0);
+  });
+
+  it('keeps scheduler diagnostics available and task mutations unavailable to HTTP callers', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(served.url);
+    const api = '/api/automation-content/.backstage/scheduler/v1/tasks';
+    const authorization = mockCredentials.user.header();
+    const list = await request(backend.server)
+      .get(api)
+      .set('Authorization', authorization)
+      .expect(200);
+    const taskIds = [
+      'content-management-store-refresh',
+      'content-management-drift-poll',
+    ];
+    expect(
+      list.body.tasks.map((task: { taskId: string }) => task.taskId),
+    ).toEqual(expect.arrayContaining(taskIds));
+    for (const id of taskIds) {
+      for (const action of ['trigger', 'cancel']) {
+        await request(backend.server)
+          .post(`${api}/${id}/${action}`)
+          .set('Authorization', authorization)
+          .expect(404);
+      }
+    }
+    expect(served.registry.requests).toHaveLength(0);
+  });
+
+  it('keeps manual refresh unavailable when the deployment switch is off', async () => {
+    const served = await serveRegistry();
+    const backend = await startBackend(
+      served.url,
+      ['ansible.content.sync'],
+      false,
+    );
+    await request(backend.server)
+      .post('/api/automation-content/sync')
+      .set('Authorization', mockCredentials.user.header())
+      .expect(503);
+    expect(served.registry.requests).toHaveLength(0);
   });
 
   it('keeps the liveness probe reachable without credentials', async () => {
