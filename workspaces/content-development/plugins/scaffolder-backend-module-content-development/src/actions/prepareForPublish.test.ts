@@ -121,7 +121,7 @@ describe('prepareForPublish', () => {
       );
       expect(ctx.output).toHaveBeenCalledWith('createNewRepo', false);
       expect(logger.info).toHaveBeenCalledWith(
-        'Github Repository test-owner/test-repo exists: true',
+        'Github repository existence check completed: true',
       );
     });
 
@@ -148,7 +148,7 @@ describe('prepareForPublish', () => {
 
       expect(ctx.output).toHaveBeenCalledWith('createNewRepo', true);
       expect(logger.info).toHaveBeenCalledWith(
-        'A new Github repository test-owner/test-repo will be created.',
+        'A new Github repository will be created.',
       );
     });
 
@@ -198,7 +198,7 @@ describe('prepareForPublish', () => {
       await action.handler(ctx);
 
       expect(logger.info).toHaveBeenCalledWith(
-        'Gitlab Repository test-owner/test-repo exists: true',
+        'Gitlab repository existence check completed: true',
       );
     });
   });
@@ -230,7 +230,10 @@ describe('prepareForPublish', () => {
         'github.com?repo=test-repo&owner=test-owner',
       );
       expect(logger.info).toHaveBeenCalledWith(
-        'Generated repository URL: github.com?repo=test-repo&owner=test-owner',
+        'Generated repository URL for publishing',
+      );
+      expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(
+        /github\.com|test-owner|test-repo/,
       );
     });
 
@@ -260,7 +263,7 @@ describe('prepareForPublish', () => {
         'github.com/test-owner/test-repo',
       );
       expect(logger.info).toHaveBeenCalledWith(
-        'Normalized repository URL: github.com/test-owner/test-repo',
+        'Normalized repository URL for publishing',
       );
     });
   });
@@ -420,7 +423,7 @@ describe('prepareForPublish', () => {
         'https://github.com/test-owner/test-repo/blob/main/my-ee/catalog-info.yaml',
       );
       expect(logger.info).toHaveBeenCalledWith(
-        'Generated repository contents URL: https://github.com/test-owner/test-repo/blob/main/my-ee/catalog-info.yaml',
+        'Generated repository contents URL',
       );
     });
 
@@ -748,7 +751,7 @@ describe('prepareForPublish', () => {
         expect.anything(),
       );
       expect(logger.warn).toHaveBeenCalledWith(
-        'Could not resolve GitLab numeric project ID for test-owner/test-repo',
+        'Could not resolve GitLab numeric project ID',
       );
     });
   });

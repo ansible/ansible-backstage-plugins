@@ -1,14 +1,17 @@
+import { createHash } from 'node:crypto';
 import {
   AuthService,
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 import type {
   Collections,
   SourceVersionDetail,
 } from '@ansible/content-development-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
+const COLLECTIONS_CACHE_MAX_ENTRIES = 100;
 const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';
 const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'kind',
@@ -16,16 +19,18 @@ const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'metadata.namespace',
 ]);
 
-let collectionsCache: {
-  result: { results: Collections[] };
-  filter: string;
-  timestamp: number;
-} | null = null;
+const collectionsCache = new Map<
+  string,
+  {
+    result: { results: Collections[] };
+    timestamp: number;
+  }
+>();
 
 const inflightRequests = new Map<string, Promise<{ results: Collections[] }>>();
 
 export function clearCollectionsCache(): void {
-  collectionsCache = null;
+  collectionsCache.clear();
   inflightRequests.clear();
 }
 
@@ -178,25 +183,47 @@ export async function getCollections(options: {
   discovery: DiscoveryService;
   logger: LoggerService;
   searchQuery?: string;
+  identityToken?: string;
 }): Promise<{ results: Collections[] }> {
-  const { auth, discovery, logger, searchQuery } = options;
-  const filter = buildCatalogFilter(searchQuery);
-
-  if (
-    collectionsCache?.filter === filter &&
-    Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
-  ) {
-    return collectionsCache.result;
+  const { auth, discovery, logger, searchQuery, identityToken } = options;
+  if (!identityToken) {
+    throw new AuthenticationError(
+      'Authenticated user credentials are required for collection autocomplete',
+    );
   }
 
-  if (inflightRequests.has(filter)) {
-    return inflightRequests.get(filter)!;
+  const callerCredentials = await auth.authenticate(identityToken);
+  if (!auth.isPrincipal(callerCredentials, 'user')) {
+    throw new NotAllowedError(
+      'Only an authenticated user can request collection autocomplete',
+    );
+  }
+
+  const filter = buildCatalogFilter(searchQuery);
+  const visibilityKey = createHash('sha256')
+    .update(identityToken)
+    .digest('hex');
+  const cacheKey = `${visibilityKey}:${filter}`;
+
+  const cached = collectionsCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < COLLECTIONS_CACHE_TTL_MS) {
+    // Refresh insertion order so frequently used visibility scopes stay cached.
+    collectionsCache.delete(cacheKey);
+    collectionsCache.set(cacheKey, cached);
+    return cached.result;
+  }
+  if (cached) {
+    collectionsCache.delete(cacheKey);
+  }
+
+  if (inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey)!;
   }
 
   const fetchPromise = (async () => {
     const baseUrl = await discovery.getBaseUrl('catalog');
     const { token: catalogToken } = await auth.getPluginRequestToken({
-      onBehalfOf: await auth.getOwnServiceCredentials(),
+      onBehalfOf: callerCredentials,
       targetPluginId: 'catalog',
     });
     const encodedFilter = encodeURIComponent(filter);
@@ -223,19 +250,25 @@ export async function getCollections(options: {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
-    collectionsCache = { result, filter, timestamp: Date.now() };
+    if (collectionsCache.size >= COLLECTIONS_CACHE_MAX_ENTRIES) {
+      const oldestKey = collectionsCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        collectionsCache.delete(oldestKey);
+      }
+    }
+    collectionsCache.set(cacheKey, { result, timestamp: Date.now() });
 
     return result;
   })();
 
-  inflightRequests.set(filter, fetchPromise);
+  inflightRequests.set(cacheKey, fetchPromise);
 
   try {
     return await fetchPromise;
   } finally {
-    const currentInflight = inflightRequests.get(filter);
+    const currentInflight = inflightRequests.get(cacheKey);
     if (currentInflight === fetchPromise) {
-      inflightRequests.delete(filter);
+      inflightRequests.delete(cacheKey);
     }
   }
 }

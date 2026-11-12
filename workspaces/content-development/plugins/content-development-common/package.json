@@ -15,7 +15,7 @@
     "@backstage/catalog-model": "1.10.0",
     "@backstage/config": "1.3.8",
     "@backstage/integration": "2.1.1",
-    "undici": "^6.26.0"
+    "undici": "6.29.1"
   },
   "scripts": {
     "build": "backstage-cli package build",
