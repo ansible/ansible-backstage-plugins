@@ -84,6 +84,8 @@ export function NativeScaffolderFields({
               declaration,
             ): Promise<FieldExtensionOptions<any, any> | undefined> => {
               try {
+                if (reservedNames.includes(declaration.fieldName))
+                  return undefined;
                 const capability = declaration.manifest.capabilities.find(
                   item => item.id === declaration.capabilityId,
                 );
@@ -94,8 +96,6 @@ export function NativeScaffolderFields({
                   failedNames.push(declaration.fieldName);
                   return undefined;
                 }
-                if (reservedNames.includes(declaration.fieldName))
-                  return undefined;
                 if (
                   declaration.enabledByConfig &&
                   config.getOptionalBoolean(declaration.enabledByConfig) !==

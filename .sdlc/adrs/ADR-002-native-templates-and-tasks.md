@@ -89,7 +89,9 @@ fallback fields after API loading, so the adapter reserves their names for
 upstream built-in extension IDs, including the fallback-only `Secret` field.
 Disabling a built-in native extension does not make its fallback name available
 to contributors. Revalidate this compatibility boundary and fallback-name list
-when upgrading Scaffolder. Dynamic hosts must install the same adapter.
+when upgrading Scaffolder. The host peer dependency is pinned to `1.38.2`
+until those checks pass for another version. Dynamic hosts must install the same
+adapter.
 
 #### PR 2: AAP resource fields and generated schemas
 
