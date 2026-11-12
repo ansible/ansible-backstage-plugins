@@ -2,6 +2,8 @@ import '@testing-library/jest-dom';
 import { act, screen, waitFor } from '@testing-library/react';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { useApi } from '@backstage/core-plugin-api';
+import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
 import {
   createFrontendPlugin,
   createRouteRef,
@@ -371,12 +373,31 @@ describe('native scaffolder field discovery', () => {
     ).toBeInTheDocument();
     expect(loader).toHaveBeenCalledTimes(1);
   });
-  it.each(['config', 'permission', 'owner', 'reserved'] as const)(
+  it.each(['capability', 'entry'])(
+    'skips reserved fields with a missing %s without an alert',
+    async missing => {
+      const field = descriptor();
+      if (missing === 'capability') field.capabilityId = 'missing';
+      else field.entryPointId = 'missing';
+      await renderInTestApp(
+        <TestApiProvider apis={[[permissionApiRef, { authorize: jest.fn() }]]}>
+          <NativeScaffolderFields
+            declarations={[field]}
+            reservedNames={['RepositoryInput']}
+          >
+            {() => <div>Host field available</div>}
+          </NativeScaffolderFields>
+        </TestApiProvider>,
+      );
+      await screen.findByText('Host field available');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(loader).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['owner', 'reserved'] as const)(
     'filters %s before importing the widget',
     async gate => {
       await compose({
-        enabled: gate !== 'config',
-        deny: gate === 'permission',
         owner: gate === 'owner' ? 'other' : undefined,
         reserved: gate === 'reserved' ? ['RepositoryInput'] : undefined,
       });
@@ -384,11 +405,24 @@ describe('native scaffolder field discovery', () => {
       expect(loader).not.toHaveBeenCalled();
     },
   );
+  it.each(['config', 'permission'] as const)(
+    'reports a %s-ineligible field without loading its widget',
+    async gate => {
+      await compose({
+        enabled: gate !== 'config',
+        deny: gate === 'permission',
+      });
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Some template fields are unavailable: RepositoryInput',
+      );
+      expect(loader).not.toHaveBeenCalled();
+    },
+  );
   it('isolates a failed loader and omits its widget rather than falling back', async () => {
     loader.mockRejectedValue(new Error('Federation unavailable'));
     await compose();
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Some template fields could not be loaded',
+      'Some template fields are unavailable',
     );
     expect(screen.getByText('Wizard ready')).toBeInTheDocument();
     expect(
@@ -403,7 +437,7 @@ describe('native scaffolder field discovery', () => {
     });
     await compose();
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Some template fields could not be loaded',
+      'Some template fields are unavailable',
     );
   });
   it('stops the active form when a mounted widget throws', async () => {
