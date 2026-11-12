@@ -126,12 +126,9 @@ export const eeMessages = {
     synchronization: 'Last synchronized',
     collectionVersion: 'Version',
     collectionName: 'Name',
-    completeContents: 'Collection inventory is complete.',
     partialContents: 'Only part of the collection inventory is available.',
     unknownContents: 'The collection inventory could not be determined.',
     emptyContents: 'This image contains no indexed collections.',
-    linksUnavailable:
-      'Collection links are unavailable. The indexed contents are still shown.',
   },
   signing: {
     signed: 'Signed',

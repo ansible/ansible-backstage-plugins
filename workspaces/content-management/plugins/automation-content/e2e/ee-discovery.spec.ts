@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import type { AxeResults } from 'axe-core';
+import type { ArtifactContents } from '../src/api';
 
 const repository =
   process.env.EE_DISCOVERY_REPOSITORY ?? 'demo/utopia-storage-ee';
@@ -283,6 +284,56 @@ test('opens a native repository favorite and preserves exact tag aliases through
     await expect(stockStar).toBeVisible();
   } finally {
     if (!wasStarred && (await stockStar.isVisible())) await stockStar.click();
+  }
+});
+
+test('shows only the discovered image inventory and distinguishes empty states', async ({
+  page,
+}) => {
+  const contents: ArtifactContents = {
+    enumeration: { status: 'partial', source: 'blob-fetch' },
+    collections: [
+      {
+        namespace: 'ansible',
+        name: 'netcommon',
+        fqcn: 'ansible.netcommon',
+        version: '7.2.0',
+        counts: { plugins: 8 },
+      },
+    ],
+    items: [],
+  };
+  await page.route(
+    '**/api/automation-content/execution-environments/*/contents',
+    route => route.fulfill({ json: contents }),
+  );
+  await openInventory(page);
+  const search = page.getByRole('searchbox', { name: 'Search images' });
+  await search.focus();
+  await page.keyboard.insertText(repository);
+  await page.getByRole('link', { name: repository, exact: true }).click();
+  await page.getByRole('tab', { name: 'All Content', exact: true }).click();
+
+  const table = page
+    .getByRole('tabpanel', { name: 'All Content' })
+    .getByRole('grid');
+  const row = table.getByRole('row', { name: /ansible\.netcommon/ });
+  await expect(row.getByText('7.2.0', { exact: true })).toBeVisible();
+  await expect(row.getByText('8 plugins', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Only part of the collection inventory is available.'),
+  ).toHaveCount(0);
+
+  contents.collections = [];
+  for (const [status, message] of [
+    ['complete', 'This image contains no indexed collections.'],
+    ['partial', 'Only part of the collection inventory is available.'],
+    ['unknown', 'The collection inventory could not be determined.'],
+  ] as const) {
+    contents.enumeration.status = status;
+    await page.reload();
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+    await expect(table).toHaveCount(0);
   }
 });
 

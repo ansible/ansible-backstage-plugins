@@ -432,15 +432,6 @@ function ContainedCollections({
     }
     return links;
   }, [artifact, catalog, contents.collections.length]);
-  const status = contents.enumeration?.status ?? 'unknown';
-  const statusMessage = {
-    complete:
-      contents.collections.length > 0
-        ? 'detail.completeContents'
-        : 'detail.emptyContents',
-    partial: 'detail.partialContents',
-    unknown: 'detail.unknownContents',
-  } as const;
   const columns: ColumnConfig<CollectionRow>[] = [
     {
       id: 'collection',
@@ -523,15 +514,19 @@ function ContainedCollections({
     data: rows,
     paginationOptions: { pageSize: 10, pageSizeOptions: [10, 20, 50] },
   });
+  if (rows.length === 0) {
+    const statusMessage = {
+      complete: 'detail.emptyContents',
+      partial: 'detail.partialContents',
+      unknown: 'detail.unknownContents',
+    } as const;
+    const status = contents.enumeration?.status ?? 'unknown';
+    return <Text role="status">{t(statusMessage[status])}</Text>;
+  }
+
   return (
-    <Flex direction="column" gap="2">
-      <Text role="status">{t(statusMessage[status])}</Text>
-      {linked.error && <Text>{t('detail.linksUnavailable')}</Text>}
-      {contents.collections.length > 0 && (
-        <Card>
-          <Table {...tableProps} columnConfig={columns} />
-        </Card>
-      )}
-    </Flex>
+    <Card>
+      <Table {...tableProps} columnConfig={columns} />
+    </Card>
   );
 }
