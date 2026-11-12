@@ -307,20 +307,23 @@ describe('createRouter', () => {
         'aap',
         ['/ansible/sync/status/aap'],
         ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
+        { status: 404, hasContent: false },
       ],
       [
         'content',
         ['/ansible/sync/status/content', '/ansible/sync/status/self-service'],
         ['/ansible/sync/status/aap'],
+        { status: 200, hasContent: true },
       ],
       [
         'ee',
         ['/ansible/sync/status/self-service'],
         ['/ansible/sync/status/aap', '/ansible/sync/status/content'],
+        { status: 404, hasContent: false },
       ],
     ] as const)(
       'slice %s mounts only its own status route',
-      async (slice, ownRoutes, otherRoutes) => {
+      async (slice, ownRoutes, otherRoutes, legacy) => {
         const sliceApp = await buildSliceApp(slice);
 
         for (const ownRoute of ownRoutes) {
@@ -336,12 +339,13 @@ describe('createRouter', () => {
         const legacyResponse = await request(sliceApp).get(
           '/ansible/sync/status',
         );
-        if (slice === 'content') {
-          expect(legacyResponse.status).toBe(200);
-          expect(legacyResponse.body).toHaveProperty('content');
-        } else {
-          expect(legacyResponse.status).toBe(404);
-        }
+        expect({
+          status: legacyResponse.status,
+          hasContent: Object.prototype.hasOwnProperty.call(
+            legacyResponse.body ?? {},
+            'content',
+          ),
+        }).toEqual(legacy);
       },
     );
   });
