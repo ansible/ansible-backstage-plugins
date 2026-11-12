@@ -455,14 +455,14 @@ This section records **what shipped** in the [catalog split stack](https://githu
 
 ### 13.1 Package and workspace mapping
 
-| Research / interim name (§1.1) | As built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981)) |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Research / interim name (§1.1)                                | As built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981))            |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared provider library (was discussed as a separate package) | **`@ansible/backstage-rhaap-common/catalog`** — providers, sync router, `createCatalogModule()`, slice guard (`workspaces/aap/plugins/backstage-rhaap-common/src/catalog/`) |
-| `catalog-backend-module-interim-content` | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`** |
-| `catalog-backend-module-aap` | Unchanged — **`workspaces/aap/plugins/`** |
-| Separate EE catalog module (`self-service-ee`) | **Folded into `catalog-backend-module-content`** (content slice registers PAH, Git SCM, and EE) |
-| `workspaces/portal-scaffolder/` peel | **Removed** on `main`; portal UI is **`workspaces/content-development/`** |
-| Monolith migration | **`catalog-backend-module-rhaap`** remains a **deprecated shim** (`slice: 'all'`) |
+| `catalog-backend-module-interim-content`                      | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`**                                                                                        |
+| `catalog-backend-module-aap`                                  | Unchanged — **`workspaces/aap/plugins/`**                                                                                                                                   |
+| Separate EE catalog module (`self-service-ee`)                | **Folded into `catalog-backend-module-content`** (content slice registers PAH, Git SCM, and EE)                                                                             |
+| `workspaces/portal-scaffolder/` peel                          | **Removed** on `main`; portal UI is **`workspaces/content-development/`**                                                                                                   |
+| Monolith migration                                            | **`catalog-backend-module-rhaap`** remains a **deprecated shim** (`slice: 'all'`)                                                                                           |
 
 ### 13.2 Preserved contracts (still match §4 / §6)
 
