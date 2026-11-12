@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
-import { useNavigate } from 'react-router-dom';
 import FileCopyIcon from '@material-ui/icons/FileCopy';
 import { useApi } from '@backstage/core-plugin-api';
-import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { copyText } from '../common/clipboard';
 import {
   Button,
@@ -26,13 +23,6 @@ import {
 import { automationContentApiRef, type Registry } from '../../api';
 import { sortRepositoryTagsNewestFirst } from './catalogHelpers';
 import styles from './use-in-controller-dialog.module.css';
-
-/**
- * Portal-scaffolder's task-detail route. No route ref is exported for the
- * task page — portal-scaffolder builds this same path from its own root ref
- * in CreateTask — so the suffix is mirrored here as a constant.
- */
-const TASK_PATH = '/self-service/create/tasks/';
 
 /** One AAP organization as synced into the catalog by the AAP entity provider. */
 interface ControllerOrganization {
@@ -90,27 +80,7 @@ function registryRepositoryFromReference(
   };
 }
 
-function isMissingTemplate(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  if ('name' in error && error.name === 'NotFoundError') return true;
-  if ('status' in error && error.status === 404) return true;
-  if (
-    'response' in error &&
-    typeof error.response === 'object' &&
-    error.response !== null &&
-    'status' in error.response &&
-    error.response.status === 404
-  ) {
-    return true;
-  }
-  return (
-    'message' in error &&
-    typeof error.message === 'string' &&
-    /\bnot[\s-]+found\b/i.test(error.message)
-  );
-}
-
-/** Form for starting the reviewed EE-in-Controller scaffolder workflow. */
+/** Review modal for the currently pending EE-in-Controller workflow. */
 export function UseInControllerDialog({
   open,
   imageName,
@@ -131,18 +101,13 @@ export function UseInControllerDialog({
   selectedTag?: string;
   onClose: () => void;
 }>): ReactElement {
-  const scaffolderApi = useApi(scaffolderApiRef);
   const catalog = useApi(catalogApiRef);
-  const aapAuth = useApi(rhAapAuthApiRef);
   const contentApi = useApi(automationContentApiRef);
-  const navigate = useNavigate();
   const [environmentName, setEnvironmentName] = useState('');
   const [description, setDescription] = useState('');
   const [organizationId, setOrganizationId] = useState('');
   const [selectedTagOverride, setSelectedTagOverride] = useState('');
-  const [organizationError, setOrganizationError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [pendingMessage, setPendingMessage] = useState('');
   const [copyStatus, setCopyStatus] = useState('');
   const registryRepository = useMemo(
     () => (registry && repository ? { registry, repository } : undefined),
@@ -218,8 +183,7 @@ export function UseInControllerDialog({
       setEnvironmentName(imageName);
       setDescription(`Use ${imageName} in Ansible Automation Controller.`);
       setOrganizationId('');
-      setOrganizationError('');
-      setError('');
+      setPendingMessage('');
     }
   }, [imageName, open]);
 
@@ -228,60 +192,10 @@ export function UseInControllerDialog({
     setCopyStatus('');
   }, [pullReference, open]);
 
-  const handleSubmit = async (): Promise<void> => {
-    if (!environmentName.trim()) {
-      setError('Execution environment name is required.');
-      return;
-    }
-    const organization = organizations.value?.find(
-      org => String(org.id) === organizationId,
+  const handleSubmit = (): void => {
+    setPendingMessage(
+      'Use in Controller is pending. This action will not create a task or contact Controller yet.',
     );
-    if (!organization) {
-      setOrganizationError('Select an organization.');
-      return;
-    }
-    if (!selectedImage || !selectedImageReference) {
-      setError('Choose an available image tag before continuing.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
-    setOrganizationError('');
-    let token: string;
-    try {
-      token = await aapAuth.getAccessToken();
-    } catch {
-      setError(
-        'Unable to authenticate with Ansible Automation Platform. Sign in again and retry.',
-      );
-      setSubmitting(false);
-      return;
-    }
-    try {
-      const task = await scaffolderApi.scaffold({
-        templateRef: 'template:default/ee-use-in-controller',
-        values: {
-          environmentName: environmentName.trim(),
-          environmentDescription: description,
-          organizationId: organization.id,
-          organizationName: organization.name,
-          image: selectedImageReference,
-          pull: 'always',
-        },
-        secrets: { aapToken: token },
-      });
-      onClose();
-      // Follow the task so the user sees its Controller workflow progress.
-      navigate(`${TASK_PATH}${task.taskId}`);
-    } catch (failure) {
-      setError(
-        isMissingTemplate(failure)
-          ? 'This action is not available yet. The task template was not found.'
-          : 'Unable to start the Controller workflow. Try again later.',
-      );
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const copyDigest = async (): Promise<void> => {
@@ -302,21 +216,17 @@ export function UseInControllerDialog({
   const tagsEmpty = !tagMap.loading && !tagsUnavailable && tags.length === 0;
 
   return (
-    <Dialog
-      isOpen={open}
-      onOpenChange={value => !value && !submitting && onClose()}
-    >
+    <Dialog isOpen={open} onOpenChange={value => !value && onClose()}>
       <DialogHeader>Use in Controller</DialogHeader>
       <DialogBody>
         <Flex direction="column" gap="4">
           <Text color="secondary">
-            Create this registry image as an execution environment in Ansible
-            Automation Controller. After you submit, follow progress and logs on
-            the task page.
+            Review the image details you would use with Ansible Automation
+            Controller. This functionality is pending; submitting will not
+            create a task.
           </Text>
           <Text color="secondary">
-            Controller pulls the selected tag when the task runs. Tags can move
-            to a different image over time.
+            Review the selected tag and digest before continuing.
           </Text>
 
           {tagMap.loading && <Skeleton width="100%" height="3rem" />}
@@ -382,7 +292,7 @@ export function UseInControllerDialog({
             </Card>
           )}
 
-          {error && <Text role="alert">{error}</Text>}
+          {pendingMessage && <Text role="status">{pendingMessage}</Text>}
           <TextField
             label="Execution environment name"
             value={environmentName}
@@ -414,34 +324,17 @@ export function UseInControllerDialog({
               options={organizationOptions}
               onChange={key => {
                 setOrganizationId(String(key));
-                setOrganizationError('');
               }}
               isRequired
-              isInvalid={Boolean(organizationError)}
-              description={organizationError || undefined}
             />
           )}
         </Flex>
       </DialogBody>
       <DialogFooter>
-        <Button variant="secondary" onPress={onClose} isDisabled={submitting}>
+        <Button variant="secondary" onPress={onClose}>
           Cancel
         </Button>
-        <Button
-          onPress={handleSubmit}
-          isPending={submitting}
-          isDisabled={
-            submitting ||
-            organizations.loading ||
-            organizationsUnavailable ||
-            organizationsEmpty ||
-            tagMap.loading ||
-            tagsUnavailable ||
-            tagsEmpty
-          }
-        >
-          Use in Controller
-        </Button>
+        <Button onPress={handleSubmit}>Use in Controller</Button>
       </DialogFooter>
     </Dialog>
   );

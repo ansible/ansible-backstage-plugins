@@ -21,11 +21,6 @@ import {
 } from '../../api';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 import { EEDetailsPage } from './EEDetailsPage';
-import {
-  clearControllerIntent,
-  CONTROLLER_INTENT_PARAM,
-  peekControllerIntent,
-} from './controllerDialogIntent';
 
 const mockShowNotification = jest.fn();
 expect.extend(toHaveNoViolations);
@@ -39,8 +34,6 @@ const mockUsePermission = jest.mocked(usePermission);
 
 beforeEach(() => {
   mockUsePermission.mockReturnValue({ allowed: true, loading: false });
-  // The controller-dialog intent lives in the real window URL, which jsdom
-  // shares across tests; never let one test's intent leak into the next.
   window.history.replaceState(null, '', window.location.pathname);
 });
 
@@ -1026,12 +1019,13 @@ it('shows artifact overview, themed source and status, and controller actions', 
           }
         : { items: [entity] },
   );
-  const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
+  const scaffold = jest.fn();
+  const getAccessToken = jest.fn().mockResolvedValue('aap-token');
   const { rerender } = render(
     <TestApiProvider
       apis={[
         [catalogApiRef, { getEntities }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [rhAapAuthApiRef, { getAccessToken }],
         [scaffolderApiRef, { scaffold }],
         [
           automationContentApiRef,
@@ -1072,6 +1066,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
         <Routes>
           <Route path=":ref" element={<EEDetailsPage />} />
         </Routes>
+        <CurrentLocation />
       </MemoryRouter>
     </TestApiProvider>,
   );
@@ -1114,9 +1109,8 @@ it('shows artifact overview, themed source and status, and controller actions', 
     <TestApiProvider
       apis={[
         [catalogApiRef, { getEntities }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [rhAapAuthApiRef, { getAccessToken }],
         [scaffolderApiRef, { scaffold }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
         [
           automationContentApiRef,
           {
@@ -1150,6 +1144,7 @@ it('shows artifact overview, themed source and status, and controller actions', 
         <Routes>
           <Route path=":ref" element={<EEDetailsPage />} />
         </Routes>
+        <CurrentLocation />
       </MemoryRouter>
     </TestApiProvider>,
   );
@@ -1176,26 +1171,18 @@ it('shows artifact overview, themed source and status, and controller actions', 
     screen.getByRole('menuitem', { name: 'Use in Controller' }),
   );
   expect(await screen.findByRole('dialog')).toBeTruthy();
-  await userEvent.click(screen.getByRole('button', { name: /organization/i }));
-  await userEvent.click(await screen.findByRole('option', { name: 'Default' }));
+  expect(getAccessToken).not.toHaveBeenCalled();
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
-  expect((await screen.findByRole('alert')).textContent).toContain(
-    'This action is not available yet. The task template was not found.',
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Use in Controller is pending.',
   );
-  expect(scaffold).toHaveBeenCalledWith({
-    templateRef: 'template:default/ee-use-in-controller',
-    values: {
-      environmentName: 'repo',
-      environmentDescription: 'Use repo in Ansible Automation Controller.',
-      organizationId: 1,
-      organizationName: 'Default',
-      image: 'registry/repo:latest',
-      pull: 'always',
-    },
-    secrets: { aapToken: 'aap-token' },
-  });
+  expect(getAccessToken).not.toHaveBeenCalled();
+  expect(scaffold).not.toHaveBeenCalled();
+  expect(screen.getByTestId('current-location').textContent).toBe(
+    `/${encodeURIComponent(image.ref)}`,
+  );
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await userEvent.click(
     screen.getByRole('button', { name: 'Copy pull reference' }),
@@ -1218,93 +1205,6 @@ jest.mock('@ansible/portal-plugin-sdk', () => ({
   }),
 }));
 beforeEach(() => mockShowNotification.mockClear());
-
-describe('controller dialog restore', () => {
-  it('reopens the dialog after the login redirect', async () => {
-    // The OAuth redirect returns with the intent parked in the URL; the
-    // artifact ref is already this page's path.
-    window.history.replaceState(
-      null,
-      '',
-      `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(image.ref)}`,
-    );
-    render(
-      <TestApiProvider
-        apis={[
-          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-          [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
-          [scaffolderApiRef, { scaffold: jest.fn() }],
-          [
-            automationContentApiRef,
-            {
-              getExecutionEnvironment: async () => image,
-              getContents: async () => ({
-                enumeration: image.enumeration,
-                collections: [],
-                items: [],
-              }),
-            },
-          ],
-        ]}
-      >
-        <MemoryRouter initialEntries={[`/${encodeURIComponent(image.ref)}`]}>
-          <Routes>
-            <Route path=":ref" element={<EEDetailsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </TestApiProvider>,
-    );
-    expect(await screen.findByRole('dialog')).toBeTruthy();
-    expect(
-      screen.getByRole('textbox', { name: 'Execution environment name' }),
-    ).toHaveProperty('value', 'repo');
-    // The intent is consumed, so a reload cannot reopen it again.
-    expect(peekControllerIntent()).toBeNull();
-  });
-
-  it('drops the intent when the session cannot be established', async () => {
-    window.history.replaceState(
-      null,
-      '',
-      `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(image.ref)}`,
-    );
-    render(
-      <TestApiProvider
-        apis={[
-          [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-          [
-            rhAapAuthApiRef,
-            { getAccessToken: async () => Promise.reject(new Error('no')) },
-          ],
-          [scaffolderApiRef, { scaffold: jest.fn() }],
-          [
-            automationContentApiRef,
-            {
-              getExecutionEnvironment: async () => image,
-              getContents: async () => ({
-                enumeration: image.enumeration,
-                collections: [],
-                items: [],
-              }),
-            },
-          ],
-        ]}
-      >
-        <MemoryRouter initialEntries={[`/${encodeURIComponent(image.ref)}`]}>
-          <Routes>
-            <Route path=":ref" element={<EEDetailsPage />} />
-          </Routes>
-        </MemoryRouter>
-      </TestApiProvider>,
-    );
-    // The page renders without a dialog, and the intent is dropped rather
-    // than retriggering authentication on every mount.
-    expect(await screen.findByText('External registry')).toBeTruthy();
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(peekControllerIntent()).toBeNull();
-    clearControllerIntent();
-  });
-});
 
 describe('tag selector', () => {
   const tagMap: RepositoryTagMap = {

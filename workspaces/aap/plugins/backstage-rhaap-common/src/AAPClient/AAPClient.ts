@@ -7,7 +7,7 @@ import {
   OAuthAuthenticatorResult,
   PassportProfile,
 } from '@backstage/plugin-auth-node';
-import { AuthenticationError, InputError } from '@backstage/errors';
+import { AuthenticationError } from '@backstage/errors';
 import uniqBy from 'lodash.uniqby';
 import { sanitizeAapName } from '../utils/nameFormatting';
 import {
@@ -384,30 +384,24 @@ export class AAPClient implements IAAPService {
 
   public async deleteExecutionEnvironmentExists(
     name: string,
-    organization: number,
     token: string,
   ): Promise<void> {
     this.logger.info(
       `Check if execution environment with name ${name} exist in organization.`,
     );
-    const endPoint = `api/controller/v2/execution_environments/?name=${encodeURIComponent(
-      name,
-    )}`;
+    const endPoint = `api/controller/v2/execution_environments/?name=${name}`;
     const environments = await this.executeGetRequest(endPoint, token);
     const environmentsList = await environments.json();
     if (environmentsList.results.length === 1) {
-      const match = environmentsList.results[0];
-      if (match.organization !== organization) {
-        // Never delete another organization's environment, even when
-        // replacement was explicitly requested.
-        throw new InputError(
-          'An execution environment with this name already exists in another organization. Choose a different name. No existing execution environment was modified.',
-        );
-      }
-      this.logger.info(`Delete execution environment with id: ${match.id}.`);
-      await this.deleteExecutionEnvironment(match.id, token);
       this.logger.info(
-        `End delete execution environment with id: ${match.id}.`,
+        `Delete execution environment with id: ${environmentsList.results[0].id}.`,
+      );
+      await this.deleteExecutionEnvironment(
+        environmentsList.results[0].id,
+        token,
+      );
+      this.logger.info(
+        `End delete execution environment with id: ${environmentsList.results[0].id}.`,
       );
     }
   }
@@ -420,22 +414,8 @@ export class AAPClient implements IAAPService {
     if (deleteIfExist) {
       await this.deleteExecutionEnvironmentExists(
         payload.environmentName,
-        payload.organization.id,
         token,
       );
-    } else {
-      const response = await this.executeGetRequest(
-        `api/controller/v2/execution_environments/?name=${encodeURIComponent(
-          payload.environmentName,
-        )}`,
-        token,
-      );
-      const environments = await response.json();
-      if (environments.count > 0 || environments.results.length > 0) {
-        throw new InputError(
-          'An execution environment with this name already exists. Choose a different name. No existing execution environment was modified.',
-        );
-      }
     }
     const endPoint = 'api/controller/v2/execution_environments/';
     const data = {

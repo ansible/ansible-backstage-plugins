@@ -24,10 +24,6 @@ import {
   type AutomationContentApi,
   type ExecutionEnvironment,
 } from '../../api';
-import {
-  peekControllerIntent,
-  CONTROLLER_INTENT_PARAM,
-} from './controllerDialogIntent';
 import { ImagesCatalogPage } from './ImagesCatalogPage';
 import statusBadgeStyles from '../common/StatusBadge.module.css';
 
@@ -65,9 +61,6 @@ beforeEach(() => {
   mockIsStarredEntity.mockReset().mockReturnValue(false);
   mockToggleStarredEntity.mockReset();
   entityStarred = false;
-  // The controller-dialog intent lives in the real window URL, which jsdom
-  // shares across tests; never let one test's intent leak into the next.
-  window.history.replaceState(null, '', window.location.pathname);
 });
 
 beforeAll(() => {
@@ -754,38 +747,6 @@ it.each([
   },
 );
 
-it('restores the controller dialog after the login redirect', async () => {
-  const { api } = createLiveApi(base);
-  // The OAuth redirect returns with the intent parked in the URL by the
-  // menu handler that could not open the dialog before authentication.
-  window.history.replaceState(
-    null,
-    '',
-    `/?${CONTROLLER_INTENT_PARAM}=${encodeURIComponent(base.ref)}`,
-  );
-  render(
-    <TestApiProvider
-      apis={[
-        [automationContentApiRef, api],
-        [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-        [scaffolderApiRef, { scaffold: jest.fn() }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
-      ]}
-    >
-      <MemoryRouter>
-        <ImagesCatalogPage />
-      </MemoryRouter>
-    </TestApiProvider>,
-  );
-  // The dialog reopens on exactly the parked image, without a second click.
-  expect(await screen.findByRole('dialog')).toBeTruthy();
-  expect(
-    screen.getByRole('textbox', { name: 'Execution environment name' }),
-  ).toHaveProperty('value', 'repo');
-  // The intent is consumed, so a reload cannot reopen it again.
-  expect(peekControllerIntent()).toBeNull();
-});
-
 it('allows sync with the content permission without a matching catalog entity', async () => {
   const syncArtifact = jest.fn().mockResolvedValue({
     status: 'completed',
@@ -826,6 +787,7 @@ it('allows sync with the content permission without a matching catalog entity', 
 });
 
 it('uses structured registry identity for Controller with overlapping URL prefixes', async () => {
+  const getAccessToken = jest.fn().mockResolvedValue('aap-token');
   const getRepositoryTags = jest.fn().mockResolvedValue({
     registry: 'nested',
     repository: 'repo',
@@ -853,7 +815,7 @@ it('uses structured registry identity for Controller with overlapping URL prefix
           },
         ],
         [catalogApiRef, { getEntities: async () => ({ items: [] }) }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [rhAapAuthApiRef, { getAccessToken }],
         [scaffolderApiRef, { scaffold: jest.fn() }],
       ]}
     >
@@ -870,13 +832,15 @@ it('uses structured registry identity for Controller with overlapping URL prefix
     screen.getByRole('menuitem', { name: 'Use in Controller' }),
   );
   await screen.findByRole('dialog');
+  expect(getAccessToken).not.toHaveBeenCalled();
   await waitFor(() =>
     expect(getRepositoryTags).toHaveBeenCalledWith('nested', 'repo'),
   );
 });
 
-it('shows the star toggle and reviewed row actions, including the unavailable controller action', async () => {
-  const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
+it('shows the star toggle and reviewed row actions, with Controller use pending', async () => {
+  const scaffold = jest.fn();
+  const getAccessToken = jest.fn().mockResolvedValue('aap-token');
   const syncArtifact = jest
     .fn()
     .mockRejectedValue(new ContentApiError(403, 'Forbidden'));
@@ -907,7 +871,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           { getEntities: async () => ({ items: [linkedEntity] }) },
         ],
         [scaffolderApiRef, { scaffold }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [rhAapAuthApiRef, { getAccessToken }],
       ]}
     >
       <MemoryRouter>
@@ -973,7 +937,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
           },
         ],
         [scaffolderApiRef, { scaffold }],
-        [rhAapAuthApiRef, { getAccessToken: async () => 'aap-token' }],
+        [rhAapAuthApiRef, { getAccessToken }],
       ]}
     >
       <MemoryRouter>
@@ -1003,6 +967,7 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
     screen.getByRole('menuitem', { name: 'Use in Controller' }),
   );
   expect(await screen.findByRole('dialog')).toBeTruthy();
+  expect(getAccessToken).not.toHaveBeenCalled();
   expect(
     screen.getByRole('textbox', { name: 'Execution environment name' }),
   ).toHaveProperty('value', 'repo');
@@ -1011,10 +976,11 @@ it('shows the star toggle and reviewed row actions, including the unavailable co
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
-  expect((await screen.findByRole('alert')).textContent).toContain(
-    'This action is not available yet. The task template was not found.',
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Use in Controller is pending.',
   );
-  expect(scaffold).toHaveBeenCalled();
+  expect(getAccessToken).not.toHaveBeenCalled();
+  expect(scaffold).not.toHaveBeenCalled();
 
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await userEvent.click(

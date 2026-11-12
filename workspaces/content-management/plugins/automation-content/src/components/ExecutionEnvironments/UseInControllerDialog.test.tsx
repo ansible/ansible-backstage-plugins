@@ -13,8 +13,7 @@ expect.extend(toHaveNoViolations);
 
 it('has no accessibility violations in the loaded Controller dialog', async () => {
   renderDialog();
-  // The organization field starts blank and loads its options asynchronously;
-  // the select losing its disabled attribute is the loaded signal.
+  // Organization choices are loaded from the synced catalog.
   await waitFor(() =>
     expect(
       screen
@@ -166,12 +165,8 @@ async function selectDefaultOrganization() {
 
 it('loads the repository tag map and defaults to the newest pushed tag', async () => {
   renderDialog();
-  expect(
-    screen.getByText(/follow progress and logs on the task page/i),
-  ).toBeTruthy();
-  expect(
-    screen.getByText(/tags can move to a different image over time/i),
-  ).toBeTruthy();
+  expect(screen.getByText(/this functionality is pending/i)).toBeTruthy();
+  expect(screen.getByText(/selected tag and digest/i)).toBeTruthy();
   const trigger = await screen.findByRole('button', { name: /tags/i });
   expect(trigger.textContent).toContain('3.0');
   await userEvent.click(trigger);
@@ -271,63 +266,34 @@ it('resets the chosen tag and copy status on image changes and reopening', async
   }
 });
 
-it('submits the selected tag, organization identity, and token secret, then follows the task', async () => {
-  const scaffold = jest.fn().mockResolvedValue({ taskId: 'task-42' });
-  const { onClose } = renderDialog({ scaffold });
-  const organizationTrigger = await screen.findByRole('button', {
-    name: /organization/i,
-  });
-  expect(organizationTrigger.textContent).not.toContain('Default');
-  await selectDefaultOrganization();
-  await userEvent.click(await screen.findByRole('button', { name: /tags/i }));
-  await userEvent.click(await screen.findByRole('option', { name: '2.9' }));
+it('shows pending without authenticating, scaffolding, closing or navigating', async () => {
+  const scaffold = jest.fn();
+  const getAccessToken = jest.fn().mockResolvedValue('aap-token');
+  const { onClose } = renderDialog({ scaffold, getAccessToken });
   await userEvent.click(
     screen.getByRole('button', { name: 'Use in Controller' }),
   );
-  await waitFor(() =>
-    expect(screen.getByTestId('task-location').textContent).toBe(
-      '/self-service/create/tasks/task-42',
-    ),
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Use in Controller is pending. This action will not create a task or contact Controller yet.',
   );
-  expect(onClose).toHaveBeenCalled();
-  expect(scaffold).toHaveBeenCalledWith({
-    templateRef: 'template:default/ee-use-in-controller',
-    values: {
-      environmentName: 'team/ee',
-      environmentDescription: 'Use team/ee in Ansible Automation Controller.',
-      organizationId: 1,
-      organizationName: 'Default',
-      image: 'registry/team/ee:2.9',
-      pull: 'always',
-    },
-    secrets: { aapToken: 'aap-token' },
-  });
+  expect(getAccessToken).not.toHaveBeenCalled();
+  expect(scaffold).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(screen.queryByTestId('task-location')).toBeNull();
 });
 
-it('communicates the required organization when submitting a blank selection', async () => {
+it('shows pending feedback even when no organizations are synced', async () => {
   const scaffold = jest.fn();
-  renderDialog({ scaffold });
-  await screen.findByRole('button', { name: /organization/i });
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
+  renderDialog({ scaffold, organizations: [] });
+  await screen.findByText(/No Controller organizations are available/);
+  const submit = screen.getByRole('button', {
+    name: 'Use in Controller',
+  }) as HTMLButtonElement;
+  expect(submit.disabled).toBe(false);
+  await userEvent.click(submit);
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Use in Controller is pending.',
   );
-  expect(await screen.findByText('Select an organization.')).toBeTruthy();
-  const organizationField = screen
-    .getByRole('button', { name: /organization/i })
-    .closest('[data-invalid]');
-  expect(organizationField).not.toBeNull();
-  const descriptionIds =
-    screen
-      .getByRole('button', { name: /organization/i })
-      .getAttribute('aria-describedby')
-      ?.split(' ') ?? [];
-  expect(
-    descriptionIds.some(id =>
-      document
-        .getElementById(id)
-        ?.textContent?.includes('Select an organization.'),
-    ),
-  ).toBe(true);
   await waitFor(() => expect(screen.queryByRole('img')).toBeNull());
   expect(await axe(document.body)).toHaveNoViolations();
   expect(scaffold).not.toHaveBeenCalled();
@@ -347,81 +313,4 @@ it('copies the full selected digest and announces the result', async () => {
   expect((await screen.findByRole('status')).textContent).toContain(
     'Digest copied',
   );
-});
-
-it('blocks submission and explains when no organizations are synced', async () => {
-  const scaffold = jest.fn();
-  renderDialog({ scaffold, organizations: [] });
-  expect(
-    await screen.findByText(/No Controller organizations are available/i),
-  ).toBeTruthy();
-  const submit = screen.getByRole('button', {
-    name: 'Use in Controller',
-  }) as HTMLButtonElement;
-  expect(submit.disabled).toBe(true);
-  expect(scaffold).not.toHaveBeenCalled();
-});
-
-it('reports authentication failure with fixed copy', async () => {
-  const scaffold = jest.fn();
-  renderDialog({
-    scaffold,
-    getAccessToken: jest.fn().mockRejectedValue(new Error('secret-url')),
-  });
-  await selectDefaultOrganization();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
-  );
-  expect((await screen.findByRole('alert')).textContent).toBe(
-    'Unable to authenticate with Ansible Automation Platform. Sign in again and retry.',
-  );
-  expect(scaffold).not.toHaveBeenCalled();
-  expect(screen.queryByText('secret-url')).toBeNull();
-});
-
-it('reports the unavailable template honestly', async () => {
-  const scaffold = jest.fn().mockRejectedValue(new Error('template not found'));
-  renderDialog({ scaffold });
-  await selectDefaultOrganization();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
-  );
-  expect((await screen.findByRole('alert')).textContent).toContain(
-    'This action is not available yet. The task template was not found.',
-  );
-});
-
-it.each([
-  [
-    'named not-found error',
-    Object.assign(new Error('Unavailable'), { name: 'NotFoundError' }),
-  ],
-  ['HTTP 404', { status: 404 }],
-  ['response HTTP 404', { response: new Response(null, { status: 404 }) }],
-])('reports %s without exposing backend details', async (_label, failure) => {
-  const scaffold = jest.fn().mockRejectedValue(failure);
-  const { onClose } = renderDialog({ scaffold });
-  await selectDefaultOrganization();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
-  );
-  expect((await screen.findByRole('alert')).textContent).toBe(
-    'This action is not available yet. The task template was not found.',
-  );
-  expect(onClose).not.toHaveBeenCalled();
-});
-
-it('reports other failures with fixed copy', async () => {
-  const scaffold = jest
-    .fn()
-    .mockRejectedValue({ status: 500, message: 'private server details' });
-  renderDialog({ scaffold });
-  await selectDefaultOrganization();
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Use in Controller' }),
-  );
-  expect((await screen.findByRole('alert')).textContent).toBe(
-    'Unable to start the Controller workflow. Try again later.',
-  );
-  expect(screen.queryByText('private server details')).toBeNull();
 });

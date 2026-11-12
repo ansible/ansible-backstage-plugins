@@ -4,7 +4,6 @@ import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { useNotifications } from '@ansible/portal-plugin-sdk';
 import { syncImageWithNotifications } from './imageSyncNotifications';
 import { useApi, useRouteRef } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { usePermission } from '@backstage/plugin-permission-react';
 import type { Entity } from '@backstage/catalog-model';
 import {
@@ -50,12 +49,6 @@ import {
   syncStatusIcon,
 } from '../common';
 import { UseInControllerDialog } from './UseInControllerDialog';
-import {
-  clearControllerIntent,
-  peekControllerIntent,
-  setControllerIntent,
-  takeControllerIntent,
-} from './controllerDialogIntent';
 import {
   environmentHref,
   imageContentsSummary,
@@ -120,7 +113,6 @@ export function ImagesCatalogPage({
   wrapInContainer?: boolean;
 }): ReactElement {
   const api = useApi(automationContentApiRef);
-  const aapAuth = useApi(rhAapAuthApiRef);
   const { showNotification } = useNotifications();
   const catalog = useApi(catalogApiRef);
   const { allowed: canSync } = usePermission({
@@ -159,33 +151,6 @@ export function ImagesCatalogPage({
   const inFlightRefs = useRef(new Set<string>());
   const [controllerImage, setControllerImage] =
     useState<ExecutionEnvironment | null>(null);
-  // A Use in Controller click that was interrupted by the OAuth redirect
-  // parks itself in the URL; on return, re-establish the session and reopen
-  // the dialog on exactly that image. The intent is only consumed once the
-  // session resolves, so another redirect can still find it.
-  useEffect(() => {
-    const intent = peekControllerIntent();
-    if (!intent) return undefined;
-    let cancelled = false;
-    aapAuth
-      .getAccessToken()
-      .then(() => api.getExecutionEnvironment(intent))
-      .then(artifact => {
-        if (cancelled) return;
-        takeControllerIntent();
-        setControllerImage(artifact);
-      })
-      .catch(() => {
-        // Login declined or the artifact left the index: the prompt already
-        // said why, and a stale intent must not keep retriggering auth.
-        if (!cancelled) clearControllerIntent();
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Mount-only: the restore runs once, before any user interaction.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const images = useAsyncRetry(
     () =>
       api.listExecutionEnvironments({
@@ -403,28 +368,7 @@ export function ImagesCatalogPage({
                   aria-label={`Actions for ${row.repository}`}
                 />
                 <Menu>
-                  <MenuItem
-                    onAction={() => {
-                      // Establish the AAP session before opening the dialog:
-                      // the Backstage login prompt cannot stack above a BUI
-                      // modal, so it must appear with no dialog open. The
-                      // intent parks in the URL first, so an OAuth redirect
-                      // restores the dialog on return; when the session
-                      // resolves in place there is nothing to restore.
-                      setControllerIntent(row.ref);
-                      aapAuth
-                        .getAccessToken()
-                        .then(() => {
-                          clearControllerIntent();
-                          setControllerImage(row);
-                        })
-                        .catch(() => {
-                          // Login declined or failed; the prompt already
-                          // said why. Nothing to open or restore.
-                          clearControllerIntent();
-                        });
-                    }}
-                  >
+                  <MenuItem onAction={() => setControllerImage(row)}>
                     Use in Controller
                   </MenuItem>
                   {canSync && (
@@ -656,25 +600,9 @@ export function ImagesCatalogPage({
                                     />
                                     <Menu>
                                       <MenuItem
-                                        onAction={() => {
-                                          // Same contract as the table
-                                          // action: establish the AAP session
-                                          // before the dialog opens, parking
-                                          // the intent so an OAuth redirect
-                                          // restores it on return.
-                                          setControllerIntent(image.ref);
-                                          aapAuth
-                                            .getAccessToken()
-                                            .then(() => {
-                                              clearControllerIntent();
-                                              setControllerImage(image);
-                                            })
-                                            .catch(() => {
-                                              // Login declined or failed;
-                                              // nothing to open or restore.
-                                              clearControllerIntent();
-                                            });
-                                        }}
+                                        onAction={() =>
+                                          setControllerImage(image)
+                                        }
                                       >
                                         Use in Controller
                                       </MenuItem>

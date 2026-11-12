@@ -17,6 +17,7 @@
  */
 import express from 'express';
 import request from 'supertest';
+import { mockErrorHandler } from '@backstage/backend-test-utils';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
@@ -555,6 +556,42 @@ describe('log lines the sync path writes', () => {
 });
 
 describe('errors that escape a handler', () => {
+  it.each([
+    ['/content', 1],
+    ['/execution-environments', 1],
+    ['/content', 2],
+    ['/execution-environments', 2],
+  ] as const)(
+    'forwards and redacts %s summary lookup failure %s through the platform error handler',
+    async (path, failingLookup) => {
+      const index = seededStore();
+      const listArtifactSummaries = jest.spyOn(index, 'listArtifactSummaries');
+      const failure = new Error(`summary lookup failed for ${SECRET}`);
+      if (failingLookup === 2) {
+        listArtifactSummaries.mockResolvedValueOnce([]);
+      }
+      listArtifactSummaries.mockRejectedValueOnce(failure);
+      const app = await appWith(index);
+      app.use(mockErrorHandler());
+
+      // A dropped alias promise must fail promptly, not leave the request open.
+      const res = await request(app)
+        .get(path)
+        .timeout({ response: 1000, deadline: 2000 })
+        .expect(500);
+
+      expect(listArtifactSummaries).toHaveBeenCalledTimes(failingLookup);
+      const expectedOptions =
+        failingLookup === 2 ? { expandRepositoryGroups: true } : {};
+      expect(listArtifactSummaries).toHaveBeenLastCalledWith(
+        path === '/execution-environments' ? EE_TYPE : undefined,
+        expect.objectContaining(expectedOptions),
+      );
+      expectCredentialFree(res.text);
+      expect(failure.message).toContain('[REDACTED]');
+    },
+  );
+
   /**
    * The platform's error middleware serialises whatever it is handed. This
    * worst-case handler renders message, stack and cause — everything the

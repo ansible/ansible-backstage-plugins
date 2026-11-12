@@ -568,6 +568,7 @@ describe('GET /content sorting', () => {
   it.each([
     '/content?type=execution-environment',
     '/execution-environments?search=old',
+    '/execution-environments?search=old&type=oci-image',
   ])(
     'keeps a type-matching representative with repository-wide tags on %s',
     async path => {
@@ -583,11 +584,14 @@ describe('GET /content sorting', () => {
         tags: ['new'],
         tagTimestamps: { new: '2026-01-01' },
       };
+      const listArtifactSummaries = jest.fn(
+        async (_type?: string, options?: ArtifactListOptions) =>
+          options?.expandRepositoryGroups ? [ee, image] : [ee],
+      );
       const response = await request(
         await appWith(
           stubDB({
-            listArtifactSummaries: async (_type, options) =>
-              options?.expandRepositoryGroups ? [ee, image] : [ee],
+            listArtifactSummaries,
           }),
         ),
       )
@@ -598,6 +602,15 @@ describe('GET /content sorting', () => {
         type: 'execution-environment',
         tags: ['new', 'old'],
       });
+      expect(listArtifactSummaries).toHaveBeenNthCalledWith(
+        1,
+        'execution-environment',
+        expect.anything(),
+      );
+      expect(listArtifactSummaries).toHaveBeenLastCalledWith(
+        'execution-environment',
+        expect.objectContaining({ expandRepositoryGroups: true }),
+      );
     },
   );
   it.each(['/content', '/execution-environments'])(
