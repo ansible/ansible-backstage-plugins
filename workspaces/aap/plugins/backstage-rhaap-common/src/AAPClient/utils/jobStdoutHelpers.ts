@@ -244,22 +244,19 @@ export function parseStdoutMessages(stdoutText: string): string[] {
 }
 
 /**
- * Parses job stdout text and logs ansible.builtin.debug msg values at info level.
- * Sensitive values are redacted before logging. Returns the last safe message
- * found (used for failure reporting in launchJobTemplate).
+ * Parses job stdout without writing its contents to logs. Playbook output can
+ * contain arbitrary customer data or secrets that cannot be reliably redacted.
+ * Returns a generic safe summary when output messages are present.
  */
 export function parseAndLogStdoutMessages(
   stdoutText: string,
   logger: LoggerService,
 ): string | undefined {
   const messages = parseStdoutMessages(stdoutText);
-  let lastMessage: string | undefined;
+  if (messages.length === 0) return undefined;
 
-  messages.forEach(rawMessage => {
-    const safeMessage = redactSensitiveLogMessage(rawMessage);
-    logger.info(safeMessage);
-    lastMessage = safeMessage;
-  });
-
-  return lastMessage;
+  logger.debug(
+    'Playbook stdout messages were omitted from logs because they may contain sensitive data.',
+  );
+  return 'Job output is available in the RHAAP portal.';
 }

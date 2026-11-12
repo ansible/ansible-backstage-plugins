@@ -809,6 +809,39 @@ describe('AAPClient', () => {
     });
 
     describe('createJobTemplate', () => {
+      it('validates extra variables before deleting an existing template', async () => {
+        await expect(
+          client.createJobTemplate(
+            {
+              templateName: 'test-template',
+              organization: { id: 1, name: 'test-org' },
+              jobInventory: { id: 1, name: 'test-inventory' },
+              project: {
+                id: 1,
+                projectName: 'test-project',
+                organization: { id: 1, name: 'test-org' },
+                scmUrl: 'https://github.com/test/repo',
+                scmUpdateOnLaunch: true,
+                status: 'successful',
+              },
+              playbook: 'test.yml',
+              executionEnvironment: {
+                id: 1,
+                environmentName: 'test-ee',
+                organization: { id: 1, name: 'test-org' },
+                image: 'test-image',
+                pull: 'always',
+              },
+              extraVariables: { account_id: Number.MAX_SAFE_INTEGER + 1 },
+            },
+            true,
+            'test-token',
+          ),
+        ).rejects.toThrow('unsafe integer');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
       it('should create a job template', async () => {
         const mockResponse = {
           ok: true,
@@ -853,6 +886,46 @@ describe('AAPClient', () => {
           name: 'test-template',
           url: 'https://test.example.com/execution/templates/job-template/1/details',
         });
+      });
+
+      it('preserves YAML 1.1 strings and large integers in the request', async () => {
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ id: 1, name: 'test-template' }),
+        });
+
+        await client.createJobTemplate(
+          {
+            templateName: 'test-template',
+            organization: { id: 1, name: 'test-org' },
+            jobInventory: { id: 1, name: 'test-inventory' },
+            project: {
+              id: 1,
+              projectName: 'test-project',
+              organization: { id: 1, name: 'test-org' },
+              scmUrl: 'https://github.com/test/repo',
+              scmUpdateOnLaunch: true,
+              status: 'successful',
+            },
+            playbook: 'test.yml',
+            executionEnvironment: {
+              id: 1,
+              environmentName: 'test-ee',
+              organization: { id: 1, name: 'test-org' },
+              image: 'test-image',
+              pull: 'always',
+            },
+            extraVariables: 'flag: "no"\naccount_id: 9007199254740993',
+          },
+          false,
+          'test-token',
+        );
+
+        const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+        expect(requestBody.extra_vars).toContain('flag: "no"');
+        expect(requestBody.extra_vars).toContain(
+          'account_id: 9007199254740993',
+        );
       });
     });
 
@@ -1001,7 +1074,9 @@ describe('AAPClient', () => {
             },
             'test-token',
           ),
-        ).rejects.toThrow('Job execution failed due to Task failed');
+        ).rejects.toThrow(
+          'Job execution failed due to Job output is available in the RHAAP portal.',
+        );
       });
 
       it('should handle failed job execution with stdout error', async () => {
@@ -1102,7 +1177,7 @@ describe('AAPClient', () => {
         expect(result.status).toBe('successful');
       });
 
-      it('should log stdout messages including array format', async () => {
+      it('should not log stdout messages including array format', async () => {
         const infoSpy = jest.spyOn(mockLogger, 'info');
         const mockTemplateResponse = {
           ok: true,
@@ -1149,9 +1224,9 @@ describe('AAPClient', () => {
         );
 
         expect(result.status).toBe('successful');
-        expect(infoSpy).toHaveBeenCalledWith('Single message');
-        expect(infoSpy).toHaveBeenCalledWith('Message item 1');
-        expect(infoSpy).toHaveBeenCalledWith('Message item 2');
+        expect(infoSpy).not.toHaveBeenCalledWith('Single message');
+        expect(infoSpy).not.toHaveBeenCalledWith('Message item 1');
+        expect(infoSpy).not.toHaveBeenCalledWith('Message item 2');
       });
 
       it('should return successful result when stdout retrieval fails', async () => {
@@ -5132,7 +5207,7 @@ describe('AAPClient', () => {
       mockFetch = fetch as jest.Mock;
     });
 
-    it('should fetch stdout and log msg values at info level', async () => {
+    it('should fetch stdout without logging its contents', async () => {
       const infoSpy = jest.spyOn(mockLogger, 'info');
       mockFetch.mockResolvedValue({
         ok: true,
@@ -5149,10 +5224,10 @@ describe('AAPClient', () => {
         expect.stringContaining('/jobs/123/stdout/?format=txt'),
         expect.any(Object),
       );
-      expect(infoSpy).toHaveBeenCalledWith('Single message');
-      expect(infoSpy).toHaveBeenCalledWith('Message item 1');
-      expect(infoSpy).toHaveBeenCalledWith('Message item 2');
-      expect(lastMessage).toBe('Message item 2');
+      expect(infoSpy).not.toHaveBeenCalledWith('Single message');
+      expect(infoSpy).not.toHaveBeenCalledWith('Message item 1');
+      expect(infoSpy).not.toHaveBeenCalledWith('Message item 2');
+      expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
   });
 });
