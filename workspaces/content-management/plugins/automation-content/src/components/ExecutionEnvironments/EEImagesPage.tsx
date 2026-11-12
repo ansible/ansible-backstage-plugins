@@ -46,7 +46,11 @@ import {
   contentSyncPermission,
   executionEnvironmentsViewPermission,
 } from '@ansible/automation-content-common/permissions';
-import { automationContentApiRef, ContentApiError } from '../../api';
+import {
+  automationContentApiRef,
+  ContentApiError,
+  registrySyncEvents,
+} from '../../api';
 import { eeTranslationRef } from '../../strings/en';
 import { useContentPermission } from '../../useContentPermission';
 import { EEImageRowActions } from './EEImageRowActions';
@@ -377,6 +381,17 @@ function EEInventory(): JSX.Element {
     catalog.retry();
     registries.retry();
   }
+
+  const retryInventory = result.retry;
+  const retryRegistries = registries.retry;
+  useEffect(() => {
+    const update = () => {
+      retryInventory();
+      retryRegistries();
+    };
+    registrySyncEvents.addEventListener('settled', update);
+    return () => registrySyncEvents.removeEventListener('settled', update);
+  }, [retryInventory, retryRegistries]);
 
   let results: JSX.Element;
   if (tooManyFavorites) {

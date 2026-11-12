@@ -184,11 +184,19 @@ export interface AutomationContentApi {
   getContentItem(fqcn: string, inArtifact?: string): Promise<ContentItem>;
   /** Schedule an index refresh. */
   syncAll(): Promise<InventorySyncResult>;
+  syncRegistry(name: string): Promise<RegistrySyncResult>;
   syncEERepository(
     registry: string,
     repository: string,
   ): Promise<EERepositorySyncResult>;
 }
+
+export interface RegistrySyncResult {
+  status: 'completed' | 'failed';
+  discovered: number;
+}
+
+export const registrySyncEvents = new EventTarget();
 
 export interface RegistryStatus {
   items: Registry[];
@@ -264,6 +272,10 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async syncAll(): Promise<InventorySyncResult> {
     return this.post('/sync');
+  }
+
+  async syncRegistry(name: string): Promise<RegistrySyncResult> {
+    return this.post(`/registries/${encodeURIComponent(name)}/sync`);
   }
 
   async syncEERepository(

@@ -11,7 +11,6 @@ interface SyncActionProps {
   repository?: { registry: string; repository: string };
   manualSyncEnabled?: boolean;
   onReload: () => void;
-  label?: string;
 }
 
 export function useEESync({
@@ -131,8 +130,7 @@ export function SyncAction(props: SyncActionProps): JSX.Element | null {
           void sync.run();
         }}
       >
-        {props.label ??
-          t(props.repository ? 'sync.repository' : 'sync.inventory')}
+        {t(props.repository ? 'sync.repository' : 'sync.inventory')}
       </Button>
       <SyncFeedback sync={sync} onReload={props.onReload} />
     </Flex>
