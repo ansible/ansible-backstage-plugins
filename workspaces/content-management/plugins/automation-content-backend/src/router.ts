@@ -18,6 +18,8 @@ import {
 } from '@ansible/automation-content-common/permissions';
 import {
   EE_REPOSITORY_ENTITY_REF_PATTERN,
+  EE_REPOSITORY_SOURCE_TYPE,
+  EE_REPOSITORY_STATUSES,
   publicUrl,
   type EERepositoryQuery,
 } from '@ansible/automation-content-common';
@@ -84,6 +86,8 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
     pageSize,
     query,
     registry,
+    sourceType,
+    status,
     tag,
     descriptiveTag,
     latestOnly,
@@ -103,6 +107,9 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
       (typeof query === 'string' && query.length <= 256)) &&
     (registry === undefined ||
       (typeof registry === 'string' && registry.length > 0)) &&
+    (sourceType === undefined || sourceType === EE_REPOSITORY_SOURCE_TYPE) &&
+    (status === undefined ||
+      EE_REPOSITORY_STATUSES.some(candidate => candidate === status)) &&
     (tag === undefined ||
       (typeof tag === 'string' && tag.length > 0 && tag.length <= 128)) &&
     (owner === undefined ||

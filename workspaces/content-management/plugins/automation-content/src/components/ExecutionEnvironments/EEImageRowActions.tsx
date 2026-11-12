@@ -3,7 +3,6 @@ import { ButtonIcon, Flex, Menu, MenuItem, MenuTrigger } from '@backstage/ui';
 import { RiMore2Line } from '@remixicon/react';
 import type { EERepositorySummary } from '@ansible/automation-content-common/eeRepository';
 import { eeTranslationRef } from '../../strings/en';
-import { RepositoryFavoriteButton } from './RepositoryFavoriteButton';
 import { SyncFeedback, useEESync } from './SyncAction';
 
 export function EEImageRowActions({
@@ -30,12 +29,6 @@ export function EEImageRowActions({
             event.stopPropagation();
         }}
       >
-        {detailHref && (
-          <RepositoryFavoriteButton
-            entityRef={image.entityRef}
-            repository={image.repository}
-          />
-        )}
         <MenuTrigger>
           <ButtonIcon
             aria-label={t('inventory.rowActions', {

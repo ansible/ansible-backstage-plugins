@@ -370,11 +370,13 @@ components:
         pageSize: { type: integer, enum: [10, 20, 50], default: 10 }
         query: { type: string, maxLength: 256 }
         registry: { type: string }
+        sourceType: { type: string, enum: [external-registry] }
+        status: { type: string, enum: [available, stale, not-reconciled] }
         tag:
           type: string
           minLength: 1
           maxLength: 128
-          description: Exact OCI container tag used by the Version filter.
+          description: Exact OCI container tag.
         descriptiveTag:
           type: string
           pattern: '^[a-z0-9:+#-]{1,63}$'
@@ -409,6 +411,7 @@ components:
           minimum: 0
           description: Indexed collection count for the representative digest. Omitted when its contents are unknown.
         signingState: { type: string, enum: [signed, not-signed, undetermined] }
+        status: { type: string, enum: [available, stale, not-reconciled] }
         lastSuccessfulReconcileAt: { type: string, format: date-time }
 
     EERepositoryQueryResult:

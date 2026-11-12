@@ -1,4 +1,3 @@
-import { stringifyEntityRef } from '@backstage/catalog-model';
 import {
   BreadcrumbEntry,
   useRouteRef,
@@ -10,7 +9,6 @@ import { Header } from '@backstage/ui';
 import { useLocation } from 'react-router-dom';
 import { eeRouteRef } from '../../routes';
 import { eeTranslationRef } from '../../strings/en';
-import { RepositoryFavoriteButton } from './RepositoryFavoriteButton';
 import styles from './EERepositoryHeader.module.css';
 
 export function EERepositoryHeader({
@@ -29,12 +27,6 @@ export function EERepositoryHeader({
         title={title}
         tabs={tabs.length > 1 ? tabs : undefined}
         activeTabId={activeTabId}
-        customActions={
-          <RepositoryFavoriteButton
-            entityRef={stringifyEntityRef(entity)}
-            repository={title}
-          />
-        }
       />
     </BreadcrumbEntry>
   );

@@ -229,6 +229,7 @@ function DigestDetails({
       : t('inventory.collectionCount', { quantity: String(collectionCount) });
   const pluginCount = artifact.counts?.plugins;
   const facts: Array<[string, ReactNode]> = [
+    [t('inventory.image'), <Box style={referenceWrap}>{pullReference}</Box>],
     [
       t('detail.tag'),
       <Flex gap="2" align="center">
@@ -282,7 +283,7 @@ function DigestDetails({
       t('inventory.signing'),
       t(`signing.${artifact.signing?.state ?? 'undetermined'}`),
     ],
-    [t('inventory.image'), <Box style={referenceWrap}>{pullReference}</Box>],
+    [t('signing.evidence'), <SigningEvidence observation={artifact.signing} />],
     [
       t('detail.digest'),
       <Box as="code" minWidth="0" style={referenceWrap}>
@@ -322,7 +323,6 @@ function DigestDetails({
                     </Grid.Item>
                   ))}
                 </Grid.Root>
-                <SigningEvidence observation={artifact.signing} />
                 <CopyPullReference
                   key={pullReference}
                   pullReference={pullReference}

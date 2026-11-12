@@ -1,12 +1,5 @@
 import { useTranslationRef } from '@backstage/frontend-plugin-api';
-import {
-  Accordion,
-  AccordionPanel,
-  AccordionTrigger,
-  Alert,
-  Flex,
-  Text,
-} from '@backstage/ui';
+import { Text } from '@backstage/ui';
 import type {
   EESigningState,
   SigningObservation,
@@ -23,46 +16,24 @@ export function SigningEvidence({
   compact?: boolean;
 }): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
-  const signingState = observation?.state ?? state ?? 'undetermined';
-  const label = t(`signing.${signingState}`);
-  const status = {
-    signed: 'success',
-    'not-signed': 'danger',
-    undetermined: 'warning',
-  } as const;
-  if (compact) return <Text>{label}</Text>;
+  if (compact) {
+    return (
+      <Text>
+        {t(`signing.${observation?.state ?? state ?? 'undetermined'}`)}
+      </Text>
+    );
+  }
+  if (!observation?.mechanisms.length)
+    return <Text>{t('signing.unavailable')}</Text>;
 
   return (
-    <Flex direction="column" gap="2">
-      <Alert
-        status={status[signingState]}
-        title={t('signing.title', { state: label })}
-        description={t('signing.explanation')}
-      />
-      <Accordion>
-        <AccordionTrigger title={t('signing.evidence')} />
-        <AccordionPanel>
-          {observation ? (
-            <>
-              <Text as="p">
-                {t('signing.observed', {
-                  time: new Date(observation.observedAt).toLocaleString(),
-                })}
-              </Text>
-              <ul>
-                {observation.mechanisms.map(({ mechanism, outcome }) => (
-                  <li key={mechanism}>
-                    {t(`signing.mechanisms.${mechanism}`)} ·{' '}
-                    {t(`signing.outcomes.${outcome}`)}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <Text as="p">{t('signing.unavailable')}</Text>
-          )}
-        </AccordionPanel>
-      </Accordion>
-    </Flex>
+    <ul>
+      {observation.mechanisms.map(({ mechanism, outcome }) => (
+        <li key={mechanism}>
+          {t(`signing.mechanisms.${mechanism}`)} ·{' '}
+          {t(`signing.outcomes.${outcome}`)}
+        </li>
+      ))}
+    </ul>
   );
 }

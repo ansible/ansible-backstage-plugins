@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { catalogApiMock } from '@backstage/plugin-catalog-react/testUtils';
@@ -19,26 +19,17 @@ const repositories = Array.from({ length: 21 }, (_, i) => {
     tagCount: 1,
   };
 });
-const late = repositories[20];
 const waitForPage = { timeout: 10000 };
 jest.setTimeout(20000);
 
 function mount({ allow = true, catalogAvailable = true } = {}) {
   const queryEERepositories = jest.fn(
-    async ({
-      page = 1,
-      pageSize = 10,
-      favoriteEntityRefs,
-    }: EERepositoryQuery) => {
-      const matches = repositories.filter(
-        row =>
-          !favoriteEntityRefs || favoriteEntityRefs.includes(row.entityRef),
-      );
+    async ({ page = 1, pageSize = 10 }: EERepositoryQuery) => {
       return {
         page,
         pageSize,
-        totalItems: matches.length,
-        items: matches.slice((page - 1) * pageSize, page * pageSize),
+        totalItems: repositories.length,
+        items: repositories.slice((page - 1) * pageSize, page * pageSize),
       };
     },
   );
@@ -78,43 +69,13 @@ function mount({ allow = true, catalogAvailable = true } = {}) {
   return { mounted, queryEERepositories };
 }
 
-it('sends a repository favorite from the third page as a full inventory filter', async () => {
-  const { mounted, queryEERepositories } = mount();
-  await mounted;
-  await screen.findByRole('link', { name: 'namespace/image-1' }, waitForPage);
-  fireEvent.click(screen.getByRole('button', { name: 'Next table page' }));
-  await screen.findByRole('link', { name: 'namespace/image-11' });
-  fireEvent.click(screen.getByRole('button', { name: 'Next table page' }));
-  await screen.findByRole('link', { name: late.repository });
-  fireEvent.click(
-    screen.getByRole('button', { name: `Add ${late.repository} to favorites` }),
-  );
-  await screen.findByRole('button', {
-    name: `Remove ${late.repository} from favorites`,
-  });
-  fireEvent.click(screen.getByRole('checkbox', { name: 'Favorites only' }));
-  await waitFor(() =>
-    expect(queryEERepositories).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        page: 1,
-        favoriteEntityRefs: [late.entityRef],
-      }),
-    ),
-  );
-  expect(
-    await screen.findByRole('link', { name: late.repository }, waitForPage),
-  ).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'namespace/image-1' })).toBeNull();
-});
-
 it('keeps indexed repositories visible when their catalog entries are missing', async () => {
   await mount({ catalogAvailable: false }).mounted;
   expect(
     await screen.findByText('namespace/image-1', { exact: true }, waitForPage),
   ).toBeTruthy();
   expect(
-    (await screen.findAllByText(/Details and favorites are unavailable/))
-      .length,
+    (await screen.findAllByText(/Details are unavailable/)).length,
   ).toBeGreaterThan(0);
   expect(screen.queryByRole('link', { name: 'namespace/image-1' })).toBeNull();
   expect(

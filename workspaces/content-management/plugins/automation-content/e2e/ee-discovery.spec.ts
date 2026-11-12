@@ -129,7 +129,36 @@ test('composes Images and Definitions and exposes a row actions menu', async ({
   ).toHaveAttribute('aria-selected', 'true');
 });
 
-test('opens a native repository favorite and preserves exact tag aliases through reload and history', async ({
+test('sends source type and status filters to the inventory query', async ({
+  page,
+}) => {
+  await openInventory(page);
+  await expect(page.getByRole('button', { name: /All versions/ })).toHaveCount(
+    0,
+  );
+  const query = page.waitForResponse(response => {
+    const request = response.request();
+    if (
+      !request.url().endsWith('/execution-environment-repositories/query') ||
+      request.method() !== 'POST'
+    )
+      return false;
+    const body = request.postDataJSON();
+    return (
+      body.sourceType === 'external-registry' &&
+      body.status === 'available' &&
+      body.page === 1 &&
+      response.ok()
+    );
+  });
+  await page.getByRole('button', { name: /All source types/ }).click();
+  await page.getByRole('option', { name: 'External registry' }).click();
+  await page.getByRole('button', { name: /All statuses/ }).click();
+  await page.getByRole('option', { name: 'Available', exact: true }).click();
+  await query;
+});
+
+test('opens an image repository and preserves exact tag aliases through reload and history', async ({
   page,
 }, testInfo) => {
   await openInventory(page);
@@ -142,34 +171,6 @@ test('opens a native repository favorite and preserves exact tag aliases through
   const image = row.getByRole('link', { name: repository, exact: true });
   await expect(image).toBeVisible();
   await expect(image).toHaveCSS('text-decoration-line', 'underline');
-  const add = row.getByRole('button', {
-    name: `Add ${repository} to favorites`,
-  });
-  const remove = row.getByRole('button', {
-    name: `Remove ${repository} from favorites`,
-  });
-  const wasStarred = await remove.isVisible();
-  if (!wasStarred) {
-    // The BUI grid uses arrow keys to move focus from the row into its cells.
-    await row.focus();
-    for (let step = 0; step < 8; step += 1) {
-      if (await add.evaluate(button => document.activeElement === button))
-        break;
-      await page.keyboard.press('ArrowRight');
-    }
-    await expect(add).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/content\/ee\/images$/);
-    await expect(remove).toBeVisible();
-  }
-  const favoritesOnly = page.getByRole('checkbox', { name: 'Favorites only' });
-  await favoritesOnly.focus();
-  await page.keyboard.press('Space');
-  await expect(favoritesOnly).toBeChecked();
-  await expect(
-    page.getByText(/Table page loaded. Showing 1 to 1 of 1/),
-  ).toBeAttached();
-  await expect(image).toBeVisible();
   await scan(
     page,
     testInfo,
@@ -184,106 +185,98 @@ test('opens a native repository favorite and preserves exact tag aliases through
       .getByRole('navigation', { name: 'Breadcrumbs' })
       .getByRole('link', { name: 'Execution Environments', exact: true }),
   ).toHaveAttribute('href', '/content/ee');
-  const stockStar = page.getByRole('button', {
-    name: `Remove ${repository} from favorites`,
-    exact: true,
+  await chooseTag(page, firstAlias);
+  const catalogCards = page.getByRole('heading', {
+    name: /^(About|Depends on components|Depends on resources)$/,
   });
-  await expect(stockStar).toBeVisible();
-  try {
-    await chooseTag(page, firstAlias);
-    const catalogCards = page.getByRole('heading', {
-      name: /^(About|Depends on components|Depends on resources)$/,
+  await expect(catalogCards).toHaveCount(0);
+  const digest = page.locator('dd code').first();
+  const initialDigest = await digest.textContent();
+  expect(initialDigest).toBeTruthy();
+  await chooseTag(page, secondAlias);
+  await expect(digest).toHaveText(initialDigest!);
+  await expect(
+    page.locator('code').filter({ hasText: new RegExp(`:${secondAlias}$`) }),
+  ).toBeVisible();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page
+    .getByRole('button', { name: 'Copy pull reference' })
+    .click({ timeout: 5000 });
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toMatch(new RegExp(`:${secondAlias}$`));
+  const overview = page.getByRole('tabpanel', { name: 'Overview' });
+  const facts = await overview.locator('dt').allTextContents();
+  expect(facts[0]).toBe('Image');
+  expect(
+    facts.slice(facts.indexOf('Signing'), facts.indexOf('Signing') + 2),
+  ).toEqual(['Signing', 'Signing Evidence']);
+  await expect(overview.getByText(/^Signature:/)).toHaveCount(0);
+  await scan(
+    page,
+    testInfo,
+    '[role=region][aria-label="Image details"]',
+    'detail-evidence',
+  );
+  await page.getByRole('tab', { name: 'All Content', exact: true }).click();
+  await expect(page).toHaveURL(/[?&]section=contents/);
+  await expect(catalogCards).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole('tab', { name: 'All Content', selected: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('tag'))
+    .toBe(secondAlias);
+  await page.goBack();
+  await expect(
+    page.getByRole('tab', { name: 'Overview', selected: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(
+    page.getByRole('tab', { name: 'All Content', selected: true }),
+  ).toBeVisible();
+  if (otherDigestTag) {
+    await chooseTag(page, otherDigestTag);
+    await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+    await expect(digest).not.toHaveText(initialDigest!);
+    const currentDigest = await digest.textContent();
+    expect(currentDigest).toBeTruthy();
+
+    const matchesOlderArtifact = (url: URL) =>
+      decodeURIComponent(url.pathname).startsWith(
+        '/api/automation-content/execution-environments/',
+      ) && decodeURIComponent(url.pathname).endsWith(`@${initialDigest}`);
+    let release = () => {};
+    let held = false;
+    const delay = new Promise<void>(resolve => {
+      release = resolve;
     });
-    await expect(catalogCards).toHaveCount(0);
-    const digest = page.locator('dd code').first();
-    const initialDigest = await digest.textContent();
-    expect(initialDigest).toBeTruthy();
-    await chooseTag(page, secondAlias);
-    await expect(digest).toHaveText(initialDigest!);
-    await expect(
-      page.locator('code').filter({ hasText: new RegExp(`:${secondAlias}$`) }),
-    ).toBeVisible();
-    await page
-      .context()
-      .grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page
-      .getByRole('button', { name: 'Copy pull reference' })
-      .click({ timeout: 5000 });
-    await expect
-      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-      .toMatch(new RegExp(`:${secondAlias}$`));
-    const evidence = page.getByRole('button', { name: 'Signing evidence' });
-    await evidence.focus();
-    await page.keyboard.press('Enter');
-    await scan(
-      page,
-      testInfo,
-      '[role=region][aria-label="Image details"]',
-      'detail-evidence',
-    );
-    await page.getByRole('tab', { name: 'All Content', exact: true }).click();
-    await expect(page).toHaveURL(/[?&]section=contents/);
-    await expect(catalogCards).toHaveCount(0);
-    await page.reload();
-    await expect(
-      page.getByRole('tab', { name: 'All Content', selected: true }),
-    ).toBeVisible();
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get('tag'))
-      .toBe(secondAlias);
-    await page.goBack();
-    await expect(
-      page.getByRole('tab', { name: 'Overview', selected: true }),
-    ).toBeVisible();
-    await page.goForward();
-    await expect(
-      page.getByRole('tab', { name: 'All Content', selected: true }),
-    ).toBeVisible();
-    if (otherDigestTag) {
+    await page.route(matchesOlderArtifact, async route => {
+      held = true;
+      await delay;
+      await route.continue();
+    });
+
+    try {
+      await chooseTag(page, secondAlias);
+      await expect.poll(() => held).toBe(true);
       await chooseTag(page, otherDigestTag);
-      await page.getByRole('tab', { name: 'Overview', exact: true }).click();
-      await expect(digest).not.toHaveText(initialDigest!);
-      const currentDigest = await digest.textContent();
-      expect(currentDigest).toBeTruthy();
-
-      const matchesOlderArtifact = (url: URL) =>
-        decodeURIComponent(url.pathname).startsWith(
-          '/api/automation-content/execution-environments/',
-        ) && decodeURIComponent(url.pathname).endsWith(`@${initialDigest}`);
-      let release = () => {};
-      let held = false;
-      const delay = new Promise<void>(resolve => {
-        release = resolve;
-      });
-      await page.route(matchesOlderArtifact, async route => {
-        held = true;
-        await delay;
-        await route.continue();
-      });
-
-      try {
-        await chooseTag(page, secondAlias);
-        await expect.poll(() => held).toBe(true);
-        await chooseTag(page, otherDigestTag);
-        await expect(digest).toHaveText(currentDigest!);
-        const olderResponse = page.waitForResponse(
-          response =>
-            matchesOlderArtifact(new URL(response.url())) && response.ok(),
-        );
-        release();
-        await olderResponse;
-        await expect(digest).toHaveText(currentDigest!);
-        await expect
-          .poll(() => new URL(page.url()).searchParams.get('tag'))
-          .toBe(otherDigestTag);
-      } finally {
-        release();
-        await page.unroute(matchesOlderArtifact);
-      }
+      await expect(digest).toHaveText(currentDigest!);
+      const olderResponse = page.waitForResponse(
+        response =>
+          matchesOlderArtifact(new URL(response.url())) && response.ok(),
+      );
+      release();
+      await olderResponse;
+      await expect(digest).toHaveText(currentDigest!);
+      await expect
+        .poll(() => new URL(page.url()).searchParams.get('tag'))
+        .toBe(otherDigestTag);
+    } finally {
+      release();
+      await page.unroute(matchesOlderArtifact);
     }
-    await expect(stockStar).toBeVisible();
-  } finally {
-    if (!wasStarred && (await stockStar.isVisible())) await stockStar.click();
   }
 });
 
@@ -337,7 +330,7 @@ test('shows only the discovered image inventory and distinguishes empty states',
   }
 });
 
-test('uses one favorite filter across the third results page and both inventory views', async ({
+test('retains the third results page when switching inventory views', async ({
   page,
 }) => {
   await openInventory(page);
@@ -356,33 +349,11 @@ test('uses one favorite filter across the third results page and both inventory 
     .first();
   const name = await firstRepository.getByRole('link').textContent();
   expect(name).toBeTruthy();
-  const add = firstRepository.getByRole('button', {
-    name: `Add ${name} to favorites`,
-  });
-  const remove = page.getByRole('button', {
-    name: `Remove ${name} from favorites`,
-  });
-  const alreadyStarred = await remove.isVisible();
-  if (!alreadyStarred) {
-    await add.click();
-    await expect(remove).toBeVisible();
-  }
-  try {
-    const favorites = page.getByRole('checkbox', { name: 'Favorites only' });
-    await favorites.focus();
-    await page.keyboard.press('Space');
-    await expect(
-      page.getByRole('link', { name: name!, exact: true }),
-    ).toBeVisible();
-    await page.getByRole('button', { name: 'Change image view' }).click();
-    await page.getByRole('menuitem', { name: 'Grid view' }).click();
-    await expect(
-      page.getByRole('link', { name: name!, exact: true }),
-    ).toBeVisible();
-    await expect(remove).toBeVisible();
-  } finally {
-    if (!alreadyStarred && (await remove.isVisible())) await remove.click();
-  }
+  await page.getByRole('button', { name: 'Change image view' }).click();
+  await page.getByRole('menuitem', { name: 'Grid view' }).click();
+  await expect(
+    page.getByRole('link', { name: name!, exact: true }),
+  ).toBeVisible();
 });
 
 for (const [status, message] of [

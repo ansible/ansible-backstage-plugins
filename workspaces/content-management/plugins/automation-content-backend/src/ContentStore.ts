@@ -9,6 +9,8 @@ import {
   CredentialRedactor,
   DigestCacheStats,
   eeRepositoryEntityRef,
+  eeRepositoryStatus,
+  EE_REPOSITORY_SOURCE_TYPE,
   isOciAttachmentTag,
   isOciImageConfig,
   isOciManifest,
@@ -593,6 +595,20 @@ export class ContentStore {
       ) {
         continue;
       }
+      const lastSuccessfulReconcileAt = this.lastSuccessfulReconcileAt(
+        registry,
+        repository,
+      );
+      const status = eeRepositoryStatus(
+        lastSuccessfulReconcileAt,
+        this.reconcileStateFor(registry)?.ok,
+      );
+      if (query.status !== undefined && query.status !== status) continue;
+      if (
+        query.sourceType !== undefined &&
+        query.sourceType !== EE_REPOSITORY_SOURCE_TYPE
+      )
+        continue;
       const signingState = artifacts.find(
         artifact => artifact.ref === representative.artifactRef,
       )?.signing?.state;
@@ -605,10 +621,8 @@ export class ContentStore {
         representativeTag,
         tagCount: tags.length,
         signingState,
-        lastSuccessfulReconcileAt: this.lastSuccessfulReconcileAt(
-          registry,
-          repository,
-        ),
+        status,
+        lastSuccessfulReconcileAt,
       });
     }
     summaries.sort((a, b) => {

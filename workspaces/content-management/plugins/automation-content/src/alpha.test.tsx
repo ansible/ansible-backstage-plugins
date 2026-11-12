@@ -169,17 +169,12 @@ it.each(['denied', 'disabled', 'malformed', 'provider absent'] as const)(
   },
 );
 
-it('uses the repository header with the same favorite store', async () => {
+it('uses the scoped repository header without a favorite action', async () => {
   await renderEntity({ features: [content({ scopedHeader: true })] });
-  const favorite = await screen.findByRole('button', {
-    name: 'Add Example image repository to favorites',
-  });
-  fireEvent.click(favorite);
   expect(
-    await screen.findByRole('button', {
-      name: 'Remove Example image repository from favorites',
-    }),
+    await screen.findByText('Image contribution fixture'),
   ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /to favorites/ })).toBeNull();
   expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
 });
 

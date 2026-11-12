@@ -15,11 +15,29 @@ export interface EERepositoryIdentity {
   entityRef: string;
 }
 
+export const EE_REPOSITORY_SOURCE_TYPE = 'external-registry';
+export const EE_REPOSITORY_STATUSES = [
+  'available',
+  'stale',
+  'not-reconciled',
+] as const;
+export type EERepositoryStatus = (typeof EE_REPOSITORY_STATUSES)[number];
+
+export function eeRepositoryStatus(
+  lastSuccessfulReconcileAt?: string,
+  lastReconcileOk?: boolean,
+): EERepositoryStatus {
+  if (!lastSuccessfulReconcileAt) return 'not-reconciled';
+  return lastReconcileOk === false ? 'stale' : 'available';
+}
+
 export interface EERepositoryQuery {
   page?: number;
   pageSize?: 10 | 20 | 50;
   query?: string;
   registry?: string;
+  sourceType?: typeof EE_REPOSITORY_SOURCE_TYPE;
+  status?: EERepositoryStatus;
   tag?: string;
   descriptiveTag?: string;
   latestOnly?: boolean;
@@ -38,6 +56,7 @@ export interface EERepositorySummary extends EERepositoryIdentity {
   tagCount: number;
   collectionCount?: number;
   signingState?: EESigningState;
+  status?: EERepositoryStatus;
   lastSuccessfulReconcileAt?: string;
 }
 

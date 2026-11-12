@@ -337,6 +337,31 @@ describe('EE repository discovery routes', () => {
     await request(app).get(`${detailsPath}/reg/absent`).expect(404);
   });
 
+  it('accepts only supported inventory source types and statuses', async () => {
+    const queryEERepositories = jest.fn(async () => ({
+      page: 1,
+      pageSize: 10,
+      totalItems: 0,
+      items: [],
+    }));
+    const app = await appWith(stubDB({ queryEERepositories }));
+    await request(app)
+      .post(queryPath)
+      .send({ sourceType: 'external-registry', status: 'stale' })
+      .expect(200);
+    expect(queryEERepositories).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+      sourceType: 'external-registry',
+      status: 'stale',
+    });
+    await request(app)
+      .post(queryPath)
+      .send({ sourceType: 'local' })
+      .expect(400);
+    await request(app).post(queryPath).send({ status: 'signed' }).expect(400);
+  });
+
   it('forwards complete valid favorite refs and accepts an explicitly empty set', async () => {
     const db = stubDB({
       queryEERepositories: async query => ({

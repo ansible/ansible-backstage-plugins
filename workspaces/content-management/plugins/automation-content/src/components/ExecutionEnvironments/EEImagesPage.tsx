@@ -7,7 +7,6 @@ import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
 import {
   catalogApiRef,
   useEntityRefLink,
-  useStarredEntities,
 } from '@backstage/plugin-catalog-react';
 import {
   Alert,
@@ -18,7 +17,6 @@ import {
   CardBody,
   Cell,
   CellText,
-  Checkbox,
   Container,
   Flex,
   Grid,
@@ -36,8 +34,11 @@ import {
 } from '@backstage/ui';
 import {
   EE_REPOSITORY_ANNOTATIONS,
-  EE_REPOSITORY_ENTITY_REF_PATTERN,
   EE_REPOSITORY_ENTITY_TYPE,
+  EE_REPOSITORY_SOURCE_TYPE,
+  EE_REPOSITORY_STATUSES,
+  eeRepositoryStatus,
+  type EERepositoryStatus,
   type EERepositoryQuery,
   type EERepositorySummary,
 } from '@ansible/automation-content-common/eeRepository';
@@ -60,8 +61,13 @@ import { timeSince } from './timeSince';
 type ImageRow = EERepositorySummary & { id: string };
 const pageSizes = [10, 20, 50];
 const ALL = 'all';
+const statusLabels = {
+  available: 'inventory.available',
+  stale: 'inventory.stale',
+  'not-reconciled': 'inventory.notReconciled',
+} as const;
 
-function InventoryFilter({
+function InventoryFilter<Value extends string>({
   label,
   allLabel,
   options,
@@ -70,9 +76,9 @@ function InventoryFilter({
 }: {
   label: string;
   allLabel: string;
-  options: { value: string; label: string }[];
-  value?: string;
-  onChange: (value?: string) => void;
+  options: { value: Value; label: string }[];
+  value?: Value;
+  onChange: (value?: Value) => void;
 }): JSX.Element {
   return (
     <Select
@@ -87,9 +93,7 @@ function InventoryFilter({
       selectedKey={value === undefined ? ALL : `value:${value}`}
       onSelectionChange={key => {
         onChange(
-          typeof key === 'string' && key.startsWith('value:')
-            ? key.slice(6)
-            : undefined,
+          options.find(option => `value:${option.value}` === key)?.value,
         );
       }}
     />
@@ -129,21 +133,19 @@ function EEInventory(): JSX.Element {
   const api = useApi(automationContentApiRef);
   const catalogApi = useApi(catalogApiRef);
   const entityLink = useEntityRefLink();
-  const { starredEntities } = useStarredEntities();
   const syncPermission = useContentPermission(contentSyncPermission);
   const { t } = useTranslationRef(eeTranslationRef);
   const [view, setView] = useState<'table' | 'grid'>('table');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [registry, setRegistry] = useState<string>();
-  const [descriptiveTag, setDescriptiveTag] = useState<string>();
-  const [owner, setOwner] = useState<string>();
-  const [version, setVersion] = useState<string>();
+  const [sourceType, setSourceType] =
+    useState<EERepositoryQuery['sourceType']>();
+  const [status, setStatus] = useState<EERepositoryStatus>();
   const [sort, setSort] =
     useState<NonNullable<EERepositoryQuery['sort']>>('repository');
   const [order, setOrder] =
     useState<NonNullable<EERepositoryQuery['order']>>('asc');
-  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [pageSize, setPageSize] =
     useState<NonNullable<EERepositoryQuery['pageSize']>>(10);
   const [page, setPage] = useState(1);
@@ -159,47 +161,20 @@ function EEInventory(): JSX.Element {
     [search],
   );
 
-  const favoriteEntityRefs = useMemo(
-    () =>
-      favoriteOnly
-        ? Array.from(starredEntities).filter(ref =>
-            EE_REPOSITORY_ENTITY_REF_PATTERN.test(ref),
-          )
-        : undefined,
-    [favoriteOnly, starredEntities],
-  );
-  const tooManyFavorites = (favoriteEntityRefs?.length ?? 0) > 1000;
   const registries = useAsyncRetry(() => api.getRegistryStatus(), [api]);
   const result = useAsyncRetry(
-    async () =>
-      tooManyFavorites
-        ? undefined
-        : api.queryEERepositories({
-            page,
-            pageSize,
-            query: query || undefined,
-            registry,
-            tag: version,
-            descriptiveTag,
-            owner,
-            sort,
-            order,
-            favoriteEntityRefs,
-          }),
-    [
-      api,
-      favoriteEntityRefs,
-      descriptiveTag,
-      order,
-      owner,
-      page,
-      pageSize,
-      query,
-      registry,
-      sort,
-      version,
-      tooManyFavorites,
-    ],
+    () =>
+      api.queryEERepositories({
+        page,
+        pageSize,
+        query: query || undefined,
+        registry,
+        sourceType,
+        status,
+        sort,
+        order,
+      }),
+    [api, order, page, pageSize, query, registry, sort, sourceType, status],
   );
 
   const total = result.value?.totalItems ?? 0;
@@ -271,11 +246,14 @@ function EEInventory(): JSX.Element {
   }
 
   function statusLabel(row: ImageRow): string {
-    if (!row.lastSuccessfulReconcileAt) return t('inventory.notReconciled');
     return t(
-      registryByName.get(row.registry)?.lastReconcileOk === false
-        ? 'inventory.stale'
-        : 'inventory.available',
+      statusLabels[
+        row.status ??
+          eeRepositoryStatus(
+            row.lastSuccessfulReconcileAt,
+            registryByName.get(row.registry)?.lastReconcileOk,
+          )
+      ],
     );
   }
 
@@ -382,11 +360,7 @@ function EEInventory(): JSX.Element {
   }, [retryInventory, retryRegistries]);
 
   let results: JSX.Element;
-  if (tooManyFavorites) {
-    results = (
-      <Alert status="warning" title={t('inventory.tooManyFavorites')} />
-    );
-  } else if (result.error) {
+  if (result.error) {
     const denied =
       result.error instanceof ContentApiError && result.error.status === 403;
     results = (
@@ -493,54 +467,33 @@ function EEInventory(): JSX.Element {
                 }}
               />
               <InventoryFilter
-                label={t('inventory.filterTag')}
-                allLabel={t('inventory.allTags')}
-                value={descriptiveTag}
-                options={(facets?.descriptiveTags ?? []).map(value => ({
-                  value,
-                  label: value,
-                }))}
+                label={t('inventory.sourceType')}
+                allLabel={t('inventory.allSourceTypes')}
+                value={sourceType}
+                options={[
+                  {
+                    value: EE_REPOSITORY_SOURCE_TYPE,
+                    label: t('inventory.externalRegistry'),
+                  },
+                ]}
                 onChange={value => {
-                  setDescriptiveTag(value);
+                  setSourceType(value);
                   setPage(1);
                 }}
               />
               <InventoryFilter
-                label={t('inventory.version')}
-                allLabel={t('inventory.allVersions')}
-                value={version}
-                options={(facets?.tags ?? []).map(value => ({
+                label={t('inventory.status')}
+                allLabel={t('inventory.allStatuses')}
+                value={status}
+                options={EE_REPOSITORY_STATUSES.map(value => ({
                   value,
-                  label: value === 'latest' ? t('inventory.latestOnly') : value,
+                  label: t(statusLabels[value]),
                 }))}
                 onChange={value => {
-                  setVersion(value);
+                  setStatus(value);
                   setPage(1);
                 }}
               />
-              <InventoryFilter
-                label={t('inventory.owner')}
-                allLabel={t('inventory.allOwners')}
-                value={owner}
-                options={(facets?.owners ?? []).map(value => ({
-                  value,
-                  label:
-                    value === 'unknown' ? t('inventory.unknownOwner') : value,
-                }))}
-                onChange={value => {
-                  setOwner(value);
-                  setPage(1);
-                }}
-              />
-              <Checkbox
-                isSelected={favoriteOnly}
-                onChange={next => {
-                  setFavoriteOnly(next);
-                  setPage(1);
-                }}
-              >
-                {t('inventory.favoritesOnly')}
-              </Checkbox>
             </Flex>
           </Grid.Item>
           <Grid.Item colSpan={{ initial: '1', md: '4' }}>

@@ -145,6 +145,25 @@ describe('EE repository projection', () => {
       await db('artifacts').insert(rows);
       const first = await store.queryEERepositories({ page: 1, pageSize: 10 });
       expect(first.totalItems).toBe(24);
+      await expect(
+        store.queryEERepositories({
+          sourceType: 'external-registry',
+          status: 'not-reconciled',
+          registry: 'mock',
+          page: 2,
+          pageSize: 10,
+        }),
+      ).resolves.toMatchObject({
+        totalItems: 23,
+        items: Array.from({ length: 10 }, (_, i) => ({
+          repository: `team/image-${i + 10}`,
+          status: 'not-reconciled',
+        })),
+      });
+      await expect(
+        store.queryEERepositories({ status: 'available' }),
+      ).resolves.toMatchObject({ totalItems: 0, items: [] });
+
       expect(first.items.map(item => item.repository)).toEqual(
         Array.from(
           { length: 10 },
@@ -255,6 +274,12 @@ describe('repository refresh', () => {
     const successfulAt = (await store.getEERepository('mock', 'ansible/ee'))
       ?.lastSuccessfulReconcileAt;
     expect(successfulAt).toBeTruthy();
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ status: 'available' }],
+    });
 
     repositories['ansible/ee'] = [
       {
@@ -280,6 +305,12 @@ describe('repository refresh', () => {
       stale: true,
       lastSuccessfulReconcileAt: successfulAt,
     });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 1, items: [{ status: 'stale' }] });
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({ totalItems: 0, items: [] });
 
     repositories['ansible/ee'] = [];
     await expect(
