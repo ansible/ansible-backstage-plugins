@@ -7,6 +7,7 @@ interface EESelection {
   digest: string;
   artifactRef: string;
   taggedPullReference?: string;
+  lastModified?: string;
 }
 
 type EESection = 'overview' | 'contents';

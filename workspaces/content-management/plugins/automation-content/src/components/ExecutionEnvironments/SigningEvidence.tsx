@@ -3,6 +3,7 @@ import {
   Accordion,
   AccordionPanel,
   AccordionTrigger,
+  Alert,
   Flex,
   Text,
 } from '@backstage/ui';
@@ -22,16 +23,25 @@ export function SigningEvidence({
   compact?: boolean;
 }): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
-  const label = t(`signing.${observation?.state ?? state ?? 'undetermined'}`);
+  const signingState = observation?.state ?? state ?? 'undetermined';
+  const label = t(`signing.${signingState}`);
+  const status = {
+    signed: 'success',
+    'not-signed': 'danger',
+    undetermined: 'warning',
+  } as const;
   if (compact) return <Text>{label}</Text>;
 
   return (
     <Flex direction="column" gap="2">
-      <Text weight="bold">{label}</Text>
+      <Alert
+        status={status[signingState]}
+        title={t('signing.title', { state: label })}
+        description={t('signing.explanation')}
+      />
       <Accordion>
         <AccordionTrigger title={t('signing.evidence')} />
         <AccordionPanel>
-          <Text as="p">{t('signing.explanation')}</Text>
           {observation ? (
             <>
               <Text as="p">

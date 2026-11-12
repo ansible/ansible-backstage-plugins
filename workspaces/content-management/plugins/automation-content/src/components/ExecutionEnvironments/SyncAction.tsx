@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import useAsync from 'react-use/lib/useAsync';
-import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
+import {
+  toastApiRef,
+  useApi,
+  useTranslationRef,
+} from '@backstage/frontend-plugin-api';
 import { Button, Flex, Text } from '@backstage/ui';
 import { contentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { automationContentApiRef, ContentApiError } from '../../api';
@@ -17,12 +21,9 @@ export function useEESync({
   repository,
   enabled,
   onReload,
-  onRepositoryComplete,
-}: Pick<SyncActionProps, 'repository' | 'onReload'> & {
-  enabled: boolean;
-  onRepositoryComplete?: (description: string) => void;
-}) {
+}: Pick<SyncActionProps, 'repository' | 'onReload'> & { enabled: boolean }) {
   const api = useApi(automationContentApiRef);
+  const toastApi = useApi(toastApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
@@ -48,8 +49,13 @@ export function useEESync({
           moved: String(summary.movedTags),
           removed: String(summary.removedTags),
         });
-        if (onRepositoryComplete) onRepositoryComplete(description);
-        else setResult({ message: description });
+        toastApi.post({
+          title: t('sync.repositoryCompleted', {
+            repository: repository.repository,
+          }),
+          description,
+          status: 'success',
+        });
         onReload();
       } else {
         await api.syncAll();
@@ -134,7 +140,7 @@ export function SyncAction(props: SyncActionProps): JSX.Element | null {
           void sync.run();
         }}
       >
-        {t(props.repository ? 'sync.repository' : 'sync.inventory')}
+        {t(props.repository ? 'sync.repositoryMenu' : 'sync.inventory')}
       </Button>
       <SyncFeedback sync={sync} onReload={props.onReload} />
     </Flex>

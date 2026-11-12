@@ -22,7 +22,7 @@ async function openInventory(page: Page): Promise<void> {
 }
 
 async function chooseTag(page: Page, tag: string): Promise<void> {
-  const trigger = page.getByRole('button', { name: /Tag or digest/ });
+  const trigger = page.getByRole('button', { name: /Version/ });
   await trigger.focus();
   await page.keyboard.press('Enter');
   const option = page.getByRole('option', { name: tag, exact: true });
@@ -190,7 +190,9 @@ test('opens a native repository favorite and preserves exact tag aliases through
     expect(initialDigest).toBeTruthy();
     await chooseTag(page, secondAlias);
     await expect(digest).toHaveText(initialDigest!);
-    await expect(page.getByText(new RegExp(`:${secondAlias}$`))).toBeVisible();
+    await expect(
+      page.locator('code').filter({ hasText: new RegExp(`:${secondAlias}$`) }),
+    ).toBeVisible();
     await page
       .context()
       .grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -209,11 +211,11 @@ test('opens a native repository favorite and preserves exact tag aliases through
       '[role=region][aria-label="Image details"]',
       'detail-evidence',
     );
-    await page.getByRole('tab', { name: 'Contents', exact: true }).click();
+    await page.getByRole('tab', { name: 'All Content', exact: true }).click();
     await expect(page).toHaveURL(/[?&]section=contents/);
     await page.reload();
     await expect(
-      page.getByRole('tab', { name: 'Contents', selected: true }),
+      page.getByRole('tab', { name: 'All Content', selected: true }),
     ).toBeVisible();
     await expect
       .poll(() => new URL(page.url()).searchParams.get('tag'))
@@ -224,7 +226,7 @@ test('opens a native repository favorite and preserves exact tag aliases through
     ).toBeVisible();
     await page.goForward();
     await expect(
-      page.getByRole('tab', { name: 'Contents', selected: true }),
+      page.getByRole('tab', { name: 'All Content', selected: true }),
     ).toBeVisible();
     if (otherDigestTag) {
       await chooseTag(page, otherDigestTag);

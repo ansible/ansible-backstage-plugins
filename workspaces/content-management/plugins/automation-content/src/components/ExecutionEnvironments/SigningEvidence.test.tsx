@@ -38,7 +38,7 @@ it.each([
       observedAt: '2026-11-12T12:00:00.000Z',
       mechanisms: [{ mechanism: 'oci-referrers', outcome }],
     });
-    expect(await screen.findByText(label)).toBeTruthy();
+    expect(await screen.findByText(`Signature: ${label}`)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Signing evidence' }));
     expect(await screen.findByText(new RegExp(evidence))).toBeTruthy();
     expect(screen.queryByText(/verified on/i)).toBeNull();
@@ -47,7 +47,7 @@ it.each([
 
 it('shows an unknown state when the digest has no recorded observation', async () => {
   await mount();
-  expect(await screen.findByText('Undetermined')).toBeTruthy();
+  expect(await screen.findByText('Signature: Undetermined')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Signing evidence' }));
   expect(
     await screen.findByText('No signing observation is available.'),

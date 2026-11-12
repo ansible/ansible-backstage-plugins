@@ -88,9 +88,7 @@ it('distinguishes a repository refresh that preserved the previous index', async
   const { mounted, onReload, syncEERepository } = mount({ repository: true });
   syncEERepository.mockRejectedValue(new ContentApiError(502, true));
   await mounted;
-  fireEvent.click(
-    await screen.findByRole('button', { name: 'Refresh repository' }),
-  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Sync' }));
   expect(
     await screen.findByText(
       'Refresh failed. The prior indexed results are still shown.',
