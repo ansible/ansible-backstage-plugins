@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import useDebounce from 'react-use/lib/useDebounce';
+import useInterval from 'react-use/lib/useInterval';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
 import {
@@ -56,18 +57,21 @@ const pageSizes = [10, 20, 50];
 const ALL = 'all';
 
 const relativeTime = new Intl.RelativeTimeFormat(undefined, {
-  numeric: 'auto',
+  numeric: 'always',
 });
 
-function timeSince(timestamp: string): string {
+function timeSince(timestamp: string, now: number, justNow: string): string {
   const minutes = Math.max(
     0,
-    Math.floor((Date.now() - Date.parse(timestamp)) / 60_000),
+    Math.floor((now - Date.parse(timestamp)) / 60_000),
   );
+  if (minutes === 0) return justNow;
   if (minutes < 60) return relativeTime.format(-minutes, 'minute');
   if (minutes < 24 * 60)
     return relativeTime.format(-Math.floor(minutes / 60), 'hour');
-  return relativeTime.format(-Math.floor(minutes / (24 * 60)), 'day');
+  const days = Math.floor(minutes / (24 * 60));
+  if (days < 7) return relativeTime.format(-days, 'day');
+  return relativeTime.format(-Math.floor(days / 7), 'week');
 }
 
 function InventoryFilter({
@@ -133,6 +137,8 @@ export function EEImagesPage(): JSX.Element {
 }
 
 function EEInventory(): JSX.Element {
+  const [now, setNow] = useState(Date.now);
+  useInterval(() => setNow(Date.now()), 15_000);
   const api = useApi(automationContentApiRef);
   const catalogApi = useApi(catalogApiRef);
   const entityLink = useEntityRefLink();
@@ -329,7 +335,7 @@ function EEInventory(): JSX.Element {
                 dateTime={timestamp}
                 title={new Date(timestamp).toLocaleString()}
               >
-                {timeSince(timestamp)}
+                {timeSince(timestamp, now, t('inventory.justNow'))}
               </time>
             </Text>
           </Cell>

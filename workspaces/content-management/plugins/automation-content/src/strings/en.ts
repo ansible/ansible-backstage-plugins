@@ -42,6 +42,7 @@ export const eeMessages = {
     stale: 'Stale',
     notReconciled: 'Never reconciled',
     lastSynced: 'Last synced',
+    justNow: 'Just now',
     actions: 'Actions',
     rowActions: 'Actions for {{repository}}',
     viewDetails: 'View details',
