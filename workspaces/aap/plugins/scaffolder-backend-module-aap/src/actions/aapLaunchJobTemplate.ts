@@ -153,7 +153,7 @@ export const launchJobTemplate = (
       try {
         const normalized = normalizeTemplateLaunchValues(values);
         const launchPayload = parseAapActionValues(
-          launchJobTemplateFieldsSchema.passthrough(),
+          launchJobTemplateFieldsSchema,
           normalized,
           'rhaap:launch-job-template',
         ) as LaunchJobTemplate;

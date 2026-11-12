@@ -676,6 +676,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
           jobType: 'run',
           inventory: fullInventory,
           credentials,
+          unexpectedField: 'must be stripped',
         },
       },
     });
@@ -697,5 +698,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
       }),
       MOCK_TOKEN,
     );
+    const [launchPayload] =
+      mockAnsibleService.launchJobTemplateNoWait.mock.calls[0];
+    expect(launchPayload).not.toHaveProperty('unexpectedField');
   });
 });
