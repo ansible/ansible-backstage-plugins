@@ -135,6 +135,45 @@ export const selfServiceManifest: PluginManifest = {
       ],
       minimumHostApiVersion: '0.1.0',
     },
+
+    // ── Native Scaffolder fields ───────────────────────────────────────────
+    {
+      id: 'portal-scaffolder.scaffolder-fields',
+      ownerPlugin: 'portal-scaffolder',
+      displayName: 'Scaffolder Fields',
+      description:
+        'AAP resource and collection selectors used by software templates.',
+      appliesToContentTypes: '*',
+      entryPoints: [
+        {
+          id: 'portal-scaffolder.aap-resource-picker',
+          kind: 'scaffolder-field',
+          surface: 'experience-slot',
+          appliesToContentTypes: [
+            CONTENT_TYPES.COLLECTION,
+            CONTENT_TYPES.EXECUTION_ENVIRONMENT_DEFINITION,
+            CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE,
+            CONTENT_TYPES.PLAYBOOK_REPOSITORY,
+          ],
+          label: 'AAP resource picker',
+          launches: { type: 'slot', targetSlot: 'scaffolder.fields' },
+        },
+        {
+          id: 'portal-scaffolder.collections-picker',
+          kind: 'scaffolder-field',
+          surface: 'experience-slot',
+          appliesToContentTypes: [
+            CONTENT_TYPES.COLLECTION,
+            CONTENT_TYPES.EXECUTION_ENVIRONMENT_DEFINITION,
+            CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE,
+            CONTENT_TYPES.PLAYBOOK_REPOSITORY,
+          ],
+          label: 'Collections picker',
+          launches: { type: 'slot', targetSlot: 'scaffolder.fields' },
+        },
+      ],
+      minimumHostApiVersion: '0.1.0',
+    },
   ],
 
   // portal-scaffolder does not declare entitlements. Access is controlled via
