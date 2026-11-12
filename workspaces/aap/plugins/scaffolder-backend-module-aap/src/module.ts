@@ -46,6 +46,7 @@ export const scaffolderModuleAap = createBackendModule({
           createExecutionEnvironment(ansibleService),
           createJobTemplate(ansibleService),
         );
+        return Promise.resolve();
       },
     });
   },

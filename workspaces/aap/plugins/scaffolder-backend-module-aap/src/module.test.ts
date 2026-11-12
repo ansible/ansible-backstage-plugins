@@ -14,12 +14,12 @@ jest.mock('./actions/aapCreateProject', () => ({
 }));
 
 describe('scaffolderModuleAap', () => {
-  it('registers its AAP actions with the Scaffolder backend', () => {
+  it('registers its AAP actions with the Scaffolder backend', async () => {
     const scaffolder = { addActions: jest.fn() };
     const ansibleService = {};
     const registrations = (scaffolderModuleAap as any).getRegistrations();
 
-    registrations[0].init.func({ scaffolder, ansibleService });
+    await registrations[0].init.func({ scaffolder, ansibleService });
 
     expect(createProjectAction).toHaveBeenCalledWith(ansibleService);
     expect(createExecutionEnvironment).toHaveBeenCalledWith(ansibleService);
