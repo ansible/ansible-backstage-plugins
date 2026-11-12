@@ -1,4 +1,8 @@
-import { useTranslationRef } from '@backstage/frontend-plugin-api';
+import {
+  toastApiRef,
+  useApi,
+  useTranslationRef,
+} from '@backstage/frontend-plugin-api';
 import { ButtonIcon, Flex, Menu, MenuItem, MenuTrigger } from '@backstage/ui';
 import { RiMore2Line } from '@remixicon/react';
 import type { EERepositorySummary } from '@ansible/automation-content-common/eeRepository';
@@ -18,7 +22,19 @@ export function EEImageRowActions({
   onReload: () => void;
 }): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
-  const sync = useEESync({ repository: image, enabled: canSync, onReload });
+  const toastApi = useApi(toastApiRef);
+  const sync = useEESync({
+    repository: image,
+    enabled: canSync,
+    onReload,
+    onRepositoryComplete: description => {
+      toastApi.post({
+        title: t('sync.repositoryCompleted', { repository: image.repository }),
+        description,
+        status: 'success',
+      });
+    },
+  });
 
   return (
     <Flex direction="column" gap="1">

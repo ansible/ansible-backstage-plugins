@@ -139,7 +139,12 @@ export const eeMessages = {
     selectAll: 'Select all',
     syncSelected: 'Sync selected',
     cancel: 'Cancel',
-    registryCompleted: '{{registry}}: Sync complete',
+    repositoryCompleted: 'Sync complete for {{repository}}.',
+    registryCompleted: 'Sync complete for {{registry}}.',
+    registriesCompleted: 'Sync complete for {{quantity}} registries.',
+    registrySyncFailed: 'Registry sync failed',
+    retryFailedRegistries:
+      'The registries that failed are still selected for retry.',
     registryFailed: '{{registry}}: Sync failed',
     registryBusy: '{{registry}}: A sync is already running',
     repository: 'Refresh repository',

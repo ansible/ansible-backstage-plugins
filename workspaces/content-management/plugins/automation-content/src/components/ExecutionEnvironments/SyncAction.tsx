@@ -17,7 +17,11 @@ export function useEESync({
   repository,
   enabled,
   onReload,
-}: Pick<SyncActionProps, 'repository' | 'onReload'> & { enabled: boolean }) {
+  onRepositoryComplete,
+}: Pick<SyncActionProps, 'repository' | 'onReload'> & {
+  enabled: boolean;
+  onRepositoryComplete?: (description: string) => void;
+}) {
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
   const inFlight = useRef(false);
@@ -39,13 +43,13 @@ export function useEESync({
           repository.registry,
           repository.repository,
         );
-        setResult({
-          message: t('sync.completed', {
-            added: String(summary.addedTags),
-            moved: String(summary.movedTags),
-            removed: String(summary.removedTags),
-          }),
+        const description = t('sync.completed', {
+          added: String(summary.addedTags),
+          moved: String(summary.movedTags),
+          removed: String(summary.removedTags),
         });
+        if (onRepositoryComplete) onRepositoryComplete(description);
+        else setResult({ message: description });
         onReload();
       } else {
         await api.syncAll();

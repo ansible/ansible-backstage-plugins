@@ -1,6 +1,10 @@
 import { useRef, useState } from 'react';
 import useAsync from 'react-use/lib/useAsync';
-import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
+import {
+  toastApiRef,
+  useApi,
+  useTranslationRef,
+} from '@backstage/frontend-plugin-api';
 import {
   Button,
   Checkbox,
@@ -24,6 +28,7 @@ import { useContentPermission } from '../../useContentPermission';
 
 export function SyncRegistriesDialog(): JSX.Element | null {
   const api = useApi(automationContentApiRef);
+  const toastApi = useApi(toastApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
   const permitted = useContentPermission(contentSyncPermission) === 'allowed';
   const status = useAsync(
@@ -35,6 +40,7 @@ export function SyncRegistriesDialog(): JSX.Element | null {
   const [pending, setPending] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const inFlight = useRef(false);
+  const failureToast = useRef<ReturnType<typeof toastApi.post>>();
 
   if (!permitted || status.value?.manualSyncEnabled !== true) return null;
   const names = status.value.items.map(registry => registry.name);
@@ -44,18 +50,20 @@ export function SyncRegistriesDialog(): JSX.Element | null {
     inFlight.current = true;
     setPending(true);
     setMessages([]);
+    failureToast.current?.close();
+    failureToast.current = undefined;
     const failed: string[] = [];
     try {
       const results = await Promise.allSettled(
         selected.map(name => api.syncRegistry(name)),
       );
-      const nextMessages = results.map((result, index) => {
+      const errors = results.flatMap((result, index) => {
         const registry = selected[index];
         if (
           result.status === 'fulfilled' &&
           result.value.status === 'completed'
         ) {
-          return t('sync.registryCompleted', { registry });
+          return [];
         }
         failed.push(registry);
         if (
@@ -63,11 +71,29 @@ export function SyncRegistriesDialog(): JSX.Element | null {
           result.reason instanceof ContentApiError &&
           result.reason.status === 409
         ) {
-          return t('sync.registryBusy', { registry });
+          return [t('sync.registryBusy', { registry })];
         }
-        return t('sync.registryFailed', { registry });
+        return [t('sync.registryFailed', { registry })];
       });
-      setMessages(nextMessages);
+      if (failed.length === 0) {
+        setOpen(false);
+        toastApi.post({
+          title:
+            selected.length === 1
+              ? t('sync.registryCompleted', { registry: selected[0] })
+              : t('sync.registriesCompleted', {
+                  quantity: String(selected.length),
+                }),
+          status: 'success',
+        });
+      } else {
+        failureToast.current = toastApi.post({
+          title: t('sync.registrySyncFailed'),
+          description: t('sync.retryFailedRegistries'),
+          status: 'danger',
+        });
+      }
+      setMessages(errors);
       setSelected(failed);
       registrySyncEvents.dispatchEvent(new Event('settled'));
     } finally {
