@@ -38,6 +38,7 @@ describe('credential redaction in the catalog provider', () => {
     const registry = new MockRegistry({
       repositories: {
         'demo/network-ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+        'demo/broken': [],
       },
     });
     // One repository fails with an error quoting the credential, but only
@@ -322,6 +323,7 @@ describe('credential redaction in the catalog provider', () => {
       auth: 'bearer-challenge',
       repositories: {
         'mock-token/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+        'mock-token/broken': [],
       },
     });
     const logs: string[] = [];

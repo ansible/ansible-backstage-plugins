@@ -11,6 +11,8 @@
  */
 import {
   Classification,
+  EE_REPOSITORY_ENTITY_TYPE,
+  eeRepositoryEntityName,
   ContentTypeRegistry,
   MetadataBundle,
   ResolvedArtifact,
@@ -27,6 +29,8 @@ import type {
 } from '@ansible/automation-content-common';
 import { EXECUTION_ENVIRONMENT_TYPE } from '@ansible/content-type-execution-environment';
 import { Entity } from '@backstage/catalog-model';
+import type { EntityProviderMutation } from '@backstage/plugin-catalog-node';
+import type { FetchLike } from '@ansible/automation-content-common';
 import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { defaultContentTypes } from './contentTypes';
 
@@ -117,42 +121,52 @@ function registryWithEverything(): MockRegistry {
   });
 }
 
-async function discover(contentTypes: ContentTypeRegistry): Promise<Entity[]> {
-  const registry = registryWithEverything();
-  const emitted: Entity[] = [];
-
+async function setupProvider(
+  contentTypes: ContentTypeRegistry,
+  fetch: FetchLike,
+  repositories: string[] = ['demo/network-ee', 'demo/bom', 'demo/mystery'],
+) {
+  const mutations: EntityProviderMutation[] = [];
   const provider = new OCIRegistryEntityProvider({
     connection: {
       name: 'mock',
       url: 'https://mock.registry',
       auth: { type: 'anonymous' },
-      repositories: [
-        'demo/network-ee',
-        'demo/redis',
-        'demo/bom',
-        'demo/mystery',
-      ],
+      repositories,
     },
     contentTypes,
-    fetch: registry.fetch,
+    fetch,
     logger: {
       info() {},
       warn() {},
       debug() {},
       error() {},
-      child: () => undefined,
-    } as any,
+      child() {
+        return this;
+      },
+    },
   });
 
   await provider.connect({
-    applyMutation: async (mutation: any) => {
-      emitted.push(...mutation.entities.map((e: any) => e.entity));
+    applyMutation: async mutation => {
+      mutations.push(mutation);
     },
     refresh: async () => {},
-  } as any);
-  await provider.refresh();
+  });
+  return { provider, mutations };
+}
 
-  return emitted;
+async function discover(contentTypes: ContentTypeRegistry): Promise<Entity[]> {
+  const registry = registryWithEverything();
+  const { provider, mutations } = await setupProvider(
+    contentTypes,
+    registry.fetch,
+  );
+  await provider.refresh();
+  const mutation = mutations[0];
+  return mutation?.type === 'full'
+    ? mutation.entities.map(({ entity }) => entity)
+    : [];
 }
 
 const typeOf = (entities: Entity[], repository: string) =>
@@ -163,6 +177,132 @@ const typeOf = (entities: Entity[], repository: string) =>
 // ---------------------------------------------------------------------------
 
 describe('a content type is added, not edited in', () => {
+  it('adds a stable repository component alongside the existing digest entity', async () => {
+    const entities = await discover(defaultContentTypes());
+    const repositories = entities.filter(
+      e => e.spec?.type === EE_REPOSITORY_ENTITY_TYPE,
+    );
+    expect(repositories.map(e => e.metadata.name)).toEqual([
+      eeRepositoryEntityName('mock', 'demo/network-ee'),
+    ]);
+    expect(repositories[0].metadata.annotations).toMatchObject({
+      'ansible.com/ee-repository': 'true',
+      'ansible.com/repository': 'demo/network-ee',
+    });
+    expect(
+      entities.some(e => e.spec?.type === EXECUTION_ENVIRONMENT_TYPE),
+    ).toBe(true);
+  });
+
+  it('retains published entities after an incomplete scan and removes them after a complete empty result', async () => {
+    const registry = registryWithEverything();
+    let outcome: 'normal' | 'incomplete' | 'empty' = 'normal';
+    const { provider, mutations } = await setupProvider(
+      defaultContentTypes(),
+      async (input, init) => {
+        const path = new URL(String(input)).pathname;
+        if (
+          outcome === 'incomplete' &&
+          init?.method === 'HEAD' &&
+          path.endsWith('/manifests/poc')
+        ) {
+          return new Response(null, { status: 200 });
+        }
+        if (outcome === 'empty' && path.endsWith('/tags/list')) {
+          return new Response(
+            JSON.stringify({ name: path.slice(4, -10), tags: [] }),
+          );
+        }
+        return registry.fetch(input, init);
+      },
+    );
+    await provider.refresh();
+    expect(mutations).toHaveLength(1);
+    outcome = 'incomplete';
+    await provider.refresh();
+    expect(mutations).toHaveLength(1);
+    outcome = 'empty';
+    await provider.refresh();
+    expect(mutations[1]).toEqual({ type: 'full', entities: [] });
+  });
+
+  it('never publishes an empty catalog because the initial catalog probe failed', async () => {
+    const registry = registryWithEverything();
+    let available = false;
+    const { provider, mutations } = await setupProvider(
+      defaultContentTypes(),
+      async (input, init) => {
+        if (!available && new URL(input).pathname === '/v2/_catalog') {
+          return new Response(null, { status: 503 });
+        }
+        return registry.fetch(input, init);
+      },
+      [],
+    );
+
+    await expect(provider.refresh()).rejects.toThrow('catalog listing failed');
+    expect(mutations).toHaveLength(0);
+    available = true;
+    await provider.refresh();
+    expect(mutations).toHaveLength(1);
+    expect(mutations[0]).toMatchObject({
+      type: 'full',
+      entities: expect.arrayContaining([
+        expect.objectContaining({
+          entity: expect.objectContaining({
+            spec: expect.objectContaining({ type: EE_REPOSITORY_ENTITY_TYPE }),
+          }),
+        }),
+      ]),
+    });
+  });
+
+  it.each(['manifest', 'config', 'digest'] as const)(
+    'retains catalog entities when classification receives an invalid %s',
+    async invalid => {
+      const registry = registryWithEverything();
+      let sabotage = false;
+      const { provider, mutations } = await setupProvider(
+        defaultContentTypes(),
+        async (input, init) => {
+          const path = new URL(input).pathname;
+          if (sabotage && path.startsWith('/v2/demo/network-ee/')) {
+            if (invalid === 'config' && path.includes('/blobs/')) {
+              return new Response(JSON.stringify({ config: { Labels: [] } }));
+            }
+            if (
+              path.includes('/manifests/sha256:') &&
+              init?.method !== 'HEAD'
+            ) {
+              if (invalid === 'manifest') {
+                return new Response(
+                  JSON.stringify({ schemaVersion: 2, layers: [] }),
+                );
+              }
+              if (invalid === 'digest') {
+                const original = await registry.fetch(input, init);
+                const headers = new Headers(original.headers);
+                headers.set(
+                  'docker-content-digest',
+                  `sha256:${'f'.repeat(64)}`,
+                );
+                return new Response(await original.text(), { headers });
+              }
+            }
+          }
+          return registry.fetch(input, init);
+        },
+      );
+      await provider.refresh();
+      expect(mutations).toHaveLength(1);
+
+      sabotage = true;
+      const result = await provider.refresh();
+      expect(result.errors).toHaveLength(1);
+      expect(mutations).toHaveLength(1);
+    },
+  );
+
   it('recognises the shipped content type', async () => {
     const entities = await discover(defaultContentTypes());
     expect(typeOf(entities, 'demo/network-ee')).toBe(

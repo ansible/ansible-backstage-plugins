@@ -9,6 +9,13 @@ import {
 } from '@backstage/plugin-catalog-node';
 import {
   CapabilityProbe,
+  EE_REPOSITORY_ANNOTATIONS,
+  EE_REPOSITORY_ENTITY_TYPE,
+  eeRepositoryEntityName,
+  isOciAttachmentTag,
+  isOciImageConfig,
+  isOciManifest,
+  MediaTypes,
   ContentTypeRegistry,
   CredentialRedactor,
   ImageManifest,
@@ -27,6 +34,8 @@ import {
   CONTENT_MANIFEST_ARTIFACT_TYPE,
   summariseManifest,
 } from '@ansible/content-model';
+
+import { EXECUTION_ENVIRONMENT_TYPE } from '@ansible/content-type-execution-environment';
 
 export const ANNOTATION_PREFIX = 'ansible.com';
 
@@ -330,17 +339,13 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     const configured = this.options.connection.repositories ?? [];
     if (configured.length > 0) return configured;
 
-    if (!this.capabilities?.catalogEnumeration) {
-      this.log.warn(
-        `[${this.options.connection.name}] no repositories configured and _catalog is ` +
-          `unavailable; nothing to scan`,
-      );
-      return [];
-    }
-
+    // Probe results are advisory. Only a complete strict catalog listing
+    // can establish that previously published repositories were removed.
     const discovered: string[] = [];
     const namespaces = this.options.connection.namespaces;
-    for await (const repository of this.client.listRepositories()) {
+    for await (const repository of this.client.listRepositories(100, {
+      strict: true,
+    })) {
       if (
         !namespaces?.length ||
         namespaces.some(ns => repository.startsWith(`${ns}/`))
@@ -356,21 +361,38 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     // Group tags by digest: several tags commonly point at one image, and identity is
     // the digest, not the tag.
     const byDigest = new Map<string, string[]>();
+    const completeTags = new Set<string>();
 
-    for await (const tag of this.client.listTags(repository)) {
+    for await (const tag of this.client.listTags(repository, 100, {
+      strict: true,
+    })) {
+      completeTags.add(tag);
       // Referrer fallback tags are not images. Registries without the referrers API
       // publish referrer indexes under `sha256-<hex>`, and treating those as execution
       // environments produces phantom entries for artifacts that merely describe a
       // real image.
       if (REFERRER_TAG.test(tag)) continue;
 
-      const head = await this.client.headManifest(repository, tag);
-      if (!head.digest) continue;
+      const head = await this.client.headManifest(repository, tag, {
+        strict: true,
+      });
+      if (!head.digest) throw new Error('Image digest unavailable');
       byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
     }
 
+    let hasEligibleImage = false;
     for (const [digest, tags] of byDigest) {
-      const classification = await this.classify(repository, digest);
+      const classification = await this.classify(
+        repository,
+        digest,
+        completeTags,
+      );
+      if (
+        classification.type === EXECUTION_ENVIRONMENT_TYPE &&
+        tags.some(tag => !isOciAttachmentTag(tag))
+      ) {
+        hasEligibleImage = true;
+      }
 
       // Only an image actually identified as an execution environment gets enumerated.
       // Anything else is still catalogued — honestly, as an unrecognised image — rather
@@ -408,7 +430,45 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         );
       }
     }
+    if (hasEligibleImage) {
+      const entity = this.toRepositoryEntity(repository);
+      if (entity) entities.push(entity);
+    }
     return entities;
+  }
+
+  private toRepositoryEntity(repository: string): Entity | undefined {
+    const { connection: registry, owner = 'unknown', system } = this.options;
+    // A redacted identifier cannot resolve to its configured registry path.
+    if (
+      this.redactor.redact(registry.name) !== registry.name ||
+      this.redactor.redact(repository) !== repository
+    ) {
+      return undefined;
+    }
+    const name = eeRepositoryEntityName(registry.name, repository);
+    const location = `${LOCATION_TYPE}:${registry.name}/${repository}`;
+    return {
+      apiVersion: 'backstage.io/v1alpha1',
+      kind: 'Component',
+      metadata: {
+        name,
+        title: repository,
+        annotations: {
+          'backstage.io/managed-by-location': location,
+          'backstage.io/managed-by-origin-location': location,
+          [EE_REPOSITORY_ANNOTATIONS.marker]: 'true',
+          [EE_REPOSITORY_ANNOTATIONS.registry]: registry.name,
+          [EE_REPOSITORY_ANNOTATIONS.repository]: repository,
+        },
+      },
+      spec: {
+        type: EE_REPOSITORY_ENTITY_TYPE,
+        lifecycle: 'production',
+        owner,
+        ...(system ? { system } : {}),
+      },
+    };
   }
 
   /**
@@ -421,30 +481,34 @@ export class OCIRegistryEntityProvider implements EntityProvider {
   private async classify(
     repository: string,
     digest: string,
+    completeTags: ReadonlySet<string>,
   ): Promise<Identified> {
     const registry = this.options.contentTypes;
 
-    const { referrers } = await this.client
-      .getReferrers(repository, digest)
-      .catch(() => ({ referrers: [], via: 'none' as const }));
-
-    let artifact;
-    let config;
-    try {
-      artifact = await this.client.getManifest(repository, digest);
-      const descriptor = (artifact.manifest as ImageManifest).config;
-      if (descriptor) {
-        config = await this.client.getConfigBlob(repository, descriptor);
-      }
-    } catch (error) {
-      this.log.debug(
-        `[${
-          this.options.connection.name
-        }] ${repository}@${digest}: ${this.redactor.redactErrorText(error)}`,
-      );
+    const artifact = await this.client.getManifest(repository, digest);
+    if (artifact.digest !== digest)
+      throw new Error('Image digest changed during inspection');
+    if (!isOciManifest(artifact.manifest))
+      throw new Error('Invalid image manifest');
+    const descriptor = (artifact.manifest as ImageManifest).config;
+    const config = descriptor
+      ? await this.client.getConfigBlob(repository, descriptor)
+      : undefined;
+    if (
+      (config !== undefined ||
+        descriptor?.mediaType === MediaTypes.ociConfig ||
+        descriptor?.mediaType === MediaTypes.dockerConfig) &&
+      !isOciImageConfig(config)
+    ) {
+      throw new Error('Image config unavailable');
     }
+    const { referrers, signing } = await this.client.inspectReferrersAndSigning(
+      repository,
+      digest,
+      completeTags,
+    );
 
-    if (!artifact || !registry) {
+    if (!registry) {
       return {
         type: UNKNOWN_IMAGE_TYPE,
         signals: ['no content types registered'],
@@ -465,6 +529,16 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         signals: resolution.classification.signals,
         resolution,
       };
+    }
+
+    if (
+      signing.mechanisms.some(
+        evidence =>
+          evidence.mechanism === 'oci-referrers' &&
+          evidence.outcome === 'failed',
+      )
+    ) {
+      throw new Error('Image classification incomplete');
     }
 
     // Nobody claimed it. Still catalogued, with every adapter's reason recorded, so an
