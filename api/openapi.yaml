@@ -446,6 +446,13 @@ components:
         repository: { type: string }
         entityRef: { type: string }
         representativeRef: { type: string }
+        lastSuccessfulReconcileAt:
+          type: string
+          format: date-time
+          description: Most recent successful reconcile that included this repository.
+        stale:
+          type: boolean
+          description: The registry's latest failed reconcile is newer than this repository's last successful reconcile.
         digests:
           type: array
           items:

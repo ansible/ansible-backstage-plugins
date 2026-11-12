@@ -68,6 +68,8 @@ export interface EERepositoryTag extends EERepositoryDigest {
 
 export interface EERepositoryDetails extends EERepositoryIdentity {
   representativeRef: string;
+  lastSuccessfulReconcileAt?: string;
+  stale?: boolean;
   tags: EERepositoryTag[];
   digests: EERepositoryDigest[];
 }

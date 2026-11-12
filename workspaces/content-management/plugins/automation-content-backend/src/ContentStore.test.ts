@@ -252,6 +252,10 @@ describe('repository refresh', () => {
       },
     });
 
+    const successfulAt = (await store.getEERepository('mock', 'ansible/ee'))
+      ?.lastSuccessfulReconcileAt;
+    expect(successfulAt).toBeTruthy();
+
     repositories['ansible/ee'] = [
       {
         ...makeLabelledImage('v3', { [EE_LABEL]: 'true' }),
@@ -266,6 +270,16 @@ describe('repository refresh', () => {
         item => item.tag,
       ),
     ).toEqual(['v2', 'v1']);
+
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    await expect(
+      store.getEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({
+      stale: true,
+      lastSuccessfulReconcileAt: successfulAt,
+    });
 
     repositories['ansible/ee'] = [];
     await expect(

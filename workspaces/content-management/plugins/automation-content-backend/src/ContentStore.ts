@@ -667,11 +667,21 @@ export class ContentStore {
     const artifacts = await this.repositoryArtifacts(registry, repository);
     if (!artifacts.length) return undefined;
     const { representative, tags, digests } = repositoryVersions(artifacts);
+    const lastSuccessfulReconcileAt = this.lastSuccessfulReconcileAt(
+      registry,
+      repository,
+    );
+    const reconcile = this.reconcileStateFor(registry);
     return {
       registry,
       repository,
       entityRef: eeRepositoryEntityRef(registry, repository),
       representativeRef: representative.artifactRef,
+      lastSuccessfulReconcileAt,
+      stale:
+        reconcile?.ok === false &&
+        (!lastSuccessfulReconcileAt ||
+          reconcile.at >= lastSuccessfulReconcileAt),
       tags: tags.map(tag => ({
         ...tag,
         taggedPullReference: client.pullReference({
