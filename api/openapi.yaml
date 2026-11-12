@@ -2897,8 +2897,11 @@ paths:
       tags: [Automation Content Registries]
       security:
         - JWT: []
-      summary: Trigger discovery for one registry
-      description: Deliberate and manual, matching the existing collections pattern, to avoid unbounded syncing.
+      summary: Trigger a background refresh of one registry
+      description: |
+        Cancels any in-progress refresh for the named registry and triggers
+        its scheduled task. Returns immediately with task metadata; the
+        actual discovery runs in the background.
       parameters:
         - name: name
           in: path
@@ -2910,22 +2913,27 @@ paths:
         '403':
           description: Insufficient permissions
         '202':
-          description: Sync started
+          description: Refresh task scheduled successfully.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status: { type: string }
-                  discovered: { type: integer }
-                  error:
-                    type: string
-                    description: Detailed failure cause, credentials redacted; this route requires authentication.
+                $ref: '#/components/schemas/ContentSyncTriggerResponse'
         '404':
           description: No such registry
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '409':
+          description: A refresh is already in progress for this registry.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, taskId]
+                properties:
+                  status: { type: string, enum: [conflict] }
+                  message: { type: string }
+                  taskId: { type: string }
 
   /content:
     servers:
