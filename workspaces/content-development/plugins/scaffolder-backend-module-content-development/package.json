@@ -13,10 +13,10 @@
     "build": "backstage-cli package build",
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-rhaap-common"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/content-development-common"
   },
   "dependencies": {
-    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/content-development-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-model": "1.10.0",
@@ -30,7 +30,6 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^",
     "@backstage/backend-test-utils": "1.11.1",
     "@backstage/cli": "0.36.2",
     "@backstage/plugin-scaffolder-node-test-utils": "0.3.11",
