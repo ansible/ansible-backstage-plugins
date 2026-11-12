@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { FetchLike } from '../oci/OCIClient';
 import { Descriptor, ImageConfig, Manifest, MediaTypes } from '../oci/types';
 
@@ -307,7 +308,8 @@ export function makeImage(
   overrides: Partial<MockImage> & { tag: string },
 ): MockImage {
   const digest =
-    overrides.digest ?? `sha256:${overrides.tag.padEnd(64, '0').slice(0, 64)}`;
+    overrides.digest ??
+    `sha256:${createHash('sha256').update(overrides.tag).digest('hex')}`;
   const configDigest = `sha256:${`cfg${overrides.tag}`
     .padEnd(64, '0')
     .slice(0, 64)}`;
@@ -329,6 +331,7 @@ export function makeImage(
         },
       ],
     },
+    config: { architecture: 'amd64', os: 'linux' },
     ...overrides,
   };
 }

@@ -1,6 +1,13 @@
 import type { Agent, RequestInit as UndiciRequestInit } from 'undici';
 import { createAdditiveTrustConnector } from './AdditiveTrustConnector';
 import { DigestCache, digestKey } from './DigestCache';
+import {
+  isOciDigest,
+  readInventoryNames,
+  readReferrerIndex,
+  referrerSigningOutcome,
+  taggedSignatureOutcome,
+} from './discovery';
 import { logSafeText } from './logSafeText';
 import {
   CredentialRedactor,
@@ -17,8 +24,26 @@ import {
   RegistryConnection,
   RegistryError,
   ResolvedArtifact,
+  SigningEvidence,
+  SigningObservation,
   isIndex,
 } from './types';
+
+interface RegistryDiscoveryOptions {
+  strict?: boolean;
+}
+
+interface ManifestHead {
+  digest?: string;
+  mediaType?: string;
+  status: number;
+  lastModified?: string;
+}
+
+interface ReferrerDiscovery {
+  referrers: Descriptor[];
+  outcome: SigningEvidence['outcome'];
+}
 
 /** Ceiling on followed redirects — a registry redirecting more than this is a loop. */
 const MAX_REDIRECT_HOPS = 5;
@@ -932,59 +957,121 @@ export class OCIClient {
   /**
    * `GET /v2/_catalog` — repository enumeration. Frequently disabled on hosted
    * registries, so callers must tolerate an empty result and fall back to a configured
-   * repository list.
+   * repository list. Strict callers must consume the entire iterator before
+   * treating the inventory as complete.
    */
-  async *listRepositories(pageSize = 100): AsyncGenerator<string> {
-    // The URL of the page just fetched. The next pagination Link resolves
-    // against it, the way the Link header specification requires.
-    let pageUrl: string | undefined;
-    let path: string | undefined = `/v2/_catalog?n=${pageSize}`;
-    while (path) {
-      const url = this.resolveUrl(path, pageUrl);
-      const res: Response = await this.requestUrl(url, {
-        headers: { Accept: 'application/json' },
-      });
-      pageUrl = url;
-      if (!res.ok) {
-        if (res.status === 404 || res.status === 401 || res.status === 403)
-          return;
+  listRepositories(
+    pageSize = 100,
+    options: RegistryDiscoveryOptions = {},
+  ): AsyncGenerator<string> {
+    return this.listInventoryNames(
+      `/v2/_catalog?n=${pageSize}`,
+      'repositories',
+      options.strict === true,
+    );
+  }
+
+  /**
+   * `GET /v2/{name}/tags/list`, following Link-header pagination. In strict
+   * mode an unavailable page is an error, including an initial 404.
+   */
+  listTags(
+    repository: string,
+    pageSize = 100,
+    options: RegistryDiscoveryOptions = {},
+  ): AsyncGenerator<string> {
+    return this.listInventoryNames(
+      `/v2/${repository}/tags/list?n=${pageSize}`,
+      'tags',
+      options.strict === true,
+      repository,
+    );
+  }
+
+  private async *listInventoryNames(
+    path: string,
+    field: 'repositories' | 'tags',
+    strict: boolean,
+    repository?: string,
+  ): AsyncGenerator<string> {
+    const listing =
+      repository === undefined
+        ? 'catalog listing'
+        : `tag listing failed for ${logSafeText(repository)}`;
+    for await (const res of this.registryPages(
+      path,
+      'application/json',
+      strict,
+    )) {
+      if (strict ? res.status !== 200 : !res.ok) {
+        const catalogUnavailable =
+          field === 'repositories' && [401, 403].includes(res.status);
+        if (!strict && (res.status === 404 || catalogUnavailable)) return;
+        const message =
+          field === 'repositories'
+            ? `${listing} failed: ${res.status}`
+            : `${listing}: ${res.status}`;
         throw new RegistryError(
-          this.redactor.redact(`catalog listing failed: ${res.status}`),
+          this.redactor.redact(message),
           res.status,
           this.connection.name,
         );
       }
-      const body = (await res.json()) as { repositories?: string[] };
-      for (const repo of body.repositories ?? []) yield repo;
-      path = nextLink(res.headers.get('link'));
+      if (strict) {
+        const body: unknown = await res.json().catch(() => undefined);
+        const names = readInventoryNames(body, field, repository);
+        if (!names) {
+          throw new RegistryError(
+            field === 'tags'
+              ? 'tag listing returned an invalid response'
+              : 'catalog listing returned an invalid response',
+            res.status,
+            this.connection.name,
+          );
+        }
+        yield* names;
+      } else {
+        const body = (await res.json()) as Partial<
+          Record<typeof field, string[] | null>
+        >;
+        yield* body[field] ?? [];
+      }
     }
   }
 
-  /** `GET /v2/{name}/tags/list`, following Link-header pagination. */
-  async *listTags(repository: string, pageSize = 100): AsyncGenerator<string> {
-    // Same pattern as listRepositories: each Link resolves against the page
-    // that carried it.
+  private async *registryPages(
+    initialPath: string,
+    accept: string,
+    strict: boolean,
+  ): AsyncGenerator<Response> {
     let pageUrl: string | undefined;
-    let path: string | undefined = `/v2/${repository}/tags/list?n=${pageSize}`;
+    let path: string | undefined = initialPath;
+    const visited = new Set<string>();
     while (path) {
+      // A continuation resolves against the page that supplied the link.
       const url = this.resolveUrl(path, pageUrl);
-      const res: Response = await this.requestUrl(url, {
-        headers: { Accept: 'application/json' },
-      });
-      pageUrl = url;
-      if (!res.ok) {
-        if (res.status === 404) return;
-        throw new RegistryError(
-          this.redactor.redact(
-            `tag listing failed for ${logSafeText(repository)}: ${res.status}`,
-          ),
-          res.status,
-          this.connection.name,
-        );
+      if (strict && pageUrl) {
+        const previous = new URL(pageUrl);
+        const next = new URL(url);
+        if (
+          previous.origin !== next.origin ||
+          previous.pathname !== next.pathname ||
+          next.hash ||
+          visited.has(url)
+        ) {
+          throw new RegistryError('registry pagination did not advance');
+        }
       }
-      const body = (await res.json()) as { tags?: string[] | null };
-      for (const tag of body.tags ?? []) yield tag;
-      path = nextLink(res.headers.get('link'));
+      if (strict) visited.add(url);
+      const res = await this.requestUrl(url, { headers: { Accept: accept } });
+      yield res;
+      if (!res.ok) return;
+      pageUrl = url;
+      const link = res.headers.get('link');
+      path = nextLink(link, strict);
+      if (strict && link && !path) {
+        throw new RegistryError('registry pagination link is invalid');
+      }
     }
   }
 
@@ -996,15 +1083,41 @@ export class OCIClient {
   async headManifest(
     repository: string,
     reference: string,
-  ): Promise<{ digest?: string; mediaType?: string; status: number }> {
+    options: RegistryDiscoveryOptions & { strict: true },
+  ): Promise<ManifestHead & { digest: string }>;
+  async headManifest(
+    repository: string,
+    reference: string,
+    options?: RegistryDiscoveryOptions,
+  ): Promise<ManifestHead>;
+  async headManifest(
+    repository: string,
+    reference: string,
+    options: RegistryDiscoveryOptions = {},
+  ): Promise<ManifestHead> {
     const res = await this.request(`/v2/${repository}/manifests/${reference}`, {
       method: 'HEAD',
       headers: { Accept: MANIFEST_ACCEPT },
     });
+    const digest = res.headers.get('docker-content-digest') ?? undefined;
+    if (options.strict && (res.status !== 200 || !isOciDigest(digest))) {
+      throw new RegistryError(
+        'manifest HEAD did not return a valid digest',
+        res.status,
+        this.connection.name,
+      );
+    }
+    const date = options.strict ? res.headers.get('last-modified') : null;
+    const modified = new Date(date === null ? NaN : Date.parse(date));
+    const lastModified =
+      Number.isFinite(modified.getTime()) && modified.toUTCString() === date
+        ? modified.toISOString()
+        : undefined;
     return {
-      digest: res.headers.get('docker-content-digest') ?? undefined,
+      digest,
       mediaType: res.headers.get('content-type') ?? undefined,
       status: res.status,
+      ...(lastModified && { lastModified }),
     };
   }
 
@@ -1018,7 +1131,7 @@ export class OCIClient {
     repository: string,
     reference: string,
   ): Promise<ResolvedArtifact> {
-    const byDigest = reference.startsWith('sha256:');
+    const byDigest = reference.startsWith('sha256:') || isOciDigest(reference);
     const key = byDigest
       ? digestKey(this.connection.name, repository, 'manifest', reference)
       : undefined;
@@ -1048,8 +1161,7 @@ export class OCIClient {
     // Prefer the registry's digest header; fall back to the reference when it is
     // already a digest. Computing it locally would need a hash of the exact bytes.
     const digest =
-      res.headers.get('docker-content-digest') ??
-      (reference.startsWith('sha256:') ? reference : '');
+      res.headers.get('docker-content-digest') ?? (byDigest ? reference : '');
 
     const resolved: ResolvedArtifact = {
       registry: this.connection.name,
@@ -1151,6 +1263,107 @@ export class OCIClient {
     return { referrers: [], via: 'none' };
   }
 
+  /**
+   * Inspect the available OCI and Cosign discovery mechanisms for an indexed
+   * digest. Supply the complete repository tag set, including attachment tags.
+   * Evidence identifies signature artifacts without fetching signature payloads.
+   */
+  async inspectReferrersAndSigning(
+    repository: string,
+    digest: string,
+    completeTags: ReadonlySet<string>,
+  ): Promise<{ referrers: Descriptor[]; signing: SigningObservation }> {
+    const fallbackTag =
+      digest.startsWith('sha256:') && isOciDigest(digest)
+        ? digest.replace(':', '-')
+        : undefined;
+    const [oci, cosign] = await Promise.all([
+      this.discoverReferrers(repository, digest, fallbackTag),
+      this.discoverTaggedSignature(repository, fallbackTag, completeTags),
+    ]);
+    const outcomes = [oci.outcome, cosign];
+    let state: SigningObservation['state'] = 'undetermined';
+    if (outcomes.includes('found')) state = 'signed';
+    else if (outcomes.every(outcome => outcome === 'absent'))
+      state = 'not-signed';
+    return {
+      referrers: oci.referrers,
+      signing: {
+        state,
+        observedAt: new Date().toISOString(),
+        mechanisms: [
+          { mechanism: 'oci-referrers', outcome: oci.outcome },
+          { mechanism: 'cosign-signature-tag', outcome: cosign },
+        ],
+      },
+    };
+  }
+
+  private async discoverReferrers(
+    repository: string,
+    digest: string,
+    fallbackTag: string | undefined,
+  ): Promise<ReferrerDiscovery> {
+    if (!isOciDigest(digest)) return { referrers: [], outcome: 'unavailable' };
+    const referrers: Descriptor[] = [];
+    let first = true;
+    try {
+      const path = `/v2/${repository}/referrers/${digest}`;
+      for await (const response of this.registryPages(
+        path,
+        MediaTypes.ociIndex,
+        true,
+      )) {
+        if (first && [404, 405, 501].includes(response.status)) {
+          if (response.status !== 404 || !fallbackTag) {
+            return { referrers: [], outcome: 'unavailable' };
+          }
+          // OCI requires this fallback after an initial native 404. A registry
+          // may resolve the fallback manifest without listing its tag.
+          const artifact = await this.getManifest(
+            repository,
+            fallbackTag,
+          ).catch((error: unknown) => {
+            if (error instanceof RegistryError && error.status === 404) {
+              return undefined;
+            }
+            throw error;
+          });
+          if (!artifact) return { referrers: [], outcome: 'unavailable' };
+          const index = readReferrerIndex(artifact.manifest);
+          return index
+            ? { referrers: index, outcome: referrerSigningOutcome(index) }
+            : { referrers: [], outcome: 'failed' };
+        }
+        if (response.status !== 200)
+          return { referrers: [], outcome: 'failed' };
+        const page = readReferrerIndex(await response.json());
+        if (!page) return { referrers: [], outcome: 'failed' };
+        for (const descriptor of page) referrers.push(descriptor);
+        first = false;
+      }
+      return { referrers, outcome: referrerSigningOutcome(referrers) };
+    } catch {
+      return { referrers: [], outcome: 'failed' };
+    }
+  }
+
+  private async discoverTaggedSignature(
+    repository: string,
+    fallbackTag: string | undefined,
+    completeTags: ReadonlySet<string>,
+  ): Promise<SigningEvidence['outcome']> {
+    if (!fallbackTag) return 'unavailable';
+    const signatureTag = `${fallbackTag}.sig`;
+    if (!completeTags.has(signatureTag)) return 'absent';
+    try {
+      const artifact = await this.getManifest(repository, signatureTag);
+      return taggedSignatureOutcome(artifact.manifest);
+    } catch {
+      return 'failed';
+    }
+  }
+
   /** Fetch a referrer's payload — used to read a build-time content manifest. */
   async getReferrerPayload(
     repository: string,
@@ -1220,7 +1433,9 @@ export class OCIClient {
   /** Build a pull reference a user can hand to podman. Portal never proxies this. */
   pullReference(ref: ArtifactRef): string {
     const host = this.pullHost();
-    const sep = ref.reference.startsWith('sha256:') ? '@' : ':';
+    const byDigest =
+      ref.reference.startsWith('sha256:') || isOciDigest(ref.reference);
+    const sep = byDigest ? '@' : ':';
     return `${host}/${ref.repository}${sep}${ref.reference}`;
   }
 
@@ -1244,8 +1459,12 @@ export class OCIClient {
 }
 
 /** Extract the `rel="next"` target from a Link header, per RFC 5988. */
-export function nextLink(header: string | null): string | undefined {
+export function nextLink(
+  header: string | null,
+  strict = false,
+): string | undefined {
   if (!header) return undefined;
+  let next: string | undefined;
   for (const part of header.split(',')) {
     const trimmed = part.trim();
     if (!trimmed.startsWith('<')) continue;
@@ -1263,10 +1482,15 @@ export function nextLink(header: string | null): string | undefined {
       if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
         value = value.slice(1, -1);
       }
-      if (value.toLowerCase().split(' ').includes('next')) return target;
+      if (!value.toLowerCase().split(' ').includes('next')) continue;
+      if (!strict) return target;
+      if (next !== undefined || !target) {
+        throw new RegistryError('registry pagination link is invalid');
+      }
+      next = target;
     }
   }
-  return undefined;
+  return next;
 }
 
 /**

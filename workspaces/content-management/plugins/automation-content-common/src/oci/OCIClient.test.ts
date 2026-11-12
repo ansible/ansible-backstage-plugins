@@ -1,6 +1,13 @@
 import { OCIClient, nextLink } from './OCIClient';
 import { CredentialRedactor } from '../security/CredentialRedactor';
-import { ImageManifest, MediaTypes, RegistryConnection } from './types';
+import {
+  ImageManifest,
+  MediaTypes,
+  RegistryConnection,
+  isOciAttachmentTag,
+  isOciImageConfig,
+  isOciManifest,
+} from './types';
 import {
   MockRegistry,
   makeImage,
@@ -25,6 +32,10 @@ function connection(
 
 function clientFor(registry: MockRegistry, conn = connection()): OCIClient {
   return new OCIClient(conn, { fetch: registry.fetch });
+}
+
+function jsonResponse(body: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(body), init);
 }
 
 describe('nextLink', () => {
@@ -142,7 +153,342 @@ describe('listTags', () => {
   });
 });
 
+describe('strict inventory discovery', () => {
+  const digest = `sha256:${'a'.repeat(64)}`;
+  const strict = { strict: true } as const;
+
+  it('accepts complete paginated tags and a valid empty listing', async () => {
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': ['a', 'b', 'c'].map(tag => makeImage({ tag })),
+        'ansible/empty': [],
+      },
+      paginate: true,
+    });
+    const client = clientFor(registry);
+
+    const found: string[] = [];
+    for await (const tag of client.listTags('ansible/ee', 2, strict)) {
+      found.push(tag);
+    }
+    expect(found).toEqual(['a', 'b', 'c']);
+    await expect(
+      client.listTags('ansible/empty', 2, strict).next(),
+    ).resolves.toMatchObject({ done: true });
+  });
+
+  it('rejects a tag listing interrupted by a later 404', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async input =>
+        new URL(input).searchParams.has('last')
+          ? new Response(null, { status: 404 })
+          : jsonResponse(
+              { name: 'ansible/ee', tags: ['a'] },
+              {
+                headers: { link: '<?n=1&last=a>; rel="next"' },
+              },
+            ),
+    });
+    const tags = client.listTags('ansible/ee', 1, strict);
+
+    await expect(tags.next()).resolves.toMatchObject({ value: 'a' });
+    await expect(tags.next()).rejects.toThrow('tag listing failed');
+  });
+
+  it.each([{ repositories: null }, { repositories: ['ansible/ee', {}] }, {}])(
+    'rejects a malformed catalog body %j',
+    async body => {
+      const client = new OCIClient(connection(), {
+        fetch: async () => jsonResponse(body),
+      });
+
+      await expect(client.listRepositories(100, strict).next()).rejects.toThrow(
+        'catalog listing',
+      );
+    },
+  );
+
+  it('does not mistake a malformed continuation for a complete catalog', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async () =>
+        jsonResponse(
+          { repositories: [] },
+          {
+            headers: { link: 'missing-target; rel="next"' },
+          },
+        ),
+    });
+
+    await expect(client.listRepositories(100, strict).next()).rejects.toThrow(
+      'pagination',
+    );
+  });
+
+  it('rejects a repeated catalog continuation', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async () =>
+        jsonResponse(
+          { repositories: ['ansible/ee'] },
+          {
+            headers: { link: '<?n=100>; rel="next"' },
+          },
+        ),
+    });
+    const repositories = client.listRepositories(100, strict);
+
+    await expect(repositories.next()).resolves.toMatchObject({
+      value: 'ansible/ee',
+    });
+    await expect(repositories.next()).rejects.toThrow('pagination');
+  });
+
+  it.each([
+    { status: 404, header: digest },
+    { status: 200, header: '' },
+    { status: 200, header: 'sha256:invalid' },
+  ])('rejects an invalid image tag HEAD (%j)', async ({ status, header }) => {
+    const client = new OCIClient(connection(), {
+      fetch: async () =>
+        new Response(null, {
+          status,
+          headers: { 'docker-content-digest': header },
+        }),
+    });
+
+    await expect(
+      client.headManifest('ansible/ee', 'latest', strict),
+    ).rejects.toThrow('manifest HEAD');
+  });
+
+  it('returns the actual observed Last-Modified in ISO format', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async () =>
+        new Response(null, {
+          headers: {
+            'docker-content-digest': digest,
+            'last-modified': 'Thu, 12 Nov 2026 13:00:00 GMT',
+          },
+        }),
+    });
+
+    await expect(
+      client.headManifest('ansible/ee', 'latest', strict),
+    ).resolves.toMatchObject({
+      digest,
+      lastModified: '2026-11-12T13:00:00.000Z',
+    });
+  });
+
+  it('does not invent an observation date from a malformed Last-Modified header', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async () =>
+        new Response(null, {
+          headers: {
+            'docker-content-digest': digest,
+            'last-modified': '1',
+          },
+        }),
+    });
+
+    const head = await client.headManifest('ansible/ee', 'latest', strict);
+    expect(head.lastModified).toBeUndefined();
+  });
+});
+
+describe('signature discovery', () => {
+  const digest = `sha256:${'a'.repeat(64)}`;
+  const signatureTag = `sha256-${'a'.repeat(64)}.sig`;
+  const signatureType = 'application/vnd.dev.cosign.artifact.sig.v1+json';
+  const bundleType = 'application/vnd.dev.sigstore.bundle.v0.3+json';
+  const descriptor = {
+    digest: `sha256:${'b'.repeat(64)}`,
+    mediaType: MediaTypes.ociManifest,
+    size: 100,
+  };
+
+  function index(artifactType?: string) {
+    return {
+      schemaVersion: 2,
+      mediaType: MediaTypes.ociIndex,
+      manifests: artifactType ? [{ ...descriptor, artifactType }] : [],
+    };
+  }
+
+  it.each([
+    { artifactType: signatureType, state: 'signed', outcome: 'found' },
+    { artifactType: bundleType, state: 'undetermined', outcome: 'ambiguous' },
+    { artifactType: undefined, state: 'not-signed', outcome: 'absent' },
+  ])(
+    'distinguishes successful referrer outcomes (%j)',
+    async ({ artifactType, state, outcome }) => {
+      const client = new OCIClient(connection(), {
+        fetch: async () => jsonResponse(index(artifactType)),
+      });
+
+      const result = await client.inspectReferrersAndSigning(
+        'ansible/ee',
+        digest,
+        new Set(['latest']),
+      );
+
+      expect(result.referrers).toHaveLength(artifactType ? 1 : 0);
+      expect(result.signing).toMatchObject({
+        state,
+        observedAt: expect.any(String),
+        mechanisms: [
+          { mechanism: 'oci-referrers', outcome },
+          { mechanism: 'cosign-signature-tag', outcome: 'absent' },
+        ],
+      });
+    },
+  );
+
+  it('reports unsupported referrers without claiming negative discovery', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async () => new Response(null, { status: 404 }),
+    });
+
+    const { signing } = await client.inspectReferrersAndSigning(
+      'ansible/ee',
+      digest,
+      new Set(['latest']),
+    );
+    expect(signing).toMatchObject({
+      state: 'undetermined',
+      mechanisms: [
+        { mechanism: 'oci-referrers', outcome: 'unavailable' },
+        { mechanism: 'cosign-signature-tag', outcome: 'absent' },
+      ],
+    });
+  });
+
+  it('reports an interrupted referrers listing as failed', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async input =>
+        new URL(input).searchParams.has('last')
+          ? new Response(null, { status: 404 })
+          : jsonResponse(index(), {
+              headers: { link: '<?last=next>; rel="next"' },
+            }),
+    });
+
+    const { signing } = await client.inspectReferrersAndSigning(
+      'ansible/ee',
+      digest,
+      new Set(['latest']),
+    );
+    expect(signing).toMatchObject({
+      state: 'undetermined',
+      mechanisms: [
+        { mechanism: 'oci-referrers', outcome: 'failed' },
+        { mechanism: 'cosign-signature-tag', outcome: 'absent' },
+      ],
+    });
+  });
+
+  it('reads the OCI referrers fallback even when it is absent from the listing', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async input =>
+        new URL(input).pathname.endsWith(`/manifests/sha256-${'a'.repeat(64)}`)
+          ? jsonResponse(index(signatureType))
+          : new Response(null, { status: 404 }),
+    });
+
+    const { signing } = await client.inspectReferrersAndSigning(
+      'ansible/ee',
+      digest,
+      new Set(['latest']),
+    );
+    expect(signing).toMatchObject({
+      state: 'signed',
+      mechanisms: [
+        { mechanism: 'oci-referrers', outcome: 'found' },
+        { mechanism: 'cosign-signature-tag', outcome: 'absent' },
+      ],
+    });
+  });
+
+  it('recognizes a Cosign layer behind a digest-derived signature tag', async () => {
+    const client = new OCIClient(connection(), {
+      fetch: async input =>
+        new URL(input).pathname.endsWith(`/manifests/${signatureTag}`)
+          ? jsonResponse({
+              schemaVersion: 2,
+              config: { ...descriptor, mediaType: MediaTypes.ociConfig },
+              layers: [
+                {
+                  ...descriptor,
+                  mediaType: 'application/vnd.dev.cosign.simplesigning.v1+json',
+                  annotations: { 'dev.cosignproject.cosign/signature': 'c2ln' },
+                },
+              ],
+            })
+          : new Response(null, { status: 404 }),
+    });
+
+    const { signing } = await client.inspectReferrersAndSigning(
+      'ansible/ee',
+      digest,
+      new Set(['latest', signatureTag]),
+    );
+    expect(signing).toMatchObject({
+      state: 'signed',
+      mechanisms: [
+        { mechanism: 'oci-referrers', outcome: 'unavailable' },
+        { mechanism: 'cosign-signature-tag', outcome: 'found' },
+      ],
+    });
+    expect(JSON.stringify(signing)).not.toContain('c2ln');
+  });
+
+  it('identifies digest-derived attachments without discarding user image tags', () => {
+    const attachment = `sha256-${'a'.repeat(64)}`;
+    for (const suffix of ['', '.sig', '.att', '.sbom']) {
+      expect(isOciAttachmentTag(`${attachment}${suffix}`)).toBe(true);
+    }
+    expect(isOciAttachmentTag('release.sig')).toBe(false);
+  });
+});
+
+describe('OCI classification inputs', () => {
+  it('accepts an image config with or without classification labels', () => {
+    expect(isOciImageConfig({ architecture: 'amd64' })).toBe(true);
+    expect(isOciImageConfig({ config: { Labels: { release: '1.0' } } })).toBe(
+      true,
+    );
+  });
+
+  it.each([[], { config: [] }, { config: { Labels: { release: 1 } } }])(
+    'rejects a malformed config body %j',
+    config => {
+      expect(isOciImageConfig(config)).toBe(false);
+    },
+  );
+
+  it('distinguishes a valid index from a malformed image or index', () => {
+    expect(isOciManifest({ schemaVersion: 2, manifests: [] })).toBe(true);
+    expect(isOciManifest({ schemaVersion: 2, manifests: [{}] })).toBe(false);
+    expect(isOciManifest({ schemaVersion: 2, config: null, layers: [] })).toBe(
+      false,
+    );
+  });
+});
+
 describe('manifests', () => {
+  it('retains a valid non-sha256 digest when the response omits the digest header', async () => {
+    const digest = `sha512:${'a'.repeat(128)}`;
+    const registry = new MockRegistry({
+      repositories: { 'ansible/ee': [makeImage({ tag: 'latest', digest })] },
+      omitDigestHeader: true,
+    });
+    const client = clientFor(registry);
+    const artifact = await client.getManifest('ansible/ee', digest);
+    expect(artifact.digest).toBe(digest);
+    expect(client.pullReference(artifact)).toBe(
+      `mock.registry/ansible/ee@${digest}`,
+    );
+  });
+
   it('resolves a tag to an immutable digest via HEAD', async () => {
     const image = makeImage({ tag: 'latest' });
     const registry = new MockRegistry({
