@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   getPromptForm,
   getJobTypeProps,
@@ -22,6 +24,17 @@ import {
   ANNOTATION_ORIGIN_LOCATION,
 } from '@backstage/catalog-model';
 import { JsonObject } from '@backstage/types';
+
+// Shared data fixture: verify the schema used by the frontend wizard tests.
+const inventoryPrompt = JSON.parse(
+  readFileSync(
+    resolve(
+      __dirname,
+      '../../../../../../test-fixtures/scaffolder/required-inventory.json',
+    ),
+    'utf8',
+  ),
+);
 
 describe('dynamicJobTemplate', () => {
   beforeEach(() => {
@@ -62,6 +75,18 @@ describe('dynamicJobTemplate', () => {
   });
 
   describe('getInventoryProps', () => {
+    it('matches the schema exercised by the native inventory wizard', () => {
+      expect(getInventoryProps({})).toEqual(
+        inventoryPrompt.steps[0].schema.properties.inventory,
+      );
+    });
+    it('requires a positive integer inventory ID', () => {
+      expect(getInventoryProps({})).toMatchObject({
+        required: ['id'],
+        additionalProperties: true,
+        properties: { id: { type: 'integer', minimum: 1 } },
+      });
+    });
     it('should return inventory properties with default value', () => {
       const inventory = { id: 1, name: 'test-inventory' };
       const result = getInventoryProps(inventory);
@@ -70,6 +95,10 @@ describe('dynamicJobTemplate', () => {
         title: 'Inventory',
         description:
           'Please enter the inventory you want to use the services on',
+        type: 'object',
+        required: ['id'],
+        additionalProperties: true,
+        properties: { id: { type: 'integer', minimum: 1 } },
         resource: 'inventories',
         'ui:field': 'AAPResourcePicker',
         default: inventory,
@@ -634,6 +663,48 @@ describe('dynamicJobTemplate', () => {
       expect((inputVars as any).diff_mode).toBe(
         '${{ parameters["diff_mode"] }}',
       );
+    });
+
+    it('declares inventory and tag picker schemas with launch-compatible values', () => {
+      const job = {
+        ...mockJob,
+        ask_inventory_on_launch: true,
+        ask_tags_on_launch: true,
+        ask_skip_tags_on_launch: true,
+        job_tags: ' configure, , deploy ',
+        skip_tags: '',
+      };
+
+      const [promptForm, inputVars] = getPromptFormDetails(job, []);
+      const properties = promptForm.properties as Record<string, unknown>;
+
+      expect(properties.inventory).toMatchObject({
+        type: 'object',
+        required: ['id'],
+        additionalProperties: true,
+        properties: { id: { type: 'integer', minimum: 1 } },
+        resource: 'inventories',
+        default: job.summary_fields.inventory,
+      });
+      expect(properties.tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        idKey: 'name',
+        nameKey: 'name',
+        default: ['configure', 'deploy'],
+      });
+      expect(properties.skip_tags).toMatchObject({
+        type: 'array',
+        items: { type: 'string' },
+        idKey: 'name',
+        nameKey: 'name',
+        default: [],
+      });
+      expect(promptForm.required).toContain('inventory');
+      expect(inputVars).toMatchObject({
+        tags: '${{ parameters["tags"] }}',
+        skip_tags: '${{ parameters["skip_tags"] }}',
+      });
     });
 
     it('should return minimal prompt form for job with no ask_on_launch flags', () => {
