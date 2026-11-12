@@ -2,6 +2,8 @@ import '@testing-library/jest-dom';
 import { act, screen, waitFor } from '@testing-library/react';
 import { compatWrapper } from '@backstage/core-compat-api';
 import { useApi } from '@backstage/core-plugin-api';
+import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
 import {
   createFrontendPlugin,
   createRouteRef,
@@ -371,6 +373,27 @@ describe('native scaffolder field discovery', () => {
     ).toBeInTheDocument();
     expect(loader).toHaveBeenCalledTimes(1);
   });
+  it.each(['capability', 'entry'])(
+    'skips reserved fields with a missing %s without an alert',
+    async missing => {
+      const field = descriptor();
+      if (missing === 'capability') field.capabilityId = 'missing';
+      else field.entryPointId = 'missing';
+      await renderInTestApp(
+        <TestApiProvider apis={[[permissionApiRef, { authorize: jest.fn() }]]}>
+          <NativeScaffolderFields
+            declarations={[field]}
+            reservedNames={['RepositoryInput']}
+          >
+            {() => <div>Host field available</div>}
+          </NativeScaffolderFields>
+        </TestApiProvider>,
+      );
+      await screen.findByText('Host field available');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(loader).not.toHaveBeenCalled();
+    },
+  );
   it.each(['owner', 'reserved'] as const)(
     'filters %s before importing the widget',
     async gate => {
