@@ -39,7 +39,6 @@ const manifest: EntityDetailTabDescriptor['manifest'] = {
     {
       id: 'scanner.quality',
       ownerPlugin: 'scanner',
-      experienceId: 'content-quality-assessment',
       displayName: 'Quality',
       description: 'Quality',
       minimumHostApiVersion: '0.1.0',

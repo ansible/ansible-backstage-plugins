@@ -7,7 +7,7 @@
  * **What lives here:**
  * - `PluginManifest` and the full capability/entry-point/operation model
  * - `CapabilityLaunch` discriminated union (`SlotLaunch | WorkflowLaunch | OperationLaunch`)
- * - `CONTENT_TYPES`, `EXPERIENCE_IDS`, `EXTENSION_POINTS` constants and their ID types
+ * - `CONTENT_TYPES`, `EXTENSION_POINTS` constants and their ID types
  *
  * **What does NOT live here:**
  * - React contribution types (`TabContribution`, `CardContribution`, `ActionContribution`)
@@ -32,7 +32,6 @@ export type { EntitlementDecision } from './entitlements';
 export type {
   PermissionRequirement,
   ContentPredicate,
-  ExperienceDefinition,
   ContributionKind,
   EntrySurface,
   CapabilityEntryPoint,
@@ -43,13 +42,5 @@ export type {
   PluginManifest,
 } from './manifest';
 
-export {
-  CONTENT_TYPES,
-  EXPERIENCE_IDS,
-  EXTENSION_POINTS,
-} from './extensionPoints';
-export type {
-  ContentTypeId,
-  ExperienceId,
-  ExtensionPointId,
-} from './extensionPoints';
+export { CONTENT_TYPES, EXTENSION_POINTS } from './extensionPoints';
+export type { ContentTypeId, ExtensionPointId } from './extensionPoints';

@@ -228,17 +228,18 @@ The package is listed as a peer dependency but is not in `sharedPackages`. Add i
 
 Check the browser console for `[DynamicExtensionDiscovery]` error messages. The most common causes:
 
-- `capabilityId` contains spaces or uppercase
-- `experienceId` references an ID not in `EXPERIENCE_IDS`
-- `launch.type` is misspelled
+- The manifest `apiVersion` is incompatible with the host
+- A capability requires a newer `minimumHostApiVersion`
 
-Run `validateManifest` in a test to catch these before deployment:
+Run `validateManifest` with the host API version in a test to catch these before deployment.
+It checks version compatibility, not identifier naming or the full manifest structure.
+Use the `PluginManifest` TypeScript type to check the manifest's field names and launch shapes.
 
 ```ts
 import { validateManifest } from '@ansible/portal-extension-host';
 
 test('my manifest is valid', () => {
-  const result = validateManifest(myPluginManifest);
+  const result = validateManifest(myPluginManifest, '0.1.0');
   expect(result.valid).toBe(true);
   expect(result.errors).toHaveLength(0);
 });

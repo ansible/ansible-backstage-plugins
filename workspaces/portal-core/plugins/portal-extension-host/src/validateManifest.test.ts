@@ -25,7 +25,6 @@ const makeCapability = (
 ): CapabilityContribution => ({
   id: 'test-capability',
   ownerPlugin: 'test-plugin',
-  experienceId: 'content-authoring',
   displayName: 'Test Capability',
   description: 'A test capability',
   appliesToContentTypes: '*',
@@ -121,62 +120,48 @@ describe('validateManifest', () => {
     });
   });
 
-  describe('per-capability: experienceId', () => {
-    it('accepts a known experienceId', () => {
+  describe('host-owned placement', () => {
+    it('accepts a capability without experience metadata', () => {
+      const capability = makeCapability();
       const result = validateManifest(
-        makeManifest({
-          capabilities: [makeCapability({ experienceId: 'content-authoring' })],
-        }),
+        makeManifest({ capabilities: [capability] }),
         HOST_VERSION,
       );
       expect(result.valid).toBe(true);
-      expect(result.validCapabilities).toHaveLength(1);
+      expect(result.validCapabilities).toEqual([capability]);
     });
 
-    it('accepts all known experienceIds', () => {
-      const knownIds = [
-        'content-quality-assessment',
-        'content-authoring',
-        'content-migration',
-      ];
-      for (const experienceId of knownIds) {
-        const result = validateManifest(
-          makeManifest({ capabilities: [makeCapability({ experienceId })] }),
-          HOST_VERSION,
-        );
-        expect(result.valid).toBe(true);
-      }
-    });
-
-    it('rejects an unknown experienceId', () => {
+    it('ignores obsolete experience metadata in existing serialized manifests', () => {
+      const capability = {
+        ...makeCapability(),
+        experienceId: 'retired-host-group',
+      };
       const result = validateManifest(
-        makeManifest({
-          capabilities: [
-            makeCapability({ experienceId: 'not-a-real-experience' }),
-          ],
-        }),
+        makeManifest({ capabilities: [capability] }),
         HOST_VERSION,
       );
-      expect(result.valid).toBe(false);
-      expect(result.errors[0]).toMatch(/unknown experienceId/i);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.validCapabilities).toEqual([capability]);
     });
 
-    it('excludes invalid capability from validCapabilities but keeps valid ones', () => {
+    it('still rejects unsupported capabilities alongside valid ones', () => {
       const result = validateManifest(
         makeManifest({
           capabilities: [
-            makeCapability({ id: 'good', experienceId: 'content-authoring' }),
+            makeCapability({ id: 'supported' }),
             makeCapability({
-              id: 'bad',
-              experienceId: 'not-a-real-experience',
+              id: 'unsupported',
+              minimumHostApiVersion: '9.0.0',
             }),
           ],
         }),
         HOST_VERSION,
       );
       expect(result.valid).toBe(false);
-      expect(result.validCapabilities).toHaveLength(1);
-      expect(result.validCapabilities[0].id).toBe('good');
+      expect(result.validCapabilities.map(capability => capability.id)).toEqual(
+        ['supported'],
+      );
     });
   });
 
@@ -219,8 +204,8 @@ describe('validateManifest', () => {
         makeManifest({
           capabilities: [
             makeCapability({
-              id: 'bad-exp',
-              experienceId: 'unknown-experience',
+              id: 'bad-major',
+              minimumHostApiVersion: '1.0.0',
             }),
             makeCapability({ id: 'bad-ver', minimumHostApiVersion: '9.9.9' }),
           ],

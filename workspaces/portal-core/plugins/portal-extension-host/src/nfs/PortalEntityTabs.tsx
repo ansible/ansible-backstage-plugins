@@ -1,7 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Tab, Tabs, CircularProgress } from '@material-ui/core';
 import { stringifyEntityRef } from '@backstage/catalog-model';
-import { EXPERIENCE_IDS } from '@ansible/portal-extension-api';
 import type {
   EntityContributionContext,
   EntityDetailTabDescriptor,
@@ -15,7 +14,6 @@ import {
 } from './useEligibleContributions';
 
 export type { EntitlementCheck } from './useEligibleContributions';
-export const DEFAULT_EXPERIENCES = Object.values(EXPERIENCE_IDS);
 
 /** Shared presentation for standalone tabs and the entity action/results surface. */
 export function PortalEntityTabContent({
@@ -88,20 +86,13 @@ export function PortalEntityTabContent({
 export function PortalEntityTabs({
   tabs,
   context,
-  availableExperiences = DEFAULT_EXPERIENCES,
   checkEntitlement,
 }: Readonly<{
   tabs: readonly EntityDetailTabDescriptor[];
   context: EntityContributionContext;
-  availableExperiences?: readonly string[];
   checkEntitlement?: EntitlementCheck;
 }>) {
-  const eligible = useEligibleContributions(
-    tabs,
-    context,
-    availableExperiences,
-    checkEntitlement,
-  );
+  const eligible = useEligibleContributions(tabs, context, checkEntitlement);
   const [selectedId, setSelectedId] = useState<string>();
   return (
     <PortalEntityTabContent

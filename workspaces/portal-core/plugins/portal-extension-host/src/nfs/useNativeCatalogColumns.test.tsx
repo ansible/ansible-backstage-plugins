@@ -59,7 +59,6 @@ describe('Native catalog column gating', () => {
         {
           id: 'scanner.quality',
           ownerPlugin: 'scanner',
-          experienceId: 'content-quality-assessment',
           displayName: 'Quality',
           description: 'Quality',
           minimumHostApiVersion: '0.1.0',
@@ -151,15 +150,12 @@ describe('Native catalog column gating', () => {
 
   it.each([
     'unsupported-type',
-    'experience',
     'disabled',
     'permission-denied',
     'permission-failure',
     'missing-capability',
   ] as const)('does not load an ineligible column: %s', async reason => {
     const column = columns[0];
-    if (reason === 'experience')
-      column.manifest.capabilities[0].experienceId = 'not-installed';
     if (reason === 'disabled') {
       column.enabledByConfig = 'scanner.enabled';
       enabled = false;

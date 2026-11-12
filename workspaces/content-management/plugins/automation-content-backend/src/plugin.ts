@@ -6,7 +6,7 @@ import {
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentStore } from './ContentStore';
-import { createRouter } from './router';
+import { createRouter, STORE_REFRESH_TASK_ID } from './router';
 
 const migrationsDir = resolvePackagePath(
   '@ansible/plugin-automation-content-backend',
@@ -61,7 +61,9 @@ export const automationContentPlugin = createBackendPlugin({
           defaultContentTypes(),
         );
 
-        httpRouter.use(await createRouter({ db: store, logger, httpAuth }));
+        httpRouter.use(
+          await createRouter({ db: store, logger, httpAuth, scheduler }),
+        );
 
         // Every route requires a signed-in user or service token except the
         // liveness probe (#977). GET /health answers a bare status only (#958).
@@ -72,7 +74,7 @@ export const automationContentPlugin = createBackendPlugin({
         // tag-to-digest map actually differs. Without this, a push into the registry
         // is invisible for up to a full refresh interval.
         await scheduler.scheduleTask({
-          id: 'automation-content-drift-poll',
+          id: 'content-management-drift-poll',
           frequency: { seconds: 120 },
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
@@ -92,7 +94,7 @@ export const automationContentPlugin = createBackendPlugin({
         });
 
         await scheduler.scheduleTask({
-          id: 'automation-content-store-refresh',
+          id: STORE_REFRESH_TASK_ID,
           frequency: { minutes: 30 },
           timeout: { minutes: 10 },
           initialDelay: { seconds: 3 },

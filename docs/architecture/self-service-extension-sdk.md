@@ -959,7 +959,7 @@ _contributor_ to experiences, not a host. (Ganesh's doc §6.2)
 
 - The `rhaap.*.detail.tabs` IDs become **compatibility aliases** for current pages during the transition, not the primary contract.
 - No new extension point IDs should follow the `rhaap.*` frozen-ID pattern.
-- New capability registrations should target `experienceId` once `portal-core` defines experiences.
+- New native capability registrations declare supported attachments and content applicability. The host owns layout and placement, without an experience ID in contributor manifests.
 - The `EXTENSION_POINTS` constants in extension contracts are still the right step for the earlier implementation — just documented as aliases.
 
 ### 12.4 `filter?` vs `appliesToContentTypes`

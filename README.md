@@ -156,7 +156,6 @@ Edit `.env` and fill in the required values:
 
 | Variable                    | Required             | Description                                                                        |
 | --------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
-| `BACKEND_SECRET`            | No                   | Auto-generated on each `yarn start` if left empty                                  |
 | `AUTH_SIGNING_KEY`          | No                   | Auto-generated on each `yarn start` if left empty                                  |
 | `GITHUB_INTEGRATION_TOKEN`  | Yes                  | GitHub PAT for SCM integration ([create here](https://github.com/settings/tokens)) |
 | `GITLAB_INTEGRATION_TOKEN`  | If using GitLab      | GitLab PAT for SCM integration                                                     |
@@ -169,7 +168,7 @@ Edit `.env` and fill in the required values:
 | `AAP_AUTH_CLIENT_SECRET`    | Yes                  | AAP OAuth client secret                                                            |
 | `AAP_API_TOKEN`             | Yes                  | AAP API token for catalog sync                                                     |
 
-**Note:** `BACKEND_SECRET` and `AUTH_SIGNING_KEY` are auto-generated if left empty. Set them explicitly if you need persistent sessions across restarts.
+**Note:** `AUTH_SIGNING_KEY` is auto-generated if left empty. Set it explicitly for stable configuration across restarts. Backend plugin-to-plugin authentication uses Backstage's built-in auth services without a shared secret. Configure `backend.auth.externalAccess` separately for external callers.
 
 #### 2. Create Local Configuration File (Optional)
 
@@ -194,7 +193,7 @@ yarn start
 This will:
 
 - Load environment variables from `.env` via `dotenv-cli`
-- Auto-generate `BACKEND_SECRET` and `AUTH_SIGNING_KEY` if not set
+- Auto-generate `AUTH_SIGNING_KEY` if not set
 - Start the backend on `http://localhost:7007`
 - Start the frontend on `http://localhost:3000`
 - Enable hot module reloading for development

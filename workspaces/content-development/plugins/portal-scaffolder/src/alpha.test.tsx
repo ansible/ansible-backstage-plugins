@@ -116,7 +116,6 @@ const declaration: ScaffolderFieldDescriptor = {
         ownerPlugin: 'contributor',
         displayName: 'Authoring',
         description: 'Authoring',
-        experienceId: 'content-authoring',
         minimumHostApiVersion: '0.1.0',
         appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
         entryPoints: [

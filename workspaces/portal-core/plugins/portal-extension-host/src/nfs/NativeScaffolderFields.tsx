@@ -4,7 +4,6 @@ import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
-import { DEFAULT_EXPERIENCES } from './PortalEntityTabs';
 
 const EMPTY_NAMES: readonly string[] = [];
 
@@ -49,12 +48,10 @@ function guardField(
 export function NativeScaffolderFields({
   declarations,
   reservedNames = EMPTY_NAMES,
-  availableExperiences = DEFAULT_EXPERIENCES,
   children,
 }: Readonly<{
   declarations: readonly ScaffolderFieldDescriptor[];
   reservedNames?: readonly string[];
-  availableExperiences?: readonly string[];
   children: (fields: FieldExtensionOptions<any, any>[]) => JSX.Element;
 }>) {
   const config = useApi(configApiRef);
@@ -62,7 +59,6 @@ export function NativeScaffolderFields({
   const [state, setState] = useState<{
     declarations: typeof declarations;
     reservedNames: typeof reservedNames;
-    availableExperiences: typeof availableExperiences;
     fields?: FieldExtensionOptions<any, any>[];
     error?: boolean;
     failedNames?: string[];
@@ -98,7 +94,6 @@ export function NativeScaffolderFields({
                   !capability ||
                   !entry ||
                   reservedNames.includes(declaration.fieldName) ||
-                  !availableExperiences.includes(capability.experienceId) ||
                   (declaration.enabledByConfig &&
                     config.getOptionalBoolean(declaration.enabledByConfig) !==
                       true)
@@ -133,7 +128,6 @@ export function NativeScaffolderFields({
           setState({
             declarations,
             reservedNames,
-            availableExperiences,
             failedNames,
             fields: fields.filter(
               (field): field is FieldExtensionOptions<any, any> =>
@@ -145,7 +139,6 @@ export function NativeScaffolderFields({
           setState({
             declarations,
             reservedNames,
-            availableExperiences,
             error: true,
           });
       }
@@ -154,11 +147,10 @@ export function NativeScaffolderFields({
     return () => {
       cancelled = true;
     };
-  }, [declarations, reservedNames, availableExperiences, config, permissions]);
+  }, [declarations, reservedNames, config, permissions]);
   if (
     state?.declarations !== declarations ||
-    state.reservedNames !== reservedNames ||
-    state.availableExperiences !== availableExperiences
+    state.reservedNames !== reservedNames
   )
     return (
       <output style={{ display: 'block', margin: '1em 0' }}>

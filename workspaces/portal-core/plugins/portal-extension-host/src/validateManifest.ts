@@ -1,7 +1,6 @@
-import {
-  type PluginManifest,
-  type CapabilityContribution,
-  EXPERIENCE_IDS,
+import type {
+  PluginManifest,
+  CapabilityContribution,
 } from '@ansible/portal-extension-api';
 
 // ── Semver helpers ────────────────────────────────────────────────────────────
@@ -63,10 +62,6 @@ function isCapabilitySupported(
   return host.patch >= min.patch;
 }
 
-// ── Known experience IDs ──────────────────────────────────────────────────────
-
-const KNOWN_EXPERIENCE_IDS = new Set<string>(Object.values(EXPERIENCE_IDS));
-
 // ── Validation result ─────────────────────────────────────────────────────────
 
 export interface ManifestValidationResult {
@@ -91,8 +86,7 @@ export interface ManifestValidationResult {
  *
  * Checks performed:
  * 1. `apiVersion` is compatible with the host's current contract version.
- * 2. All `experienceId` values reference experiences the host has declared.
- * 3. Each capability's `minimumHostApiVersion` is satisfied by the host.
+ * 2. Each capability's `minimumHostApiVersion` is satisfied by the host.
  *
  * @param manifest - The plugin's published manifest.
  * @param hostApiVersion - The host's current contract version (semver string).
@@ -133,16 +127,7 @@ export function validateManifest(
   for (const capability of manifest.capabilities) {
     const capErrors: string[] = [];
 
-    // 2a. experienceId must be known.
-    if (!KNOWN_EXPERIENCE_IDS.has(capability.experienceId)) {
-      capErrors.push(
-        `Capability "${capability.id}" references unknown experienceId ` +
-          `"${capability.experienceId}". ` +
-          `Known IDs: ${[...KNOWN_EXPERIENCE_IDS].join(', ')}.`,
-      );
-    }
-
-    // 2b. minimumHostApiVersion must be satisfied.
+    // minimumHostApiVersion must be satisfied.
     if (
       !isCapabilitySupported(capability.minimumHostApiVersion, hostApiVersion)
     ) {

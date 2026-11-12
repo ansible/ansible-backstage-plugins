@@ -147,16 +147,16 @@ function ActionsMenu({ entity }) {
 
 ### `ExperienceTabContent` / `ExperienceCardSlot`
 
-High-level rendering for complete experience tab bars and card grids:
+Legacy registry rendering for tab bars and card grids, selected by extension-point ID:
 
 ```tsx
 import { ExperienceTabContent, ExperienceCardSlot } from '@ansible/portal-extension-host';
 
-// Renders all registered tabs for an experience
-<ExperienceTabContent experienceId="git-repo-detail" entity={entity} />
+// Renders tabs registered for this extension point
+<ExperienceTabContent extensionPoint="rhaap.git-repository.detail.tabs" activeTabIndex={activeTabIndex} entity={entity} />
 
-// Renders all registered cards for an experience
-<ExperienceCardSlot experienceId="git-repo-detail" entity={entity} />
+// Renders cards registered for this extension point
+<ExperienceCardSlot extensionPoint="rhaap.git-repository.detail.cards" entity={entity} />
 ```
 
 ### `DynamicExtensionDiscovery`

@@ -26,7 +26,7 @@ import {
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import { ansibleServiceRef } from '@ansible/aap-node';
 import {
   createAnsibleContentAction,
   cleanUp,

@@ -127,7 +127,7 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(served.registry.requests.length).toBe(0);
   });
 
-  it('lets a signed-in caller run the global sync', async () => {
+  it('lets a signed-in caller trigger a global sync', async () => {
     const served = await serveRegistry();
     const backend = await startBackend(served.url);
 
@@ -135,9 +135,9 @@ describe('the sign-in barrier at the plugin boundary', () => {
       .post('/api/automation-content/sync')
       .set('Authorization', mockCredentials.user.header());
 
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('completed');
-    expect(served.registry.requests.length).toBeGreaterThan(0);
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBeDefined();
   });
 
   it('keeps the liveness probe reachable without credentials', async () => {

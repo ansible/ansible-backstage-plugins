@@ -1,15 +1,22 @@
 import express from 'express';
 import Router from 'express-promise-router';
-import { HttpAuthService, LoggerService } from '@backstage/backend-plugin-api';
+import {
+  HttpAuthService,
+  LoggerService,
+  SchedulerService,
+} from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
 import { publicUrl } from '@ansible/automation-content-common';
 import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
+export const STORE_REFRESH_TASK_ID = 'content-management-store-refresh';
+
 export interface RouterOptions {
   logger: LoggerService;
   httpAuth: HttpAuthService;
   db: ContentStore;
+  scheduler: SchedulerService;
 }
 
 /**
@@ -136,7 +143,7 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
-  const { db, logger } = options;
+  const { db, logger, scheduler } = options;
   const router = Router();
   router.use(express.json({ limit: '5mb' }));
 
@@ -176,32 +183,29 @@ export async function createRouter(
     });
   });
 
-  /**
-   * Refresh every registry.
-   *
-   * Backs the manual refresh control in the UI: a full re-read, for when a user knows
-   * something changed and does not want to wait for the poll.
-   */
   router.post('/sync', async (_req, res) => {
-    const started = Date.now();
-    const results = [];
-    for (const state of db.listRegistries()) {
-      const name = state.connection.name;
-      const outcome = await db.refreshRegistry(name);
-      results.push({ registry: name, ...outcome });
+    try {
+      await scheduler.cancelTask(STORE_REFRESH_TASK_ID);
+    } catch {
+      // Task was not running — nothing to cancel
     }
-    const ok = results.every(r => r.ok);
-    logger.info(
-      redactor.redact(
-        `manual sync of ${results.length} registr(ies), ok=${ok}`,
-      ),
-    );
-    res.status(ok ? 200 : 207).json({
-      status: ok ? 'completed' : 'partial',
-      durationMs: Date.now() - started,
-      registries: results,
-      refreshedAt: db.refreshedAt,
-      cache: db.cacheStats,
+
+    try {
+      await scheduler.triggerTask(STORE_REFRESH_TASK_ID);
+    } catch {
+      res.status(409).json({
+        status: 'conflict',
+        message: 'A refresh is already in progress.',
+        taskId: STORE_REFRESH_TASK_ID,
+      });
+      return;
+    }
+
+    logger.info('manual sync triggered');
+    res.status(202).json({
+      status: 'scheduled',
+      taskId: STORE_REFRESH_TASK_ID,
+      triggeredAt: new Date().toISOString(),
     });
   });
 

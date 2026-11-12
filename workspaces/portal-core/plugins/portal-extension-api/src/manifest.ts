@@ -8,7 +8,6 @@
 export type {
   PermissionRequirement,
   ContentPredicate,
-  ExperienceDefinition,
   ContributionKind,
   EntrySurface,
   CapabilityEntryPoint,

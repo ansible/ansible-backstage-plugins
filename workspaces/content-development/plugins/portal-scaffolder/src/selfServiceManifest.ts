@@ -1,5 +1,5 @@
 import type { PluginManifest } from '@ansible/portal-extension-api';
-import { EXPERIENCE_IDS, CONTENT_TYPES } from '@ansible/portal-extension-api';
+import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 
 /**
  * The host contract version self-service was built against.
@@ -35,7 +35,6 @@ export const selfServiceManifest: PluginManifest = {
     {
       id: 'portal-scaffolder.collection-detail',
       ownerPlugin: 'portal-scaffolder',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Collection Detail',
       description:
         'Built-in collection detail view providing a README, about card, and resource list.',
@@ -60,7 +59,6 @@ export const selfServiceManifest: PluginManifest = {
     {
       id: 'portal-scaffolder.repository-detail',
       ownerPlugin: 'portal-scaffolder',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Repository Detail',
       description:
         'Built-in repository detail view with a README, about card, and CI activity tab.',
@@ -90,7 +88,6 @@ export const selfServiceManifest: PluginManifest = {
     {
       id: 'portal-scaffolder.ee-definition-detail',
       ownerPlugin: 'portal-scaffolder',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Execution Environment Definition Detail',
       description:
         'Built-in EE definition detail view with README, about card, and resource cards.',
@@ -114,7 +111,6 @@ export const selfServiceManifest: PluginManifest = {
     {
       id: 'portal-scaffolder.repository-list',
       ownerPlugin: 'portal-scaffolder',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Repository List',
       description:
         'Built-in repository list with a catalog table view and CI activity view.',

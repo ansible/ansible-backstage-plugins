@@ -38,7 +38,6 @@ const action: CatalogHeaderActionDescriptor = {
       {
         id: 'contributor.lifecycle',
         ownerPlugin: 'contributor',
-        experienceId: 'content-authoring',
         displayName: 'Lifecycle',
         description: 'Register content',
         minimumHostApiVersion: '0.1.0',

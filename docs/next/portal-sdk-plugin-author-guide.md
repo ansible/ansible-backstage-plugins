@@ -41,7 +41,7 @@ module-load registration are compatibility-only, not the native authoring API.
 Use host-owned attachments rather than imperative `moduleName` resolution.
 
 Manifests must use the actual Backstage plugin ID, owner-prefixed capability
-and entry-point IDs, a known `experienceId`, and canonical content types.
+and entry-point IDs, supported attachments, and canonical content types.
 Entry-point scope must not broaden capability scope. Although the shared type
 still contains `appliesTo`, native validators reject that manifest predicate;
 put executable predicates on frontend descriptors as `isApplicable` instead.
@@ -146,9 +146,16 @@ Choose a Blueprint by the interaction, then declare applicability. Do not create
 a Blueprint per plugin or content type. Host layout, permissions and lifecycle
 are not plugin-owned DOM hooks.
 
-The implemented manifest requires a known `experienceId`; this differs from the
-proposed advisory `recommendedExperienceId` model. Do not invent experiences or
-assume installing a plugin creates one.
+Capabilities do not declare an experience ID or a placement recommendation.
+Declare supported entry points and content applicability. The host owns the
+page layout, navigation and placement of eligible contributions. Installing a
+plugin does not create a host experience.
+
+When migrating an existing contributor, remove `experienceId` and imports of
+`EXPERIENCE_IDS`, `ExperienceId` and `ExperienceDefinition`. Existing serialized
+manifests with the obsolete field are tolerated, but it has no effect. This does
+not guarantee source compatibility with the removed exports. Rebuild the host
+and contributors against the updated SDK together.
 
 ## Repository structure
 
@@ -369,7 +376,6 @@ session handling does not belong in the generic adapter.
        {
          id: 'quality-insights.subject',
          ownerPlugin: 'quality-insights',
-         experienceId: 'content-quality-assessment',
          displayName: 'Subject details',
          description: 'Show the selected repository identity.',
          appliesToContentTypes: ['playbook-repository'],

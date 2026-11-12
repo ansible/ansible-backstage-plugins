@@ -2,10 +2,7 @@ import { lazy, useEffect, useMemo, useState } from 'react';
 import { configApiRef, useApiHolder } from '@backstage/core-plugin-api';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import {
-  EXPERIENCE_IDS,
-  type TabContribution,
-} from '@ansible/portal-extension-api';
+import type { TabContribution } from '@ansible/portal-extension-api';
 import {
   portalContributionsApiRef,
   type CatalogContributionContext,
@@ -36,9 +33,6 @@ export function useNativeCatalogTabs(context: CatalogContributionContext) {
             if (
               !capability ||
               !entry?.appliesToContentTypes.includes(context.contentType) ||
-              !(Object.values(EXPERIENCE_IDS) as readonly string[]).includes(
-                capability.experienceId,
-              ) ||
               (tab.enabledByConfig &&
                 config?.getOptionalBoolean(tab.enabledByConfig) !== true)
             )

@@ -10,22 +10,20 @@ Both frontend packages (`portal-extension-api`, `portal-extension-host`) and bac
 
 ## What lives here
 
-| Export                   | Purpose                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `PluginManifest`         | Top-level declaration of all a plugin's contributions      |
-| `CapabilityContribution` | A single capability with its entry points and settings     |
-| `CapabilityEntryPoint`   | How a capability is surfaced (tab, card, action, inline)   |
-| `CapabilityLaunch`       | Discriminated union of how an entry point is activated     |
-| `SlotLaunch`             | Renders a React component inside an experience slot        |
-| `WorkflowLaunch`         | Opens a Backstage scaffolder workflow                      |
-| `OperationLaunch`        | Triggers a server-side operation                           |
-| `ExperienceDefinition`   | Declares a new experience (tab bar + page) the plugin owns |
-| `OperationDescriptor`    | API contract for a server-side operation                   |
-| `SettingsContribution`   | Per-capability settings form declaration                   |
-| `EntitlementDefinition`  | Feature-flag / entitlement check for a capability          |
-| `EXTENSION_POINTS`       | Constant IDs for host extension slots                      |
-| `EXPERIENCE_IDS`         | Constant IDs for built-in experience pages                 |
-| `CONTENT_TYPES`          | Constant IDs for entity content types                      |
+| Export                   | Purpose                                                  |
+| ------------------------ | -------------------------------------------------------- |
+| `PluginManifest`         | Top-level declaration of all a plugin's contributions    |
+| `CapabilityContribution` | A single capability with its entry points and settings   |
+| `CapabilityEntryPoint`   | How a capability is surfaced (tab, card, action, inline) |
+| `CapabilityLaunch`       | Discriminated union of how an entry point is activated   |
+| `SlotLaunch`             | Renders a React component inside an experience slot      |
+| `WorkflowLaunch`         | Opens a Backstage scaffolder workflow                    |
+| `OperationLaunch`        | Triggers a server-side operation                         |
+| `OperationDescriptor`    | API contract for a server-side operation                 |
+| `SettingsContribution`   | Per-capability settings form declaration                 |
+| `EntitlementDefinition`  | Feature-flag / entitlement check for a capability        |
+| `EXTENSION_POINTS`       | Constant IDs for host extension slots                    |
+| `CONTENT_TYPES`          | Constant IDs for entity content types                    |
 
 ## What does NOT live here
 
@@ -55,38 +53,47 @@ Direct import is appropriate when writing code that must be importable in both N
 
 ```ts
 const manifest: PluginManifest = {
-  pluginId: 'my-plugin',
+  id: 'my-plugin',
   version: '1.0.0',
+  apiVersion: '0.1.0',
   capabilities: [
     {
-      capabilityId: 'my-plugin.my-capability',
+      id: 'my-plugin.my-capability',
+      ownerPlugin: 'my-plugin',
       displayName: 'My Capability',
       description: 'What this capability does.',
+      minimumHostApiVersion: '0.1.0',
+      appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
       entryPoints: [
         {
-          surface: 'tab',
-          experienceId: 'git-repo-detail',
-          launch: { type: 'slot', slotId: 'git-repo-detail.tab.my-plugin' },
+          id: 'my-plugin.details',
+          kind: 'entity-tab',
+          surface: 'entity-page',
+          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
+          launches: { type: 'slot', targetSlot: 'entity.detail.tabs' },
           label: 'My Tab',
         },
       ],
     },
   ],
+  entitlements: [],
 };
 ```
 
-See `docs/next/portal-sdk-quickstart.md` for the full step-by-step guide.
+The host owns placement. Capabilities declare supported entry points without
+`experienceId` or recommendation metadata. The previous `ExperienceDefinition`,
+`EXPERIENCE_IDS` and `ExperienceId` exports have been removed.
 
-## Extension point and experience IDs
+See `docs/next/portal-sdk-plugin-author-guide.md` for the authoring guide.
+
+## Extension point and content type IDs
 
 ```ts
 import {
   EXTENSION_POINTS,
-  EXPERIENCE_IDS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-common';
 
-EXTENSION_POINTS.GIT_REPO_DETAIL_TAB; // 'git-repo-detail.tab'
-EXPERIENCE_IDS.GIT_REPO_DETAIL; // 'git-repo-detail'
-CONTENT_TYPES.GIT_REPOSITORY; // 'git-repository'
+EXTENSION_POINTS.GIT_REPO_DETAIL_TABS; // 'rhaap.git-repository.detail.tabs'
+CONTENT_TYPES.PLAYBOOK_REPOSITORY; // 'playbook-repository'
 ```

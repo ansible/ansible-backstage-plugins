@@ -236,13 +236,11 @@ credentials and should not be reused for an installed AAP environment.
   fi
 
   umask 077
-  backend_secret="$(openssl rand -base64 32)"
   signing_key="$(openssl rand -base64 32)"
   temporary_env="$(mktemp "$MONO/.env.XXXXXX")"
   trap 'rm -f -- "$temporary_env"' EXIT
   chmod 600 "$temporary_env"
   cat > "$temporary_env" <<EOF
-BACKEND_SECRET=$backend_secret
 AUTH_SIGNING_KEY=$signing_key
 AAP_HOST=http://localhost:8099
 AAP_AUTH_CLIENT_ID=portal-local-mock

@@ -89,11 +89,11 @@ function MyHostComponent() {
 }
 ```
 
-| Hook                                | Returns                                         |
-| ----------------------------------- | ----------------------------------------------- |
-| `useExtensionTabs(experienceId)`    | `TabContribution[]` for the given experience    |
-| `useExtensionCards(experienceId)`   | `CardContribution[]` for the given experience   |
-| `useExtensionActions(experienceId)` | `ActionContribution[]` for the given experience |
+| Hook                                  | Returns                                              |
+| ------------------------------------- | ---------------------------------------------------- |
+| `useExtensionTabs(extensionPoint)`    | `TabContribution[]` for the given extension point    |
+| `useExtensionCards(extensionPoint)`   | `CardContribution[]` for the given extension point   |
+| `useExtensionActions(extensionPoint)` | `ActionContribution[]` for the given extension point |
 
 ### `ContributionRegistry`
 
@@ -126,7 +126,6 @@ import type {
   WorkflowLaunch,
   OperationLaunch,
   EXTENSION_POINTS,
-  EXPERIENCE_IDS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
 ```
@@ -136,15 +135,10 @@ All types from `@ansible/portal-extension-common` are re-exported here — no ne
 ## Extension point constants
 
 ```ts
-import {
-  EXTENSION_POINTS,
-  EXPERIENCE_IDS,
-  CONTENT_TYPES,
-} from '@ansible/portal-extension-api';
+import { EXTENSION_POINTS, CONTENT_TYPES } from '@ansible/portal-extension-api';
 
-EXTENSION_POINTS.GIT_REPO_DETAIL_TAB; // 'git-repo-detail.tab'
-EXPERIENCE_IDS.GIT_REPO_DETAIL; // 'git-repo-detail'
-CONTENT_TYPES.GIT_REPOSITORY; // 'git-repository'
+EXTENSION_POINTS.GIT_REPO_DETAIL_TABS; // 'rhaap.git-repository.detail.tabs'
+CONTENT_TYPES.PLAYBOOK_REPOSITORY; // 'playbook-repository'
 ```
 
 ## Contribution types
@@ -184,19 +178,16 @@ interface ActionContext {
 
 ## Manifest validation
 
-The host's `DynamicExtensionDiscovery` component validates every registered manifest at startup and logs the result. Validation checks:
+`validateManifest` checks the manifest API version and each capability's minimum host version. Native collectors also validate descriptor ownership, supported attachments and content applicability. `DynamicExtensionDiscovery` is a legacy diagnostic subscriber that logs validation results, not an activation gate for independently registered pages.
 
-- Required fields are present and non-empty
-- All `experienceId` values reference known experiences
-- All `surface` values reference known extension points
-- `launch.type` matches the slot/workflow/operation model
+Capabilities do not declare an experience ID or a placement recommendation. The host owns layout and placement. Legacy registry hooks take extension-point IDs, not experience IDs.
 
 To validate a manifest in tests or CI:
 
 ```ts
 import { validateManifest } from '@ansible/portal-extension-host';
 
-const result = validateManifest(myManifest);
+const result = validateManifest(myManifest, '0.1.0');
 if (!result.valid) {
   console.error(result.errors);
 }
