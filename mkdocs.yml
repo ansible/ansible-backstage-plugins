@@ -92,6 +92,7 @@ nav:
   - Portal SDK:
       - SDK architecture: next/portal-sdk-architecture.md
       - Third-party plugin authors: next/portal-sdk-plugin-author-guide.md
+      - Out-of-tree readiness: next/portal-sdk-out-of-tree.md
       - Native NFS composition: next/portal-sdk-nfs-composition.md
       - Implementation guide: next/portal-plugin-factory-implementation-guide.md
       - Content picker proposal: next/portal-content-picker-contract-proposal.md
