@@ -1413,6 +1413,34 @@ describe('dynamicJobTemplate', () => {
       expect((result.spec as any).output.links).not.toBeDefined();
     });
 
+    it('declares the AAP decorator and requires its token only in task secrets', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+      });
+
+      expect(result.spec?.formDecorators).toEqual([
+        { id: 'ansible.aap-user-token' },
+      ]);
+      expect(result.spec?.secrets).toEqual({
+        schema: {
+          type: 'object',
+          required: ['aapToken'],
+          properties: { aapToken: { type: 'string', minLength: 1 } },
+        },
+      });
+      expect(result.spec?.steps).toEqual([
+        expect.objectContaining({
+          action: 'rhaap:launch-job-template',
+          input: expect.objectContaining({ token: '${{ secrets.aapToken }}' }),
+        }),
+      ]);
+      expect(JSON.stringify(result.spec?.parameters)).not.toContain('aapToken');
+    });
+
     it('sets owner through org group builder in multi-org mode', () => {
       const result = generateTemplate({
         baseUrl: 'https://ansible.example.com',
