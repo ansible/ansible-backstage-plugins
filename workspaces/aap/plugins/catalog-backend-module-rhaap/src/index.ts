@@ -1,4 +1,5 @@
 import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 import { createServiceFactory } from '@backstage/backend-plugin-api';
 import {
   userProvisionerRef,
@@ -19,6 +20,7 @@ export * from './router';
 
 export default createBackendFeatureLoader({
   loader: function* loader() {
+    yield ansibleServiceFactory;
     yield rhaapOrganizationServiceFactory;
     yield createServiceFactory({
       service: userProvisionerRef,

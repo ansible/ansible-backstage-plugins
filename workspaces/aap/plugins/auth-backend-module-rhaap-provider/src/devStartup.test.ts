@@ -36,7 +36,11 @@ describe('AAP auth development backend startup', () => {
   it('starts the auth backend without reporting an error on success', async () => {
     mockBackend.start.mockResolvedValue(undefined);
     await startDevelopmentBackend();
-    expect(mockBackend.add).toHaveBeenCalledTimes(2);
+    expect(mockBackend.add).toHaveBeenCalledTimes(3);
+    expect(mockBackend.add.mock.calls[0][0]).toMatchObject({
+      featureType: 'service',
+      service: { id: 'rhaap.client.service' },
+    });
     expect(mockBackend.start).toHaveBeenCalledTimes(1);
     expect(stderr).not.toHaveBeenCalled();
     expect(process.exitCode).toBeUndefined();
