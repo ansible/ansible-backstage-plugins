@@ -1,3 +1,16 @@
 export * from './actions';
-export { buildCollectionsFromCatalogEntities } from './autocomplete/utils';
+
+export { handleAutocompleteRequest } from './autocomplete/autocomplete';
+export {
+  buildCollectionsFromCatalogEntities,
+  clearCollectionsCache,
+  getCollections,
+} from './autocomplete/utils';
+export {
+  multiResourceFilter,
+  resourceFilter,
+  useCaseNameFilter,
+  uuidFilter,
+} from './filters';
+
 export { scaffolderModuleAap, scaffolderModuleAap as default } from './module';
