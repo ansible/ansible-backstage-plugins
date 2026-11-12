@@ -1,0 +1,87 @@
+import { AutomationContentClient } from './api';
+
+const baseUrl = 'http://example.test/api/automation-content';
+
+function createClient(response: Pick<Response, 'ok' | 'status' | 'json'>) {
+  const fetch = jest.fn().mockResolvedValue(response);
+  const getBaseUrl = jest.fn().mockResolvedValue(baseUrl);
+  return {
+    client: new AutomationContentClient({
+      discoveryApi: { getBaseUrl },
+      fetchApi: { fetch },
+    }),
+    fetch,
+    getBaseUrl,
+  };
+}
+
+it('passes the full repository query to the authenticated backend', async () => {
+  const query = {
+    page: 2,
+    query: 'image',
+    favoriteEntityRefs: ['component:default/ee-repo-example'],
+  };
+  const result = { page: 2, pageSize: 10, totalItems: 11, items: [] };
+  const { client, fetch, getBaseUrl } = createClient({
+    ok: true,
+    status: 200,
+    json: async () => result,
+  });
+  await expect(client.queryEERepositories(query)).resolves.toEqual(result);
+  expect(getBaseUrl).toHaveBeenCalledWith('automation-content');
+  expect(fetch).toHaveBeenCalledWith(
+    `${baseUrl}/execution-environment-repositories/query`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(query),
+    },
+  );
+});
+
+it('encodes nested repository paths and keeps digest requests on typed EE endpoints', async () => {
+  const { client, fetch } = createClient({
+    ok: true,
+    status: 200,
+    json: async () => ({}),
+  });
+  await client.getEERepository('dev west', 'namespace/nested/image');
+  await client.getEEArtifact('dev/namespace/nested/image@sha256:abc');
+  await client.getEEArtifactContents('dev/namespace/nested/image@sha256:abc');
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    `${baseUrl}/execution-environment-repositories/by-name/dev%20west/namespace%2Fnested%2Fimage`,
+    `${baseUrl}/execution-environments/dev%2Fnamespace%2Fnested%2Fimage%40sha256%3Aabc`,
+    `${baseUrl}/execution-environments/dev%2Fnamespace%2Fnested%2Fimage%40sha256%3Aabc/contents`,
+  ]);
+});
+
+it('exposes HTTP denial without showing the response body or provider error text', async () => {
+  const { client } = createClient({
+    ok: false,
+    status: 403,
+    json: async () => ({ message: 'private backend message' }),
+  });
+  await expect(
+    client.getEERepository('local', 'namespace/image'),
+  ).rejects.toMatchObject({
+    status: 403,
+    message: 'Content API request failed: 403',
+  });
+});
+
+it('returns a successful inventory scheduling receipt', async () => {
+  const scheduled = {
+    status: 'scheduled',
+    taskId: 'refresh',
+    triggeredAt: '2026-11-12T12:00:00.000Z',
+  } as const;
+  const { client, fetch } = createClient({
+    ok: true,
+    status: 202,
+    json: async () => scheduled,
+  });
+  const receipt = await client.syncAll();
+  expect(receipt.triggeredAt).toBe(scheduled.triggeredAt);
+  expect(receipt).toEqual(scheduled);
+  expect(fetch).toHaveBeenCalledWith(`${baseUrl}/sync`, { method: 'POST' });
+});

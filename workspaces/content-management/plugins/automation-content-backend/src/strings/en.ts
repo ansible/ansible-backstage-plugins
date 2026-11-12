@@ -10,6 +10,8 @@ export const messages = {
   registryNotFound: 'Registry not found.',
   repositoryNotFound: 'Repository not found.',
   invalidRepository: 'Invalid repository selection.',
+  invalidRepositoryQuery: 'Invalid repository query',
+  repositoryQueryTooLarge: 'Repository query is too large',
   scanIncomplete:
     'The registry scan was incomplete. Previous data was retained.',
   scheduleAuditUnconfirmed:

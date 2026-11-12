@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MockConfigApi } from '@backstage/test-utils';
 import { useApi } from '@backstage/core-plugin-api';
 import { compatWrapper } from '@backstage/core-compat-api';
@@ -12,8 +12,10 @@ import {
   createRouteRef,
   PageBlueprint,
 } from '@backstage/frontend-plugin-api';
-import { renderTestApp } from '@backstage/frontend-test-utils';
+import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import portalPlugin from '@ansible/portal-core/alpha';
+import portalNavigation from '@ansible/portal-core/app-nav';
+import automationContentPlugin from '@ansible/plugin-automation-content/alpha';
 import {
   EntityDetailTabBlueprint,
   portalContributionsApiRef,
@@ -31,6 +33,11 @@ jest.mock('@ansible/plugin-backstage-apme/alpha', () => {
 });
 jest.mock('@ansible/plugin-backstage-rhaap/alpha', () => {
   throw new Error('Core profile must not evaluate the Ansible page');
+});
+jest.mock('@ansible/plugin-automation-content', () => {
+  throw new Error(
+    'Native source discovery must not load the legacy plugin root',
+  );
 });
 
 const manifest: EntityDetailTabDescriptor['manifest'] = {
@@ -139,6 +146,10 @@ describe('additional source-app discovery on the core development profile', () =
         modules: [
           { name: '@example/independent', default: independentPlugin },
           { name: '@example/not-a-plugin', default: {} },
+          {
+            name: '@ansible/plugin-automation-content',
+            default: automationContentPlugin,
+          },
         ],
       },
     });
@@ -195,6 +206,52 @@ describe('additional source-app discovery on the core development profile', () =
     expect((await resolveDiscovered()).features).toEqual([portalPlugin]);
     expect(pageLoader).not.toHaveBeenCalled();
   });
+
+  it('discovers the EE images feature once and opens the native route from Portal navigation', async () => {
+    const { features } = await resolveDiscovered({
+      include: ['@ansible/plugin-automation-content'],
+    });
+    expect(features).toEqual([portalPlugin, automationContentPlugin]);
+    await renderTestApp({
+      features: [...features, portalNavigation],
+      config: {
+        app: { extensions: [{ 'nav-content:app/portal': true }] },
+        portal: {
+          navigation: {
+            items: [
+              {
+                id: 'ee-images',
+                page: 'page:automation-content/ee',
+                title: 'EE images',
+              },
+            ],
+          },
+        },
+      },
+      apis: [
+        mockApis.permission({
+          authorize: () => {
+            throw new Error('Authorization fixture unavailable');
+          },
+        }),
+      ],
+      initialRouteEntries: ['/'],
+    });
+    const navigation = within(
+      await screen.findByRole('navigation', { name: 'sidebar nav' }),
+    );
+    const link = await navigation.findByRole('link', { name: 'EE images' });
+    expect(link).toHaveAttribute('href', '/content/ee');
+    expect(navigation.getAllByRole('link', { name: 'EE images' })).toHaveLength(
+      1,
+    );
+    fireEvent.click(link);
+    expect(
+      await screen.findByText(
+        'Image access could not be checked. Reload the page to try again.',
+      ),
+    ).toBeInTheDocument();
+  }, 30000);
 
   it('honors explicit package selection and filters non-feature module exports', async () => {
     expect(

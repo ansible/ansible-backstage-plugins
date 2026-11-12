@@ -19,6 +19,9 @@
 app:
   title: Automation Portal
   baseUrl: http://localhost:3000
+  packages:
+    include:
+      - "@ansible/plugin-automation-content"
   extensions:
     - nav-content:app/sidebar: false
     - nav-content:app/portal: true
@@ -38,6 +41,9 @@ portal:
       - id: execution-environments
         path: /self-service/ee
         title: Execution Environments
+      - id: ee-images
+        page: page:automation-content/ee
+        title: EE images
       - id: collections
         path: /self-service/collections
         title: Collections

@@ -26,6 +26,8 @@ import {
   TableColumn,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { useTranslationRef } from '@backstage/frontend-plugin-api';
+import { contentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { SkeletonLoader, useNotifications } from '@ansible/portal-plugin-sdk';
 import {
   automationContentApiRef,
@@ -34,6 +36,8 @@ import {
   Registry,
 } from '../api';
 import { OptionTree } from './OptionTree';
+import { eeTranslationRef } from '../strings/en';
+import { useContentPermission } from '../useContentPermission';
 
 /** Accept a string, an array, or nothing, and always return an array of strings. */
 function toLines(value: unknown): string[] {
@@ -129,43 +133,31 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
   );
 };
 
-/**
- * Manual refresh.
- *
- * The index is rebuilt on a schedule and by a cheap drift poll, but neither helps
- * someone who just pushed an image and wants to see it now. This forces a full re-read
- * and reports what came back, so the user is never left guessing whether it worked.
- */
+/** Schedule the legacy explorer's inventory refresh. */
 const RefreshButton = ({ onDone }: { onDone: () => void }) => {
   const api = useApi(automationContentApiRef);
+  const { t } = useTranslationRef(eeTranslationRef);
   const { showNotification } = useNotifications();
   const [state, run] = useAsyncFn(async () => {
     try {
       const result = await api.syncAll();
       onDone();
       showNotification({
-        title: 'Content refreshed',
-        description: `Refreshed in ${result.durationMs} ms — ${result.registries
-          .map(
-            r =>
-              `${r.registry}: ${
-                r.ok ? `${r.discovered} artifact(s)` : `failed (${r.error})`
-              }`,
-          )
-          .join('; ')}`,
-        severity: result.registries.some(r => !r.ok) ? 'warning' : 'success',
+        title: t('sync.legacyTitle'),
+        description: t('sync.scheduled'),
+        severity: 'success',
         autoHideDuration: 6000,
       });
       return result;
     } catch (err) {
       showNotification({
-        title: 'Refresh failed',
-        description: err instanceof Error ? err.message : String(err),
+        title: t('sync.legacyFailed'),
+        description: t('sync.failed'),
         severity: 'error',
       });
       throw err;
     }
-  }, [api, onDone, showNotification]);
+  }, [api, onDone, showNotification, t]);
 
   return (
     <Button
@@ -276,13 +268,14 @@ export const OverviewView = ({
 }) => {
   const classes = useStyles();
   const api = useApi(automationContentApiRef);
-  // Bumped after a manual refresh so both queries re-run against the rebuilt index.
+  const syncAllowed = useContentPermission(contentSyncPermission) === 'allowed';
+  // Reload observed inventory after scheduling, independently of task completion.
   const [reloadKey, setReloadKey] = useState(0);
   const environments = useAsync(
     () => api.listExecutionEnvironments(),
     [api, reloadKey],
   );
-  const registries = useAsync(() => api.listRegistries(), [api, reloadKey]);
+  const registries = useAsync(() => api.getRegistryStatus(), [api, reloadKey]);
   const reload = useCallback(() => setReloadKey(k => k + 1), []);
 
   const columns: TableColumn<ExecutionEnvironment>[] = [
@@ -352,9 +345,13 @@ export const OverviewView = ({
           title="Execution environments"
           subheader="Discovered from configured OCI registries. Select one to see the collections it ships. The portal never proxies image data — clients pull from the registry directly."
           action={
-            <Box mr={2} mt={2}>
-              <RefreshButton onDone={reload} />
-            </Box>
+            registries.value?.manualSyncEnabled &&
+            !registries.loading &&
+            syncAllowed ? (
+              <Box mr={2} mt={2}>
+                <RefreshButton onDone={reload} />
+              </Box>
+            ) : undefined
           }
         >
           {items.length === 0 ? (
@@ -381,7 +378,7 @@ export const OverviewView = ({
       </Grid>
 
       <Grid item>
-        <RegistriesCard registries={registries.value ?? []} />
+        <RegistriesCard registries={registries.value?.items ?? []} />
       </Grid>
     </Grid>
   );

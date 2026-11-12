@@ -342,12 +342,13 @@ export async function createRouter(
         if (error.status === 413) {
           res.status(413).json({
             code: 'QUERY_TOO_LARGE',
-            error: 'Repository query is too large',
+            error: messages.repositoryQueryTooLarge,
           });
         } else {
-          res
-            .status(400)
-            .json({ code: 'BAD_REQUEST', error: 'Invalid repository query' });
+          res.status(400).json({
+            code: 'BAD_REQUEST',
+            error: messages.invalidRepositoryQuery,
+          });
         }
       });
     },
@@ -360,9 +361,10 @@ export async function createRouter(
       )
         return;
       if (!isRepositoryQuery(req.body)) {
-        res
-          .status(400)
-          .json({ code: 'BAD_REQUEST', error: 'Invalid repository query' });
+        res.status(400).json({
+          code: 'BAD_REQUEST',
+          error: messages.invalidRepositoryQuery,
+        });
         return;
       }
       res.json(
@@ -390,7 +392,7 @@ export async function createRouter(
       if (!details) {
         res.status(404).json({
           code: 'REPOSITORY_NOT_FOUND',
-          error: 'Repository not found',
+          error: messages.repositoryNotFound,
         });
         return;
       }

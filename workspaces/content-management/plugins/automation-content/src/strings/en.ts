@@ -1,0 +1,123 @@
+import { createTranslationRef } from '@backstage/frontend-plugin-api';
+
+export const eeMessages = {
+  pageTitle: 'EE images',
+  retry: 'Retry',
+  unknown: 'Undetermined',
+  reload: 'Reload results',
+  inventory: {
+    denied: 'You do not have permission to view execution environment images.',
+    permissionError:
+      'Image access could not be checked. Reload the page to try again.',
+    permissionLoading: 'Checking image access',
+    loading: 'Loading image repositories',
+    failed: 'Image repositories could not be loaded.',
+    empty: 'No image repositories match these filters.',
+    noRegistries: 'No registries are configured.',
+    search: 'Search images',
+    registry: 'Registry',
+    allRegistries: 'All registries',
+    sort: 'Sort by',
+    order: 'Sort order',
+    ascending: 'Ascending',
+    descending: 'Descending',
+    favoritesOnly: 'Favorites only',
+    tooManyFavorites:
+      'The favorites filter supports up to 1,000 image repositories.',
+    table: 'Table view',
+    grid: 'Grid view',
+    repository: 'Repository',
+    tag: 'Representative tag',
+    tagCount: 'Tags',
+    signing: 'Signing',
+    reconcile: 'Last successful synchronization',
+    favorite: 'Favorite',
+    addFavorite: 'Add {{repository}} to favorites',
+    removeFavorite: 'Remove {{repository}} from favorites',
+    favoriteFailed: 'The favorite could not be saved. Try again.',
+    catalogPending: 'Checking catalog availability',
+    catalogMissing:
+      'Details and favorites are unavailable until Catalog can read this repository.',
+    catalogFailed: 'Catalog is unavailable. Image results are still shown.',
+    untagged: 'Untagged',
+    never: 'Unavailable',
+  },
+  detail: {
+    unavailable:
+      'Image details are unavailable for this account or deployment.',
+    loading: 'Loading image details',
+    failed: 'Image details could not be loaded. Reload the page to try again.',
+    capability: 'Execution environment images',
+    description: 'Inspect the tags and contents of a repository image.',
+    tab: 'Image details',
+    sections: 'Image information',
+    overview: 'Overview',
+    contents: 'Contents',
+    tag: 'Tag or digest',
+    digest: 'Image digest',
+    pullReference: 'Pull reference',
+    copy: 'Copy pull reference',
+    copied: 'Pull reference copied.',
+    copyFailed:
+      'Could not copy. Select the pull reference to copy it manually.',
+    selectedUnavailable:
+      'The selected tag or digest is unavailable. Choose another option.',
+    repositoryMissing:
+      'This repository no longer has an indexed execution environment.',
+    artifactFailed: 'The selected image could not be loaded.',
+    artifactLoading: 'Loading the selected image',
+    ansibleCore: 'ansible-core version',
+    synchronization: 'Last successful synchronization',
+    collections: 'Collections',
+    collectionVersion: 'Version',
+    collectionName: 'Collection',
+    completeContents: 'Collection inventory is complete.',
+    partialContents: 'Only part of the collection inventory is available.',
+    unknownContents: 'The collection inventory could not be determined.',
+    emptyContents: 'This image contains no indexed collections.',
+    linksUnavailable:
+      'Collection links are unavailable. The indexed contents are still shown.',
+  },
+  signing: {
+    signed: 'Signed',
+    'not-signed': 'Not signed',
+    undetermined: 'Undetermined',
+    evidence: 'Signing evidence',
+    unavailable: 'No signing observation is available.',
+    explanation:
+      'Signing evidence describes registry discovery. It does not verify a signature or publisher identity.',
+    observed: 'Observed {{time}}',
+    mechanisms: {
+      'oci-referrers': 'OCI referrers',
+      'cosign-signature-tag': 'Cosign signature tag',
+    },
+    outcomes: {
+      found: 'Signature artifact found',
+      absent: 'No signature artifact found',
+      ambiguous: 'Result could not establish presence or absence',
+      unavailable: 'Discovery mechanism unavailable',
+      failed: 'Discovery failed',
+    },
+  },
+  sync: {
+    inventory: 'Refresh inventory',
+    repository: 'Refresh repository',
+    pending: 'Request in progress',
+    scheduled: 'Refresh scheduled. Reload results after synchronization.',
+    completed:
+      'Repository refreshed. Tags added: {{added}}, moved: {{moved}}, removed: {{removed}}.',
+    conflict: 'A refresh is already running. Try again later.',
+    failed: 'The refresh request failed. Reload results before retrying.',
+    retained: 'Refresh failed. The prior indexed results are still shown.',
+    committed:
+      'Results changed, but refresh confirmation failed. Reload results.',
+    denied: 'Refresh is unavailable for this account or deployment.',
+    legacyTitle: 'Refresh scheduled',
+    legacyFailed: 'Refresh failed',
+  },
+} as const;
+
+export const eeTranslationRef = createTranslationRef({
+  id: 'automation-content.ee',
+  messages: eeMessages,
+});
