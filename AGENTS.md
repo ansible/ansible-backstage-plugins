@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Local rules (checkout-only)
+
+If an `AGENTS.md.local` file exists beside this file, read it before starting
+any work — it holds rules specific to this checkout (for example, a feature
+branch's operating constraints). It is gitignored and never committed. If it
+is absent, there is nothing more to do.
+
 This file provides guidance to AI coding agents working with code in this repository.
 
 ## Project Overview
