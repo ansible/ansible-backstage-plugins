@@ -119,16 +119,19 @@ export function SyncAction(props: SyncActionProps): JSX.Element | null {
   const { t } = useTranslationRef(eeTranslationRef);
   const api = useApi(automationContentApiRef);
   const permitted = useContentPermission(contentSyncPermission) === 'allowed';
+  const { manualSyncEnabled } = props;
   const capability = useAsync(
     async () =>
-      permitted && props.manualSyncEnabled === undefined
-        ? (await api.getRegistryStatus()).manualSyncEnabled === true
-        : props.manualSyncEnabled === true,
-    [api, props.manualSyncEnabled, permitted],
+      permitted &&
+      manualSyncEnabled === undefined &&
+      (await api.getRegistryStatus()).manualSyncEnabled === true,
+    [api, manualSyncEnabled, permitted],
   );
   const sync = useEESync({
     ...props,
-    enabled: permitted && capability.value === true && !capability.loading,
+    enabled:
+      permitted &&
+      (manualSyncEnabled ?? (!capability.loading && capability.value === true)),
   });
   if (!sync.enabled) return null;
   return (
