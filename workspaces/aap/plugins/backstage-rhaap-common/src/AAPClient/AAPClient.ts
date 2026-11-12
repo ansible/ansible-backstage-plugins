@@ -529,18 +529,19 @@ export class AAPClient implements IAAPService {
     deleteIfExist: boolean,
     token: string,
   ): Promise<JobTemplate> {
-    if (deleteIfExist) {
-      await this.deleteJobTemplateIfExists(
-        payload.templateName,
-        payload.organization,
-        token,
-      );
-    }
     const endPoint = 'api/controller/v2/job_templates/';
     let extraVariables: Record<string, unknown> | '' = '';
     if (payload?.extraVariables) {
       extraVariables = normalizeJobTemplateExtraVariables(
         payload.extraVariables,
+      );
+    }
+
+    if (deleteIfExist) {
+      await this.deleteJobTemplateIfExists(
+        payload.templateName,
+        payload.organization,
+        token,
       );
     }
     if (extraVariables !== '') {
