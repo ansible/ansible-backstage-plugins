@@ -40,7 +40,7 @@ export const scaffolderModuleAap = createBackendModule({
         scaffolder: scaffolderActionsExtensionPoint,
         ansibleService: ansibleServiceRef,
       },
-      async init({ scaffolder, ansibleService }) {
+      init({ scaffolder, ansibleService }) {
         scaffolder.addActions(
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
