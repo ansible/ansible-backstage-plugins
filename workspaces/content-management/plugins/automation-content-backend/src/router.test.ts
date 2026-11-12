@@ -693,14 +693,18 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 
   it('returns the reconciliation failure when asked to wait for the result', async () => {
-    const db = dbWithFailedReconcile();
-    const res = await request(await appWith(db)).post(
-      '/registries/corporate/sync?wait=true',
-    );
+    const refreshRegistry = jest.fn(async () => ({ ok: false, discovered: 2 }));
+    const triggerTask = jest.fn(async () => {});
+    const db = dbWithFailedReconcile({ refreshRegistry });
+    const res = await request(
+      await appWith(db, stubScheduler({ triggerTask })),
+    ).post('/registries/corporate/sync?wait=true');
 
     expect(res.status).toBe(202);
     expect(res.body.status).toBe('failed');
     expect(res.body.error).toBe('Refresh failed.');
+    expect(refreshRegistry).toHaveBeenCalledWith('corporate', false);
+    expect(triggerTask).not.toHaveBeenCalled();
   });
 
   it('does not cancel an existing registry refresh when scheduling', async () => {

@@ -275,7 +275,7 @@ export class AutomationContentClient implements AutomationContentApi {
   }
 
   async syncRegistry(name: string): Promise<RegistrySyncResult> {
-    return this.post(`/registries/${encodeURIComponent(name)}/sync`);
+    return this.post(`/registries/${encodeURIComponent(name)}/sync?wait=true`);
   }
 
   async syncEERepository(

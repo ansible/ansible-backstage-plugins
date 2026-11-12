@@ -85,3 +85,22 @@ it('returns a successful inventory scheduling receipt', async () => {
   expect(receipt).toEqual(scheduled);
   expect(fetch).toHaveBeenCalledWith(`${baseUrl}/sync`, { method: 'POST' });
 });
+
+it('requests the final registry refresh outcome for the sync dialog', async () => {
+  const result = {
+    status: 'completed',
+    discovered: 3,
+    retainedPrevious: false,
+  } as const;
+  const { client, fetch } = createClient({
+    ok: true,
+    status: 202,
+    json: async () => result,
+  });
+
+  await expect(client.syncRegistry('dev west')).resolves.toEqual(result);
+  expect(fetch).toHaveBeenCalledWith(
+    `${baseUrl}/registries/dev%20west/sync?wait=true`,
+    { method: 'POST' },
+  );
+});
