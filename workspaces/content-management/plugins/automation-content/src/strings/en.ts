@@ -82,6 +82,7 @@ export const eeMessages = {
     capability: 'Execution environment images',
     description: 'Inspect the tags and contents of a repository image.',
     tab: 'Image details',
+    breadcrumb: 'Execution Environments',
     sections: 'Image information',
     overview: 'Overview',
     contents: 'All Content',

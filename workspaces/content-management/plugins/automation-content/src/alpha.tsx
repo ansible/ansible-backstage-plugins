@@ -1,14 +1,17 @@
 import {
   ApiBlueprint,
   createFrontendPlugin,
-  createRouteRef,
   PageBlueprint,
   PluginHeaderActionBlueprint,
   SubPageBlueprint,
   type ExtensionDefinition,
   type FrontendPlugin,
 } from '@backstage/frontend-plugin-api';
-import { EntityContentLayoutBlueprint } from '@backstage/plugin-catalog-react/alpha';
+import type { Entity } from '@backstage/catalog-model';
+import {
+  EntityContentLayoutBlueprint,
+  EntityHeaderLayoutBlueprint,
+} from '@backstage/plugin-catalog-react/alpha';
 import { RiBox3Line } from '@remixicon/react';
 import {
   EE_REPOSITORY_ANNOTATIONS,
@@ -22,17 +25,32 @@ import {
   eeDetailsEntryId,
 } from './manifest';
 
-const eeRouteRef = createRouteRef();
+import { eeRouteRef } from './routes';
+
+function isEERepository(entity: Entity): boolean {
+  return (
+    entity.kind.toLowerCase() === 'component' &&
+    entity.spec?.type === EE_REPOSITORY_ENTITY_TYPE &&
+    entity.metadata.annotations?.[EE_REPOSITORY_ANNOTATIONS.marker] === 'true'
+  );
+}
+
+export const eeHeaderLayout: ExtensionDefinition =
+  EntityHeaderLayoutBlueprint.make({
+    name: 'ee-repository',
+    params: {
+      filter: isEERepository,
+      loader: async () =>
+        (await import('./components/ExecutionEnvironments/EERepositoryHeader'))
+          .EERepositoryHeader,
+    },
+  });
 
 export const eeOverviewLayout: ExtensionDefinition =
   EntityContentLayoutBlueprint.make({
     name: 'ee-repository',
     params: {
-      filter: entity =>
-        entity.kind.toLowerCase() === 'component' &&
-        entity.spec?.type === EE_REPOSITORY_ENTITY_TYPE &&
-        entity.metadata.annotations?.[EE_REPOSITORY_ANNOTATIONS.marker] ===
-          'true',
+      filter: isEERepository,
       loader: async () =>
         (await import('./components/ExecutionEnvironments/EEEntityContent'))
           .EEEntityContent,
@@ -80,6 +98,7 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
         },
       },
     }),
+    eeHeaderLayout,
     eeOverviewLayout,
     EntityDetailTabBlueprint.make({
       name: 'image',

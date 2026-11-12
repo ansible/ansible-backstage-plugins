@@ -178,8 +178,13 @@ test('opens a native repository favorite and preserves exact tag aliases through
   await row.focus();
   await row.press('Enter');
   await expect(page).toHaveURL(/\/catalog\/default\/component\/ee-repo-/);
+  await expect(
+    page
+      .getByRole('navigation', { name: 'Breadcrumbs' })
+      .getByRole('link', { name: 'Execution Environments', exact: true }),
+  ).toHaveAttribute('href', '/content/ee');
   const stockStar = page.getByRole('button', {
-    name: 'Remove from favorites',
+    name: `Remove ${repository} from favorites`,
     exact: true,
   });
   await expect(stockStar).toBeVisible();

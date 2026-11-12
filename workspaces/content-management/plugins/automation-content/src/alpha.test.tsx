@@ -18,7 +18,7 @@ import {
   type EntityDetailTabDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
-import { eeOverviewLayout } from './alpha';
+import { eeHeaderLayout, eeOverviewLayout } from './alpha';
 import {
   automationContentManifest,
   eeCapabilityId,
@@ -72,11 +72,13 @@ function content(
     loader?: EntityDetailTabDescriptor['loader'];
     disabled?: boolean;
     invalid?: boolean;
+    scopedHeader?: boolean;
   } = {},
 ) {
   return createFrontendPlugin({
     pluginId: 'automation-content',
     extensions: [
+      ...(options.scopedHeader ? [eeHeaderLayout] : []),
       eeOverviewLayout,
       EntityDetailTabBlueprint.make({
         name: 'image',
@@ -167,9 +169,29 @@ it.each(['denied', 'disabled', 'malformed', 'provider absent'] as const)(
   },
 );
 
+it('uses the repository header with the same favorite store', async () => {
+  await renderEntity({ features: [content({ scopedHeader: true })] });
+  const favorite = await screen.findByRole('button', {
+    name: 'Add Example image repository to favorites',
+  });
+  fireEvent.click(favorite);
+  expect(
+    await screen.findByRole('button', {
+      name: 'Remove Example image repository from favorites',
+    }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+});
+
 it('does not attach the image layout to an unrelated entity', async () => {
   const loader = jest.fn(async () => <p>Image contribution fixture</p>);
-  await renderEntity({ entity: unrelated, features: [content({ loader })] });
+  await renderEntity({
+    entity: unrelated,
+    features: [content({ loader, scopedHeader: true })],
+  });
+  expect(
+    await screen.findByRole('button', { name: 'Add to favorites' }),
+  ).toBeInTheDocument();
   expect(await screen.findByText('Existing overview card')).toBeInTheDocument();
   expect(
     screen.queryByText(/Image details are unavailable/),
