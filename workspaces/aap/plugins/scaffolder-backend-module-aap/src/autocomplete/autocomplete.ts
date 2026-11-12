@@ -16,6 +16,26 @@ import {
 } from '@backstage/errors';
 import { getCollections } from './utils';
 
+const supportedAapResources = new Set([
+  'credentials',
+  'execution_environments',
+  'instance_groups',
+  'inventories',
+  'job_templates',
+  'labels',
+  'organizations',
+  'projects',
+  'skip_tags',
+  'tags',
+]);
+
+function isSupportedAapResource(resource: string): boolean {
+  return (
+    supportedAapResources.has(resource) ||
+    /^execution_environments:\d+$/.test(resource)
+  );
+}
+
 export async function handleAutocompleteRequest({
   resource,
   token,
@@ -54,6 +74,10 @@ export async function handleAutocompleteRequest({
       logger,
       searchQuery: context?.searchQuery,
     });
+  }
+
+  if (!isSupportedAapResource(resource)) {
+    throw new InputError('Unsupported AAP autocomplete resource.');
   }
 
   ansibleService.setLogger(logger);

@@ -121,6 +121,67 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual(mockOrganizations);
   });
 
+  it.each([
+    'credentials',
+    'execution_environments',
+    'execution_environments:123',
+    'instance_groups',
+    'inventories',
+    'job_templates',
+    'labels',
+    'organizations',
+    'projects',
+    'skip_tags',
+    'tags',
+  ])('allows supported AAP resource %s', async resource => {
+    const resources = { results: [] };
+    mockAnsibleService.getResourceData.mockResolvedValue(resources);
+
+    await expect(
+      handleAutocompleteRequest({
+        resource,
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      }),
+    ).resolves.toEqual(resources);
+    expect(mockAnsibleService.getResourceData).toHaveBeenCalledWith(
+      resource,
+      'token',
+    );
+  });
+
+  it.each([
+    'custom_resource',
+    '../users',
+    'organizations:123',
+    'execution_environments:abc',
+    'execution_environments:123/users',
+  ])(
+    'rejects unsupported AAP resource %s before making a request',
+    async resource => {
+      await expect(
+        handleAutocompleteRequest({
+          resource,
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('Unsupported AAP autocomplete resource.');
+
+      expect(
+        mockAnsibleService.checkControllerAvailability,
+      ).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
+    },
+  );
+
   it('should return aap hostname without calling the AAP Controller', async () => {
     // 'aaphostname' is read straight from config (ansible.rhaap.baseUrl); it
     // must short-circuit before any Controller availability check or
