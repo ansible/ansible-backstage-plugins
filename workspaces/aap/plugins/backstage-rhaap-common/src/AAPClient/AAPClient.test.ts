@@ -809,6 +809,39 @@ describe('AAPClient', () => {
     });
 
     describe('createJobTemplate', () => {
+      it('validates extra variables before deleting an existing template', async () => {
+        await expect(
+          client.createJobTemplate(
+            {
+              templateName: 'test-template',
+              organization: { id: 1, name: 'test-org' },
+              jobInventory: { id: 1, name: 'test-inventory' },
+              project: {
+                id: 1,
+                projectName: 'test-project',
+                organization: { id: 1, name: 'test-org' },
+                scmUrl: 'https://github.com/test/repo',
+                scmUpdateOnLaunch: true,
+                status: 'successful',
+              },
+              playbook: 'test.yml',
+              executionEnvironment: {
+                id: 1,
+                environmentName: 'test-ee',
+                organization: { id: 1, name: 'test-org' },
+                image: 'test-image',
+                pull: 'always',
+              },
+              extraVariables: { account_id: Number.MAX_SAFE_INTEGER + 1 },
+            },
+            true,
+            'test-token',
+          ),
+        ).rejects.toThrow('unsafe integer');
+
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
       it('should create a job template', async () => {
         const mockResponse = {
           ok: true,
