@@ -5,10 +5,10 @@ import {
   MOCK_ORGANIZATION,
   MOCK_PROJECT,
   MOCK_TOKEN,
-} from '../mock';
+} from '../mockFixtures.test';
 import { JobTemplate } from '@ansible/aap-common';
 import { createJobTemplate } from './aapCreateJobTemplate';
-import { MOCK_NEW_SCM_CREDENTIAL_DATA } from '../mock';
+import { MOCK_NEW_SCM_CREDENTIAL_DATA } from '../mockFixtures.test';
 import { mockAnsibleService } from './mockIAAPService';
 
 describe('ansible-aap:jobTemplate:create', () => {

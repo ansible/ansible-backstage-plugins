@@ -19,7 +19,10 @@ import type { ExtensionPoint } from '@backstage/backend-plugin-api';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import {
+  ansibleServiceRef,
+  assertAapScaffolderModuleIsUnique,
+} from '@ansible/backstage-rhaap-common';
 import { createExecutionEnvironment } from './actions/aapCreateEEEnv';
 import { createJobTemplate } from './actions/aapCreateJobTemplate';
 import { createProjectAction } from './actions/aapCreateProject';
@@ -41,6 +44,7 @@ export const scaffolderModuleAap = createBackendModule({
         ansibleService: ansibleServiceRef,
       },
       init({ scaffolder, ansibleService }) {
+        assertAapScaffolderModuleIsUnique(scaffolder, 'scaffolderModuleAap');
         scaffolder.addActions(
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),

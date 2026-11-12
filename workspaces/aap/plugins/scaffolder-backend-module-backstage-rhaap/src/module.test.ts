@@ -35,6 +35,7 @@ jest.mock('@ansible/aap-node', () => ({
 
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   getAnsibleConfig: jest.fn(() => ({ ansible: 'config' })),
+  assertAapScaffolderModuleIsUnique: jest.fn(),
 }));
 
 // import mocks for assertions
