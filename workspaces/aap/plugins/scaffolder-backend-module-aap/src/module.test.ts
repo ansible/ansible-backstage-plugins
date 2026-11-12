@@ -1,33 +1,93 @@
-import { createExecutionEnvironment } from './actions/aapCreateEEEnv';
-import { createJobTemplate } from './actions/aapCreateJobTemplate';
-import { createProjectAction } from './actions/aapCreateProject';
 import { scaffolderModuleAap } from './module';
 
-jest.mock('./actions/aapCreateEEEnv', () => ({
-  createExecutionEnvironment: jest.fn(() => 'execution-environment-action'),
+jest.mock('@ansible/backstage-rhaap-common', () => ({
+  ansibleServiceRef: Symbol('ansibleServiceRef'),
 }));
-jest.mock('./actions/aapCreateJobTemplate', () => ({
-  createJobTemplate: jest.fn(() => 'job-template-action'),
+
+import {
+  createProjectAction,
+  createExecutionEnvironment,
+  createJobTemplate,
+  launchJobTemplate,
+  cleanUp,
+} from './actions';
+import {
+  multiResourceFilter,
+  resourceFilter,
+  useCaseNameFilter,
+  uuidFilter,
+} from './filters';
+import { handleAutocompleteRequest } from './autocomplete';
+
+jest.mock('./autocomplete', () => ({
+  handleAutocompleteRequest: jest.fn().mockResolvedValue({ results: [] }),
 }));
-jest.mock('./actions/aapCreateProject', () => ({
-  createProjectAction: jest.fn(() => 'project-action'),
-}));
+
+const config = {
+  getString: (key: string) =>
+    key === 'app.baseUrl' ? 'http://localhost:3000' : '',
+} as any;
 
 describe('scaffolderModuleAap', () => {
-  it('registers its AAP actions with the Scaffolder backend', async () => {
-    const scaffolder = { addActions: jest.fn() };
-    const ansibleService = {};
+  it('registers its actions, filters, and autocomplete provider', async () => {
+    const env: any = {
+      scaffolder: { addActions: jest.fn() },
+      scaffolderTemplating: { addTemplateFilters: jest.fn() },
+      autocomplete: { addAutocompleteProvider: jest.fn() },
+      config,
+      logger: {
+        info: jest.fn(),
+        debug: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+      },
+      ansibleService: {},
+      auth: {},
+      discovery: {},
+    };
+
     const registrations = (scaffolderModuleAap as any).getRegistrations();
+    for (const registration of registrations) {
+      await registration.init.func(env);
+    }
 
-    await registrations[0].init.func({ scaffolder, ansibleService });
+    const actions = env.scaffolder.addActions.mock.calls[0];
+    expect(actions.map((action: any) => action.id)).toEqual([
+      createProjectAction({} as any).id,
+      createExecutionEnvironment({} as any).id,
+      createJobTemplate({} as any).id,
+      launchJobTemplate({} as any, config).id,
+      cleanUp({} as any).id,
+    ]);
+    expect(actions.map((action: any) => action.id)).toEqual([
+      'rhaap:create-project',
+      'rhaap:create-execution-environment',
+      'rhaap:create-job-template',
+      'rhaap:launch-job-template',
+      'rhaap:clean-up',
+    ]);
 
-    expect(createProjectAction).toHaveBeenCalledWith(ansibleService);
-    expect(createExecutionEnvironment).toHaveBeenCalledWith(ansibleService);
-    expect(createJobTemplate).toHaveBeenCalledWith(ansibleService);
-    expect(scaffolder.addActions).toHaveBeenCalledWith(
-      'project-action',
-      'execution-environment-action',
-      'job-template-action',
+    expect(env.scaffolderTemplating.addTemplateFilters).toHaveBeenCalledWith({
+      useCaseNameFilter,
+      resourceFilter,
+      multiResourceFilter,
+      uuidFilter,
+    });
+
+    const [provider] = env.autocomplete.addAutocompleteProvider.mock.calls[0];
+    expect(provider.id).toBe('aap-api');
+    await expect(
+      provider.handler({ resource: 'x', token: 't', context: {} }),
+    ).resolves.toEqual({ results: [] });
+    expect(handleAutocompleteRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resource: 'x',
+        token: 't',
+        context: {},
+        config: env.config,
+        logger: env.logger,
+        ansibleService: env.ansibleService,
+      }),
     );
   });
 });

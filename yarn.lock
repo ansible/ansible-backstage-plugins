@@ -576,19 +576,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
+"@ansible/plugin-scaffolder-backend-module-aap@workspace:*, @ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap":
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap"
   dependencies:
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/cli": "npm:0.36.2"
+    "@backstage/config": "npm:1.3.8"
     "@backstage/errors": "npm:1.3.1"
     "@backstage/plugin-scaffolder-node": "npm:0.13.6"
     "@backstage/plugin-scaffolder-node-test-utils": "npm:0.3.16"
     "@backstage/types": "npm:1.2.2"
     "@types/jest": "npm:29.5.14"
+    jest: "npm:29.7.0"
     zod: "npm:3.25.76"
   languageName: unknown
   linkType: soft
@@ -600,6 +603,7 @@ __metadata:
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/plugin-scaffolder-backend-module-aap": "workspace:*"
     "@ansible/portal-scaffolder-common": "workspace:^"
     "@backstage/backend-defaults": "npm:0.17.8"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
@@ -33879,7 +33883,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest@npm:^29.7.0":
+"jest@npm:29.7.0, jest@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest@npm:29.7.0"
   dependencies:
