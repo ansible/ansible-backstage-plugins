@@ -3488,10 +3488,16 @@ describe('createRouter', () => {
       });
       const testApp = express().use(router);
 
-      const monolithic = await request(testApp).get(
+      const legacyContents = await request(testApp).get(
         '/ansible/sync/status?ansible_contents=true',
       );
-      expect(monolithic.status).toBe(404);
+      expect(legacyContents.status).toBe(200);
+      expect(legacyContents.body.content.providers).toHaveLength(1);
+
+      const legacyAapOnly = await request(testApp).get(
+        '/ansible/sync/status?aap_entities=true',
+      );
+      expect(legacyAapOnly.status).toBe(404);
 
       const split = await request(testApp).get('/ansible/sync/status/content');
       expect(split.status).toBe(200);
