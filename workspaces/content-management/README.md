@@ -78,11 +78,19 @@ lives in `workspaces/portal-core`.
 
 ## Execution environment images
 
-The native automation-content frontend exposes **EE images** at `/content/ee`.
-Enable the package's alpha feature in the host and include the Portal
-contributions provider. The page queries indexed repositories. Its favorites
-and links use real Catalog repository Components. Existing digest Components
-remain available under their existing Catalog permissions.
+The native **Execution Environments** page opens at `/content/ee`. Content
+Management provides **Images**, and Content Development provides **Definitions**.
+The page's **Create** action opens the host Scaffolder template catalog.
+
+Load the `@ansible/plugin-automation-content/alpha` and
+`@ansible/portal-scaffolder/alpha` features and the Portal contributions provider.
+Follow the root app config to order the native sub-pages and point the Portal
+sidebar at `page:automation-content/ee`.
+
+Images queries indexed repositories by source, tag, version, and configured
+registry owner. Its favorites and links use real Catalog repository Components.
+Existing digest Components remain available under their existing Catalog
+permissions.
 
 The inventory and digest APIs require `ansible.execution-environments.view`.
 An EE view grant does not authorize manual refresh. Operators need

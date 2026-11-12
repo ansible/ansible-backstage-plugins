@@ -42,3 +42,7 @@ export const createTaskRouteRef = createSubRouteRef({
   parent: rootRouteRef,
   path: portalScaffolderRoutePaths.createTask,
 });
+
+/** Host scaffolder catalog filtered to execution environment templates. */
+export const eeTemplateCatalogPath =
+  '/create/templates?filters%5Bkind%5D=template&filters%5Btags%5D=execution-environment';

@@ -10,7 +10,9 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   Alert,
+  Box,
   Button,
+  ButtonIcon,
   Card,
   CardBody,
   Cell,
@@ -20,6 +22,9 @@ import {
   Flex,
   Grid,
   Link,
+  Menu,
+  MenuItem,
+  MenuTrigger,
   SearchField,
   Select,
   Table,
@@ -35,17 +40,70 @@ import {
   type EERepositoryQuery,
   type EERepositorySummary,
 } from '@ansible/automation-content-common/eeRepository';
-import { executionEnvironmentsViewPermission } from '@ansible/automation-content-common/permissions';
+import { RiGridLine, RiTableLine } from '@remixicon/react';
+import {
+  contentSyncPermission,
+  executionEnvironmentsViewPermission,
+} from '@ansible/automation-content-common/permissions';
 import { automationContentApiRef, ContentApiError } from '../../api';
 import { eeTranslationRef } from '../../strings/en';
 import { useContentPermission } from '../../useContentPermission';
-import { RepositoryFavoriteButton } from './RepositoryFavoriteButton';
+import { EEImageRowActions } from './EEImageRowActions';
 import { SigningEvidence } from './SigningEvidence';
-import { SyncAction } from './SyncAction';
 
 type ImageRow = EERepositorySummary & { id: string };
 const pageSizes = [10, 20, 50];
-const ALL_REGISTRIES = 'all';
+const ALL = 'all';
+
+const relativeTime = new Intl.RelativeTimeFormat(undefined, {
+  numeric: 'auto',
+});
+
+function timeSince(timestamp: string): string {
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(timestamp)) / 60_000),
+  );
+  if (minutes < 60) return relativeTime.format(-minutes, 'minute');
+  if (minutes < 24 * 60)
+    return relativeTime.format(-Math.floor(minutes / 60), 'hour');
+  return relativeTime.format(-Math.floor(minutes / (24 * 60)), 'day');
+}
+
+function InventoryFilter({
+  label,
+  allLabel,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  allLabel: string;
+  options: { value: string; label: string }[];
+  value?: string;
+  onChange: (value?: string) => void;
+}): JSX.Element {
+  return (
+    <Select
+      label={label}
+      options={[
+        { id: ALL, label: allLabel },
+        ...options.map(option => ({
+          id: `value:${option.value}`,
+          label: option.label,
+        })),
+      ]}
+      selectedKey={value === undefined ? ALL : `value:${value}`}
+      onSelectionChange={key => {
+        onChange(
+          typeof key === 'string' && key.startsWith('value:')
+            ? key.slice(6)
+            : undefined,
+        );
+      }}
+    />
+  );
+}
 
 export function EEImagesPage(): JSX.Element {
   const permission = useContentPermission(executionEnvironmentsViewPermission);
@@ -79,11 +137,15 @@ function EEInventory(): JSX.Element {
   const catalogApi = useApi(catalogApiRef);
   const entityLink = useEntityRefLink();
   const { starredEntities } = useStarredEntities();
+  const syncPermission = useContentPermission(contentSyncPermission);
   const { t } = useTranslationRef(eeTranslationRef);
   const [view, setView] = useState<'table' | 'grid'>('table');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [registry, setRegistry] = useState<string>();
+  const [tag, setTag] = useState<string>();
+  const [owner, setOwner] = useState<string>();
+  const [latestOnly, setLatestOnly] = useState(false);
   const [sort, setSort] =
     useState<NonNullable<EERepositoryQuery['sort']>>('repository');
   const [order, setOrder] =
@@ -124,6 +186,9 @@ function EEInventory(): JSX.Element {
             pageSize,
             query: query || undefined,
             registry,
+            tag,
+            owner,
+            latestOnly: latestOnly || undefined,
             sort,
             order,
             favoriteEntityRefs,
@@ -131,12 +196,15 @@ function EEInventory(): JSX.Element {
     [
       api,
       favoriteEntityRefs,
+      latestOnly,
       order,
+      owner,
       page,
       pageSize,
       query,
       registry,
       sort,
+      tag,
       tooManyFavorites,
     ],
   );
@@ -181,66 +249,98 @@ function EEInventory(): JSX.Element {
     ) : (
       <Text>{row.repository}</Text>
     );
-  const favoriteFor = (row: ImageRow) =>
-    canOpen(row) ? (
-      <RepositoryFavoriteButton
-        entityRef={row.entityRef}
-        repository={row.repository}
+  const actionsFor = (row: ImageRow) => (
+    <>
+      <EEImageRowActions
+        image={row}
+        detailHref={canOpen(row) ? entityLink(row.entityRef) : undefined}
+        canSync={
+          syncPermission === 'allowed' &&
+          registries.value?.manualSyncEnabled === true
+        }
+        onReload={reload}
       />
-    ) : (
-      <Text>{catalogStatus}</Text>
+      {!canOpen(row) && <Text>{catalogStatus}</Text>}
+    </>
+  );
+  const registryByName = new Map(
+    registries.value?.items.map(item => [item.name, item]),
+  );
+  function contentsLabel(count?: number): string {
+    if (count === undefined) return t('inventory.contentsUnknown');
+    if (count === 1) return t('inventory.oneCollection');
+    return t('inventory.collectionCount', { quantity: String(count) });
+  }
+
+  function statusLabel(row: ImageRow): string {
+    if (!row.lastSuccessfulReconcileAt) return t('inventory.notReconciled');
+    return t(
+      registryByName.get(row.registry)?.lastReconcileOk === false
+        ? 'inventory.stale'
+        : 'inventory.available',
     );
+  }
 
   const columns: ColumnConfig<ImageRow>[] = [
     {
       id: 'repository',
-      label: t('inventory.repository'),
+      label: t('inventory.image'),
       isRowHeader: true,
+      isSortable: true,
+      defaultWidth: '2fr',
       cell: row => <Cell>{titleFor(row)}</Cell>,
     },
     {
       id: 'registry',
-      label: t('inventory.registry'),
+      label: t('inventory.source'),
+      isSortable: true,
       cell: row => <CellText title={row.registry} />,
     },
     {
-      id: 'tag',
-      label: t('inventory.tag'),
-      cell: row => (
-        <CellText title={row.representativeTag ?? t('inventory.untagged')} />
-      ),
+      id: 'sourceType',
+      label: t('inventory.sourceType'),
+      defaultWidth: '1.25fr',
+      cell: () => <CellText title={t('inventory.externalRegistry')} />,
     },
     {
-      id: 'tagCount',
-      label: t('inventory.tagCount'),
-      cell: row => <CellText title={String(row.tagCount)} />,
+      id: 'contents',
+      label: t('inventory.contents'),
+      defaultWidth: '1.25fr',
+      cell: row => <CellText title={contentsLabel(row.collectionCount)} />,
     },
     {
-      id: 'signing',
-      label: t('inventory.signing'),
-      cell: row => (
-        <Cell>
-          <SigningEvidence compact state={row.signingState} />
-        </Cell>
-      ),
+      id: 'status',
+      label: t('inventory.status'),
+      cell: row => <CellText title={statusLabel(row)} />,
     },
     {
-      id: 'synchronized',
-      label: t('inventory.reconcile'),
-      cell: row => (
-        <CellText
-          title={
-            row.lastSuccessfulReconcileAt
-              ? new Date(row.lastSuccessfulReconcileAt).toLocaleString()
-              : t('inventory.never')
-          }
-        />
-      ),
+      id: 'lastSuccessfulReconcileAt',
+      label: t('inventory.lastSynced'),
+      isSortable: true,
+      cell: row => {
+        const timestamp = row.lastSuccessfulReconcileAt;
+        if (!timestamp || !Number.isFinite(Date.parse(timestamp))) {
+          return <CellText title={t('inventory.notReconciled')} />;
+        }
+        return (
+          <Cell>
+            <Text as="span">
+              <time
+                dateTime={timestamp}
+                title={new Date(timestamp).toLocaleString()}
+              >
+                {timeSince(timestamp)}
+              </time>
+            </Text>
+          </Cell>
+        );
+      },
     },
     {
-      id: 'favorite',
-      label: t('inventory.favorite'),
-      cell: row => <Cell>{favoriteFor(row)}</Cell>,
+      id: 'actions',
+      label: t('inventory.actions'),
+      minWidth: 100,
+      cell: row => <Cell>{actionsFor(row)}</Cell>,
     },
   ];
 
@@ -293,17 +393,36 @@ function EEInventory(): JSX.Element {
     );
   } else if (view === 'table') {
     results = (
-      <Table
-        columnConfig={columns}
-        rowConfig={{
-          getHref: row =>
-            canOpen(row) ? entityLink(row.entityRef) : undefined,
-        }}
-        data={result.loading ? undefined : rows}
-        isPending={result.loading}
-        pagination={{ type: 'page', ...pagination }}
-        emptyState={empty}
-      />
+      <Card>
+        <Table
+          columnConfig={columns}
+          sort={{
+            descriptor: {
+              column: sort,
+              direction: order === 'asc' ? 'ascending' : 'descending',
+            },
+            onSortChange: ({ column, direction }) => {
+              if (
+                column === 'repository' ||
+                column === 'registry' ||
+                column === 'lastSuccessfulReconcileAt'
+              ) {
+                setSort(column);
+                setOrder(direction === 'ascending' ? 'asc' : 'desc');
+                setPage(1);
+              }
+            },
+          }}
+          rowConfig={{
+            getHref: row =>
+              canOpen(row) ? entityLink(row.entityRef) : undefined,
+          }}
+          data={result.loading ? undefined : rows}
+          isPending={result.loading}
+          pagination={{ type: 'page', ...pagination }}
+          emptyState={empty}
+        />
+      </Card>
     );
   } else if (result.loading) {
     results = <Text role="status">{t('inventory.loading')}</Text>;
@@ -325,7 +444,7 @@ function EEInventory(): JSX.Element {
                         {row.representativeTag ?? t('inventory.untagged')}
                       </Text>
                       <SigningEvidence compact state={row.signingState} />
-                      {favoriteFor(row)}
+                      {actionsFor(row)}
                     </Flex>
                   </CardBody>
                 </Card>
@@ -338,118 +457,138 @@ function EEInventory(): JSX.Element {
     );
   }
 
+  const facets = result.value?.facets;
   return (
-    <Container role="region" aria-label={t('pageTitle')}>
-      <Flex direction="column" gap="4">
-        <Grid.Root columns={{ initial: '1', sm: '2', lg: '4' }} gap="3">
-          <SearchField
-            label={t('inventory.search')}
-            value={search}
-            maxLength={256}
-            onChange={setSearch}
-          />
-          <Select
-            label={t('inventory.registry')}
-            options={[
-              { id: ALL_REGISTRIES, label: t('inventory.allRegistries') },
-              ...(registries.value?.items ?? []).map(item => ({
-                id: `registry:${item.name}`,
-                label: item.name,
-              })),
-            ]}
-            selectedKey={registry ? `registry:${registry}` : ALL_REGISTRIES}
-            onSelectionChange={key => {
-              setRegistry(
-                typeof key === 'string' && key.startsWith('registry:')
-                  ? key.slice(9)
-                  : undefined,
-              );
-              setPage(1);
-            }}
-          />
-          <Select
-            label={t('inventory.sort')}
-            options={[
-              { id: 'repository', label: t('inventory.repository') },
-              { id: 'registry', label: t('inventory.registry') },
-              {
-                id: 'lastSuccessfulReconcileAt',
-                label: t('inventory.reconcile'),
-              },
-            ]}
-            selectedKey={sort}
-            onSelectionChange={key => {
-              if (
-                key === 'repository' ||
-                key === 'registry' ||
-                key === 'lastSuccessfulReconcileAt'
-              )
-                setSort(key);
-              setPage(1);
-            }}
-          />
-          <Select
-            label={t('inventory.order')}
-            options={[
-              { id: 'asc', label: t('inventory.ascending') },
-              { id: 'desc', label: t('inventory.descending') },
-            ]}
-            selectedKey={order}
-            onSelectionChange={key => {
-              if (key === 'asc' || key === 'desc') setOrder(key);
-              setPage(1);
-            }}
-          />
-        </Grid.Root>
-        <Checkbox
-          isSelected={favoriteOnly}
-          onChange={next => {
-            setFavoriteOnly(next);
-            setPage(1);
-          }}
-        >
-          {t('inventory.favoritesOnly')}
-        </Checkbox>
-        <Flex gap="2">
-          <Button
-            variant="secondary"
-            aria-pressed={view === 'table'}
-            onPress={() => setView('table')}
-          >
-            {t('inventory.table')}
-          </Button>
-          <Button
-            variant="secondary"
-            aria-pressed={view === 'grid'}
-            onPress={() => setView('grid')}
-          >
-            {t('inventory.grid')}
-          </Button>
+    <Box role="region" aria-label={t('pageTitle')} px="4" py="6">
+      <Flex direction="column" gap="5">
+        <Flex direction="column" gap="2">
+          <Text as="h2" variant="title-medium" weight="bold">
+            {t('inventory.title')}
+          </Text>
+          <Text color="secondary">{t('inventory.description')}</Text>
         </Flex>
-        <SyncAction
-          manualSyncEnabled={registries.value?.manualSyncEnabled === true}
-          onReload={reload}
-        />
-        {catalog.error && (
-          <Alert
-            status="warning"
-            title={t('inventory.catalogFailed')}
-            customActions={
-              <Button variant="tertiary" onPress={catalog.retry}>
-                {t('retry')}
-              </Button>
-            }
-          />
-        )}
-        {!catalog.error &&
-          !catalog.loading &&
-          rows?.some(row => !canOpen(row)) && (
-            <Button variant="tertiary" onPress={catalog.retry}>
-              {t('retry')}
-            </Button>
-          )}
-        {results}
+        <Grid.Root columns={{ initial: '1', md: '5' }} gap="4">
+          <Grid.Item colSpan="1">
+            <Flex direction="column" gap="4">
+              <InventoryFilter
+                label={t('inventory.source')}
+                allLabel={t('inventory.allSources')}
+                value={registry}
+                options={(registries.value?.items ?? []).map(item => ({
+                  value: item.name,
+                  label: item.name,
+                }))}
+                onChange={value => {
+                  setRegistry(value);
+                  setPage(1);
+                }}
+              />
+              <InventoryFilter
+                label={t('inventory.filterTag')}
+                allLabel={t('inventory.allTags')}
+                value={tag}
+                options={(facets?.tags ?? []).map(value => ({
+                  value,
+                  label: value,
+                }))}
+                onChange={value => {
+                  setTag(value);
+                  setPage(1);
+                }}
+              />
+              <InventoryFilter
+                label={t('inventory.version')}
+                allLabel={t('inventory.allVersions')}
+                value={latestOnly ? 'latest' : undefined}
+                options={[
+                  { value: 'latest', label: t('inventory.latestOnly') },
+                ]}
+                onChange={value => {
+                  setLatestOnly(value === 'latest');
+                  setPage(1);
+                }}
+              />
+              <InventoryFilter
+                label={t('inventory.owner')}
+                allLabel={t('inventory.allOwners')}
+                value={owner}
+                options={(facets?.owners ?? []).map(value => ({
+                  value,
+                  label:
+                    value === 'unknown' ? t('inventory.unknownOwner') : value,
+                }))}
+                onChange={value => {
+                  setOwner(value);
+                  setPage(1);
+                }}
+              />
+              <Checkbox
+                isSelected={favoriteOnly}
+                onChange={next => {
+                  setFavoriteOnly(next);
+                  setPage(1);
+                }}
+              >
+                {t('inventory.favoritesOnly')}
+              </Checkbox>
+            </Flex>
+          </Grid.Item>
+          <Grid.Item colSpan={{ initial: '1', md: '4' }}>
+            <Flex direction="column" gap="4">
+              <Flex align="center" justify="between" gap="2">
+                <Text color="secondary">
+                  {result.value &&
+                    t('inventory.count', {
+                      shown: String(total),
+                      total: String(facets?.totalImages ?? total),
+                    })}
+                </Text>
+                <MenuTrigger>
+                  <ButtonIcon
+                    aria-label={t('inventory.changeView')}
+                    variant="tertiary"
+                    icon={view === 'table' ? <RiTableLine /> : <RiGridLine />}
+                  />
+                  <Menu placement="bottom end">
+                    <MenuItem onAction={() => setView('table')}>
+                      {t('inventory.table')}
+                    </MenuItem>
+                    <MenuItem onAction={() => setView('grid')}>
+                      {t('inventory.grid')}
+                    </MenuItem>
+                  </Menu>
+                </MenuTrigger>
+              </Flex>
+              <SearchField
+                aria-label={t('inventory.search')}
+                placeholder={t('inventory.searchPlaceholder')}
+                value={search}
+                maxLength={256}
+                onChange={setSearch}
+              />
+              {catalog.error && (
+                <Alert
+                  status="warning"
+                  title={t('inventory.catalogFailed')}
+                  customActions={
+                    <Button variant="tertiary" onPress={catalog.retry}>
+                      {t('retry')}
+                    </Button>
+                  }
+                />
+              )}
+              {!catalog.error &&
+                !catalog.loading &&
+                rows?.some(row => !canOpen(row)) && (
+                  <Button variant="tertiary" onPress={catalog.retry}>
+                    {t('retry')}
+                  </Button>
+                )}
+              {results}
+            </Flex>
+          </Grid.Item>
+        </Grid.Root>
       </Flex>
-    </Container>
+    </Box>
   );
 }

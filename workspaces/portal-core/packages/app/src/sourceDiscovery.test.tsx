@@ -207,22 +207,32 @@ describe('additional source-app discovery on the core development profile', () =
     expect(pageLoader).not.toHaveBeenCalled();
   });
 
-  it('discovers the EE images feature once and opens the native route from Portal navigation', async () => {
+  it('composes the two EE contributions under a single Portal navigation item', async () => {
     const { features } = await resolveDiscovered({
       include: ['@ansible/plugin-automation-content'],
     });
     expect(features).toEqual([portalPlugin, automationContentPlugin]);
+    const { default: definitionsPlugin } = jest.requireActual<
+      typeof import('@ansible/portal-scaffolder/alpha')
+    >('@ansible/portal-scaffolder/alpha');
     await renderTestApp({
-      features: [...features, portalNavigation],
+      features: [...features, definitionsPlugin, portalNavigation],
       config: {
-        app: { extensions: [{ 'nav-content:app/portal': true }] },
+        backend: { baseUrl: 'http://localhost:7008' },
+        app: {
+          extensions: [
+            { 'nav-content:app/portal': true },
+            { 'sub-page:automation-content/images': true },
+            { 'sub-page:portal-scaffolder/ee-definitions': true },
+          ],
+        },
         portal: {
           navigation: {
             items: [
               {
-                id: 'ee-images',
+                id: 'execution-environments',
                 page: 'page:automation-content/ee',
-                title: 'EE images',
+                title: 'Execution Environments',
               },
             ],
           },
@@ -240,12 +250,26 @@ describe('additional source-app discovery on the core development profile', () =
     const navigation = within(
       await screen.findByRole('navigation', { name: 'sidebar nav' }),
     );
-    const link = await navigation.findByRole('link', { name: 'EE images' });
+    const link = await navigation.findByRole('link', {
+      name: 'Execution Environments',
+    });
     expect(link).toHaveAttribute('href', '/content/ee');
-    expect(navigation.getAllByRole('link', { name: 'EE images' })).toHaveLength(
-      1,
-    );
+    expect(
+      navigation.getAllByRole('link', { name: 'Execution Environments' }),
+    ).toHaveLength(1);
     fireEvent.click(link);
+    expect(await screen.findByRole('tab', { name: 'Images' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(
+      screen.getByRole('tab', { name: 'Definitions' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Create' })).toBeNull();
+    expect(await screen.findByRole('link', { name: 'Create' })).toHaveAttribute(
+      'href',
+      expect.stringMatching(/^\/create\/templates/),
+    );
     expect(
       await screen.findByText(
         'Image access could not be checked. Reload the page to try again.',

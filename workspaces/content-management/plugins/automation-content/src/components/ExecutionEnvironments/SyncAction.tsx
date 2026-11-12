@@ -11,23 +11,16 @@ interface SyncActionProps {
   repository?: { registry: string; repository: string };
   manualSyncEnabled?: boolean;
   onReload: () => void;
+  label?: string;
 }
 
-export function SyncAction({
+export function useEESync({
   repository,
-  manualSyncEnabled,
+  enabled,
   onReload,
-}: SyncActionProps): JSX.Element | null {
+}: Pick<SyncActionProps, 'repository' | 'onReload'> & { enabled: boolean }) {
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
-  const permitted = useContentPermission(contentSyncPermission) === 'allowed';
-  const capability = useAsync(
-    async () =>
-      permitted && manualSyncEnabled === undefined
-        ? (await api.getRegistryStatus()).manualSyncEnabled === true
-        : manualSyncEnabled === true,
-    [api, manualSyncEnabled, permitted],
-  );
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{
@@ -36,10 +29,8 @@ export function SyncAction({
     reload?: boolean;
   }>();
 
-  if (!permitted || !capability.value || capability.loading) return null;
-
   async function run(): Promise<void> {
-    if (inFlight.current) return;
+    if (!enabled || inFlight.current) return;
     inFlight.current = true;
     setPending(true);
     setResult(undefined);
@@ -82,18 +73,22 @@ export function SyncAction({
     }
   }
 
+  return { enabled, pending, result, run };
+}
+
+export function SyncFeedback({
+  sync,
+  onReload,
+}: {
+  sync: ReturnType<typeof useEESync>;
+  onReload: () => void;
+}): JSX.Element | null {
+  const { t } = useTranslationRef(eeTranslationRef);
+  const { pending, result } = sync;
+  if (!pending && !result) return null;
   const completion = result?.error ? undefined : result?.message;
   return (
-    <Flex direction="column" gap="2" align="start">
-      <Button
-        variant="secondary"
-        isPending={pending}
-        onPress={() => {
-          void run();
-        }}
-      >
-        {t(repository ? 'sync.repository' : 'sync.inventory')}
-      </Button>
+    <>
       <Text as="p" role="status">
         {pending ? t('sync.pending') : completion}
       </Text>
@@ -107,6 +102,39 @@ export function SyncAction({
           {t('reload')}
         </Button>
       )}
+    </>
+  );
+}
+
+export function SyncAction(props: SyncActionProps): JSX.Element | null {
+  const { t } = useTranslationRef(eeTranslationRef);
+  const api = useApi(automationContentApiRef);
+  const permitted = useContentPermission(contentSyncPermission) === 'allowed';
+  const capability = useAsync(
+    async () =>
+      permitted && props.manualSyncEnabled === undefined
+        ? (await api.getRegistryStatus()).manualSyncEnabled === true
+        : props.manualSyncEnabled === true,
+    [api, props.manualSyncEnabled, permitted],
+  );
+  const sync = useEESync({
+    ...props,
+    enabled: permitted && capability.value === true && !capability.loading,
+  });
+  if (!sync.enabled) return null;
+  return (
+    <Flex direction="column" gap="2" align="start">
+      <Button
+        variant="secondary"
+        isPending={sync.pending}
+        onPress={() => {
+          void sync.run();
+        }}
+      >
+        {props.label ??
+          t(props.repository ? 'sync.repository' : 'sync.inventory')}
+      </Button>
+      <SyncFeedback sync={sync} onReload={props.onReload} />
     </Flex>
   );
 }

@@ -25,6 +25,8 @@ app:
   extensions:
     - nav-content:app/sidebar: false
     - nav-content:app/portal: true
+    - sub-page:automation-content/images: true
+    - sub-page:portal-scaffolder/ee-definitions: true
 portal:
   navigation:
     topOffset: 64
@@ -39,11 +41,8 @@ portal:
         path: /self-service/create/tasks
         title: History
       - id: execution-environments
-        path: /self-service/ee
-        title: Execution Environments
-      - id: ee-images
         page: page:automation-content/ee
-        title: EE images
+        title: Execution Environments
       - id: collections
         path: /self-service/collections
         title: Collections

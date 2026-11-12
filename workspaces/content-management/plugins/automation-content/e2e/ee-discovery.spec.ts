@@ -68,6 +68,66 @@ async function scan(
   ).toEqual([]);
 }
 
+test('composes Images and Definitions and exposes a row actions menu', async ({
+  page,
+}) => {
+  await openInventory(page);
+  await expect(page).toHaveURL(/\/content\/ee\/images$/);
+  const tabs = page.getByRole('tablist', { name: 'Toolbar tabs' });
+  await expect(tabs.getByRole('tab')).toHaveText(['Images', 'Definitions']);
+  await expect(tabs.getByRole('tab', { name: 'Images' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const create = page.getByRole('link', { name: 'Create', exact: true });
+  await expect(create).toHaveAttribute('href', /^\/create\/templates/);
+
+  const menuButton = page
+    .getByRole('button', { name: /^Actions for / })
+    .first();
+  await expect(menuButton).toBeEnabled();
+  const row = page.getByRole('row').filter({ has: menuButton }).first();
+  await row.focus();
+  for (let step = 0; step < 12; step += 1) {
+    if (await menuButton.evaluate(button => document.activeElement === button))
+      break;
+    await page.keyboard.press('ArrowRight');
+  }
+  await expect(menuButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('menuitem', { name: 'View details' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/content\/ee\/images$/);
+  await page.keyboard.press('Escape');
+
+  await tabs.getByRole('tab', { name: 'Definitions' }).click();
+  await expect(page).toHaveURL(/\/content\/ee\/definitions(?:\?|$)/);
+  await expect(tabs.getByRole('tab', { name: 'Definitions' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(
+    page.getByRole('tab', { name: 'Create', exact: true }),
+  ).toHaveCount(0);
+  await tabs.getByRole('tab', { name: 'Images' }).click();
+  await expect(
+    page.getByRole('searchbox', { name: 'Search images' }),
+  ).toBeVisible();
+
+  await page.goto('/self-service/ee/catalog');
+  await expect(page).toHaveURL(/\/content\/ee\/definitions(?:\?|$)/);
+  await expect(tabs.getByRole('tab', { name: 'Definitions' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await create.click();
+  await expect(page).toHaveURL(/\/create\/templates(?:\?|$)/);
+  await expect(
+    page.getByRole('tab', { name: 'Templates', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+});
+
 test('opens a native repository favorite and preserves exact tag aliases through reload and history', async ({
   page,
 }, testInfo) => {
@@ -97,7 +157,7 @@ test('opens a native repository favorite and preserves exact tag aliases through
     }
     await expect(add).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/content\/ee$/);
+    await expect(page).toHaveURL(/\/content\/ee\/images$/);
     await expect(remove).toBeVisible();
   }
   const favoritesOnly = page.getByRole('checkbox', { name: 'Favorites only' });
@@ -250,7 +310,8 @@ test('uses one favorite filter across the third results page and both inventory 
     await expect(
       page.getByRole('link', { name: name!, exact: true }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Grid view' }).click();
+    await page.getByRole('button', { name: 'Change image view' }).click();
+    await page.getByRole('menuitem', { name: 'Grid view' }).click();
     await expect(
       page.getByRole('link', { name: name!, exact: true }),
     ).toBeVisible();

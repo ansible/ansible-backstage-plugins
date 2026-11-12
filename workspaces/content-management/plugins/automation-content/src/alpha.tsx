@@ -3,6 +3,8 @@ import {
   createFrontendPlugin,
   createRouteRef,
   PageBlueprint,
+  PluginHeaderActionBlueprint,
+  SubPageBlueprint,
   type ExtensionDefinition,
   type FrontendPlugin,
 } from '@backstage/frontend-plugin-api';
@@ -19,7 +21,6 @@ import {
   eeCapabilityId,
   eeDetailsEntryId,
 } from './manifest';
-import { eeMessages } from './strings/en';
 
 const eeRouteRef = createRouteRef();
 
@@ -50,13 +51,32 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       params: {
         path: '/content/ee',
         routeRef: eeRouteRef,
-        title: eeMessages.pageTitle,
+        title: 'Execution Environments',
         icon: <RiBox3Line />,
+      },
+    }),
+    SubPageBlueprint.make({
+      name: 'images',
+      attachTo: { id: 'page:automation-content/ee', input: 'pages' },
+      params: {
+        path: 'images',
+        title: 'Images',
         loader: async () => {
           const { EEImagesPage } = await import(
             './components/ExecutionEnvironments/EEImagesPage'
           );
           return <EEImagesPage />;
+        },
+      },
+    }),
+    PluginHeaderActionBlueprint.make({
+      name: 'execution-environments',
+      params: {
+        loader: async () => {
+          const { EEHeaderActions } = await import(
+            './components/ExecutionEnvironments/EEHeaderActions'
+          );
+          return <EEHeaderActions />;
         },
       },
     }),
