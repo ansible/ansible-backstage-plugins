@@ -286,10 +286,12 @@ describe('ansible-aap:jobTemplate:launch', () => {
   }, 10000);
 
   it('rejects immediately from sleepMs when signal is aborted between loop check and sleep', async () => {
-    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
-      cb();
-      return {} as any;
-    });
+    const setTimeoutSpy = jest
+      .spyOn(global, 'setTimeout')
+      .mockImplementation((cb: any) => {
+        cb();
+        return {} as any;
+      });
 
     const launchResponse = {
       id: 60,
@@ -307,8 +309,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
     const mockSignal = {
       get aborted() {
         abortedAccessCount++;
-        // First access (handler pre-launch guard) returns false; second (sleepMs pre-abort check) returns true
-        return abortedAccessCount > 1;
+        // The handler and polling-loop checks pass; sleepMs sees the abort.
+        return abortedAccessCount >= 3;
       },
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
@@ -331,6 +333,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
       'mock-service-token',
     );
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    expect(abortedAccessCount).toBe(3);
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
 
     jest.restoreAllMocks();
   });

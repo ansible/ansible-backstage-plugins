@@ -52,6 +52,16 @@ describe('ansible-aap:cleanUp:launch', () => {
       'cleanUp',
       'Successfully removed data from RH AAP.',
     );
+    expect(mockAnsibleService.cleanUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project: expect.objectContaining({ id: MOCK_PROJECT.id }),
+        executionEnvironment: expect.objectContaining({
+          id: MOCK_EXECUTION_ENVIRONMENT.id,
+        }),
+        template: expect.objectContaining({ id: MOCK_JOB_TEMPLATE.id }),
+      }),
+      MOCK_TOKEN,
+    );
   });
 
   it('should fail with message', async () => {

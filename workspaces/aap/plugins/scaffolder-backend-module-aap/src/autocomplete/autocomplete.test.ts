@@ -210,6 +210,10 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('entities?filter='),
       expect.any(Object),
     );
+    const requestUrl = new URL(mockFetch.mock.calls.at(-1)?.[0] as string);
+    const decodedFilter = requestUrl.searchParams.get('filter');
+    expect(decodedFilter).toContain('kind=Component');
+    expect(decodedFilter).toContain('spec.type=ansible-collection');
     // 'collections' is resolved via the catalog (getCollections), not the
     // AAP Controller; it must never call either Controller-facing method.
     expect(
@@ -352,8 +356,8 @@ describe('ansible-aap:autocomplete', () => {
     mockAnsibleService.getResourceData.mockResolvedValue(mockOrganizations);
 
     const testContext = {
-      formField1: 'value1',
-      formField2: 'value2',
+      formField1: 'sensitive-form-value-1',
+      formField2: 'sensitive-form-value-2',
     };
 
     const response = await handleAutocompleteRequest({
@@ -367,10 +371,12 @@ describe('ansible-aap:autocomplete', () => {
       discovery: mockDiscoveryService,
     });
 
-    expect(logger.debug).not.toHaveBeenCalledWith(
-      expect.any(String),
-      testContext,
+    const loggerCalls = Object.values(logger).flatMap(method =>
+      jest.isMockFunction(method) ? method.mock.calls : [],
     );
+    const serializedLoggerCalls = JSON.stringify(loggerCalls);
+    expect(serializedLoggerCalls).not.toContain(testContext.formField1);
+    expect(serializedLoggerCalls).not.toContain(testContext.formField2);
     expect(response).toEqual(mockOrganizations);
   });
 
