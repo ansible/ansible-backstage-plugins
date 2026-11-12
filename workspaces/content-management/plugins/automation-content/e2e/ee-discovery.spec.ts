@@ -190,6 +190,10 @@ test('opens a native repository favorite and preserves exact tag aliases through
   await expect(stockStar).toBeVisible();
   try {
     await chooseTag(page, firstAlias);
+    const catalogCards = page.getByRole('heading', {
+      name: /^(About|Depends on components|Depends on resources)$/,
+    });
+    await expect(catalogCards).toHaveCount(0);
     const digest = page.locator('dd code').first();
     const initialDigest = await digest.textContent();
     expect(initialDigest).toBeTruthy();
@@ -218,6 +222,7 @@ test('opens a native repository favorite and preserves exact tag aliases through
     );
     await page.getByRole('tab', { name: 'All Content', exact: true }).click();
     await expect(page).toHaveURL(/[?&]section=contents/);
+    await expect(catalogCards).toHaveCount(0);
     await page.reload();
     await expect(
       page.getByRole('tab', { name: 'All Content', selected: true }),

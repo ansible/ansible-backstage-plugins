@@ -130,12 +130,12 @@ function renderEntity(
   });
 }
 
-it('mounts a validated image contribution beside accepted cards under the stock favorite header', async () => {
+it('mounts only the validated image contribution under the stock favorite header', async () => {
   await renderEntity();
-  expect(await screen.findByText('Existing overview card')).toBeInTheDocument();
   expect(
     await screen.findByText('Image contribution fixture'),
   ).toBeInTheDocument();
+  expect(screen.queryByText('Existing overview card')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Add to favorites' }));
   expect(
     await screen.findByRole('button', { name: 'Remove from favorites' }),
@@ -143,7 +143,7 @@ it('mounts a validated image contribution beside accepted cards under the stock 
 });
 
 it.each(['denied', 'disabled', 'malformed', 'provider absent'] as const)(
-  'keeps the stock overview usable when the image contribution is %s',
+  'shows the EE unavailable state when the image contribution is %s',
   async condition => {
     const loader = jest.fn(async () => <p>Image contribution fixture</p>);
     await renderEntity({
@@ -163,8 +163,8 @@ it.each(['denied', 'disabled', 'malformed', 'provider absent'] as const)(
       ),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText('Existing overview card'),
-    ).toBeInTheDocument();
+      screen.queryByText('Existing overview card'),
+    ).not.toBeInTheDocument();
     expect(loader).not.toHaveBeenCalled();
   },
 );
@@ -199,7 +199,7 @@ it('does not attach the image layout to an unrelated entity', async () => {
   expect(loader).not.toHaveBeenCalled();
 });
 
-it('keeps the favorite and existing cards usable when a detail import fails', async () => {
+it('keeps the favorite usable when a detail import fails', async () => {
   const loader = jest.fn(async () => {
     throw new Error('private module detail');
   });
@@ -215,7 +215,7 @@ it('keeps the favorite and existing cards usable when a detail import fails', as
   ).toBeInTheDocument();
   expect(loader).toHaveBeenCalled();
   expect(screen.queryByText('private module detail')).not.toBeInTheDocument();
-  expect(await screen.findByText('Existing overview card')).toBeInTheDocument();
+  expect(screen.queryByText('Existing overview card')).not.toBeInTheDocument();
   expect(
     screen.getByRole('button', { name: 'Add to favorites' }),
   ).toBeEnabled();

@@ -2,8 +2,7 @@ import { Component, Suspense, type ReactNode } from 'react';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { useTranslationRef } from '@backstage/frontend-plugin-api';
 import { useEntity } from '@backstage/plugin-catalog-react';
-import type { EntityContentLayoutProps } from '@backstage/plugin-catalog-react/alpha';
-import { Alert, Flex, Text } from '@backstage/ui';
+import { Alert, Text } from '@backstage/ui';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 import { useNativeEntityPage } from '@ansible/portal-extension-host/alpha';
 import { eeDetailsEntryId } from '../../manifest';
@@ -30,9 +29,7 @@ class EEContributionBoundary extends Component<
 // The stock Overview owns route selection. The Portal hook supplies eligible bodies.
 function selectStockOverview(): void {}
 
-export function EEEntityContent({
-  cards,
-}: EntityContentLayoutProps): JSX.Element {
+export function EEEntityContent(): JSX.Element {
   const { entity } = useEntity();
   const { t } = useTranslationRef(eeTranslationRef);
   const native = useNativeEntityPage(
@@ -60,12 +57,5 @@ export function EEEntityContent({
     body = loading;
   }
 
-  return (
-    <Flex direction="column" gap="4">
-      {body}
-      {cards.map(({ element }, index) => (
-        <div key={element.key ?? index}>{element}</div>
-      ))}
-    </Flex>
-  );
+  return body;
 }
