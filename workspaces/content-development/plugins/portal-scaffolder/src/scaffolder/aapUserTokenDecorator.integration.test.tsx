@@ -3,10 +3,12 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
-import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
+import {
+  createPortalContributionProvider,
+  createPortalScaffolderPlugin,
+} from '@ansible/portal-extension-host/alpha';
 import portalScaffolderPlugin from '../alpha';
 
 const portalHost = createFrontendPlugin({
@@ -49,7 +51,11 @@ async function submitTemplate(isAapTemplate: boolean) {
       : {}),
   });
   await renderTestApp({
-    features: [portalHost, scaffolderPlugin, portalScaffolderPlugin],
+    features: [
+      portalHost,
+      createPortalScaffolderPlugin(),
+      portalScaffolderPlugin,
+    ],
     initialRouteEntries: ['/create/templates/default/test-job'],
     apis: [
       mockApis.permission(),
