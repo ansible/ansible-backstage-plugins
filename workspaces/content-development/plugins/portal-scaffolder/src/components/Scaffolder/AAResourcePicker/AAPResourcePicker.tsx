@@ -295,7 +295,7 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
         const { results } = await scaffolderApi.autocomplete({
           token,
           resource,
-          provider: 'aap-api-cloud',
+          provider: 'aap-api',
           context: {},
         });
         if (!isCurrent) return;

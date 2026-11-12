@@ -1,3 +1,13 @@
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import { createServiceFactory } from '@backstage/backend-plugin-api';
+import {
+  userProvisionerRef,
+  UserProvisioner,
+} from '@ansible/backstage-rhaap-common';
+import { catalogModuleRhaap } from './module';
+import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
+
 /***/
 /**
  * The rhaap backend module for the catalog plugin.
@@ -5,17 +15,18 @@
  * @packageDocumentation
  */
 
-import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
-import { catalogModuleRhaap } from './module';
-
 export { catalogModuleRhaap };
 export * from './router';
 
-/** The catalog loader owns transitional AAP service registration for dynamic installs. */
 export default createBackendFeatureLoader({
-  loader: function* () {
+  loader: function* loader() {
     yield ansibleServiceFactory;
+    yield rhaapOrganizationServiceFactory;
+    yield createServiceFactory({
+      service: userProvisionerRef,
+      deps: {},
+      factory: () => new UserProvisioner(),
+    });
     yield catalogModuleRhaap;
   },
 });

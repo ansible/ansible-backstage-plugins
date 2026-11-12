@@ -1,1 +1,0 @@
-export { handleAutocompleteRequest } from './autocomplete';

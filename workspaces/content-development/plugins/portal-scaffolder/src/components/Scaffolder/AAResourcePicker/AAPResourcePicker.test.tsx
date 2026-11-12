@@ -274,7 +274,7 @@ describe('AAPResourcePicker', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
           token: 'test-token',
           resource: 'inventories',
-          provider: 'aap-api-cloud',
+          provider: 'aap-api',
           context: {},
         });
       });
@@ -351,7 +351,7 @@ describe('AAPResourcePicker', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
           token: 'test-token',
           resource: 'organizations',
-          provider: 'aap-api-cloud',
+          provider: 'aap-api',
           context: {},
         });
       });

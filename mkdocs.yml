@@ -81,7 +81,7 @@ nav:
           - backstage-rhaap-common: plugins/backstage-rhaap-common.md
           - catalog-backend-module-rhaap: plugins/catalog.md
           - catalog-backend-module-rhaap-user-provisioner: plugins/catalog-user-provisioner.md
-          - scaffolder-backend-module-backstage-rhaap: plugins/scaffolder.md
+          - scaffolder-backend-modules: plugins/scaffolder.md
       - APME:
           - backstage-apme: plugins/backstage-apme.md
           - backstage-apme-common: plugins/backstage-apme-common.md
