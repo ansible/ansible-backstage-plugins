@@ -1,4 +1,4 @@
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 
 export const mockAnsibleService: jest.Mocked<IAAPService> = {
   executePostRequest: jest.fn(),

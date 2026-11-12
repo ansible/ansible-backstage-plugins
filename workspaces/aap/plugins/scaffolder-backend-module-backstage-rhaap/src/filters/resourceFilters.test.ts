@@ -25,6 +25,10 @@ describe('ansible-aap:resourceFilters', () => {
     expect(result).toEqual(null);
   });
 
+  it('should return none when the requested resource field is missing', () => {
+    expect(resourceFilter({})).toBeNull();
+  });
+
   it('should return multiple resource id', () => {
     const result = multiResourceFilter(...[multiTestData]);
     expect(result).toEqual([1, 2, 3]);
@@ -33,5 +37,13 @@ describe('ansible-aap:resourceFilters', () => {
   it('should return multiple resource name', () => {
     const result = multiResourceFilter(...[multiTestData, 'name']);
     expect(result).toEqual(['testName one', 'testName two', 'testName three']);
+  });
+
+  it('should return none when the resource list is not an array', () => {
+    expect(multiResourceFilter({ id: 1 })).toBeNull();
+  });
+
+  it('should return none when no resource list is provided', () => {
+    expect(multiResourceFilter()).toBeNull();
   });
 });
