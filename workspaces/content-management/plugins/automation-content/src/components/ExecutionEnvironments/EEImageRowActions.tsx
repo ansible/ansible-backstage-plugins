@@ -58,7 +58,7 @@ export function EEImageRowActions({
                   void sync.run();
                 }}
               >
-                {t('sync.repository')}
+                {t('sync.repositoryMenu')}
               </MenuItem>
             )}
           </Menu>

@@ -134,6 +134,7 @@ export const eeMessages = {
     inventory: 'Refresh inventory',
     registries: 'Sync registries',
     repository: 'Refresh repository',
+    repositoryMenu: 'Sync',
     pending: 'Request in progress',
     scheduled: 'Refresh scheduled. Reload results after synchronization.',
     completed:
