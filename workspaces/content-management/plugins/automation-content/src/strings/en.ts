@@ -121,7 +121,7 @@ export const eeMessages = {
     signed: 'Signed',
     'not-signed': 'Not signed',
     undetermined: 'Undetermined',
-    evidence: 'Signing Evidence',
+    evidence: 'Signing evidence',
     unavailable: 'No signing observation is available.',
     mechanisms: {
       'oci-referrers': 'OCI referrers',

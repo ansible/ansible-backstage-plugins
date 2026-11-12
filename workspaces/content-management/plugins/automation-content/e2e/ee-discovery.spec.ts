@@ -210,7 +210,7 @@ test('opens an image repository and preserves exact tag aliases through reload a
   expect(facts[0]).toBe('Image');
   expect(
     facts.slice(facts.indexOf('Signing'), facts.indexOf('Signing') + 2),
-  ).toEqual(['Signing', 'Signing Evidence']);
+  ).toEqual(['Signing', 'Signing evidence']);
   await expect(overview.getByText(/^Signature:/)).toHaveCount(0);
   await scan(
     page,
