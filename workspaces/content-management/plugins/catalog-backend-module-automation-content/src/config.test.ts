@@ -7,7 +7,7 @@ import { readRegistryConfigs, registryUrlError } from './config';
 // never reach a published bundle. The deep import resolves to the same
 // transformed source every other import of this package uses.
 // eslint-disable-next-line @backstage/no-forbidden-package-imports
-import { generateTlsTestFixtures } from '@ansible/automation-content-common/src/testing/tlsCertificates';
+import { generateTlsTestFixtures } from '@ansible/automation-content-common/testing-tls';
 
 const FIXTURES = generateTlsTestFixtures();
 const directories: string[] = [];

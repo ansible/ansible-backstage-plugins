@@ -41,6 +41,7 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
+    "@ansible/automation-content-common": "workspace:^",
     "@backstage/integration": "^2.0.0",
     "@backstage/plugin-permission-common": "^0.9.7"
   },
