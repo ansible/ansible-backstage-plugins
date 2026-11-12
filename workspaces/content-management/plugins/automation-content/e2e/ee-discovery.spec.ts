@@ -203,7 +203,7 @@ test('opens a native repository favorite and preserves exact tag aliases through
       .grantPermissions(['clipboard-read', 'clipboard-write']);
     await page
       .getByRole('button', { name: 'Copy pull reference' })
-      .press('Enter');
+      .click({ timeout: 5000 });
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
       .toMatch(new RegExp(`:${secondAlias}$`));

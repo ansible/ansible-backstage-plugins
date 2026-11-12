@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { eeRouteRef } from '../../routes';
 import { eeTranslationRef } from '../../strings/en';
 import { RepositoryFavoriteButton } from './RepositoryFavoriteButton';
+import styles from './EERepositoryHeader.module.css';
 
 export function EERepositoryHeader({
   tabs,
@@ -24,6 +25,7 @@ export function EERepositoryHeader({
   const header = (
     <BreadcrumbEntry entry={{ label: title, href: pathname }}>
       <Header
+        className={styles.header}
         title={title}
         tabs={tabs.length > 1 ? tabs : undefined}
         activeTabId={activeTabId}
