@@ -16,6 +16,7 @@ import {
   createRouter,
   RECONCILE_FAILURE_SUMMARY,
   STORE_REFRESH_TASK_ID,
+  registryRefreshTaskId,
 } from './router';
 import {
   mockCredentials,
@@ -1369,27 +1370,74 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
-  it('keeps the detailed cause on the per-registry sync response', async () => {
+  it('triggers a scheduled registry refresh and returns 202', async () => {
     info.mockClear();
-    const index = await indexWithFailedReconcile();
-    // A live sync of the same registry fails with a detailed cause, the way
-    // a TLS rejection would: the caller explicitly asked for the refresh, so
-    // the response must carry it.
-    const clients = (
-      index as unknown as { clients: Map<string, { fetchImpl: unknown }> }
-    ).clients;
-    (clients.get('corporate') as unknown as { fetchImpl: unknown }).fetchImpl =
-      () => Promise.reject(new Error('fetch failed: certificate has expired'));
+    const db = await indexWithFailedReconcile();
+    const refreshRegistry = jest.spyOn(db, 'refreshRegistry');
+    const triggered: string[] = [];
+    const scheduler = stubScheduler({
+      triggerTask: async (id: string) => {
+        triggered.push(id);
+      },
+    });
 
-    const res = await request(await appWith(index)).post(
-      '/registries/corporate/sync',
-    );
+    const res = await request(
+      await appWith(db, undefined, true, undefined, scheduler),
+    ).post('/registries/corporate/sync');
 
     expect(res.status).toBe(202);
-    expect(res.body.status).toBe('failed');
-    expect(res.body.error).toContain('certificate has expired');
-    expect(info).toHaveBeenCalledWith('sync corporate: 0 artifacts, ok=false');
-    expect(inspect(info.mock.calls)).not.toContain('certificate has expired');
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBe(registryRefreshTaskId('corporate'));
+    expect(res.body.triggeredAt).toBeDefined();
+    expect(triggered).toEqual([registryRefreshTaskId('corporate')]);
+    expect(refreshRegistry).not.toHaveBeenCalled();
+    expect(res.body.error).toBeUndefined();
+    expect(info).toHaveBeenCalledWith(
+      "manual sync triggered for registry 'corporate'",
+    );
+    expect(inspect(info.mock.calls)).not.toContain('altnames');
+    refreshRegistry.mockRestore();
+  });
+
+  it('cancels a running registry refresh before triggering a new one', async () => {
+    const db = await indexWithFailedReconcile();
+    const calls: string[] = [];
+    const scheduler = stubScheduler({
+      cancelTask: async (id: string) => {
+        calls.push(`cancel:${id}`);
+      },
+      triggerTask: async (id: string) => {
+        calls.push(`trigger:${id}`);
+      },
+    });
+
+    await request(
+      await appWith(db, undefined, true, undefined, scheduler),
+    ).post('/registries/corporate/sync');
+
+    expect(calls).toEqual([
+      `cancel:${registryRefreshTaskId('corporate')}`,
+      `trigger:${registryRefreshTaskId('corporate')}`,
+    ]);
+  });
+
+  it('returns 409 when the registry refresh task cannot be triggered', async () => {
+    const db = await indexWithFailedReconcile();
+    const scheduler = stubScheduler({
+      triggerTask: async () => {
+        const err = new Error('Conflict');
+        err.name = 'ConflictError';
+        throw err;
+      },
+    });
+
+    const res = await request(
+      await appWith(db, undefined, true, undefined, scheduler),
+    ).post('/registries/corporate/sync');
+
+    expect(res.status).toBe(409);
+    expect(res.body.status).toBe('conflict');
+    expect(res.body.taskId).toBe(registryRefreshTaskId('corporate'));
   });
 
   it('triggers a scheduled refresh and returns 202', async () => {

@@ -66,11 +66,20 @@ describe('App', () => {
       '/automation-content/execution-environments/registry%2Fdemo%40sha256%3A123',
       '/content/ee/registry%2Fdemo%40sha256%3A123',
     ],
-  ])('preserves query/hash with replace at %s', async (path, destination) => {
-    window.history.replaceState({}, '', `${path}?tag=latest%20tag#details`);
-    render(<App />);
-    const target = await screen.findByTestId('destination');
-    expect(target.textContent).toBe(`${destination}?tag=latest%20tag#details`);
-    expect(target.getAttribute('data-navigation')).toBe('REPLACE');
-  });
+  ])(
+    'preserves query/hash with replace at %s',
+    async (path, destination) => {
+      window.history.replaceState({}, '', `${path}?tag=latest%20tag#details`);
+      render(<App />);
+      const target = await screen.findByTestId('destination');
+      expect(target.textContent).toBe(
+        `${destination}?tag=latest%20tag#details`,
+      );
+      expect(target.getAttribute('data-navigation')).toBe('REPLACE');
+    },
+    // Each case renders the full App and the automation-content plugin's
+    // real module graph; under CI contention that can exceed Jest's 5s
+    // default (observed 2026-11-12, run 43251557133).
+    30000,
+  );
 });

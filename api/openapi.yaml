@@ -2984,10 +2984,12 @@ paths:
       tags: [Automation Content Registries]
       security:
         - JWT: []
-      summary: Trigger discovery for one registry
+      summary: Trigger a background refresh of one registry
       description: |
-        Deliberate manual discovery requiring a user identity and
-        ansible.content.sync. Anonymous and service-only callers cannot sync.
+        Cancels any in-progress refresh for the named registry and triggers
+        its scheduled task. Returns immediately with task metadata; the
+        actual discovery runs in the background. Requires a user identity and
+        ansible.content.sync; anonymous and service-only callers cannot sync.
       parameters:
         - name: name
           in: path
@@ -2999,29 +3001,27 @@ paths:
         '403':
           description: Insufficient permissions
         '202':
-          description: Sync started
+          description: Refresh task scheduled successfully.
           content:
             application/json:
               schema:
-                type: object
-                required: [status, discovered, retainedPrevious]
-                properties:
-                  status: { type: string, enum: [completed, failed] }
-                  discovered: { type: integer }
-                  retainedPrevious:
-                    type: boolean
-                    description: Whether a failed sync retained the previous index.
-                  lastReconciledAt:
-                    type: string
-                    format: date-time
-                  error:
-                    type: string
-                    description: Detailed failure cause, credentials redacted; this route requires authentication.
+                $ref: '#/components/schemas/ContentSyncTriggerResponse'
         '404':
           description: No such registry
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '409':
+          description: A refresh is already in progress for this registry.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, message, taskId]
+                properties:
+                  status: { type: string, enum: [conflict] }
+                  message: { type: string }
+                  taskId: { type: string }
 
   /content:
     servers:

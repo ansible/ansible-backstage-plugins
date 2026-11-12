@@ -6,7 +6,11 @@ import {
 import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { ContentStore } from './ContentStore';
-import { createRouter, STORE_REFRESH_TASK_ID } from './router';
+import {
+  createRouter,
+  STORE_REFRESH_TASK_ID,
+  registryRefreshTaskId,
+} from './router';
 
 const migrationsDir = resolvePackagePath(
   '@ansible/plugin-automation-content-backend',
@@ -49,7 +53,8 @@ export const automationContentPlugin = createBackendPlugin({
             directory: migrationsDir,
           });
         }
-        const registries = readRegistryConfigs(config).map(r => r.connection);
+        const registryEntries = readRegistryConfigs(config);
+        const registries = registryEntries.map(r => r.connection);
 
         const loggerAdapter = {
           info: (m: string) => logger.info(m),
@@ -83,7 +88,7 @@ export const automationContentPlugin = createBackendPlugin({
         // is invisible for up to a full refresh interval.
         await scheduler.scheduleTask({
           id: 'content-management-drift-poll',
-          frequency: { seconds: 120 },
+          frequency: { hours: 2 },
           timeout: { minutes: 5 },
           initialDelay: { seconds: 45 },
           fn: async () => {
@@ -103,9 +108,9 @@ export const automationContentPlugin = createBackendPlugin({
 
         await scheduler.scheduleTask({
           id: STORE_REFRESH_TASK_ID,
-          frequency: { minutes: 30 },
+          frequency: { hours: 24 },
           timeout: { minutes: 10 },
-          initialDelay: { seconds: 3 },
+          initialDelay: { seconds: 30 },
           fn: async () => {
             const { artifacts, items } = await store.refreshAll();
             logger.info(
@@ -113,6 +118,21 @@ export const automationContentPlugin = createBackendPlugin({
             );
           },
         });
+
+        for (const { connection, schedule } of registryEntries) {
+          await scheduler.scheduleTask({
+            id: registryRefreshTaskId(connection.name),
+            frequency: schedule.frequency,
+            timeout: schedule.timeout,
+            initialDelay: schedule.initialDelay ?? { seconds: 30 },
+            fn: async () => {
+              const result = await store.refreshRegistry(connection.name);
+              logger.info(
+                `registry '${connection.name}' refreshed: ${result.discovered} artifacts, ok=${result.ok}`,
+              );
+            },
+          });
+        }
       },
     });
   },
