@@ -343,6 +343,8 @@ __metadata:
     "@backstage/plugin-catalog-common": "npm:1.1.10"
     "@backstage/plugin-catalog-node": "npm:2.2.4"
     "@backstage/plugin-permission-common": "npm:0.9.10"
+    "@backstage/plugin-scaffolder-backend": "npm:4.1.0"
+    "@backstage/plugin-scaffolder-node": "npm:0.13.6"
     "@backstage/plugin-signals-node": "npm:0.2.4"
     "@backstage/types": "npm:1.2.2"
     "@types/express": "npm:^5.0.3"

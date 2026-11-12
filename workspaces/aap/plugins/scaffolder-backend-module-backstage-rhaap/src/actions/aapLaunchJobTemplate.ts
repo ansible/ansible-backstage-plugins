@@ -140,7 +140,7 @@ export const launchJobTemplate = (
         logger,
         signal,
       } = ctx;
-      if (!token?.length) {
+      if (typeof token !== 'string' || token.trim().length === 0) {
         const error = new Error('Authorization token not provided.');
         error.stack = '';
         throw error;
