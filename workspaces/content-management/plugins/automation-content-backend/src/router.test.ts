@@ -11,6 +11,7 @@ import {
   createRouter,
   RECONCILE_FAILURE_SUMMARY,
   STORE_REFRESH_TASK_ID,
+  registryRefreshTaskId,
 } from './router';
 
 const logger = {
@@ -425,21 +426,65 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(body).not.toContain('10.1.2.3');
   });
 
-  it('keeps the detailed cause on the per-registry sync response', async () => {
-    const db = dbWithFailedReconcile({
-      refreshRegistry: async () => ({
-        discovered: 0,
-        ok: false,
-        error: 'fetch failed: certificate has expired',
-      }),
+  it('triggers a scheduled registry refresh and returns 202', async () => {
+    const db = dbWithFailedReconcile();
+    const triggered: string[] = [];
+    const scheduler = stubScheduler({
+      triggerTask: async (id: string) => {
+        triggered.push(id);
+      },
     });
-    const res = await request(await appWith(db)).post(
+
+    const res = await request(await appWith(db, scheduler)).post(
       '/registries/corporate/sync',
     );
 
     expect(res.status).toBe(202);
-    expect(res.body.status).toBe('failed');
-    expect(res.body.error).toContain('certificate has expired');
+    expect(res.body.status).toBe('scheduled');
+    expect(res.body.taskId).toBe(registryRefreshTaskId('corporate'));
+    expect(res.body.triggeredAt).toBeDefined();
+    expect(triggered).toEqual([registryRefreshTaskId('corporate')]);
+  });
+
+  it('cancels a running registry refresh before triggering a new one', async () => {
+    const db = dbWithFailedReconcile();
+    const calls: string[] = [];
+    const scheduler = stubScheduler({
+      cancelTask: async (id: string) => {
+        calls.push(`cancel:${id}`);
+      },
+      triggerTask: async (id: string) => {
+        calls.push(`trigger:${id}`);
+      },
+    });
+
+    await request(await appWith(db, scheduler)).post(
+      '/registries/corporate/sync',
+    );
+
+    expect(calls).toEqual([
+      `cancel:${registryRefreshTaskId('corporate')}`,
+      `trigger:${registryRefreshTaskId('corporate')}`,
+    ]);
+  });
+
+  it('returns 409 when the registry refresh task cannot be triggered', async () => {
+    const db = dbWithFailedReconcile();
+    const scheduler = stubScheduler({
+      triggerTask: async () => {
+        const err = new Error('Conflict');
+        err.name = 'ConflictError';
+        throw err;
+      },
+    });
+
+    const res = await request(await appWith(db, scheduler)).post(
+      '/registries/corporate/sync',
+    );
+
+    expect(res.status).toBe(409);
+    expect(res.body.status).toBe('conflict');
+    expect(res.body.taskId).toBe(registryRefreshTaskId('corporate'));
   });
 
   it('triggers a scheduled refresh and returns 202', async () => {

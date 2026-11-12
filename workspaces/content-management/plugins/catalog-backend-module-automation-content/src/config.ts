@@ -1,5 +1,8 @@
 import { Config } from '@backstage/config';
-import { SchedulerServiceTaskScheduleDefinition } from '@backstage/backend-plugin-api';
+import {
+  SchedulerServiceTaskScheduleDefinition,
+  readSchedulerServiceTaskScheduleDefinitionFromConfig,
+} from '@backstage/backend-plugin-api';
 import { readFileSync } from 'node:fs';
 import { X509Certificate } from 'node:crypto';
 import { RegistryConnection } from '@ansible/automation-content-common';
@@ -12,9 +15,9 @@ export interface RegistryProviderEntry {
 }
 
 const DEFAULT_SCHEDULE: SchedulerServiceTaskScheduleDefinition = {
-  frequency: { minutes: 30 },
+  frequency: { hours: 1 },
   timeout: { minutes: 10 },
-  initialDelay: { seconds: 5 },
+  initialDelay: { seconds: 45 },
 };
 
 /**
@@ -142,7 +145,11 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
           'rewriteAuthRealmHost',
         ),
       },
-      schedule: DEFAULT_SCHEDULE,
+      schedule: registry.has('schedule')
+        ? readSchedulerServiceTaskScheduleDefinitionFromConfig(
+            registry.getConfig('schedule'),
+          )
+        : DEFAULT_SCHEDULE,
       owner:
         registry.getOptionalString('owner') ??
         providers.getOptionalString('owner'),
