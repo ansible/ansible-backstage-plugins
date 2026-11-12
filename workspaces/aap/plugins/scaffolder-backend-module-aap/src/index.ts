@@ -17,4 +17,4 @@ export {
   uuidFilter,
 } from './filters';
 
-export { scaffolderModuleAap } from './module';
+export { scaffolderModuleAap, scaffolderModuleAap as default } from './module';
