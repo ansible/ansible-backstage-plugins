@@ -751,6 +751,40 @@ its own recurring cost: support load, workarounds, and users going around the
 product. The comparison is always between two carrying costs, never between
 "some custom UI" and "no custom UI".
 
+**Not all custom carries the same way.** A custom component is one of two kinds,
+and the kind decides whether it belongs in a budget or in a queue.
+
+- **Domain custom** — the component exists because of what the product does: a
+  dialog that pushes an image to Controller, a renderer for a Builder definition
+  file, a signing verdict. No platform will ever ship these, and no amount of
+  upstream work retires them. Budget them, and judge them on quality rather than
+  on count.
+- **Platform-gap custom** — the component exists because the surface we need
+  cannot be expressed yet: a page header, a column set, a status tone, an empty
+  state. It would be equally custom for a Kubernetes catalogue. It is a
+  temporary cost, and its measure is not lines but the issue that removes it.
+
+**The substitution test decides which.** Swap the domain: if the component would
+still exist, unchanged, on a different domain's page, it is a platform gap. If
+it would become meaningless, it is domain custom. The test is cheap, needs no
+tooling, and separates two things a line count reports identically.
+
+The split changes what a record asks for. Platform-gap custom needs a recorded
+deletion trigger — the `upstream_issue` that makes the code removable (`4.1`) —
+and its carrying cost should fall over time. Domain custom needs only a
+`justification`, and its carrying cost should stay. Without the split, both read
+as "custom", a large diff looks uniformly expensive, and the conclusion is that
+the platform cannot serve the domain — which is the opposite of what a gap
+means.
+
+**A gap is evidence about the host, not about the domain.** Every platform-gap
+component says the host cannot yet be composed into a different product. That is
+worth filing as such, with the consumer named. A host that expects to be branded
+by other products needs page-level seams, not only primitives, and this list is
+the measurement of which seams are missing. One issue per gap, naming every
+consumer that hit it, is a stronger argument than the same request filed
+piecemeal by each team.
+
 **Browsing starts you low.** The Backstage UI storybook is the only rendered
 catalogue upstream publishes, and it is a catalogue of parts: components, layout
 primitives, home-page widgets, search parts, and three stories under `Recipes/`
@@ -1131,7 +1165,8 @@ the case it came from.
 | `reversal_cost`        | what removing it later costs: routes, nav items, links, habits                                               | gate 1     |
 | `gap`                  | wiring, slot or primitive, or none                                                                           | gate 2     |
 | `filing_stream`        | Backstage upstream, the RHDH product stream, or the Automation portal                                        | gate 2     |
-| `upstream_issue`       | the issue that makes a workaround deletable, or none                                                         | gate 2     |
+| `custom_kind`          | domain or platform gap, decided by the substitution test (`2.2`)                                             | gate 3     |
+| `upstream_issue`       | the issue whose landing removes platform-gap custom; `none` for domain custom                                | gate 2     |
 | `justification`        | one sentence, wherever a level was skipped or a component written                                            | gates 1–3  |
 
 When the levels disagree — a contribution into someone else's page that carries
