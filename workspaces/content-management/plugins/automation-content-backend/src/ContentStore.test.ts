@@ -102,6 +102,11 @@ describe('EE repository projection', () => {
         [connection(), otherRegistry],
         db as never,
         silent,
+        undefined,
+        new Map([
+          ['mock', 'group:default/platform'],
+          ['second', 'group:default/automation'],
+        ]),
       );
       const insert = (
         repository: string,
@@ -109,6 +114,7 @@ describe('EE repository projection', () => {
         tags: string[],
         registry = 'mock',
         type = 'execution-environment',
+        manifest: string | null = null,
       ) => {
         const digest = `sha256:${String(index).padStart(64, '0')}`;
         return {
@@ -120,13 +126,17 @@ describe('EE repository projection', () => {
           pull_reference: `mock.registry/${repository}@${digest}`,
           type,
           classification: '{}',
+          manifest,
         };
       };
       const rows = Array.from({ length: 22 }, (_, i) =>
         insert(`team/image-${String(i).padStart(2, '0')}`, i, ['release']),
       );
       rows.push(
-        insert('team/image-21', 24, ['v2', 'v2-alias']),
+        {
+          ...insert('team/image-21', 24, ['v2', 'v2-alias', 'latest']),
+          manifest: JSON.stringify({ collections: [{ name: 'example' }] }),
+        },
         insert('team/image-21', 25, ['ordinary-only'], 'mock', 'oci-image'),
         insert('team/image-21', 26, ['release'], 'second'),
         insert('team/tagless', 27, []),
@@ -149,8 +159,30 @@ describe('EE repository projection', () => {
       expect(favorite.items[0]).toMatchObject({
         registry: 'mock',
         repository: 'team/image-21',
-        tagCount: 3,
+        tagCount: 4,
+        collectionCount: 1,
       });
+      expect(first.facets).toEqual({
+        tags: ['latest', 'release', 'v2', 'v2-alias'],
+        owners: ['group:default/automation', 'group:default/platform'],
+        totalImages: 24,
+      });
+      const filtered = await store.queryEERepositories({
+        tag: 'v2-alias',
+        owner: 'group:default/platform',
+        latestOnly: true,
+      });
+      expect(filtered.totalItems).toBe(1);
+      expect(filtered.items[0].repository).toBe('team/image-21');
+      expect(filtered.facets).toEqual(first.facets);
+      expect(
+        (
+          await store.queryEERepositories({
+            tag: 'v2-alias',
+            owner: 'group:default/automation',
+          })
+        ).totalItems,
+      ).toBe(0);
       expect(
         (await store.queryEERepositories({ query: 'ordinary-only' }))
           .totalItems,

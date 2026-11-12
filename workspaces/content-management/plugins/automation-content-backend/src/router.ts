@@ -84,6 +84,9 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
     pageSize,
     query,
     registry,
+    tag,
+    latestOnly,
+    owner,
     sort,
     order,
     favoriteEntityRefs,
@@ -99,6 +102,11 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
       (typeof query === 'string' && query.length <= 256)) &&
     (registry === undefined ||
       (typeof registry === 'string' && registry.length > 0)) &&
+    (tag === undefined ||
+      (typeof tag === 'string' && tag.length > 0 && tag.length <= 128)) &&
+    (owner === undefined ||
+      (typeof owner === 'string' && owner.length > 0 && owner.length <= 256)) &&
+    (latestOnly === undefined || typeof latestOnly === 'boolean') &&
     (sort === undefined ||
       ['repository', 'registry', 'lastSuccessfulReconcileAt'].some(
         key => key === sort,

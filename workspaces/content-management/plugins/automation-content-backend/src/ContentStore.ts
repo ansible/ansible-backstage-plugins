@@ -361,6 +361,7 @@ export class ContentStore {
       debug(m: string): void;
     },
     private readonly contentTypes?: ContentTypeRegistry,
+    private readonly registryOwners?: ReadonlyMap<string, string | undefined>,
   ) {
     this.db = db;
     this.redactor = redactorForConnections(connections);
@@ -544,7 +545,7 @@ export class ContentStore {
       query.favoriteEntityRefs && new Set(query.favoriteEntityRefs);
     const needle = query.query?.trim().toLowerCase();
     const groups = new Map<string, RepositoryArtifact[]>();
-    for (const artifact of await this.repositoryArtifacts(query.registry)) {
+    for (const artifact of await this.repositoryArtifacts()) {
       const key = JSON.stringify([artifact.registry, artifact.repository]);
       const group = groups.get(key);
       if (group) group.push(artifact);
@@ -552,15 +553,27 @@ export class ContentStore {
     }
 
     const summaries: EERepositorySummary[] = [];
+    const availableTags = new Set<string>();
+    const availableOwners = new Set<string>();
     for (const artifacts of groups.values()) {
       const { registry, repository } = artifacts[0];
       const entityRef = eeRepositoryEntityRef(registry, repository);
-      if (favorites && !favorites.has(entityRef)) continue;
       const { representative, representativeTag, tags } =
         repositoryVersions(artifacts);
+      const owner = this.redactor.redact(
+        this.registryOwners?.get(registry) ?? 'unknown',
+      );
+      const tagNames = tags.map(({ tag }) => tag);
+      availableOwners.add(owner);
+      tagNames.forEach(tag => availableTags.add(tag));
+      if (favorites && !favorites.has(entityRef)) continue;
+      if (query.registry !== undefined && query.registry !== registry) continue;
+      if (query.owner !== undefined && query.owner !== owner) continue;
+      if (query.tag !== undefined && !tagNames.includes(query.tag)) continue;
+      if (query.latestOnly && !tagNames.includes('latest')) continue;
       if (
         needle &&
-        ![registry, repository, ...tags.map(({ tag }) => tag)].some(value =>
+        ![registry, repository, ...tagNames].some(value =>
           value.toLowerCase().includes(needle),
         )
       ) {
@@ -600,11 +613,33 @@ export class ContentStore {
       );
     });
     const offset = (page - 1) * pageSize;
+    const items = summaries.slice(offset, offset + pageSize);
+    const manifests = await this.db('artifacts')
+      .whereIn(
+        'ref',
+        items.map(item => item.representativeRef),
+      )
+      .whereNotNull('manifest')
+      .select('ref', 'manifest');
+    const collectionCounts = new Map(
+      manifests.map(row => {
+        const manifest: AnsibleContentManifest = JSON.parse(row.manifest);
+        return [row.ref, manifest.collections?.length ?? 0] as const;
+      }),
+    );
     return {
       page,
       pageSize,
       totalItems: summaries.length,
-      items: summaries.slice(offset, offset + pageSize),
+      items: items.map(item => ({
+        ...item,
+        collectionCount: collectionCounts.get(item.representativeRef),
+      })),
+      facets: {
+        tags: Array.from(availableTags).sort(compareText),
+        owners: Array.from(availableOwners).sort(compareText),
+        totalImages: groups.size,
+      },
     };
   }
 

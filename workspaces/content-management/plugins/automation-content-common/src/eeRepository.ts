@@ -20,6 +20,9 @@ export interface EERepositoryQuery {
   pageSize?: 10 | 20 | 50;
   query?: string;
   registry?: string;
+  tag?: string;
+  latestOnly?: boolean;
+  owner?: string;
   sort?: 'repository' | 'registry' | 'lastSuccessfulReconcileAt';
   order?: 'asc' | 'desc';
   favoriteEntityRefs?: readonly string[];
@@ -32,6 +35,7 @@ export interface EERepositorySummary extends EERepositoryIdentity {
   representativeRef: string;
   representativeTag?: string;
   tagCount: number;
+  collectionCount?: number;
   signingState?: EESigningState;
   lastSuccessfulReconcileAt?: string;
 }
@@ -41,6 +45,8 @@ export interface EERepositoryQueryResult {
   page: number;
   pageSize: number;
   totalItems: number;
+  /** Facets from the whole inventory before filtering or pagination. */
+  facets?: { tags: string[]; owners: string[]; totalImages: number };
 }
 
 export interface EERepositoryDigest {

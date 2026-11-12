@@ -68,8 +68,7 @@ export const automationContentPlugin = createBackendPlugin({
             directory: migrationsDir,
           });
         }
-        const registryEntries = readRegistryConfigs(config);
-        const registries = registryEntries.map(r => r.connection);
+        const registries = readRegistryConfigs(config);
 
         const loggerAdapter = {
           info: (m: string) => logger.info(m),
@@ -77,10 +76,13 @@ export const automationContentPlugin = createBackendPlugin({
           debug: (m: string) => logger.debug(m),
         };
         const store = new ContentStore(
-          registries,
+          registries.map(({ connection }) => connection),
           knex as any,
           loggerAdapter,
           defaultContentTypes(),
+          new Map(
+            registries.map(({ connection, owner }) => [connection.name, owner]),
+          ),
         );
 
         const scheduler = createContentScheduler({
@@ -194,7 +196,7 @@ export const automationContentPlugin = createBackendPlugin({
           },
         });
 
-        for (const { connection, schedule } of registryEntries) {
+        for (const { connection, schedule } of registries) {
           await scheduler.scheduleTask({
             id: registryRefreshTaskId(connection.name),
             frequency: schedule.frequency,

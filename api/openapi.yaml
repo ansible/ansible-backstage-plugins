@@ -370,6 +370,11 @@ components:
         pageSize: { type: integer, enum: [10, 20, 50], default: 10 }
         query: { type: string, maxLength: 256 }
         registry: { type: string }
+        tag: { type: string, minLength: 1, maxLength: 128 }
+        latestOnly:
+          type: boolean
+          description: Select repositories with a literal latest tag.
+        owner: { type: string, minLength: 1, maxLength: 256 }
         sort: { type: string, enum: [repository, registry, lastSuccessfulReconcileAt] }
         order: { type: string, enum: [asc, desc] }
         favoriteEntityRefs:
@@ -391,6 +396,10 @@ components:
         representativeRef: { type: string }
         representativeTag: { type: string }
         tagCount: { type: integer, minimum: 0 }
+        collectionCount:
+          type: integer
+          minimum: 0
+          description: Indexed collection count for the representative digest. Omitted when its contents are unknown.
         signingState: { type: string, enum: [signed, not-signed, undetermined] }
         lastSuccessfulReconcileAt: { type: string, format: date-time }
 
@@ -404,6 +413,18 @@ components:
         page: { type: integer, minimum: 1 }
         pageSize: { type: integer, enum: [10, 20, 50] }
         totalItems: { type: integer, minimum: 0 }
+        facets:
+          type: object
+          description: Available filter values and count for the full, unfiltered inventory.
+          required: [tags, owners, totalImages]
+          properties:
+            tags:
+              type: array
+              items: { type: string }
+            owners:
+              type: array
+              items: { type: string }
+            totalImages: { type: integer, minimum: 0 }
 
     EERepositoryDetails:
       type: object
