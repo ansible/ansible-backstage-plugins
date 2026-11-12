@@ -140,6 +140,7 @@ test('opens a native repository favorite and preserves exact tag aliases through
     .filter({ has: page.getByRole('link', { name: repository, exact: true }) });
   const image = row.getByRole('link', { name: repository, exact: true });
   await expect(image).toBeVisible();
+  await expect(image).toHaveCSS('text-decoration-line', 'underline');
   const add = row.getByRole('button', {
     name: `Add ${repository} to favorites`,
   });

@@ -255,7 +255,12 @@ function EEInventory(): JSX.Element {
     : t('inventory.catalogMissing');
   const titleFor = (row: ImageRow) =>
     canOpen(row) ? (
-      <Link href={entityLink(row.entityRef)}>{row.repository}</Link>
+      <Link
+        href={entityLink(row.entityRef)}
+        style={{ textDecorationLine: 'underline' }}
+      >
+        {row.repository}
+      </Link>
     ) : (
       <Text>{row.repository}</Text>
     );
