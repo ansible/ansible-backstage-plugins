@@ -14,5 +14,15 @@
  * limitations under the License.
  */
 
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { scaffolderModuleAnsible } from './module';
+
 export * from './actions';
-export { scaffolderModuleAnsible as default } from './module';
+export { scaffolderModuleAnsible };
+
+/** Load the scaffolder module; the catalog loader or host provides the AAP service. */
+export default createBackendFeatureLoader({
+  loader: function* () {
+    yield scaffolderModuleAnsible;
+  },
+});

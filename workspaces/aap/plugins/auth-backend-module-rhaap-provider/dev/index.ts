@@ -1,7 +1,9 @@
 import { createBackend } from '@backstage/backend-defaults';
+import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 
 const backend = createBackend();
 
+backend.add(ansibleServiceFactory);
 backend.add(import('@backstage/plugin-auth-backend'));
 backend.add(import('../src'));
 
