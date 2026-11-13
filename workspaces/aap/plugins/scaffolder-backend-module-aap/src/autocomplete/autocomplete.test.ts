@@ -3,7 +3,7 @@ import { handleAutocompleteRequest } from './autocomplete';
 import { clearCollectionsCache } from './utils';
 import { mockAnsibleService } from '../actions/mockIAAPService';
 import { mockServices } from '@backstage/backend-test-utils';
-import { MOCK_TOKEN } from '../mock';
+import { MOCK_TOKEN } from '../mockFixtures.test';
 import {
   InputError,
   NotAllowedError,
@@ -121,6 +121,67 @@ describe('ansible-aap:autocomplete', () => {
     expect(response).toEqual(mockOrganizations);
   });
 
+  it.each([
+    'credentials',
+    'execution_environments',
+    'execution_environments:123',
+    'instance_groups',
+    'inventories',
+    'job_templates',
+    'labels',
+    'organizations',
+    'projects',
+    'skip_tags',
+    'tags',
+  ])('allows supported AAP resource %s', async resource => {
+    const resources = { results: [] };
+    mockAnsibleService.getResourceData.mockResolvedValue(resources);
+
+    await expect(
+      handleAutocompleteRequest({
+        resource,
+        token: 'token',
+        config,
+        logger,
+        ansibleService: mockAnsibleService,
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+      }),
+    ).resolves.toEqual(resources);
+    expect(mockAnsibleService.getResourceData).toHaveBeenCalledWith(
+      resource,
+      'token',
+    );
+  });
+
+  it.each([
+    'custom_resource',
+    '../users',
+    'organizations:123',
+    'execution_environments:abc',
+    'execution_environments:123/users',
+  ])(
+    'rejects unsupported AAP resource %s before making a request',
+    async resource => {
+      await expect(
+        handleAutocompleteRequest({
+          resource,
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow('Unsupported AAP autocomplete resource.');
+
+      expect(
+        mockAnsibleService.checkControllerAvailability,
+      ).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getResourceData).not.toHaveBeenCalled();
+    },
+  );
+
   it('should return aap hostname without calling the AAP Controller', async () => {
     // 'aaphostname' is read straight from config (ansible.rhaap.baseUrl); it
     // must short-circuit before any Controller availability check or
@@ -210,6 +271,10 @@ describe('ansible-aap:autocomplete', () => {
       expect.stringContaining('entities?filter='),
       expect.any(Object),
     );
+    const requestUrl = new URL(mockFetch.mock.calls.at(-1)?.[0] as string);
+    const decodedFilter = requestUrl.searchParams.get('filter');
+    expect(decodedFilter).toContain('kind=Component');
+    expect(decodedFilter).toContain('spec.type=ansible-collection');
     // 'collections' is resolved via the catalog (getCollections), not the
     // AAP Controller; it must never call either Controller-facing method.
     expect(
@@ -352,8 +417,8 @@ describe('ansible-aap:autocomplete', () => {
     mockAnsibleService.getResourceData.mockResolvedValue(mockOrganizations);
 
     const testContext = {
-      formField1: 'value1',
-      formField2: 'value2',
+      formField1: 'sensitive-form-value-1',
+      formField2: 'sensitive-form-value-2',
     };
 
     const response = await handleAutocompleteRequest({
@@ -367,10 +432,12 @@ describe('ansible-aap:autocomplete', () => {
       discovery: mockDiscoveryService,
     });
 
-    expect(logger.debug).not.toHaveBeenCalledWith(
-      expect.any(String),
-      testContext,
+    const loggerCalls = Object.values(logger).flatMap(method =>
+      jest.isMockFunction(method) ? method.mock.calls : [],
     );
+    const serializedLoggerCalls = JSON.stringify(loggerCalls);
+    expect(serializedLoggerCalls).not.toContain(testContext.formField1);
+    expect(serializedLoggerCalls).not.toContain(testContext.formField2);
     expect(response).toEqual(mockOrganizations);
   });
 

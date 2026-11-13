@@ -1,5 +1,5 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { MOCK_TOKEN } from '../mock';
+import { MOCK_TOKEN } from '../mockFixtures.test';
 import { LaunchJobTemplate } from '@ansible/backstage-rhaap-common';
 import { launchJobTemplate } from './aapLaunchJobTemplate';
 import { mockAnsibleService } from './mockIAAPService';
@@ -286,10 +286,12 @@ describe('ansible-aap:jobTemplate:launch', () => {
   }, 10000);
 
   it('rejects immediately from sleepMs when signal is aborted between loop check and sleep', async () => {
-    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
-      cb();
-      return {} as any;
-    });
+    const setTimeoutSpy = jest
+      .spyOn(global, 'setTimeout')
+      .mockImplementation((cb: any) => {
+        cb();
+        return {} as any;
+      });
 
     const launchResponse = {
       id: 60,
@@ -307,8 +309,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
     const mockSignal = {
       get aborted() {
         abortedAccessCount++;
-        // First access (handler pre-launch guard) returns false; second (sleepMs pre-abort check) returns true
-        return abortedAccessCount > 1;
+        // The handler and polling-loop checks pass; sleepMs sees the abort.
+        return abortedAccessCount >= 3;
       },
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
@@ -331,6 +333,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
       'mock-service-token',
     );
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    expect(abortedAccessCount).toBe(3);
+    expect(setTimeoutSpy).not.toHaveBeenCalled();
 
     jest.restoreAllMocks();
   });
@@ -672,6 +676,7 @@ describe('ansible-aap:jobTemplate:launch', () => {
           jobType: 'run',
           inventory: fullInventory,
           credentials,
+          unexpectedField: 'must be stripped',
         },
       },
     });
@@ -693,5 +698,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
       }),
       MOCK_TOKEN,
     );
+    const [launchPayload] =
+      mockAnsibleService.launchJobTemplateNoWait.mock.calls[0];
+    expect(launchPayload).not.toHaveProperty('unexpectedField');
   });
 });

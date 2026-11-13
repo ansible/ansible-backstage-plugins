@@ -26,7 +26,10 @@ import {
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
-import { ansibleServiceRef } from '@ansible/backstage-rhaap-common';
+import {
+  ansibleServiceRef,
+  assertAapScaffolderModuleIsUnique,
+} from '@ansible/backstage-rhaap-common';
 import {
   cleanUp,
   createExecutionEnvironment,
@@ -64,7 +67,7 @@ export const scaffolderModuleAap = createBackendModule({
         auth: coreServices.auth,
         discovery: coreServices.discovery,
       },
-      async init({
+      init({
         scaffolder,
         config,
         logger,
@@ -74,6 +77,7 @@ export const scaffolderModuleAap = createBackendModule({
         auth,
         discovery,
       }) {
+        assertAapScaffolderModuleIsUnique(scaffolder, 'scaffolderModuleAap');
         scaffolder.addActions(
           createProjectAction(ansibleService),
           createExecutionEnvironment(ansibleService),
@@ -102,6 +106,7 @@ export const scaffolderModuleAap = createBackendModule({
               includeCollections: false,
             }),
         });
+        return Promise.resolve();
       },
     });
   },

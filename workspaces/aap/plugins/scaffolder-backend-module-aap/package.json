@@ -3,6 +3,11 @@
   "version": "2.2.9",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testUtils": "./src/testUtils.ts",
+    "./package.json": "./package.json"
+  },
   "license": "Apache-2.0",
   "backstage": {
     "role": "backend-plugin-module",
@@ -13,6 +18,8 @@
     "build": "backstage-cli package build",
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
     "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-rhaap-common"
   },
   "dependencies": {
