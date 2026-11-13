@@ -772,11 +772,11 @@ export class OCIRegistryEntityProvider implements EntityProvider {
   }
 }
 
-/** Short stable suffix for names that exceed the catalog's length limit. */
+/** Short stable suffix for normalized ASCII catalog names. */
 function hash(value: string): string {
   let h = 0;
   for (let i = 0; i < value.length; i++) {
-    h = (Math.imul(31, h) + value.charCodeAt(i)) | 0;
+    h = (Math.imul(31, h) + value.codePointAt(i)!) | 0;
   }
   return Math.abs(h).toString(36).slice(0, 7);
 }

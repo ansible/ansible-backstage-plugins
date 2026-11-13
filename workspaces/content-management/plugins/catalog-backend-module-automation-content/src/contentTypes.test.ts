@@ -182,6 +182,45 @@ const typeOf = (entities: Entity[], repository: string) =>
 // ---------------------------------------------------------------------------
 
 describe('a content type is added, not edited in', () => {
+  it('preserves the digest entity name for a long repository', async () => {
+    const repository = `demo/${'network-'.repeat(9)}ee`;
+    const image = makeLabelledImage('latest', {
+      'ansible-execution-environment': 'true',
+    });
+    const registry = new MockRegistry({
+      repositories: { [repository]: [image] },
+    });
+    const { provider, mutations } = await setupProvider(
+      defaultContentTypes(),
+      registry.fetch,
+      [repository],
+    );
+
+    await provider.refresh();
+
+    const raw = `mock-${repository.replace('/', '-')}-${image.digest.slice(
+      7,
+      19,
+    )}`;
+    let legacyHash = 0;
+    for (let index = 0; index < raw.length; index++) {
+      legacyHash = (Math.imul(31, legacyHash) + raw.charCodeAt(index)) | 0;
+    }
+    const suffix = Math.abs(legacyHash).toString(36).slice(0, 7);
+    expect(mutations[0]).toMatchObject({
+      type: 'full',
+      entities: expect.arrayContaining([
+        expect.objectContaining({
+          entity: expect.objectContaining({
+            metadata: expect.objectContaining({
+              name: `${raw.slice(0, 55)}-${suffix}`,
+            }),
+          }),
+        }),
+      ]),
+    });
+  });
+
   it('adds a stable repository component alongside the existing digest entity', async () => {
     const entities = await discover(defaultContentTypes());
     const repositories = entities.filter(
