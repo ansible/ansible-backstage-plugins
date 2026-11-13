@@ -1,0 +1,30 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}}}%%
+sequenceDiagram
+  actor Dev as Developer
+  participant UI as self-service UI<br/>(Scaffolder form / AAResourcePicker)
+  participant Scaffolder as Backstage Scaffolder<br/>(backend)
+  participant Action as scaffolder-backend-module<br/>aapCreateJobTemplate / aapLaunchJobTemplate
+  participant Client as AAPClient<br/>(backstage-rhaap-common)
+  participant AAP as Ansible Automation Platform
+
+  Dev->>UI: Fill template form<br/>(project, EE, inventory, credentials)
+  UI->>Scaffolder: Submit task (templateRef + values)
+  Scaffolder->>Action: run(ctx) for each step
+
+  Action->>Client: createProject() / createJobTemplate()
+  Client->>AAP: POST /api/v2/projects, /job_templates
+  AAP-->>Client: 201 Created + resource id
+
+  Action->>Client: launchJobTemplate(id)
+  Client->>AAP: POST /api/v2/job_templates/{id}/launch/
+  AAP-->>Client: 202 Accepted + job id
+
+  loop poll until complete
+    Client->>AAP: GET /api/v2/jobs/{id}/
+    AAP-->>Client: status: pending/running/successful
+  end
+
+  Client-->>Action: job result
+  Action-->>Scaffolder: step output (job id, status, logs URL)
+  Scaffolder-->>UI: task complete
+  UI-->>Dev: Show job status & links

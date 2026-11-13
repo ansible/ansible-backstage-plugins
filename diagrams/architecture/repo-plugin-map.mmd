@@ -1,0 +1,41 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}}}%%
+flowchart TD
+  subgraph App["packages/ (Backstage app)"]
+    Frontend["packages/app<br/>(React SPA)"]
+    Backend["packages/backend<br/>(backend.add modules)"]
+  end
+
+  subgraph Common["Shared library"]
+    Common1["backstage-rhaap-common<br/>AAPClient, ansibleServiceRef,<br/>types, permissions"]
+  end
+
+  subgraph FrontendPlugins["Frontend plugins"]
+    RhaapFE["backstage-rhaap<br/>AnsiblePage sidebar/pages"]
+    SelfService["self-service<br/>Job templates, EE builder,<br/>Collections, Git repos"]
+  end
+
+  subgraph BackendModules["Backend modules"]
+    CatalogMod["catalog-backend-module-rhaap<br/>Entity providers"]
+    ScaffolderMod["scaffolder-backend-module-backstage-rhaap<br/>Scaffolder actions"]
+    AuthMod["auth-backend-module-rhaap-provider<br/>AAP OAuth"]
+  end
+
+  AAP[("Ansible Automation<br/>Platform (AAP)")]
+
+  Backend --> CatalogMod
+  Backend --> ScaffolderMod
+  Backend --> AuthMod
+
+  RhaapFE -. proxy/API routes .-> Backend
+  SelfService -. proxy/API routes .-> Backend
+  Frontend --> RhaapFE
+  Frontend --> SelfService
+
+  CatalogMod --> Common1
+  ScaffolderMod --> Common1
+  AuthMod --> Common1
+
+  Common1 -->|HTTP| AAP
+
+  style Common1 fill:#fff2cc,stroke:#d6b656
+  style AAP fill:#dae8fc,stroke:#6c8ebf
