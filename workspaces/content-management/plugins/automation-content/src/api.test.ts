@@ -39,6 +39,50 @@ it('passes the full repository query to the authenticated backend', async () => 
   );
 });
 
+it('lists every EE artifact across pages and preserves distinct digests for one repository', async () => {
+  const images = Array.from({ length: 51 }, (_, i) => ({
+    repository: 'namespace/image',
+    ref: `local/namespace/image@sha256:${i}`,
+  }));
+  const { client, fetch } = createClient({
+    ok: true,
+    status: 200,
+    json: async () => ({ items: images.slice(50), next: null }),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      items: images.slice(0, 50),
+      next: '?per_page=50&page=2',
+    }),
+  });
+
+  await expect(client.listExecutionEnvironments()).resolves.toEqual(images);
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    `${baseUrl}/execution-environments?per_page=50&page=1`,
+    `${baseUrl}/execution-environments?per_page=50&page=2`,
+  ]);
+});
+
+it('reports a later page failure instead of returning a partial EE list', async () => {
+  const { client, fetch } = createClient({
+    ok: false,
+    status: 503,
+    json: async () => ({}),
+  });
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ items: [], next: '?per_page=50&page=2' }),
+  });
+
+  await expect(client.listExecutionEnvironments()).rejects.toMatchObject({
+    status: 503,
+  });
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
 it('encodes nested repository paths and keeps digest requests on typed EE endpoints', async () => {
   const { client, fetch } = createClient({
     ok: true,

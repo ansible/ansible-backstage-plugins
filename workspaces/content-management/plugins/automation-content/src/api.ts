@@ -339,11 +339,15 @@ export class AutomationContentClient implements AutomationContentApi {
   }
 
   async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
-    const { items } = await this.get<{ items: ExecutionEnvironment[] }>(
-      // '/content?type=execution-environment',
-      '/content',
-    );
-    return items;
+    const environments: ExecutionEnvironment[] = [];
+    for (let page = 1; ; page++) {
+      const { items, next } = await this.get<{
+        items: ExecutionEnvironment[];
+        next: string | null;
+      }>(`/execution-environments?per_page=50&page=${page}`);
+      environments.push(...items);
+      if (!next) return environments;
+    }
   }
 
   async getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment> {

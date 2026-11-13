@@ -499,15 +499,20 @@ describe('GET /content pagination', () => {
 
   const allArtifacts = Array.from({ length: 25 }, (_, i) => makeArtifact(i));
 
-  function paginatedDB(): ContentStore {
+  function paginatedDB(artifacts = allArtifacts): ContentStore {
     return stubDB({
-      listArtifacts: async () => allArtifacts,
+      listArtifacts: async () => artifacts,
       listArtifactsPaginated: async (
         opts: ArtifactListOptions & { limit: number; offset: number },
-      ) => ({
-        items: allArtifacts.slice(opts.offset, opts.offset + opts.limit),
-        totalCount: allArtifacts.length,
-      }),
+      ) => {
+        const matches = artifacts.filter(
+          artifact => !opts.type || artifact.type === opts.type,
+        );
+        return {
+          items: matches.slice(opts.offset, opts.offset + opts.limit),
+          totalCount: matches.length,
+        };
+      },
     });
   }
 
@@ -584,15 +589,21 @@ describe('GET /content pagination', () => {
     expect(res.body.page).toBe(1);
   });
 
-  it('works through the /execution-environments alias', async () => {
-    const res = await request(await appWith(paginatedDB())).get(
+  it('filters mixed content before paginating the EE alias', async () => {
+    const otherArtifact = { ...makeArtifact(99), type: 'oci-image' };
+    const app = await appWith(paginatedDB([otherArtifact, ...allArtifacts]));
+    const res = await request(app).get(
       '/execution-environments?per_page=20&page=2',
     );
 
+    expect(res.status).toBe(200);
     expect(res.body.page).toBe(2);
     expect(res.body.pageSize).toBe(20);
-    expect(res.body.items).toHaveLength(5);
     expect(res.body.totalItems).toBe(25);
+    expect(res.body.items.map((item: IndexedArtifact) => item.ref)).toEqual(
+      allArtifacts.slice(20).map(artifact => artifact.ref),
+    );
+    expect(res.body.next).toBeNull();
   });
 
   it('preserves query parameters in pagination links', async () => {
