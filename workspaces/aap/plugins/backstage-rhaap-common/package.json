@@ -21,6 +21,7 @@
     "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts",
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
+    "./catalog": "./src/catalog/index.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -45,6 +46,9 @@
       ],
       "catalogEntity": [
         "src/catalogEntity.ts"
+      ],
+      "catalog": [
+        "src/catalog/index.ts"
       ]
     }
   },
@@ -64,16 +68,24 @@
   "dependencies": {
     "@ansible/aap-common": "workspace:^",
     "@ansible/aap-node": "workspace:^",
+    "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
+    "@backstage/catalog-client": "1.16.1",
     "@backstage/catalog-model": "1.10.0",
     "@backstage/config": "1.3.8",
     "@backstage/core-plugin-api": "1.12.9",
     "@backstage/errors": "1.3.1",
     "@backstage/integration": "2.1.1",
     "@backstage/plugin-auth-node": "0.7.5",
+    "@backstage/plugin-catalog-common": "1.1.10",
+    "@backstage/plugin-catalog-node": "2.2.4",
     "@backstage/plugin-permission-common": "0.9.10",
     "@backstage/plugin-permission-node": "0.11.3",
+    "@backstage/plugin-signals-node": "0.2.4",
+    "@backstage/types": "1.2.2",
+    "express": "^5.1.0",
+    "express-promise-router": "^4.1.1",
     "lodash.uniqby": "^4.7.0",
     "undici": "^6.26.0",
     "yaml": "^2.0.0",
@@ -85,8 +97,12 @@
     "@backstage/test-utils": "1.7.21",
     "@jest/globals": "^30.1.2",
     "@testing-library/jest-dom": "^6.6.3",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^29.5.14",
     "@types/lodash.uniqby": "^4",
+    "@types/supertest": "^6.0.3",
     "cross-fetch": "^4.1.0",
+    "supertest": "^7.1.1",
     "web-streams-polyfill": "^4.1.0"
   },
   "files": [

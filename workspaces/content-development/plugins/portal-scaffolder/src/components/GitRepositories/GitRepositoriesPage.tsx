@@ -44,6 +44,7 @@ import {
   EXTENSION_POINTS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
+import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import { useSyncStatusPolling } from '../../hooks';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
@@ -178,9 +179,7 @@ export const GitRepositoriesPage = () => {
   const fetchSyncStatus = useCallback(async () => {
     try {
       const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const response = await fetchApi.fetch(
-        `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-      );
+      const response = await fetchContentSyncStatus(fetchApi, baseUrl);
       if (!response.ok) {
         setHasConfiguredSources(false);
         return;
