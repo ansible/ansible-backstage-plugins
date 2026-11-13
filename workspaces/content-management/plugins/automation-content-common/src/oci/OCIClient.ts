@@ -830,7 +830,7 @@ export class OCIClient {
     url: string,
     init: { method?: string; headers?: Record<string, string> },
   ): Promise<Response> {
-    const headers: Record<string, string> = { ...(init.headers ?? {}) };
+    const headers: Record<string, string> = { ...init.headers };
 
     await this.primeAuth();
 
@@ -914,7 +914,7 @@ export class OCIClient {
     } = {},
   ): Promise<Response> {
     const url = this.resolveUrl(path);
-    const headers: Record<string, string> = { ...(init.headers ?? {}) };
+    const headers: Record<string, string> = { ...init.headers };
     const staticAuth =
       init.auth === false ? undefined : this.staticAuthHeader();
     if (staticAuth) headers.Authorization = staticAuth;
@@ -1108,7 +1108,7 @@ export class OCIClient {
       );
     }
     const date = options.strict ? res.headers.get('last-modified') : null;
-    const modified = new Date(date === null ? NaN : Date.parse(date));
+    const modified = new Date(date === null ? Number.NaN : Date.parse(date));
     const lastModified =
       Number.isFinite(modified.getTime()) && modified.toUTCString() === date
         ? modified.toISOString()
@@ -1371,7 +1371,7 @@ export class OCIClient {
   async getReferrerPayload(
     repository: string,
     descriptor: Descriptor,
-  ): Promise<unknown | undefined> {
+  ): Promise<unknown> {
     const artifact = await this.getManifest(
       repository,
       descriptor.digest,

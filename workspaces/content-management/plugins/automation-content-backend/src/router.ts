@@ -102,14 +102,16 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
     (page === undefined ||
       (typeof page === 'number' && Number.isSafeInteger(page) && page >= 1)) &&
     (pageSize === undefined ||
-      ALLOWED_PAGE_SIZES.some(size => size === pageSize)) &&
+      (typeof pageSize === 'number' &&
+        (ALLOWED_PAGE_SIZES as readonly number[]).includes(pageSize))) &&
     (query === undefined ||
       (typeof query === 'string' && query.length <= 256)) &&
     (registry === undefined ||
       (typeof registry === 'string' && registry.length > 0)) &&
     (sourceType === undefined || sourceType === EE_REPOSITORY_SOURCE_TYPE) &&
     (status === undefined ||
-      EE_REPOSITORY_STATUSES.some(candidate => candidate === status)) &&
+      (typeof status === 'string' &&
+        (EE_REPOSITORY_STATUSES as readonly string[]).includes(status))) &&
     (tag === undefined ||
       (typeof tag === 'string' && tag.length > 0 && tag.length <= 128)) &&
     (owner === undefined ||
@@ -119,9 +121,10 @@ function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
         /^[a-z0-9:+#-]{1,63}$/.test(descriptiveTag))) &&
     (latestOnly === undefined || typeof latestOnly === 'boolean') &&
     (sort === undefined ||
-      ['repository', 'registry', 'lastSuccessfulReconcileAt'].some(
-        key => key === sort,
-      )) &&
+      (typeof sort === 'string' &&
+        ['repository', 'registry', 'lastSuccessfulReconcileAt'].includes(
+          sort,
+        ))) &&
     (order === undefined || order === 'asc' || order === 'desc') &&
     (favoriteEntityRefs === undefined ||
       (Array.isArray(favoriteEntityRefs) &&
@@ -228,6 +231,50 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
   };
 }
 
+function respondToDenial(
+  res: RouteResponse,
+  decision: 'allow' | 'deny' | 'unavailable',
+): boolean {
+  if (decision === 'allow') return false;
+  if (decision === 'unavailable') {
+    res.status(503).json({
+      code: 'AUTHORIZATION_UNAVAILABLE',
+      error: messages.authorizationUnavailable,
+    });
+  } else {
+    res.status(403).json({ code: 'FORBIDDEN', error: messages.forbidden });
+  }
+  return true;
+}
+
+function reportRefreshError(res: RouteResponse, error: unknown) {
+  if (error instanceof RegistryWriterBusy) {
+    res.status(409).json({ code: 'REFRESH_BUSY', error: messages.refreshBusy });
+  } else {
+    res
+      .status(500)
+      .json({ code: 'REFRESH_FAILED', error: messages.auditFailed });
+  }
+}
+
+function reportAuditUnconfirmed(res: RouteResponse, retainedPrevious: boolean) {
+  res.status(500).json({
+    code: 'committed-audit-unconfirmed',
+    error: messages.auditUnconfirmed,
+    retainedPrevious,
+  });
+}
+
+function describeValue(value: unknown): string {
+  if (value === undefined || value === null) return 'nothing';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value) ?? 'nothing';
+  } catch {
+    return 'an unprintable value';
+  }
+}
+
 export async function createRouter(
   options: RouterOptions,
 ): Promise<express.Router> {
@@ -271,22 +318,6 @@ export async function createRouter(
       logger.warn(`Unable to authorize ${permission.name}`);
       return 'unavailable';
     }
-  }
-
-  function respondToDenial(
-    res: RouteResponse,
-    decision: 'allow' | 'deny' | 'unavailable',
-  ): boolean {
-    if (decision === 'allow') return false;
-    if (decision === 'unavailable') {
-      res.status(503).json({
-        code: 'AUTHORIZATION_UNAVAILABLE',
-        error: messages.authorizationUnavailable,
-      });
-    } else {
-      res.status(403).json({ code: 'FORBIDDEN', error: messages.forbidden });
-    }
-    return true;
   }
 
   async function excludedArtifactType(
@@ -489,29 +520,6 @@ export async function createRouter(
     } catch {
       logger.warn(messages.auditUnavailable);
     }
-  }
-
-  function reportRefreshError(res: RouteResponse, error: unknown) {
-    if (error instanceof RegistryWriterBusy) {
-      res
-        .status(409)
-        .json({ code: 'REFRESH_BUSY', error: messages.refreshBusy });
-    } else {
-      res
-        .status(500)
-        .json({ code: 'REFRESH_FAILED', error: messages.auditFailed });
-    }
-  }
-
-  function reportAuditUnconfirmed(
-    res: RouteResponse,
-    retainedPrevious: boolean,
-  ) {
-    res.status(500).json({
-      code: 'committed-audit-unconfirmed',
-      error: messages.auditUnconfirmed,
-      retainedPrevious,
-    });
   }
 
   async function scheduleRefresh(
@@ -1252,16 +1260,6 @@ export async function createRouter(
    * documents, so the error paths must survive whatever a caller sends —
    * an object whose `toString` is null would otherwise crash the handler.
    */
-  function describeValue(value: unknown): string {
-    if (value === undefined || value === null) return 'nothing';
-    if (typeof value === 'string') return value;
-    try {
-      return JSON.stringify(value) ?? 'nothing';
-    } catch {
-      return 'an unprintable value';
-    }
-  }
-
   router.post('/config/validate', (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];

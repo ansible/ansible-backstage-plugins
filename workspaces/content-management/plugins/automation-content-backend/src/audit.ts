@@ -19,7 +19,7 @@ interface RefreshAuditContext {
 }
 
 /** Starts a refresh audit with resolved identity and already redacted resource. */
-export async function startRefreshAudit(
+export function startRefreshAudit(
   auditor: AuditorService,
   { action, principal, resource }: RefreshAuditContext,
 ): ReturnType<AuditorService['createEvent']> {

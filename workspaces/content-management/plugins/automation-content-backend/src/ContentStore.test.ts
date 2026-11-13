@@ -248,6 +248,58 @@ describe('EE repository projection', () => {
 });
 
 describe('repository refresh', () => {
+  it.each([false, true])(
+    'queues a waiting registry refresh even if the first operation fails (%s)',
+    async fails => {
+      const registry = new MockRegistry({
+        repositories: {
+          'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+        },
+      });
+      const store = await storeOver(registry);
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: true,
+      });
+      const client = (
+        store as unknown as {
+          clients: Map<string, { fetchImpl: typeof registry.fetch }>;
+        }
+      ).clients.get('mock')!;
+      const fetch = client.fetchImpl;
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => {
+        release = resolve;
+      });
+      let scans = 0;
+      let firstScan = true;
+      client.fetchImpl = async (input, init) => {
+        if (new URL(input).pathname.endsWith('/tags/list')) {
+          scans++;
+          if (firstScan) {
+            firstScan = false;
+            await blocked;
+            if (fails) return new Response(null, { status: 403 });
+          }
+        }
+        return fetch(input, init);
+      };
+
+      const first = store.refreshRegistry('mock');
+      const queued = store.refreshRegistry('mock');
+      try {
+        await expect(
+          store.refreshRegistry('mock', false),
+        ).rejects.toBeInstanceOf(RegistryWriterBusy);
+        expect(scans).toBeLessThanOrEqual(1);
+      } finally {
+        release();
+      }
+      await expect(first).resolves.toMatchObject({ ok: !fails });
+      await expect(queued).resolves.toMatchObject({ ok: true });
+      expect(scans).toBe(2);
+    },
+  );
+
   it('keeps a healthy image discoverable alongside opaque configs and attachments', async () => {
     const ee = makeLabelledImage('release.sig', { [EE_LABEL]: 'true' });
     const baseTag = ee.digest.replace(':', '-');

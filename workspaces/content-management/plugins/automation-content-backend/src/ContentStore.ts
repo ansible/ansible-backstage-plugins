@@ -1,5 +1,6 @@
 import {
   AnsibleContentManifest,
+  CONTENT_MANIFEST_ARTIFACT_TYPE,
   ManifestCollectionEntry,
   summariseManifest,
 } from '@ansible/content-model';
@@ -48,7 +49,6 @@ export interface IdentifiedType {
   /** Whether the owning content type publishes a build-time content manifest. */
   readsContentManifest: boolean;
 }
-import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 
 /**
  * A discovered artifact.
@@ -343,7 +343,7 @@ export class ContentStore {
   private readonly drift = new Map<string, DriftState>();
   private readonly cache = new MemoryDigestCache();
   private lastRefreshed?: string;
-  private db: Knex;
+  private readonly db: Knex;
   readonly redactor: CredentialRedactor;
   private readonly logger: {
     info(m: string): void;
@@ -418,7 +418,7 @@ export class ContentStore {
   ): Promise<T> {
     for (;;) {
       const previous = this.writers.get(name);
-      if (!previous) break;
+      if (previous === undefined) break;
       if (!wait) throw new RegistryWriterBusy();
       await previous.catch(() => {});
     }
@@ -776,13 +776,10 @@ export class ContentStore {
   }
 
   async pruneRemovedRegistries(): Promise<string[]> {
-    const configuredNames = [...this.registries.keys()];
     const dbRegistries = await this.db('artifacts')
       .distinct('registry')
       .pluck('registry');
-    const removed = dbRegistries.filter(
-      (r: string) => !configuredNames.includes(r),
-    );
+    const removed = dbRegistries.filter((r: string) => !this.registries.has(r));
     if (removed.length > 0) {
       await this.db('artifacts').whereIn('registry', removed).del();
       this.logger.info(
@@ -860,7 +857,7 @@ export class ContentStore {
   }
 
   /** Replaces the indexed scope and computes material deltas from its prior committed state. */
-  private async persistReconcile(
+  private persistReconcile(
     registry: string,
     artifacts: IndexedArtifact[],
     repository?: string,

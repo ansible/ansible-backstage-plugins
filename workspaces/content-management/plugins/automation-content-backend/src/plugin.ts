@@ -4,8 +4,10 @@ import {
   resolvePackagePath,
 } from '@backstage/backend-plugin-api';
 import { metricsServiceRef } from '@backstage/backend-plugin-api/alpha';
-import { readRegistryConfigs } from '@ansible/plugin-catalog-backend-module-automation-content';
-import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
+import {
+  defaultContentTypes,
+  readRegistryConfigs,
+} from '@ansible/plugin-catalog-backend-module-automation-content';
 import {
   contentSyncPermission,
   executionEnvironmentsViewPermission,

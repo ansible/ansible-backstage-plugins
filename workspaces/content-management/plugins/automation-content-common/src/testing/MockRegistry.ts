@@ -70,7 +70,7 @@ export class MockRegistry {
     return new Response(JSON.stringify(body), {
       status: 200,
       ...init,
-      headers: { 'content-type': 'application/json', ...(init.headers ?? {}) },
+      headers: { 'content-type': 'application/json', ...init.headers },
     });
   }
 
@@ -81,10 +81,10 @@ export class MockRegistry {
     });
   }
 
-  private async handle(
+  private handle(
     rawUrl: string,
     init?: { method?: string; headers?: Record<string, string> },
-  ): Promise<Response> {
+  ): Response {
     const url = new URL(rawUrl);
     const path = url.pathname;
     const method = (init?.method ?? 'GET').toUpperCase();
@@ -310,9 +310,8 @@ export function makeImage(
   const digest =
     overrides.digest ??
     `sha256:${createHash('sha256').update(overrides.tag).digest('hex')}`;
-  const configDigest = `sha256:${`cfg${overrides.tag}`
-    .padEnd(64, '0')
-    .slice(0, 64)}`;
+  const configKey = `cfg${overrides.tag}`.padEnd(64, '0').slice(0, 64);
+  const configDigest = `sha256:${configKey}`;
   return {
     digest,
     manifest: {
