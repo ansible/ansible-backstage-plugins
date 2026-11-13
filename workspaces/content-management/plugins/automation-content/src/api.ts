@@ -215,6 +215,16 @@ export class ContentApiError extends Error {
   }
 }
 
+export class IncompleteEEListError extends Error {
+  constructor(
+    readonly items: ExecutionEnvironment[],
+    cause: unknown,
+  ) {
+    super('Some execution environments could not be loaded.', { cause });
+    this.name = 'IncompleteEEListError';
+  }
+}
+
 export const automationContentApiRef = createApiRef<AutomationContentApi>({
   id: 'plugin.automation-content.service',
 });
@@ -340,13 +350,23 @@ export class AutomationContentClient implements AutomationContentApi {
 
   async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
     const environments: ExecutionEnvironment[] = [];
-    for (let page = 1; ; page++) {
-      const { items, next } = await this.get<{
-        items: ExecutionEnvironment[];
-        next: string | null;
-      }>(`/execution-environments?per_page=50&page=${page}`);
-      environments.push(...items);
-      if (!next) return environments;
+    try {
+      for (let page = 1; ; page++) {
+        const { items, next } = await this.get<{
+          items: ExecutionEnvironment[];
+          next: string | null;
+        }>(`/execution-environments?per_page=50&page=${page}`);
+        environments.push(...items);
+        if (!next) return environments;
+      }
+    } catch (error) {
+      const accessDenied =
+        error instanceof ContentApiError &&
+        (error.status === 401 || error.status === 403);
+      if (environments.length && !accessDenied) {
+        throw new IncompleteEEListError(environments, error);
+      }
+      throw error;
     }
   }
 

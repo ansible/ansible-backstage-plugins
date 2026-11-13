@@ -65,22 +65,41 @@ it('lists every EE artifact across pages and preserves distinct digests for one 
   ]);
 });
 
-it('reports a later page failure instead of returning a partial EE list', async () => {
+it.each([502, 401, 403])(
+  'handles a later page returning HTTP %s',
+  async status => {
+    const items = [{ ref: 'local/namespace/image@sha256:abc' }];
+    const { client, fetch } = createClient({
+      ok: false,
+      status,
+      json: async () => ({}),
+    });
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ items, next: '?per_page=50&page=2' }),
+    });
+
+    await expect(client.listExecutionEnvironments()).rejects.toMatchObject(
+      status === 502
+        ? { name: 'IncompleteEEListError', items, cause: { status } }
+        : { name: 'ContentApiError', status },
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('reports a first page failure without partial results', async () => {
   const { client, fetch } = createClient({
     ok: false,
-    status: 503,
+    status: 502,
     json: async () => ({}),
   });
-  fetch.mockResolvedValueOnce({
-    ok: true,
-    status: 200,
-    json: async () => ({ items: [], next: '?per_page=50&page=2' }),
-  });
-
   await expect(client.listExecutionEnvironments()).rejects.toMatchObject({
-    status: 503,
+    name: 'ContentApiError',
+    status: 502,
   });
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it('encodes nested repository paths and keeps digest requests on typed EE endpoints', async () => {

@@ -5,7 +5,12 @@ import {
 } from '@backstage/frontend-plugin-api';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { automationContentApiRef, ContentApiError } from '../../api';
+import {
+  automationContentApiRef,
+  ContentApiError,
+  type ExecutionEnvironment,
+  IncompleteEEListError,
+} from '../../api';
 import { AutomationContentPage } from '../AutomationContentPage';
 import { SyncAction } from './SyncAction';
 
@@ -23,10 +28,14 @@ function mount({
   const syncAll = jest.fn(async () => scheduled);
   const syncEERepository = jest.fn();
   const onReload = jest.fn();
+  const listExecutionEnvironments = jest
+    .fn<Promise<ExecutionEnvironment[]>, []>()
+    .mockResolvedValue([]);
   return {
     syncAll,
     syncEERepository,
     onReload,
+    listExecutionEnvironments,
     mounted: renderTestApp({
       features: [
         createFrontendPlugin({
@@ -61,7 +70,7 @@ function mount({
           {
             syncAll,
             syncEERepository,
-            listExecutionEnvironments: async () => [],
+            listExecutionEnvironments,
             getRegistryStatus: async () => ({ items: [], manualSyncEnabled }),
           },
         ],
@@ -106,4 +115,33 @@ it('reports a successful scheduling receipt in the legacy explorer', async () =>
   ).toBeTruthy();
   expect(screen.queryByText('Refresh failed', { exact: true })).toBeNull();
   expect(syncAll).toHaveBeenCalledTimes(1);
+});
+
+it('shows legacy images from successful pages and can retry an incomplete list', async () => {
+  const { mounted, listExecutionEnvironments } = mount({ legacy: true });
+  const image = {
+    ref: 'local/namespace/first@sha256:abc',
+    repository: 'namespace/first',
+    registry: 'local',
+  } as ExecutionEnvironment;
+  const nextImage = {
+    ...image,
+    ref: 'local/namespace/second@sha256:def',
+    repository: 'namespace/second',
+  };
+  listExecutionEnvironments
+    .mockRejectedValueOnce(
+      new IncompleteEEListError([image], new ContentApiError(502)),
+    )
+    .mockResolvedValue([image, nextImage]);
+
+  await mounted;
+  expect(await screen.findByText('namespace/first')).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toContain(
+    'Some images couldn’t be loaded.',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+  expect(await screen.findByText('namespace/second')).toBeTruthy();
+  expect(screen.queryByText(/Some images couldn’t be loaded/)).toBeNull();
 });

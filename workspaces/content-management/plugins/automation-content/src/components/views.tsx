@@ -33,6 +33,7 @@ import {
   automationContentApiRef,
   ContentItemSummary,
   ExecutionEnvironment,
+  IncompleteEEListError,
   Registry,
 } from '../api';
 import { OptionTree } from './OptionTree';
@@ -332,11 +333,15 @@ export const OverviewView = ({
     },
   ];
 
-  if (environments.error)
+  const partial =
+    environments.error instanceof IncompleteEEListError
+      ? environments.error
+      : undefined;
+  if (environments.error && !partial)
     return <ResponseErrorPanel error={environments.error} />;
   if (environments.loading) return <SkeletonLoader />;
 
-  const items = environments.value ?? [];
+  const items = partial?.items ?? environments.value ?? [];
 
   return (
     <Grid container spacing={3} direction="column">
@@ -354,6 +359,14 @@ export const OverviewView = ({
             ) : undefined
           }
         >
+          {partial && (
+            <Box mb={2} role="alert">
+              <Typography>
+                Showing {items.length} images. Some images couldn’t be loaded.
+              </Typography>
+              <Button onClick={reload}>Retry</Button>
+            </Box>
+          )}
           {items.length === 0 ? (
             <EmptyState
               missing="data"
