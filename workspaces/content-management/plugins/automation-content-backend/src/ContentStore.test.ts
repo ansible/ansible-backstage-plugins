@@ -9,6 +9,7 @@ import {
   MediaTypes,
   type ImageManifest,
   RegistryConnection,
+  type FetchLike,
   fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
@@ -647,6 +648,190 @@ describe('drift detection', () => {
     expect(noisy.changed).toBe(true);
     expect(noisy.refreshed).toBe(true);
     expect(await store.listArtifacts('oci-image')).toHaveLength(1);
+  });
+});
+
+describe('bulk registry operations', () => {
+  async function twoRegistryStore(
+    firstRepositories: Record<string, ReturnType<typeof makeLabelledImage>[]>,
+    secondRepositories: Record<string, ReturnType<typeof makeLabelledImage>[]>,
+    fetchFor: { first: FetchLike; second: FetchLike },
+  ): Promise<ContentStore> {
+    const db = await createTestDB();
+    const store = new ContentStore(
+      [
+        {
+          ...connection(),
+          name: 'first',
+          repositories: Object.keys(firstRepositories),
+        },
+        {
+          ...connection(),
+          name: 'second',
+          repositories: Object.keys(secondRepositories),
+        },
+      ],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: FetchLike }> }
+    ).clients;
+    clients.get('first')!.fetchImpl = fetchFor.first;
+    clients.get('second')!.fetchImpl = fetchFor.second;
+    return store;
+  }
+
+  it('audits bulk refreshes in registry order after all refreshes settle', async () => {
+    const firstRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const secondRepositories = {
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const first = new MockRegistry({ repositories: firstRepositories });
+    const second = new MockRegistry({ repositories: secondRepositories });
+    // The first registry answers slowly, so completion order is the reverse
+    // of registry order.
+    const store = await twoRegistryStore(
+      firstRepositories,
+      secondRepositories,
+      {
+        first: async (url, init) => {
+          await new Promise(resolve => setTimeout(resolve, 25));
+          return first.fetch(url, init);
+        },
+        second: (url, init) => second.fetch(url, init),
+      },
+    );
+
+    const events: string[] = [];
+    const refresh = store.refreshRegistry.bind(store);
+    jest.spyOn(store, 'refreshRegistry').mockImplementation(async name => {
+      const result = await refresh(name);
+      events.push(`refreshed:${name}`);
+      return result;
+    });
+
+    await store.refreshAll(async name => {
+      events.push(`observed:${name}`);
+    });
+
+    expect(events).toEqual([
+      'refreshed:second',
+      'refreshed:first',
+      'observed:first',
+      'observed:second',
+    ]);
+  });
+
+  it('keeps a failed registry intact while another refreshes', async () => {
+    const firstRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const secondRepositories = {
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const first = new MockRegistry({ repositories: firstRepositories });
+    const second = new MockRegistry({ repositories: secondRepositories });
+    const store = await twoRegistryStore(
+      firstRepositories,
+      secondRepositories,
+      {
+        first: (url, init) => first.fetch(url, init),
+        second: (url, init) => second.fetch(url, init),
+      },
+    );
+    expect(await store.refreshRegistry('first')).toMatchObject({ ok: true });
+    expect(await store.refreshRegistry('second')).toMatchObject({ ok: true });
+    expect(await store.listArtifacts()).toHaveLength(2);
+
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: FetchLike }> }
+    ).clients;
+    clients.get('second')!.fetchImpl = () =>
+      Promise.reject(new Error('registry unreachable'));
+
+    const results: Record<string, { ok: boolean }> = {};
+    await store.refreshAll(async (name, result) => {
+      results[name] = result;
+    });
+
+    expect(results.first?.ok).toBe(true);
+    expect(results.second?.ok).toBe(false);
+    expect(await store.listArtifacts()).toHaveLength(2);
+  });
+
+  it('polls every registry and totals results in registry order', async () => {
+    const firstRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const secondRepositories = {
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const first = new MockRegistry({ repositories: firstRepositories });
+    const second = new MockRegistry({ repositories: secondRepositories });
+    const store = await twoRegistryStore(
+      firstRepositories,
+      secondRepositories,
+      {
+        first: (url, init) => first.fetch(url, init),
+        second: (url, init) => second.fetch(url, init),
+      },
+    );
+    expect(await store.refreshRegistry('first')).toMatchObject({ ok: true });
+    expect(await store.refreshRegistry('second')).toMatchObject({ ok: true });
+
+    const observed: string[] = [];
+    const summary = await store.pollAll(async name => {
+      observed.push(name);
+    });
+
+    expect(summary).toMatchObject({ checked: 2, refreshed: 0 });
+    expect(summary.requests).toBeGreaterThan(0);
+    expect(observed).toEqual(['first', 'second']);
+  });
+
+  it('bounds how many registries refresh at once', async () => {
+    const repositories = {
+      'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories });
+    const names = ['one', 'two', 'three', 'four', 'five', 'six'];
+    const db = await createTestDB();
+    const store = new ContentStore(
+      names.map(name => ({
+        ...connection(),
+        name,
+        repositories: Object.keys(repositories),
+      })),
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: FetchLike }> }
+    ).clients;
+    let inFlight = 0;
+    let peak = 0;
+    const trackingFetch: FetchLike = async (url, init) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      try {
+        return await registry.fetch(url, init);
+      } finally {
+        inFlight -= 1;
+      }
+    };
+    for (const name of names) {
+      clients.get(name)!.fetchImpl = trackingFetch;
+    }
+
+    await store.refreshAll();
+
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(4);
   });
 });
 
