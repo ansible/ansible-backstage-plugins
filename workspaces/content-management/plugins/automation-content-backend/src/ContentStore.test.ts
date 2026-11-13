@@ -660,6 +660,65 @@ describe('drift detection', () => {
     expect(await store.listArtifacts()).toEqual(previous);
   });
 
+  it('scopes the stored comparison to one registry in a single query', async () => {
+    const db = await createTestDB();
+    const mockRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const otherRepositories = {
+      'ansible/other': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const store = new ContentStore(
+      [
+        { ...connection(), repositories: Object.keys(mockRepositories) },
+        {
+          ...connection(),
+          name: 'other',
+          repositories: Object.keys(otherRepositories),
+        },
+      ],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl =
+      new MockRegistry({ repositories: mockRepositories }).fetch;
+    (clients.get('other') as unknown as { fetchImpl: unknown }).fetchImpl =
+      new MockRegistry({ repositories: otherRepositories }).fetch;
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    expect(await store.refreshRegistry('other')).toMatchObject({ ok: true });
+
+    otherRepositories['ansible/other'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+
+    const queries: string[] = [];
+    (
+      db as unknown as {
+        on: (event: string, listener: (query: { sql: string }) => void) => void;
+      }
+    ).on('query', query => queries.push(query.sql));
+
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: false,
+      details: [],
+    });
+    const artifactReads = queries.filter(sql =>
+      sql.includes('from `artifacts`'),
+    );
+    expect(artifactReads).toHaveLength(1);
+    expect(artifactReads[0]).toContain('where `registry` = ?');
+
+    expect(await store.detectDrift('other')).toMatchObject({
+      changed: true,
+      details: ['ansible/other:v2 added'],
+    });
+  });
+
   it('ignores referrer fallback tags, which are artifacts about images', async () => {
     const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const registry = new MockRegistry({
