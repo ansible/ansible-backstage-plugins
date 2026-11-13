@@ -10,8 +10,7 @@ import {
   EntityActionBlueprint,
   EntityOverviewCardBlueprint,
   CatalogItemActionBlueprint,
-  ScaffolderFieldBlueprint,
-  defineScaffolderField,
+  createPortalScaffolderFieldBlueprints,
   CatalogHeaderActionBlueprint,
   ScaffolderWorkflowBlueprint,
   CatalogTabBlueprint,
@@ -221,35 +220,32 @@ const apmePlugin: FrontendPlugin = createFrontendPlugin({
       name: 'apme',
       params: define => define(apmeApiFactory),
     }),
-    ScaffolderFieldBlueprint.make({
-      name: 'github-repository-url',
-      params: defineScaffolderField({
-        manifest: apmeManifest,
-        capabilityId: 'apme.repository-lifecycle',
-        entryPointId: 'apme.github-repo-url-field',
-        attachment: 'scaffolder.fields',
-        fieldName: 'GitHubRepoUrlField',
-        enabledByConfig: 'ansible.apme.enabled',
-        loader: async () => {
-          const [
-            { GitHubRepoUrlFieldExtension },
-            { GitHubRepoUrlFieldFieldSchema },
-            { githubRepoUrlValidation },
-          ] = await Promise.all([
-            import(
-              './components/Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension'
-            ),
-            import('./components/Scaffolder/GitHubRepoUrlField/schema'),
-            import('./components/Scaffolder/GitHubRepoUrlField/validation'),
-          ]);
-          return {
-            name: 'GitHubRepoUrlField',
-            component: GitHubRepoUrlFieldExtension,
-            schema: GitHubRepoUrlFieldFieldSchema,
-            validation: githubRepoUrlValidation,
-          };
-        },
-      }),
+    ...createPortalScaffolderFieldBlueprints('github-repository-url', {
+      manifest: apmeManifest,
+      capabilityId: 'apme.repository-lifecycle',
+      entryPointId: 'apme.github-repo-url-field',
+      attachment: 'scaffolder.fields',
+      fieldName: 'GitHubRepoUrlField',
+      enabledByConfig: 'ansible.apme.enabled',
+      loader: async () => {
+        const [
+          { GitHubRepoUrlFieldExtension },
+          { GitHubRepoUrlFieldFieldSchema },
+          { githubRepoUrlValidation },
+        ] = await Promise.all([
+          import(
+            './components/Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension'
+          ),
+          import('./components/Scaffolder/GitHubRepoUrlField/schema'),
+          import('./components/Scaffolder/GitHubRepoUrlField/validation'),
+        ]);
+        return {
+          name: 'GitHubRepoUrlField',
+          component: GitHubRepoUrlFieldExtension,
+          schema: GitHubRepoUrlFieldFieldSchema,
+          validation: githubRepoUrlValidation,
+        };
+      },
     }),
     apmeQualityTab,
     CatalogTableColumnBlueprint.make({
