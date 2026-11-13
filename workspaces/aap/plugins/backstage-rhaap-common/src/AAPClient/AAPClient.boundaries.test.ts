@@ -61,13 +61,13 @@ describe('AAP client boundary and lifecycle behavior', () => {
       name: 'GET',
       call: (service: AAPClient) =>
         service.executeGetRequest('/resource', 'token'),
-      message: 'Failed to send fetch',
+      message: 'Failed to send GET request.',
     },
     {
       name: 'DELETE',
       call: (service: AAPClient) =>
         service.executeDeleteRequest('/resource', 'token'),
-      message: 'Failed to send delete',
+      message: 'Failed to send DELETE request.',
     },
   ])(
     'normalizes a non-Error $name transport rejection',
