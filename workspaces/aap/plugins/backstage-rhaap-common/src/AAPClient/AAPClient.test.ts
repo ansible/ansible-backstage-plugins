@@ -380,7 +380,39 @@ describe('AAPClient', () => {
           client.executePostRequest('test/endpoint', 'test-token', {
             data: 'test',
           }),
-        ).rejects.toThrow('Failed to send POST request: Network error');
+        ).rejects.toThrow('Failed to send POST request.');
+      });
+
+      it('does not log the internal AAP hostname in request or EE logs', async () => {
+        const hostname = 'aap.internal.example';
+        (client as any).ansibleConfig.rhaap.baseUrl = `https://${hostname}`;
+        mockFetch.mockResolvedValue({
+          ok: true,
+          json: jest.fn().mockResolvedValue({ id: 1 }),
+        });
+
+        await client.executePostRequest('test/endpoint', 'test-token');
+        await client.executeGetRequest('test/endpoint', 'test-token');
+        await client.executeDeleteRequest('test/endpoint', 'test-token');
+        await client.createExecutionEnvironment(
+          {
+            environmentName: 'test-ee',
+            organization: { id: 1, name: 'test-org' },
+            image: 'test-image',
+            pull: 'always',
+          },
+          'test-token',
+        );
+
+        const loggedMessages = [
+          ...(mockLogger.info as jest.Mock).mock.calls,
+          ...(mockLogger.warn as jest.Mock).mock.calls,
+          ...(mockLogger.error as jest.Mock).mock.calls,
+          ...(mockLogger.debug as jest.Mock).mock.calls,
+        ]
+          .flat()
+          .join(' ');
+        expect(loggedMessages).not.toContain(hostname);
       });
 
       it('should handle 403 errors', async () => {
@@ -514,7 +546,7 @@ describe('AAPClient', () => {
 
         await expect(
           client.executeGetRequest('test/endpoint', 'test-token'),
-        ).rejects.toThrow('Failed to send fetch data: Network error');
+        ).rejects.toThrow('Failed to send GET request.');
       });
     });
 
@@ -616,7 +648,7 @@ describe('AAPClient', () => {
 
         await expect(
           client.executeDeleteRequest('test/endpoint', 'test-token'),
-        ).rejects.toThrow('Failed to send delete: Network error');
+        ).rejects.toThrow('Failed to send DELETE request.');
       });
     });
   });
@@ -738,23 +770,7 @@ describe('AAPClient', () => {
             },
           }),
         };
-        const mockEventsResponse = {
-          ok: true,
-          json: jest.fn().mockResolvedValue({
-            results: [
-              {
-                event_data: {
-                  res: {
-                    msg: 'Failed to create project',
-                  },
-                },
-              },
-            ],
-          }),
-        };
-        mockFetch
-          .mockResolvedValueOnce(mockCreateResponse)
-          .mockResolvedValueOnce(mockEventsResponse);
+        mockFetch.mockResolvedValueOnce(mockCreateResponse);
 
         const projectPayload = {
           projectName: 'test-project',
@@ -766,6 +782,7 @@ describe('AAPClient', () => {
         await expect(
           client.createProject(projectPayload, false, 'test-token'),
         ).rejects.toThrow('Failed to create project');
+        expect(mockFetch).toHaveBeenCalledTimes(1);
       });
     });
   });
@@ -2074,7 +2091,7 @@ describe('AAPClient', () => {
 
         await expect(
           client.deleteExecutionEnvironmentExists('test-env', 'test-token'),
-        ).rejects.toThrow('Failed to send delete: Delete failed');
+        ).rejects.toThrow('Failed to send DELETE request.');
 
         expect(mockFetch).toHaveBeenCalledTimes(2);
         expect(mockFetch).toHaveBeenNthCalledWith(
@@ -5149,7 +5166,7 @@ describe('AAPClient', () => {
         .mockResolvedValueOnce(mockRunningStatusResponse);
 
       await expect(client.cancelJob(789, 'test-token')).rejects.toThrow(
-        'Failed to send POST request: Network error',
+        'Failed to send POST request.',
       );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
