@@ -104,9 +104,7 @@ export class AAPClient implements IAAPService {
   ): Promise<any> {
     const normalizedEndPoint = endPoint.replace(/^\/+/, '');
     const url = `${this.getBaseUrl()}/${normalizedEndPoint}`;
-    this.logger.info(
-      `[${this.pluginLogName}]: Executing post request to ${url}.`,
-    );
+    this.logger.info(`[${this.pluginLogName}]: Executing POST request to AAP.`);
 
     let requestOptions;
 
@@ -134,15 +132,11 @@ export class AAPClient implements IAAPService {
     let response;
     try {
       response = await fetch(url, requestOptions);
-    } catch (error) {
+    } catch {
       this.logger.error(
-        `[${this.pluginLogName}]: Failed to send POST request: ${error}`,
+        `[${this.pluginLogName}]: Failed to send POST request.`,
       );
-      if (error instanceof Error) {
-        throw new Error(`Failed to send POST request: ${error.message}`);
-      } else {
-        throw new Error(`Failed to send POST request`);
-      }
+      throw new Error('Failed to send POST request.');
     }
     if (!response.ok) {
       let errorOutput: any;
@@ -153,10 +147,7 @@ export class AAPClient implements IAAPService {
       }
 
       this.logger.error(
-        `[${this.pluginLogName}] Failed to send POST request: ${response.statusText}`,
-      );
-      this.logger.error(
-        `[${this.pluginLogName}] Error: ${JSON.stringify(errorOutput)}`,
+        `[${this.pluginLogName}] Failed to send POST request with status ${response.status}.`,
       );
 
       if (response.status === 403) {
@@ -198,9 +189,7 @@ export class AAPClient implements IAAPService {
       url = `${baseUrl}/${normalizedEndPoint}`;
     }
 
-    this.logger.info(
-      `[${this.pluginLogName}]: Executing get request to ${url}.`,
-    );
+    this.logger.info(`[${this.pluginLogName}]: Executing GET request to AAP.`);
     const requestOptions = {
       method: 'GET',
       dispatcher: this.proxyAgent,
@@ -212,15 +201,13 @@ export class AAPClient implements IAAPService {
     let response;
     try {
       response = await fetch(url, requestOptions);
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to send fetch data: ${error.message}`);
-      } else {
-        throw new Error(`Failed to send fetch`);
-      }
+    } catch {
+      throw new Error('Failed to send GET request.');
     }
     if (!response.ok) {
-      this.logger.error(`[${this.pluginLogName}]: ${response.statusText}`);
+      this.logger.error(
+        `[${this.pluginLogName}]: GET request failed with status ${response.status}.`,
+      );
       if (response.status === 403) {
         throw new Error(
           `Insufficient privileges. Please contact your administrator.`,
@@ -239,7 +226,7 @@ export class AAPClient implements IAAPService {
     const normalizedEndPoint = endPoint.replace(/^\/+/, '');
     const url = `${this.getBaseUrl()}/${normalizedEndPoint}`;
     this.logger.info(
-      `[${this.pluginLogName}]: Executing delete request ${url}.`,
+      `[${this.pluginLogName}]: Executing DELETE request to AAP.`,
     );
     const requestOptions = {
       method: 'DELETE',
@@ -252,19 +239,15 @@ export class AAPClient implements IAAPService {
     let response;
     try {
       response = await fetch(url, requestOptions);
-    } catch (error) {
+    } catch {
       this.logger.error(
-        `[${this.pluginLogName}]: Error while executing delete request: ${error}.`,
+        `[${this.pluginLogName}]: Failed to send DELETE request.`,
       );
-      if (error instanceof Error) {
-        throw new Error(`Failed to send delete: ${error.message}`);
-      } else {
-        throw new Error(`Failed to send delete`);
-      }
+      throw new Error('Failed to send DELETE request.');
     }
     if (!response.ok) {
       this.logger.error(
-        `[${this.pluginLogName}]: Error while executing delete request ${response.status}.`,
+        `[${this.pluginLogName}]: DELETE request failed with status ${response.status}.`,
       );
       if (response.status === 403) {
         throw new Error(
@@ -333,7 +316,7 @@ export class AAPClient implements IAAPService {
     };
     this.logger.info(`Begin creating project ${payload.projectName}.`);
     this.logger.info(
-      `[${AAPClient.pluginLogName}] Creating new AAP project at ${this.ansibleConfig.rhaap?.baseUrl} in organization ${payload.organization.name}.`,
+      `[${AAPClient.pluginLogName}] Creating new AAP project in organization ${payload.organization.name}.`,
     );
 
     const response = await this.executePostRequest(endPoint, token, data);
@@ -362,17 +345,6 @@ export class AAPClient implements IAAPService {
       this.logger.error(
         `[${this.pluginLogName}] Error creating project: ${projectStatus}`,
       );
-      const stdoutEndPoint = `${projectData.related?.last_job}events`;
-      const epResponse = await this.executeGetRequest(
-        stdoutEndPoint,
-        token,
-        stdoutEndPoint,
-      );
-      const respJson = await epResponse.json();
-      const stdError = respJson.results.find(
-        (item: any) => item.event_data?.res?.msg,
-      )?.event_data?.res?.msg;
-      this.logger.error(`[${this.pluginLogName}] Error: ${stdError}`);
       throw new Error(`Failed to create project`);
     }
     this.logger.info(`The project is ready.`);
@@ -426,7 +398,7 @@ export class AAPClient implements IAAPService {
       pull: payload.pull,
     };
     this.logger.info(
-      `[${this.pluginLogName}] Scaffolder creating new AAP execution environment at ${this.ansibleConfig.rhaap?.baseUrl}.`,
+      `[${this.pluginLogName}] Scaffolder creating new AAP execution environment.`,
     );
     this.logger.info(
       `Begin creating execution environment ${payload.environmentName}.`,
@@ -646,9 +618,7 @@ export class AAPClient implements IAAPService {
       }
       templateID = templateJsonResp.results[0].id;
     } catch (e) {
-      this.logger.error(
-        `Failed to fetch job template ${payload.template}. Please make sure that the template name is correct and template is available on AAP. ${e}`,
-      );
+      this.logger.error('Failed to fetch the requested job template from AAP.');
       throw e;
     }
 
@@ -677,9 +647,7 @@ export class AAPClient implements IAAPService {
       try {
         lastEvent = await this.logJobStdoutMessages(jobID, token);
       } catch (stdoutError) {
-        this.logger.warn(
-          `Failed to fetch job stdout for job ${jobID}: ${stdoutError}`,
-        );
+        this.logger.warn(`Failed to fetch job stdout for job ${jobID}.`);
       }
       if (result.jobData.status !== 'successful') {
         lastEvent =
@@ -697,7 +665,7 @@ export class AAPClient implements IAAPService {
       }
       lastEvent =
         'Undefined Error. Please check the RHAAP portal for job execution logs.';
-      this.logger.error(`${error}`);
+      this.logger.error('Failed to execute job template.');
       this.logger.error(`Error while executing job template.`);
       this.logger.error(`Job failed: ${lastEvent}`);
       throw new Error(`Job execution failed due to ${lastEvent}`);
@@ -711,10 +679,7 @@ export class AAPClient implements IAAPService {
     };
   }
 
-  /**
-   * Fetches job stdout and logs ansible.builtin.debug msg values at info level.
-   * Returns the last string msg found (for failure reporting).
-   */
+  /** Fetches job stdout without exposing its contents in logs. */
   public async logJobStdoutMessages(
     jobID: number,
     token: string,
@@ -824,7 +789,7 @@ export class AAPClient implements IAAPService {
         );
         return;
       }
-      this.logger.error(`Failed to cancel job ${jobID}: ${error}`);
+      this.logger.error(`Failed to cancel job ${jobID}.`);
       throw error;
     }
   }
@@ -977,9 +942,7 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
     data.append('redirect_uri', options.callbackURL);
-    this.logger.info(
-      `[${this.pluginLogName}]: Authenticating with RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
-    );
+    this.logger.info(`[${this.pluginLogName}]: Authenticating with RH AAP.`);
 
     let response;
     try {
@@ -1024,9 +987,7 @@ export class AAPClient implements IAAPService {
     data.append('client_id', options.clientId);
     data.append('client_secret', options.clientSecret);
 
-    this.logger.info(
-      `[${this.pluginLogName}]: Revoking token from RH AAP at ${this.ansibleConfig.rhaap?.baseUrl}/${endPoint}.`,
-    );
+    this.logger.info(`[${this.pluginLogName}]: Revoking token from RH AAP.`);
 
     const response = await this.executePostRequest(
       endPoint,

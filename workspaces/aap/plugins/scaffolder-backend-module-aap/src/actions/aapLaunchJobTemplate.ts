@@ -84,8 +84,8 @@ async function pollJobCompletion(
       );
       try {
         await service.cancelJob(result.id, token);
-      } catch (cancelError) {
-        logger.warn(`Failed to cancel AAP job ${result.id}: ${cancelError}`);
+      } catch {
+        logger.warn(`Failed to cancel AAP job ${result.id}.`);
       }
     }
     throw e;
@@ -100,10 +100,8 @@ async function pollJobCompletion(
 
   try {
     await service.logJobStdoutMessages(result.id, token);
-  } catch (stdoutError) {
-    logger.warn(
-      `Failed to fetch job stdout for job ${result.id}: ${stdoutError}`,
-    );
+  } catch {
+    logger.warn(`Failed to fetch job stdout for job ${result.id}.`);
   }
 
   if (currentStatus !== 'successful') {

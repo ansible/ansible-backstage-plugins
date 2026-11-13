@@ -102,7 +102,8 @@ export async function handleAutocompleteRequest({
     }
     if (
       message.includes('Controller') ||
-      message.includes('Failed to send fetch')
+      message.includes('Failed to send fetch') ||
+      message.includes('Failed to send GET request.')
     ) {
       throw new ServiceUnavailableError(message);
     }
