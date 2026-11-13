@@ -814,6 +814,131 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 });
 
+describe('manual refresh audit outcomes', () => {
+  it.each([false, true])(
+    'reports whether a poll was confirmed by the audit sink (%s)',
+    async auditFails => {
+      const success = jest.fn(async () => {
+        if (auditFails) throw new Error('audit unavailable');
+      });
+      const pollRegistry = jest.fn(async () => ({
+        changed: false,
+        refreshed: false,
+        requests: 2,
+        details: ['registry checked', 'check failed: private registry error'],
+      }));
+      const app = await appWith(
+        stubDB({
+          getRegistry: () => ({ connection: { name: 'reg' } }) as never,
+          pollRegistry,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success, fail: async () => {} }) },
+      );
+      const response = await request(app).post('/registries/reg/poll');
+
+      expect(pollRegistry).toHaveBeenCalledWith('reg', false);
+      expect(success).toHaveBeenCalledWith({
+        meta: { outcome: 'checked', changes: [] },
+      });
+      expect(response.status).toBe(auditFails ? 500 : 200);
+      expect(response.body).toMatchObject(
+        auditFails
+          ? { code: 'committed-audit-unconfirmed', retainedPrevious: true }
+          : { changed: false, refreshed: false, requests: 2 },
+      );
+      expect(JSON.stringify(response.body)).not.toContain(
+        'private registry error',
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'reports a completed registry write separately from audit confirmation (%s)',
+    async auditFails => {
+      const success = jest.fn(async () => {
+        if (auditFails) throw new Error('audit unavailable');
+      });
+      const refreshRegistry = jest.fn(async () => ({
+        ok: true,
+        discovered: 3,
+      }));
+      const app = await appWith(
+        stubDB({
+          getRegistry: () => ({ connection: { name: 'reg' } }) as never,
+          refreshRegistry,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success, fail: async () => {} }) },
+      );
+
+      const response = await request(app).post(
+        '/registries/reg/sync?wait=true',
+      );
+
+      expect(refreshRegistry).toHaveBeenCalledWith('reg', false);
+      expect(success).toHaveBeenCalledWith({
+        meta: { outcome: 'committed', changes: [] },
+      });
+      expect(response.status).toBe(auditFails ? 500 : 202);
+      expect(response.body).toMatchObject(
+        auditFails
+          ? { code: 'committed-audit-unconfirmed', retainedPrevious: false }
+          : { status: 'completed', discovered: 3, retainedPrevious: false },
+      );
+    },
+  );
+
+  it('reports unconfirmed audit after the refresh task was accepted', async () => {
+    const triggerTask = jest.fn(async () => {});
+    const fail = jest.fn(async () => {});
+    const app = await appWith(
+      undefined,
+      stubScheduler({ triggerTask }),
+      undefined,
+      {
+        createEvent: async () => ({
+          success: async () => {
+            throw new Error('audit unavailable');
+          },
+          fail,
+        }),
+      },
+    );
+
+    const response = await request(app).post('/sync');
+
+    expect(response.status).toBe(500);
+    expect(response.body.code).toBe('scheduled-audit-unconfirmed');
+    expect(triggerTask).toHaveBeenCalledWith(STORE_REFRESH_TASK_ID);
+    expect(fail).not.toHaveBeenCalled();
+  });
+
+  it('reports a scheduler outage even if writing the failure audit also fails', async () => {
+    const fail = jest.fn(async () => {
+      throw new Error('audit unavailable');
+    });
+    const app = await appWith(
+      undefined,
+      stubScheduler({
+        triggerTask: async () => {
+          throw new Error('scheduler unavailable');
+        },
+      }),
+      undefined,
+      { createEvent: async () => ({ success: async () => {}, fail }) },
+    );
+
+    const response = await request(app).post('/sync');
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('SCHEDULING_FAILED');
+    expect(fail).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('repository refresh audit boundaries', () => {
   const body = { registry: 'reg', repository: 'org/image' };
   const result = {
