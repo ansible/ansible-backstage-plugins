@@ -85,3 +85,9 @@ export {
 } from './testing/MockRegistry';
 export { fakeRegistryCredentials } from './testing/fakeCredentials';
 export type { MockImage, MockRegistryOptions } from './testing/MockRegistry';
+
+export * from './eeRepository';
+export {
+  eeRepositoryEntityName,
+  eeRepositoryEntityRef,
+} from './eeRepositoryIdentity';

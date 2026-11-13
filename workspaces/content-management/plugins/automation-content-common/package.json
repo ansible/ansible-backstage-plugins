@@ -17,13 +17,16 @@
     "build": "backstage-cli package build",
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
-    "clean": "backstage-cli package clean"
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack"
   },
   "files": [
     "dist"
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
+    "@backstage/plugin-permission-common": "0.9.10",
     "undici": "6.29.1"
   },
   "devDependencies": {
@@ -36,5 +39,25 @@
     "istanbul-lib-instrument": "^6.0.3",
     "msw": "^2.11.4",
     "node-forge": "1.4.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./permissions": "./src/permissions.ts",
+    "./eeRepository": "./src/eeRepository.ts",
+    "./package.json": "./package.json",
+    "./testing-tls": "./src/testing/tlsCertificates.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "permissions": [
+        "src/permissions.ts"
+      ],
+      "eeRepository": [
+        "src/eeRepository.ts"
+      ],
+      "testing-tls": [
+        "src/testing/tlsCertificates.ts"
+      ]
+    }
   }
 }

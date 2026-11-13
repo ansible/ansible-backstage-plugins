@@ -1,6 +1,7 @@
 import {
   ApiBlueprint,
   PageBlueprint,
+  SubPageBlueprint,
   createFrontendPlugin,
   type FrontendPlugin,
 } from '@backstage/frontend-plugin-api';
@@ -14,13 +15,11 @@ import { AAPApis, EEBuildApis } from './apis';
 import {
   rootRouteRef,
   collectionsRouteRef,
-  eeRouteRef,
   gitRepositoriesRouteRef,
   historyRouteRef,
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
 import HistoryIcon from '@material-ui/icons/History';
-import BuildIcon from '@material-ui/icons/Build';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 
@@ -32,7 +31,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
   routes: {
     root: convertLegacyRouteRef(rootRouteRef),
     collections: convertLegacyRouteRef(collectionsRouteRef),
-    ee: convertLegacyRouteRef(eeRouteRef),
     repositories: convertLegacyRouteRef(gitRepositoriesRouteRef),
     history: convertLegacyRouteRef(historyRouteRef),
   },
@@ -58,19 +56,17 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
         },
       },
     }),
-    PageBlueprint.make({
-      name: 'ee',
+    SubPageBlueprint.make({
+      name: 'ee-definitions',
+      attachTo: { id: 'page:automation-content/ee', input: 'pages' },
       params: {
-        path: portalScaffolderRoutePaths.executionEnvironments,
-        title: 'Execution Environments',
-        icon: <BuildIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(eeRouteRef),
+        path: 'definitions',
+        title: 'Definitions',
         loader: async () => {
-          const { EERoutesPage } = await import(
-            './components/ExecutionEnvironments'
+          const { EEDefinitionsTab } = await import(
+            './components/ExecutionEnvironments/EEDefinitionsTab'
           );
-          return compatWrapper(<EERoutesPage />);
+          return compatWrapper(<EEDefinitionsTab />);
         },
       },
     }),

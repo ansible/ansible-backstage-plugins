@@ -7,12 +7,18 @@ import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
   MediaTypes,
+  type ImageManifest,
   RegistryConnection,
   fakeRegistryCredentials,
   makeImage,
   makeLabelledImage,
+  eeRepositoryEntityRef,
 } from '@ansible/automation-content-common';
-import { ContentStore } from './ContentStore';
+import {
+  ContentStore,
+  RegistryScanIncomplete,
+  RegistryWriterBusy,
+} from './ContentStore';
 
 const silent = { info: () => {}, warn: () => {}, debug: () => {} };
 
@@ -33,6 +39,8 @@ async function createTestDB() {
     table.boolean('contents_known').notNullable().defaultTo(false);
     table.text('classification').notNullable().defaultTo('{}');
     table.text('manifest');
+    table.text('signing');
+    table.text('tag_timestamps');
     table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
   });
@@ -68,10 +76,13 @@ function connection(): RegistryConnection {
   };
 }
 
-async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+async function storeOver(
+  registry: MockRegistry,
+  repositories = connection().repositories,
+): Promise<ContentStore> {
   const db = await createTestDB();
   const store = new ContentStore(
-    [connection()],
+    [{ ...connection(), repositories }],
     db as never,
     silent,
     defaultContentTypes(),
@@ -85,6 +96,439 @@ async function storeOver(registry: MockRegistry): Promise<ContentStore> {
 }
 
 const EE_LABEL = 'ansible-execution-environment';
+
+describe('EE repository projection', () => {
+  it('applies typed repository search and favorites before stable sorting and pagination', async () => {
+    const db = await createTestDB();
+    try {
+      const otherRegistry = { ...connection(), name: 'second' };
+      const store = new ContentStore(
+        [connection(), otherRegistry],
+        db as never,
+        silent,
+        undefined,
+        new Map([
+          ['mock', 'group:default/platform'],
+          ['second', 'group:default/automation'],
+        ]),
+        new Map([['mock', new Map([['team/image-21', ['networking']]])]]),
+      );
+      const insert = (
+        repository: string,
+        index: number,
+        tags: string[],
+        registry = 'mock',
+        type = 'execution-environment',
+        manifest: string | null = null,
+      ) => {
+        const digest = `sha256:${String(index).padStart(64, '0')}`;
+        return {
+          ref: `${registry}/${repository}@${digest}`,
+          registry,
+          repository,
+          digest,
+          tags: JSON.stringify(tags),
+          pull_reference: `mock.registry/${repository}@${digest}`,
+          type,
+          classification: '{}',
+          manifest,
+        };
+      };
+      const rows = Array.from({ length: 22 }, (_, i) =>
+        insert(`team/image-${String(i).padStart(2, '0')}`, i, ['release']),
+      );
+      rows.push(
+        {
+          ...insert('team/image-21', 24, ['v2', 'v2-alias', 'latest']),
+          manifest: JSON.stringify({ collections: [{ name: 'example' }] }),
+        },
+        insert('team/image-21', 25, ['ordinary-only'], 'mock', 'oci-image'),
+        insert('team/image-21', 26, ['release'], 'second'),
+        insert('team/tagless', 27, []),
+      );
+      await db('artifacts').insert(rows);
+      const first = await store.queryEERepositories({ page: 1, pageSize: 10 });
+      expect(first.totalItems).toBe(24);
+      await expect(
+        store.queryEERepositories({
+          sourceType: 'external-registry',
+          status: 'not-reconciled',
+          registry: 'mock',
+          page: 2,
+          pageSize: 10,
+        }),
+      ).resolves.toMatchObject({
+        totalItems: 23,
+        items: Array.from({ length: 10 }, (_, i) => ({
+          repository: `team/image-${i + 10}`,
+          status: 'not-reconciled',
+        })),
+      });
+      await expect(
+        store.queryEERepositories({ status: 'available' }),
+      ).resolves.toMatchObject({ totalItems: 0, items: [] });
+
+      expect(first.items.map(item => item.repository)).toEqual(
+        Array.from(
+          { length: 10 },
+          (_, i) => `team/image-${String(i).padStart(2, '0')}`,
+        ),
+      );
+      const favorite = await store.queryEERepositories({
+        page: 1,
+        pageSize: 10,
+        favoriteEntityRefs: [eeRepositoryEntityRef('mock', 'team/image-21')],
+      });
+      expect(favorite.totalItems).toBe(1);
+      expect(favorite.items[0]).toMatchObject({
+        registry: 'mock',
+        repository: 'team/image-21',
+        tagCount: 4,
+        collectionCount: 1,
+      });
+      expect(first.facets).toEqual({
+        tags: ['latest', 'release', 'v2', 'v2-alias'],
+        descriptiveTags: ['networking'],
+        owners: ['group:default/automation', 'group:default/platform'],
+        totalImages: 24,
+      });
+      const filtered = await store.queryEERepositories({
+        tag: 'v2-alias',
+        descriptiveTag: 'networking',
+        owner: 'group:default/platform',
+        latestOnly: true,
+      });
+      expect(filtered.totalItems).toBe(1);
+      expect(filtered.items[0].repository).toBe('team/image-21');
+      expect(filtered.facets).toEqual(first.facets);
+      expect(
+        (await store.queryEERepositories({ descriptiveTag: 'v2-alias' }))
+          .totalItems,
+      ).toBe(0);
+      expect(
+        (
+          await store.queryEERepositories({
+            descriptiveTag: 'networking',
+            tag: 'release',
+          })
+        ).items.map(item => item.registry),
+      ).toEqual(['mock']);
+      expect(
+        (
+          await store.queryEERepositories({
+            tag: 'v2-alias',
+            owner: 'group:default/automation',
+          })
+        ).totalItems,
+      ).toBe(0);
+      expect(
+        (await store.queryEERepositories({ query: 'ordinary-only' }))
+          .totalItems,
+      ).toBe(0);
+      expect(
+        (await store.queryEERepositories({ query: 'v2-ALIAS' })).totalItems,
+      ).toBe(1);
+      const tied = await store.queryEERepositories({
+        query: 'team/image-21',
+        order: 'desc',
+      });
+      expect(tied.items.map(item => item.registry)).toEqual(['mock', 'second']);
+      const detail = await store.getEERepository('mock', 'team/image-21');
+      expect(detail?.tags.find(tag => tag.tag === 'v2')?.digest).toBe(
+        detail?.tags.find(tag => tag.tag === 'v2-alias')?.digest,
+      );
+      expect(detail?.tags.map(tag => tag.tag)).not.toContain('ordinary-only');
+      const tagless = await store.getEERepository('mock', 'team/tagless');
+      expect(tagless?.tags).toEqual([]);
+      expect(tagless?.digests).toHaveLength(1);
+    } finally {
+      await db.destroy();
+    }
+  });
+});
+
+describe('repository refresh', () => {
+  it.each([false, true])(
+    'queues a waiting registry refresh even if the first operation fails (%s)',
+    async fails => {
+      const registry = new MockRegistry({
+        repositories: {
+          'ansible/ee': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+        },
+      });
+      const store = await storeOver(registry);
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: true,
+      });
+      const client = (
+        store as unknown as {
+          clients: Map<string, { fetchImpl: typeof registry.fetch }>;
+        }
+      ).clients.get('mock')!;
+      const fetch = client.fetchImpl;
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => {
+        release = resolve;
+      });
+      let scans = 0;
+      let firstScan = true;
+      client.fetchImpl = async (input, init) => {
+        if (new URL(input).pathname.endsWith('/tags/list')) {
+          scans++;
+          if (firstScan) {
+            firstScan = false;
+            await blocked;
+            if (fails) return new Response(null, { status: 403 });
+          }
+        }
+        return fetch(input, init);
+      };
+
+      const first = store.refreshRegistry('mock');
+      const queued = store.refreshRegistry('mock');
+      try {
+        await expect(
+          store.refreshRegistry('mock', false),
+        ).rejects.toBeInstanceOf(RegistryWriterBusy);
+        expect(scans).toBeLessThanOrEqual(1);
+      } finally {
+        release();
+      }
+      await expect(first).resolves.toMatchObject({ ok: !fails });
+      await expect(queued).resolves.toMatchObject({ ok: true });
+      expect(scans).toBe(2);
+    },
+  );
+
+  it('keeps a healthy image discoverable alongside opaque configs and attachments', async () => {
+    const ee = makeLabelledImage('release.sig', { [EE_LABEL]: 'true' });
+    const baseTag = ee.digest.replace(':', '-');
+    const custom = makeImage({ tag: 'custom' });
+    const manifest = custom.manifest as ImageManifest;
+    const attachment = makeImage({ tag: `${baseTag}.sig` });
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [
+          ee,
+          {
+            ...custom,
+            manifest: {
+              ...manifest,
+              config: {
+                ...manifest.config,
+                mediaType: 'application/vnd.example.config+json',
+              },
+            },
+            config: undefined,
+            referrerPayloads: { [manifest.config.digest]: ['opaque'] },
+          },
+          ...['', '.att', '.sbom'].map(suffix =>
+            makeImage({ tag: `${baseTag}${suffix}`, digest: 'invalid' }),
+          ),
+          {
+            ...attachment,
+            manifest: {
+              ...(attachment.manifest as ImageManifest),
+              layers: [
+                {
+                  mediaType: 'application/vnd.dev.cosign.simplesigning.v1+json',
+                  digest: `sha256:${'a'.repeat(64)}`,
+                  size: 1,
+                  annotations: {
+                    'dev.cosignproject.cosign/signature': 'fixture',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    const store = await storeOver(registry);
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+    });
+    await expect(store.queryEERepositories({})).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ representativeTag: 'release.sig', signingState: 'signed' }],
+    });
+    const heads = registry.requests.filter(
+      request => request.method === 'HEAD',
+    );
+    expect(
+      heads.some(request => request.path.includes(`/manifests/${baseTag}`)),
+    ).toBe(false);
+  });
+
+  it.each([MediaTypes.ociConfig, MediaTypes.dockerConfig])(
+    'retains the last good inventory when a %s image config is malformed',
+    async mediaType => {
+      const good = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+      const repositories = { 'ansible/ee': [good] };
+      const registry = new MockRegistry({ repositories });
+      const store = await storeOver(registry);
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: true,
+      });
+
+      const broken = makeImage({ tag: 'v2' });
+      const manifest = broken.manifest as ImageManifest;
+      repositories['ansible/ee'] = [
+        {
+          ...broken,
+          manifest: { ...manifest, config: { ...manifest.config, mediaType } },
+          config: undefined,
+          referrerPayloads: { [manifest.config.digest]: ['malformed'] },
+        },
+      ];
+
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: false,
+      });
+      await expect(
+        store.getEERepository('mock', 'ansible/ee'),
+      ).resolves.toMatchObject({
+        tags: [{ tag: 'v1' }],
+      });
+    },
+  );
+
+  it('updates list, detail and filters after one repository recovers from a registry failure', async () => {
+    const good = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [good], 'ansible/other': [good] };
+    const registry = new MockRegistry({ repositories });
+    const store = await storeOver(registry, Object.keys(repositories));
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+    });
+
+    repositories['ansible/other'] = [{ ...good, digest: 'invalid' }];
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    const failure = store.reconcileStateFor('mock')!;
+    jest.spyOn(store, 'reconcileStateFor').mockReturnValue({
+      ...failure,
+      at: (await store.getEERepository('mock', 'ansible/ee'))!
+        .lastSuccessfulReconcileAt!,
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 2 });
+    jest.restoreAllMocks();
+
+    await expect(
+      store.refreshEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({
+      result: { status: 'completed' },
+    });
+    await expect(
+      store.getEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({ stale: false });
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ repository: 'ansible/ee', status: 'available' }],
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ repository: 'ansible/other', status: 'stale' }],
+    });
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 2 });
+  });
+
+  it('updates the exact tag map, retains old data on failed inspection and allows an empty complete scan', async () => {
+    const first = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [first] };
+    const registry = new MockRegistry({ repositories });
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
+
+    repositories['ansible/ee'] = [
+      {
+        ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
+        digest: `sha256:${'d'.repeat(64)}`,
+      },
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    ];
+    const refresh = store.refreshEERepository('mock', 'ansible/ee');
+    await expect(store.pollRegistry('mock', false)).rejects.toBeInstanceOf(
+      RegistryWriterBusy,
+    );
+    await expect(refresh).resolves.toMatchObject({
+      result: {
+        status: 'completed',
+        addedTags: 1,
+        movedTags: 1,
+        removedTags: 0,
+      },
+    });
+
+    const successfulAt = (await store.getEERepository('mock', 'ansible/ee'))
+      ?.lastSuccessfulReconcileAt;
+    expect(successfulAt).toBeTruthy();
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ status: 'available' }],
+    });
+
+    repositories['ansible/ee'] = [
+      {
+        ...makeLabelledImage('v3', { [EE_LABEL]: 'true' }),
+        digest: 'sha256:invalid',
+      },
+    ];
+    await expect(
+      store.refreshEERepository('mock', 'ansible/ee'),
+    ).rejects.toBeInstanceOf(RegistryScanIncomplete);
+    expect(
+      (await store.getEERepository('mock', 'ansible/ee'))?.tags.map(
+        item => item.tag,
+      ),
+    ).toEqual(['v2', 'v1']);
+
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    await expect(
+      store.getEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({
+      stale: true,
+      lastSuccessfulReconcileAt: successfulAt,
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 1, items: [{ status: 'stale' }] });
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({ totalItems: 0, items: [] });
+
+    repositories['ansible/ee'] = [];
+    await expect(
+      store.refreshEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({
+      result: {
+        status: 'completed',
+        addedTags: 0,
+        movedTags: 0,
+        removedTags: 2,
+      },
+    });
+    await expect(
+      store.getEERepository('mock', 'ansible/ee'),
+    ).resolves.toBeUndefined();
+  });
+});
 
 describe('drift detection', () => {
   it('reports no change when the registry matches the store', async () => {
@@ -126,7 +570,7 @@ describe('drift detection', () => {
     await store.refreshRegistry('mock');
 
     const moved = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
-    moved.digest = `sha256:${'moved'.padEnd(64, '9')}`;
+    moved.digest = `sha256:${'9'.repeat(64)}`;
     repositories['ansible/ee'] = [moved];
 
     const drift = await store.detectDrift('mock');
@@ -457,9 +901,9 @@ describe('credential redaction', () => {
     expect(index.redactor.redact(BASIC_WIRE_FORM)).toBe('[REDACTED]');
   });
 
-  it('redacts content manifests before persisting them', async () => {
-    const referrerDigest = `sha256:${'ref'.padEnd(64, '0')}`;
-    const payloadDigest = `sha256:${'pay'.padEnd(64, '0')}`;
+  it('redacts content manifests and indexes repeated names across plugin types', async () => {
+    const referrerDigest = `sha256:${'a'.repeat(64)}`;
+    const payloadDigest = `sha256:${'b'.repeat(64)}`;
     const image = {
       ...makeLabelledImage('v1', { [EE_LABEL]: 'true' }),
       referrers: [
@@ -482,7 +926,11 @@ describe('credential redaction', () => {
               name: 'net',
               version: '1.0.0',
               description: `contains ${SECRET}`,
-              plugins: [],
+              plugins: [
+                { name: 'shared', fqcn: 'demo.net.shared', type: 'module' },
+                { name: 'shared', fqcn: 'demo.net.shared', type: 'action' },
+                { name: 'shared', fqcn: 'demo.net.shared', type: 'module' },
+              ],
               roles: [],
               playbooks: [],
               edaPlugins: [],
@@ -516,5 +964,10 @@ describe('credential redaction', () => {
     expect(row?.manifest).toBeDefined();
     expect(row.manifest).not.toContain(SECRET);
     expect(row.manifest).toContain('[REDACTED]');
+    const variants = await store.findItems('demo.net.shared', row.ref);
+    expect(variants.map(variant => variant.type).sort()).toEqual([
+      'action',
+      'module',
+    ]);
   });
 });

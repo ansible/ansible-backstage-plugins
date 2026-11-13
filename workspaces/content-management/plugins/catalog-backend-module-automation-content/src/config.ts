@@ -1,3 +1,4 @@
+import { makeValidator } from '@backstage/catalog-model';
 import { Config } from '@backstage/config';
 import {
   SchedulerServiceTaskScheduleDefinition,
@@ -12,7 +13,10 @@ export interface RegistryProviderEntry {
   schedule: SchedulerServiceTaskScheduleDefinition;
   owner?: string;
   system?: string;
+  repositoryTags: ReadonlyMap<string, readonly string[]>;
 }
+
+const { isValidTag } = makeValidator();
 
 const DEFAULT_SCHEDULE: SchedulerServiceTaskScheduleDefinition = {
   frequency: { hours: 1 },
@@ -122,6 +126,22 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
       );
     }
 
+    const repositoryTags = new Map<string, readonly string[]>();
+    for (const entry of registry.getOptionalConfigArray('repositoryTags') ??
+      []) {
+      const repository = entry.getString('repository');
+      const tags = entry.getStringArray('tags');
+      if (
+        repositoryTags.has(repository) ||
+        tags.some(tag => !isValidTag(tag))
+      ) {
+        throw new Error(
+          `automation-content registry "${name}": repositoryTags entry for "${repository}" requires a unique repository and valid Catalog tags`,
+        );
+      }
+      repositoryTags.set(repository, [...new Set(tags)]);
+    }
+
     return {
       connection: {
         name,
@@ -154,6 +174,7 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
         registry.getOptionalString('owner') ??
         providers.getOptionalString('owner'),
       system: registry.getOptionalString('system'),
+      repositoryTags,
     };
   });
 }

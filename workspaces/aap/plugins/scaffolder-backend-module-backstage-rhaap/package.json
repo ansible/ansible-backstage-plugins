@@ -24,7 +24,7 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "fix": "backstage-cli repo fix --publish",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/aap-node --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/plugin-scaffolder-backend-module-aap --embed-package @ansible/portal-scaffolder-common"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/aap-node --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/portal-scaffolder-common --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/plugin-scaffolder-backend-module-aap"
   },
   "dependencies": {
     "@ansible/aap-common": "workspace:^",

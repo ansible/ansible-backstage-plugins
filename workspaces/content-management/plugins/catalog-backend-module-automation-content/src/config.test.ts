@@ -7,7 +7,7 @@ import { readRegistryConfigs, registryUrlError } from './config';
 // never reach a published bundle. The deep import resolves to the same
 // transformed source every other import of this package uses.
 // eslint-disable-next-line @backstage/no-forbidden-package-imports
-import { generateTlsTestFixtures } from '@ansible/automation-content-common/src/testing/tlsCertificates';
+import { generateTlsTestFixtures } from '@ansible/automation-content-common/testing-tls';
 
 const FIXTURES = generateTlsTestFixtures();
 const directories: string[] = [];
@@ -243,6 +243,12 @@ describe('readRegistryConfigs', () => {
           name: 'quay',
           url: 'https://quay.io',
           repositories: ['ansible/ee'],
+          repositoryTags: [
+            {
+              repository: 'ansible/ee',
+              tags: ['networking-team', 'networking-team', 'a'.repeat(63)],
+            },
+          ],
         },
       ]),
     );
@@ -253,6 +259,30 @@ describe('readRegistryConfigs', () => {
       url: 'https://quay.io/',
     });
     expect(entry.connection.repositories).toEqual(['ansible/ee']);
+    expect(entry.repositoryTags.get('ansible/ee')).toEqual([
+      'networking-team',
+      'a'.repeat(63),
+    ]);
+  });
+
+  it.each([
+    '-network',
+    'network-',
+    'network--team',
+    'network/team',
+    'a'.repeat(64),
+  ])('rejects an invalid Catalog repository tag (%s)', tag => {
+    expect(() =>
+      readRegistryConfigs(
+        configWith([
+          {
+            name: 'quay',
+            url: 'https://quay.io',
+            repositoryTags: [{ repository: 'ansible/ee', tags: [tag] }],
+          },
+        ]),
+      ),
+    ).toThrow(/registry "quay".*entry for "ansible\/ee".*valid Catalog tags/);
   });
 
   it('normalizes scheme case and surrounding whitespace to a usable endpoint', () => {

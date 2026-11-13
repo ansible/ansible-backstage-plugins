@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { executionEnvironmentsViewPermission as ownedPermission } from '@ansible/automation-content-common/permissions';
+
 import {
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
@@ -25,6 +27,7 @@ import {
 
 describe('permissions', () => {
   it('exports executionEnvironmentsViewPermission with correct shape', () => {
+    expect(executionEnvironmentsViewPermission).toBe(ownedPermission);
     expect(executionEnvironmentsViewPermission).toEqual({
       type: 'basic',
       name: 'ansible.execution-environments.view',

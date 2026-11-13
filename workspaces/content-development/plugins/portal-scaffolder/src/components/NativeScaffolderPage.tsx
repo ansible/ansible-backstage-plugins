@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Progress } from '@backstage/core-components';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
 import {
   templatesViewPermission,
@@ -16,6 +16,7 @@ import { HistoryRoutesPage } from './TaskList';
 import { CatalogImport } from './CatalogImport';
 import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
 import { EENotificationBoundary } from './ExecutionEnvironments/EENotificationBoundary';
+import { eeTemplateCatalogPath } from '../routes';
 
 const EEDetailsPage = lazy(() =>
   import('./ExecutionEnvironments/catalog/EEDetailsPage').then(module => ({
@@ -25,6 +26,16 @@ const EEDetailsPage = lazy(() =>
 
 const reservedNames = formExtraFields.map(field => field.name);
 
+function LegacyEEDefinitionsRedirect(): JSX.Element {
+  const { search, hash } = useLocation();
+  return (
+    <Navigate
+      to={{ pathname: '/content/ee/definitions', search, hash }}
+      replace
+    />
+  );
+}
+
 /** Render the native scaffolder with host-provided fields, APIs and notification boundaries. */
 export function NativeScaffolderPage({
   declarations,
@@ -33,6 +44,11 @@ export function NativeScaffolderPage({
 }>) {
   return (
     <Routes>
+      <Route
+        path="ee/create"
+        element={<Navigate to={eeTemplateCatalogPath} replace />}
+      />
+      <Route path="ee/*" element={<LegacyEEDefinitionsRedirect />} />
       <Route
         path="catalog/:templateName"
         element={

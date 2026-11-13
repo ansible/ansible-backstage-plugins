@@ -4,6 +4,11 @@
   "description": "Ansible automation content management UI for Red Hat Developer Hub / Backstage. Mounts at /automation-content.",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./alpha": "./src/alpha.tsx",
+    "./package.json": "./package.json"
+  },
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public",
@@ -20,31 +25,48 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
-    "export-dynamic": "yarn run rhdh-cli plugin export --embed-package @ansible/content-model"
+    "export-dynamic": "yarn run rhdh-cli plugin export --embed-package @ansible/content-model --embed-package @ansible/automation-content-common"
   },
   "files": [
     "dist",
     "dist-scalprum"
   ],
   "dependencies": {
+    "@ansible/automation-content-common": "workspace:^",
     "@ansible/content-model": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
+    "@backstage/catalog-model": "1.10.0",
     "@backstage/core-components": "0.18.13",
     "@backstage/core-plugin-api": "1.12.9",
+    "@backstage/frontend-plugin-api": "0.18.0",
+    "@backstage/plugin-catalog-react": "3.2.2",
+    "@backstage/plugin-permission-common": "0.9.10",
+    "@backstage/plugin-permission-react": "0.5.4",
     "@backstage/theme": "0.7.3",
+    "@backstage/ui": "0.17.1",
     "@material-ui/core": "^4.9.13",
     "@material-ui/icons": "^4.9.1",
     "@material-ui/lab": "^4.0.0-alpha.61",
+    "@remixicon/react": ">=4.6.0 <4.9.0",
     "react-use": "^17.2.4"
   },
   "peerDependencies": {
+    "@ansible/portal-extension-api": "workspace:^",
+    "@ansible/portal-extension-host": "workspace:^",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.5"
   },
   "devDependencies": {
+    "@ansible/portal-extension-api": "workspace:^",
+    "@ansible/portal-extension-host": "workspace:^",
     "@backstage/cli": "0.36.5",
+    "@backstage/frontend-test-utils": "0.6.3",
+    "@backstage/plugin-catalog": "2.0.8",
     "@red-hat-developer-hub/cli": "1.10.8",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

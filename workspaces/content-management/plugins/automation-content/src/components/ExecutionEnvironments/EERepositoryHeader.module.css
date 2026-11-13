@@ -1,0 +1,4 @@
+/* Let the stock Catalog main grow inside RHDH's scrolling sidebar page. */
+body main:has(> .header) {
+  max-height: none;
+}

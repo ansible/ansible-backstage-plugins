@@ -26,19 +26,29 @@ import {
   TableColumn,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { useTranslationRef } from '@backstage/frontend-plugin-api';
+import { contentSyncPermission } from '@ansible/automation-content-common/permissions';
 import { SkeletonLoader, useNotifications } from '@ansible/portal-plugin-sdk';
 import {
   automationContentApiRef,
   ContentItemSummary,
   ExecutionEnvironment,
+  IncompleteEEListError,
   Registry,
 } from '../api';
 import { OptionTree } from './OptionTree';
+import { eeTranslationRef } from '../strings/en';
+import { useContentPermission } from '../useContentPermission';
 
 /** Accept a string, an array, or nothing, and always return an array of strings. */
 function toLines(value: unknown): string[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value.map(String) : [String(value)];
+  const values: unknown[] = Array.isArray(value) ? value : [value];
+  return values.flatMap(entry => {
+    if (typeof entry === 'string') return [entry];
+    if (typeof entry === 'number' || typeof entry === 'boolean')
+      return [String(entry)];
+    return [];
+  });
 }
 
 /** Human-friendly age, e.g. "4 minutes ago". */
@@ -129,43 +139,31 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
   );
 };
 
-/**
- * Manual refresh.
- *
- * The index is rebuilt on a schedule and by a cheap drift poll, but neither helps
- * someone who just pushed an image and wants to see it now. This forces a full re-read
- * and reports what came back, so the user is never left guessing whether it worked.
- */
+/** Schedule the legacy explorer's inventory refresh. */
 const RefreshButton = ({ onDone }: { onDone: () => void }) => {
   const api = useApi(automationContentApiRef);
+  const { t } = useTranslationRef(eeTranslationRef);
   const { showNotification } = useNotifications();
   const [state, run] = useAsyncFn(async () => {
     try {
       const result = await api.syncAll();
       onDone();
       showNotification({
-        title: 'Content refreshed',
-        description: `Refreshed in ${result.durationMs} ms — ${result.registries
-          .map(
-            r =>
-              `${r.registry}: ${
-                r.ok ? `${r.discovered} artifact(s)` : `failed (${r.error})`
-              }`,
-          )
-          .join('; ')}`,
-        severity: result.registries.some(r => !r.ok) ? 'warning' : 'success',
+        title: t('sync.legacyTitle'),
+        description: t('sync.scheduled'),
+        severity: 'success',
         autoHideDuration: 6000,
       });
       return result;
     } catch (err) {
       showNotification({
-        title: 'Refresh failed',
-        description: err instanceof Error ? err.message : String(err),
+        title: t('sync.legacyFailed'),
+        description: t('sync.failed'),
         severity: 'error',
       });
       throw err;
     }
-  }, [api, onDone, showNotification]);
+  }, [api, onDone, showNotification, t]);
 
   return (
     <Button
@@ -276,13 +274,14 @@ export const OverviewView = ({
 }) => {
   const classes = useStyles();
   const api = useApi(automationContentApiRef);
-  // Bumped after a manual refresh so both queries re-run against the rebuilt index.
+  const syncAllowed = useContentPermission(contentSyncPermission) === 'allowed';
+  // Reload observed inventory after scheduling, independently of task completion.
   const [reloadKey, setReloadKey] = useState(0);
   const environments = useAsync(
     () => api.listExecutionEnvironments(),
     [api, reloadKey],
   );
-  const registries = useAsync(() => api.listRegistries(), [api, reloadKey]);
+  const registries = useAsync(() => api.getRegistryStatus(), [api, reloadKey]);
   const reload = useCallback(() => setReloadKey(k => k + 1), []);
 
   const columns: TableColumn<ExecutionEnvironment>[] = [
@@ -339,11 +338,15 @@ export const OverviewView = ({
     },
   ];
 
-  if (environments.error)
+  const partial =
+    environments.error instanceof IncompleteEEListError
+      ? environments.error
+      : undefined;
+  if (environments.error && !partial)
     return <ResponseErrorPanel error={environments.error} />;
   if (environments.loading) return <SkeletonLoader />;
 
-  const items = environments.value ?? [];
+  const items = partial?.items ?? environments.value ?? [];
 
   return (
     <Grid container spacing={3} direction="column">
@@ -352,11 +355,23 @@ export const OverviewView = ({
           title="Execution environments"
           subheader="Discovered from configured OCI registries. Select one to see the collections it ships. The portal never proxies image data — clients pull from the registry directly."
           action={
-            <Box mr={2} mt={2}>
-              <RefreshButton onDone={reload} />
-            </Box>
+            registries.value?.manualSyncEnabled &&
+            !registries.loading &&
+            syncAllowed ? (
+              <Box mr={2} mt={2}>
+                <RefreshButton onDone={reload} />
+              </Box>
+            ) : undefined
           }
         >
+          {partial && (
+            <Box mb={2} role="alert">
+              <Typography>
+                Showing {items.length} images. Some images couldn’t be loaded.
+              </Typography>
+              <Button onClick={reload}>Retry</Button>
+            </Box>
+          )}
           {items.length === 0 ? (
             <EmptyState
               missing="data"
@@ -381,7 +396,7 @@ export const OverviewView = ({
       </Grid>
 
       <Grid item>
-        <RegistriesCard registries={registries.value ?? []} />
+        <RegistriesCard registries={registries.value?.items ?? []} />
       </Grid>
     </Grid>
   );
@@ -675,10 +690,10 @@ export const CollectionView = ({
   ];
 
   // Counts per type, so the shape of the collection is visible at a glance.
-  const byType = items.reduce<Record<string, number>>((acc, i) => {
-    acc[i.type] = (acc[i.type] ?? 0) + 1;
-    return acc;
-  }, {});
+  const byType = items.reduce((counts, item) => {
+    counts.set(item.type, (counts.get(item.type) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 
   return (
     <InfoCard
@@ -688,7 +703,7 @@ export const CollectionView = ({
       {initial.error && <ResponseErrorPanel error={initial.error} />}
 
       <Box display="flex" flexWrap="wrap" gridGap={4} mb={2}>
-        {Object.entries(byType).map(([t, n]) => (
+        {Array.from(byType).map(([t, n]) => (
           <Chip
             key={t}
             size="small"

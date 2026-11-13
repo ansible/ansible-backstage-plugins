@@ -1,16 +1,41 @@
 import express from 'express';
 import Router from 'express-promise-router';
 import {
+  AuditorService,
   HttpAuthService,
   LoggerService,
+  PermissionsService,
   SchedulerService,
 } from '@backstage/backend-plugin-api';
 import { ConfigReader } from '@backstage/config';
-import { publicUrl } from '@ansible/automation-content-common';
-import { ContentStore, IndexedArtifact, IndexedItem } from './ContentStore';
+import {
+  AuthorizeResult,
+  type BasicPermission,
+} from '@backstage/plugin-permission-common';
+import {
+  contentSyncPermission,
+  executionEnvironmentsViewPermission,
+} from '@ansible/automation-content-common/permissions';
+import {
+  EE_REPOSITORY_ENTITY_REF_PATTERN,
+  EE_REPOSITORY_SOURCE_TYPE,
+  EE_REPOSITORY_STATUSES,
+  publicUrl,
+  type EERepositoryQuery,
+} from '@ansible/automation-content-common';
+import {
+  ContentStore,
+  IndexedArtifact,
+  IndexedItem,
+  RegistryScanIncomplete,
+  RegistryWriterBusy,
+} from './ContentStore';
+import { startRefreshAudit, auditTagChanges, auditResource } from './audit';
+import { messages } from './strings/en';
+import { STORE_REFRESH_TASK_ID } from './scheduler';
 import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automation-content';
 
-export const STORE_REFRESH_TASK_ID = 'content-management-store-refresh';
+export { STORE_REFRESH_TASK_ID } from './scheduler';
 
 export function registryRefreshTaskId(name: string): string {
   return `content-management-store-refresh-${name}`;
@@ -19,6 +44,9 @@ export function registryRefreshTaskId(name: string): string {
 export interface RouterOptions {
   logger: LoggerService;
   httpAuth: HttpAuthService;
+  permissions: PermissionsService;
+  auditor?: AuditorService;
+  manualSyncEnabled?: boolean;
   db: ContentStore;
   scheduler: SchedulerService;
 }
@@ -51,6 +79,64 @@ const EE_TYPE = 'execution-environment';
 
 const ALLOWED_PAGE_SIZES = [10, 20, 50] as const;
 
+function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const {
+    page,
+    pageSize,
+    query,
+    registry,
+    sourceType,
+    status,
+    tag,
+    descriptiveTag,
+    latestOnly,
+    owner,
+    sort,
+    order,
+    favoriteEntityRefs,
+    ...unknownFields
+  } = value as Record<string, unknown>;
+  return (
+    Object.keys(unknownFields).length === 0 &&
+    (page === undefined ||
+      (typeof page === 'number' && Number.isSafeInteger(page) && page >= 1)) &&
+    (pageSize === undefined ||
+      (typeof pageSize === 'number' &&
+        (ALLOWED_PAGE_SIZES as readonly number[]).includes(pageSize))) &&
+    (query === undefined ||
+      (typeof query === 'string' && query.length <= 256)) &&
+    (registry === undefined ||
+      (typeof registry === 'string' && registry.length > 0)) &&
+    (sourceType === undefined || sourceType === EE_REPOSITORY_SOURCE_TYPE) &&
+    (status === undefined ||
+      (typeof status === 'string' &&
+        (EE_REPOSITORY_STATUSES as readonly string[]).includes(status))) &&
+    (tag === undefined ||
+      (typeof tag === 'string' && tag.length > 0 && tag.length <= 128)) &&
+    (owner === undefined ||
+      (typeof owner === 'string' && owner.length > 0 && owner.length <= 256)) &&
+    (descriptiveTag === undefined ||
+      (typeof descriptiveTag === 'string' &&
+        /^[a-z0-9:+#-]{1,63}$/.test(descriptiveTag))) &&
+    (latestOnly === undefined || typeof latestOnly === 'boolean') &&
+    (sort === undefined ||
+      (typeof sort === 'string' &&
+        ['repository', 'registry', 'lastSuccessfulReconcileAt'].includes(
+          sort,
+        ))) &&
+    (order === undefined || order === 'asc' || order === 'desc') &&
+    (favoriteEntityRefs === undefined ||
+      (Array.isArray(favoriteEntityRefs) &&
+        favoriteEntityRefs.length <= 1000 &&
+        favoriteEntityRefs.every(
+          ref =>
+            typeof ref === 'string' &&
+            EE_REPOSITORY_ENTITY_REF_PATTERN.test(ref),
+        )))
+  );
+}
+
 /**
  * What GET /registries reports about a failed reconciliation.
  *
@@ -74,9 +160,14 @@ export const RECONCILE_FAILURE_SUMMARY =
  * guessing. A consumer that assumes the declared type should not be punished for it.
  */
 function asArray(value: unknown): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (Array.isArray(value)) return value.map(String);
-  return [String(value)];
+  const values: unknown[] = Array.isArray(value) ? value : [value];
+  const lines = values.flatMap(entry => {
+    if (typeof entry === 'string') return [entry];
+    if (typeof entry === 'number' || typeof entry === 'boolean')
+      return [String(entry)];
+    return [];
+  });
+  return lines.length || Array.isArray(value) ? lines : undefined;
 }
 
 /** Normalise the documentation fields whose shape varies across collections. */
@@ -132,6 +223,7 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
     pullReference: artifact.pullReference,
     contentsKnown: artifact.contentsKnown,
     classification: artifact.classification,
+    signing: artifact.signing,
     enumeration: enumerationOf(artifact),
     lastReconciledAt: db.reconcileStateFor(artifact.registry)?.at,
     counts: db.countsFor(artifact),
@@ -144,12 +236,65 @@ function artifactView(db: ContentStore, artifact: IndexedArtifact) {
   };
 }
 
-export async function createRouter(
-  options: RouterOptions,
-): Promise<express.Router> {
-  const { db, logger, scheduler } = options;
+function respondToDenial(
+  res: RouteResponse,
+  decision: 'allow' | 'deny' | 'unavailable',
+): boolean {
+  if (decision === 'allow') return false;
+  if (decision === 'unavailable') {
+    res.status(503).json({
+      code: 'AUTHORIZATION_UNAVAILABLE',
+      error: messages.authorizationUnavailable,
+    });
+  } else {
+    res.status(403).json({ code: 'FORBIDDEN', error: messages.forbidden });
+  }
+  return true;
+}
+
+function reportRefreshError(res: RouteResponse, error: unknown) {
+  if (error instanceof RegistryWriterBusy) {
+    res.status(409).json({ code: 'REFRESH_BUSY', error: messages.refreshBusy });
+  } else {
+    res
+      .status(500)
+      .json({ code: 'REFRESH_FAILED', error: messages.auditFailed });
+  }
+}
+
+function reportAuditUnconfirmed(res: RouteResponse, retainedPrevious: boolean) {
+  res.status(500).json({
+    code: 'committed-audit-unconfirmed',
+    error: messages.auditUnconfirmed,
+    retainedPrevious,
+  });
+}
+
+function describeValue(value: unknown): string {
+  if (value === undefined || value === null) return 'nothing';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value) ?? 'nothing';
+  } catch {
+    return 'an unprintable value';
+  }
+}
+
+export function createRouter(options: RouterOptions): Promise<express.Router> {
+  return Promise.resolve().then(() => buildRouter(options));
+}
+
+function buildRouter(options: RouterOptions): express.Router {
+  const {
+    db,
+    logger,
+    httpAuth,
+    permissions,
+    scheduler,
+    auditor,
+    manualSyncEnabled = false,
+  } = options;
   const router = Router();
-  router.use(express.json({ limit: '5mb' }));
 
   // Every JSON response passes through the live redactor so runtime bearer
   // tokens and registry-controlled metadata cannot bypass a route handler.
@@ -161,14 +306,176 @@ export async function createRouter(
     next();
   });
 
+  async function authorize(
+    req: unknown,
+    permission: BasicPermission,
+    userOnly = false,
+  ): Promise<'allow' | 'deny' | 'unavailable'> {
+    const credentials = await httpAuth.credentials(
+      req as Parameters<HttpAuthService['credentials']>[0],
+      { allow: ['user', 'service'] },
+    );
+    if (userOnly && credentials.principal.type !== 'user') return 'deny';
+    try {
+      const [decision] = await permissions.authorize([{ permission }], {
+        credentials,
+      });
+      return decision?.result === AuthorizeResult.ALLOW ? 'allow' : 'deny';
+    } catch {
+      logger.warn(`Unable to authorize ${permission.name}`);
+      return 'unavailable';
+    }
+  }
+
+  async function excludedArtifactType(
+    req: unknown,
+  ): Promise<string | undefined> {
+    return (await authorize(req, executionEnvironmentsViewPermission)) ===
+      'allow'
+      ? undefined
+      : EE_TYPE;
+  }
+
+  async function recordRefreshDenial(
+    req: unknown,
+    permission: BasicPermission,
+  ) {
+    if (!auditor) return;
+    try {
+      const credentials = await httpAuth.credentials(
+        req as Parameters<HttpAuthService['credentials']>[0],
+        { allow: ['user', 'service'] },
+      );
+      const principal = credentials.principal;
+      const event = await startRefreshAudit(auditor, {
+        action: 'refresh-denied',
+        principal:
+          principal.type === 'user'
+            ? redactor.redact(principal.userEntityRef)
+            : principal.type,
+        resource: permission.name,
+      });
+      await event.fail({
+        error: new Error(messages.forbidden),
+        meta: { outcome: 'denied' },
+      });
+    } catch {
+      logger.warn(messages.auditUnavailable);
+    }
+  }
+
+  async function requireContentSync(
+    req: unknown,
+    res: RouteResponse,
+    next: () => void,
+  ): Promise<void> {
+    const decision = await authorize(req, contentSyncPermission, true);
+    if (decision !== 'allow') {
+      await recordRefreshDenial(req, contentSyncPermission);
+      respondToDenial(res, decision);
+      return;
+    }
+    if (!manualSyncEnabled || !auditor) {
+      res.status(503).json({
+        code: manualSyncEnabled ? 'AUDIT_UNAVAILABLE' : 'MANUAL_SYNC_DISABLED',
+        error: manualSyncEnabled
+          ? messages.auditUnavailable
+          : messages.manualSyncDisabled,
+      });
+      return;
+    }
+    next();
+  }
+
+  const parseRepositoryQuery = express.json({ limit: '256kb' });
+  router.post(
+    '/execution-environment-repositories/query',
+    (req, res, next) => {
+      parseRepositoryQuery(req, res, (error?: { status?: number }) => {
+        if (!error) {
+          next();
+          return;
+        }
+        if (error.status === 413) {
+          res.status(413).json({
+            code: 'QUERY_TOO_LARGE',
+            error: messages.repositoryQueryTooLarge,
+          });
+        } else {
+          res.status(400).json({
+            code: 'BAD_REQUEST',
+            error: messages.invalidRepositoryQuery,
+          });
+        }
+      });
+    },
+    async (req, res) => {
+      if (
+        respondToDenial(
+          res,
+          await authorize(req, executionEnvironmentsViewPermission),
+        )
+      )
+        return;
+      if (!isRepositoryQuery(req.body)) {
+        res.status(400).json({
+          code: 'BAD_REQUEST',
+          error: messages.invalidRepositoryQuery,
+        });
+        return;
+      }
+      res.json(
+        await db.queryEERepositories({
+          ...req.body,
+          page: req.body.page ?? 1,
+          pageSize: req.body.pageSize ?? 10,
+        }),
+      );
+    },
+  );
+
+  router.get(
+    '/execution-environment-repositories/by-name/:registry/:repository(*)',
+    async (req, res) => {
+      if (
+        respondToDenial(
+          res,
+          await authorize(req, executionEnvironmentsViewPermission),
+        )
+      )
+        return;
+      const { registry, repository } = req.params;
+      const details = await db.getEERepository(registry, repository);
+      if (!details) {
+        res.status(404).json({
+          code: 'REPOSITORY_NOT_FOUND',
+          error: messages.repositoryNotFound,
+        });
+        return;
+      }
+      res.json(details);
+    },
+  );
+
+  router.use(express.json({ limit: '5mb' }));
+
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
   // -- Registries ---------------------------------------------------------
 
-  router.get('/registries', (_req, res) => {
+  router.get('/registries', async (req, res) => {
+    if (
+      respondToDenial(
+        res,
+        await authorize(req, executionEnvironmentsViewPermission),
+      )
+    )
+      return;
+
     res.json({
+      manualSyncEnabled,
       items: db.listRegistries().map(state => {
         const reconcile = db.reconcileStateFor(state.connection.name);
         return {
@@ -178,6 +485,9 @@ export async function createRouter(
           repositories: state.connection.repositories,
           capabilities: state.capabilities,
           lastReconciledAt: reconcile?.at,
+          lastSuccessfulReconcileAt: db.lastSuccessfulReconcileAt(
+            state.connection.name,
+          ),
           lastReconcileOk: reconcile?.ok,
           lastReconcileError:
             reconcile && !reconcile.ok ? RECONCILE_FAILURE_SUMMARY : undefined,
@@ -187,89 +497,279 @@ export async function createRouter(
     });
   });
 
-  router.post('/sync', async (_req, res) => {
+  async function beginAudit(
+    req: unknown,
+    res: RouteResponse,
+    action: Parameters<typeof startRefreshAudit>[1]['action'],
+    resource: string,
+  ) {
     try {
-      await scheduler.cancelTask(STORE_REFRESH_TASK_ID);
+      const credentials = await httpAuth.credentials(
+        req as Parameters<HttpAuthService['credentials']>[0],
+        { allow: ['user'] },
+      );
+      if (!auditor || credentials.principal.type !== 'user') {
+        throw new Error(messages.auditUnavailable);
+      }
+      return await startRefreshAudit(auditor, {
+        action,
+        resource,
+        principal: redactor.redact(credentials.principal.userEntityRef),
+      });
     } catch {
-      // Task was not running — nothing to cancel
+      res
+        .status(503)
+        .json({ code: 'AUDIT_UNAVAILABLE', error: messages.auditUnavailable });
+      return undefined;
     }
+  }
 
+  async function recordFailure(
+    event: Awaited<ReturnType<typeof startRefreshAudit>>,
+  ) {
     try {
-      await scheduler.triggerTask(STORE_REFRESH_TASK_ID);
+      await event.fail({
+        error: new Error(messages.auditFailed),
+        meta: { outcome: 'failed' },
+      });
     } catch {
-      res.status(409).json({
-        status: 'conflict',
-        message: 'A refresh is already in progress.',
-        taskId: STORE_REFRESH_TASK_ID,
-      });
-      return;
+      logger.warn(messages.auditUnavailable);
     }
+  }
 
-    logger.info('manual sync triggered');
-    res.status(202).json({
-      status: 'scheduled',
-      taskId: STORE_REFRESH_TASK_ID,
-      triggeredAt: new Date().toISOString(),
-    });
-  });
-
-  /** Cheap drift check: does the registry still match the index? */
-  router.post('/registries/:name/poll', async (req, res) => {
-    const { name } = req.params;
-    if (!db.getRegistry(name)) {
-      res.status(404).json({
-        error: `No such registry: ${name}`,
-        code: 'REGISTRY_NOT_FOUND',
-      });
-      return;
-    }
-    const result = await db.pollRegistry(name);
-    res.json({
-      ...result,
-      lastReconciledAt: db.reconcileStateFor(name)?.at,
-    });
-  });
-
-  /**
-   * Full re-read of one registry: the single-registry counterpart of POST /sync,
-   * backing the per-registry refresh control in the UI.
-   */
-  router.post('/registries/:name/sync', async (req, res) => {
-    const { name } = req.params;
-    if (!db.getRegistry(name)) {
-      res.status(404).json({
-        error: `No such registry: ${name}`,
-        code: 'REGISTRY_NOT_FOUND',
-      });
-      return;
-    }
-
-    const taskId = registryRefreshTaskId(name);
-
-    try {
-      await scheduler.cancelTask(taskId);
-    } catch {
-      // Task was not running — nothing to cancel
-    }
-
+  async function scheduleRefresh(
+    res: RouteResponse,
+    audit: NonNullable<Awaited<ReturnType<typeof beginAudit>>>,
+    taskId: string,
+  ): Promise<void> {
     try {
       await scheduler.triggerTask(taskId);
+    } catch (error) {
+      await recordFailure(audit);
+      if (error instanceof Error && error.name === 'ConflictError') {
+        res.status(409).json({
+          status: 'conflict',
+          message: messages.refreshBusy,
+          taskId,
+        });
+      } else {
+        res.status(503).json({
+          code: 'SCHEDULING_FAILED',
+          error: messages.schedulingFailed,
+        });
+      }
+      return;
+    }
+    const triggeredAt = new Date().toISOString();
+    try {
+      await audit.success({ meta: { outcome: 'scheduled', triggeredAt } });
     } catch {
-      res.status(409).json({
-        status: 'conflict',
-        message: `A refresh is already in progress for registry '${name}'.`,
-        taskId,
+      res.status(500).json({
+        code: 'scheduled-audit-unconfirmed',
+        error: messages.scheduleAuditUnconfirmed,
       });
       return;
     }
-
-    logger.info(`manual sync triggered for registry '${name}'`);
     res.status(202).json({
       status: 'scheduled',
       taskId,
-      triggeredAt: new Date().toISOString(),
+      triggeredAt,
     });
+  }
+
+  router.post('/sync', requireContentSync, async (req, res) => {
+    const audit = await beginAudit(req, res, 'inventory-refresh', 'inventory');
+    if (!audit) return;
+    await scheduleRefresh(res, audit, STORE_REFRESH_TASK_ID);
   });
+
+  router.post(
+    '/registries/:name/poll',
+    requireContentSync,
+    async (req, res) => {
+      const { name } = req.params;
+      if (!db.getRegistry(name)) {
+        res.status(404).json({
+          code: 'REGISTRY_NOT_FOUND',
+          error: messages.registryNotFound,
+        });
+        return;
+      }
+      const audit = await beginAudit(
+        req,
+        res,
+        'registry-poll',
+        auditResource(name),
+      );
+      if (!audit) return;
+      let result;
+      try {
+        result = await db.pollRegistry(name, false);
+      } catch (error) {
+        await recordFailure(audit);
+        reportRefreshError(res, error);
+        return;
+      }
+      const { changes = [], details, ...summary } = result;
+      try {
+        await audit.success({
+          meta: {
+            outcome: result.refreshed ? 'committed' : 'checked',
+            changes: auditTagChanges(changes),
+          },
+        });
+      } catch {
+        reportAuditUnconfirmed(res, !result.refreshed);
+        return;
+      }
+      res.json({
+        ...summary,
+        details: details.map(detail =>
+          detail.startsWith('check failed:') ? messages.auditFailed : detail,
+        ),
+        lastReconciledAt: db.reconcileStateFor(name)?.at,
+      });
+    },
+  );
+
+  router.post(
+    '/registries/:name/sync',
+    requireContentSync,
+    async (req, res) => {
+      const { name } = req.params;
+      if (!db.getRegistry(name)) {
+        res.status(404).json({
+          code: 'REGISTRY_NOT_FOUND',
+          error: messages.registryNotFound,
+        });
+        return;
+      }
+      const audit = await beginAudit(
+        req,
+        res,
+        'registry-refresh',
+        auditResource(name),
+      );
+      if (!audit) return;
+      if (req.query.wait !== 'true') {
+        await scheduleRefresh(res, audit, registryRefreshTaskId(name));
+        return;
+      }
+      let result;
+      try {
+        result = await db.refreshRegistry(name, false);
+      } catch (error) {
+        await recordFailure(audit);
+        reportRefreshError(res, error);
+        return;
+      }
+      if (!result.ok) {
+        await recordFailure(audit);
+      } else {
+        try {
+          await audit.success({
+            meta: {
+              outcome: 'committed',
+              changes: auditTagChanges(result.changes ?? []),
+            },
+          });
+        } catch {
+          reportAuditUnconfirmed(res, false);
+          return;
+        }
+      }
+      res.status(202).json({
+        status: result.ok ? 'completed' : 'failed',
+        discovered: result.discovered,
+        retainedPrevious: !result.ok,
+        error: result.ok ? undefined : messages.auditFailed,
+        lastReconciledAt: db.reconcileStateFor(name)?.at,
+      });
+    },
+  );
+
+  router.post(
+    '/execution-environment-repositories/sync',
+    requireContentSync,
+    async (req, res) => {
+      const decision = await authorize(
+        req,
+        executionEnvironmentsViewPermission,
+      );
+      if (decision !== 'allow') {
+        await recordRefreshDenial(req, executionEnvironmentsViewPermission);
+        respondToDenial(res, decision);
+        return;
+      }
+      const body = req.body;
+      if (
+        !body ||
+        typeof body !== 'object' ||
+        Array.isArray(body) ||
+        Object.keys(body).length !== 2 ||
+        typeof body.registry !== 'string' ||
+        !body.registry ||
+        body.registry.length > 256 ||
+        typeof body.repository !== 'string' ||
+        !body.repository ||
+        body.repository.length > 1024
+      ) {
+        res
+          .status(400)
+          .json({ code: 'BAD_REQUEST', error: messages.invalidRepository });
+        return;
+      }
+      const { registry, repository } = body as {
+        registry: string;
+        repository: string;
+      };
+      const audit = await beginAudit(
+        req,
+        res,
+        'repository-refresh',
+        auditResource(registry, repository),
+      );
+      if (!audit) return;
+      let outcome;
+      try {
+        outcome = await db.refreshEERepository(registry, repository);
+      } catch (error) {
+        await recordFailure(audit);
+        if (error instanceof RegistryScanIncomplete) {
+          res.status(502).json({
+            code: 'REGISTRY_SCAN_INCOMPLETE',
+            error: messages.scanIncomplete,
+            retainedPrevious: true,
+            lastSuccessfulReconcileAt: db.lastSuccessfulReconcileAt(
+              registry,
+              repository,
+            ),
+          });
+        } else reportRefreshError(res, error);
+        return;
+      }
+      if (!outcome) {
+        await recordFailure(audit);
+        res.status(404).json({
+          code: 'REPOSITORY_NOT_FOUND',
+          error: messages.repositoryNotFound,
+        });
+        return;
+      }
+      try {
+        await audit.success({
+          meta: {
+            outcome: 'committed',
+            changes: auditTagChanges(outcome.changes),
+          },
+        });
+      } catch {
+        reportAuditUnconfirmed(res, false);
+        return;
+      }
+      res.json(outcome.result);
+    },
+  );
 
   // -- Content: type-agnostic ---------------------------------------------
   //
@@ -277,8 +777,27 @@ export async function createRouter(
   // matter of registering an adapter, not of hand-writing another route — per-type
   // endpoints are exactly the bespoke engineering this design exists to avoid.
 
-  const listContent = async (req: RouteRequest, res: RouteResponse) => {
-    const { type, registry, collection, contentsKnown } = req.query;
+  const listContent = async (
+    req: RouteRequest,
+    res: RouteResponse,
+    eeOnly = false,
+  ) => {
+    const { registry, collection, contentsKnown } = req.query;
+    const requestedType =
+      typeof req.query.type === 'string' ? req.query.type : undefined;
+    const type = eeOnly ? EE_TYPE : requestedType;
+    let excludeType: string | undefined;
+    if (type === EE_TYPE) {
+      if (
+        respondToDenial(
+          res,
+          await authorize(req, executionEnvironmentsViewPermission),
+        )
+      )
+        return;
+    } else if (!type) {
+      excludeType = await excludedArtifactType(req);
+    }
     const page = Math.max(Math.floor(Number(req.query.page ?? 1)) || 1, 1);
     const rawPerPage = Number(req.query.per_page);
     const pageSize = ALLOWED_PAGE_SIZES.includes(rawPerPage as 10 | 20 | 50)
@@ -293,9 +812,7 @@ export async function createRouter(
     let totalItems: number;
 
     if (collectionFilter) {
-      let artifacts = await db.listArtifacts(
-        typeof type === 'string' ? type : undefined,
-      );
+      let artifacts = await db.listArtifacts(type, excludeType);
 
       if (typeof registry === 'string')
         artifacts = artifacts.filter(a => a.registry === registry);
@@ -316,7 +833,8 @@ export async function createRouter(
         .map(a => artifactView(db, a));
     } else {
       const result = await db.listArtifactsPaginated({
-        type: typeof type === 'string' ? type : undefined,
+        type,
+        excludeType,
         registry: typeof registry === 'string' ? registry : undefined,
         contentsKnown:
           contentsKnown !== undefined ? contentsKnown === 'true' : undefined,
@@ -354,6 +872,36 @@ export async function createRouter(
     });
   };
 
+  async function readArtifact(
+    req: RouteRequest,
+    res: RouteResponse,
+    eeOnly: boolean,
+  ): Promise<IndexedArtifact | undefined> {
+    if (
+      eeOnly &&
+      respondToDenial(
+        res,
+        await authorize(req, executionEnvironmentsViewPermission),
+      )
+    ) {
+      return undefined;
+    }
+    const artifact = await db.getArtifact(req.params.ref);
+    if (
+      !artifact ||
+      (eeOnly && artifact.type !== EE_TYPE) ||
+      (!eeOnly &&
+        artifact.type === EE_TYPE &&
+        (await excludedArtifactType(req)))
+    ) {
+      res
+        .status(404)
+        .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
+      return undefined;
+    }
+    return artifact;
+  }
+
   /**
    * Contents of one artifact.
    *
@@ -361,14 +909,13 @@ export async function createRouter(
    * its collections. `depth=flat` returns the content items themselves. Both are
    * useful: the first is how a user browses, the second is how an agent searches.
    */
-  const getContents = async (req: RouteRequest, res: RouteResponse) => {
-    const artifact = await db.getArtifact(req.params.ref);
-    if (!artifact) {
-      res
-        .status(404)
-        .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
-      return;
-    }
+  const getContents = async (
+    req: RouteRequest,
+    res: RouteResponse,
+    eeOnly = false,
+  ) => {
+    const artifact = await readArtifact(req, res, eeOnly);
+    if (!artifact) return;
 
     const enumeration = enumerationOf(artifact);
 
@@ -415,36 +962,36 @@ export async function createRouter(
     });
   };
 
-  const getContent = async (req: RouteRequest, res: RouteResponse) => {
-    const artifact = await db.getArtifact(req.params.ref);
-    if (!artifact) {
-      res
-        .status(404)
-        .json({ error: 'Content not found', code: 'CONTENT_NOT_FOUND' });
-      return;
-    }
+  const getContent = async (
+    req: RouteRequest,
+    res: RouteResponse,
+    eeOnly = false,
+  ) => {
+    const artifact = await readArtifact(req, res, eeOnly);
+    if (!artifact) return;
     res.json(artifactView(db, artifact));
   };
 
-  router.get('/content', listContent);
-  router.get('/content/:ref(*)/contents', getContents);
-  router.get('/content/:ref(*)', getContent);
+  router.get('/content', (req, res) => listContent(req, res));
+  router.get('/content/:ref(*)/contents', (req, res) => getContents(req, res));
+  router.get('/content/:ref(*)', (req, res) => getContent(req, res));
 
-  // Aliases retained so existing callers keep working. They are thin filters over the
-  // type-agnostic handlers, not parallel implementations.
-  router.get('/execution-environments', (req, res) => {
-    req.query.type = EE_TYPE;
-    listContent(req, res);
-  });
-  router.get('/execution-environments/:ref(*)/contents', getContents);
-  router.get('/execution-environments/:ref(*)', getContent);
+  router.get('/execution-environments', (req, res) =>
+    listContent(req, res, true),
+  );
+  router.get('/execution-environments/:ref(*)/contents', (req, res) =>
+    getContents(req, res, true),
+  );
+  router.get('/execution-environments/:ref(*)', (req, res) =>
+    getContent(req, res, true),
+  );
 
   // -- Collections --------------------------------------------------------
 
   router.get('/collections', async (req, res) => {
     const q =
       typeof req.query.q === 'string' ? req.query.q.toLowerCase() : undefined;
-    const all = await db.listCollections();
+    const all = await db.listCollections(await excludedArtifactType(req));
     const items = all
       .filter(
         c =>
@@ -473,7 +1020,7 @@ export async function createRouter(
 
   router.get('/collections/:namespace/:name', async (req, res) => {
     const fqcn = `${req.params.namespace}.${req.params.name}`;
-    const all = await db.listCollections();
+    const all = await db.listCollections(await excludedArtifactType(req));
     const matches = all.filter(c => c.fqcn === fqcn);
     if (matches.length === 0) {
       res.status(404).json({
@@ -517,7 +1064,7 @@ export async function createRouter(
     const limit = Math.min(Number(req.query.limit ?? 50) || 50, 500);
     const needle = typeof q === 'string' ? q.toLowerCase() : undefined;
 
-    const allItems = await db.listItems();
+    const allItems = await db.listItems(await excludedArtifactType(req));
     const matched = allItems.filter(item => {
       if (type && item.type !== type) return false;
       if (collection && item.collection !== collection) return false;
@@ -543,7 +1090,8 @@ export async function createRouter(
         req.query.executionEnvironment) ||
       undefined;
 
-    const variants = await db.findItems(fqcn, scope);
+    const excludeType = await excludedArtifactType(req);
+    const variants = await db.findItems(fqcn, scope, excludeType);
     if (variants.length === 0) {
       res.status(404).json({
         error: scope
@@ -554,7 +1102,9 @@ export async function createRouter(
       return;
     }
 
-    const providedBy = (await db.findItems(fqcn)).map(v => v.artifactRef);
+    const providedBy = (
+      scope ? await db.findItems(fqcn, undefined, excludeType) : variants
+    ).map(variant => variant.artifactRef);
 
     const render = async (item: IndexedItem) => {
       const artifact = await db.getArtifact(item.artifactRef);
@@ -591,6 +1141,13 @@ export async function createRouter(
   // -- Resolution ---------------------------------------------------------
 
   router.post('/resolve/requirements', async (req, res) => {
+    if (
+      respondToDenial(
+        res,
+        await authorize(req, executionEnvironmentsViewPermission),
+      )
+    )
+      return;
     const raw = req.body?.collections;
     if (!Array.isArray(raw)) {
       res
@@ -670,7 +1227,9 @@ export async function createRouter(
       }
     }
 
-    const collections = await db.listCollections();
+    const collections = environments.flatMap(
+      environment => environment.manifest?.collections ?? [],
+    );
     const unsatisfied = required
       .filter(
         requirement =>
@@ -685,13 +1244,14 @@ export async function createRouter(
       )
       .map(requirement => {
         const anyVersion = collections
-          .filter(c => c.fqcn === requirement.name)
+          .filter(c => `${c.namespace}.${c.name}` === requirement.name)
           .map(c => c.version);
+        const versions = [...new Set(anyVersion)];
         return {
           name: requirement.name,
           version: requirement.version,
-          reason: anyVersion.length
-            ? `Available versions: ${anyVersion.join(', ')}`
+          reason: versions.length
+            ? `Available versions: ${versions.join(', ')}`
             : 'Not present in any known execution environment',
         };
       });
@@ -704,15 +1264,6 @@ export async function createRouter(
           `considered; they may also satisfy these requirements.`,
       );
     }
-    const allArtifacts = await db.listArtifacts();
-    const unclassified = allArtifacts.filter(a => a.type !== EE_TYPE).length;
-    if (unclassified > 0) {
-      notes.push(
-        `${unclassified} image(s) were not recognised as execution environments and ` +
-          `were excluded.`,
-      );
-    }
-
     res.json({ satisfiedBy, unsatisfied, notes });
   });
 
@@ -724,16 +1275,6 @@ export async function createRouter(
    * documents, so the error paths must survive whatever a caller sends —
    * an object whose `toString` is null would otherwise crash the handler.
    */
-  function describeValue(value: unknown): string {
-    if (value === undefined || value === null) return 'nothing';
-    if (typeof value === 'string') return value;
-    try {
-      return JSON.stringify(value) ?? 'nothing';
-    } catch {
-      return 'an unprintable value';
-    }
-  }
-
   router.post('/config/validate', (req, res) => {
     const errors: Array<{ path: string; message: string }> = [];
     const warnings: Array<{ path: string; message: string }> = [];

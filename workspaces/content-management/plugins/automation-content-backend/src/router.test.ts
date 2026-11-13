@@ -1,11 +1,14 @@
 import express from 'express';
 import request from 'supertest';
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CredentialRedactor } from '@ansible/automation-content-common';
 import {
   type ArtifactListOptions,
   ContentStore,
   IndexedArtifact,
   IndexedItem,
+  RegistryScanIncomplete,
+  RegistryWriterBusy,
 } from './ContentStore';
 import {
   createRouter,
@@ -43,6 +46,7 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
     findItems: async () => [],
     listCollections: async () => [],
     countsFor: () => undefined,
+    lastSuccessfulReconcileAt: () => undefined,
     refreshRegistry: async () => ({ discovered: 0, ok: true }),
     refreshAll: async () => ({ artifacts: 0, items: 0 }),
     pollRegistry: async () => ({
@@ -70,10 +74,23 @@ function stubScheduler(overrides: Record<string, unknown> = {}) {
 async function appWith(
   db?: ContentStore,
   scheduler?: ReturnType<typeof stubScheduler>,
+  authorize: (
+    requests: Array<{ permission: { name: string } }>,
+  ) => Promise<Array<{ result: AuthorizeResult }>> = async () => [
+    { result: AuthorizeResult.ALLOW },
+  ],
+  audit: NonNullable<Parameters<typeof createRouter>[0]['auditor']> = {
+    createEvent: async () => ({
+      success: async () => {},
+      fail: async () => {},
+    }),
+  },
 ) {
   const app = express();
   app.use(
     await createRouter({
+      manualSyncEnabled: true,
+      auditor: audit,
       db: db ?? stubDB(),
       logger,
       httpAuth: {
@@ -83,6 +100,7 @@ async function appWith(
           }),
       } as never,
       scheduler: scheduler ?? stubScheduler(),
+      permissions: { authorize } as never,
     }),
   );
   return app;
@@ -137,6 +155,238 @@ function seedDB(items: Array<Record<string, unknown>>): ContentStore {
   });
 }
 
+describe('EE read authorization', () => {
+  const denied = async () => [{ result: AuthorizeResult.DENY }];
+
+  it.each([
+    ['get', '/execution-environments'],
+    ['get', '/execution-environments/reg/repo@sha256:abc'],
+    ['get', '/execution-environments/reg/repo@sha256:abc/contents'],
+    ['get', '/content?type=execution-environment'],
+    ['post', '/resolve/requirements'],
+  ] as const)(
+    'denies %s %s before exposing protected EE data',
+    async (method, path) => {
+      const app = await appWith(seedDB([]), undefined, denied);
+      await request(app)[method](path).expect(403);
+    },
+  );
+
+  it('responds to a policy outage without returning protected EE data', async () => {
+    const app = await appWith(seedDB([]), undefined, async () => {
+      throw new Error('private policy backend');
+    });
+    const response = await request(app)
+      .get('/execution-environments')
+      .expect(503);
+    expect(response.text).not.toContain('private policy backend');
+  });
+
+  it.each(['', '/contents'])(
+    'uses the absent-artifact response for denied generic detail %s',
+    async suffix => {
+      const app = await appWith(seedDB([]), undefined, denied);
+      const hidden = await request(app)
+        .get(`/content/reg/repo@sha256:abc${suffix}`)
+        .expect(404);
+      const absent = await request(app)
+        .get(`/content/missing${suffix}`)
+        .expect(404);
+      expect(hidden.body).toEqual(absent.body);
+    },
+  );
+
+  it('filters mixed item and artifact projections before results are counted', async () => {
+    const eeItem = {
+      key: 'ee',
+      fqcn: 'demo.example.module',
+      artifactRef: DEFAULT_ARTIFACT.ref,
+    } as IndexedItem;
+    const ordinaryArtifact = {
+      ...DEFAULT_ARTIFACT,
+      type: 'oci-image',
+      ref: 'reg/repo@sha256:def',
+    };
+    const ordinaryItem = {
+      ...eeItem,
+      key: 'ordinary',
+      artifactRef: ordinaryArtifact.ref,
+    };
+    const visibleItems = (excludeType?: string) =>
+      excludeType === 'execution-environment'
+        ? [ordinaryItem]
+        : [eeItem, ordinaryItem];
+    const db = stubDB({
+      listArtifactsPaginated: async options => {
+        const items =
+          options.excludeType === 'execution-environment'
+            ? [ordinaryArtifact]
+            : [DEFAULT_ARTIFACT, ordinaryArtifact];
+        return { items, totalCount: items.length };
+      },
+      listItems: async excludeType => visibleItems(excludeType),
+      findItems: async (_fqcn, scope, excludeType) =>
+        visibleItems(excludeType).filter(
+          item => !scope || item.artifactRef === scope,
+        ),
+      listCollections: async excludeType => [
+        {
+          namespace: 'demo',
+          name: 'example',
+          fqcn: 'demo.example',
+          version: '1.0.0',
+          plugins: [],
+          roles: [],
+          playbooks: [],
+          edaPlugins: [],
+          rulebooks: [],
+          providedBy: visibleItems(excludeType).map(item => item.artifactRef),
+        },
+      ],
+    });
+    const app = await appWith(db, undefined, denied);
+    const artifacts = await request(app).get('/content').expect(200);
+    expect(artifacts.body.totalItems).toBe(1);
+    expect(artifacts.body.items[0].ref).toBe(ordinaryArtifact.ref);
+    for (const path of ['/content-items', '/plugins']) {
+      const items = await request(app).get(path).expect(200);
+      expect(items.body.totalItems).toBe(1);
+      expect(items.body.items[0].in).toBe(ordinaryArtifact.ref);
+      const detail = await request(app)
+        .get(`${path}/demo.example.module`)
+        .expect(200);
+      expect(detail.body.providedBy).toEqual([ordinaryArtifact.ref]);
+      await request(app)
+        .get(`${path}/demo.example.module`)
+        .query({ in: DEFAULT_ARTIFACT.ref })
+        .expect(404);
+    }
+    const collections = await request(app).get('/collections').expect(200);
+    expect(collections.body.items[0].providedBy).toEqual([
+      ordinaryArtifact.ref,
+    ]);
+    const collection = await request(app)
+      .get('/collections/demo/example')
+      .expect(200);
+    expect(collection.body.versions[0].providedBy).toEqual([
+      ordinaryArtifact.ref,
+    ]);
+  });
+
+  it('refuses a non-EE artifact through the EE detail alias even for an allowed reader', async () => {
+    const db = stubDB({
+      getArtifact: async () => ({ ...DEFAULT_ARTIFACT, type: 'oci-image' }),
+    });
+    await request(await appWith(db))
+      .get('/execution-environments/reg/repo@sha256:abc')
+      .expect(404);
+  });
+});
+
+describe('EE repository discovery routes', () => {
+  const queryPath = '/execution-environment-repositories/query';
+  const detailsPath = '/execution-environment-repositories/by-name';
+  const favoriteRef = `component:default/ee-repo-${'a'.repeat(48)}`;
+
+  it('rejects unsupported query parameters and bounds pagination and favorites', async () => {
+    const app = await appWith();
+    for (const input of [
+      { page: 0 },
+      { pageSize: 100 },
+      { sort: 'unknown' },
+      { order: 'other' },
+      { query: 'q'.repeat(257) },
+      { favoriteEntityRefs: ['component:default/digest-record'] },
+      { favoriteEntityRefs: Array.from({ length: 1001 }, () => favoriteRef) },
+      { unsupported: true },
+    ]) {
+      await request(app).post(queryPath).send(input).expect(400);
+    }
+    await request(app)
+      .post(queryPath)
+      .send({ query: 'q'.repeat(256 * 1024) })
+      .expect(413);
+  });
+
+  it('requires EE view for the repository query and details', async () => {
+    const app = await appWith(stubDB(), undefined, async () => [
+      { result: AuthorizeResult.DENY },
+    ]);
+    await request(app).post(queryPath).send({}).expect(403);
+    await request(app).get(`${detailsPath}/reg/team%2Fimages`).expect(403);
+  });
+
+  it('preserves encoded repository identity and returns an absent repository as 404', async () => {
+    const details = {
+      registry: 'reg',
+      repository: 'team/images',
+      entityRef: favoriteRef,
+      representativeRef: 'reg/team/images@sha256:abc',
+      tags: [],
+      digests: [
+        { digest: 'sha256:abc', artifactRef: 'reg/team/images@sha256:abc' },
+      ],
+    };
+    const db = stubDB({
+      getEERepository: async (registry, repository) =>
+        registry === 'reg' && repository === 'team/images'
+          ? details
+          : undefined,
+    });
+    const app = await appWith(db);
+    const response = await request(app)
+      .get(`${detailsPath}/reg/team%2Fimages`)
+      .expect(200);
+    expect(response.body).toEqual(details);
+    await request(app).get(`${detailsPath}/reg/absent`).expect(404);
+  });
+
+  it('accepts only supported inventory source types and statuses', async () => {
+    const queryEERepositories = jest.fn(async () => ({
+      page: 1,
+      pageSize: 10,
+      totalItems: 0,
+      items: [],
+    }));
+    const app = await appWith(stubDB({ queryEERepositories }));
+    await request(app)
+      .post(queryPath)
+      .send({ sourceType: 'external-registry', status: 'stale' })
+      .expect(200);
+    expect(queryEERepositories).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 10,
+      sourceType: 'external-registry',
+      status: 'stale',
+    });
+    await request(app)
+      .post(queryPath)
+      .send({ sourceType: 'local' })
+      .expect(400);
+    await request(app).post(queryPath).send({ status: 'signed' }).expect(400);
+  });
+
+  it('forwards complete valid favorite refs and accepts an explicitly empty set', async () => {
+    const db = stubDB({
+      queryEERepositories: async query => ({
+        page: query.page ?? 1,
+        pageSize: query.pageSize ?? 10,
+        totalItems: query.favoriteEntityRefs?.length ?? 0,
+        items: [],
+      }),
+    });
+    const app = await appWith(db);
+    await request(app)
+      .post(queryPath)
+      .send({ page: 2, pageSize: 20, favoriteEntityRefs: [favoriteRef] })
+      .expect(200, { page: 2, pageSize: 20, totalItems: 1, items: [] });
+    await request(app)
+      .post(queryPath)
+      .send({ favoriteEntityRefs: [] })
+      .expect(200, { page: 1, pageSize: 10, totalItems: 0, items: [] });
+  });
+});
+
 describe('documentation field normalisation', () => {
   it('coerces a string description to an array', async () => {
     const db = seedDB([
@@ -188,6 +438,28 @@ describe('documentation field normalisation', () => {
 
     expect(res.body.description).toEqual(['line one', 'line two']);
     expect(res.body.author).toEqual(['A', 'B']);
+  });
+
+  it('keeps scalar documentation entries and skips structured values', async () => {
+    const db = seedDB([
+      {
+        fqcn: 'cisco.ios.ios',
+        name: 'ios',
+        type: 'cliconf',
+        detail: {
+          description: ['First line', 42, false, null, { text: 'invalid' }],
+          author: { name: 'invalid' },
+        },
+      },
+    ]);
+
+    const res = await request(await appWith(db)).get(
+      '/content-items/cisco.ios.ios',
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.description).toEqual(['First line', '42', 'false']);
+    expect(res.body).not.toHaveProperty('author');
   });
 
   it('omits the field entirely when absent, rather than emitting null', async () => {
@@ -251,15 +523,20 @@ describe('GET /content pagination', () => {
 
   const allArtifacts = Array.from({ length: 25 }, (_, i) => makeArtifact(i));
 
-  function paginatedDB(): ContentStore {
+  function paginatedDB(artifacts = allArtifacts): ContentStore {
     return stubDB({
-      listArtifacts: async () => allArtifacts,
+      listArtifacts: async () => artifacts,
       listArtifactsPaginated: async (
         opts: ArtifactListOptions & { limit: number; offset: number },
-      ) => ({
-        items: allArtifacts.slice(opts.offset, opts.offset + opts.limit),
-        totalCount: allArtifacts.length,
-      }),
+      ) => {
+        const matches = artifacts.filter(
+          artifact => !opts.type || artifact.type === opts.type,
+        );
+        return {
+          items: matches.slice(opts.offset, opts.offset + opts.limit),
+          totalCount: matches.length,
+        };
+      },
     });
   }
 
@@ -336,15 +613,21 @@ describe('GET /content pagination', () => {
     expect(res.body.page).toBe(1);
   });
 
-  it('works through the /execution-environments alias', async () => {
-    const res = await request(await appWith(paginatedDB())).get(
+  it('filters mixed content before paginating the EE alias', async () => {
+    const otherArtifact = { ...makeArtifact(99), type: 'oci-image' };
+    const app = await appWith(paginatedDB([otherArtifact, ...allArtifacts]));
+    const res = await request(app).get(
       '/execution-environments?per_page=20&page=2',
     );
 
+    expect(res.status).toBe(200);
     expect(res.body.page).toBe(2);
     expect(res.body.pageSize).toBe(20);
-    expect(res.body.items).toHaveLength(5);
     expect(res.body.totalItems).toBe(25);
+    expect(res.body.items.map((item: IndexedArtifact) => item.ref)).toEqual(
+      allArtifacts.slice(20).map(artifact => artifact.ref),
+    );
+    expect(res.body.next).toBeNull();
   });
 
   it('preserves query parameters in pagination links', async () => {
@@ -446,7 +729,22 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(triggered).toEqual([registryRefreshTaskId('corporate')]);
   });
 
-  it('cancels a running registry refresh before triggering a new one', async () => {
+  it('returns the reconciliation failure when asked to wait for the result', async () => {
+    const refreshRegistry = jest.fn(async () => ({ ok: false, discovered: 2 }));
+    const triggerTask = jest.fn(async () => {});
+    const db = dbWithFailedReconcile({ refreshRegistry });
+    const res = await request(
+      await appWith(db, stubScheduler({ triggerTask })),
+    ).post('/registries/corporate/sync?wait=true');
+
+    expect(res.status).toBe(202);
+    expect(res.body.status).toBe('failed');
+    expect(res.body.error).toBe('Refresh failed.');
+    expect(refreshRegistry).toHaveBeenCalledWith('corporate', false);
+    expect(triggerTask).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel an existing registry refresh when scheduling', async () => {
     const db = dbWithFailedReconcile();
     const calls: string[] = [];
     const scheduler = stubScheduler({
@@ -462,10 +760,7 @@ describe('diagnostics are summarised on the registry listing', () => {
       '/registries/corporate/sync',
     );
 
-    expect(calls).toEqual([
-      `cancel:${registryRefreshTaskId('corporate')}`,
-      `trigger:${registryRefreshTaskId('corporate')}`,
-    ]);
+    expect(calls).toEqual([`trigger:${registryRefreshTaskId('corporate')}`]);
   });
 
   it('returns 409 when the registry refresh task cannot be triggered', async () => {
@@ -506,7 +801,7 @@ describe('diagnostics are summarised on the registry listing', () => {
     expect(triggered).toEqual([STORE_REFRESH_TASK_ID]);
   });
 
-  it('cancels a running refresh before triggering a new one', async () => {
+  it('schedules a refresh without cancelling existing work', async () => {
     const calls: string[] = [];
     const scheduler = stubScheduler({
       cancelTask: async (id: string) => {
@@ -519,10 +814,7 @@ describe('diagnostics are summarised on the registry listing', () => {
 
     await request(await appWith(undefined, scheduler)).post('/sync');
 
-    expect(calls).toEqual([
-      `cancel:${STORE_REFRESH_TASK_ID}`,
-      `trigger:${STORE_REFRESH_TASK_ID}`,
-    ]);
+    expect(calls).toEqual([`trigger:${STORE_REFRESH_TASK_ID}`]);
   });
 
   it('returns 409 when the refresh task cannot be triggered', async () => {
@@ -544,7 +836,312 @@ describe('diagnostics are summarised on the registry listing', () => {
   });
 });
 
+describe('manual refresh audit outcomes', () => {
+  it.each([false, true])(
+    'reports whether a poll was confirmed by the audit sink (%s)',
+    async auditFails => {
+      const success = jest.fn(async () => {
+        if (auditFails) throw new Error('audit unavailable');
+      });
+      const pollRegistry = jest.fn(async () => ({
+        changed: false,
+        refreshed: false,
+        requests: 2,
+        details: ['registry checked', 'check failed: private registry error'],
+      }));
+      const app = await appWith(
+        stubDB({
+          getRegistry: () => ({ connection: { name: 'reg' } }) as never,
+          pollRegistry,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success, fail: async () => {} }) },
+      );
+      const response = await request(app).post('/registries/reg/poll');
+
+      expect(pollRegistry).toHaveBeenCalledWith('reg', false);
+      expect(success).toHaveBeenCalledWith({
+        meta: { outcome: 'checked', changes: [] },
+      });
+      expect(response.status).toBe(auditFails ? 500 : 200);
+      expect(response.body).toMatchObject(
+        auditFails
+          ? { code: 'committed-audit-unconfirmed', retainedPrevious: true }
+          : { changed: false, refreshed: false, requests: 2 },
+      );
+      expect(JSON.stringify(response.body)).not.toContain(
+        'private registry error',
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'reports a completed registry write separately from audit confirmation (%s)',
+    async auditFails => {
+      const success = jest.fn(async () => {
+        if (auditFails) throw new Error('audit unavailable');
+      });
+      const refreshRegistry = jest.fn(async () => ({
+        ok: true,
+        discovered: 3,
+      }));
+      const app = await appWith(
+        stubDB({
+          getRegistry: () => ({ connection: { name: 'reg' } }) as never,
+          refreshRegistry,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success, fail: async () => {} }) },
+      );
+
+      const response = await request(app).post(
+        '/registries/reg/sync?wait=true',
+      );
+
+      expect(refreshRegistry).toHaveBeenCalledWith('reg', false);
+      expect(success).toHaveBeenCalledWith({
+        meta: { outcome: 'committed', changes: [] },
+      });
+      expect(response.status).toBe(auditFails ? 500 : 202);
+      expect(response.body).toMatchObject(
+        auditFails
+          ? { code: 'committed-audit-unconfirmed', retainedPrevious: false }
+          : { status: 'completed', discovered: 3, retainedPrevious: false },
+      );
+    },
+  );
+
+  it('reports unconfirmed audit after the refresh task was accepted', async () => {
+    const triggerTask = jest.fn(async () => {});
+    const fail = jest.fn(async () => {});
+    const app = await appWith(
+      undefined,
+      stubScheduler({ triggerTask }),
+      undefined,
+      {
+        createEvent: async () => ({
+          success: async () => {
+            throw new Error('audit unavailable');
+          },
+          fail,
+        }),
+      },
+    );
+
+    const response = await request(app).post('/sync');
+
+    expect(response.status).toBe(500);
+    expect(response.body.code).toBe('scheduled-audit-unconfirmed');
+    expect(triggerTask).toHaveBeenCalledWith(STORE_REFRESH_TASK_ID);
+    expect(fail).not.toHaveBeenCalled();
+  });
+
+  it('reports a scheduler outage even if writing the failure audit also fails', async () => {
+    const fail = jest.fn(async () => {
+      throw new Error('audit unavailable');
+    });
+    const app = await appWith(
+      undefined,
+      stubScheduler({
+        triggerTask: async () => {
+          throw new Error('scheduler unavailable');
+        },
+      }),
+      undefined,
+      { createEvent: async () => ({ success: async () => {}, fail }) },
+    );
+
+    const response = await request(app).post('/sync');
+
+    expect(response.status).toBe(503);
+    expect(response.body.code).toBe('SCHEDULING_FAILED');
+    expect(fail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('repository refresh audit boundaries', () => {
+  const body = { registry: 'reg', repository: 'org/image' };
+  const result = {
+    ...body,
+    status: 'completed' as const,
+    addedTags: 0,
+    movedTags: 1,
+    removedTags: 0,
+    retainedPrevious: false as const,
+    lastSuccessfulReconcileAt: '2026-11-12T12:00:00Z',
+  };
+
+  it('does not run the refresh if audit creation fails', async () => {
+    const refreshEERepository = jest.fn(async () => ({ result, changes: [] }));
+    const audit = {
+      createEvent: async () => {
+        throw new Error('sink error');
+      },
+    };
+    const app = await appWith(
+      stubDB({ refreshEERepository }),
+      undefined,
+      undefined,
+      audit,
+    );
+    await request(app)
+      .post('/execution-environment-repositories/sync')
+      .send(body)
+      .expect(503)
+      .expect(({ body: response }) => {
+        expect(response.code).toBe('AUDIT_UNAVAILABLE');
+      });
+    expect(refreshEERepository).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [new RegistryScanIncomplete(), 502, 'REGISTRY_SCAN_INCOMPLETE'],
+    [new RegistryWriterBusy(), 409, 'REFRESH_BUSY'],
+    [new Error('registry request failed'), 500, 'REFRESH_FAILED'],
+    [undefined, 404, 'REPOSITORY_NOT_FOUND'],
+  ])(
+    'records failed repository refresh %s as HTTP %s',
+    async (error, status, code) => {
+      const refreshEERepository = jest.fn(async () => {
+        if (error) throw error;
+        return undefined;
+      });
+      const fail = jest.fn(async () => {});
+      const app = await appWith(
+        stubDB({
+          refreshEERepository,
+          lastSuccessfulReconcileAt: () => result.lastSuccessfulReconcileAt,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success: async () => {}, fail }) },
+      );
+      const response = await request(app)
+        .post('/execution-environment-repositories/sync')
+        .send(body);
+
+      expect(response.status).toBe(status);
+      expect(response.body.code).toBe(code);
+      expect(fail).toHaveBeenCalledTimes(1);
+      expect(response.body.retainedPrevious).toBe(
+        error instanceof RegistryScanIncomplete ? true : undefined,
+      );
+      expect(response.body.lastSuccessfulReconcileAt).toBe(
+        error instanceof RegistryScanIncomplete
+          ? result.lastSuccessfulReconcileAt
+          : undefined,
+      );
+    },
+  );
+
+  it('reports a committed write accurately when its audit completion fails', async () => {
+    const changes = [
+      {
+        repository: 'org/image',
+        tag: 'private-fixture-tag',
+        before: 'sha256:old',
+        after: 'sha256:new',
+      },
+    ];
+    const refreshEERepository = jest.fn(async () => ({ result, changes }));
+    const success = jest.fn(async (_entry: unknown) => {
+      throw new Error('sink error');
+    });
+    const createEvent = jest.fn(async (_entry?: unknown) => ({
+      success,
+      fail: async () => {},
+    }));
+    const app = await appWith(
+      stubDB({ refreshEERepository }),
+      undefined,
+      undefined,
+      { createEvent },
+    );
+    const response = await request(app)
+      .post('/execution-environment-repositories/sync')
+      .send(body);
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({
+      code: 'committed-audit-unconfirmed',
+      retainedPrevious: false,
+    });
+    expect(refreshEERepository).toHaveBeenCalledWith(
+      body.registry,
+      body.repository,
+    );
+    const event = JSON.stringify(createEvent.mock.calls[0]);
+    expect(event).toContain('user:default/test');
+    expect(event).toContain('correlationId');
+    expect(event).not.toContain(body.repository);
+    const completion = JSON.stringify(success.mock.calls[0]);
+    expect(completion).toContain('before');
+    expect(completion).toContain('after');
+    expect(completion).not.toContain('private-fixture-tag');
+  });
+});
+
 describe('GET /registries', () => {
+  it('denies registry access before reading the registry configuration', async () => {
+    const listRegistries = jest.fn(() => []);
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      undefined,
+      async () => [{ result: AuthorizeResult.DENY }],
+    );
+
+    const res = await request(app).get('/registries');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+    expect(listRegistries).not.toHaveBeenCalled();
+  });
+
+  it('allows EE viewers to list registries without granting sync', async () => {
+    const listRegistries = jest.fn(() => [
+      { connection: { name: 'mock', url: 'https://mock.registry' } as never },
+    ]);
+    const triggerTask = jest.fn(async () => {});
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      stubScheduler({ triggerTask }),
+      async ([{ permission }]) => [
+        {
+          result:
+            permission.name === 'ansible.execution-environments.view'
+              ? AuthorizeResult.ALLOW
+              : AuthorizeResult.DENY,
+        },
+      ],
+    );
+
+    const listing = await request(app).get('/registries');
+    expect(listing.status).toBe(200);
+    expect(listing.body.items).toMatchObject([{ name: 'mock' }]);
+
+    const sync = await request(app).post('/registries/mock/sync');
+    expect(sync.status).toBe(403);
+    expect(triggerTask).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the permission service is unavailable', async () => {
+    const listRegistries = jest.fn(() => []);
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      undefined,
+      async () => {
+        throw new Error('Permission service unavailable');
+      },
+    );
+
+    const res = await request(app).get('/registries');
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('AUTHORIZATION_UNAVAILABLE');
+    expect(listRegistries).not.toHaveBeenCalled();
+  });
+
   it.each([undefined, { at: '2026-10-31', ok: true, artifacts: 0 }])(
     'omits failure diagnostics when reconciliation is %p',
     async reconcile => {
