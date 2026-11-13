@@ -36,7 +36,6 @@ export async function ansibleCreatorRun(
   ) {
     throw new Error(`Unsupported application type: ${applicationType}`);
   }
-  const fileDownloader = new BackendServiceAPI();
   logger.info(
     `[${BackendServiceAPI.pluginLogName}] Running plugin operation for ${collectionGroup}.${collectionName}`,
   );
@@ -51,6 +50,7 @@ export async function ansibleCreatorRun(
   ) {
     throw new Error(`Invalid collection namespace: ${collectionGroup}`);
   }
+  const fileDownloader = new BackendServiceAPI();
   const tarName =
     applicationType === appType.DEVFILE
       ? 'devfile.tar'

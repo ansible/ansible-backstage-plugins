@@ -74,6 +74,59 @@ describe('BackendServiceAPI', () => {
     await fs.rm(workspacePath, { recursive: true, force: true });
   });
 
+  it('cleans up a partially downloaded archive after a stream failure', async () => {
+    const workspacePath = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'scaffolder-'),
+    );
+    const api = new BackendServiceAPI();
+    const body = new Readable({
+      read() {
+        this.destroy(new Error('stream failed'));
+      },
+    });
+
+    await expect(
+      (api as any).downloadFile(
+        { body },
+        mockLogger,
+        workspacePath,
+        'archive.tar',
+      ),
+    ).rejects.toThrow('Failed to download file: stream failed');
+    await expect(
+      fs.access(path.join(workspacePath, 'archive.tar')),
+    ).rejects.toThrow();
+    await fs.rm(workspacePath, { recursive: true, force: true });
+  });
+
+  it('rejects archive paths before writing outside the workspace', async () => {
+    const api = new BackendServiceAPI();
+    await expect(
+      (api as any).downloadFile(
+        { body: Readable.from('data') },
+        mockLogger,
+        '/tmp/workspace',
+        '../archive.tar',
+      ),
+    ).rejects.toThrow('invalid archive name');
+  });
+
+  it.each([
+    ['http error', 'Failed to send POST request: Failed to fetch data'],
+    ['network error', 'Failed to send POST request'],
+  ])('wraps creator service %s', async (kind, message) => {
+    if (kind === 'http error') {
+      (fetch as unknown as jest.Mock).mockResolvedValueOnce({ ok: false });
+    } else {
+      (fetch as unknown as jest.Mock).mockRejectedValueOnce('network failure');
+    }
+    const api = new BackendServiceAPI();
+
+    await expect(
+      (api as any).sendPostRequest('http://localhost/creator', {}),
+    ).rejects.toThrow(message);
+  });
+
   it('tests playbook project call with V2 API success', async () => {
     const workspacePath = '/tmp/workspace';
     const collectionOrgName = 'my-org';
@@ -338,6 +391,22 @@ describe('BackendServiceAPI', () => {
       'http://localhost:8000/v2/creator/devfile',
       {},
     );
+  });
+
+  it('reports devfile download failures', async () => {
+    const api = new BackendServiceAPI();
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'sendPostRequest')
+      .mockRejectedValueOnce(new Error('service unavailable'));
+
+    await expect(
+      api.downloadDevfileProject(
+        '/tmp/workspace',
+        mockLogger,
+        'http://localhost:8000/',
+        'devfile.tar',
+      ),
+    ).rejects.toThrow(':downloadDevfileProject:');
   });
 
   it('sends scm_provider in params when scmProvider is provided', async () => {

@@ -77,6 +77,19 @@ describe('ansibleContentCreate', () => {
   });
 
   describe('ansibleCreatorRun', () => {
+    let mockBackendServiceAPI: jest.Mocked<BackendServiceAPI>;
+
+    beforeEach(() => {
+      mockBackendServiceAPI = {
+        downloadPlaybookProject: jest.fn(),
+        downloadCollectionProject: jest.fn(),
+        downloadDevfileProject: jest.fn(),
+      } as any;
+      (
+        BackendServiceAPI as jest.MockedClass<typeof BackendServiceAPI>
+      ).mockImplementation(() => mockBackendServiceAPI);
+    });
+
     it('rejects unsupported application types before downloading', async () => {
       await expect(
         ansibleCreatorRun(
@@ -92,17 +105,19 @@ describe('ansibleContentCreate', () => {
       expect(BackendServiceAPI).not.toHaveBeenCalled();
     });
 
-    let mockBackendServiceAPI: jest.Mocked<BackendServiceAPI>;
-
-    beforeEach(() => {
-      mockBackendServiceAPI = {
-        downloadPlaybookProject: jest.fn(),
-        downloadCollectionProject: jest.fn(),
-        downloadDevfileProject: jest.fn(),
-      } as any;
-      (
-        BackendServiceAPI as jest.MockedClass<typeof BackendServiceAPI>
-      ).mockImplementation(() => mockBackendServiceAPI);
+    it('rejects an invalid collection namespace before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          mockWorkspacePath,
+          appType.PLAYBOOK,
+          logger,
+          mockDescription,
+          'invalid namespace',
+          mockCollectionName,
+          mockCreatorServiceUrl,
+        ),
+      ).rejects.toThrow('Invalid collection namespace: invalid namespace');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
     });
 
     it('should successfully run for PLAYBOOK application type', async () => {
