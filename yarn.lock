@@ -25442,31 +25442,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"brace-expansion@npm:1.1.18":
-  version: 1.1.18
-  resolution: "brace-expansion@npm:1.1.18"
+"brace-expansion@npm:1.1.19":
+  version: 1.1.19
+  resolution: "brace-expansion@npm:1.1.19"
   dependencies:
     balanced-match: "npm:^1.0.0"
     concat-map: "npm:0.0.1"
-  checksum: 10c0/3432c18a9e2ebf94162d4effb62198bd0adea06a9f332b2c0188df5d5e30b1e51ea3c848b6608e47d0b857ebe1ea5b3888ed3326dd3c4f6f9645c94153cf9c14
+  checksum: 10c0/581d4b6d511cc615f120167c12a27b14ce4137aa6515430909b6133bd7ed1f0723adaabfee46f97a3b4b05c0eadea6ea98180a416a594b7277ebbd04736e6fa2
   languageName: node
   linkType: hard
 
-"brace-expansion@npm:2.1.4":
-  version: 2.1.4
-  resolution: "brace-expansion@npm:2.1.4"
+"brace-expansion@npm:2.1.5":
+  version: 2.1.5
+  resolution: "brace-expansion@npm:2.1.5"
   dependencies:
     balanced-match: "npm:^1.0.0"
-  checksum: 10c0/6c0a0e2573eac1dc565b52b1e1bfbeba39bf1830d106ebbc61ff1eaefcf610e9111cd3baa091addd18e33292135c99e019d3184d966389d85dc958fdcdc1449f
+  checksum: 10c0/2c8595e6f6d796f3361b00772a384d214159b99bbc1f381c17d3af1c5875d2194a523121c4a33419b9beeb6983c9e046ae6f41c5674255ed96e0a65ae9972019
   languageName: node
   linkType: hard
 
-"brace-expansion@npm:5.0.9":
-  version: 5.0.9
-  resolution: "brace-expansion@npm:5.0.9"
+"brace-expansion@npm:5.0.10":
+  version: 5.0.10
+  resolution: "brace-expansion@npm:5.0.10"
   dependencies:
     balanced-match: "npm:^4.0.2"
-  checksum: 10c0/3dea38884a1c3c8b1c9c44a7402a0c76fca460f70cffb3127242b0b4cbf4472019e022ade021eec44838ff19f1dac2625dfd11dd459d7e1e055b0698a8d52fec
+  checksum: 10c0/43ac995b0d21eeaa88e0db59bbdafaf12aeaa206bd9916fe6a5ddd1e6248f31b32f884e9e9913508e9d7c7c872df2a2c4df1eda2c884c74c09e6b8ef077ebe44
   languageName: node
   linkType: hard
 
@@ -42066,7 +42066,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"shell-quote@npm:^1.8.4":
+"shell-quote@npm:^1.11.0":
   version: 1.12.0
   resolution: "shell-quote@npm:1.12.0"
   checksum: 10c0/1605a4ed6a758bf13de7cb8197a4184d8015f7a4dbdcd6cd4a717d5b30b3ae7666300cc4ae7f3155cf80ace9739e9e82061ee5aa1a648f53f5fab31a220816d0
