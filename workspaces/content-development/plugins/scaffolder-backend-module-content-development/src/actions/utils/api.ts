@@ -21,8 +21,35 @@ import fetch, { Response } from 'node-fetch';
 import { LoggerService } from '@backstage/backend-plugin-api';
 import type { FileHandle } from 'node:fs/promises';
 
+const DOWNLOAD_TIMEOUT_MS = 60_000;
+
+type DownloadDeadline = {
+  controller: AbortController;
+  timeout: NodeJS.Timeout;
+  externalSignal?: AbortSignal;
+  onExternalAbort?: () => void;
+};
+
 export class BackendServiceAPI {
   static pluginLogName = 'scaffolder-backend-module-content-development';
+
+  private readonly downloadDeadlines = new WeakMap<
+    Response,
+    DownloadDeadline
+  >();
+
+  private clearDownloadDeadline(response: Response) {
+    const deadline = this.downloadDeadlines.get(response);
+    if (!deadline) return;
+    clearTimeout(deadline.timeout);
+    if (deadline.externalSignal && deadline.onExternalAbort) {
+      deadline.externalSignal.removeEventListener(
+        'abort',
+        deadline.onExternalAbort,
+      );
+    }
+    this.downloadDeadlines.delete(response);
+  }
 
   private async sendPostRequest(
     url: string,
@@ -59,9 +86,35 @@ export class BackendServiceAPI {
     data: any,
     signal?: AbortSignal,
   ): Promise<Response> {
-    return signal
-      ? this.sendPostRequest(url, data, signal)
-      : this.sendPostRequest(url, data);
+    const controller = new AbortController();
+    const onExternalAbort = () => controller.abort(signal?.reason);
+    if (signal?.aborted) {
+      onExternalAbort();
+    } else {
+      signal?.addEventListener('abort', onExternalAbort, { once: true });
+    }
+    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+    timeout.unref?.();
+
+    try {
+      const response = await this.sendPostRequest(url, data, controller.signal);
+      if (!response || typeof response !== 'object') {
+        clearTimeout(timeout);
+        signal?.removeEventListener('abort', onExternalAbort);
+        return response;
+      }
+      this.downloadDeadlines.set(response, {
+        controller,
+        timeout,
+        externalSignal: signal,
+        onExternalAbort,
+      });
+      return response;
+    } catch (error) {
+      clearTimeout(timeout);
+      signal?.removeEventListener('abort', onExternalAbort);
+      throw error;
+    }
   }
 
   private async downloadFile(
@@ -70,7 +123,9 @@ export class BackendServiceAPI {
     workspacePath: string,
     tarName: string,
   ) {
+    const deadline = this.downloadDeadlines.get(response);
     if (path.basename(tarName) !== tarName) {
+      this.clearDownloadDeadline(response);
       throw new Error('Failed to download file: invalid archive name');
     }
     const outputPath = path.join(workspacePath, tarName);
@@ -78,7 +133,9 @@ export class BackendServiceAPI {
     try {
       // Exclusive creation rejects existing files and symlinks in the workspace.
       file = await fs.promises.open(outputPath, 'wx');
-      await pipeline(response.body, file.createWriteStream());
+      await pipeline(response.body, file.createWriteStream(), {
+        ...(deadline ? { signal: deadline.controller.signal } : {}),
+      });
       logger.debug(
         `[${BackendServiceAPI.pluginLogName}] Project tar file downloaded successfully`,
       );
@@ -93,6 +150,8 @@ export class BackendServiceAPI {
       throw new Error(`Failed to download file: ${message}`, {
         cause: error instanceof Error ? error : undefined,
       });
+    } finally {
+      this.clearDownloadDeadline(response);
     }
   }
 

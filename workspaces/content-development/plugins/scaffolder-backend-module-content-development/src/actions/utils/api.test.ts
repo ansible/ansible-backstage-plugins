@@ -30,6 +30,10 @@ describe('BackendServiceAPI', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('sets a request timeout for creator-service POSTs', async () => {
     (fetch as unknown as jest.Mock).mockResolvedValue({ ok: true } as any);
     const api = new BackendServiceAPI();
@@ -96,6 +100,70 @@ describe('BackendServiceAPI', () => {
     await expect(
       fs.access(path.join(workspacePath, 'archive.tar')),
     ).rejects.toThrow();
+    await fs.rm(workspacePath, { recursive: true, force: true });
+  });
+
+  it('aborts and removes a partial archive when the body download times out', async () => {
+    jest.useFakeTimers();
+    const workspacePath = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'scaffolder-'),
+    );
+    const body = new Readable({ read() {} });
+    let requestSignal: AbortSignal | undefined;
+    const api = new BackendServiceAPI();
+    jest
+      .spyOn(api as any, 'sendPostRequest')
+      .mockImplementation(async (...args: unknown[]) => {
+        requestSignal = args[2] as AbortSignal;
+        return { body };
+      });
+
+    const download = api.downloadDevfileProject(
+      workspacePath,
+      mockLogger,
+      'http://localhost:8000/',
+      'devfile.tar',
+    );
+    const result = download.then(
+      () => undefined,
+      error => error,
+    );
+    await new Promise<void>(resolve =>
+      jest.requireActual('timers').setImmediate(resolve),
+    );
+    await jest.advanceTimersByTimeAsync(60_000);
+    const error = await result;
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe(':downloadDevfileProject:');
+
+    expect(requestSignal?.aborted).toBe(true);
+    await expect(
+      fs.access(path.join(workspacePath, 'devfile.tar')),
+    ).rejects.toThrow();
+    await fs.rm(workspacePath, { recursive: true, force: true });
+  });
+
+  it('clears the download deadline after the response body completes', async () => {
+    jest.useFakeTimers();
+    const workspacePath = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'scaffolder-'),
+    );
+    const api = new BackendServiceAPI();
+    jest.spyOn(api as any, 'sendPostRequest').mockResolvedValue({
+      body: Readable.from('archive contents'),
+    });
+
+    await api.downloadDevfileProject(
+      workspacePath,
+      mockLogger,
+      'http://localhost:8000/',
+      'devfile.tar',
+    );
+
+    expect(
+      await fs.readFile(path.join(workspacePath, 'devfile.tar'), 'utf8'),
+    ).toBe('archive contents');
+    expect(jest.getTimerCount()).toBe(0);
     await fs.rm(workspacePath, { recursive: true, force: true });
   });
 
@@ -166,6 +234,7 @@ describe('BackendServiceAPI', () => {
         namespace: 'my-org',
         collection_name: 'my-collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -211,6 +280,7 @@ describe('BackendServiceAPI', () => {
         scm_org: 'my-org',
         scm_project: 'my-collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -282,6 +352,7 @@ describe('BackendServiceAPI', () => {
         collection: 'my-org.my-collection',
         project: 'collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -326,6 +397,7 @@ describe('BackendServiceAPI', () => {
         collection: 'my-org.my-collection',
         project: 'collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -390,6 +462,7 @@ describe('BackendServiceAPI', () => {
     expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
       'http://localhost:8000/v2/creator/devfile',
       {},
+      expect.any(AbortSignal),
     );
   });
 
@@ -437,6 +510,7 @@ describe('BackendServiceAPI', () => {
         command_path: ['init', 'execution_env'],
         params: { ee_config: eeConfig, scm_provider: 'gitlab' },
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -467,6 +541,7 @@ describe('BackendServiceAPI', () => {
         command_path: ['init', 'execution_env'],
         params: { ee_config: eeConfig },
       },
+      expect.any(AbortSignal),
     );
   });
 

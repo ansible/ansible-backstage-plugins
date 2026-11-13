@@ -54,6 +54,7 @@ describe('MockAuthService', () => {
       [MOCK_INVALID_USER_LIMITED_TOKEN, 'Limited user token is invalid'],
       ['', 'Token is empty'],
       ['unrecognized-token', 'Unknown mock token'],
+      [`${MOCK_USER_TOKEN}x`, 'Unknown mock token'],
     ])(
       'rejects unsupported token %p through the Promise contract',
       async (token, message) => {
@@ -240,10 +241,13 @@ describe('MockAuthService', () => {
 
   describe('getLimitedUserToken', () => {
     it('returns limited token for user principal', async () => {
-      const creds = mockCredentials.user();
+      const creds = mockCredentials.user('user:default/alice');
       const result = await service.getLimitedUserToken(creds);
       expect(result.token).toBeDefined();
       expect(result.expiresAt).toBeInstanceOf(Date);
+      await expect(
+        service.authenticate(result.token, { allowLimitedAccess: true }),
+      ).resolves.toEqual(creds);
     });
 
     it('throws for non-user principal', async () => {
