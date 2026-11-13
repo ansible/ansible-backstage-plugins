@@ -100,6 +100,10 @@ function InventoryFilter<Value extends string>({
   );
 }
 
+function isInventoryDenied(error: unknown): boolean {
+  return error instanceof ContentApiError && error.status === 403;
+}
+
 export function EEImagesPage(): JSX.Element {
   const permission = useContentPermission(executionEnvironmentsViewPermission);
   const { t } = useTranslationRef(eeTranslationRef);
@@ -310,8 +314,7 @@ function EEInventory(): JSX.Element {
 
   let results: JSX.Element;
   if (result.error) {
-    const denied =
-      result.error instanceof ContentApiError && result.error.status === 403;
+    const denied = isInventoryDenied(result.error);
     results = (
       <Alert
         status="danger"

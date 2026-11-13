@@ -42,8 +42,13 @@ import { useContentPermission } from '../useContentPermission';
 
 /** Accept a string, an array, or nothing, and always return an array of strings. */
 function toLines(value: unknown): string[] {
-  if (value === undefined || value === null) return [];
-  return Array.isArray(value) ? value.map(String) : [String(value)];
+  const values: unknown[] = Array.isArray(value) ? value : [value];
+  return values.flatMap(entry => {
+    if (typeof entry === 'string') return [entry];
+    if (typeof entry === 'number' || typeof entry === 'boolean')
+      return [String(entry)];
+    return [];
+  });
 }
 
 /** Human-friendly age, e.g. "4 minutes ago". */
@@ -685,10 +690,10 @@ export const CollectionView = ({
   ];
 
   // Counts per type, so the shape of the collection is visible at a glance.
-  const byType = items.reduce<Record<string, number>>((acc, i) => {
-    acc[i.type] = (acc[i.type] ?? 0) + 1;
-    return acc;
-  }, {});
+  const byType = items.reduce((counts, item) => {
+    counts.set(item.type, (counts.get(item.type) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 
   return (
     <InfoCard
@@ -698,7 +703,7 @@ export const CollectionView = ({
       {initial.error && <ResponseErrorPanel error={initial.error} />}
 
       <Box display="flex" flexWrap="wrap" gridGap={4} mb={2}>
-        {Object.entries(byType).map(([t, n]) => (
+        {Array.from(byType).map(([t, n]) => (
           <Chip
             key={t}
             size="small"

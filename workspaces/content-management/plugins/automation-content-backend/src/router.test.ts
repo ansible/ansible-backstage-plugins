@@ -440,6 +440,28 @@ describe('documentation field normalisation', () => {
     expect(res.body.author).toEqual(['A', 'B']);
   });
 
+  it('keeps scalar documentation entries and skips structured values', async () => {
+    const db = seedDB([
+      {
+        fqcn: 'cisco.ios.ios',
+        name: 'ios',
+        type: 'cliconf',
+        detail: {
+          description: ['First line', 42, false, null, { text: 'invalid' }],
+          author: { name: 'invalid' },
+        },
+      },
+    ]);
+
+    const res = await request(await appWith(db)).get(
+      '/content-items/cisco.ios.ios',
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.description).toEqual(['First line', '42', 'false']);
+    expect(res.body).not.toHaveProperty('author');
+  });
+
   it('omits the field entirely when absent, rather than emitting null', async () => {
     const db = seedDB([
       { fqcn: 'cisco.ios.ios', name: 'ios', type: 'cliconf', detail: {} },

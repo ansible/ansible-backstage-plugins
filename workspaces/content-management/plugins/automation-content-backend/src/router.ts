@@ -160,9 +160,14 @@ export const RECONCILE_FAILURE_SUMMARY =
  * guessing. A consumer that assumes the declared type should not be punished for it.
  */
 function asArray(value: unknown): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (Array.isArray(value)) return value.map(String);
-  return [String(value)];
+  const values: unknown[] = Array.isArray(value) ? value : [value];
+  const lines = values.flatMap(entry => {
+    if (typeof entry === 'string') return [entry];
+    if (typeof entry === 'number' || typeof entry === 'boolean')
+      return [String(entry)];
+    return [];
+  });
+  return lines.length || Array.isArray(value) ? lines : undefined;
 }
 
 /** Normalise the documentation fields whose shape varies across collections. */
@@ -275,9 +280,11 @@ function describeValue(value: unknown): string {
   }
 }
 
-export async function createRouter(
-  options: RouterOptions,
-): Promise<express.Router> {
+export function createRouter(options: RouterOptions): Promise<express.Router> {
+  return Promise.resolve().then(() => buildRouter(options));
+}
+
+function buildRouter(options: RouterOptions): express.Router {
   const {
     db,
     logger,

@@ -166,6 +166,14 @@ function RepositoryDetails({
   );
 }
 
+function formatModifiedDate(
+  value: string | undefined,
+  fallback: string,
+): string {
+  if (!value || !Number.isFinite(Date.parse(value))) return fallback;
+  return new Date(value).toLocaleDateString();
+}
+
 function DigestDetails({
   selected,
   repository,
@@ -248,10 +256,7 @@ function DigestDetails({
     [t('inventory.status'), status],
     [
       t('detail.modified'),
-      selected.lastModified &&
-      Number.isFinite(Date.parse(selected.lastModified))
-        ? new Date(selected.lastModified).toLocaleDateString()
-        : unavailable,
+      formatModifiedDate(selected.lastModified, unavailable),
     ],
     [t('detail.ansibleCore'), enumeration?.ansibleCore ?? unavailable],
     [
