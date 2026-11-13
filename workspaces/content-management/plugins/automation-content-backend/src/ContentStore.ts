@@ -998,19 +998,34 @@ export class ContentStore {
         const snapshot = await this.readRepositoryInventory(repository, client);
         inventory.set(repository, snapshot);
         requests += 2 * snapshot.completeTags.size;
+      }
+
+      // One registry-scoped read replaces a query per repository inside the
+      // remote loop plus the repository-name query used for removal detection.
+      // The registry's stored tag mappings are held in memory for comparison.
+      const rows: { repository: string; digest: string; tags: string }[] =
+        await this.db('artifacts')
+          .where({ registry: name })
+          .select('repository', 'digest', 'tags');
+      const knownByRepository = new Map<string, Map<string, string>>();
+      for (const row of rows) {
+        let known = knownByRepository.get(row.repository);
+        if (!known) {
+          known = new Map<string, string>();
+          knownByRepository.set(row.repository, known);
+        }
+        for (const tag of JSON.parse(row.tags)) known.set(tag, row.digest);
+      }
+
+      for (const repository of repositories) {
+        const snapshot = inventory.get(repository);
+        if (!snapshot) continue;
         const observed = new Map(
           [...snapshot.byDigest].flatMap(([digest, tags]) =>
             tags.map(tag => [tag, digest] as const),
           ),
         );
-
-        const rows = await this.db('artifacts')
-          .where({ registry: name, repository })
-          .select('digest', 'tags');
-        const known = new Map<string, string>();
-        for (const row of rows) {
-          for (const tag of JSON.parse(row.tags)) known.set(tag, row.digest);
-        }
+        const known = knownByRepository.get(repository) ?? new Map();
 
         for (const [tag, digest] of observed) {
           const previous = known.get(tag);
@@ -1029,11 +1044,7 @@ export class ContentStore {
           if (!observed.has(tag)) details.push(`${repository}:${tag} removed`);
         }
       }
-      const knownRepositories: string[] = await this.db('artifacts')
-        .where({ registry: name })
-        .distinct()
-        .pluck('repository');
-      for (const repository of knownRepositories) {
+      for (const repository of knownByRepository.keys()) {
         if (!inventory.has(repository)) details.push(`${repository} removed`);
       }
     } catch (error) {

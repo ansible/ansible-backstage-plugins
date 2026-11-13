@@ -597,6 +597,128 @@ describe('drift detection', () => {
     expect(drift.details.join()).toContain('ansible/ee:v2 removed');
   });
 
+  it('compares shared tag names per repository and detects a removed repository', async () => {
+    const first = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const second = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    second.digest = `sha256:${'9'.repeat(64)}`;
+    const repositories = {
+      'ansible/first': [first],
+      'ansible/second': [second],
+      'ansible/removed': [first],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const store = await storeOver(registry, []);
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: false,
+      details: [],
+    });
+
+    Reflect.deleteProperty(repositories, 'ansible/removed');
+
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: true,
+      details: ['ansible/removed removed'],
+    });
+  });
+
+  it('keeps the prior inventory when polling fails after observing drift', async () => {
+    const repositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const store = await storeOver(registry, []);
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    const previous = await store.listArtifacts();
+    expect(previous).toHaveLength(2);
+
+    repositories['ansible/first'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+    const fetch = registry.fetch;
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: typeof fetch }> }
+    ).clients;
+    clients.get('mock')!.fetchImpl = (url, init) =>
+      new URL(url).pathname === '/v2/ansible/second/tags/list'
+        ? Promise.resolve(new Response(null, { status: 503 }))
+        : fetch(url, init);
+
+    const poll = await store.pollRegistry('mock');
+
+    expect(poll).toMatchObject({ changed: false, refreshed: false });
+    expect(poll.details).toEqual([expect.stringContaining('check failed')]);
+    expect(registry.requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'HEAD',
+          path: '/v2/ansible/first/manifests/v2',
+        }),
+      ]),
+    );
+    expect(await store.listArtifacts()).toEqual(previous);
+  });
+
+  it('scopes the stored comparison to one registry in a single query', async () => {
+    const db = await createTestDB();
+    const mockRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const otherRepositories = {
+      'ansible/other': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const store = new ContentStore(
+      [
+        { ...connection(), repositories: Object.keys(mockRepositories) },
+        {
+          ...connection(),
+          name: 'other',
+          repositories: Object.keys(otherRepositories),
+        },
+      ],
+      db as never,
+      silent,
+      defaultContentTypes(),
+    );
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: unknown }> }
+    ).clients;
+    (clients.get('mock') as unknown as { fetchImpl: unknown }).fetchImpl =
+      new MockRegistry({ repositories: mockRepositories }).fetch;
+    (clients.get('other') as unknown as { fetchImpl: unknown }).fetchImpl =
+      new MockRegistry({ repositories: otherRepositories }).fetch;
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    expect(await store.refreshRegistry('other')).toMatchObject({ ok: true });
+
+    otherRepositories['ansible/other'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+
+    const queries: string[] = [];
+    (
+      db as unknown as {
+        on: (event: string, listener: (query: { sql: string }) => void) => void;
+      }
+    ).on('query', query => queries.push(query.sql));
+
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: false,
+      details: [],
+    });
+    const artifactReads = queries.filter(sql =>
+      sql.includes('from `artifacts`'),
+    );
+    expect(artifactReads).toHaveLength(1);
+    expect(artifactReads[0]).toContain('where `registry` = ?');
+
+    expect(await store.detectDrift('other')).toMatchObject({
+      changed: true,
+      details: ['ansible/other:v2 added'],
+    });
+  });
+
   it('ignores referrer fallback tags, which are artifacts about images', async () => {
     const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const registry = new MockRegistry({
