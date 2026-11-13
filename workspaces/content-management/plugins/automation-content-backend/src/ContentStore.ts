@@ -888,39 +888,40 @@ export class ContentStore {
         }
         const changes = tagChanges(previous, artifacts);
         await scope().del();
-        for (const a of artifacts) {
-          await trx('artifacts').insert({
-            ref: a.ref,
-            type: a.type,
-            registry: a.registry,
-            repository: a.repository,
-            digest: a.digest,
-            tags: JSON.stringify(a.tags),
-            pull_reference: a.pullReference,
-            contents_known: a.contentsKnown,
-            classification: JSON.stringify(a.classification),
-            manifest: a.manifest ? JSON.stringify(a.manifest) : null,
-            tag_timestamps: a.tagTimestamps
-              ? JSON.stringify(a.tagTimestamps)
-              : null,
-            signing: a.signing ? JSON.stringify(a.signing) : null,
-          });
-          const items = flattenItems(a);
-          for (const item of items) {
-            await trx('items').insert({
-              key: item.key,
-              fqcn: item.fqcn,
-              name: item.name,
-              type: item.type,
-              collection: item.collection,
-              collection_version: item.collectionVersion,
-              short_description: item.shortDescription ?? null,
-              version_added: item.versionAdded ?? null,
-              deprecated: item.deprecated ?? false,
-              artifact_ref: item.artifactRef,
-              detail: item.detail ? JSON.stringify(item.detail) : null,
-            });
-          }
+        const artifactRows = artifacts.map(a => ({
+          ref: a.ref,
+          type: a.type,
+          registry: a.registry,
+          repository: a.repository,
+          digest: a.digest,
+          tags: JSON.stringify(a.tags),
+          pull_reference: a.pullReference,
+          contents_known: a.contentsKnown,
+          classification: JSON.stringify(a.classification),
+          manifest: a.manifest ? JSON.stringify(a.manifest) : null,
+          tag_timestamps: a.tagTimestamps
+            ? JSON.stringify(a.tagTimestamps)
+            : null,
+          signing: a.signing ? JSON.stringify(a.signing) : null,
+        }));
+        if (artifactRows.length) {
+          await trx.batchInsert('artifacts', artifactRows, 50);
+        }
+        const items = artifacts.flatMap(flattenItems).map(item => ({
+          key: item.key,
+          fqcn: item.fqcn,
+          name: item.name,
+          type: item.type,
+          collection: item.collection,
+          collection_version: item.collectionVersion,
+          short_description: item.shortDescription ?? null,
+          version_added: item.versionAdded ?? null,
+          deprecated: item.deprecated ?? false,
+          artifact_ref: item.artifactRef,
+          detail: item.detail ? JSON.stringify(item.detail) : null,
+        }));
+        if (items.length) {
+          await trx.batchInsert('items', items, 50);
         }
         return changes;
       })
