@@ -1250,6 +1250,8 @@ export class OCIClient {
       return { referrers: index.manifests ?? [], via: 'native' };
     }
 
+    await res.body?.cancel?.().catch(() => {}); // NOSONAR
+
     // Fallback tag schema: sha256:abc… → sha256-abc…
     const fallbackTag = digest.replace(':', '-');
     try {
@@ -1314,6 +1316,7 @@ export class OCIClient {
         MediaTypes.ociIndex,
         true,
       )) {
+        if (!response.ok) await response.body?.cancel?.().catch(() => {}); // NOSONAR
         if (first && [404, 405, 501].includes(response.status)) {
           if (response.status !== 404 || !fallbackTag) {
             return { referrers: [], outcome: 'unavailable' };

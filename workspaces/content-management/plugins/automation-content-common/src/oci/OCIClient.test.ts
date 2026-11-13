@@ -387,11 +387,26 @@ describe('signature discovery', () => {
   });
 
   it('reads the OCI referrers fallback even when it is absent from the listing', async () => {
+    const events: string[] = [];
+    const cancel = async () => {
+      events.push('cancel');
+    };
     const client = new OCIClient(connection(), {
-      fetch: async input =>
-        new URL(input).pathname.endsWith(`/manifests/sha256-${'a'.repeat(64)}`)
-          ? jsonResponse(index(signatureType))
-          : new Response(null, { status: 404 }),
+      fetch: async input => {
+        if (
+          new URL(input).pathname.endsWith(
+            `/manifests/sha256-${'a'.repeat(64)}`,
+          )
+        ) {
+          events.push('fallback');
+          return jsonResponse(index(signatureType));
+        }
+        const response = new Response('Not found', { status: 404 });
+        Object.defineProperty(response, 'body', {
+          value: { cancel },
+        });
+        return response;
+      },
     });
 
     const { signing } = await client.inspectReferrersAndSigning(
@@ -399,6 +414,7 @@ describe('signature discovery', () => {
       digest,
       new Set(['latest']),
     );
+    expect(events).toEqual(['cancel', 'fallback']);
     expect(signing).toMatchObject({
       state: 'signed',
       mechanisms: [
