@@ -63,7 +63,9 @@ describe('SDK SyncDialog', () => {
     jest.clearAllMocks();
     get.mockResolvedValue({
       ok: true,
-      json: async () => ({ content: { providers } }),
+      json: async () => ({
+        content: { syncInProgress: false, providers },
+      }),
     });
     post.mockResolvedValue({
       ok: true,
