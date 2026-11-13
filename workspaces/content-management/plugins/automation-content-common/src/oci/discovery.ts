@@ -4,7 +4,7 @@ const COSIGN_ARTIFACT = 'application/vnd.dev.cosign.artifact.sig.v1+json';
 const COSIGN_LAYER = 'application/vnd.dev.cosign.simplesigning.v1+json';
 const COSIGN_SIGNATURE = 'dev.cosignproject.cosign/signature';
 const SIGSTORE_BUNDLE = 'application/vnd.dev.sigstore.bundle';
-const OCI_TAG = /^[\w][\w.-]{0,127}$/;
+const OCI_TAG = /^\w[\w.-]{0,127}$/;
 const REPOSITORY_PART = /^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -7,6 +7,8 @@ import {
   ContentStore,
   IndexedArtifact,
   IndexedItem,
+  RegistryScanIncomplete,
+  RegistryWriterBusy,
 } from './ContentStore';
 import {
   createRouter,
@@ -846,6 +848,46 @@ describe('repository refresh audit boundaries', () => {
       });
     expect(refreshEERepository).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [new RegistryScanIncomplete(), 502, 'REGISTRY_SCAN_INCOMPLETE'],
+    [new RegistryWriterBusy(), 409, 'REFRESH_BUSY'],
+    [new Error('registry request failed'), 500, 'REFRESH_FAILED'],
+    [undefined, 404, 'REPOSITORY_NOT_FOUND'],
+  ])(
+    'records failed repository refresh %s as HTTP %s',
+    async (error, status, code) => {
+      const refreshEERepository = jest.fn(async () => {
+        if (error) throw error;
+        return undefined;
+      });
+      const fail = jest.fn(async () => {});
+      const app = await appWith(
+        stubDB({
+          refreshEERepository,
+          lastSuccessfulReconcileAt: () => result.lastSuccessfulReconcileAt,
+        }),
+        undefined,
+        undefined,
+        { createEvent: async () => ({ success: async () => {}, fail }) },
+      );
+      const response = await request(app)
+        .post('/execution-environment-repositories/sync')
+        .send(body);
+
+      expect(response.status).toBe(status);
+      expect(response.body.code).toBe(code);
+      expect(fail).toHaveBeenCalledTimes(1);
+      expect(response.body.retainedPrevious).toBe(
+        error instanceof RegistryScanIncomplete ? true : undefined,
+      );
+      expect(response.body.lastSuccessfulReconcileAt).toBe(
+        error instanceof RegistryScanIncomplete
+          ? result.lastSuccessfulReconcileAt
+          : undefined,
+      );
+    },
+  );
 
   it('reports a committed write accurately when its audit completion fails', async () => {
     const changes = [

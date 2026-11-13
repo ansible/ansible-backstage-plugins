@@ -107,6 +107,7 @@ function renderEntity(
     allowed?: boolean;
     provider?: boolean;
     contentApi?: Partial<typeof automationContentApiRef.T>;
+    extraEntities?: Entity[];
   } = {},
 ) {
   return renderTestApp({
@@ -117,7 +118,9 @@ function renderEntity(
       ...(options.features ?? [content()]),
     ],
     apis: [
-      catalogApiMock({ entities: [repository, unrelated] }),
+      catalogApiMock({
+        entities: [repository, unrelated, ...(options.extraEntities ?? [])],
+      }),
       ...(options.contentApi
         ? [[automationContentApiRef, options.contentApi] as const]
         : []),
@@ -310,4 +313,105 @@ it('keeps Overview available and retries only the failed contents request', asyn
     [artifactRef],
   ]);
   expect(getEEArtifact.mock.calls).toEqual([[artifactRef]]);
+});
+
+it('links only the collection version included in the selected image digest', async () => {
+  const digest = 'sha256:example';
+  const artifactRef = `local/namespace/image@${digest}`;
+  const collectionEntity = (name: string, version: string): Entity => ({
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      name,
+      annotations: {
+        'ansible.com/collection': 'ansible.netcommon',
+        'ansible.com/version': version,
+      },
+    },
+    spec: { type: 'ansible-collection' },
+  });
+  const selectedVersion = collectionEntity('netcommon-seven', '7.2.0');
+  const otherVersion = collectionEntity('netcommon-eight', '8.0.0');
+  const digestEntity: Entity = {
+    apiVersion: 'backstage.io/v1alpha1',
+    kind: 'Component',
+    metadata: {
+      name: 'digest-image',
+      annotations: {
+        'ansible.com/registry': 'local',
+        'ansible.com/repository': 'namespace/image',
+        'ansible.com/digest': digest,
+      },
+    },
+    spec: { type: 'execution-environment' },
+    relations: [
+      { type: 'dependsOn', targetRef: 'component:default/netcommon-seven' },
+      { type: 'dependsOn', targetRef: 'component:default/netcommon-eight' },
+    ],
+  };
+  await renderEntity({
+    extraEntities: [digestEntity, selectedVersion, otherVersion],
+    features: [
+      content({
+        loader: async ({ entity }) => <EEImageDetails entity={entity} />,
+      }),
+    ],
+    contentApi: {
+      getEERepository: async () => ({
+        registry: 'local',
+        repository: 'namespace/image',
+        entityRef: 'component:default/test-repository',
+        representativeRef: artifactRef,
+        tags: [
+          {
+            tag: 'latest',
+            digest,
+            artifactRef,
+            taggedPullReference: 'local/namespace/image:latest',
+          },
+        ],
+        digests: [{ digest, artifactRef }],
+      }),
+      getEEArtifact: async () => ({
+        ref: artifactRef,
+        registry: 'local',
+        repository: 'namespace/image',
+        digest,
+        pullReference: artifactRef,
+        tags: ['latest'],
+        contentsKnown: true,
+        enumeration: { status: 'complete', source: 'build-time-manifest' },
+        collections: [],
+      }),
+      getEEArtifactContents: async () => ({
+        enumeration: { status: 'complete', source: 'build-time-manifest' },
+        collections: [
+          {
+            fqcn: 'ansible.netcommon',
+            namespace: 'ansible',
+            name: 'netcommon',
+            version: '7.2.0',
+            counts: { plugins: 8 },
+          },
+          {
+            fqcn: 'ansible.utils',
+            namespace: 'ansible',
+            name: 'utils',
+            version: '1.0.0',
+            counts: {},
+          },
+        ],
+        items: [],
+      }),
+      getRegistryStatus: async () => ({ items: [], manualSyncEnabled: false }),
+    },
+  });
+
+  fireEvent.click(await screen.findByRole('tab', { name: 'All Content' }));
+  expect(
+    await screen.findByRole('link', { name: 'ansible.netcommon' }),
+  ).toHaveAttribute('href', '/catalog/default/component/netcommon-seven');
+  expect(screen.getByText('ansible.utils')).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'ansible.utils' })).toBeNull();
+  expect(screen.getByText('8 plugins')).toBeInTheDocument();
 });
