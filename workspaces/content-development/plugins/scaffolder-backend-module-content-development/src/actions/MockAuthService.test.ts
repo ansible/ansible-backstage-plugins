@@ -34,15 +34,13 @@ describe('MockAuthService', () => {
     expect(mockCredentials.limitedUser('user:default/alice')).toEqual(
       mockCredentials.user('user:default/alice'),
     );
-    expect(
-      mockCredentials.limitedUser.cookie('user:default/alice'),
-    ).toContain('backstage-auth=mock-limited-user-token:');
+    expect(mockCredentials.limitedUser.cookie('user:default/alice')).toContain(
+      'backstage-auth=mock-limited-user-token:',
+    );
     expect(mockCredentials.limitedUser.invalidCookie()).toBe(
       'backstage-auth=mock-invalid-limited-user-token',
     );
-    expect(mockCredentials.service.header()).toBe(
-      'Bearer mock-service-token',
-    );
+    expect(mockCredentials.service.header()).toBe('Bearer mock-service-token');
     expect(mockCredentials.service.invalidHeader()).toBe(
       'Bearer mock-invalid-service-token',
     );
