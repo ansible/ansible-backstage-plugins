@@ -654,6 +654,24 @@ describe('ansible-aap:autocomplete', () => {
       ).rejects.toThrow('Controller connection timed out');
     });
 
+    it('should throw ServiceUnavailableError when the AAP GET request fails', async () => {
+      mockAnsibleService.getResourceData.mockRejectedValue(
+        new Error('Failed to send GET request.'),
+      );
+
+      await expect(
+        handleAutocompleteRequest({
+          resource: 'job_templates',
+          token: 'token',
+          config,
+          logger,
+          ansibleService: mockAnsibleService,
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+        }),
+      ).rejects.toThrow(ServiceUnavailableError);
+    });
+
     it('should throw NotAllowedError for insufficient privileges from getResourceData', async () => {
       mockAnsibleService.getResourceData.mockRejectedValue(
         new Error('Insufficient privileges to access this resource'),
