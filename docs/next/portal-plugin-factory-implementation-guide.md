@@ -55,7 +55,7 @@ lockfile:
 
 - `portal-core/packages/app` and `portal-core/packages/backend`: development harnesses.
 - `portal-core/plugins`: shared Portal contracts, host, SDK, operations, and health.
-- `self-service/plugins/portal-scaffolder`: `@ansible/portal-scaffolder`, including
+- `content-development/plugins/portal-scaffolder`: `@ansible/portal-scaffolder`, including
   templates, tasks, and the content pages awaiting extraction.
 - `aap/plugins`: AAP integration clients, authentication, catalog providers,
   user provisioning, and scaffolder actions.
