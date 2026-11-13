@@ -26,11 +26,15 @@ export function parseUploadedFileContent(dataUrl: string): string {
   let decodedContent = '';
 
   if (typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
-    const matches = /^data:(.*?);base64,(.*)$/.exec(dataUrl);
-    if (!matches) {
+    const dataPrefix = 'data:';
+    const contentSeparator = ';base64,';
+    const separatorIndex = dataUrl.startsWith(dataPrefix)
+      ? dataUrl.indexOf(contentSeparator, dataPrefix.length)
+      : -1;
+    if (separatorIndex === -1) {
       throw new Error('Invalid data URL format for the file uploaded');
     }
-    const base64Data = matches[2];
+    const base64Data = dataUrl.slice(separatorIndex + contentSeparator.length);
     try {
       decodedContent = Buffer.from(base64Data, 'base64')
         .toString('utf-8')
