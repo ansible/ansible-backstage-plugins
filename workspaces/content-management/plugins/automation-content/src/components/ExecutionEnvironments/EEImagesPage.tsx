@@ -105,14 +105,14 @@ export function EEImagesPage(): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
   if (permission === 'pending') {
     return (
-      <Container>
+      <Container role="main" aria-label={t('pageTitle')}>
         <Text role="status">{t('inventory.permissionLoading')}</Text>
       </Container>
     );
   }
   if (permission !== 'allowed') {
     return (
-      <Container>
+      <Container role="main" aria-label={t('pageTitle')}>
         <Alert
           status={permission === 'unavailable' ? 'danger' : 'warning'}
           title={t(
@@ -442,7 +442,7 @@ function EEInventory(): JSX.Element {
 
   const facets = result.value?.facets;
   return (
-    <Box role="region" aria-label={t('pageTitle')} px="4" py="6">
+    <Box role="main" aria-label={t('pageTitle')} px="4" py="6">
       <Flex direction="column" gap="5">
         <Flex direction="column" gap="2">
           <Text as="h2" variant="title-medium" weight="bold">

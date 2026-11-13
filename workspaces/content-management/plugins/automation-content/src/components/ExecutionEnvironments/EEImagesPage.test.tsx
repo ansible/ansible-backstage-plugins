@@ -1,7 +1,8 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { catalogApiMock } from '@backstage/plugin-catalog-react/testUtils';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { EERepositoryQuery } from '@ansible/automation-content-common/eeRepository';
 import automationContentPlugin from '../../alpha';
@@ -22,14 +23,27 @@ const repositories = Array.from({ length: 21 }, (_, i) => {
 const waitForPage = { timeout: 10000 };
 jest.setTimeout(20000);
 
-function mount({ allow = true, catalogAvailable = true } = {}) {
+function mount({
+  allow = true,
+  catalogAvailable = true,
+  permission = 'ready',
+  inventory = 'ready',
+}: {
+  allow?: boolean;
+  catalogAvailable?: boolean;
+  permission?: 'ready' | 'pending' | 'unavailable';
+  inventory?: 'ready' | 'pending' | 'empty' | 'error';
+} = {}) {
   const queryEERepositories = jest.fn(
     async ({ page = 1, pageSize = 10 }: EERepositoryQuery) => {
+      if (inventory === 'pending') return new Promise<never>(() => {});
+      if (inventory === 'error') throw new Error('Inventory unavailable');
+      const available = inventory === 'empty' ? [] : repositories;
       return {
         page,
         pageSize,
-        totalItems: repositories.length,
-        items: repositories.slice((page - 1) * pageSize, page * pageSize),
+        totalItems: available.length,
+        items: available.slice((page - 1) * pageSize, page * pageSize),
       };
     },
   );
@@ -59,9 +73,19 @@ function mount({ allow = true, catalogAvailable = true } = {}) {
             }))
           : [],
       }),
-      mockApis.permission({
-        authorize: allow ? AuthorizeResult.ALLOW : AuthorizeResult.DENY,
-      }),
+      [
+        permissionApiRef,
+        {
+          async authorize() {
+            if (permission === 'pending') return new Promise<never>(() => {});
+            if (permission === 'unavailable')
+              throw new Error('Permission unavailable');
+            return {
+              result: allow ? AuthorizeResult.ALLOW : AuthorizeResult.DENY,
+            };
+          },
+        },
+      ],
       mockApis.storage(),
     ],
     initialRouteEntries: ['/content/ee/images'],
@@ -71,9 +95,12 @@ function mount({ allow = true, catalogAvailable = true } = {}) {
 
 it('keeps indexed repositories visible when their catalog entries are missing', async () => {
   await mount({ catalogAvailable: false }).mounted;
-  expect(
-    await screen.findByText('namespace/image-1', { exact: true }, waitForPage),
-  ).toBeTruthy();
+  const image = await screen.findByText(
+    'namespace/image-1',
+    { exact: true },
+    waitForPage,
+  );
+  expect(screen.getByRole('main').contains(image)).toBe(true);
   expect(
     (await screen.findAllByText(/Details are unavailable/)).length,
   ).toBeGreaterThan(0);
@@ -87,9 +114,40 @@ it('does not request the inventory when EE view is denied', async () => {
   const { mounted, queryEERepositories } = mount({ allow: false });
   await mounted;
   expect(
-    await screen.findByText(
+    await within(await screen.findByRole('main')).findByText(
       'You do not have permission to view execution environment images.',
     ),
   ).toBeTruthy();
   expect(queryEERepositories).not.toHaveBeenCalled();
 });
+
+it.each([
+  ['pending', /Checking image access/],
+  ['unavailable', /Image access could not be checked/],
+] as const)(
+  'keeps the %s permission message in the main landmark',
+  async (permission, message) => {
+    const { mounted, queryEERepositories } = mount({ permission });
+    await mounted;
+    const main = await screen.findByRole('main', {}, waitForPage);
+    expect(await within(main).findByText(message)).toBeTruthy();
+    expect(queryEERepositories).not.toHaveBeenCalled();
+  },
+);
+
+it.each([
+  ['pending', /Search images/],
+  ['empty', /No image repositories match these filters/],
+  ['error', /Image repositories could not be loaded/],
+] as const)(
+  'keeps the %s inventory in the main landmark',
+  async (inventory, message) => {
+    const { mounted } = mount({ inventory });
+    await mounted;
+    const content =
+      inventory === 'pending'
+        ? await screen.findByRole('searchbox', { name: message }, waitForPage)
+        : await screen.findByText(message, {}, waitForPage);
+    expect(screen.getByRole('main').contains(content)).toBe(true);
+  },
+);
