@@ -12,6 +12,10 @@ import { registryUrlError } from '@ansible/plugin-catalog-backend-module-automat
 
 export const STORE_REFRESH_TASK_ID = 'content-management-store-refresh';
 
+export function registryRefreshTaskId(name: string): string {
+  return `content-management-store-refresh-${name}`;
+}
+
 export interface RouterOptions {
   logger: LoggerService;
   httpAuth: HttpAuthService;
@@ -239,20 +243,31 @@ export async function createRouter(
       });
       return;
     }
-    const result = await db.refreshRegistry(name);
-    logger.info(
-      redactor.redact(
-        `sync ${name}: ${result.discovered} artifacts, ok=${result.ok}${
-          result.error ? ` (${result.error})` : ''
-        }`,
-      ),
-    );
+
+    const taskId = registryRefreshTaskId(name);
+
+    try {
+      await scheduler.cancelTask(taskId);
+    } catch {
+      // Task was not running — nothing to cancel
+    }
+
+    try {
+      await scheduler.triggerTask(taskId);
+    } catch {
+      res.status(409).json({
+        status: 'conflict',
+        message: `A refresh is already in progress for registry '${name}'.`,
+        taskId,
+      });
+      return;
+    }
+
+    logger.info(`manual sync triggered for registry '${name}'`);
     res.status(202).json({
-      status: result.ok ? 'completed' : 'failed',
-      discovered: result.discovered,
-      retainedPrevious: !result.ok,
-      error: result.error,
-      lastReconciledAt: db.reconcileStateFor(name)?.at,
+      status: 'scheduled',
+      taskId,
+      triggeredAt: new Date().toISOString(),
     });
   });
 
