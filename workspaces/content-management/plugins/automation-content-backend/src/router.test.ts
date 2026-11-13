@@ -72,7 +72,9 @@ function stubScheduler(overrides: Record<string, unknown> = {}) {
 async function appWith(
   db?: ContentStore,
   scheduler?: ReturnType<typeof stubScheduler>,
-  authorize: () => Promise<Array<{ result: AuthorizeResult }>> = async () => [
+  authorize: (
+    requests: Array<{ permission: { name: string } }>,
+  ) => Promise<Array<{ result: AuthorizeResult }>> = async () => [
     { result: AuthorizeResult.ALLOW },
   ],
   audit: NonNullable<Parameters<typeof createRouter>[0]['auditor']> = {
@@ -881,6 +883,65 @@ describe('repository refresh audit boundaries', () => {
 });
 
 describe('GET /registries', () => {
+  it('denies registry access before reading the registry configuration', async () => {
+    const listRegistries = jest.fn(() => []);
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      undefined,
+      async () => [{ result: AuthorizeResult.DENY }],
+    );
+
+    const res = await request(app).get('/registries');
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('FORBIDDEN');
+    expect(listRegistries).not.toHaveBeenCalled();
+  });
+
+  it('allows EE viewers to list registries without granting sync', async () => {
+    const listRegistries = jest.fn(() => [
+      { connection: { name: 'mock', url: 'https://mock.registry' } as never },
+    ]);
+    const triggerTask = jest.fn(async () => {});
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      stubScheduler({ triggerTask }),
+      async ([{ permission }]) => [
+        {
+          result:
+            permission.name === 'ansible.execution-environments.view'
+              ? AuthorizeResult.ALLOW
+              : AuthorizeResult.DENY,
+        },
+      ],
+    );
+
+    const listing = await request(app).get('/registries');
+    expect(listing.status).toBe(200);
+    expect(listing.body.items).toMatchObject([{ name: 'mock' }]);
+
+    const sync = await request(app).post('/registries/mock/sync');
+    expect(sync.status).toBe(403);
+    expect(triggerTask).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the permission service is unavailable', async () => {
+    const listRegistries = jest.fn(() => []);
+    const app = await appWith(
+      stubDB({ listRegistries }),
+      undefined,
+      async () => {
+        throw new Error('Permission service unavailable');
+      },
+    );
+
+    const res = await request(app).get('/registries');
+
+    expect(res.status).toBe(503);
+    expect(res.body.code).toBe('AUTHORIZATION_UNAVAILABLE');
+    expect(listRegistries).not.toHaveBeenCalled();
+  });
+
   it.each([undefined, { at: '2026-10-31', ok: true, artifacts: 0 }])(
     'omits failure diagnostics when reconciliation is %p',
     async reconcile => {

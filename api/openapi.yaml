@@ -2952,6 +2952,8 @@ paths:
         - JWT: []
       summary: List configured registries and their discovered capabilities
       description: |
+        Requires the ansible.execution-environments.view permission.
+
         Capabilities are probed, not assumed. Use this to understand why a feature is
         unavailable for a given registry — for example, why contents are unknown, or why
         delete is not offered.
@@ -2963,6 +2965,8 @@ paths:
           description: Authentication required
         '403':
           description: Insufficient permissions
+        '503':
+          description: Authorization service unavailable
         '200':
           description: Configured registries
           content:

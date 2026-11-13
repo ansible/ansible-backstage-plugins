@@ -458,7 +458,15 @@ export async function createRouter(
 
   // -- Registries ---------------------------------------------------------
 
-  router.get('/registries', (_req, res) => {
+  router.get('/registries', async (req, res) => {
+    if (
+      respondToDenial(
+        res,
+        await authorize(req, executionEnvironmentsViewPermission),
+      )
+    )
+      return;
+
     res.json({
       manualSyncEnabled,
       items: db.listRegistries().map(state => {
