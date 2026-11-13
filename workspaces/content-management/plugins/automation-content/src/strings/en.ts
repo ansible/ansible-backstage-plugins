@@ -147,6 +147,11 @@ export const eeMessages = {
     registryCompleted: 'Sync complete for {{registry}}.',
     registriesCompleted: 'Sync complete for {{quantity}} registries.',
     registrySyncFailed: 'Registry sync failed',
+    registrySyncUnconfirmed: 'Registry sync could not be confirmed',
+    registryCommitted:
+      '{{registry}}: Inventory updated, but audit confirmation failed. Reload results.',
+    registryOutcomeUnknown:
+      '{{registry}}: Sync outcome is unknown. Reload results before retrying.',
     retryFailedRegistries:
       'The registries that failed are still selected for retry.',
     registryFailed: '{{registry}}: Sync failed',

@@ -65,17 +65,33 @@ export function SyncRegistriesDialog(): JSX.Element | null {
         ) {
           return [];
         }
-        failed.push(registry);
-        if (
-          result.status === 'rejected' &&
-          result.reason instanceof ContentApiError &&
-          result.reason.status === 409
-        ) {
-          return [t('sync.registryBusy', { registry })];
+        if (result.status === 'rejected') {
+          const error: unknown = result.reason;
+          if (
+            error instanceof ContentApiError &&
+            error.code === 'committed-audit-unconfirmed' &&
+            error.retainedPrevious === false
+          ) {
+            return [t('sync.registryCommitted', { registry })];
+          }
+          if (
+            !(error instanceof ContentApiError) ||
+            (error.status >= 500 &&
+              error.retainedPrevious !== true &&
+              error.code !== 'REFRESH_FAILED' &&
+              error.code !== 'AUDIT_UNAVAILABLE')
+          ) {
+            return [t('sync.registryOutcomeUnknown', { registry })];
+          }
+          if (error.status === 409) {
+            failed.push(registry);
+            return [t('sync.registryBusy', { registry })];
+          }
         }
+        failed.push(registry);
         return [t('sync.registryFailed', { registry })];
       });
-      if (failed.length === 0) {
+      if (errors.length === 0) {
         setOpen(false);
         toastApi.post({
           title:
@@ -85,6 +101,13 @@ export function SyncRegistriesDialog(): JSX.Element | null {
                   quantity: String(selected.length),
                 }),
           status: 'success',
+        });
+      } else if (failed.length === 0) {
+        setOpen(false);
+        failureToast.current = toastApi.post({
+          title: t('sync.registrySyncUnconfirmed'),
+          description: errors.join(' '),
+          status: 'warning',
         });
       } else {
         failureToast.current = toastApi.post({

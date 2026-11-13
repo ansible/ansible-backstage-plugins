@@ -104,3 +104,21 @@ it('requests the final registry refresh outcome for the sync dialog', async () =
     { method: 'POST' },
   );
 });
+
+it('preserves the registry outcome when inventory was saved but audit confirmation failed', async () => {
+  const { client } = createClient({
+    ok: false,
+    status: 500,
+    json: async () => ({
+      code: 'committed-audit-unconfirmed',
+      retainedPrevious: false,
+      error: 'internal audit detail',
+    }),
+  });
+  await expect(client.syncRegistry('local')).rejects.toMatchObject({
+    status: 500,
+    code: 'committed-audit-unconfirmed',
+    retainedPrevious: false,
+    message: 'Content API request failed: 500',
+  });
+});

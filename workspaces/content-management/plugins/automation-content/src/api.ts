@@ -208,6 +208,7 @@ export class ContentApiError extends Error {
     readonly status: number,
     readonly retainedPrevious?: boolean,
     readonly lastSuccessfulReconcileAt?: string,
+    readonly code?: string,
   ) {
     super(`Content API request failed: ${status}`);
     this.name = 'ContentApiError';
@@ -249,7 +250,10 @@ export class AutomationContentClient implements AutomationContentApi {
           }),
     });
     if (!res.ok) {
-      if (path === '/execution-environment-repositories/sync') {
+      if (
+        path === '/execution-environment-repositories/sync' ||
+        /^\/registries\/[^/]+\/sync\?wait=true$/.test(path)
+      ) {
         const data: unknown = await res.json().catch(() => undefined);
         if (typeof data === 'object' && data !== null) {
           throw new ContentApiError(
@@ -261,6 +265,9 @@ export class AutomationContentClient implements AutomationContentApi {
             'lastSuccessfulReconcileAt' in data &&
             typeof data.lastSuccessfulReconcileAt === 'string'
               ? data.lastSuccessfulReconcileAt
+              : undefined,
+            'code' in data && typeof data.code === 'string'
+              ? data.code
               : undefined,
           );
         }
