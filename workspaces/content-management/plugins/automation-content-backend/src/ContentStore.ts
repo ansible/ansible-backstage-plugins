@@ -328,6 +328,38 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
 }
 
 /**
+ * Upper bound on how many registries the bulk operations (refreshAll,
+ * pollAll) process at once. Keeps remote request fan-out and database
+ * contention predictable no matter how many registries are configured.
+ */
+const REGISTRY_OPERATION_CONCURRENCY = 4;
+
+/**
+ * Runs `run` over `items` with at most `limit` calls in flight, returning
+ * results in input order regardless of completion order. The first
+ * rejection wins; work already in flight is left to settle on its own.
+ */
+async function mapBounded<T, R>(
+  items: readonly T[],
+  limit: number,
+  run: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      results[index] = await run(items[index]);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
+}
+
+/**
  * Database-backed content store.
  *
  * Artifacts and items are persisted in SQLite (dev) or PostgreSQL (production)
@@ -792,9 +824,16 @@ export class ContentStore {
   async refreshAll(
     observe?: (name: string, result: RegistryRefresh) => Promise<void>,
   ): Promise<{ artifacts: number; items: number }> {
-    for (const name of this.registries.keys()) {
-      const result = await this.refreshRegistry(name);
-      await observe?.(name, result);
+    // Independent registries refresh together, bounded; audits stay in
+    // registry order once every refresh has settled.
+    const names = [...this.registries.keys()];
+    const results = await mapBounded(
+      names,
+      REGISTRY_OPERATION_CONCURRENCY,
+      name => this.refreshRegistry(name),
+    );
+    for (const [index, name] of names.entries()) {
+      await observe?.(name, results[index]);
     }
 
     await this.pruneRemovedRegistries();
@@ -1101,10 +1140,18 @@ export class ContentStore {
     refreshed: number;
     requests: number;
   }> {
+    // Same contract as refreshAll: bounded concurrency across registries,
+    // observers and totals in registry order after every poll settles.
+    const names = [...this.registries.keys()];
+    const results = await mapBounded(
+      names,
+      REGISTRY_OPERATION_CONCURRENCY,
+      name => this.pollRegistry(name),
+    );
     let refreshed = 0;
     let requests = 0;
-    for (const name of this.registries.keys()) {
-      const result = await this.pollRegistry(name);
+    for (const [index, name] of names.entries()) {
+      const result = results[index];
       await observe?.(name, result);
       requests += result.requests;
       if (result.refreshed) refreshed += 1;
