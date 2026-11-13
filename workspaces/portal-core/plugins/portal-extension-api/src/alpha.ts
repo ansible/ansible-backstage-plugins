@@ -41,6 +41,7 @@ export {
   ScaffolderFieldBlueprint,
   scaffolderFieldDataRef,
   defineScaffolderField,
+  createPortalScaffolderFieldBlueprints,
 } from './nfs/ScaffolderFieldBlueprint';
 export type { ScaffolderFieldDescriptor } from './nfs/ScaffolderFieldBlueprint';
 export {

@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
@@ -18,7 +19,7 @@ describe('scaffolder field discovery', () => {
   };
   afterEach(() => contributionRegistry.reset());
   it('keeps host fields on name collisions', () => {
-    const host = { ...field, component: () => <div /> };
+    const host = { ...field, component: () => createElement('div') };
     expect(mergeScaffolderFields([host], [field])).toEqual([host]);
   });
   it('includes fields when their enablement setting is true', () => {
@@ -30,22 +31,22 @@ describe('scaffolder field discovery', () => {
       plugins: { thirdParty: { enabled: true } },
     });
     const { result } = renderHook(() => useScaffolderFields(), {
-      wrapper: ({ children }) => (
-        <TestApiProvider apis={[[configApiRef, config]]}>
-          {children}
-        </TestApiProvider>
-      ),
+      wrapper: ({ children }) =>
+        createElement(TestApiProvider, {
+          apis: [[configApiRef, config]],
+          children,
+        }),
     });
     expect(result.current).toEqual([field]);
   });
   it('discovers a late third-party registration and unregisters it', () => {
     const config = new ConfigReader({});
     const { result } = renderHook(() => useScaffolderFields(), {
-      wrapper: ({ children }) => (
-        <TestApiProvider apis={[[configApiRef, config]]}>
-          {children}
-        </TestApiProvider>
-      ),
+      wrapper: ({ children }) =>
+        createElement(TestApiProvider, {
+          apis: [[configApiRef, config]],
+          children,
+        }),
     });
     expect(result.current).toEqual([]);
     let unregister: () => void;
@@ -73,11 +74,11 @@ describe('scaffolder field discovery', () => {
         },
       });
       const { result } = renderHook(() => useScaffolderFields(), {
-        wrapper: ({ children }) => (
-          <TestApiProvider apis={[[configApiRef, config]]}>
-            {children}
-          </TestApiProvider>
-        ),
+        wrapper: ({ children }) =>
+          createElement(TestApiProvider, {
+            apis: [[configApiRef, config]],
+            children,
+          }),
       });
       expect(result.current).toEqual([]);
     },
