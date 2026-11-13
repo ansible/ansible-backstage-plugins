@@ -35,6 +35,6 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-instrument": "^6.0.3",
     "msw": "^2.11.4",
-    "node-forge": "1.4.0"
+    "node-forge": "1.4.1"
   }
 }
