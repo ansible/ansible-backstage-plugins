@@ -597,6 +597,69 @@ describe('drift detection', () => {
     expect(drift.details.join()).toContain('ansible/ee:v2 removed');
   });
 
+  it('compares shared tag names per repository and detects a removed repository', async () => {
+    const first = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const second = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    second.digest = `sha256:${'9'.repeat(64)}`;
+    const repositories = {
+      'ansible/first': [first],
+      'ansible/second': [second],
+      'ansible/removed': [first],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const store = await storeOver(registry, []);
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: false,
+      details: [],
+    });
+
+    Reflect.deleteProperty(repositories, 'ansible/removed');
+
+    expect(await store.detectDrift('mock')).toMatchObject({
+      changed: true,
+      details: ['ansible/removed removed'],
+    });
+  });
+
+  it('keeps the prior inventory when polling fails after observing drift', async () => {
+    const repositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const registry = new MockRegistry({ repositories, catalogEnabled: true });
+    const store = await storeOver(registry, []);
+    expect(await store.refreshRegistry('mock')).toMatchObject({ ok: true });
+    const previous = await store.listArtifacts();
+    expect(previous).toHaveLength(2);
+
+    repositories['ansible/first'].push(
+      makeLabelledImage('v2', { [EE_LABEL]: 'true' }),
+    );
+    const fetch = registry.fetch;
+    const clients = (
+      store as unknown as { clients: Map<string, { fetchImpl: typeof fetch }> }
+    ).clients;
+    clients.get('mock')!.fetchImpl = (url, init) =>
+      new URL(url).pathname === '/v2/ansible/second/tags/list'
+        ? Promise.resolve(new Response(null, { status: 503 }))
+        : fetch(url, init);
+
+    const poll = await store.pollRegistry('mock');
+
+    expect(poll).toMatchObject({ changed: false, refreshed: false });
+    expect(poll.details).toEqual([expect.stringContaining('check failed')]);
+    expect(registry.requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: 'HEAD',
+          path: '/v2/ansible/first/manifests/v2',
+        }),
+      ]),
+    );
+    expect(await store.listArtifacts()).toEqual(previous);
+  });
+
   it('ignores referrer fallback tags, which are artifacts about images', async () => {
     const image = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const registry = new MockRegistry({
