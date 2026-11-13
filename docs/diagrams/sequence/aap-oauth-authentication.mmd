@@ -1,0 +1,109 @@
+%%{init: {'themeVariables': {'fontFamily': 'Red Hat Text'}, 'sequence': {'bottomMarginAdj': 40}}}%%
+sequenceDiagram
+    autonumber
+
+    participant U as User Browser
+    participant FE as Portal Frontend
+    participant BE as Backstage Backend<br/>(Auth Plugin)
+    participant AAP as AAP Controller<br/>(OAuth Server)
+    participant CAT as Catalog Backend
+
+    note over U,CAT: Login Flow (OAuth2 Authorization Code + PKCE)
+
+    U->>FE: Click "Sign in using AAP"
+    FE->>BE: GET /api/auth/rhaap/start
+
+    rect rgb(230, 240, 255)
+        note over FE,BE: PKCE Generation
+        note right of BE: Generate code_verifier + code_challenge
+        BE->>U: Set rhaap-pkce cookie
+    end
+
+    BE-->>U: 302 Redirect → /o/authorize/
+    U->>AAP: Browser navigates: GET /o/authorize/ (+ code_challenge)
+    AAP-->>U: Login page
+
+    rect rgb(255, 245, 230)
+        note over U,AAP: User Authentication
+        U->>AAP: Submit credentials
+        note right of AAP: Validate credentials
+        AAP-->>U: Consent prompt
+        U->>AAP: Grant consent
+    end
+
+    AAP-->>U: 302 Redirect → callback (code=...)
+    U->>BE: Browser navigates: GET /handler/frame?code=...
+
+    rect rgb(230, 255, 230)
+        note over FE,BE: Token Exchange
+        note right of BE: Read & clear PKCE cookie
+        BE->>AAP: POST /o/token/ (code + verifier)
+        note right of AAP: Validate code + PKCE
+        AAP-->>BE: access_token + refresh_token
+    end
+
+    rect rgb(240, 230, 255)
+        note over FE,AAP: Profile & Identity Resolution
+        BE->>AAP: GET /api/gateway/v1/me/
+        AAP-->>BE: username, id, is_superuser
+
+        alt allowNewAAPUserSignIn (default)
+            BE->>CAT: Find user in catalog
+            alt User not found
+                BE->>CAT: POST /aap/create_user
+                note left of CAT: Create User entity
+                CAT-->>BE: 201 Created
+                note right of BE: Wait for catalog sync
+            end
+        else usernameMatchingUser
+            BE->>CAT: Find user in catalog
+            alt User not found
+                BE-->>U: 401 User not in catalog
+            end
+        end
+
+        BE->>CAT: Lookup entity + group relations
+        CAT-->>BE: User entity + memberships
+        note over BE,CAT: Build ownership refs:<br/>sub = user ref, ent = groups<br/>superuser → add aap-admins
+        note right of BE: Issue Backstage JWT
+    end
+
+    BE-->>U: Session (JWT + AAP tokens)
+    U->>FE: Session established
+    FE-->>U: Portal UI loaded
+
+    note over U,CAT: Authenticated API Calls
+
+    rect rgb(245, 245, 245)
+        U->>FE: Request AAP data
+        FE->>BE: GET /rhaap/user-job-templates
+        note over FE,BE: X-RHAAP-Access-Token header
+        BE->>AAP: GET /api/v2/job_templates/
+        AAP-->>BE: Job templates
+        BE-->>FE: Response
+        FE-->>U: Display data
+    end
+
+    note over U,CAT: Token Refresh
+
+    rect rgb(255, 240, 240)
+        FE->>BE: POST /api/auth/rhaap/refresh
+        BE->>AAP: POST /o/token/ (refresh_token grant)
+        AAP-->>BE: New access + refresh tokens
+        BE->>AAP: GET /api/gateway/v1/me/
+        AAP-->>BE: Profile (validate session)
+        BE-->>FE: Updated tokens
+    end
+
+    note over U,CAT: Logout
+
+    rect rgb(255, 235, 235)
+        U->>FE: Click "Sign out"
+        FE->>BE: POST /api/auth/rhaap/logout
+        BE->>AAP: POST /o/revoke_token/
+        AAP-->>BE: 200 OK
+        BE-->>FE: Session cleared
+        note right of FE: Sign out of Backstage identity
+        FE->>AAP: Redirect to /api/gateway/v1/logout/
+        AAP-->>U: AAP session terminated
+    end
