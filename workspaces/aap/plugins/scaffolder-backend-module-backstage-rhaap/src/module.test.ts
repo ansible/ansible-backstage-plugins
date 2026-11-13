@@ -3,6 +3,7 @@
  */
 
 import { scaffolderModuleAnsible } from './module';
+import { assertAapScaffolderModuleIsUnique } from '@ansible/backstage-rhaap-common';
 
 // --- Mock dependencies ---
 jest.mock('./actions', () => ({
@@ -86,6 +87,10 @@ describe('scaffolderModuleAnsible', () => {
     for (const reg of registrations) {
       await reg.init.func(fakeEnv);
     }
+    expect(assertAapScaffolderModuleIsUnique).toHaveBeenCalledWith(
+      fakeEnv.scaffolder,
+      'scaffolderModuleAnsible',
+    );
 
     // --- Verify actions registered ---
     expect(fakeEnv.scaffolder.addActions).toHaveBeenCalledTimes(1);
