@@ -249,9 +249,6 @@ function repositoryVersions(artifacts: RepositoryArtifact[]) {
   };
 }
 
-/** Referrer fallback tags address artifacts about an image, not images. */
-const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
-
 /** Composite key for a content item. */
 export function itemKey(
   artifactRef: string,
@@ -599,9 +596,10 @@ export class ContentStore {
         registry,
         repository,
       );
+      const reconcile = this.reconcileStateFor(registry);
       const status = eeRepositoryStatus(
         lastSuccessfulReconcileAt,
-        this.reconcileStateFor(registry)?.ok,
+        reconcile?.ok === false ? reconcile.at : undefined,
       );
       if (query.status !== undefined && query.status !== status) continue;
       if (
@@ -693,9 +691,10 @@ export class ContentStore {
       representativeRef: representative.artifactRef,
       lastSuccessfulReconcileAt,
       stale:
-        reconcile?.ok === false &&
-        (!lastSuccessfulReconcileAt ||
-          reconcile.at >= lastSuccessfulReconcileAt),
+        eeRepositoryStatus(
+          lastSuccessfulReconcileAt,
+          reconcile?.ok === false ? reconcile.at : undefined,
+        ) === 'stale',
       tags: tags.map(tag => ({
         ...tag,
         taggedPullReference: client.pullReference({
@@ -1269,7 +1268,7 @@ export class ContentStore {
       strict: true,
     })) {
       completeTags.add(tag);
-      if (REFERRER_TAG.test(tag)) continue;
+      if (isOciAttachmentTag(tag)) continue;
       const head = await client.headManifest(repository, tag, { strict: true });
       if (!head.digest) throw new RegistryScanIncomplete();
       byDigest.set(head.digest, [...(byDigest.get(head.digest) ?? []), tag]);
@@ -1331,15 +1330,13 @@ export class ContentStore {
     if (resolved.digest !== digest || !isOciManifest(resolved.manifest))
       throw new RegistryScanIncomplete();
     const config = (resolved.manifest as ImageManifest).config;
-    const blob = config
+    const hasImageConfig =
+      config?.mediaType === MediaTypes.ociConfig ||
+      config?.mediaType === MediaTypes.dockerConfig;
+    const blob = hasImageConfig
       ? await client.getConfigBlob(repository, config)
       : undefined;
-    if (
-      (blob !== undefined ||
-        config?.mediaType === MediaTypes.ociConfig ||
-        config?.mediaType === MediaTypes.dockerConfig) &&
-      !isOciImageConfig(blob)
-    ) {
+    if (hasImageConfig && !isOciImageConfig(blob)) {
       throw new RegistryScanIncomplete();
     }
     const { referrers, signing } = await client.inspectReferrersAndSigning(

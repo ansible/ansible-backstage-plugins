@@ -244,7 +244,10 @@ describe('readRegistryConfigs', () => {
           url: 'https://quay.io',
           repositories: ['ansible/ee'],
           repositoryTags: [
-            { repository: 'ansible/ee', tags: ['networking', 'networking'] },
+            {
+              repository: 'ansible/ee',
+              tags: ['networking-team', 'networking-team', 'a'.repeat(63)],
+            },
           ],
         },
       ]),
@@ -256,7 +259,30 @@ describe('readRegistryConfigs', () => {
       url: 'https://quay.io/',
     });
     expect(entry.connection.repositories).toEqual(['ansible/ee']);
-    expect(entry.repositoryTags.get('ansible/ee')).toEqual(['networking']);
+    expect(entry.repositoryTags.get('ansible/ee')).toEqual([
+      'networking-team',
+      'a'.repeat(63),
+    ]);
+  });
+
+  it.each([
+    '-network',
+    'network-',
+    'network--team',
+    'network/team',
+    'a'.repeat(64),
+  ])('rejects an invalid Catalog repository tag (%s)', tag => {
+    expect(() =>
+      readRegistryConfigs(
+        configWith([
+          {
+            name: 'quay',
+            url: 'https://quay.io',
+            repositoryTags: [{ repository: 'ansible/ee', tags: [tag] }],
+          },
+        ]),
+      ),
+    ).toThrow(/registry "quay".*entry for "ansible\/ee".*valid Catalog tags/);
   });
 
   it('normalizes scheme case and surrounding whitespace to a usable endpoint', () => {

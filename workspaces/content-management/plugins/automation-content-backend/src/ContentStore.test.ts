@@ -7,6 +7,7 @@ import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
 import {
   MockRegistry,
   MediaTypes,
+  type ImageManifest,
   RegistryConnection,
   fakeRegistryCredentials,
   makeImage,
@@ -75,10 +76,13 @@ function connection(): RegistryConnection {
   };
 }
 
-async function storeOver(registry: MockRegistry): Promise<ContentStore> {
+async function storeOver(
+  registry: MockRegistry,
+  repositories = connection().repositories,
+): Promise<ContentStore> {
   const db = await createTestDB();
   const store = new ContentStore(
-    [connection()],
+    [{ ...connection(), repositories }],
     db as never,
     silent,
     defaultContentTypes(),
@@ -244,6 +248,151 @@ describe('EE repository projection', () => {
 });
 
 describe('repository refresh', () => {
+  it('keeps a healthy image discoverable alongside opaque configs and attachments', async () => {
+    const ee = makeLabelledImage('release.sig', { [EE_LABEL]: 'true' });
+    const baseTag = ee.digest.replace(':', '-');
+    const custom = makeImage({ tag: 'custom' });
+    const manifest = custom.manifest as ImageManifest;
+    const attachment = makeImage({ tag: `${baseTag}.sig` });
+    const registry = new MockRegistry({
+      repositories: {
+        'ansible/ee': [
+          ee,
+          {
+            ...custom,
+            manifest: {
+              ...manifest,
+              config: {
+                ...manifest.config,
+                mediaType: 'application/vnd.example.config+json',
+              },
+            },
+            config: undefined,
+            referrerPayloads: { [manifest.config.digest]: ['opaque'] },
+          },
+          ...['', '.att', '.sbom'].map(suffix =>
+            makeImage({ tag: `${baseTag}${suffix}`, digest: 'invalid' }),
+          ),
+          {
+            ...attachment,
+            manifest: {
+              ...(attachment.manifest as ImageManifest),
+              layers: [
+                {
+                  mediaType: 'application/vnd.dev.cosign.simplesigning.v1+json',
+                  digest: `sha256:${'a'.repeat(64)}`,
+                  size: 1,
+                  annotations: {
+                    'dev.cosignproject.cosign/signature': 'fixture',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    const store = await storeOver(registry);
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+    });
+    await expect(store.queryEERepositories({})).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ representativeTag: 'release.sig', signingState: 'signed' }],
+    });
+    const heads = registry.requests.filter(
+      request => request.method === 'HEAD',
+    );
+    expect(
+      heads.some(request => request.path.includes(`/manifests/${baseTag}`)),
+    ).toBe(false);
+  });
+
+  it.each([MediaTypes.ociConfig, MediaTypes.dockerConfig])(
+    'retains the last good inventory when a %s image config is malformed',
+    async mediaType => {
+      const good = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+      const repositories = { 'ansible/ee': [good] };
+      const registry = new MockRegistry({ repositories });
+      const store = await storeOver(registry);
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: true,
+      });
+
+      const broken = makeImage({ tag: 'v2' });
+      const manifest = broken.manifest as ImageManifest;
+      repositories['ansible/ee'] = [
+        {
+          ...broken,
+          manifest: { ...manifest, config: { ...manifest.config, mediaType } },
+          config: undefined,
+          referrerPayloads: { [manifest.config.digest]: ['malformed'] },
+        },
+      ];
+
+      await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+        ok: false,
+      });
+      await expect(
+        store.getEERepository('mock', 'ansible/ee'),
+      ).resolves.toMatchObject({
+        tags: [{ tag: 'v1' }],
+      });
+    },
+  );
+
+  it('updates list, detail and filters after one repository recovers from a registry failure', async () => {
+    const good = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [good], 'ansible/other': [good] };
+    const registry = new MockRegistry({ repositories });
+    const store = await storeOver(registry, Object.keys(repositories));
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: true,
+    });
+
+    repositories['ansible/other'] = [{ ...good, digest: 'invalid' }];
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    const failure = store.reconcileStateFor('mock')!;
+    jest.spyOn(store, 'reconcileStateFor').mockReturnValue({
+      ...failure,
+      at: (await store.getEERepository('mock', 'ansible/ee'))!
+        .lastSuccessfulReconcileAt!,
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 2 });
+    jest.restoreAllMocks();
+
+    await expect(
+      store.refreshEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({
+      result: { status: 'completed' },
+    });
+    await expect(
+      store.getEERepository('mock', 'ansible/ee'),
+    ).resolves.toMatchObject({ stale: false });
+    await expect(
+      store.queryEERepositories({ status: 'available' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ repository: 'ansible/ee', status: 'available' }],
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({
+      totalItems: 1,
+      items: [{ repository: 'ansible/other', status: 'stale' }],
+    });
+    await expect(store.refreshRegistry('mock')).resolves.toMatchObject({
+      ok: false,
+    });
+    await expect(
+      store.queryEERepositories({ status: 'stale' }),
+    ).resolves.toMatchObject({ totalItems: 2 });
+  });
+
   it('updates the exact tag map, retains old data on failed inspection and allows an empty complete scan', async () => {
     const first = makeLabelledImage('v1', { [EE_LABEL]: 'true' });
     const repositories = { 'ansible/ee': [first] };

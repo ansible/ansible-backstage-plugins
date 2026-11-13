@@ -25,10 +25,13 @@ export type EERepositoryStatus = (typeof EE_REPOSITORY_STATUSES)[number];
 
 export function eeRepositoryStatus(
   lastSuccessfulReconcileAt?: string,
-  lastReconcileOk?: boolean,
+  lastRegistryFailureAt?: string,
 ): EERepositoryStatus {
   if (!lastSuccessfulReconcileAt) return 'not-reconciled';
-  return lastReconcileOk === false ? 'stale' : 'available';
+  return lastRegistryFailureAt &&
+    lastRegistryFailureAt >= lastSuccessfulReconcileAt
+    ? 'stale'
+    : 'available';
 }
 
 export interface EERepositoryQuery {

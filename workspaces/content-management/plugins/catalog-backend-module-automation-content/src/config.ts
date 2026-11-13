@@ -1,3 +1,4 @@
+import { makeValidator } from '@backstage/catalog-model';
 import { Config } from '@backstage/config';
 import {
   SchedulerServiceTaskScheduleDefinition,
@@ -14,6 +15,8 @@ export interface RegistryProviderEntry {
   system?: string;
   repositoryTags: ReadonlyMap<string, readonly string[]>;
 }
+
+const { isValidTag } = makeValidator();
 
 const DEFAULT_SCHEDULE: SchedulerServiceTaskScheduleDefinition = {
   frequency: { hours: 1 },
@@ -130,10 +133,10 @@ export function readRegistryConfigs(root: Config): RegistryProviderEntry[] {
       const tags = entry.getStringArray('tags');
       if (
         repositoryTags.has(repository) ||
-        tags.some(tag => !/^[a-z0-9:+#-]{1,63}$/.test(tag))
+        tags.some(tag => !isValidTag(tag))
       ) {
         throw new Error(
-          `automation-content registry "${name}": repositoryTags requires unique repository entries and valid Catalog tags`,
+          `automation-content registry "${name}": repositoryTags entry for "${repository}" requires a unique repository and valid Catalog tags`,
         );
       }
       repositoryTags.set(repository, [...new Set(tags)]);

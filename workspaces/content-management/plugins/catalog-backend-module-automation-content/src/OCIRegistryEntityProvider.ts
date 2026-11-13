@@ -40,12 +40,6 @@ import { EXECUTION_ENVIRONMENT_TYPE } from '@ansible/content-type-execution-envi
 export const ANNOTATION_PREFIX = 'ansible.com';
 
 /**
- * Referrer fallback tags, as defined by the OCI distribution spec for registries
- * without a referrers endpoint. They address artifacts *about* an image, not images.
- */
-const REFERRER_TAG = /^sha256-[0-9a-f]{64}$/;
-
-/**
  * Build the "Registry" link shown on a catalog entity, or `undefined` when
  * the repository name cannot be turned into a safe link.
  *
@@ -368,11 +362,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
       strict: true,
     })) {
       completeTags.add(tag);
-      // Referrer fallback tags are not images. Registries without the referrers API
-      // publish referrer indexes under `sha256-<hex>`, and treating those as execution
-      // environments produces phantom entries for artifacts that merely describe a
-      // real image.
-      if (REFERRER_TAG.test(tag)) continue;
+      if (isOciAttachmentTag(tag)) continue;
 
       const head = await this.client.headManifest(repository, tag, {
         strict: true,
@@ -388,10 +378,7 @@ export class OCIRegistryEntityProvider implements EntityProvider {
         digest,
         completeTags,
       );
-      if (
-        classification.type === EXECUTION_ENVIRONMENT_TYPE &&
-        tags.some(tag => !isOciAttachmentTag(tag))
-      ) {
+      if (classification.type === EXECUTION_ENVIRONMENT_TYPE) {
         hasEligibleImage = true;
       }
 
@@ -496,15 +483,13 @@ export class OCIRegistryEntityProvider implements EntityProvider {
     if (!isOciManifest(artifact.manifest))
       throw new Error('Invalid image manifest');
     const descriptor = (artifact.manifest as ImageManifest).config;
-    const config = descriptor
+    const hasImageConfig =
+      descriptor?.mediaType === MediaTypes.ociConfig ||
+      descriptor?.mediaType === MediaTypes.dockerConfig;
+    const config = hasImageConfig
       ? await this.client.getConfigBlob(repository, descriptor)
       : undefined;
-    if (
-      (config !== undefined ||
-        descriptor?.mediaType === MediaTypes.ociConfig ||
-        descriptor?.mediaType === MediaTypes.dockerConfig) &&
-      !isOciImageConfig(config)
-    ) {
+    if (hasImageConfig && !isOciImageConfig(config)) {
       throw new Error('Image config unavailable');
     }
     const { referrers, signing } = await this.client.inspectReferrersAndSigning(

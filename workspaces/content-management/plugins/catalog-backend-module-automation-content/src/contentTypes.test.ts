@@ -18,6 +18,7 @@ import {
   ResolvedArtifact,
   UNKNOWN_IMAGE_TYPE,
   makeImage,
+  type ImageManifest,
   makeLabelledImage,
   MockRegistry,
 } from '@ansible/automation-content-common';
@@ -33,6 +34,8 @@ import type { EntityProviderMutation } from '@backstage/plugin-catalog-node';
 import type { FetchLike } from '@ansible/automation-content-common';
 import { OCIRegistryEntityProvider } from './OCIRegistryEntityProvider';
 import { defaultContentTypes } from './contentTypes';
+import { readRegistryConfigs } from './config';
+import { ConfigReader } from '@backstage/config';
 
 // ---------------------------------------------------------------------------
 // A third content type, invented here and nowhere else
@@ -125,6 +128,7 @@ async function setupProvider(
   contentTypes: ContentTypeRegistry,
   fetch: FetchLike,
   repositories: string[] = ['demo/network-ee', 'demo/bom', 'demo/mystery'],
+  repositoryTags?: ReadonlyMap<string, readonly string[]>,
 ) {
   const mutations: EntityProviderMutation[] = [];
   const provider = new OCIRegistryEntityProvider({
@@ -135,6 +139,7 @@ async function setupProvider(
       repositories,
     },
     contentTypes,
+    repositoryTags,
     fetch,
     logger: {
       info() {},
@@ -302,6 +307,95 @@ describe('a content type is added, not edited in', () => {
       expect(mutations).toHaveLength(1);
     },
   );
+
+  it('publishes valid descriptive tags accepted by the config parser', async () => {
+    const tags = ['network-team', 'a'.repeat(63)];
+    const [{ repositoryTags }] = readRegistryConfigs(
+      new ConfigReader({
+        catalog: {
+          providers: {
+            automationContent: {
+              registries: [
+                {
+                  name: 'mock',
+                  url: 'https://mock.registry',
+                  repositoryTags: [{ repository: 'demo/network-ee', tags }],
+                },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    const registry = registryWithEverything();
+    const { provider, mutations } = await setupProvider(
+      defaultContentTypes(),
+      registry.fetch,
+      ['demo/network-ee'],
+      repositoryTags,
+    );
+    await provider.refresh();
+    expect(mutations[0]).toMatchObject({
+      type: 'full',
+      entities: expect.arrayContaining([
+        expect.objectContaining({
+          entity: expect.objectContaining({
+            spec: expect.objectContaining({ type: EE_REPOSITORY_ENTITY_TYPE }),
+            metadata: expect.objectContaining({
+              tags: expect.arrayContaining(tags),
+            }),
+          }),
+        }),
+      ]),
+    });
+  });
+
+  it('publishes an EE alongside an opaque artifact without inspecting attachment tags', async () => {
+    const ee = makeLabelledImage('release.sig', {
+      'ansible-execution-environment': 'true',
+    });
+    const baseTag = ee.digest.replace(':', '-');
+    const custom = withConfigMediaType('custom', SBOM_CONFIG_MEDIA_TYPE);
+    const configDigest = (custom.manifest as ImageManifest).config.digest;
+    const registry = new MockRegistry({
+      repositories: {
+        'demo/network-ee': [
+          ee,
+          {
+            ...custom,
+            config: undefined,
+            referrerPayloads: { [configDigest]: { config: 'opaque' } },
+          },
+          ...['', '.sig', '.att', '.sbom'].map(suffix =>
+            makeImage({ tag: `${baseTag}${suffix}`, digest: 'invalid' }),
+          ),
+        ],
+      },
+    });
+    const { provider, mutations } = await setupProvider(
+      defaultContentTypes().register(new SbomAdapter()),
+      registry.fetch,
+      ['demo/network-ee'],
+    );
+    await expect(provider.refresh()).resolves.toMatchObject({ errors: [] });
+    expect(mutations[0]).toMatchObject({
+      type: 'full',
+      entities: expect.arrayContaining([
+        expect.objectContaining({
+          entity: expect.objectContaining({
+            spec: expect.objectContaining({ type: EE_REPOSITORY_ENTITY_TYPE }),
+          }),
+        }),
+      ]),
+    });
+    expect(
+      registry.requests.some(
+        request =>
+          request.method === 'HEAD' &&
+          request.path.includes(`/manifests/${baseTag}`),
+      ),
+    ).toBe(false);
+  });
 
   it('recognises the shipped content type', async () => {
     const entities = await discover(defaultContentTypes());

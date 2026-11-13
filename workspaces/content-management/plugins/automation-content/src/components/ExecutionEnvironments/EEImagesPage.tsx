@@ -246,12 +246,15 @@ function EEInventory(): JSX.Element {
   }
 
   function statusLabel(row: ImageRow): string {
+    const registryStatus = registryByName.get(row.registry);
     return t(
       statusLabels[
         row.status ??
           eeRepositoryStatus(
             row.lastSuccessfulReconcileAt,
-            registryByName.get(row.registry)?.lastReconcileOk,
+            registryStatus?.lastReconcileOk === false
+              ? registryStatus.lastReconciledAt
+              : undefined,
           )
       ],
     );
