@@ -1,3 +1,4 @@
+import { createAapSettingsModule } from '@ansible/aap-app-auth/settings';
 import { createApp } from '@backstage/frontend-defaults';
 import {
   createFrontendModule,
@@ -44,6 +45,7 @@ export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   scaffolderPlugin,
   rbacPlugin,
   userSettingsPlugin,
+  createAapSettingsModule(),
   searchPlugin,
   portalPlugin,
   createAapProfileModule({ logoutDisabled: false }),

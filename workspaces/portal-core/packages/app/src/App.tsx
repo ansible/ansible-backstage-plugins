@@ -1,3 +1,4 @@
+import { AapProviderSettingsList } from '@ansible/aap-app-auth/settings';
 import { Navigate, Route } from 'react-router-dom';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
 import {
@@ -143,7 +144,12 @@ const routes = (
       {searchPage}
     </Route>
     <Route path="/rbac" element={<RbacPage />} />
-    <Route path="/settings" element={<UserSettingsPage />} />
+    <Route
+      path="/settings"
+      element={
+        <UserSettingsPage providerSettings={<AapProviderSettingsList />} />
+      }
+    />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
     <Route path="/automation-content" element={<AutomationContentPage />} />

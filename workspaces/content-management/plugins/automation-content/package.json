@@ -20,7 +20,7 @@
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
     "clean": "backstage-cli package clean",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/content-model"
+    "export-dynamic": "yarn run rhdh-cli plugin export --embed-package @ansible/content-model"
   },
   "files": [
     "dist",
@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@backstage/cli": "0.36.5",
-    "@red-hat-developer-hub/cli": "^1.10.2",
+    "@red-hat-developer-hub/cli": "1.10.8",
     "@types/react": "^18",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
