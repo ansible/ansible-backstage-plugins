@@ -62,11 +62,8 @@ catalog:
               tags: [networking, production]
 ```
 
-The optional `repositoryTags` entries add descriptive tags to exact
-repositories in that registry. They appear in the Images **Tag** filter and
-the repository's Catalog metadata. The **Version** filter uses OCI container
-tags. Repositories without configured descriptive tags still appear when
-**All tags** is selected.
+The optional `repositoryTags` entries add descriptive tags to the Catalog
+metadata for exact repositories in that registry.
 
 A registry `url` must be an absolute `http`/`https` URL with **no** embedded
 credentials, query, or fragment. Anything else — including `file://`,
@@ -96,8 +93,8 @@ Load the `@ansible/plugin-automation-content/alpha` and
 Follow the root app config to order the native sub-pages and point the Portal
 sidebar at `page:automation-content/ee`.
 
-Images queries indexed repositories by source, tag, version, and configured
-registry owner. Its favorites and links use real Catalog repository Components.
+Images filters indexed repositories by **Source**, **Source Type**, and
+**Status**. The image links open Catalog repository Components.
 Existing digest Components remain available under their existing Catalog
 permissions.
 
