@@ -109,6 +109,8 @@ export const eeMessages = {
       'This repository no longer has an indexed execution environment.',
     artifactFailed: 'The selected image could not be loaded.',
     artifactLoading: 'Loading the selected image',
+    contentsLoading: 'Loading image contents',
+    contentsFailed: 'Image contents could not be loaded.',
     ansibleCore: 'Ansible Core',
     synchronization: 'Last synchronized',
     collectionVersion: 'Version',

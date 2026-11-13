@@ -19,6 +19,8 @@ import {
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
 import { eeHeaderLayout, eeOverviewLayout } from './alpha';
+import { automationContentApiRef } from './api';
+import { EEImageDetails } from './components/ExecutionEnvironments/EEImageDetails';
 import {
   automationContentManifest,
   eeCapabilityId,
@@ -104,6 +106,7 @@ function renderEntity(
     features?: FrontendFeature[];
     allowed?: boolean;
     provider?: boolean;
+    contentApi?: Partial<typeof automationContentApiRef.T>;
   } = {},
 ) {
   return renderTestApp({
@@ -115,6 +118,9 @@ function renderEntity(
     ],
     apis: [
       catalogApiMock({ entities: [repository, unrelated] }),
+      ...(options.contentApi
+        ? [[automationContentApiRef, options.contentApi] as const]
+        : []),
       mockApis.permission({
         authorize:
           options.allowed === false
@@ -233,4 +239,75 @@ it('exposes a competing earlier stock layout instead of mounting a second route'
   expect(
     screen.getByRole('button', { name: 'Add to favorites' }),
   ).toBeEnabled();
+});
+
+it('keeps Overview available and retries only the failed contents request', async () => {
+  const digest = 'sha256:example';
+  const artifactRef = `local/namespace/image@${digest}`;
+  const pullReference = 'registry.example/namespace/image:latest';
+  const enumeration = {
+    status: 'complete',
+    source: 'build-time-manifest',
+  } as const;
+  const getEEArtifact = jest.fn().mockResolvedValue({
+    ref: artifactRef,
+    registry: 'local',
+    repository: 'namespace/image',
+    digest,
+    pullReference,
+    enumeration,
+    signing: { state: 'signed', mechanisms: [] },
+    collections: [],
+  });
+  const getEEArtifactContents = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('Contents service unavailable'))
+    .mockResolvedValue({ enumeration, collections: [], items: [] });
+  await renderEntity({
+    features: [
+      content({
+        loader: async ({ entity }) => <EEImageDetails entity={entity} />,
+      }),
+    ],
+    contentApi: {
+      getEERepository: async () => ({
+        registry: 'local',
+        repository: 'namespace/image',
+        entityRef: 'component:default/test-repository',
+        representativeRef: artifactRef,
+        tags: [
+          {
+            tag: 'latest',
+            digest,
+            artifactRef,
+            taggedPullReference: pullReference,
+          },
+        ],
+        digests: [{ digest, artifactRef }],
+      }),
+      getEEArtifact,
+      getEEArtifactContents,
+      getRegistryStatus: async () => ({ items: [], manualSyncEnabled: false }),
+    },
+  });
+
+  expect(await screen.findByText(digest)).toBeInTheDocument();
+  expect(screen.getByText('Signed')).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: 'Copy pull reference' }),
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'All Content' }));
+  expect(
+    await screen.findByText('Image contents could not be loaded.'),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(
+    await screen.findByText('This image contains no indexed collections.'),
+  ).toBeInTheDocument();
+  expect(getEEArtifactContents.mock.calls).toEqual([
+    [artifactRef],
+    [artifactRef],
+  ]);
+  expect(getEEArtifact.mock.calls).toEqual([[artifactRef]]);
 });

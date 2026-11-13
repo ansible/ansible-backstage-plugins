@@ -181,11 +181,11 @@ function DigestDetails({
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
   const detail = useAsyncRetry(
-    () =>
-      Promise.all([
-        api.getEEArtifact(artifactRef),
-        api.getEEArtifactContents(artifactRef),
-      ]),
+    () => api.getEEArtifact(artifactRef),
+    [api, artifactRef, refresh],
+  );
+  const inventory = useAsyncRetry(
+    () => api.getEEArtifactContents(artifactRef),
     [api, artifactRef, refresh],
   );
   const [now, setNow] = useState(Date.now);
@@ -205,9 +205,10 @@ function DigestDetails({
       />
     );
   }
-  const [artifact, contents] = detail.value;
+  const artifact = detail.value;
+  const contents = inventory.error ? undefined : inventory.value;
   const pullReference = selected.taggedPullReference ?? artifact.pullReference;
-  const enumeration = contents.enumeration;
+  const enumeration = contents?.enumeration;
   const inventoryStatus = enumeration?.status ?? 'unknown';
   const unavailable = t('unknown');
   function timestamp(value?: string): ReactNode {
@@ -222,7 +223,7 @@ function DigestDetails({
   let status: string = t('inventory.notReconciled');
   if (repository?.stale) status = t('inventory.stale');
   else if (lastSync) status = t('inventory.available');
-  const collectionCount = contents.collections.length;
+  const collectionCount = contents?.collections.length ?? 0;
   const knownContents =
     collectionCount === 1
       ? t('inventory.oneCollection')
@@ -291,6 +292,30 @@ function DigestDetails({
       </Box>,
     ],
   ];
+  let contentsPanel: JSX.Element;
+  if (inventory.error) {
+    contentsPanel = (
+      <Alert
+        status="danger"
+        title={t('detail.contentsFailed')}
+        customActions={
+          <Button variant="tertiary" onPress={inventory.retry}>
+            {t('retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (contents) {
+    contentsPanel = (
+      <ContainedCollections
+        key={selected.id}
+        artifact={artifact}
+        contents={contents}
+      />
+    );
+  } else {
+    contentsPanel = <Text role="status">{t('detail.contentsLoading')}</Text>;
+  }
   return (
     <Flex direction="column" gap="3">
       <Tabs
@@ -331,13 +356,7 @@ function DigestDetails({
             </CardBody>
           </Card>
         </TabPanel>
-        <TabPanel id="contents">
-          <ContainedCollections
-            key={selected.id}
-            artifact={artifact}
-            contents={contents}
-          />
-        </TabPanel>
+        <TabPanel id="contents">{contentsPanel}</TabPanel>
       </Tabs>
     </Flex>
   );
