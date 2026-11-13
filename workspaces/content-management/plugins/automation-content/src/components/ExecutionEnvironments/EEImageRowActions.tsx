@@ -10,12 +10,12 @@ export function EEImageRowActions({
   detailHref,
   canSync,
   onReload,
-}: {
+}: Readonly<{
   image: EERepositorySummary;
   detailHref?: string;
   canSync: boolean;
   onReload: () => void;
-}): JSX.Element {
+}>): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
   const sync = useEESync({ repository: image, enabled: canSync, onReload });
 

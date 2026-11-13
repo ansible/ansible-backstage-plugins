@@ -62,20 +62,12 @@ export function useEESync({
         setResult({ message: t('sync.scheduled'), reload: true });
       }
     } catch (error) {
-      if (
-        error instanceof ContentApiError &&
-        error.retainedPrevious === false
-      ) {
-        setResult({ message: t('sync.committed'), error: true, reload: true });
-      } else {
-        let message: string = t('sync.failed');
-        if (error instanceof ContentApiError) {
-          if (error.status === 409) message = t('sync.conflict');
-          else if (error.retainedPrevious) message = t('sync.retained');
-          else if (error.status === 403) message = t('sync.denied');
-        }
-        setResult({ message, error: true });
-      }
+      const key = syncFailureMessage(error);
+      setResult({
+        message: t(key),
+        error: true,
+        ...(key === 'sync.committed' ? { reload: true } : {}),
+      });
     } finally {
       setPending(false);
       inFlight.current = false;
@@ -85,13 +77,22 @@ export function useEESync({
   return { enabled, pending, result, run };
 }
 
+function syncFailureMessage(error: unknown) {
+  if (!(error instanceof ContentApiError)) return 'sync.failed';
+  if (error.retainedPrevious === false) return 'sync.committed';
+  if (error.status === 409) return 'sync.conflict';
+  if (error.retainedPrevious) return 'sync.retained';
+  if (error.status === 403) return 'sync.denied';
+  return 'sync.failed';
+}
+
 export function SyncFeedback({
   sync,
   onReload,
-}: {
+}: Readonly<{
   sync: ReturnType<typeof useEESync>;
   onReload: () => void;
-}): JSX.Element | null {
+}>): JSX.Element | null {
   const { t } = useTranslationRef(eeTranslationRef);
   const { pending, result } = sync;
   if (!pending && !result) return null;
@@ -115,7 +116,9 @@ export function SyncFeedback({
   );
 }
 
-export function SyncAction(props: SyncActionProps): JSX.Element | null {
+export function SyncAction(
+  props: Readonly<SyncActionProps>,
+): JSX.Element | null {
   const { t } = useTranslationRef(eeTranslationRef);
   const api = useApi(automationContentApiRef);
   const permitted = useContentPermission(contentSyncPermission) === 'allowed';

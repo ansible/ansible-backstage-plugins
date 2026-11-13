@@ -27,7 +27,9 @@ class EEContributionBoundary extends Component<
 }
 
 // The stock Overview owns route selection. The Portal hook supplies eligible bodies.
-function selectStockOverview(): void {}
+function selectStockOverview(): void {
+  // The stock Catalog page controls tab selection.
+}
 
 export function EEEntityContent(): JSX.Element {
   const { entity } = useEntity();

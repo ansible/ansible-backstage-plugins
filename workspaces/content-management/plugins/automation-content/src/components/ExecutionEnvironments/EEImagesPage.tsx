@@ -73,13 +73,13 @@ function InventoryFilter<Value extends string>({
   options,
   value,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   allLabel: string;
   options: { value: Value; label: string }[];
   value?: Value;
   onChange: (value?: Value) => void;
-}): JSX.Element {
+}>): JSX.Element {
   return (
     <Select
       label={label}
@@ -260,68 +260,14 @@ function EEInventory(): JSX.Element {
     );
   }
 
-  const columns: ColumnConfig<ImageRow>[] = [
-    {
-      id: 'repository',
-      label: t('inventory.image'),
-      isRowHeader: true,
-      isSortable: true,
-      defaultWidth: '2fr',
-      cell: row => <Cell>{titleFor(row)}</Cell>,
-    },
-    {
-      id: 'registry',
-      label: t('inventory.source'),
-      isSortable: true,
-      cell: row => <CellText title={row.registry} />,
-    },
-    {
-      id: 'sourceType',
-      label: t('inventory.sourceType'),
-      defaultWidth: '1.25fr',
-      cell: () => <CellText title={t('inventory.externalRegistry')} />,
-    },
-    {
-      id: 'contents',
-      label: t('inventory.contents'),
-      defaultWidth: '1.25fr',
-      cell: row => <CellText title={contentsLabel(row.collectionCount)} />,
-    },
-    {
-      id: 'status',
-      label: t('inventory.status'),
-      cell: row => <CellText title={statusLabel(row)} />,
-    },
-    {
-      id: 'lastSuccessfulReconcileAt',
-      label: t('inventory.lastSynced'),
-      isSortable: true,
-      cell: row => {
-        const timestamp = row.lastSuccessfulReconcileAt;
-        if (!timestamp || !Number.isFinite(Date.parse(timestamp))) {
-          return <CellText title={t('inventory.notReconciled')} />;
-        }
-        return (
-          <Cell>
-            <Text as="span">
-              <time
-                dateTime={timestamp}
-                title={new Date(timestamp).toLocaleString()}
-              >
-                {timeSince(timestamp, now, t('inventory.justNow'))}
-              </time>
-            </Text>
-          </Cell>
-        );
-      },
-    },
-    {
-      id: 'actions',
-      label: t('inventory.actions'),
-      minWidth: 100,
-      cell: row => <Cell>{actionsFor(row)}</Cell>,
-    },
-  ];
+  const columns = imageColumns(
+    t,
+    now,
+    titleFor,
+    actionsFor,
+    contentsLabel,
+    statusLabel,
+  );
 
   const pagination: TablePaginationProps = {
     pageSize,
@@ -557,4 +503,76 @@ function EEInventory(): JSX.Element {
       </Flex>
     </Box>
   );
+}
+
+function imageColumns(
+  t: ReturnType<typeof useTranslationRef<(typeof eeTranslationRef)['T']>>['t'],
+  now: number,
+  titleFor: (row: ImageRow) => JSX.Element,
+  actionsFor: (row: ImageRow) => JSX.Element,
+  contentsLabel: (count?: number) => string,
+  statusLabel: (row: ImageRow) => string,
+): ColumnConfig<ImageRow>[] {
+  return [
+    {
+      id: 'repository',
+      label: t('inventory.image'),
+      isRowHeader: true,
+      isSortable: true,
+      defaultWidth: '2fr',
+      cell: row => <Cell>{titleFor(row)}</Cell>,
+    },
+    {
+      id: 'registry',
+      label: t('inventory.source'),
+      isSortable: true,
+      cell: row => <CellText title={row.registry} />,
+    },
+    {
+      id: 'sourceType',
+      label: t('inventory.sourceType'),
+      defaultWidth: '1.25fr',
+      cell: () => <CellText title={t('inventory.externalRegistry')} />,
+    },
+    {
+      id: 'contents',
+      label: t('inventory.contents'),
+      defaultWidth: '1.25fr',
+      cell: row => <CellText title={contentsLabel(row.collectionCount)} />,
+    },
+    {
+      id: 'status',
+      label: t('inventory.status'),
+      cell: row => <CellText title={statusLabel(row)} />,
+    },
+    {
+      id: 'lastSuccessfulReconcileAt',
+      label: t('inventory.lastSynced'),
+      isSortable: true,
+      cell: row => {
+        const timestamp = row.lastSuccessfulReconcileAt;
+        if (!timestamp || !Number.isFinite(Date.parse(timestamp))) {
+          return <CellText title={t('inventory.notReconciled')} />;
+        }
+        return (
+          <Cell>
+            <Text as="span">
+              <time
+                dateTime={timestamp}
+                title={new Date(timestamp).toLocaleString()}
+              >
+                {timeSince(timestamp, now, t('inventory.justNow'))}
+              </time>
+            </Text>
+          </Cell>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      label: t('inventory.actions'),
+      minWidth: 100,
+      cell: row => <Cell>{actionsFor(row)}</Cell>,
+    },
+  ];
 }

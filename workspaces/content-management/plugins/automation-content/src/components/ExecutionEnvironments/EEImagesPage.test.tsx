@@ -1,4 +1,5 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { catalogApiMock } from '@backstage/plugin-catalog-react/testUtils';
@@ -151,3 +152,57 @@ it.each([
     expect(screen.getByRole('main').contains(content)).toBe(true);
   },
 );
+
+// React Aria escapes item IDs when moving focus. JSDOM does not expose CSS.escape.
+const cssDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'CSS');
+beforeAll(() => {
+  if (!globalThis.CSS?.escape) {
+    Object.defineProperty(globalThis, 'CSS', {
+      configurable: true,
+      value: { escape: (value: string) => value.replace(/[^\w-]/g, '\\$&') },
+    });
+  }
+});
+afterAll(() => {
+  if (cssDescriptor) Object.defineProperty(globalThis, 'CSS', cssDescriptor);
+  else Reflect.deleteProperty(globalThis, 'CSS');
+});
+
+it('forwards status and source filters and returns to the first page', async () => {
+  const user = userEvent.setup();
+  const { mounted, queryEERepositories } = mount();
+  await mounted;
+  await screen.findByText('namespace/image-1', { exact: true }, waitForPage);
+  await user.click(screen.getByRole('button', { name: /next table page/i }));
+  await screen.findByText('namespace/image-11', { exact: true }, waitForPage);
+
+  await user.click(screen.getByRole('button', { name: 'Change image view' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Grid view' }));
+  expect(
+    await screen.findByText('namespace/image-11', { exact: true }),
+  ).toBeTruthy();
+  expect(queryEERepositories).toHaveBeenLastCalledWith(
+    expect.objectContaining({ page: 2 }),
+  );
+
+  await user.click(screen.getByRole('button', { name: /source type/i }));
+  await user.click(
+    await screen.findByRole('option', { name: 'External registry' }),
+  );
+  await waitFor(() =>
+    expect(queryEERepositories).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, sourceType: 'external-registry' }),
+    ),
+  );
+  await user.click(screen.getByRole('button', { name: /status/i }));
+  await user.click(await screen.findByRole('option', { name: 'Stale' }));
+  await waitFor(() =>
+    expect(queryEERepositories).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        sourceType: 'external-registry',
+        status: 'stale',
+      }),
+    ),
+  );
+});

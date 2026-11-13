@@ -49,7 +49,9 @@ import { timeSince } from './timeSince';
 
 const referenceWrap = { overflowWrap: 'anywhere' } as const;
 
-export function EEImageDetails({ entity }: { entity: Entity }): JSX.Element {
+export function EEImageDetails({
+  entity,
+}: Readonly<{ entity: Entity }>): JSX.Element {
   const annotations = entity.metadata.annotations;
   const registry = annotations?.[EE_REPOSITORY_ANNOTATIONS.registry];
   const repository = annotations?.[EE_REPOSITORY_ANNOTATIONS.repository];
@@ -70,11 +72,11 @@ function RepositoryDetails({
   registry,
   repository,
   description,
-}: {
+}: Readonly<{
   registry: string;
   repository: string;
   description?: string;
-}): JSX.Element {
+}>): JSX.Element {
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
   const detail = useAsyncRetry(
@@ -170,13 +172,13 @@ function DigestDetails({
   refresh,
   section,
   selectSection,
-}: {
+}: Readonly<{
   selected: NonNullable<ReturnType<typeof useEESelection>['selected']>;
   repository?: EERepositoryDetails;
   refresh: number;
   section: 'overview' | 'contents';
   selectSection: (section: 'overview' | 'contents') => void;
-}): JSX.Element {
+}>): JSX.Element {
   const { artifactRef } = selected;
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
@@ -230,10 +232,15 @@ function DigestDetails({
       : t('inventory.collectionCount', { quantity: String(collectionCount) });
   const pluginCount = artifact.counts?.plugins;
   const facts: Array<[string, ReactNode]> = [
-    [t('inventory.image'), <Box style={referenceWrap}>{pullReference}</Box>],
+    [
+      t('inventory.image'),
+      <Box key="image" style={referenceWrap}>
+        {pullReference}
+      </Box>,
+    ],
     [
       t('detail.tag'),
-      <Flex gap="2" align="center">
+      <Flex key="version" gap="2" align="center">
         {selected.tag ?? t('detail.digest')}
         {selected.tag === 'latest' && <Badge>{t('detail.latest')}</Badge>}
       </Flex>,
@@ -284,10 +291,13 @@ function DigestDetails({
       t('inventory.signing'),
       t(`signing.${artifact.signing?.state ?? 'undetermined'}`),
     ],
-    [t('signing.evidence'), <SigningEvidence observation={artifact.signing} />],
+    [
+      t('signing.evidence'),
+      <SigningEvidence key="evidence" observation={artifact.signing} />,
+    ],
     [
       t('detail.digest'),
-      <Box as="code" minWidth="0" style={referenceWrap}>
+      <Box key="digest" as="code" minWidth="0" style={referenceWrap}>
         {artifact.digest}
       </Box>,
     ],
@@ -364,9 +374,9 @@ function DigestDetails({
 
 function CopyPullReference({
   pullReference,
-}: {
+}: Readonly<{
   pullReference: string;
-}): JSX.Element {
+}>): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
   const [copied, setCopied] = useState<boolean>();
   async function copy(): Promise<void> {
@@ -410,10 +420,10 @@ const VERSION_ANNOTATION = 'ansible.com/version';
 function ContainedCollections({
   artifact,
   contents,
-}: {
+}: Readonly<{
   artifact: ExecutionEnvironment;
   contents: ArtifactContents;
-}): JSX.Element {
+}>): JSX.Element {
   const catalog = useApi(catalogApiRef);
   const entityLink = useEntityRefLink();
   const { t } = useTranslationRef(eeTranslationRef);
@@ -451,13 +461,55 @@ function ContainedCollections({
     }
     return links;
   }, [artifact, catalog, contents.collections.length]);
-  const columns: ColumnConfig<CollectionRow>[] = [
+  const columns = collectionColumns(
+    t,
+    artifact.registry,
+    linked.value,
+    entityLink,
+  );
+  const rows = useMemo(
+    () =>
+      contents.collections.map(item => ({
+        ...item,
+        id: `${item.fqcn}@${item.version}`,
+      })),
+    [contents.collections],
+  );
+  const { tableProps } = useTable({
+    mode: 'complete',
+    data: rows,
+    paginationOptions: { pageSize: 10, pageSizeOptions: [10, 20, 50] },
+  });
+  if (rows.length === 0) {
+    const statusMessage = {
+      complete: 'detail.emptyContents',
+      partial: 'detail.partialContents',
+      unknown: 'detail.unknownContents',
+    } as const;
+    const status = contents.enumeration?.status ?? 'unknown';
+    return <Text role="status">{t(statusMessage[status])}</Text>;
+  }
+
+  return (
+    <Card>
+      <Table {...tableProps} columnConfig={columns} />
+    </Card>
+  );
+}
+
+function collectionColumns(
+  t: ReturnType<typeof useTranslationRef<(typeof eeTranslationRef)['T']>>['t'],
+  registry: string,
+  links: ReadonlyMap<string, string> | undefined,
+  entityLink: (ref: string) => string,
+): ColumnConfig<CollectionRow>[] {
+  return [
     {
       id: 'collection',
       label: t('detail.collectionName'),
       isRowHeader: true,
       cell: row => {
-        const ref = linked.value?.get(row.id);
+        const ref = links?.get(row.id);
         return (
           <Cell>
             {ref ? (
@@ -502,7 +554,7 @@ function ContainedCollections({
     {
       id: 'source',
       label: t('inventory.source'),
-      cell: () => <CellText title={artifact.registry} />,
+      cell: () => <CellText title={registry} />,
     },
     {
       id: 'contents',
@@ -520,32 +572,4 @@ function ContainedCollections({
       ),
     },
   ];
-  const rows = useMemo(
-    () =>
-      contents.collections.map(item => ({
-        ...item,
-        id: `${item.fqcn}@${item.version}`,
-      })),
-    [contents.collections],
-  );
-  const { tableProps } = useTable({
-    mode: 'complete',
-    data: rows,
-    paginationOptions: { pageSize: 10, pageSizeOptions: [10, 20, 50] },
-  });
-  if (rows.length === 0) {
-    const statusMessage = {
-      complete: 'detail.emptyContents',
-      partial: 'detail.partialContents',
-      unknown: 'detail.unknownContents',
-    } as const;
-    const status = contents.enumeration?.status ?? 'unknown';
-    return <Text role="status">{t(statusMessage[status])}</Text>;
-  }
-
-  return (
-    <Card>
-      <Table {...tableProps} columnConfig={columns} />
-    </Card>
-  );
 }

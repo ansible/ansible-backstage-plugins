@@ -234,7 +234,7 @@ export class AutomationContentClient implements AutomationContentApi {
     },
   ) {}
 
-  private async baseUrl(): Promise<string> {
+  private baseUrl(): Promise<string> {
     return this.options.discoveryApi.getBaseUrl('automation-content');
   }
 

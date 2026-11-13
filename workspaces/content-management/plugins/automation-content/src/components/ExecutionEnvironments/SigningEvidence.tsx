@@ -10,11 +10,11 @@ export function SigningEvidence({
   state,
   observation,
   compact = false,
-}: {
+}: Readonly<{
   state?: EESigningState;
   observation?: SigningObservation;
   compact?: boolean;
-}): JSX.Element {
+}>): JSX.Element {
   const { t } = useTranslationRef(eeTranslationRef);
   if (compact) {
     return (
