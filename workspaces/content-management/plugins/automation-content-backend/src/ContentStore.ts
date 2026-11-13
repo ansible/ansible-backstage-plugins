@@ -335,28 +335,36 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
 const REGISTRY_OPERATION_CONCURRENCY = 4;
 
 /**
- * Runs `run` over `items` with at most `limit` calls in flight, returning
- * results in input order regardless of completion order. The first
- * rejection wins; work already in flight is left to settle on its own.
+ * Runs `run` over `items` with at most `limit` calls in flight, settling
+ * every operation and returning its outcome in input order regardless of
+ * completion order. Rejections are captured, not thrown — callers decide
+ * how partial failures are reported.
  */
-async function mapBounded<T, R>(
+async function settleBounded<T, R>(
   items: readonly T[],
   limit: number,
   run: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
+): Promise<PromiseSettledResult<R>[]> {
+  const outcomes = new Array<PromiseSettledResult<R>>(items.length);
   let next = 0;
   async function worker(): Promise<void> {
     while (next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await run(items[index]);
+      try {
+        outcomes[index] = {
+          status: 'fulfilled',
+          value: await run(items[index]),
+        };
+      } catch (reason) {
+        outcomes[index] = { status: 'rejected', reason };
+      }
     }
   }
   await Promise.all(
     Array.from({ length: Math.min(limit, items.length) }, () => worker()),
   );
-  return results;
+  return outcomes;
 }
 
 /**
@@ -825,16 +833,29 @@ export class ContentStore {
     observe?: (name: string, result: RegistryRefresh) => Promise<void>,
   ): Promise<{ artifacts: number; items: number }> {
     // Independent registries refresh together, bounded; audits stay in
-    // registry order once every refresh has settled.
+    // registry order once every refresh has settled. A rejected refresh
+    // must not discard the audits of registries that committed.
     const names = [...this.registries.keys()];
-    const results = await mapBounded(
+    const outcomes = await settleBounded(
       names,
       REGISTRY_OPERATION_CONCURRENCY,
       name => this.refreshRegistry(name),
     );
-    for (const [index, name] of names.entries()) {
-      await observe?.(name, results[index]);
+    const failures: unknown[] = [];
+    for (const [index, outcome] of outcomes.entries()) {
+      const name = names[index];
+      if (outcome.status === 'rejected') {
+        this.logger.warn(
+          `[${name}] refresh rejected: ${this.redactor.redactErrorText(
+            outcome.reason,
+          )}`,
+        );
+        failures.push(outcome.reason);
+        continue;
+      }
+      await observe?.(name, outcome.value);
     }
+    if (failures.length > 0) throw failures[0];
 
     await this.pruneRemovedRegistries();
 
@@ -1141,21 +1162,35 @@ export class ContentStore {
     requests: number;
   }> {
     // Same contract as refreshAll: bounded concurrency across registries,
-    // observers and totals in registry order after every poll settles.
+    // observers and totals in registry order after every poll settles, and
+    // a rejected poll does not discard the audits of registries that
+    // committed.
     const names = [...this.registries.keys()];
-    const results = await mapBounded(
+    const outcomes = await settleBounded(
       names,
       REGISTRY_OPERATION_CONCURRENCY,
       name => this.pollRegistry(name),
     );
+    const failures: unknown[] = [];
     let refreshed = 0;
     let requests = 0;
-    for (const [index, name] of names.entries()) {
-      const result = results[index];
+    for (const [index, outcome] of outcomes.entries()) {
+      const name = names[index];
+      if (outcome.status === 'rejected') {
+        this.logger.warn(
+          `[${name}] poll rejected: ${this.redactor.redactErrorText(
+            outcome.reason,
+          )}`,
+        );
+        failures.push(outcome.reason);
+        continue;
+      }
+      const result = outcome.value;
       await observe?.(name, result);
       requests += result.requests;
       if (result.refreshed) refreshed += 1;
     }
+    if (failures.length > 0) throw failures[0];
     return { checked: this.registries.size, refreshed, requests };
   }
 

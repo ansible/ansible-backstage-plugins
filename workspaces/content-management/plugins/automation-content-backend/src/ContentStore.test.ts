@@ -955,6 +955,74 @@ describe('bulk registry operations', () => {
     expect(peak).toBeGreaterThan(1);
     expect(peak).toBeLessThanOrEqual(4);
   });
+
+  it('still audits committed registries when another refresh rejects', async () => {
+    const firstRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const secondRepositories = {
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const first = new MockRegistry({ repositories: firstRepositories });
+    const second = new MockRegistry({ repositories: secondRepositories });
+    const store = await twoRegistryStore(
+      firstRepositories,
+      secondRepositories,
+      {
+        first: (url, init) => first.fetch(url, init),
+        second: (url, init) => second.fetch(url, init),
+      },
+    );
+    const refresh = store.refreshRegistry.bind(store);
+    jest.spyOn(store, 'refreshRegistry').mockImplementation(async name => {
+      if (name === 'second') throw new Error('database exploded');
+      return refresh(name);
+    });
+
+    const observed: string[] = [];
+    await expect(
+      store.refreshAll(async name => {
+        observed.push(name);
+      }),
+    ).rejects.toThrow('database exploded');
+
+    expect(observed).toEqual(['first']);
+  });
+
+  it('still audits polled registries when another poll rejects', async () => {
+    const firstRepositories = {
+      'ansible/first': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const secondRepositories = {
+      'ansible/second': [makeLabelledImage('v1', { [EE_LABEL]: 'true' })],
+    };
+    const first = new MockRegistry({ repositories: firstRepositories });
+    const second = new MockRegistry({ repositories: secondRepositories });
+    const store = await twoRegistryStore(
+      firstRepositories,
+      secondRepositories,
+      {
+        first: (url, init) => first.fetch(url, init),
+        second: (url, init) => second.fetch(url, init),
+      },
+    );
+    expect(await store.refreshRegistry('first')).toMatchObject({ ok: true });
+    expect(await store.refreshRegistry('second')).toMatchObject({ ok: true });
+    const poll = store.pollRegistry.bind(store);
+    jest.spyOn(store, 'pollRegistry').mockImplementation(async name => {
+      if (name === 'second') throw new Error('poll exploded');
+      return poll(name);
+    });
+
+    const observed: string[] = [];
+    await expect(
+      store.pollAll(async name => {
+        observed.push(name);
+      }),
+    ).rejects.toThrow('poll exploded');
+
+    expect(observed).toEqual(['first']);
+  });
 });
 
 describe('digest cache', () => {
