@@ -38,9 +38,6 @@ export interface Config {
       baseUrl: string;
     };
 
-    /**
-     * @deepVisibility frontend
-     */
     rhaap?: {
       /**
        * @visibility frontend
