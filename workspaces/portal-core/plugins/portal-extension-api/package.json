@@ -2,6 +2,11 @@
   "name": "@ansible/portal-extension-api",
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansible/ansible-backstage-plugins.git",
+    "directory": "workspaces/portal-core/plugins/portal-extension-api"
+  },
   "private": true,
   "description": "Extension contracts SDK for Ansible portal plugins — types, registry, hooks, and helpers for contributing tabs, cards, and actions",
   "main": "src/index.ts",

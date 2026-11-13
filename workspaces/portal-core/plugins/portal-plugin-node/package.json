@@ -2,6 +2,11 @@
   "name": "@ansible/portal-plugin-node",
   "version": "0.1.0",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansible/ansible-backstage-plugins.git",
+    "directory": "workspaces/portal-core/plugins/portal-plugin-node"
+  },
   "private": true,
   "description": "Server-side SDK for Ansible portal backend plugins — identity middleware, audit event emitter, health push, and org-keyed DB helpers",
   "main": "src/index.ts",

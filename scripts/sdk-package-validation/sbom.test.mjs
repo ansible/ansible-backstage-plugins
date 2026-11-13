@@ -68,3 +68,36 @@ test('requires a cataloged npm component rather than only a directory source', (
   ];
   verifySbom(document, candidate);
 });
+
+for (const locator of [
+  'pkg:npm/%40ansible/unrelated@0.1.0',
+  'pkg:npm/%40other/example@0.1.0',
+  'pkg:npm/%40ansible/example@0.2.0',
+  'pkg:npm/%40ansible/example',
+  'pkg:pypi/example@0.1.0',
+  'pkg:npm/%ZZansible/example@0.1.0',
+  undefined,
+]) {
+  test(`rejects an SBOM with a mismatched or invalid purl: ${locator}`, () => {
+    const candidate = { name: '@ansible/example', version: '0.1.0' };
+    assert.throws(
+      () =>
+        verifySbom(
+          {
+            spdxVersion: 'SPDX-2.3',
+            packages: [
+              {
+                name: candidate.name,
+                versionInfo: candidate.version,
+                externalRefs: [
+                  { referenceType: 'purl', referenceLocator: locator },
+                ],
+              },
+            ],
+          },
+          candidate,
+        ),
+      /SBOM does not describe the packed npm package/,
+    );
+  });
+}

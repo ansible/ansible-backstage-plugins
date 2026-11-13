@@ -38,6 +38,27 @@ export function validateArchive({
     'Keep the pre-publication private guard',
   );
   assert.equal(manifest.license, 'Apache-2.0');
+  assert.equal(
+    manifest.repository?.type,
+    'git',
+    'Missing git repository metadata',
+  );
+  assert.equal(
+    manifest.repository.url,
+    'https://github.com/ansible/ansible-backstage-plugins.git',
+    'Unexpected repository URL',
+  );
+  assert(
+    /^workspaces\/[a-z0-9-]+\/plugins\/[a-z0-9-]+$/.test(
+      manifest.repository.directory,
+    ),
+    'Missing or invalid repository directory',
+  );
+  assert.deepEqual(
+    manifest.repository,
+    expected.repository,
+    'Packed repository metadata differs from source',
+  );
   assert.equal(typeof manifest.main, 'string', 'Missing runtime entry point');
   assert.equal(
     typeof manifest.types,

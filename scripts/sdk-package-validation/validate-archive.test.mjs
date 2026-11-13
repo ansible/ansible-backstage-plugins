@@ -3,12 +3,18 @@ import { test } from 'node:test';
 import { validateArchive } from './validate-archive.mjs';
 
 function archive() {
+  const repository = {
+    type: 'git',
+    url: 'https://github.com/ansible/ansible-backstage-plugins.git',
+    directory: 'workspaces/portal-core/plugins/example',
+  };
   return {
     manifest: {
       name: '@ansible/example',
       version: '0.1.0',
       private: true,
       license: 'Apache-2.0',
+      repository: { ...repository },
       main: 'dist/index.cjs.js',
       types: 'dist/index.d.ts',
       exports: {
@@ -25,6 +31,7 @@ function archive() {
       name: '@ansible/example',
       version: '0.1.0',
       license: 'repository license',
+      repository,
     },
     candidates: new Set(['@ansible/example']),
   };
@@ -32,6 +39,26 @@ function archive() {
 
 test('accepts packed entry points and conditional declarations', () => {
   validateArchive(archive());
+});
+
+test('requires repository metadata for provenance readiness', () => {
+  const input = archive();
+  delete input.manifest.repository;
+  assert.throws(() => validateArchive(input), /repository metadata/);
+});
+
+test('rejects an unrelated repository URL', () => {
+  const input = archive();
+  input.manifest.repository.url = 'https://github.com/other/repository.git';
+  assert.throws(() => validateArchive(input), /repository URL/);
+});
+
+test('rejects missing or changed monorepo directory metadata', () => {
+  const input = archive();
+  delete input.manifest.repository.directory;
+  assert.throws(() => validateArchive(input), /repository directory/);
+  input.manifest.repository.directory = 'workspaces/portal-core/plugins/other';
+  assert.throws(() => validateArchive(input), /differs from source/);
 });
 
 test('rejects a missing declaration even if the runtime export exists', () => {

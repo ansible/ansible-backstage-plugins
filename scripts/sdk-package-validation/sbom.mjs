@@ -51,6 +51,19 @@ export function verifyArchiveEntries(paths, details) {
   }
 }
 
+function identifiesCandidate(locator, candidate) {
+  if (typeof locator !== 'string') return false;
+  try {
+    // Qualifiers and subpaths do not change the npm package name or version.
+    return (
+      decodeURIComponent(locator.split(/[?#]/, 1)[0]) ===
+      `pkg:npm/${candidate.name}@${candidate.version}`
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function verifySbom(document, candidate) {
   assert.equal(document.spdxVersion, 'SPDX-2.3');
   assert(
@@ -61,7 +74,7 @@ export function verifySbom(document, candidate) {
         p.externalRefs?.some(
           ref =>
             ref.referenceType === 'purl' &&
-            ref.referenceLocator.startsWith('pkg:npm/'),
+            identifiesCandidate(ref.referenceLocator, candidate),
         ),
     ),
     `${candidate.name}: SBOM does not describe the packed npm package`,

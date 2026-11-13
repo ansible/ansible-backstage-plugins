@@ -79,6 +79,15 @@ registered AAP auth API. `@backstage/plugin-user-settings` is an optional peer:
 API-only consumers do not need to install it. Hosts using the Settings integration must
 provide a compatible version.
 
+The native Settings integration is tested against
+`@backstage/plugin-user-settings` **0.9.6**. It attaches to
+`sub-page:user-settings/auth-providers` through the `providerSettings` input.
+The optional peer range `^0.9.6` allows compatible `0.9.x` patches and excludes
+`0.10.0`. When upgrading the host's user-settings plugin, verify that both the
+extension ID and input remain available and run the native Settings attachment
+test. A removed attachment target can hide the AAP row, while a removed input
+on an existing target can prevent the frontend from starting.
+
 The combined module loads its Settings UI lazily, so a dynamic host without the
 native user-settings page does not import that optional UI. Source bundlers must
 still resolve the library when bundling `/alpha` or `/settings`; use `/api-module`
