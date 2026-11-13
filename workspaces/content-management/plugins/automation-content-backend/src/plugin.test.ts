@@ -193,6 +193,9 @@ describe('the sign-in barrier at the plugin boundary', () => {
     const taskIds = [
       'content-management-store-refresh',
       'content-management-drift-poll',
+      // One task per configured registry, registered by the concurrent
+      // bulk registration in plugin init.
+      'content-management-store-refresh-e2e',
     ];
     expect(
       list.body.tasks.map((task: { taskId: string }) => task.taskId),

@@ -328,6 +328,46 @@ function flattenItems(artifact: IndexedArtifact): IndexedItem[] {
 }
 
 /**
+ * Upper bound on how many registries the bulk operations (refreshAll,
+ * pollAll) process at once. Keeps remote request fan-out and database
+ * contention predictable no matter how many registries are configured.
+ */
+const REGISTRY_OPERATION_CONCURRENCY = 4;
+
+/**
+ * Runs `run` over `items` with at most `limit` calls in flight, settling
+ * every operation and returning its outcome in input order regardless of
+ * completion order. Rejections are captured, not thrown — callers decide
+ * how partial failures are reported.
+ */
+async function settleBounded<T, R>(
+  items: readonly T[],
+  limit: number,
+  run: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const outcomes = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      try {
+        outcomes[index] = {
+          status: 'fulfilled',
+          value: await run(items[index]),
+        };
+      } catch (reason) {
+        outcomes[index] = { status: 'rejected', reason };
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return outcomes;
+}
+
+/**
  * Database-backed content store.
  *
  * Artifacts and items are persisted in SQLite (dev) or PostgreSQL (production)
@@ -792,10 +832,30 @@ export class ContentStore {
   async refreshAll(
     observe?: (name: string, result: RegistryRefresh) => Promise<void>,
   ): Promise<{ artifacts: number; items: number }> {
-    for (const name of this.registries.keys()) {
-      const result = await this.refreshRegistry(name);
-      await observe?.(name, result);
+    // Independent registries refresh together, bounded; audits stay in
+    // registry order once every refresh has settled. A rejected refresh
+    // must not discard the audits of registries that committed.
+    const names = [...this.registries.keys()];
+    const outcomes = await settleBounded(
+      names,
+      REGISTRY_OPERATION_CONCURRENCY,
+      name => this.refreshRegistry(name),
+    );
+    const failures: unknown[] = [];
+    for (const [index, outcome] of outcomes.entries()) {
+      const name = names[index];
+      if (outcome.status === 'rejected') {
+        this.logger.warn(
+          `[${name}] refresh rejected: ${this.redactor.redactErrorText(
+            outcome.reason,
+          )}`,
+        );
+        failures.push(outcome.reason);
+        continue;
+      }
+      await observe?.(name, outcome.value);
     }
+    if (failures.length > 0) throw failures[0];
 
     await this.pruneRemovedRegistries();
 
@@ -998,19 +1058,34 @@ export class ContentStore {
         const snapshot = await this.readRepositoryInventory(repository, client);
         inventory.set(repository, snapshot);
         requests += 2 * snapshot.completeTags.size;
+      }
+
+      // One registry-scoped read replaces a query per repository inside the
+      // remote loop plus the repository-name query used for removal detection.
+      // The registry's stored tag mappings are held in memory for comparison.
+      const rows: { repository: string; digest: string; tags: string }[] =
+        await this.db('artifacts')
+          .where({ registry: name })
+          .select('repository', 'digest', 'tags');
+      const knownByRepository = new Map<string, Map<string, string>>();
+      for (const row of rows) {
+        let known = knownByRepository.get(row.repository);
+        if (!known) {
+          known = new Map<string, string>();
+          knownByRepository.set(row.repository, known);
+        }
+        for (const tag of JSON.parse(row.tags)) known.set(tag, row.digest);
+      }
+
+      for (const repository of repositories) {
+        const snapshot = inventory.get(repository);
+        if (!snapshot) continue;
         const observed = new Map(
           [...snapshot.byDigest].flatMap(([digest, tags]) =>
             tags.map(tag => [tag, digest] as const),
           ),
         );
-
-        const rows = await this.db('artifacts')
-          .where({ registry: name, repository })
-          .select('digest', 'tags');
-        const known = new Map<string, string>();
-        for (const row of rows) {
-          for (const tag of JSON.parse(row.tags)) known.set(tag, row.digest);
-        }
+        const known = knownByRepository.get(repository) ?? new Map();
 
         for (const [tag, digest] of observed) {
           const previous = known.get(tag);
@@ -1029,11 +1104,7 @@ export class ContentStore {
           if (!observed.has(tag)) details.push(`${repository}:${tag} removed`);
         }
       }
-      const knownRepositories: string[] = await this.db('artifacts')
-        .where({ registry: name })
-        .distinct()
-        .pluck('repository');
-      for (const repository of knownRepositories) {
+      for (const repository of knownByRepository.keys()) {
         if (!inventory.has(repository)) details.push(`${repository} removed`);
       }
     } catch (error) {
@@ -1090,14 +1161,36 @@ export class ContentStore {
     refreshed: number;
     requests: number;
   }> {
+    // Same contract as refreshAll: bounded concurrency across registries,
+    // observers and totals in registry order after every poll settles, and
+    // a rejected poll does not discard the audits of registries that
+    // committed.
+    const names = [...this.registries.keys()];
+    const outcomes = await settleBounded(
+      names,
+      REGISTRY_OPERATION_CONCURRENCY,
+      name => this.pollRegistry(name),
+    );
+    const failures: unknown[] = [];
     let refreshed = 0;
     let requests = 0;
-    for (const name of this.registries.keys()) {
-      const result = await this.pollRegistry(name);
+    for (const [index, outcome] of outcomes.entries()) {
+      const name = names[index];
+      if (outcome.status === 'rejected') {
+        this.logger.warn(
+          `[${name}] poll rejected: ${this.redactor.redactErrorText(
+            outcome.reason,
+          )}`,
+        );
+        failures.push(outcome.reason);
+        continue;
+      }
+      const result = outcome.value;
       await observe?.(name, result);
       requests += result.requests;
       if (result.refreshed) refreshed += 1;
     }
+    if (failures.length > 0) throw failures[0];
     return { checked: this.registries.size, refreshed, requests };
   }
 
