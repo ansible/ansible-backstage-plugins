@@ -94,3 +94,20 @@ it('opens an explicit tagless digest from a deep link', () => {
   mount('/catalog?digest=tagless');
   expect(screen.getByText('image@tagless')).toBeTruthy();
 });
+
+it('keeps an explicit digest pinned even when multiple tags point to it', () => {
+  mount('/catalog?digest=one');
+  expect(screen.getByText('image@one')).toBeTruthy();
+  fireEvent.click(screen.getByText('Contents'));
+  expect(screen.getByText('?digest=one&section=contents')).toBeTruthy();
+  fireEvent.click(screen.getByText('Alias'));
+  expect(screen.getByText('?section=contents&tag=stable')).toBeTruthy();
+  expect(screen.getByText('image:stable')).toBeTruthy();
+  fireEvent.click(screen.getByText('Back'));
+  expect(screen.getByText('image@one')).toBeTruthy();
+});
+
+it('keeps an unknown digest unavailable', () => {
+  mount('/catalog?digest=missing');
+  expect(screen.getByText('Unavailable')).toBeTruthy();
+});

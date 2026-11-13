@@ -22,18 +22,24 @@ export function useEESelection(repository?: EERepositoryDetails): {
   selectSection: (section: EESection) => void;
 } {
   const [params, setParams] = useSearchParams();
+  const requestedTag = params.get('tag');
+  const requestedDigest = params.get('digest');
   const tags = repository?.tags ?? [];
   const taggedDigests = new Set(tags.map(tag => tag.digest));
   const options = [
     ...tags.map(tag => ({ ...tag, id: `tag:${tag.tag}` })),
     ...(repository?.digests ?? [])
-      .filter(digest => !taggedDigests.has(digest.digest))
+      .filter(
+        entry =>
+          !taggedDigests.has(entry.digest) ||
+          (requestedTag === null && entry.digest === requestedDigest),
+      )
       .map(digest => ({ ...digest, id: `digest:${digest.digest}` })),
   ];
-  const tag = params.get('tag');
-  const digest = params.get('digest');
-  const explicitDigest = digest === null ? undefined : `digest:${digest}`;
-  const explicitId = tag === null ? explicitDigest : `tag:${tag}`;
+  const explicitDigest =
+    requestedDigest === null ? undefined : `digest:${requestedDigest}`;
+  const explicitId =
+    requestedTag === null ? explicitDigest : `tag:${requestedTag}`;
   const selected = explicitId
     ? options.find(option => option.id === explicitId)
     : (options.find(
