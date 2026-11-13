@@ -63,13 +63,11 @@
     "@backstage/cli": "0.36.5",
     "@backstage/frontend-test-utils": "0.6.3",
     "@backstage/plugin-catalog": "2.0.8",
-    "@playwright/test": "^1.32.3",
     "@red-hat-developer-hub/cli": "^1.10.2",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18",
-    "axe-core": "4.10.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.5"
