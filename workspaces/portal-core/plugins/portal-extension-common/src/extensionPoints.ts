@@ -24,8 +24,6 @@ export const CONTENT_TYPES = {
 export type ContentTypeId = (typeof CONTENT_TYPES)[keyof typeof CONTENT_TYPES];
 
 /**
-<<<<<<< HEAD
-=======
  * Named UX regions (experiences) that the host declares.
  * Plugins contribute capabilities *into* an experience — they do not create
  * experiences by registering. An unknown `experienceId` is rejected at load.
@@ -55,7 +53,6 @@ export const EXPERIENCE_IDS = {
 export type ExperienceId = (typeof EXPERIENCE_IDS)[keyof typeof EXPERIENCE_IDS];
 
 /**
->>>>>>> 26cf181 (feat(compliance): align with Content Experience Architecture and register operations)
  * Extension point IDs for each page surface in the self-service plugin.
  *
  * These IDs indicate *where* a contribution appears (which page, which panel).

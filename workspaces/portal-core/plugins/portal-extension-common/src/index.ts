@@ -30,6 +30,7 @@ export type { OperationRequest, OperationResponse } from './operations';
 export type { EntitlementDecision } from './entitlements';
 
 export type {
+  ExperienceDefinition,
   PermissionRequirement,
   ContentPredicate,
   ContributionKind,
@@ -42,5 +43,13 @@ export type {
   PluginManifest,
 } from './manifest';
 
-export { CONTENT_TYPES, EXTENSION_POINTS } from './extensionPoints';
-export type { ContentTypeId, ExtensionPointId } from './extensionPoints';
+export {
+  CONTENT_TYPES,
+  EXPERIENCE_IDS,
+  EXTENSION_POINTS,
+} from './extensionPoints';
+export type {
+  ContentTypeId,
+  ExperienceId,
+  ExtensionPointId,
+} from './extensionPoints';
