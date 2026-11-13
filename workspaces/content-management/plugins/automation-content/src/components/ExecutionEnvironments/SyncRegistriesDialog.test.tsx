@@ -6,13 +6,66 @@ import {
   toastApiRef,
 } from '@backstage/frontend-plugin-api';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
-import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import {
+  AuthorizeResult,
+  type BasicPermission,
+} from '@backstage/plugin-permission-common';
+import { permissionApiRef } from '@backstage/plugin-permission-react';
+import {
+  contentSyncPermission,
+  executionEnvironmentsViewPermission,
+} from '@ansible/automation-content-common/permissions';
 import {
   automationContentApiRef,
   ContentApiError,
   registrySyncEvents,
 } from '../../api';
 import { SyncRegistriesDialog } from './SyncRegistriesDialog';
+
+const dialogTestPlugin = createFrontendPlugin({
+  pluginId: 'test',
+  extensions: [
+    PageBlueprint.make({
+      params: {
+        path: '/refresh',
+        loader: async () => <SyncRegistriesDialog />,
+      },
+    }),
+  ],
+});
+
+it.each([executionEnvironmentsViewPermission, contentSyncPermission])(
+  'hides registry sync when $name is denied',
+  async denied => {
+    const authorize = jest.fn(
+      async ({ permission }: { permission: BasicPermission }) => ({
+        result:
+          permission.name === denied.name
+            ? AuthorizeResult.DENY
+            : AuthorizeResult.ALLOW,
+      }),
+    );
+    const getRegistryStatus = jest.fn(async () => ({
+      manualSyncEnabled: true,
+      items: [{ name: 'registry', url: 'https://registry.example.test' }],
+    }));
+
+    await renderTestApp({
+      features: [dialogTestPlugin],
+      apis: [
+        [permissionApiRef, { authorize }],
+        [automationContentApiRef, { getRegistryStatus }],
+      ],
+      initialRouteEntries: ['/refresh'],
+    });
+
+    await waitFor(() => expect(authorize).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByRole('button', { name: 'Sync registries' }),
+    ).toBeNull();
+    expect(getRegistryStatus).not.toHaveBeenCalled();
+  },
+);
 
 it.each([
   [
@@ -37,19 +90,7 @@ it.each([
       .mockRejectedValueOnce(uncertainError)
       .mockResolvedValue(completed);
     await renderTestApp({
-      features: [
-        createFrontendPlugin({
-          pluginId: 'test',
-          extensions: [
-            PageBlueprint.make({
-              params: {
-                path: '/refresh',
-                loader: async () => <SyncRegistriesDialog />,
-              },
-            }),
-          ],
-        }),
-      ],
+      features: [dialogTestPlugin],
       apis: [
         mockApis.permission({ authorize: AuthorizeResult.ALLOW }),
         [toastApiRef, { post }],

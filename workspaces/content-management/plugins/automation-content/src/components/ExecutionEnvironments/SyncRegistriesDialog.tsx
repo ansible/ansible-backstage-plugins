@@ -17,7 +17,10 @@ import {
   Text,
 } from '@backstage/ui';
 import { RiRefreshLine } from '@remixicon/react';
-import { contentSyncPermission } from '@ansible/automation-content-common/permissions';
+import {
+  contentSyncPermission,
+  executionEnvironmentsViewPermission,
+} from '@ansible/automation-content-common/permissions';
 import {
   automationContentApiRef,
   ContentApiError,
@@ -30,7 +33,12 @@ export function SyncRegistriesDialog(): JSX.Element | null {
   const api = useApi(automationContentApiRef);
   const toastApi = useApi(toastApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
-  const permitted = useContentPermission(contentSyncPermission) === 'allowed';
+  const viewPermission = useContentPermission(
+    executionEnvironmentsViewPermission,
+  );
+  const syncPermission = useContentPermission(contentSyncPermission);
+  const permitted =
+    viewPermission === 'allowed' && syncPermission === 'allowed';
   const status = useAsync(
     () => (permitted ? api.getRegistryStatus() : Promise.resolve(undefined)),
     [api, permitted],
