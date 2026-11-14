@@ -19,11 +19,42 @@ describe('MockAuthService', () => {
     disableDefaultAuthPolicy: false,
   });
 
+  it('rejects unimplemented public-key discovery', () => {
+    expect(() => service.listPublicServiceKeys()).toThrow('Not implemented');
+  });
+
+  it('builds none, user, limited-user, and service credential helpers', () => {
+    expect(mockCredentials.none.header()).toBe('Bearer mock-none-token');
+    expect(mockCredentials.user.header('user:default/alice')).toContain(
+      'Bearer mock-user-token:',
+    );
+    expect(mockCredentials.user.invalidHeader()).toBe(
+      'Bearer mock-invalid-user-token',
+    );
+    expect(mockCredentials.limitedUser('user:default/alice')).toEqual(
+      mockCredentials.user('user:default/alice'),
+    );
+    expect(mockCredentials.limitedUser.cookie('user:default/alice')).toContain(
+      'backstage-auth=mock-limited-user-token:',
+    );
+    expect(mockCredentials.limitedUser.invalidCookie()).toBe(
+      'backstage-auth=mock-invalid-limited-user-token',
+    );
+    expect(mockCredentials.service.header()).toBe('Bearer mock-service-token');
+    expect(mockCredentials.service.invalidHeader()).toBe(
+      'Bearer mock-invalid-service-token',
+    );
+    expect(() => mockCredentials.user('invalid-ref')).toThrow(
+      'Invalid user entity reference',
+    );
+  });
+
   describe('authenticate', () => {
     it.each([
       [MOCK_INVALID_USER_LIMITED_TOKEN, 'Limited user token is invalid'],
       ['', 'Token is empty'],
       ['unrecognized-token', 'Unknown mock token'],
+      [`${MOCK_USER_TOKEN}x`, 'Unknown mock token'],
     ])(
       'rejects unsupported token %p through the Promise contract',
       async (token, message) => {
@@ -175,11 +206,15 @@ describe('MockAuthService', () => {
       await expect(service.authenticate(token)).resolves.toEqual(credentials);
     });
     it('returns a service token for user principal', async () => {
+      const credentials = mockCredentials.user('user:default/alice');
       const tokenObj = await service.getPluginRequestToken({
-        onBehalfOf: mockCredentials.user(),
-        targetPluginId: 'some-plugin',
+        onBehalfOf: credentials,
+        targetPluginId: pluginId,
       });
-      expect(tokenObj.token).toBeDefined();
+      expect(tokenObj.token.startsWith(MOCK_SERVICE_TOKEN_PREFIX)).toBe(true);
+      await expect(service.authenticate(tokenObj.token)).resolves.toEqual(
+        credentials,
+      );
     });
 
     it('returns empty token for none principal with disableDefaultAuthPolicy', async () => {
@@ -206,10 +241,13 @@ describe('MockAuthService', () => {
 
   describe('getLimitedUserToken', () => {
     it('returns limited token for user principal', async () => {
-      const creds = mockCredentials.user();
+      const creds = mockCredentials.user('user:default/alice');
       const result = await service.getLimitedUserToken(creds);
       expect(result.token).toBeDefined();
       expect(result.expiresAt).toBeInstanceOf(Date);
+      await expect(
+        service.authenticate(result.token, { allowLimitedAccess: true }),
+      ).resolves.toEqual(creds);
     });
 
     it('throws for non-user principal', async () => {
