@@ -179,6 +179,57 @@ describe('BackendServiceAPI', () => {
     ).rejects.toThrow('invalid archive name');
   });
 
+  it('aborts the request when download fails before opening a file', async () => {
+    const workspacePath = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'scaffolder-'),
+    );
+    const signals: AbortSignal[] = [];
+    const bodies: Readable[] = [];
+    const api = new BackendServiceAPI();
+    jest
+      .spyOn(api as any, 'sendPostRequest')
+      .mockImplementation(async (...args: unknown[]) => {
+        const signal = args[2] as AbortSignal;
+        const body = new Readable({ read() {} });
+        signals.push(signal);
+        bodies.push(body);
+        signal.addEventListener('abort', () => body.destroy(), {
+          once: true,
+        });
+        return { body };
+      });
+
+    const invalidNameResponse = await (api as any).sendCreatorPost(
+      'http://localhost/creator',
+      {},
+    );
+    await expect(
+      (api as any).downloadFile(
+        invalidNameResponse,
+        mockLogger,
+        workspacePath,
+        '../archive.tar',
+      ),
+    ).rejects.toThrow('invalid archive name');
+
+    const openFailureResponse = await (api as any).sendCreatorPost(
+      'http://localhost/creator',
+      {},
+    );
+    await expect(
+      (api as any).downloadFile(
+        openFailureResponse,
+        mockLogger,
+        path.join(workspacePath, 'missing'),
+        'archive.tar',
+      ),
+    ).rejects.toThrow('Failed to download file');
+
+    expect(signals.every(signal => signal.aborted)).toBe(true);
+    expect(bodies.every(body => body.destroyed)).toBe(true);
+    await fs.rm(workspacePath, { recursive: true, force: true });
+  });
+
   it.each([
     ['http error', 'Failed to send POST request: Failed to fetch data'],
     ['network error', 'Failed to send POST request'],

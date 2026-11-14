@@ -38,9 +38,10 @@ export class BackendServiceAPI {
     DownloadDeadline
   >();
 
-  private clearDownloadDeadline(response: Response) {
+  private clearDownloadDeadline(response: Response, abortRequest = false) {
     const deadline = this.downloadDeadlines.get(response);
     if (!deadline) return;
+    if (abortRequest) deadline.controller.abort();
     clearTimeout(deadline.timeout);
     if (deadline.externalSignal && deadline.onExternalAbort) {
       deadline.externalSignal.removeEventListener(
@@ -125,7 +126,7 @@ export class BackendServiceAPI {
   ) {
     const deadline = this.downloadDeadlines.get(response);
     if (path.basename(tarName) !== tarName) {
-      this.clearDownloadDeadline(response);
+      this.clearDownloadDeadline(response, true);
       throw new Error('Failed to download file: invalid archive name');
     }
     const outputPath = path.join(workspacePath, tarName);
@@ -151,7 +152,7 @@ export class BackendServiceAPI {
         cause: error instanceof Error ? error : undefined,
       });
     } finally {
-      this.clearDownloadDeadline(response);
+      this.clearDownloadDeadline(response, !file);
     }
   }
 
