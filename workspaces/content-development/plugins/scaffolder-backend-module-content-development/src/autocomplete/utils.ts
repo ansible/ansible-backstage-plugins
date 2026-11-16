@@ -1,4 +1,5 @@
 import {
+  BackstageCredentials,
   AuthService,
   DiscoveryService,
   LoggerService,
@@ -16,16 +17,18 @@ const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'metadata.namespace',
 ]);
 
-let collectionsCache: {
-  result: { results: Collections[] };
-  filter: string;
-  timestamp: number;
-} | null = null;
+const collectionsCache = new Map<
+  string,
+  {
+    result: { results: Collections[] };
+    timestamp: number;
+  }
+>();
 
 const inflightRequests = new Map<string, Promise<{ results: Collections[] }>>();
 
 export function clearCollectionsCache(): void {
-  collectionsCache = null;
+  collectionsCache.clear();
   inflightRequests.clear();
 }
 
@@ -123,7 +126,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version ?? ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -177,26 +180,26 @@ export async function getCollections(options: {
   auth: AuthService;
   discovery: DiscoveryService;
   logger: LoggerService;
+  callerCredentials: BackstageCredentials;
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
-  const { auth, discovery, logger, searchQuery } = options;
+  const { auth, discovery, logger, callerCredentials, searchQuery } = options;
   const filter = buildCatalogFilter(searchQuery);
+  const cacheKey = JSON.stringify([callerCredentials.principal, filter]);
+  const cached = collectionsCache.get(cacheKey);
 
-  if (
-    collectionsCache?.filter === filter &&
-    Date.now() - collectionsCache.timestamp < COLLECTIONS_CACHE_TTL_MS
-  ) {
-    return collectionsCache.result;
+  if (cached && Date.now() - cached.timestamp < COLLECTIONS_CACHE_TTL_MS) {
+    return cached.result;
   }
 
-  if (inflightRequests.has(filter)) {
-    return inflightRequests.get(filter)!;
+  if (inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey)!;
   }
 
   const fetchPromise = (async () => {
     const baseUrl = await discovery.getBaseUrl('catalog');
     const { token: catalogToken } = await auth.getPluginRequestToken({
-      onBehalfOf: await auth.getOwnServiceCredentials(),
+      onBehalfOf: callerCredentials,
       targetPluginId: 'catalog',
     });
     const encodedFilter = encodeURIComponent(filter);
@@ -218,24 +221,24 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
-    collectionsCache = { result, filter, timestamp: Date.now() };
+    collectionsCache.set(cacheKey, { result, timestamp: Date.now() });
 
     return result;
   })();
 
-  inflightRequests.set(filter, fetchPromise);
+  inflightRequests.set(cacheKey, fetchPromise);
 
   try {
     return await fetchPromise;
   } finally {
-    const currentInflight = inflightRequests.get(filter);
+    const currentInflight = inflightRequests.get(cacheKey);
     if (currentInflight === fetchPromise) {
-      inflightRequests.delete(filter);
+      inflightRequests.delete(cacheKey);
     }
   }
 }
@@ -255,7 +258,7 @@ function buildCatalogFilter(searchQuery?: string): string {
       return (
         ALLOWED_CATALOG_FILTER_FIELDS.has(field) &&
         value.length > 0 &&
-        /^[A-Za-z0-9_.:*\-/]+$/.test(value)
+        /^[A-Za-z0-9_.:\/-]+$/.test(value)
       );
     });
 

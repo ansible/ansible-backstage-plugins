@@ -27,6 +27,7 @@ jest.mock('./utils/utils', () => ({
 import * as fs from 'node:fs/promises';
 import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
+import yaml from 'js-yaml';
 import { parseUploadedFileContent } from './utils/utils';
 import { createEEDefinitionAction } from './createEEDefinition';
 import { buildCollectionsFromCatalogEntities } from '../autocomplete';
@@ -694,7 +695,7 @@ describe('createEEDefinition', () => {
     expect(eeConfig.registry).toBe('pah.example.com');
   });
 
-  it('passes PAH registry as-is when no rhaap baseUrl configured', async () => {
+  it('fails when PAH registry is selected without an rhaap baseUrl', async () => {
     const action = makeAction();
     const ctx = makeCtx({
       eeFileName: 'test-ee',
@@ -703,10 +704,33 @@ describe('createEEDefinition', () => {
       buildRegistry: 'Private Automation Hub (PAH)',
     });
 
-    await action.handler(ctx);
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'ansible.rhaap.baseUrl',
+    );
 
-    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
-    expect(eeConfig.registry).toBe('Private Automation Hub (PAH)');
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
+  });
+
+  it('reports invalid rhaap baseUrl for PAH registry', async () => {
+    const action = makeAction(
+      new ConfigReader({
+        ansible: {
+          creatorService: { baseUrl: 'localhost', port: '8000' },
+          rhaap: { baseUrl: 'not-a-url' },
+        },
+      }),
+    );
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      buildRegistry: 'Private Automation Hub (PAH)',
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'ansible.rhaap.baseUrl must be a valid URL',
+    );
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
   });
 
   it('sets registry_tls_verify false when explicitly disabled', async () => {
@@ -1091,6 +1115,24 @@ describe('createEEDefinition', () => {
     expect(content).toContain('CollectionsPicker');
     expect(content).toContain('PackagesPicker');
     expect(content).toContain('AdditionalBuildStepsPicker');
+  });
+
+  it('defaults saved template tags to an empty array', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const parsedTemplate = yaml.load(templateWriteCall![1] as string) as any;
+
+    expect(parsedTemplate.metadata.tags).toEqual([]);
   });
 
   it('quotes numeric-looking names in the generated template metadata', async () => {

@@ -661,7 +661,9 @@ describe('createRouter', () => {
     };
 
     it('returns 204 when entity does not exist', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const testApp = await createDeleteTestApp();
 
       await request(testApp).delete('/ansible/ee/missing-ee').expect(204);
@@ -670,9 +672,45 @@ describe('createRouter', () => {
         'component:default/missing-ee',
         expect.objectContaining({ token: 'mock-token' }),
       );
+      expect(mockCatalogClient.getEntityByRef).toHaveBeenNthCalledWith(
+        2,
+        'component:default/missing-ee',
+        expect.objectContaining({ token: 'service-catalog-token' }),
+      );
       expect(
         mockEEEntityProvider.unregisterExecutionEnvironment,
       ).not.toHaveBeenCalled();
+    });
+
+    it('uses service credentials only to detect a hidden entity before caller delete authorization', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(eeEntity as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      const testApp = await createDeleteTestApp();
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(200);
+
+      expect(mockCatalogClient.getEntityByRef).toHaveBeenNthCalledWith(
+        1,
+        'component:default/ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+      expect(mockCatalogClient.getEntityByRef).toHaveBeenNthCalledWith(
+        2,
+        'component:default/ee1',
+        expect.objectContaining({ token: 'service-catalog-token' }),
+      );
+      expect(mockPermissions.authorize).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ resourceRef: 'component:default/ee1' }),
+        ]),
+        { credentials: userCredentials },
+      );
+      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
+        'uid-ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
     });
 
     it('returns 400 for invalid names', async () => {
@@ -748,6 +786,27 @@ describe('createRouter', () => {
         'loc-1',
         expect.objectContaining({ token: 'mock-token' }),
       );
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('skips provider-managed cleanup when non-SCM replacement requests it', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: {
+          ...eeEntity.metadata,
+          annotations: { 'ansible.io/download-experience': 'true' },
+        },
+      } as any);
+      const testApp = await createDeleteTestApp();
+
+      const response = await request(testApp)
+        .delete('/ansible/ee/ee1?skipProviderManaged=true')
+        .expect(200);
+
+      expect(response.body).toEqual({ success: true, mode: 'provider' });
+      expect(mockCatalogClient.getLocationByEntity).not.toHaveBeenCalled();
       expect(
         mockEEEntityProvider.unregisterExecutionEnvironment,
       ).not.toHaveBeenCalled();
@@ -1009,7 +1068,9 @@ describe('createRouter', () => {
     });
 
     it('normalizes uppercase EE names before lookup', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const testApp = await createDeleteTestApp();
 
       await request(testApp).delete('/ansible/ee/My-EE').expect(204);
@@ -1099,7 +1160,9 @@ describe('createRouter', () => {
     });
 
     it('returns 204 for missing entity without checking delete permission', async () => {
-      mockCatalogClient.getEntityByRef.mockResolvedValueOnce(undefined);
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const testApp = await createDeleteTestApp();
 
       await request(testApp).delete('/ansible/ee/brand-new-ee').expect(204);

@@ -101,7 +101,7 @@ export const validateAnsibleConfig = (config: Config) => {
   const port = config.getString('ansible.creatorService.port');
   if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
     throw new Error(
-      `Invalid configuration: ansible.creatorService.port must be an integer from 1 to 65535, got \"${port}\"`,
+      `Invalid configuration: ansible.creatorService.port must be an integer from 1 to 65535, got "${port}"`,
     );
   }
 };

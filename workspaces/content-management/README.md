@@ -57,7 +57,13 @@ catalog:
         - name: quay
           url: https://quay.io
           repositories: [ansible/ee]
+          repositoryTags:
+            - repository: ansible/ee
+              tags: [networking, production]
 ```
+
+The optional `repositoryTags` entries add descriptive tags to the Catalog
+metadata for exact repositories in that registry.
 
 A registry `url` must be an absolute `http`/`https` URL with **no** embedded
 credentials, query, or fragment. Anything else — including `file://`,
@@ -75,3 +81,37 @@ and pushing images and manifests — see its README and `docs/guides/` on the
 lives in `workspaces/portal-core`.
 
 [poc-repo]: https://github.com/ansible/automation-content-plugins/tree/ANSTRAT-1758-poc
+
+## Execution environment images
+
+The native **Execution Environments** page opens at `/content/ee`. Content
+Management provides **Images**, and Content Development provides **Definitions**.
+The page's **Create** action opens the host Scaffolder template catalog.
+
+Load the `@ansible/plugin-automation-content/alpha` and
+`@ansible/portal-scaffolder/alpha` features and the Portal contributions provider.
+Follow the root app config to order the native sub-pages and point the Portal
+sidebar at `page:automation-content/ee`.
+
+Images filters indexed repositories by **Source**, **Source Type**, and
+**Status**. The image links open Catalog repository Components.
+Existing digest Components remain available under their existing Catalog
+permissions.
+
+The inventory and digest APIs require `ansible.execution-environments.view`.
+An EE view grant does not authorize manual refresh. Operators need
+`ansible.content.sync`, and repository refresh also requires the EE view grant.
+Register `automation-content` in the host's RBAC plugin metadata list.
+
+Manual refresh, including existing registry poll and sync API routes, defaults
+to disabled. Deployments that have verified a separate, append-only audit sink
+may explicitly enable `automationContent.manualSync.enabled`. The default
+Backstage audit logger does not provide that guarantee. Scheduled reconciliation
+continues independently.
+
+Inventory refresh returns a scheduling acknowledgment. The last successful
+reconciliation timestamp describes a registry or repository, independent of
+any particular scheduling request. Repository refresh reports committed tag
+changes. Incomplete scans retain previously indexed data. A signature finding
+describes registry evidence and does not establish publisher identity or
+cryptographic verification.

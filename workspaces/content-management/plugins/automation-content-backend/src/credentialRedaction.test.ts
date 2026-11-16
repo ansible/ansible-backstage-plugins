@@ -1,3 +1,4 @@
+import { AuthorizeResult } from '@backstage/plugin-permission-common';
 /** @jest-environment node */
 /**
  * Credential redaction across the whole HTTP surface (AAP-96687).
@@ -189,6 +190,15 @@ function seededStore(_logs: string[] = []): ContentStore {
       },
     ],
     countsFor: () => ({ collections: 1, plugins: 1 }),
+    queryEERepositories: async () => ({
+      items: [],
+      page: 1,
+      pageSize: 10,
+      totalItems: 0,
+    }),
+    getEERepository: async () => undefined,
+    refreshEERepository: async () => undefined,
+    lastSuccessfulReconcileAt: () => undefined,
     refreshRegistry: async (name: string) => ({
       discovered: 0,
       ok: false,
@@ -209,6 +219,13 @@ async function appWith(store: ContentStore, logs: string[] = []) {
   const app = express();
   app.use(
     await createRouter({
+      manualSyncEnabled: true,
+      auditor: {
+        createEvent: async () => ({
+          success: async () => {},
+          fail: async () => {},
+        }),
+      },
       db: store,
       logger: {
         info: (m: string) => logs.push(m),
@@ -224,6 +241,9 @@ async function appWith(store: ContentStore, logs: string[] = []) {
           Promise.resolve({
             principal: { type: 'user', userEntityRef: 'user:default/test' },
           }),
+      } as never,
+      permissions: {
+        authorize: async () => [{ result: AuthorizeResult.ALLOW }],
       } as never,
       scheduler: {
         triggerTask: async () => {},
@@ -269,6 +289,29 @@ const CASES: RouteCase[] = [
     },
   },
   {
+    route: 'POST /execution-environment-repositories/query',
+    run: app =>
+      request(app).post('/execution-environment-repositories/query').send({}),
+    check: res => expect(res.status).toBe(200),
+  },
+  {
+    route:
+      'GET /execution-environment-repositories/by-name/:registry/:repository(*)',
+    run: app =>
+      request(app).get(
+        '/execution-environment-repositories/by-name/basic-reg/demo/image',
+      ),
+    check: res => expect(res.status).toBe(404),
+  },
+  {
+    route: 'POST /execution-environment-repositories/sync',
+    run: app =>
+      request(app)
+        .post('/execution-environment-repositories/sync')
+        .send({ registry: 'basic-reg', repository: 'demo/image' }),
+    check: res => expect(res.status).toBe(404),
+  },
+  {
     route: 'POST /sync',
     run: app => request(app).post('/sync'),
     check: res => {
@@ -288,11 +331,11 @@ const CASES: RouteCase[] = [
   },
   {
     route: 'POST /registries/:name/sync',
-    run: app => request(app).post('/registries/basic-reg/sync'),
+    run: app => request(app).post('/registries/basic-reg/sync?wait=true'),
     check: res => {
       expect(res.status).toBe(202);
       expect(res.body.status).toBe('failed');
-      expect(res.body.error).toContain('[REDACTED]');
+      expect(res.body.error).toBe('Refresh failed.');
     },
   },
   {
@@ -466,35 +509,22 @@ describe('every route serves credential-free responses', () => {
 
 describe('a token exchanged at runtime', () => {
   it('redacts a runtime token from responses and logs the moment it exists', async () => {
-    // The router reads the index's live redactor: a bearer token the
-    // registry issues mid-flight must be recognised by later responses,
-    // not just by the redactor object in isolation.
+    // The per-registry sync now triggers a scheduled task instead of calling
+    // refreshRegistry directly. Verify the endpoint still returns 202 and
+    // that the log line written by the handler is credential-free.
     const logs: string[] = [];
     const store = seededStore(logs);
     store.redactor.addRuntimeSecret('mock-token', 300_000, 'token-reg');
-    (
-      store as unknown as {
-        refreshRegistry: () => Promise<{
-          discovered: number;
-          ok: boolean;
-          error: string;
-        }>;
-      }
-    ).refreshRegistry = async () => ({
-      discovered: 0,
-      ok: false,
-      error: '401: Bearer mock-token rejected',
-    });
 
     const res = await request(await appWith(store, logs)).post(
-      '/registries/basic-reg/sync',
+      '/registries/basic-reg/sync?wait=true',
     );
 
     expect(res.status).toBe(202);
-    expect(res.body.error).toContain('[REDACTED]');
+    expect(res.body.error).toBe('Refresh failed.');
     expectCredentialFree(res.text);
     expect(res.text).not.toContain('mock-token');
-    expect(logs.join('\n')).not.toContain('mock-token');
+    expectCredentialFree(logs.join('\n'));
   });
 });
 

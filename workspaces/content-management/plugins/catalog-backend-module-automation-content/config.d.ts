@@ -54,6 +54,8 @@ export interface Config {
            * a registry configured as localhost but accessed from a container.
            */
           rewriteAuthRealmHost?: boolean;
+          /** Descriptive tags for exact repository names in this registry. */
+          repositoryTags?: Array<{ repository: string; tags: string[] }>;
           owner?: string;
           system?: string;
         }>;

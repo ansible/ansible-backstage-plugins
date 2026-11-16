@@ -4,7 +4,7 @@ import {
   MOCK_JOB_TEMPLATE,
   MOCK_PROJECT,
   MOCK_TOKEN,
-} from '../mock';
+} from '../mockFixtures.test';
 import { CleanUp } from '@ansible/aap-common';
 import { mockAnsibleService } from './mockIAAPService';
 import { cleanUp } from './aapCleanUp';

@@ -992,11 +992,27 @@ function buildEEConfig(params: {
 
   // EE build and publish configuration
   if (params.buildRegistry) {
-    if (
-      params.buildRegistry.startsWith('Private Automation Hub') &&
-      params.pahBaseUrl
-    ) {
-      eeConfig.registry = new URL(params.pahBaseUrl).host;
+    if (params.buildRegistry.startsWith('Private Automation Hub')) {
+      if (!params.pahBaseUrl.trim()) {
+        throw new Error(
+          'Missing required configuration: ansible.rhaap.baseUrl is required when using Private Automation Hub as the build registry',
+        );
+      }
+      let pahUrl: URL;
+      try {
+        pahUrl = new URL(params.pahBaseUrl);
+      } catch (error) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must be a valid URL',
+          { cause: error },
+        );
+      }
+      if (!['http:', 'https:'].includes(pahUrl.protocol)) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must use HTTP or HTTPS',
+        );
+      }
+      eeConfig.registry = pahUrl.host;
     } else {
       eeConfig.registry = params.buildRegistry;
     }

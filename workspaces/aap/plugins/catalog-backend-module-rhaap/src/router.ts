@@ -29,6 +29,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import {
+  catalogEntityCreatePermission,
   catalogEntityDeletePermission,
   catalogEntityReadPermission,
 } from '@backstage/plugin-catalog-common/alpha';
@@ -367,20 +368,37 @@ export function createRouter(options: {
   );
 
   router.post('/ansible/ee', express.json(), async (request, response) => {
-    // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(
-      // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
-      request,
-      {
-        allow: ['service'],
-      },
-    );
+    // Registration runs on behalf of the scaffolder task initiator.
+    const credentials = await httpAuth.credentials(request, {
+      allow: ['user'],
+    });
 
     const { entity } = request.body;
 
     if (!entity) {
       response.status(400).json({ error: 'Missing entity in request body.' });
+      return;
+    }
+
+    if (!entity.kind || !entity.metadata?.name) {
+      response.status(400).json({
+        error: 'Entity kind and metadata.name are required.',
+      });
+      return;
+    }
+
+    const [createDecision] = await permissions.authorize(
+      [
+        {
+          permission: catalogEntityCreatePermission,
+        },
+      ],
+      { credentials },
+    );
+    if (createDecision.result !== AuthorizeResult.ALLOW) {
+      response.status(403).json({
+        error: 'Forbidden: insufficient permissions to create entity',
+      });
       return;
     }
 
@@ -404,13 +422,9 @@ export function createRouter(options: {
    * the caller so catalog RBAC (delete permission) applies.
    */
   router.delete('/ansible/ee/:name', async (request, response) => {
-    const credentials = await httpAuth.credentials(
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
-      request,
-      {
-        allow: ['user', 'service'],
-      },
-    );
+    const credentials = await httpAuth.credentials(request, {
+      allow: ['user', 'service'],
+    });
 
     const name = parseExecutionEnvironmentNameParam(request.params.name);
     if (!name) {
@@ -436,11 +450,24 @@ export function createRouter(options: {
       });
       const catalogOpts = { token };
 
-      const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+      let entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
 
       if (!entity) {
-        response.status(204).send();
-        return;
+        // Caller-scoped catalog reads can hide an existing EE. Use service
+        // credentials only to distinguish absence from invisibility; all
+        // permission checks and mutations remain caller-scoped below.
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const { token: serviceToken } = await auth.getPluginRequestToken({
+          onBehalfOf: serviceCredentials,
+          targetPluginId: 'catalog',
+        });
+        entity = await catalogClient.getEntityByRef(entityRef, {
+          token: serviceToken,
+        });
+        if (!entity) {
+          response.status(204).send();
+          return;
+        }
       }
 
       if (
@@ -466,6 +493,16 @@ export function createRouter(options: {
         response.status(403).json({
           error: 'Forbidden: insufficient permissions to delete entity',
         });
+        return;
+      }
+
+      // Provider-managed entities are already upserted by the provider. A
+      // non-SCM recreate must leave that provider-owned catalog entry intact.
+      if (
+        request.query.skipProviderManaged === 'true' &&
+        entity.metadata?.annotations?.['ansible.io/download-experience']
+      ) {
+        response.status(200).json({ success: true, mode: 'provider' });
         return;
       }
 

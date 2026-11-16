@@ -6,9 +6,10 @@ export const resourceFilter = (...args: JsonValue[]) => {
   }
   const key = args[1] ?? 'id';
   // @ts-ignore
-  if (args.length && args[0]?.[key]) {
-    // @ts-ignore
-    return args[0][key];
+  const value = args[0]?.[key];
+  // @ts-ignore
+  if (args.length && value !== null && value !== undefined) {
+    return value;
   }
   return null;
 };

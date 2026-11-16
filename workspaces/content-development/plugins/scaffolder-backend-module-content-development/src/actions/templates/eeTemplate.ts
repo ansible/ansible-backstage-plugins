@@ -6,7 +6,7 @@ export function generateEETemplate(values: EEDefinitionInput): string {
   const requirementsJson = JSON.stringify(values.pythonRequirements);
   const packagesJson = JSON.stringify(values.systemPackages);
   const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
-  const tagsJson = JSON.stringify(values.tags);
+  const tagsJson = JSON.stringify(values.tags ?? []);
   const quoteYamlScalar = (v: string) =>
     yaml.dump(v, { forceQuotes: true }).trim();
   const defaultBaseImage = values.customBaseImage || values.baseImage || '';

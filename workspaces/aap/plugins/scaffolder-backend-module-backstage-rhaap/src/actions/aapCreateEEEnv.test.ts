@@ -1,5 +1,5 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { MOCK_ORGANIZATION, MOCK_TOKEN } from '../mock';
+import { MOCK_ORGANIZATION, MOCK_TOKEN } from '../mockFixtures.test';
 import { createExecutionEnvironment } from './aapCreateEEEnv';
 import { mockAnsibleService } from './mockIAAPService';
 import { ExecutionEnvironment } from '@ansible/aap-common';
