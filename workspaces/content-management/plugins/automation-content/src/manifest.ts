@@ -4,6 +4,8 @@ import { executionEnvironmentsViewPermission } from '@ansible/automation-content
 import { eeMessages } from './strings/en';
 
 export const eeCapabilityId = 'automation-content.ee-images';
+export const eeVersionFieldEntryId =
+  'automation-content.ee-images.version-picker';
 export const eeDetailsEntryId = 'automation-content.ee-images.details';
 
 export const automationContentManifest: EntityDetailTabDescriptor['manifest'] =
@@ -21,6 +23,14 @@ export const automationContentManifest: EntityDetailTabDescriptor['manifest'] =
         minimumHostApiVersion: '0.1.0',
         appliesToContentTypes: [CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE],
         entryPoints: [
+          {
+            id: eeVersionFieldEntryId,
+            kind: 'scaffolder-field',
+            surface: 'experience-slot',
+            label: eeMessages.controllerVersion.label,
+            appliesToContentTypes: [CONTENT_TYPES.EXECUTION_ENVIRONMENT_IMAGE],
+            launches: { type: 'slot', targetSlot: 'scaffolder.fields' },
+          },
           {
             id: eeDetailsEntryId,
             kind: 'entity-tab',

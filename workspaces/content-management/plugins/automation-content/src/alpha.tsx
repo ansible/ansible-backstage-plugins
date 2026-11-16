@@ -17,12 +17,16 @@ import {
   EE_REPOSITORY_ANNOTATIONS,
   EE_REPOSITORY_ENTITY_TYPE,
 } from '@ansible/automation-content-common/eeRepository';
-import { EntityDetailTabBlueprint } from '@ansible/portal-extension-api/alpha';
+import {
+  createPortalScaffolderFieldBlueprints,
+  EntityDetailTabBlueprint,
+} from '@ansible/portal-extension-api/alpha';
 import { automationContentApiFactory } from './api';
 import {
   automationContentManifest,
   eeCapabilityId,
   eeDetailsEntryId,
+  eeVersionFieldEntryId,
 } from './manifest';
 
 import { eeRouteRef, templatesRouteRef } from './routes';
@@ -97,6 +101,22 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
           );
           return <EEHeaderActions />;
         },
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('ee-image-version', {
+      manifest: automationContentManifest,
+      capabilityId: eeCapabilityId,
+      entryPointId: eeVersionFieldEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'EEImageVersionPicker',
+      loader: async () => {
+        const { EEImageVersionPicker } = await import(
+          './components/ExecutionEnvironments/EEImageVersionPicker'
+        );
+        return {
+          name: 'EEImageVersionPicker',
+          component: EEImageVersionPicker,
+        };
       },
     }),
     eeHeaderLayout,

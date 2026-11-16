@@ -1,5 +1,6 @@
 export function controllerTemplateHref(
   templatesPath: string,
+  registry: string,
   repository: string,
   pullReference: string,
 ): string {
@@ -7,6 +8,8 @@ export function controllerTemplateHref(
     create: 'use-in-controller',
     eeName: repository.substring(repository.lastIndexOf('/') + 1),
     eeImage: pullReference,
+    eeRegistry: registry,
+    eeRepository: repository,
   });
   return `${templatesPath}?${params}`;
 }

@@ -122,5 +122,9 @@ it.each([
     expect(destination.searchParams.get('create')).toBe('use-in-controller');
     expect(destination.searchParams.get('eeName')).toBe('network-ee');
     expect(destination.searchParams.get('eeImage')).toBe(reference);
+    expect(destination.searchParams.get('eeRegistry')).toBe('registry');
+    expect(destination.searchParams.get('eeRepository')).toBe(
+      'team/network-ee',
+    );
   },
 );

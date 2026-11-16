@@ -159,7 +159,12 @@ function RepositoryDetails({
             {templatesHref && image && (
               <ButtonLink
                 variant="secondary"
-                href={controllerTemplateHref(templatesHref, repository, image)}
+                href={controllerTemplateHref(
+                  templatesHref,
+                  registry,
+                  repository,
+                  image,
+                )}
               >
                 {t('detail.useInController')}
               </ButtonLink>

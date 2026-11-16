@@ -141,20 +141,24 @@ describe('WizardCard', () => {
   });
 
   it('starts the matching template with the selected image prefilled', () => {
-    const controllerSource = {
+    const initialFormData = {
       name: 'network-ee',
       image: 'registry.example.com/team/network-ee:stable',
+    };
+    const controllerRepository = {
+      registry: 'test',
+      repository: 'team/network-ee',
     };
     renderWithTheme(
       <WizardCard
         template={makeTemplate({ tags: ['use-in-controller'] })}
-        controllerSource={controllerSource}
+        controllerSource={{ ...initialFormData, controllerRepository }}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(mockNavigate).toHaveBeenCalledWith(
       '/self-service/create/templates/default/test-template',
-      { state: { initialFormData: controllerSource } },
+      { state: { initialFormData, controllerRepository } },
     );
   });
 

@@ -50,7 +50,14 @@ export function EEImageRowActions({
     const pullReference =
       tag?.taggedPullReference ??
       (await api.getEEArtifact(representativeRef)).pullReference;
-    navigate(controllerTemplateHref(templatesHref, repository, pullReference));
+    navigate(
+      controllerTemplateHref(
+        templatesHref,
+        registry,
+        repository,
+        pullReference,
+      ),
+    );
   }, [
     api,
     navigate,
