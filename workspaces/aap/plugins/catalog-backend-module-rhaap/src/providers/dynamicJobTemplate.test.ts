@@ -728,6 +728,58 @@ describe('dynamicJobTemplate', () => {
       expect(extraVariables).toEqual({});
     });
 
+    it('rejects password survey variables that use the reserved AAP token secret', () => {
+      const survey: ISurvey = {
+        name: 'Token collision survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'AAP token',
+            question_description: 'Enter a password',
+            variable: 'aapToken',
+            type: 'password',
+            required: true,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ],
+      };
+
+      expect(() => getSurveyDetails({}, survey)).toThrow(
+        'Survey password variable "aapToken" is reserved for AAP authentication',
+      );
+    });
+
+    it('allows a non-password survey variable named aapToken', () => {
+      const survey: ISurvey = {
+        name: 'Token text survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Token label',
+            question_description: 'Enter a label',
+            variable: 'aapToken',
+            type: 'text',
+            required: true,
+            default: 'automation',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, survey);
+
+      expect(surveyForm.properties).toMatchObject({
+        aapToken: { type: 'string', default: 'automation' },
+      });
+    });
+
     it('should process survey with various input types', () => {
       const mockSurvey: ISurvey = {
         name: 'Test Survey',
@@ -1442,6 +1494,34 @@ describe('dynamicJobTemplate', () => {
         'Test Job Template template executed successfully',
       );
       expect((result.spec as any).output.links).not.toBeDefined();
+    });
+
+    it('declares the AAP decorator and requires its token only in task secrets', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+      });
+
+      expect(result.spec?.formDecorators).toEqual([
+        { id: 'ansible.aap-user-token' },
+      ]);
+      expect(result.spec?.secrets).toEqual({
+        schema: {
+          type: 'object',
+          required: ['aapToken'],
+          properties: { aapToken: { type: 'string', minLength: 1 } },
+        },
+      });
+      expect(result.spec?.steps).toEqual([
+        expect.objectContaining({
+          action: 'rhaap:launch-job-template',
+          input: expect.objectContaining({ token: '${{ secrets.aapToken }}' }),
+        }),
+      ]);
+      expect(JSON.stringify(result.spec?.parameters)).not.toContain('aapToken');
     });
 
     it('sets owner through org group builder in multi-org mode', () => {
