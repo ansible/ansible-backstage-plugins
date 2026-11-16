@@ -10,6 +10,11 @@ describe('createEERegistrationLock', () => {
     await knex.schema.createTable('catalog_entities', table => {
       table.string('entity_ref').primary();
     });
+    await knex.schema.createTable('ee_registration_lock_leases', table => {
+      table.string('entity_ref').primary();
+      table.string('owner').nullable();
+      table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
+    });
     const database = { getClient: async () => knex } as any;
     const lockA = createEERegistrationLock(database);
     const lockB = createEERegistrationLock(database);
@@ -38,29 +43,37 @@ describe('createEERegistrationLock', () => {
     });
     const observations: boolean[] = [];
 
-    const first = lockA('component:default/ee', async assertLockHeld => {
-      assertLockHeld();
-      const existing = await knex('catalog_entities')
-        .where({ entity_ref: 'component:default/ee' })
-        .first();
-      observations.push(Boolean(existing));
-      signalFirstRead();
-      await firstGate;
-      assertLockHeld();
-      await provider.registerExecutionEnvironment(entity);
-    });
+    const first = lockA(
+      'component:default/ee',
+      async ({ assertLockHeld, beginMutation }) => {
+        assertLockHeld();
+        const existing = await knex('catalog_entities')
+          .where({ entity_ref: 'component:default/ee' })
+          .first();
+        observations.push(Boolean(existing));
+        signalFirstRead();
+        await firstGate;
+        assertLockHeld();
+        await beginMutation();
+        await provider.registerExecutionEnvironment(entity);
+      },
+    );
 
     await firstRead;
     let secondStarted = false;
-    const second = lockB('component:default/ee', async assertLockHeld => {
-      secondStarted = true;
-      assertLockHeld();
-      const existing = await knex('catalog_entities')
-        .where({ entity_ref: 'component:default/ee' })
-        .first();
-      observations.push(Boolean(existing));
-      await provider.registerExecutionEnvironment(entity);
-    });
+    const second = lockB(
+      'component:default/ee',
+      async ({ assertLockHeld, beginMutation }) => {
+        secondStarted = true;
+        assertLockHeld();
+        const existing = await knex('catalog_entities')
+          .where({ entity_ref: 'component:default/ee' })
+          .first();
+        observations.push(Boolean(existing));
+        await beginMutation();
+        await provider.registerExecutionEnvironment(entity);
+      },
+    );
 
     await new Promise(resolve => setTimeout(resolve, 25));
     expect(secondStarted).toBe(false);
@@ -70,6 +83,83 @@ describe('createEERegistrationLock', () => {
     expect(observations).toEqual([false, true]);
     expect(applyMutation).toHaveBeenCalledTimes(2);
     await expect(knex('catalog_entities')).resolves.toHaveLength(1);
+    await knex.destroy();
+  });
+
+  it('does not reclaim an expired lease during a provider mutation', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    await knex.schema.createTable('catalog_entities', table => {
+      table.string('entity_ref').primary();
+    });
+    const database = { getClient: async () => knex } as any;
+    const lockA = createEERegistrationLock(database);
+    const lockB = createEERegistrationLock(database);
+    const provider = new EEEntityProvider(mockServices.logger.mock());
+    let signalMutationStarted!: () => void;
+    let releaseMutation!: () => void;
+    const mutationStarted = new Promise<void>(resolve => {
+      signalMutationStarted = resolve;
+    });
+    const mutationGate = new Promise<void>(resolve => {
+      releaseMutation = resolve;
+    });
+    let activeMutations = 0;
+    let maxConcurrentMutations = 0;
+    const applyMutation = jest.fn(async ({ added }: any) => {
+      activeMutations += 1;
+      maxConcurrentMutations = Math.max(
+        maxConcurrentMutations,
+        activeMutations,
+      );
+      try {
+        if (applyMutation.mock.calls.length === 1) {
+          signalMutationStarted();
+          await mutationGate;
+        }
+        for (const { entity } of added) {
+          await knex('catalog_entities')
+            .insert({ entity_ref: `component:default/${entity.metadata.name}` })
+            .onConflict('entity_ref')
+            .merge();
+        }
+      } finally {
+        activeMutations -= 1;
+      }
+    });
+    await provider.connect({ applyMutation } as any);
+    const entity = {
+      kind: 'Component',
+      metadata: { name: 'ee' },
+      spec: { type: 'execution-environment' },
+    };
+
+    const first = lockA('component:default/ee', async lock => {
+      await lock.beginMutation();
+      await provider.registerExecutionEnvironment(entity);
+    });
+    await mutationStarted;
+
+    await knex('ee_registration_lock_leases')
+      .where({ entity_ref: 'component:default/ee' })
+      .update({ lease_expires_at: 0 });
+
+    let secondStarted = false;
+    const second = lockB('component:default/ee', async lock => {
+      secondStarted = true;
+      await lock.beginMutation();
+      await provider.registerExecutionEnvironment(entity);
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 125));
+    expect(secondStarted).toBe(false);
+    expect(activeMutations).toBe(1);
+    expect(applyMutation).toHaveBeenCalledTimes(1);
+
+    releaseMutation();
+    await Promise.all([first, second]);
+
+    expect(maxConcurrentMutations).toBe(1);
+    expect(applyMutation).toHaveBeenCalledTimes(2);
     await knex.destroy();
   });
 

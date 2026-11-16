@@ -11,7 +11,10 @@ const LOCK_WAIT_TIMEOUT_MS = 60_000;
 
 export type EERegistrationLock = <T>(
   entityRef: string,
-  operation: (assertLockHeld: () => void) => Promise<T>,
+  operation: (lock: {
+    assertLockHeld: () => void;
+    beginMutation: () => Promise<void>;
+  }) => Promise<T>,
 ) => Promise<T>;
 
 export function createEERegistrationLock(
@@ -37,6 +40,21 @@ export function createEERegistrationLock(
     const assertLockHeld = () => {
       if (leaseLost) throw leaseLost;
     };
+    const beginMutation = async () => {
+      assertLockHeld();
+      // The provider API has no fencing token. Keep this flag set until its
+      // mutation promise settles; a crashed process requires operator recovery.
+      const updated = await knex(LOCK_TABLE)
+        .where({ entity_ref: entityRef, owner, mutation_in_progress: false })
+        .andWhere('lease_expires_at', '>', Date.now())
+        .update({ mutation_in_progress: true });
+      if (Number(updated) !== 1) {
+        leaseLost = new Error(
+          `EE registration lock lease was lost before mutation for ${entityRef}`,
+        );
+        assertLockHeld();
+      }
+    };
     const heartbeat = setInterval(() => {
       if (!renewalInFlight) {
         renewalInFlight = renewLock(knex, entityRef, owner)
@@ -60,31 +78,48 @@ export function createEERegistrationLock(
     }, LEASE_RENEWAL_INTERVAL_MS);
 
     try {
-      const result = await operation(assertLockHeld);
+      const result = await operation({ assertLockHeld, beginMutation });
       if (renewalInFlight) await renewalInFlight;
       assertLockHeld();
       return result;
     } finally {
       clearInterval(heartbeat);
       if (renewalInFlight) await renewalInFlight;
-      await knex(LOCK_TABLE)
-        .where({ entity_ref: entityRef, owner })
-        .update({ owner: null, lease_expires_at: 0 });
+      await knex(LOCK_TABLE).where({ entity_ref: entityRef, owner }).update({
+        owner: null,
+        lease_expires_at: 0,
+        mutation_in_progress: false,
+      });
     }
   };
 }
 
 async function ensureLockTable(knex: KnexClient): Promise<void> {
-  if (await knex.schema.hasTable(LOCK_TABLE)) return;
-  try {
-    await knex.schema.createTable(LOCK_TABLE, table => {
-      table.string('entity_ref').primary();
-      table.string('owner').nullable();
-      table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
-    });
-  } catch (error) {
-    // Multiple replicas may initialize the table at the same time.
-    if (!(await knex.schema.hasTable(LOCK_TABLE))) throw error;
+  if (!(await knex.schema.hasTable(LOCK_TABLE))) {
+    try {
+      await knex.schema.createTable(LOCK_TABLE, table => {
+        table.string('entity_ref').primary();
+        table.string('owner').nullable();
+        table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
+        table.boolean('mutation_in_progress').notNullable().defaultTo(false);
+      });
+    } catch (error) {
+      // Multiple replicas may initialize the table at the same time.
+      if (!(await knex.schema.hasTable(LOCK_TABLE))) throw error;
+    }
+  }
+
+  if (!(await knex.schema.hasColumn(LOCK_TABLE, 'mutation_in_progress'))) {
+    try {
+      await knex.schema.alterTable(LOCK_TABLE, table => {
+        table.boolean('mutation_in_progress').notNullable().defaultTo(false);
+      });
+    } catch (error) {
+      // Multiple replicas may add the column at the same time.
+      if (!(await knex.schema.hasColumn(LOCK_TABLE, 'mutation_in_progress'))) {
+        throw error;
+      }
+    }
   }
 }
 
@@ -104,6 +139,8 @@ async function acquireLock(
       const updated = await transaction(LOCK_TABLE)
         .where({ entity_ref: entityRef })
         .andWhere('lease_expires_at', '<=', now)
+        // applyMutation has no fencing token, so never reclaim an active write.
+        .andWhere('mutation_in_progress', false)
         .update({ owner, lease_expires_at: now + LEASE_DURATION_MS });
       return Number(updated) === 1;
     });
