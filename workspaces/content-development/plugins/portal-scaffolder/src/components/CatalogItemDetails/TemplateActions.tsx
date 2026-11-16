@@ -9,7 +9,7 @@ import { useEntityPermission } from '@backstage/plugin-catalog-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
 
-import type { ControllerTemplateSource } from '../controllerTemplateSource';
+import type { controllerTemplateNavigationState } from '../controllerTemplateSource';
 import { selectedTemplateRouteRef } from '../../routes';
 
 export const TemplateActions = ({
@@ -29,17 +29,17 @@ export const TemplateActions = ({
   );
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
   const navigate = useNavigate();
-  const { state } = useLocation();
-  const initialFormData = (
-    state as { initialFormData?: ControllerTemplateSource } | null
-  )?.initialFormData;
+  const location = useLocation();
+  const state = location.state as ReturnType<
+    typeof controllerTemplateNavigationState
+  > | null;
 
   const onLaunchTemplate = () => {
     if (!namespace || !templateName) return;
 
     const path = templateRouteRef({ namespace, templateName });
-    if (initialFormData) {
-      navigate(path, { state: { initialFormData } });
+    if (state?.initialFormData) {
+      navigate(path, { state });
     } else {
       navigate(path);
     }

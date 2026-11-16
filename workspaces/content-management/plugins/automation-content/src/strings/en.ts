@@ -5,6 +5,13 @@ export const eeMessages = {
   retry: 'Retry',
   unknown: 'Undetermined',
   reload: 'Reload results',
+  controllerVersion: {
+    label: 'Version',
+    image: 'Image pull reference',
+    loading: 'Loading image versions',
+    failed: 'Image versions could not be loaded.',
+    untagged: 'Untagged',
+  },
   inventory: {
     denied: 'You do not have permission to view execution environment images.',
     permissionError:

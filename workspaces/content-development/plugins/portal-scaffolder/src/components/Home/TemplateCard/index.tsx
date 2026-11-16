@@ -19,6 +19,7 @@ import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
 import {
   CONTROLLER_TEMPLATE_TAG,
+  controllerTemplateNavigationState,
   type ControllerTemplateSource,
 } from '../../controllerTemplateSource';
 import { rootRouteRef } from '../../../routes';
@@ -39,14 +40,12 @@ export function WizardCard({
     permission: taskCreatePermission,
   });
 
-  const initialFormData = template.metadata.tags?.includes(
-    CONTROLLER_TEMPLATE_TAG,
-  )
+  const source = template.metadata.tags?.includes(CONTROLLER_TEMPLATE_TAG)
     ? controllerSource
     : undefined;
   const openTemplate = (path: string) => {
-    if (initialFormData) {
-      navigate(path, { state: { initialFormData } });
+    if (source) {
+      navigate(path, { state: controllerTemplateNavigationState(source) });
     } else {
       navigate(path);
     }
