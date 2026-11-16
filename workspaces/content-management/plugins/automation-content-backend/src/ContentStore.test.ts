@@ -66,6 +66,32 @@ async function storeOver(
 const EE_LABEL = 'ansible-execution-environment';
 
 describe('EE metadata overlays', () => {
+  it('redacts runtime credentials before storing overlays and comparing retries', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const store = await storeOver(
+      new MockRegistry({ repositories: { 'ansible/ee': [image] } }),
+    );
+    await store.refreshRegistry('mock');
+    const [artifact] = await store.listArtifacts();
+    const token = 'mock-overlay-runtime-token';
+    const overlay = { version: '1', metadata: { nested: { token } } };
+    expect(store.redactor.addRuntimeSecret(token, 300_000, 'mock')).toBe(true);
+
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+
+    store.redactor.releaseRuntimeSecret(token, 'mock');
+    expect(store.redactor.redact(token)).toBe(token);
+    await expect(store.getMetadataOverlay(artifact.ref)).resolves.toEqual({
+      version: '1',
+      metadata: { nested: { token: '[REDACTED]' } },
+    });
+  });
+
   it('applies revisions offline, preserves them on refresh, and follows the digest when a tag moves', async () => {
     const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
     const repositories = { 'ansible/ee': [image] };

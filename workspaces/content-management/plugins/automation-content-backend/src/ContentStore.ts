@@ -738,7 +738,9 @@ export class ContentStore {
     if (!artifact) return 'not-found';
 
     const revision = { artifact_ref: ref, version: overlay.version };
-    const metadata = JSON.stringify(overlay.metadata);
+    const metadata = JSON.stringify(
+      this.redactor.redactValue(overlay.metadata, { maxDepth: 64 }),
+    );
     const inserted = await this.db('ee_metadata_overlays')
       .insert({ ...revision, metadata })
       .onConflict(['artifact_ref', 'version'])
