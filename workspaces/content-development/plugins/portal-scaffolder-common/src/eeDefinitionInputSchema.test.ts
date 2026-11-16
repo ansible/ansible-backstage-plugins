@@ -68,7 +68,7 @@ describe('eeDefinitionInputSchema', () => {
       galaxyTlsVerify: false,
     });
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.galaxyTlsVerify).toBe(false);
+    expect(result).toMatchObject({ data: { galaxyTlsVerify: false } });
   });
 
   describe('eeFileName validation', () => {
