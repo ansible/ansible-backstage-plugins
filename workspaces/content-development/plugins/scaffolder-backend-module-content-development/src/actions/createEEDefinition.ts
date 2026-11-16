@@ -25,7 +25,7 @@ import {
 } from './types';
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
-import { eeDefinitionInputSchema } from './schemas/eeDefinitionSchema';
+import { eeDefinitionInputSchema } from '@ansible/portal-scaffolder-common';
 import type { ZodType } from 'zod';
 
 const eeInputSchema: ZodType = eeDefinitionInputSchema;
