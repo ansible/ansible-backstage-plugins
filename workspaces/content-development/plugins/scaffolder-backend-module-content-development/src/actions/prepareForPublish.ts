@@ -19,11 +19,13 @@ function buildScmUrls(
   owner: string,
   repo: string,
   contextDir: string,
+  branch: string,
 ): { catalogInfoUrl: string; fullRepoUrl: string } {
   const blobSegment = scmProvider === 'gitlab' ? '/-/blob' : '/blob';
+  const ref = encodeURIComponent(branch);
   return {
-    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/catalog-info.yaml`,
-    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/`,
+    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/catalog-info.yaml`,
+    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/`,
   };
 }
 
@@ -107,6 +109,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} exists: ${exists}`,
         );
 
+        const repositoryInfo = exists
+          ? await scmClient.getRepositoryInfo(repositoryOwner, repositoryName)
+          : undefined;
+        const defaultBranch = repositoryInfo?.defaultBranch || 'main';
+
         if (!exists) {
           if (!createNewRepository) {
             throw new Error(
@@ -141,13 +148,9 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         if (scmProvider === 'github' && !createNewRepo) {
           let workflowExists = false;
           try {
-            const repository = await scmClient.getRepositoryInfo(
-              repositoryOwner,
-              repositoryName,
-            );
             await scmClient.getFileContent(
-              repository,
-              repository.defaultBranch,
+              repositoryInfo!,
+              defaultBranch,
               '.github/workflows/ee-build.yml',
             );
             workflowExists = true;
@@ -198,6 +201,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           repositoryOwner,
           repositoryName,
           contextDirName,
+          defaultBranch,
         );
         logger.info(`Generated repository contents URL: ${catalogInfoUrl}`);
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);

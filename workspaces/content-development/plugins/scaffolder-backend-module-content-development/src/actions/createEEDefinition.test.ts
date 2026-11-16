@@ -913,6 +913,55 @@ describe('createEEDefinition', () => {
     ]);
   });
 
+  it('round-trips nested GitLab namespaces in SCM collection sources', async () => {
+    const [catalogCollection] = buildCollectionsFromCatalogEntities([
+      {
+        spec: {
+          collection_full_name: 'my.collection',
+          collection_version: '1.0.0',
+        },
+        metadata: {
+          annotations: {
+            'ansible.io/scm-provider': 'gitlab',
+            'ansible.io/scm-host-name': 'corp',
+            'ansible.io/scm-organization': 'team/subgroup',
+            'ansible.io/scm-repository': 'collection',
+          },
+        },
+      },
+    ]);
+    const producedSource = catalogCollection.sources?.[0];
+    expect(producedSource).toBe('Gitlab / corp / team/subgroup / collection');
+
+    const action = makeAction(
+      makeScmConfig({ gitlab: [{ name: 'corp', host: 'gitlab.com' }] }),
+    );
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: 'img:latest',
+        publishToSCM: true,
+        collections: [
+          { name: 'my.collection', source: producedSource, version: 'main' },
+        ],
+      }),
+    );
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0]).toEqual({
+      name: 'https://${AAP_EE_BUILDER_GITLAB_CORP_TEAM_SUBGROUP_TOKEN}@gitlab.com/team/subgroup/collection',
+      type: 'git',
+      version: 'main',
+    });
+    expect(eeConfig.scm_servers).toEqual([
+      {
+        id: 'aap_ee_builder_gitlab_corp_team_subgroup_token',
+        hostname: 'gitlab.com',
+        token_env_var: 'AAP_EE_BUILDER_GITLAB_CORP_TEAM_SUBGROUP_TOKEN',
+      },
+    ]);
+  });
+
   it('preserves slashes in SCM refs while removing picker display metadata', async () => {
     const action = makeAction(
       makeScmConfig({

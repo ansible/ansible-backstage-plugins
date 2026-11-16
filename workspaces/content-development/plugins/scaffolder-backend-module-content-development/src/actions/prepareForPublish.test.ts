@@ -72,7 +72,7 @@ describe('prepareForPublish', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        }) as any,
+        } as any),
     );
   });
 
@@ -101,6 +101,40 @@ describe('prepareForPublish', () => {
   });
 
   describe('repository existence check functionality', () => {
+    it('uses an existing repository default branch in the catalog URL', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getRepositoryInfo.mockResolvedValue({
+        defaultBranch: 'develop',
+        fullPath: 'test-owner/test-repo',
+      });
+      mockScmClient.getHost.mockReturnValue('github.com');
+
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Github',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await prepareForPublishAction({ rootConfig: mockConfig }).handler(ctx);
+
+      expect(ctx.output).toHaveBeenCalledWith(
+        'generatedCatalogInfoUrl',
+        'https://github.com/test-owner/test-repo/blob/develop/test-ee/catalog-info.yaml',
+      );
+      expect(mockScmClient.getRepositoryInfo).toHaveBeenCalledWith(
+        'test-owner',
+        'test-repo',
+      );
+    });
+
     it('should set createNewRepo to false when repository exists', async () => {
       mockScmClient.repositoryExists.mockResolvedValue(true);
       mockScmClient.getHost.mockReturnValue('github.com');

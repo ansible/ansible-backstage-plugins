@@ -71,6 +71,7 @@ import { ConflictError } from '@backstage/errors';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
+import type { EERegistrationLock } from './EERegistrationLock';
 
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
@@ -123,6 +124,7 @@ export function createRouter(options: {
   auth: AuthService;
   catalogClient: CatalogClient;
   permissions: PermissionsService;
+  withEERegistrationLock: EERegistrationLock;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
@@ -139,6 +141,7 @@ export function createRouter(options: {
     auth,
     catalogClient,
     permissions,
+    withEERegistrationLock,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
   } = options;
@@ -392,65 +395,71 @@ export function createRouter(options: {
       onBehalfOf: credentials,
       targetPluginId: 'catalog',
     });
-    let existingEntity = await catalogClient.getEntityByRef(entityRef, {
-      token: callerCatalogToken,
-    });
-    if (!existingEntity) {
-      const serviceCredentials = await auth.getOwnServiceCredentials();
-      const { token: serviceCatalogToken } = await auth.getPluginRequestToken({
-        onBehalfOf: serviceCredentials,
-        targetPluginId: 'catalog',
+    await withEERegistrationLock(entityRef, async () => {
+      let existingEntity = await catalogClient.getEntityByRef(entityRef, {
+        token: callerCatalogToken,
       });
-      existingEntity = await catalogClient.getEntityByRef(entityRef, {
-        token: serviceCatalogToken,
-      });
-    }
-
-    if (
-      existingEntity &&
-      (existingEntity.kind !== 'Component' ||
-        existingEntity.spec?.type !== 'execution-environment')
-    ) {
-      response.status(409).json({
-        error: 'Refusing to replace a non-execution-environment entity',
-      });
-      return;
-    }
-
-    const [decision] = existingEntity
-      ? await permissions.authorize(
-          [
-            {
-              permission: catalogEntityDeletePermission,
-              resourceRef: entityRef,
-            },
-          ],
-          { credentials },
-        )
-      : await permissions.authorize(
-          [{ permission: catalogEntityCreatePermission }],
-          { credentials },
+      if (!existingEntity) {
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const { token: serviceCatalogToken } = await auth.getPluginRequestToken(
+          {
+            onBehalfOf: serviceCredentials,
+            targetPluginId: 'catalog',
+          },
         );
-    if (decision.result !== AuthorizeResult.ALLOW) {
-      response.status(403).json({
-        error: `Forbidden: insufficient permissions to ${
-          existingEntity ? 'replace' : 'create'
-        } entity`,
-      });
-      return;
-    }
+        existingEntity = await catalogClient.getEntityByRef(entityRef, {
+          token: serviceCatalogToken,
+        });
+      }
 
-    try {
-      await eeEntityProvider.registerExecutionEnvironment(entity);
-      response.status(200).json({ success: true });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to register Execution Environment: ${errorMessage}`);
-      response.status(500).json({
-        error: `Failed to register Execution Environment: ${errorMessage}`,
-      });
-    }
+      if (
+        existingEntity &&
+        (existingEntity.kind !== 'Component' ||
+          existingEntity.spec?.type !== 'execution-environment')
+      ) {
+        response.status(409).json({
+          error: 'Refusing to replace a non-execution-environment entity',
+        });
+        return;
+      }
+
+      const [decision] = existingEntity
+        ? await permissions.authorize(
+            [
+              {
+                permission: catalogEntityDeletePermission,
+                resourceRef: entityRef,
+              },
+            ],
+            { credentials },
+          )
+        : await permissions.authorize(
+            [{ permission: catalogEntityCreatePermission }],
+            { credentials },
+          );
+      if (decision.result !== AuthorizeResult.ALLOW) {
+        response.status(403).json({
+          error: `Forbidden: insufficient permissions to ${
+            existingEntity ? 'replace' : 'create'
+          } entity`,
+        });
+        return;
+      }
+
+      try {
+        await eeEntityProvider.registerExecutionEnvironment(entity);
+        response.status(200).json({ success: true });
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          `Failed to register Execution Environment: ${errorMessage}`,
+        );
+        response.status(500).json({
+          error: `Failed to register Execution Environment: ${errorMessage}`,
+        });
+      }
+    });
   });
 
   /**

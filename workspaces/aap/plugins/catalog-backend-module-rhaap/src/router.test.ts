@@ -59,7 +59,10 @@ jest.mock('@ansible/backstage-rhaap-common', () => {
 
 import express from 'express';
 import request from 'supertest';
-import { createRouter } from './router';
+import { createRouter as createRouterImplementation } from './router';
+import { createEERegistrationLock } from './EERegistrationLock';
+import type { EERegistrationLock } from './EERegistrationLock';
+import { TestDatabases } from '@backstage/backend-test-utils';
 import { clearCIActivityCache } from './helpers';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
@@ -83,6 +86,21 @@ import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+
+type TestRouterOptions = Omit<
+  Parameters<typeof createRouterImplementation>[0],
+  'withEERegistrationLock'
+> & { withEERegistrationLock?: EERegistrationLock };
+
+const createRouter = (options: TestRouterOptions) =>
+  createRouterImplementation({
+    ...options,
+    withEERegistrationLock:
+      options.withEERegistrationLock ??
+      ((_entityRef, operation) => operation()),
+  });
+
+const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 function createMockGitContentsProvider(
   overrides: {
@@ -367,6 +385,76 @@ describe('createRouter', () => {
   });
 
   describe('POST /ansible/ee', () => {
+    it('serializes concurrent create requests across independent router locks', async () => {
+      const knex = await testDatabases.init('SQLITE_3');
+      const lockA = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const lockB = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'concurrent-ee' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          kind: 'Component',
+          spec: { type: 'execution-environment' },
+        } as any);
+      mockPermissions.authorize.mockResolvedValue([
+        { result: AuthorizeResult.ALLOW },
+      ] as any);
+      mockEEEntityProvider.registerExecutionEnvironment.mockImplementation(
+        async () => new Promise(resolve => setTimeout(resolve, 10)),
+      );
+
+      const createApp = async (withEERegistrationLock: EERegistrationLock) =>
+        express().use(
+          express.json(),
+          await createRouter({
+            logger: mockLogger,
+            config: mockConfig,
+            scheduler: mockScheduler,
+            aapEntityProvider: mockAAPEntityProvider,
+            jobTemplateProvider: mockJobTemplateProvider,
+            eeEntityProvider: mockEEEntityProvider,
+            pahCollectionProviders: [mockPAHCollectionProvider],
+            httpAuth: mockHttpAuth,
+            userInfo: mockUserInfo,
+            auth: mockAuth,
+            catalogClient: mockCatalogClient,
+            permissions: mockPermissions,
+            withEERegistrationLock,
+          }),
+        );
+      const [appA, appB] = await Promise.all([
+        createApp(lockA),
+        createApp(lockB),
+      ]);
+
+      const responses = await Promise.all(
+        [appA, appB].map(testApp =>
+          request(testApp).post('/ansible/ee').send({ entity }),
+        ),
+      );
+
+      expect(responses.map(response => response.status)).toEqual([200, 200]);
+      expect(
+        mockPermissions.authorize.mock.calls.map(
+          ([permissions]) => permissions[0].permission,
+        ),
+      ).toEqual([catalogEntityCreatePermission, catalogEntityDeletePermission]);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledTimes(2);
+      await knex.destroy();
+    });
+
     it('should successfully register an execution environment', async () => {
       mockCatalogClient.getEntityByRef
         .mockResolvedValueOnce(undefined)
