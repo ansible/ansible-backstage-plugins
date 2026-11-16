@@ -5,6 +5,7 @@ import {
 } from '@backstage/frontend-plugin-api';
 import { useNavigate } from 'react-router-dom';
 import useAsyncFn from 'react-use/lib/useAsyncFn';
+import useMountedState from 'react-use/lib/useMountedState';
 import {
   ButtonIcon,
   Flex,
@@ -36,6 +37,7 @@ export function EEImageRowActions({
   const sync = useEESync({ repository: image, enabled: canSync, onReload });
   const api = useApi(automationContentApiRef);
   const navigate = useNavigate();
+  const isMounted = useMountedState();
   const templatesHref = useRouteRef(templatesRouteRef)?.();
   const { registry, repository, representativeRef, representativeTag } = image;
   const [controller, openControllerTemplate] = useAsyncFn(async () => {
@@ -50,6 +52,8 @@ export function EEImageRowActions({
     const pullReference =
       tag?.taggedPullReference ??
       (await api.getEEArtifact(representativeRef)).pullReference;
+    if (!isMounted()) return;
+
     navigate(
       controllerTemplateHref(
         templatesHref,
@@ -60,6 +64,7 @@ export function EEImageRowActions({
     );
   }, [
     api,
+    isMounted,
     navigate,
     templatesHref,
     registry,
