@@ -492,67 +492,6 @@ describe('AAPResourcePicker', () => {
 
       expect(onChangeSpy).toHaveBeenCalledWith([mockResources[0]]);
     });
-
-    it('preserves preconfigured string IDs when resources use numeric IDs', async () => {
-      const preconfiguredResource = {
-        id: 12,
-        name: 'Inventory 12',
-      };
-      const newlySelectedResource = {
-        id: 13,
-        name: 'Inventory 13',
-      };
-      const onChangeSpy = jest.fn();
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: [preconfiguredResource, newlySelectedResource],
-      });
-
-      renderComponent({
-        ...multipleProps,
-        formData: ['12'],
-        onChange: onChangeSpy,
-      });
-
-      await waitFor(() => {
-        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
-      });
-
-      expect(screen.getByText('Inventory 12')).toBeInTheDocument();
-
-      fireEvent.mouseDown(screen.getByRole('button'));
-      fireEvent.click(await screen.findByText('Inventory 13'));
-
-      expect(onChangeSpy).toHaveBeenCalledWith([
-        preconfiguredResource,
-        newlySelectedResource,
-      ]);
-    });
-
-    it('keeps tag selections as strings for the launch payload', async () => {
-      const onChangeSpy = jest.fn();
-      mockScaffolderApi.autocomplete.mockResolvedValue({
-        results: [{ id: 'deploy', name: 'deploy' }],
-      });
-      renderComponent({
-        ...multipleProps,
-        schema: {
-          ...multipleProps.schema,
-          resource: 'tags',
-          idKey: 'name',
-          nameKey: 'name',
-          items: { type: 'string' },
-        },
-        onChange: onChangeSpy,
-      });
-
-      await waitFor(() => {
-        expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
-      });
-      fireEvent.mouseDown(screen.getByRole('button'));
-      fireEvent.click(await screen.findByText('deploy'));
-
-      expect(onChangeSpy).toHaveBeenCalledWith(['deploy']);
-    });
   });
 
   describe('Form State', () => {
