@@ -589,14 +589,11 @@ components:
       description: |
         Why an image was, or was not, recognised as a given content type. Recorded so an
         operator never has to guess why something is missing from a listing.
-      required: [type, confidence, signals]
+      required: [type, signals, readsContentManifest]
       properties:
         type:
           type: string
           description: '`execution-environment`, or `oci-image` when unrecognised.'
-        confidence:
-          type: string
-          enum: [certain, likely, no]
         signals:
           type: array
           items: { type: string }
@@ -604,6 +601,9 @@ components:
             The signals that fired, in the order checked: a content-manifest referrer,
             the `ansible-execution-environment` label that ansible-builder emits on
             every EE it builds, or our own manifest label.
+        readsContentManifest:
+          type: boolean
+          description: Whether the owning content type publishes a build-time content manifest.
 
     ExecutionEnvironment:
       type: object
@@ -3638,6 +3638,7 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ContentItem'
                   - type: object
+                    required: [fqcn, variantCount, variants]
                     properties:
                       fqcn: { type: string }
                       variantCount: { type: integer }
@@ -3741,6 +3742,7 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ContentItem'
                   - type: object
+                    required: [fqcn, variantCount, variants]
                     properties:
                       fqcn: { type: string }
                       variantCount: { type: integer }

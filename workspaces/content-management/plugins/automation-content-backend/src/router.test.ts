@@ -117,9 +117,9 @@ const DEFAULT_ARTIFACT: IndexedArtifact = {
   contentsKnown: true,
   classification: {
     type: 'execution-environment',
-    confidence: 'certain',
     signals: [],
-  } as never,
+    readsContentManifest: true,
+  },
   manifest: { collections: [], generatedBy: {}, complete: true } as never,
 };
 
@@ -514,9 +514,9 @@ describe('GET /content pagination', () => {
       contentsKnown: true,
       classification: {
         type: 'execution-environment',
-        confidence: 'certain',
         signals: [],
-      } as never,
+        readsContentManifest: true,
+      },
       manifest: { collections: [], generatedBy: {}, complete: true } as never,
     };
   }
