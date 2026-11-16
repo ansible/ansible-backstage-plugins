@@ -1,3 +1,9 @@
+import { randomBytes } from 'node:crypto';
+import { ScmClientFactory } from '@ansible/content-development-common';
+import { mockServices } from '@backstage/backend-test-utils';
+import { ConfigReader } from '@backstage/config';
+import { prepareForPublishAction } from './prepareForPublish';
+
 /*
  * Copyright 2025 The Ansible plugin Authors
  *
@@ -21,12 +27,6 @@ jest.mock('node:crypto', () => ({
 jest.mock('@ansible/content-development-common', () => ({
   ScmClientFactory: jest.fn(),
 }));
-
-import { randomBytes } from 'node:crypto';
-import { mockServices } from '@backstage/backend-test-utils';
-import { ConfigReader } from '@backstage/config';
-import { prepareForPublishAction } from './prepareForPublish';
-import { ScmClientFactory } from '@ansible/content-development-common';
 
 const mockRandomBytes = randomBytes as jest.MockedFunction<
   (size: number) => Buffer
@@ -72,7 +72,7 @@ describe('prepareForPublish', () => {
       () =>
         ({
           createClient: jest.fn().mockResolvedValue(mockScmClient),
-        } as any),
+        }) as any,
     );
   });
 
