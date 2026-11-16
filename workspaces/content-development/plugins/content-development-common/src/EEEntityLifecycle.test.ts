@@ -18,6 +18,7 @@ describe('EEEntityLifecycleService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.fetch = jest.fn() as unknown as typeof fetch;
     fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       status: 200,

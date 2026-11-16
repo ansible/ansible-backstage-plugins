@@ -135,7 +135,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version || ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(

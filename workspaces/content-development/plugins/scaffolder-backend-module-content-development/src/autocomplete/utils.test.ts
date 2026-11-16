@@ -156,6 +156,24 @@ describe('getCollections catalog filters', () => {
     ).toEqual(['ansible.core']);
   });
 
+  it('uses a non-empty ref as the label when the version is empty', () => {
+    const [collection] = buildCollectionsFromCatalogEntities([
+      {
+        spec: {
+          collection_full_name: 'ansible.core',
+          collection_version: '',
+        },
+        metadata: { annotations: { 'ansible.io/ref': 'release/1.0' } },
+      },
+    ]);
+
+    expect(collection.versions?.[0]).toMatchObject({
+      ref: 'release/1.0',
+      version: '',
+      label: 'release/1.0',
+    });
+  });
+
   it('bounds search query terms and length before building the catalog filter', async () => {
     const longValue = 'x'.repeat(600);
     const query = Array.from(
