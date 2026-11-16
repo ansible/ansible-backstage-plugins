@@ -1024,6 +1024,7 @@ __metadata:
     "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@backstage/types": "npm:1.2.2"
+    "@backstage/ui": "npm:0.17.1"
     "@material-ui/core": "npm:^4.9.13"
     "@material-ui/icons": "npm:^4.9.1"
     "@material-ui/lab": "npm:^4.0.0-alpha.61"

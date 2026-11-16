@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { Button } from '@material-ui/core';
 import DeleteIcon from '@material-ui/icons/Delete';
 import SendIcon from '@material-ui/icons/Send';
@@ -9,6 +9,7 @@ import { useEntityPermission } from '@backstage/plugin-catalog-react/alpha';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
 
+import type { ControllerTemplateSource } from '../controllerTemplateSource';
 import { selectedTemplateRouteRef } from '../../routes';
 
 export const TemplateActions = ({
@@ -28,10 +29,20 @@ export const TemplateActions = ({
   );
   const templateRouteRef = useRouteRef(selectedTemplateRouteRef);
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const initialFormData = (
+    state as { initialFormData?: ControllerTemplateSource } | null
+  )?.initialFormData;
 
   const onLaunchTemplate = () => {
-    if (namespace && templateName)
-      navigate(templateRouteRef({ namespace, templateName }));
+    if (!namespace || !templateName) return;
+
+    const path = templateRouteRef({ namespace, templateName });
+    if (initialFormData) {
+      navigate(path, { state: { initialFormData } });
+    } else {
+      navigate(path);
+    }
   };
 
   return (

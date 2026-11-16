@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useSignal } from '@backstage/plugin-signals-react';
 import { useNavigate } from 'react-router';
-import { Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { Button, Snackbar, Tooltip, Typography } from '@material-ui/core';
 import Alert from '@material-ui/lab/Alert';
 import { Content, Page } from '@backstage/core-components';
@@ -21,6 +21,11 @@ import {
 import { templatesViewPermission } from '@ansible/aap-common/permissions';
 
 import { useIsSuperuser } from '../../hooks';
+import {
+  CONTROLLER_TEMPLATE_TAG,
+  readControllerTemplateSource,
+  type ControllerTemplateSource,
+} from '../controllerTemplateSource';
 import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import type { SyncProgressEntry, SyncOutcome } from '../common';
@@ -46,6 +51,7 @@ import {
   TemplateGrid,
   invalidateTemplatesCatalog,
 } from './templatesCatalog';
+import { ControllerTemplateGuidance } from './ControllerTemplateGuidance';
 import { TemplatesPageHeaderSection } from './TemplatesPageHeaderSection';
 
 /** When the first post sync AAP list matches pre sync, a second fetch may still be stale, wait before retrying. */
@@ -84,11 +90,12 @@ function pluralizeSyncItem(
 type HomeCatalogPanelProps = {
   jobTemplateIds: number[];
   selectedSources: string[];
-  /** Remount only when source filters change — not on JT sync. */
+  /** Remount when the source or handoff scope changes. */
   listKey: string;
   syncKey: number;
   externalLoading: boolean;
   onSourceChange: (sources: string[]) => void;
+  controllerSource?: ControllerTemplateSource;
 };
 
 /**
@@ -102,12 +109,14 @@ function HomeCatalogPanel({
   syncKey,
   externalLoading,
   onSourceChange,
+  controllerSource,
 }: Readonly<HomeCatalogPanelProps>) {
   return (
     <TemplatesCatalogProvider
       jobTemplateIds={jobTemplateIds}
       selectedSources={selectedSources}
       listKey={listKey}
+      requiredTag={controllerSource ? CONTROLLER_TEMPLATE_TAG : undefined}
     >
       <CatalogFilterLayout>
         <CatalogFilterLayout.Filters>
@@ -133,7 +142,10 @@ function HomeCatalogPanel({
           <EntityOwnerPicker />
         </CatalogFilterLayout.Filters>
         <CatalogFilterLayout.Content>
-          <TemplateGrid externalLoading={externalLoading} />
+          <TemplateGrid
+            externalLoading={externalLoading}
+            controllerSource={controllerSource}
+          />
         </CatalogFilterLayout.Content>
       </CatalogFilterLayout>
     </TemplatesCatalogProvider>
@@ -143,6 +155,8 @@ function HomeCatalogPanel({
 /** Render the template catalog and synchronize provider status and user notifications. */
 export const HomeComponent = () => {
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const controllerSource = readControllerTemplateSource(search);
   const shellPageClasses = useShellPageStyles();
   const rootLink = useRouteRef(rootRouteRef);
   const ansibleApi = useApi(ansibleApiRef);
@@ -510,9 +524,12 @@ export const HomeComponent = () => {
     invalidateTemplatesCatalog();
   }, [jobTemplateIdsKey, jobTemplatesLoadState]);
 
-  // Remount only when source filters change. JT id updates flow through
-  // createHomeCatalogApi + invalidateTemplatesCatalog soft refresh.
-  const catalogListKey = selectedSources.join(',') || 'all-sources';
+  // JT id updates flow through createHomeCatalogApi and soft refresh.
+  const catalogListKey = JSON.stringify([selectedSources, controllerSource]);
+  const clearControllerFilters = () => {
+    setSelectedSources([]);
+    navigate(rootLink());
+  };
 
   let catalogContent;
   if (jobTemplatesLoadState === 'ready') {
@@ -524,6 +541,7 @@ export const HomeComponent = () => {
         syncKey={syncKey}
         externalLoading={loading}
         onSourceChange={setSelectedSources}
+        controllerSource={controllerSource}
       />
     );
   } else if (jobTemplatesLoadState === 'error') {
@@ -611,6 +629,12 @@ export const HomeComponent = () => {
               controllerSnackbar.message}
           </Alert>
         </Snackbar>
+        {controllerSource && (
+          <ControllerTemplateGuidance
+            key={controllerSource.image}
+            onClear={clearControllerFilters}
+          />
+        )}
         {catalogContent}
       </Content>
     </Page>

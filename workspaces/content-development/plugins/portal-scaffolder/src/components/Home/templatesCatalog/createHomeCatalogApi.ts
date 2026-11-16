@@ -15,6 +15,7 @@ export function createHomeCatalogApi(
   catalogApi: CatalogApi,
   jobTemplateIds: number[],
   selectedSources: string[],
+  requiredTag?: string,
 ): CatalogApi {
   const withVisibilityQuery = (
     request: QueryEntitiesInitialRequest = {},
@@ -26,6 +27,7 @@ export function createHomeCatalogApi(
         jobTemplateIds,
         catalogFilter: filter ?? {},
         selectedSources,
+        requiredTag,
       }) as FilterPredicate,
     };
 

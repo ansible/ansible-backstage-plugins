@@ -14,26 +14,34 @@ type TemplatesCatalogProviderProps = {
   children: ReactNode;
   jobTemplateIds: number[];
   selectedSources: string[];
-  /** Remount boundary — only source-filter changes, not JT sync. */
+  requiredTag?: string;
+  /** Remount boundary for changes to source or handoff filters. */
   listKey: string;
 };
 
 /**
  * Scopes EntityListProvider to the user's JT visibility set.
- * `listKey` remounts only on source-filter changes; SoftRefresh re-queries
+ * `listKey` remounts when source or handoff filters change; SoftRefresh re-queries
  * the current page in place after JT sync (no EntityListProvider remount).
  */
 export const TemplatesCatalogProvider = ({
   children,
   jobTemplateIds,
   selectedSources,
+  requiredTag,
   listKey,
 }: TemplatesCatalogProviderProps) => {
   const parentApis = useApiHolder();
   const catalogApi = useApi(catalogApiRef);
   const homeCatalogApi = useMemo(
-    () => createHomeCatalogApi(catalogApi, jobTemplateIds, selectedSources),
-    [catalogApi, jobTemplateIds, selectedSources],
+    () =>
+      createHomeCatalogApi(
+        catalogApi,
+        jobTemplateIds,
+        selectedSources,
+        requiredTag,
+      ),
+    [catalogApi, jobTemplateIds, selectedSources, requiredTag],
   );
   const apis = useMemo(
     () =>
