@@ -448,13 +448,14 @@ export class GitlabClient extends BaseScmClient {
     repo: string,
     signal?: AbortSignal,
   ): Promise<RepositoryInfo> {
+    const encodedProjectPath = encodeURIComponent(`${owner}/${repo}`);
     const project = await this.fetchRest<{
       name: string;
       path_with_namespace: string;
       default_branch: string;
       web_url: string;
       description: string | null;
-    }>(`/projects/${encodeURIComponent(`${owner}/${repo}`)}`, signal);
+    }>(`/projects/${encodedProjectPath}`, signal);
     return this.projectToRepositoryInfo(project);
   }
 

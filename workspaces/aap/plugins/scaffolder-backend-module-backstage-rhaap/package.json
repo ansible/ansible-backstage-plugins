@@ -30,6 +30,7 @@
     "@ansible/aap-common": "workspace:^",
     "@ansible/aap-node": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/content-development-common": "workspace:^",
     "@ansible/plugin-scaffolder-backend-module-aap": "workspace:^",
     "@ansible/plugin-scaffolder-backend-module-content-development": "workspace:^",
     "@ansible/portal-scaffolder-common": "workspace:^",

@@ -135,7 +135,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version ?? ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -239,7 +239,7 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
@@ -275,7 +275,7 @@ function buildCatalogFilter(searchQuery?: string): string {
     .map(term => term.trim())
     .filter(term => {
       const separator = term.indexOf('=');
-      if (separator <= 0 || term.indexOf('=', separator + 1) !== -1) {
+      if (separator <= 0 || term.includes('=', separator + 1)) {
         return false;
       }
 
@@ -284,7 +284,7 @@ function buildCatalogFilter(searchQuery?: string): string {
       return (
         ALLOWED_CATALOG_FILTER_FIELDS.has(field) &&
         value.length > 0 &&
-        /^[A-Za-z0-9_.:\/-]+$/.test(value)
+        /^[A-Za-z0-9_.:/-]+$/.test(value)
       );
     });
 

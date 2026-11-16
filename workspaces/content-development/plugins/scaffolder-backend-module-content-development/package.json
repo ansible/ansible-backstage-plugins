@@ -25,6 +25,7 @@
     "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/content-development-common": "workspace:^",
+    "@ansible/portal-scaffolder-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-model": "1.10.0",
