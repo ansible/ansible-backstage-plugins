@@ -115,3 +115,40 @@ any particular scheduling request. Repository refresh reports committed tag
 changes. Incomplete scans retain previously indexed data. A signature finding
 describes registry evidence and does not establish publisher identity or
 cryptographic verification.
+
+### Apply execution environment metadata
+
+A certification job or an authorized operator can submit a JSON file for an
+execution environment the portal has already indexed. The portal saves the
+metadata in its database and applies it without contacting the registry, so
+the same file works in an air-gapped installation.
+
+Save a complete metadata revision in a file such as `overlay.json`. The request
+body can be up to 256 KiB.
+
+```json
+{
+  "version": "2.1",
+  "metadata": {
+    "summary": "Review completed"
+  }
+}
+```
+
+Use the image's digest-qualified `ref` from the portal response. Set
+`PORTAL_URL` to the portal base URL, `EE_REF` to that ref, and `PORTAL_TOKEN`
+to a token authorized for `ansible.content.sync` and
+`ansible.execution-environments.view`.
+
+```sh
+curl --fail-with-body --request PUT \
+  --header "Authorization: Bearer ${PORTAL_TOKEN}" \
+  --header 'Content-Type: application/json' \
+  --data-binary @overlay.json \
+  "${PORTAL_URL}/api/automation-content/execution-environments/${EE_REF}/metadata-overlay"
+```
+
+The execution environment detail API returns the current revision as
+`metadataOverlay`. The latest newly applied version is current regardless
+of how its name sorts. Retrying a saved version with identical metadata is
+safe. Supply a new version when the metadata changes.

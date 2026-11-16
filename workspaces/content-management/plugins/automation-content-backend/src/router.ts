@@ -27,6 +27,7 @@ import {
   ContentStore,
   IndexedArtifact,
   IndexedItem,
+  type MetadataOverlay,
   RegistryScanIncomplete,
   RegistryWriterBusy,
 } from './ContentStore';
@@ -76,6 +77,19 @@ type JsonCapableResponse = {
 };
 
 const EE_TYPE = 'execution-environment';
+
+function isMetadataOverlay(value: unknown): value is MetadataOverlay {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const { version, metadata } = value as Partial<MetadataOverlay>;
+  return (
+    Object.keys(value).length === 2 &&
+    typeof version === 'string' &&
+    /^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$/.test(version) &&
+    !!metadata &&
+    typeof metadata === 'object' &&
+    !Array.isArray(metadata)
+  );
+}
 
 const ALLOWED_PAGE_SIZES = [10, 20, 50] as const;
 
@@ -454,6 +468,63 @@ function buildRouter(options: RouterOptions): express.Router {
         return;
       }
       res.json(details);
+    },
+  );
+
+  const parseMetadataOverlay = express.json({ limit: '256kb' });
+  router.put(
+    '/execution-environments/:ref(*)/metadata-overlay',
+    async (req, res, next) => {
+      if (
+        respondToDenial(res, await authorize(req, contentSyncPermission)) ||
+        respondToDenial(
+          res,
+          await authorize(req, executionEnvironmentsViewPermission),
+        )
+      ) {
+        return;
+      }
+
+      next();
+    },
+    (req, res, next) => {
+      parseMetadataOverlay(req, res, (error?: { status?: number }) => {
+        if (!error) {
+          next();
+        } else if (error.status === 413) {
+          res.status(413).json({
+            code: 'METADATA_OVERLAY_TOO_LARGE',
+            error: 'Metadata overlay requests must be 256 KiB or smaller',
+          });
+        } else {
+          next(error);
+        }
+      });
+    },
+    async (req, res) => {
+      const overlay: unknown = req.body;
+      if (!isMetadataOverlay(overlay)) {
+        res.status(400).json({
+          code: 'BAD_REQUEST',
+          error: 'Provide a metadata version and a JSON metadata object',
+        });
+        return;
+      }
+
+      const result = await db.applyMetadataOverlay(req.params.ref, overlay);
+      if (result === 'not-found') {
+        res.status(404).json({
+          code: 'CONTENT_NOT_FOUND',
+          error: 'Content not found',
+        });
+      } else if (result === 'conflict') {
+        res.status(409).json({
+          code: 'METADATA_VERSION_CONFLICT',
+          error: 'This metadata version already exists with different content',
+        });
+      } else {
+        res.json(overlay);
+      }
     },
   );
 
@@ -969,7 +1040,11 @@ function buildRouter(options: RouterOptions): express.Router {
   ) => {
     const artifact = await readArtifact(req, res, eeOnly);
     if (!artifact) return;
-    res.json(artifactView(db, artifact));
+    const metadataOverlay =
+      artifact.type === EE_TYPE
+        ? await db.getMetadataOverlay(artifact.ref)
+        : undefined;
+    res.json({ ...artifactView(db, artifact), metadataOverlay });
   };
 
   router.get('/content', (req, res) => listContent(req, res));

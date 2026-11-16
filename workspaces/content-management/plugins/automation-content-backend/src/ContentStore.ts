@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import {
   AnsibleContentManifest,
   CONTENT_MANIFEST_ARTIFACT_TYPE,
@@ -69,6 +70,11 @@ export interface IndexedArtifact {
   contentsKnown: boolean;
   classification: IdentifiedType;
   manifest?: AnsibleContentManifest;
+}
+
+export interface MetadataOverlay {
+  version: string;
+  metadata: Record<string, unknown>;
 }
 
 export class RegistryWriterBusy extends Error {}
@@ -710,6 +716,42 @@ export class ContentStore {
   async getArtifact(ref: string): Promise<IndexedArtifact | undefined> {
     const row = await this.db('artifacts').where('ref', ref).first();
     return row ? this.rowToArtifact(row) : undefined;
+  }
+
+  async getMetadataOverlay(ref: string): Promise<MetadataOverlay | undefined> {
+    const row = await this.db('ee_metadata_overlays')
+      .where('artifact_ref', ref)
+      .orderBy('id', 'desc')
+      .first('version', 'metadata');
+    return row
+      ? { version: row.version, metadata: JSON.parse(row.metadata) }
+      : undefined;
+  }
+
+  async applyMetadataOverlay(
+    ref: string,
+    overlay: MetadataOverlay,
+  ): Promise<'applied' | 'conflict' | 'not-found'> {
+    const artifact = await this.db('artifacts')
+      .where({ ref, type: 'execution-environment' })
+      .first('ref');
+    if (!artifact) return 'not-found';
+
+    const revision = { artifact_ref: ref, version: overlay.version };
+    const metadata = JSON.stringify(overlay.metadata);
+    const inserted = await this.db('ee_metadata_overlays')
+      .insert({ ...revision, metadata })
+      .onConflict(['artifact_ref', 'version'])
+      .ignore()
+      .returning('id');
+    if (inserted.length > 0) return 'applied';
+
+    const saved = await this.db('ee_metadata_overlays')
+      .where(revision)
+      .first('metadata');
+    return isDeepStrictEqual(JSON.parse(saved.metadata), JSON.parse(metadata))
+      ? 'applied'
+      : 'conflict';
   }
 
   private itemQuery(excludeArtifactType?: string) {
