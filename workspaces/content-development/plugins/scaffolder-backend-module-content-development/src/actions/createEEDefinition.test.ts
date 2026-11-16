@@ -1194,6 +1194,65 @@ describe('createEEDefinition', () => {
     expect(content).toContain('AdditionalBuildStepsPicker');
   });
 
+  it('uses the selected base image in both generated artifacts', async () => {
+    const action = makeAction();
+    const selectedBaseImage = 'registry.example.com/ansible/ee:2.18';
+    const staleCustomBaseImage = 'quay.io/org/old-custom-ee:latest';
+
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: selectedBaseImage,
+        customBaseImage: staleCustomBaseImage,
+        publishToSCM: true,
+      }),
+    );
+
+    expect(mockDownloadEEScaffold.mock.calls[0][3].base_image).toBe(
+      selectedBaseImage,
+    );
+    const readmeCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('README.md'),
+    );
+    expect(readmeCall?.[1]).toContain(`Base image:** \`${selectedBaseImage}\``);
+    expect(readmeCall?.[1]).not.toContain(staleCustomBaseImage);
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const template = yaml.load(templateWriteCall?.[1] as string) as any;
+    expect(template.spec.parameters[0].properties.baseImage.default).toBe(
+      selectedBaseImage,
+    );
+    expect(templateWriteCall?.[1]).not.toContain(staleCustomBaseImage);
+  });
+
+  it('requests the GitLab API and write_repository scopes', async () => {
+    const action = makeAction();
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: 'img:latest',
+        publishToSCM: true,
+      }),
+    );
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const template = yaml.load(templateWriteCall?.[1] as string) as any;
+    const publishAndBuild = template.spec.parameters
+      .map((parameter: any) => parameter.properties?.publishAndBuild)
+      .find(Boolean);
+    const scmBranch =
+      publishAndBuild.dependencies.publishToSCM.oneOf[0].properties
+        .sourceControlProvider;
+
+    expect(
+      scmBranch['ui:options'].requestUserCredentials.additionalScopes.gitlab,
+    ).toEqual(['api', 'write_repository']);
+  });
+
   it('defaults saved template tags to an empty array', async () => {
     const action = makeAction();
     const ctx = makeCtx({

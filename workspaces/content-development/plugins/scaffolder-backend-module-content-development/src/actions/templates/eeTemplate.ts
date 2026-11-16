@@ -271,6 +271,7 @@ spec:
                               - repo
                               - workflow
                             gitlab:
+                              - api
                               - write_repository
                   required:
                     - sourceControlProvider
