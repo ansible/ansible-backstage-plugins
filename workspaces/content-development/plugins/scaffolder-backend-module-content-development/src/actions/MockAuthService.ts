@@ -23,6 +23,7 @@ import {
   AuthService,
 } from '@backstage/backend-plugin-api';
 import { AuthenticationError } from '@backstage/errors';
+import { timingSafeEqual } from 'node:crypto';
 import {
   mockCredentials,
   MOCK_USER_TOKEN,
@@ -37,6 +38,15 @@ import {
   ServiceTokenPayload,
 } from './mockCredentials';
 import { JsonObject } from '@backstage/types';
+
+function matchesToken(token: string, expected: string): boolean {
+  const tokenBuffer = Buffer.from(token);
+  const expectedBuffer = Buffer.from(expected);
+  return (
+    tokenBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(tokenBuffer, expectedBuffer)
+  );
+}
 
 /** @internal */
 export class MockAuthService implements AuthService {
@@ -57,22 +67,27 @@ export class MockAuthService implements AuthService {
     options?: { allowLimitedAccess?: boolean },
   ): Promise<BackstageCredentials> {
     return Promise.resolve().then(() => {
-      switch (token) {
-        case MOCK_USER_TOKEN:
-          return mockCredentials.user();
-        case MOCK_SERVICE_TOKEN:
-          return mockCredentials.service();
-        case MOCK_INVALID_USER_TOKEN:
-          throw new AuthenticationError('User token is invalid');
-        case MOCK_INVALID_USER_LIMITED_TOKEN:
-          throw new AuthenticationError('Limited user token is invalid');
-        case MOCK_INVALID_SERVICE_TOKEN:
-          throw new AuthenticationError('Service token is invalid');
-        case '':
-          throw new AuthenticationError('Token is empty');
-        default:
-          break;
+      // These fixed mock tokens are exact matches. Prefix-based tokens below
+      // carry public, structured test claims and are routed separately.
+      const fixedTokenMatches = [
+        matchesToken(token, MOCK_USER_TOKEN),
+        matchesToken(token, MOCK_SERVICE_TOKEN),
+        matchesToken(token, MOCK_INVALID_USER_TOKEN),
+        matchesToken(token, MOCK_INVALID_USER_LIMITED_TOKEN),
+        matchesToken(token, MOCK_INVALID_SERVICE_TOKEN),
+      ];
+      if (fixedTokenMatches[0]) return mockCredentials.user();
+      if (fixedTokenMatches[1]) return mockCredentials.service();
+      if (fixedTokenMatches[2]) {
+        throw new AuthenticationError('User token is invalid');
       }
+      if (fixedTokenMatches[3]) {
+        throw new AuthenticationError('Limited user token is invalid');
+      }
+      if (fixedTokenMatches[4]) {
+        throw new AuthenticationError('Service token is invalid');
+      }
+      if (token.length === 0) throw new AuthenticationError('Token is empty');
 
       if (token.startsWith(MOCK_USER_TOKEN_PREFIX)) {
         const { sub: userEntityRef }: UserTokenPayload = JSON.parse(

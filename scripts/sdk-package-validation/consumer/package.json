@@ -10,6 +10,7 @@
     "@backstage/plugin-catalog-react": "3.2.2",
     "@backstage/plugin-permission-common": "0.9.10",
     "@backstage/plugin-permission-react": "0.5.4",
+    "@backstage/plugin-scaffolder": "1.38.2",
     "@backstage/plugin-scaffolder-react": "2.0.3",
     "@backstage/plugin-user-settings": "0.9.6",
     "@backstage/theme": "0.7.3",
