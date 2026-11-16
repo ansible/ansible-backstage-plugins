@@ -417,18 +417,20 @@ export function createRouter(options: {
       return;
     }
 
-    const requiredPermission = existingEntity
-      ? catalogEntityDeletePermission
-      : catalogEntityCreatePermission;
-    const [decision] = await permissions.authorize(
-      [
-        {
-          permission: requiredPermission,
-          ...(existingEntity ? { resourceRef: entityRef } : {}),
-        },
-      ],
-      { credentials },
-    );
+    const [decision] = existingEntity
+      ? await permissions.authorize(
+          [
+            {
+              permission: catalogEntityDeletePermission,
+              resourceRef: entityRef,
+            },
+          ],
+          { credentials },
+        )
+      : await permissions.authorize(
+          [{ permission: catalogEntityCreatePermission }],
+          { credentials },
+        );
     if (decision.result !== AuthorizeResult.ALLOW) {
       response.status(403).json({
         error: `Forbidden: insufficient permissions to ${

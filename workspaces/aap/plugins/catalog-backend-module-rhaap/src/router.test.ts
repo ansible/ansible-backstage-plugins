@@ -75,7 +75,10 @@ import {
 } from '@backstage/backend-plugin-api';
 import { ConflictError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { catalogEntityDeletePermission } from '@backstage/plugin-catalog-common/alpha';
+import {
+  catalogEntityCreatePermission,
+  catalogEntityDeletePermission,
+} from '@backstage/plugin-catalog-common/alpha';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
@@ -422,6 +425,10 @@ describe('createRouter', () => {
       expect(response.body).toEqual({
         success: true,
       });
+      expect(mockPermissions.authorize).toHaveBeenCalledWith(
+        [{ permission: catalogEntityCreatePermission }],
+        expect.anything(),
+      );
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
       ).toHaveBeenCalledWith(mockEntity);
