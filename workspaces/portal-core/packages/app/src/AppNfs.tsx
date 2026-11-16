@@ -13,7 +13,7 @@ import portalPlugin from '@ansible/portal-core/alpha';
 import portalNavigation from '@ansible/portal-core/app-nav';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
-import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
+import { createPortalScaffolderPlugin } from '@ansible/portal-extension-host/alpha';
 import rbacPlugin from '@backstage-community/plugin-rbac/alpha';
 import userSettingsPlugin from '@backstage/plugin-user-settings/alpha';
 import searchPlugin from '@backstage/plugin-search/alpha';
@@ -42,7 +42,7 @@ export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   }),
   catalogPlugin,
   catalogImportPlugin,
-  scaffolderPlugin,
+  createPortalScaffolderPlugin(),
   rbacPlugin,
   userSettingsPlugin,
   createAapSettingsModule(),
