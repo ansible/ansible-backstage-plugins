@@ -22,6 +22,7 @@
     "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/content-development-common"
   },
   "dependencies": {
+    "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/content-development-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
