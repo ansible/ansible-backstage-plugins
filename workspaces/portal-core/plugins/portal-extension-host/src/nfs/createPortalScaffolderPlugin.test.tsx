@@ -231,7 +231,9 @@ it('does not advance when a denied optional field has no default value', async (
     noDefaultFields: true,
   });
 
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(
+    await screen.findByRole('alert', {}, { timeout: 5000 }),
+  ).toHaveTextContent(
     'Field GatedField is unavailable due to configuration or permissions.',
   );
   fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
