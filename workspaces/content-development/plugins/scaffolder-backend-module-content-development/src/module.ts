@@ -60,7 +60,7 @@ export const scaffolderModuleContentDevelopment = createBackendModule({
               discovery,
               httpAuth,
               logger,
-            }),
+            }) as any,
           );
         });
       },

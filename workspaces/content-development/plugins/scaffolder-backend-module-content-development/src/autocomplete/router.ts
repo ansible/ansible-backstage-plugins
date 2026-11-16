@@ -16,7 +16,7 @@ export function createCollectionsAutocompleteRouter(options: {
   const router = express.Router();
   router.get('/collections', async (request, response, next) => {
     try {
-      const credentials = await options.httpAuth.credentials(request, {
+      const credentials = await options.httpAuth.credentials(request as any, {
         allow: ['user'],
       });
       const result = await getCollections({

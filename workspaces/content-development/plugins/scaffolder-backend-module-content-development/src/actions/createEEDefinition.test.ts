@@ -704,9 +704,7 @@ describe('createEEDefinition', () => {
       buildRegistry: 'Private Automation Hub (PAH)',
     });
 
-    await expect(action.handler(ctx)).rejects.toThrow(
-      'ansible.rhaap.baseUrl',
-    );
+    await expect(action.handler(ctx)).rejects.toThrow('ansible.rhaap.baseUrl');
 
     expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
   });

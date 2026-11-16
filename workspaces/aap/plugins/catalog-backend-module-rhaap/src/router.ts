@@ -369,7 +369,7 @@ export function createRouter(options: {
 
   router.post('/ansible/ee', express.json(), async (request, response) => {
     // Registration runs on behalf of the scaffolder task initiator.
-    const credentials = await httpAuth.credentials(request, {
+    const credentials = await httpAuth.credentials(request as any, {
       allow: ['user'],
     });
 
@@ -422,7 +422,7 @@ export function createRouter(options: {
    * the caller so catalog RBAC (delete permission) applies.
    */
   router.delete('/ansible/ee/:name', async (request, response) => {
-    const credentials = await httpAuth.credentials(request, {
+    const credentials = await httpAuth.credentials(request as any, {
       allow: ['user', 'service'],
     });
 
