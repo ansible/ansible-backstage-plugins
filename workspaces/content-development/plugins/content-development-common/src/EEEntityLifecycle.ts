@@ -82,10 +82,12 @@ export function createEEEntityLifecycleService(options: {
         );
       }
     },
-    async unregisterExecutionEnvironment(name, credentials, options) {
+    async unregisterExecutionEnvironment(name, credentials, unregisterOptions) {
       const response = await request(
         `/ansible/ee/${encodeURIComponent(name)}${
-          options?.skipProviderManaged ? '?skipProviderManaged=true' : ''
+          unregisterOptions?.skipProviderManaged
+            ? '?skipProviderManaged=true'
+            : ''
         }`,
         credentials,
         { method: 'DELETE' },
