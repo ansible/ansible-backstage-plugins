@@ -15,7 +15,7 @@ export function createEERegistrationLock(
   return async (entityRef, operation) => {
     // The plugin database is shared by backend replicas, unlike a process-local mutex.
     const knex = await database.getClient();
-    schemaReady ??= (async () => {
+    const ready = (schemaReady ??= (async () => {
       if (await knex.schema.hasTable(LOCK_TABLE)) return;
       try {
         await knex.schema.createTable(LOCK_TABLE, table => {
@@ -25,8 +25,13 @@ export function createEERegistrationLock(
         // Multiple replicas may initialize the table at the same time.
         if (!(await knex.schema.hasTable(LOCK_TABLE))) throw error;
       }
-    })();
-    await schemaReady;
+    })());
+    try {
+      await ready;
+    } catch (error) {
+      if (schemaReady === ready) schemaReady = undefined;
+      throw error;
+    }
 
     return knex.transaction(async transaction => {
       await transaction(LOCK_TABLE)
