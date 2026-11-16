@@ -1,13 +1,19 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
+import {
+  createFrontendPlugin,
+  createRouteRef,
+  PageBlueprint,
+} from '@backstage/frontend-plugin-api';
+import { useLocation } from 'react-router-dom';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { catalogApiMock } from '@backstage/plugin-catalog-react/testUtils';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import type { EERepositoryQuery } from '@ansible/automation-content-common/eeRepository';
 import automationContentPlugin from '../../alpha';
-import { automationContentApiRef } from '../../api';
+import { automationContentApiRef, type AutomationContentApi } from '../../api';
 
 const repositories = Array.from({ length: 21 }, (_, i) => {
   const name = `ee-repo-${i.toString(16).padStart(48, '0')}`;
@@ -17,10 +23,31 @@ const repositories = Array.from({ length: 21 }, (_, i) => {
     entityRef: `component:default/${name}`,
     name,
     representativeDigest: 'sha256:digest',
-    representativeRef: 'local/namespace/image@sha256:digest',
+    representativeRef: `local/namespace/image-${i + 1}@sha256:digest`,
+    representativeTag: i === 0 ? 'stable' : undefined,
     tagCount: 1,
   };
 });
+const templatesRoute = createRouteRef();
+function TemplatesTestPage() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  return <output>{`${params.get('eeName')} ${params.get('eeImage')}`}</output>;
+}
+const templatesPlugin = createFrontendPlugin({
+  pluginId: 'portal-scaffolder',
+  routes: { root: templatesRoute },
+  extensions: [
+    PageBlueprint.make({
+      params: {
+        path: '/test-templates',
+        routeRef: templatesRoute,
+        loader: async () => <TemplatesTestPage />,
+      },
+    }),
+  ],
+});
+
 const waitForPage = { timeout: 10000 };
 jest.setTimeout(20000);
 
@@ -29,11 +56,16 @@ function mount({
   catalogAvailable = true,
   permission = 'ready',
   inventory = 'ready',
+  controllerApi,
 }: {
   allow?: boolean;
   catalogAvailable?: boolean;
   permission?: 'ready' | 'pending' | 'unavailable';
   inventory?: 'ready' | 'pending' | 'empty' | 'error';
+  controllerApi?: Pick<
+    AutomationContentApi,
+    'getEEArtifact' | 'getEERepository'
+  >;
 } = {}) {
   const queryEERepositories = jest.fn(
     async ({ page = 1, pageSize = 10 }: EERepositoryQuery) => {
@@ -49,12 +81,17 @@ function mount({
     },
   );
   const mounted = renderTestApp({
-    features: [catalogPlugin, automationContentPlugin],
+    features: [
+      catalogPlugin,
+      automationContentPlugin,
+      ...(controllerApi ? [templatesPlugin] : []),
+    ],
     apis: [
       [
         automationContentApiRef,
         {
           queryEERepositories,
+          ...controllerApi,
           getRegistryStatus: async () => ({
             items: [{ name: 'local', url: 'http://example.test' }],
             manualSyncEnabled: false,
@@ -206,3 +243,84 @@ it('forwards status and source filters and returns to the first page', async () 
     ),
   );
 });
+
+it.each([
+  ['table', repositories[0], ':stable'],
+  ['grid', repositories[1], '@sha256:digest'],
+] as const)(
+  'opens the Controller template from the %s image menu',
+  async (view, image, suffix) => {
+    const user = userEvent.setup();
+    const getEERepository = jest.fn(async () => ({
+      ...image,
+      digests: [
+        {
+          artifactRef: image.representativeRef,
+          digest: image.representativeDigest,
+        },
+      ],
+      tags: image.representativeTag
+        ? [
+            {
+              tag: image.representativeTag,
+              digest: image.representativeDigest,
+              artifactRef: image.representativeRef,
+              taggedPullReference: `registry.example.test/${image.repository}:${image.representativeTag}`,
+            },
+          ]
+        : [],
+    }));
+    const getEEArtifact = jest.fn(async () => ({
+      ref: image.representativeRef,
+      registry: image.registry,
+      repository: image.repository,
+      digest: image.representativeDigest,
+      tags: [],
+      pullReference: `registry.example.test/${image.repository}@${image.representativeDigest}`,
+      contentsKnown: false,
+      enumeration: { status: 'unknown', source: 'labels' } as const,
+      collections: [],
+    }));
+
+    await mount({
+      catalogAvailable: false,
+      controllerApi: { getEEArtifact, getEERepository },
+    }).mounted;
+    if (view === 'grid') {
+      await user.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Change image view' },
+          waitForPage,
+        ),
+      );
+      await user.click(
+        await screen.findByRole('menuitem', { name: 'Grid view' }),
+      );
+    }
+    await user.click(
+      await screen.findByRole(
+        'button',
+        { name: `Actions for ${image.repository}` },
+        waitForPage,
+      ),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Use in Controller' }),
+    );
+
+    expect(
+      await screen.findByText(
+        `${image.repository.split('/').at(-1)} registry.example.test/${
+          image.repository
+        }${suffix}`,
+      ),
+    ).toBeTruthy();
+    expect(getEERepository.mock.calls).toEqual(
+      image.representativeTag ? [[image.registry, image.repository]] : [],
+    );
+    expect(getEEArtifact.mock.calls).toEqual(
+      image.representativeTag ? [] : [[image.representativeRef]],
+    );
+  },
+);
