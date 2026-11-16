@@ -97,7 +97,7 @@ const createRouter = (options: TestRouterOptions) =>
     ...options,
     withEERegistrationLock:
       options.withEERegistrationLock ??
-      ((_entityRef, operation) => operation()),
+      ((_entityRef, operation) => operation(() => {})),
   });
 
 const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });

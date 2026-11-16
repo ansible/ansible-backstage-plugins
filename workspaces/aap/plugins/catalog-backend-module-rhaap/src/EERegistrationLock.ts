@@ -1,10 +1,17 @@
+import { randomUUID } from 'node:crypto';
 import type { DatabaseService } from '@backstage/backend-plugin-api';
 
-const LOCK_TABLE = 'ee_registration_locks';
+type KnexClient = Awaited<ReturnType<DatabaseService['getClient']>>;
+
+const LOCK_TABLE = 'ee_registration_lock_leases';
+const LEASE_DURATION_MS = 60_000;
+const LEASE_RENEWAL_INTERVAL_MS = 20_000;
+const LOCK_POLL_INTERVAL_MS = 50;
+const LOCK_WAIT_TIMEOUT_MS = 60_000;
 
 export type EERegistrationLock = <T>(
   entityRef: string,
-  operation: () => Promise<T>,
+  operation: (assertLockHeld: () => void) => Promise<T>,
 ) => Promise<T>;
 
 export function createEERegistrationLock(
@@ -13,38 +20,109 @@ export function createEERegistrationLock(
   let schemaReady: Promise<void> | undefined;
 
   return async (entityRef, operation) => {
-    // The plugin database is shared by backend replicas, unlike a process-local mutex.
     const knex = await database.getClient();
-    const schemaReadyPromise = (schemaReady ??= (async () => {
-      if (await knex.schema.hasTable(LOCK_TABLE)) return;
-      try {
-        await knex.schema.createTable(LOCK_TABLE, table => {
-          table.string('entity_ref').primary();
-        });
-      } catch (error) {
-        // Multiple replicas may initialize the table at the same time.
-        if (!(await knex.schema.hasTable(LOCK_TABLE))) throw error;
-      }
-    })());
+    const ready = (schemaReady ??= ensureLockTable(knex));
     try {
-      await schemaReadyPromise;
+      await ready;
     } catch (error) {
-      if (schemaReady === schemaReadyPromise) schemaReady = undefined;
+      if (schemaReady === ready) schemaReady = undefined;
       throw error;
     }
 
-    return knex.transaction(async transaction => {
+    const owner = randomUUID();
+    await acquireLock(knex, entityRef, owner);
+
+    let leaseLost: Error | undefined;
+    let renewalInFlight: Promise<void> | undefined;
+    const assertLockHeld = () => {
+      if (leaseLost) throw leaseLost;
+    };
+    const heartbeat = setInterval(() => {
+      if (!renewalInFlight) {
+        renewalInFlight = renewLock(knex, entityRef, owner)
+          .then(held => {
+            if (!held) {
+              leaseLost = new Error(
+                `EE registration lock lease was lost for ${entityRef}`,
+              );
+            }
+          })
+          .catch(error => {
+            leaseLost = new Error(
+              `Failed to renew EE registration lock for ${entityRef}`,
+              { cause: error },
+            );
+          })
+          .finally(() => {
+            renewalInFlight = undefined;
+          });
+      }
+    }, LEASE_RENEWAL_INTERVAL_MS);
+
+    try {
+      const result = await operation(assertLockHeld);
+      if (renewalInFlight) await renewalInFlight;
+      assertLockHeld();
+      return result;
+    } finally {
+      clearInterval(heartbeat);
+      if (renewalInFlight) await renewalInFlight;
+      await knex(LOCK_TABLE)
+        .where({ entity_ref: entityRef, owner })
+        .update({ owner: null, lease_expires_at: 0 });
+    }
+  };
+}
+
+async function ensureLockTable(knex: KnexClient): Promise<void> {
+  if (await knex.schema.hasTable(LOCK_TABLE)) return;
+  try {
+    await knex.schema.createTable(LOCK_TABLE, table => {
+      table.string('entity_ref').primary();
+      table.string('owner').nullable();
+      table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
+    });
+  } catch (error) {
+    // Multiple replicas may initialize the table at the same time.
+    if (!(await knex.schema.hasTable(LOCK_TABLE))) throw error;
+  }
+}
+
+async function acquireLock(
+  knex: KnexClient,
+  entityRef: string,
+  owner: string,
+): Promise<void> {
+  const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const acquired = await knex.transaction(async transaction => {
+      const now = Date.now();
       await transaction(LOCK_TABLE)
-        .insert({ entity_ref: entityRef })
+        .insert({ entity_ref: entityRef, owner: null, lease_expires_at: 0 })
         .onConflict('entity_ref')
         .ignore();
-      await transaction(LOCK_TABLE)
-        .select('entity_ref')
+      const updated = await transaction(LOCK_TABLE)
         .where({ entity_ref: entityRef })
-        .forUpdate()
-        .first();
-
-      return operation();
+        .andWhere('lease_expires_at', '<=', now)
+        .update({ owner, lease_expires_at: now + LEASE_DURATION_MS });
+      return Number(updated) === 1;
     });
-  };
+    if (acquired) return;
+    await new Promise(resolve => setTimeout(resolve, LOCK_POLL_INTERVAL_MS));
+  }
+
+  throw new Error(
+    `Timed out waiting for EE registration lock for ${entityRef}`,
+  );
+}
+
+async function renewLock(
+  knex: KnexClient,
+  entityRef: string,
+  owner: string,
+): Promise<boolean> {
+  const updated = await knex(LOCK_TABLE)
+    .where({ entity_ref: entityRef, owner })
+    .update({ lease_expires_at: Date.now() + LEASE_DURATION_MS });
+  return Number(updated) === 1;
 }

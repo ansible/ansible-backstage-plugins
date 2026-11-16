@@ -78,10 +78,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
       let createNewRepo = false;
 
       try {
-        const repoPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        const ownerPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        const repositoryNamePart = /^(?=.*[A-Za-z0-9])[A-Za-z0-9._-]+$/;
         if (
-          !repositoryOwner.split('/').every(part => repoPart.test(part)) ||
-          !repoPart.test(repositoryName)
+          !repositoryOwner.split('/').every(part => ownerPart.test(part)) ||
+          !repositoryNamePart.test(repositoryName)
         ) {
           throw new Error('Invalid repository owner or name');
         }

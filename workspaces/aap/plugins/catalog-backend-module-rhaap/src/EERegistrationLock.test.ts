@@ -1,78 +1,93 @@
+import { mockServices, TestDatabases } from '@backstage/backend-test-utils';
 import { createEERegistrationLock } from './EERegistrationLock';
+import { EEEntityProvider } from './providers/EEEntityProvider';
+
+const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 describe('createEERegistrationLock', () => {
-  it('shares pending schema initialization across concurrent registrations', async () => {
-    let resolveHasTable!: (exists: boolean) => void;
-    const schemaCheck = new Promise<boolean>(resolve => {
-      resolveHasTable = resolve;
+  it('serializes catalog reads and writes without holding a transaction', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    await knex.schema.createTable('catalog_entities', table => {
+      table.string('entity_ref').primary();
     });
-    const query = {
-      insert: jest.fn().mockReturnThis(),
-      onConflict: jest.fn().mockReturnThis(),
-      ignore: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      forUpdate: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue(undefined),
+    const database = { getClient: async () => knex } as any;
+    const lockA = createEERegistrationLock(database);
+    const lockB = createEERegistrationLock(database);
+    const provider = new EEEntityProvider(mockServices.logger.mock());
+    const applyMutation = jest.fn(async ({ added }: any) => {
+      for (const { entity } of added) {
+        await knex('catalog_entities')
+          .insert({ entity_ref: `component:default/${entity.metadata.name}` })
+          .onConflict('entity_ref')
+          .merge();
+      }
+    });
+    await provider.connect({ applyMutation } as any);
+    const entity = {
+      kind: 'Component',
+      metadata: { name: 'ee' },
+      spec: { type: 'execution-environment' },
     };
-    const transaction = jest.fn(() => query);
-    const knex = {
-      schema: { hasTable: jest.fn(() => schemaCheck) },
-      transaction: jest.fn(async callback => callback(transaction)),
-    };
-    const lock = createEERegistrationLock({
-      getClient: async () => knex,
-    } as any);
-    const operationA = jest.fn().mockResolvedValue('registered-a');
-    const operationB = jest.fn().mockResolvedValue('registered-b');
-    const pendingA = lock('component:default/ee-a', operationA);
-    const pendingB = lock('component:default/ee-b', operationB);
+    let signalFirstRead!: () => void;
+    let releaseFirst!: () => void;
+    const firstRead = new Promise<void>(resolve => {
+      signalFirstRead = resolve;
+    });
+    const firstGate = new Promise<void>(resolve => {
+      releaseFirst = resolve;
+    });
+    const observations: boolean[] = [];
 
-    await Promise.resolve();
-    expect(knex.schema.hasTable).toHaveBeenCalledTimes(1);
-    resolveHasTable(true);
+    const first = lockA('component:default/ee', async assertLockHeld => {
+      assertLockHeld();
+      const existing = await knex('catalog_entities')
+        .where({ entity_ref: 'component:default/ee' })
+        .first();
+      observations.push(Boolean(existing));
+      signalFirstRead();
+      await firstGate;
+      assertLockHeld();
+      await provider.registerExecutionEnvironment(entity);
+    });
 
-    await expect(Promise.all([pendingA, pendingB])).resolves.toEqual([
-      'registered-a',
-      'registered-b',
-    ]);
-    expect(operationA).toHaveBeenCalledTimes(1);
-    expect(operationB).toHaveBeenCalledTimes(1);
+    await firstRead;
+    let secondStarted = false;
+    const second = lockB('component:default/ee', async assertLockHeld => {
+      secondStarted = true;
+      assertLockHeld();
+      const existing = await knex('catalog_entities')
+        .where({ entity_ref: 'component:default/ee' })
+        .first();
+      observations.push(Boolean(existing));
+      await provider.registerExecutionEnvironment(entity);
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 25));
+    expect(secondStarted).toBe(false);
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(observations).toEqual([false, true]);
+    expect(applyMutation).toHaveBeenCalledTimes(2);
+    await expect(knex('catalog_entities')).resolves.toHaveLength(1);
+    await knex.destroy();
   });
 
-  it('retries schema initialization after a transient failure', async () => {
-    const query = {
-      insert: jest.fn().mockReturnThis(),
-      onConflict: jest.fn().mockReturnThis(),
-      ignore: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      forUpdate: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue(undefined),
-    };
-    const transaction = jest.fn(() => query);
-    const knex = {
-      schema: {
-        hasTable: jest
-          .fn()
-          .mockRejectedValueOnce(new Error('Temporary database outage'))
-          .mockResolvedValue(true),
-      },
-      transaction: jest.fn(async callback => callback(transaction)),
-    };
+  it('releases the lock when the operation fails', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
     const lock = createEERegistrationLock({
       getClient: async () => knex,
     } as any);
-    const operation = jest.fn().mockResolvedValue('registered');
 
-    await expect(lock('component:default/ee', operation)).rejects.toThrow(
-      'Temporary database outage',
-    );
-    await expect(lock('component:default/ee', operation)).resolves.toBe(
-      'registered',
-    );
+    await expect(
+      lock('component:default/ee', async () => {
+        throw new Error('provider mutation failed');
+      }),
+    ).rejects.toThrow('provider mutation failed');
+    await expect(
+      lock('component:default/ee', async () => 'registered'),
+    ).resolves.toBe('registered');
 
-    expect(knex.schema.hasTable).toHaveBeenCalledTimes(2);
-    expect(operation).toHaveBeenCalledTimes(1);
+    await knex.destroy();
   });
 });

@@ -633,6 +633,11 @@ function transformScmCollections(
   const transformed = collections.map(c => {
     const source = c.source ?? '';
     const parts = source.split(' / ').map(s => s.trim());
+    if (parts.length !== 4 || parts.some(part => !part)) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection source "${source}": expected "<provider> / <canonical name> / <org> / <repo>"`,
+      );
+    }
     const provider = parts[0];
     const canonicalName = parts[1];
     const org = parts[2];

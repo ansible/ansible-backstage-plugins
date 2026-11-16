@@ -77,6 +77,32 @@ describe('prepareForPublish', () => {
   });
 
   describe('repository input validation', () => {
+    it('accepts a repository name beginning with a dot', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
+
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Github',
+          repositoryOwner: 'org',
+          repositoryName: '.github',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await prepareForPublishAction({ rootConfig: mockConfig }).handler(ctx);
+
+      expect(mockScmClient.repositoryExists).toHaveBeenCalledWith(
+        'org',
+        '.github',
+      );
+    });
+
     it('rejects query delimiters before creating an SCM client', async () => {
       const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {

@@ -1224,6 +1224,9 @@ describe('createEEDefinition', () => {
     expect(template.spec.parameters[0].properties.baseImage.default).toBe(
       selectedBaseImage,
     );
+    expect(template.spec.parameters[0].properties.baseImage.enum).toContain(
+      selectedBaseImage,
+    );
     expect(templateWriteCall?.[1]).not.toContain(staleCustomBaseImage);
   });
 
@@ -1714,6 +1717,54 @@ describe('createEEDefinition', () => {
         version: 'main',
       },
     ]);
+  });
+
+  it('preserves nested SCM organization namespaces in collection URLs', async () => {
+    const action = makeAction(
+      makeScmConfig({ gitlab: [{ name: 'corp-gitlab', host: 'gitlab.com' }] }),
+    );
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: 'img:latest',
+        publishToSCM: true,
+        collections: [
+          {
+            name: 'my.collection',
+            source: 'Gitlab / corp-gitlab / team/subgroup / collection',
+          },
+        ],
+      }),
+    );
+
+    expect(mockDownloadEEScaffold.mock.calls[0][3].collections[0].name).toBe(
+      'https://${AAP_EE_BUILDER_GITLAB_CORP_GITLAB_TEAM_SUBGROUP_TOKEN}@gitlab.com/team/subgroup/collection',
+    );
+  });
+
+  it('rejects malformed SCM collection sources with the expected format', async () => {
+    const action = makeAction(
+      makeScmConfig({
+        github: [{ name: 'github-public', host: 'github.com' }],
+      }),
+    );
+    await expect(
+      action.handler(
+        makeCtx({
+          eeFileName: 'test-ee',
+          baseImage: 'img:latest',
+          publishToSCM: true,
+          collections: [
+            {
+              name: 'my.collection',
+              source: 'Github/github-public/my-org/my-repo',
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(
+      'Invalid SCM collection source "Github/github-public/my-org/my-repo": expected "<provider> / <canonical name> / <org> / <repo>"',
+    );
   });
 
   it('produces scmServers alongside SCM collections', async () => {

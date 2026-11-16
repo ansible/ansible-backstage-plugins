@@ -395,10 +395,11 @@ export function createRouter(options: {
       onBehalfOf: credentials,
       targetPluginId: 'catalog',
     });
-    await withEERegistrationLock(entityRef, async () => {
+    await withEERegistrationLock(entityRef, async assertLockHeld => {
       let existingEntity = await catalogClient.getEntityByRef(entityRef, {
         token: callerCatalogToken,
       });
+      assertLockHeld();
       if (!existingEntity) {
         const serviceCredentials = await auth.getOwnServiceCredentials();
         const { token: serviceCatalogToken } = await auth.getPluginRequestToken(
@@ -410,6 +411,7 @@ export function createRouter(options: {
         existingEntity = await catalogClient.getEntityByRef(entityRef, {
           token: serviceCatalogToken,
         });
+        assertLockHeld();
       }
 
       if (
@@ -437,6 +439,7 @@ export function createRouter(options: {
             [{ permission: catalogEntityCreatePermission }],
             { credentials },
           );
+      assertLockHeld();
       if (decision.result !== AuthorizeResult.ALLOW) {
         response.status(403).json({
           error: `Forbidden: insufficient permissions to ${
@@ -448,7 +451,6 @@ export function createRouter(options: {
 
       try {
         await eeEntityProvider.registerExecutionEnvironment(entity);
-        response.status(200).json({ success: true });
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -458,7 +460,10 @@ export function createRouter(options: {
         response.status(500).json({
           error: `Failed to register Execution Environment: ${errorMessage}`,
         });
+        return;
       }
+      assertLockHeld();
+      response.status(200).json({ success: true });
     });
   });
 
