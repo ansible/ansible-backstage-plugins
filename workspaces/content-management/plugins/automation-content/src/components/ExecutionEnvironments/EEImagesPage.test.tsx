@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import {
@@ -324,3 +324,59 @@ it.each([
     );
   },
 );
+
+it('ignores a slow Controller handoff after another image opens Templates', async () => {
+  const user = userEvent.setup();
+  const [first, second] = repositories;
+  const firstImage = 'registry.example.test/namespace/image-1:stable';
+  const secondImage = 'registry.example.test/namespace/image-2@sha256:digest';
+  let finishFirstLookup: () => void = () => {};
+  const pending = new Promise<void>(resolve => {
+    finishFirstLookup = resolve;
+  });
+  const getEERepository = jest.fn(async () => {
+    await pending;
+    return {
+      ...first,
+      digests: [],
+      tags: [
+        {
+          tag: 'stable',
+          digest: first.representativeDigest,
+          artifactRef: first.representativeRef,
+          taggedPullReference: firstImage,
+        },
+      ],
+    };
+  });
+  const getEEArtifact = jest.fn(async () => ({
+    ref: second.representativeRef,
+    registry: second.registry,
+    repository: second.repository,
+    digest: second.representativeDigest,
+    tags: [],
+    pullReference: secondImage,
+    contentsKnown: false,
+    enumeration: { status: 'unknown', source: 'labels' } as const,
+    collections: [],
+  }));
+
+  await mount({ controllerApi: { getEEArtifact, getEERepository } }).mounted;
+  for (const image of [first, second]) {
+    await user.click(
+      await screen.findByRole(
+        'button',
+        { name: `Actions for ${image.repository}` },
+        waitForPage,
+      ),
+    );
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Use in Controller' }),
+    );
+  }
+  await screen.findByText(`image-2 ${secondImage}`);
+
+  await act(async () => finishFirstLookup());
+
+  expect(screen.getByText(`image-2 ${secondImage}`)).toBeTruthy();
+});
