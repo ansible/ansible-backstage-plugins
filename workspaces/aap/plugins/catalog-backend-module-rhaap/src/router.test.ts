@@ -455,7 +455,13 @@ describe('createRouter', () => {
       await knex.destroy();
     });
 
-    it('should successfully register an execution environment', async () => {
+    it('accepts service credentials to register an execution environment', async () => {
+      mockHttpAuth.credentials.mockResolvedValueOnce({
+        principal: {
+          type: 'service',
+          subject: 'plugin:scaffolder',
+        },
+      } as any);
       mockCatalogClient.getEntityByRef
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
@@ -520,6 +526,9 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
       ).toHaveBeenCalledWith(mockEntity);
+      expect(mockHttpAuth.credentials).toHaveBeenCalledWith(expect.anything(), {
+        allow: ['user', 'service'],
+      });
     });
 
     it('requires delete permission before replacing an existing hidden entity', async () => {

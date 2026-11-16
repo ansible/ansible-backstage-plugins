@@ -257,6 +257,13 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
+          // Keep generated artifacts aligned with the resolved image used by
+          // the build, even if a stale custom image remains in the inputs.
+          baseImage,
+          customBaseImage:
+            values.baseImage === 'custom' || !values.baseImage
+              ? customBaseImage
+              : '',
           pahBaseUrl,
           // Keep user-facing collection sources for README/template defaults.
           // Normalized sources are only needed for the creator service payload.

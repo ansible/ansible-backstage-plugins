@@ -373,7 +373,7 @@ export function createRouter(options: {
   router.post('/ansible/ee', express.json(), async (request, response) => {
     // Registration runs on behalf of the scaffolder task initiator.
     const credentials = await httpAuth.credentials(request as any, {
-      allow: ['user'],
+      allow: ['user', 'service'],
     });
 
     const { entity } = request.body;
