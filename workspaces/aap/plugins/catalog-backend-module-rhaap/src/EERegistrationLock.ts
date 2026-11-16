@@ -79,12 +79,12 @@ export function createEERegistrationLock(
 
     try {
       const result = await operation({ assertLockHeld, beginMutation });
-      if (renewalInFlight) await renewalInFlight;
+      if (renewalInFlight !== undefined) await renewalInFlight;
       assertLockHeld();
       return result;
     } finally {
       clearInterval(heartbeat);
-      if (renewalInFlight) await renewalInFlight;
+      if (renewalInFlight !== undefined) await renewalInFlight;
       await knex(LOCK_TABLE).where({ entity_ref: entityRef, owner }).update({
         owner: null,
         lease_expires_at: 0,
@@ -123,34 +123,68 @@ async function ensureLockTable(knex: KnexClient): Promise<void> {
   }
 }
 
-async function acquireLock(
+function acquireLock(
   knex: KnexClient,
   entityRef: string,
   owner: string,
 ): Promise<void> {
   const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const acquired = await knex.transaction(async transaction => {
-      const now = Date.now();
-      await transaction(LOCK_TABLE)
-        .insert({ entity_ref: entityRef, owner: null, lease_expires_at: 0 })
-        .onConflict('entity_ref')
-        .ignore();
-      const updated = await transaction(LOCK_TABLE)
-        .where({ entity_ref: entityRef })
-        .andWhere('lease_expires_at', '<=', now)
-        // applyMutation has no fencing token, so never reclaim an active write.
-        .andWhere('mutation_in_progress', false)
-        .update({ owner, lease_expires_at: now + LEASE_DURATION_MS });
-      return Number(updated) === 1;
-    });
-    if (acquired) return;
-    await new Promise(resolve => setTimeout(resolve, LOCK_POLL_INTERVAL_MS));
-  }
+  return new Promise((resolve, reject) => {
+    const attempt = async () => {
+      if (Date.now() >= deadline) {
+        reject(
+          new Error(
+            `Timed out waiting for EE registration lock for ${entityRef}`,
+          ),
+        );
+        return;
+      }
 
-  throw new Error(
-    `Timed out waiting for EE registration lock for ${entityRef}`,
-  );
+      try {
+        if (await tryAcquireLock(knex, entityRef, owner)) {
+          resolve();
+          return;
+        }
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      if (Date.now() >= deadline) {
+        reject(
+          new Error(
+            `Timed out waiting for EE registration lock for ${entityRef}`,
+          ),
+        );
+        return;
+      }
+
+      setTimeout(() => void attempt(), LOCK_POLL_INTERVAL_MS);
+    };
+
+    void attempt();
+  });
+}
+
+async function tryAcquireLock(
+  knex: KnexClient,
+  entityRef: string,
+  owner: string,
+): Promise<boolean> {
+  return knex.transaction(async transaction => {
+    const now = Date.now();
+    await transaction(LOCK_TABLE)
+      .insert({ entity_ref: entityRef, owner: null, lease_expires_at: 0 })
+      .onConflict('entity_ref')
+      .ignore();
+    const updated = await transaction(LOCK_TABLE)
+      .where({ entity_ref: entityRef })
+      .andWhere('lease_expires_at', '<=', now)
+      // applyMutation has no fencing token, so never reclaim an active write.
+      .andWhere('mutation_in_progress', false)
+      .update({ owner, lease_expires_at: now + LEASE_DURATION_MS });
+    return Number(updated) === 1;
+  });
 }
 
 async function renewLock(
