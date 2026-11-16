@@ -14,3 +14,4 @@ export { PortalEntityTabs } from './nfs/PortalEntityTabs';
 export { PortalEntitySurface } from './nfs/PortalEntityActions';
 export type { EntitlementCheck } from './nfs/PortalEntityTabs';
 export { useNativeCatalogColumns } from './nfs/useNativeCatalogColumns';
+export { createPortalScaffolderPlugin } from './nfs/createPortalScaffolderPlugin';
