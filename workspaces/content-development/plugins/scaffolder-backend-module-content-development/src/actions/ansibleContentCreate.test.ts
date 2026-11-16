@@ -26,7 +26,7 @@ jest.mock('./utils/api', () => {
     downloadDevfileProject: jest.fn(),
   }));
   (MockBackendServiceAPI as any).pluginLogName =
-    'plugin-scaffolder-backend-module-backstage-rhaap';
+    'scaffolder-backend-module-content-development';
   return {
     BackendServiceAPI: MockBackendServiceAPI,
   };
@@ -88,6 +88,36 @@ describe('ansibleContentCreate', () => {
       (
         BackendServiceAPI as jest.MockedClass<typeof BackendServiceAPI>
       ).mockImplementation(() => mockBackendServiceAPI);
+    });
+
+    it('rejects unsupported application types before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          '/tmp/test-workspace',
+          'devcontainer',
+          logger,
+          '',
+          'namespace',
+          'collection',
+          'http://localhost:8000/',
+        ),
+      ).rejects.toThrow('Unsupported application type: devcontainer');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid collection namespace before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          mockWorkspacePath,
+          appType.PLAYBOOK,
+          logger,
+          mockDescription,
+          'invalid namespace',
+          mockCollectionName,
+          mockCreatorServiceUrl,
+        ),
+      ).rejects.toThrow('Invalid collection namespace: invalid namespace');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
     });
 
     it('should successfully run for PLAYBOOK application type', async () => {
@@ -218,18 +248,20 @@ describe('ansibleContentCreate', () => {
         downloadError,
       );
 
-      await ansibleCreatorRun(
-        mockWorkspacePath,
-        appType.PLAYBOOK,
-        logger,
-        mockDescription,
-        mockCollectionGroup,
-        mockCollectionName,
-        mockCreatorServiceUrl,
-      );
+      await expect(
+        ansibleCreatorRun(
+          mockWorkspacePath,
+          appType.PLAYBOOK,
+          logger,
+          mockDescription,
+          mockCollectionGroup,
+          mockCollectionName,
+          mockCreatorServiceUrl,
+        ),
+      ).rejects.toThrow(downloadError);
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[plugin-scaffolder-backend-module-backstage-rhaap] Error occurred while downloading the project tar at:',
+        '[scaffolder-backend-module-content-development] Error occurred while downloading the project tar at:',
         downloadError,
       );
     });
@@ -252,7 +284,7 @@ describe('ansibleContentCreate', () => {
       ).rejects.toThrow('Tar extraction failed');
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[plugin-scaffolder-backend-module-backstage-rhaap] Error while un-tar',
+        '[scaffolder-backend-module-content-development] Error while un-tar',
         tarError,
       );
     });
@@ -277,7 +309,7 @@ describe('ansibleContentCreate', () => {
       ).rejects.toThrow('Cleanup failed');
 
       expect(logger.error).toHaveBeenCalledWith(
-        '[plugin-scaffolder-backend-module-backstage-rhaap] Error while deleting tarball: ',
+        '[scaffolder-backend-module-content-development] Error while deleting tarball: ',
         cleanupError,
       );
     });
