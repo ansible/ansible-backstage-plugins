@@ -1427,7 +1427,7 @@ describe('TemplatesRoutesPage notifications', () => {
     });
   });
 
-  const renderPage = () => {
+  const renderPage = (routeEntries?: string[]) => {
     mockCatalogApi.getEntityFacets.mockResolvedValue({
       facets: {
         'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
@@ -1447,12 +1447,28 @@ describe('TemplatesRoutesPage notifications', () => {
         <TemplatesRoutesPage />
       </TestApiProvider>,
       {
+        routeEntries,
         mountedRoutes: {
           '/self-service': rootRouteRef,
         },
       },
     );
   };
+
+  it('preserves the Controller image context on the redirect to the catalog', async () => {
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+      pageInfo: {},
+    });
+    await renderPage([
+      '/self-service?create=use-in-controller&eeName=sample-ee&eeImage=registry.example.com%2Fsample-ee%3Astable',
+    ]);
+
+    expect(
+      await screen.findByText('Use an execution environment in Controller'),
+    ).toBeInTheDocument();
+  });
 
   it('renders NotificationStack with notifications', async () => {
     await renderPage();

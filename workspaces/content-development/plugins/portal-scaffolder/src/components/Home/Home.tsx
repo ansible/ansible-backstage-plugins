@@ -642,6 +642,7 @@ export const HomeComponent = () => {
 };
 
 const TemplatesRoutesContent = () => {
+  const { search, hash } = useLocation();
   const { notifications, removeNotification } = useNotifications();
 
   return (
@@ -656,7 +657,12 @@ const TemplatesRoutesContent = () => {
           path="create/templates/:namespace/:templateName"
           element={<CreateTask />}
         />
-        <Route path="*" element={<Navigate to="catalog" replace />} />
+        <Route
+          path="*"
+          element={
+            <Navigate to={{ pathname: 'catalog', search, hash }} replace />
+          }
+        />
       </Routes>
       <NotificationStack
         notifications={notifications}
