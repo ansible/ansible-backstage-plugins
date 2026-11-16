@@ -74,6 +74,7 @@ export const eeMessages = {
     overview: 'Overview',
     contents: 'All Content',
     tag: 'Version',
+    useInController: 'Use in Controller',
     latest: 'Latest',
     modified: 'Last modified',
     classification: 'Classification',

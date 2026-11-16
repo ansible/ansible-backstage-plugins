@@ -26,6 +26,7 @@ export function buildHomeTemplateCatalogQuery(options: {
   jobTemplateIds: number[];
   catalogFilter?: EntityFilterQuery;
   selectedSources?: string[];
+  requiredTag?: string;
 }): FilterPredicate {
   const predicates: FilterPredicate[] = [
     buildVisibilityPredicate(options.jobTemplateIds),
@@ -36,6 +37,10 @@ export function buildHomeTemplateCatalogQuery(options: {
     predicates.push({
       [SOURCE_FACET_KEY]: { $in: options.selectedSources },
     } as FilterPredicate);
+  }
+
+  if (options.requiredTag) {
+    predicates.push({ 'metadata.tags': options.requiredTag });
   }
 
   return { $all: predicates };

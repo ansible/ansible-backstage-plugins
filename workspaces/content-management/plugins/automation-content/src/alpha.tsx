@@ -25,7 +25,7 @@ import {
   eeDetailsEntryId,
 } from './manifest';
 
-import { eeRouteRef } from './routes';
+import { eeRouteRef, templatesRouteRef } from './routes';
 
 function isEERepository(entity: Entity): boolean {
   return (
@@ -60,6 +60,7 @@ export const eeOverviewLayout: ExtensionDefinition =
 const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
   pluginId: 'automation-content',
   routes: { ee: eeRouteRef },
+  externalRoutes: { templates: templatesRouteRef },
   extensions: [
     ApiBlueprint.make({
       params: define => define(automationContentApiFactory),

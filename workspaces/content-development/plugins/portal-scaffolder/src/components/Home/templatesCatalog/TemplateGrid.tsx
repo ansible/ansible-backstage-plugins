@@ -3,6 +3,7 @@ import { Typography } from '@material-ui/core';
 import { ItemCardGrid } from '@backstage/core-components';
 import { useEntityList } from '@backstage/plugin-catalog-react';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
+import type { ControllerTemplateSource } from '../../controllerTemplateSource';
 import { WizardCard } from '../TemplateCard';
 import { LoadingTemplatesPlaceholder } from '../LoadingTemplatesPlaceholder';
 import { TemplatesPagination } from '../TemplatesPagination';
@@ -13,12 +14,16 @@ import { useStaleWhileRevalidate } from './useStaleWhileRevalidate';
 type TemplateGridProps = {
   /** True while JT autocomplete is loading (first paint only). */
   externalLoading: boolean;
+  controllerSource?: ControllerTemplateSource;
 };
 
 /**
  * Templates card grid + pagination with stale-while-revalidate during soft refresh.
  */
-export const TemplateGrid = ({ externalLoading }: TemplateGridProps) => {
+export const TemplateGrid = ({
+  externalLoading,
+  controllerSource,
+}: TemplateGridProps) => {
   const {
     entities,
     loading: catalogLoading,
@@ -83,7 +88,11 @@ export const TemplateGrid = ({ externalLoading }: TemplateGridProps) => {
     <div data-testid="templates-container">
       <ItemCardGrid>
         {visibleEntities.map(template => (
-          <WizardCard key={template.metadata.uid} template={template} />
+          <WizardCard
+            key={template.metadata.uid}
+            template={template}
+            controllerSource={controllerSource}
+          />
         ))}
       </ItemCardGrid>
       <TemplatesPagination

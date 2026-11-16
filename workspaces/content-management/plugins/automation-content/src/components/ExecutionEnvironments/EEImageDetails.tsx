@@ -2,7 +2,11 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import useInterval from 'react-use/lib/useInterval';
 import { stringifyEntityRef, type Entity } from '@backstage/catalog-model';
-import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
+import {
+  useApi,
+  useRouteRef,
+  useTranslationRef,
+} from '@backstage/frontend-plugin-api';
 import {
   catalogApiRef,
   useEntityRefLink,
@@ -13,6 +17,7 @@ import {
   Box,
   Button,
   ButtonIcon,
+  ButtonLink,
   Card,
   CardBody,
   Cell,
@@ -41,6 +46,7 @@ import {
   type ArtifactContents,
   type ExecutionEnvironment,
 } from '../../api';
+import { templatesRouteRef } from '../../routes';
 import { eeTranslationRef } from '../../strings/en';
 import { SigningEvidence } from './SigningEvidence';
 import { SyncAction } from './SyncAction';
@@ -85,7 +91,26 @@ function RepositoryDetails({
   );
   const selection = useEESelection(detail.value);
   const selected = selection.selected;
+  const templatesRoute = useRouteRef(templatesRouteRef);
   const [refresh, setRefresh] = useState(0);
+  const artifactRef = selected?.artifactRef;
+  const artifactDetail = useAsyncRetry(
+    async () => (artifactRef ? api.getEEArtifact(artifactRef) : undefined),
+    [api, artifactRef, refresh],
+  );
+  const currentArtifact =
+    artifactDetail.value?.ref === artifactRef
+      ? artifactDetail.value
+      : undefined;
+  const image = selected?.taggedPullReference ?? currentArtifact?.pullReference;
+  const templatesHref = templatesRoute?.();
+  const controllerSearch =
+    image &&
+    new URLSearchParams({
+      create: 'use-in-controller',
+      eeName: repository.substring(repository.lastIndexOf('/') + 1),
+      eeImage: image,
+    });
   const retryRepository = detail.retry;
   const reload = useCallback(() => {
     retryRepository();
@@ -137,6 +162,14 @@ function RepositoryDetails({
                 if (typeof key === 'string') selection.select(key);
               }}
             />
+            {templatesHref && controllerSearch && (
+              <ButtonLink
+                variant="secondary"
+                href={`${templatesHref}?${controllerSearch}`}
+              >
+                {t('detail.useInController')}
+              </ButtonLink>
+            )}
             <SyncAction
               repository={{ registry, repository }}
               onReload={reload}
@@ -149,6 +182,7 @@ function RepositoryDetails({
           <DigestDetails
             key={selected.artifactRef}
             selected={selected}
+            detail={artifactDetail}
             repository={detail.value}
             refresh={refresh}
             section={selection.section}
@@ -176,12 +210,14 @@ function formatModifiedDate(
 
 function DigestDetails({
   selected,
+  detail,
   repository,
   refresh,
   section,
   selectSection,
 }: Readonly<{
   selected: NonNullable<ReturnType<typeof useEESelection>['selected']>;
+  detail: ReturnType<typeof useAsyncRetry<ExecutionEnvironment | undefined>>;
   repository?: EERepositoryDetails;
   refresh: number;
   section: 'overview' | 'contents';
@@ -190,19 +226,16 @@ function DigestDetails({
   const { artifactRef } = selected;
   const api = useApi(automationContentApiRef);
   const { t } = useTranslationRef(eeTranslationRef);
-  const detail = useAsyncRetry(
-    () => api.getEEArtifact(artifactRef),
-    [api, artifactRef, refresh],
-  );
   const inventory = useAsyncRetry(
     () => api.getEEArtifactContents(artifactRef),
     [api, artifactRef, refresh],
   );
   const [now, setNow] = useState(Date.now);
   useInterval(() => setNow(Date.now()), 15_000);
-  if (detail.loading && !detail.value)
+  const artifact = detail.value?.ref === artifactRef ? detail.value : undefined;
+  if (detail.loading && !artifact)
     return <Text role="status">{t('detail.artifactLoading')}</Text>;
-  if (detail.error || !detail.value) {
+  if (detail.error || !artifact) {
     return (
       <Alert
         status="danger"
@@ -215,7 +248,6 @@ function DigestDetails({
       />
     );
   }
-  const artifact = detail.value;
   const contents = inventory.error ? undefined : inventory.value;
   const pullReference = selected.taggedPullReference ?? artifact.pullReference;
   const enumeration = contents?.enumeration;

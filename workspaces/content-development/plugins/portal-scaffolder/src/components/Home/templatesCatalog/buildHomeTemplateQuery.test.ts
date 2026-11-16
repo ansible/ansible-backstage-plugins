@@ -66,6 +66,23 @@ describe('buildHomeTemplateCatalogQuery', () => {
     });
   });
 
+  it('applies the handoff tag together with the current catalog filters', () => {
+    expect(
+      buildHomeTemplateCatalogQuery({
+        jobTemplateIds: [2],
+        catalogFilter: { kind: 'template', 'metadata.tags': 'ops' },
+        requiredTag: 'use-in-controller',
+      }),
+    ).toEqual({
+      $all: [
+        buildVisibilityPredicate([2]),
+        { kind: 'template' },
+        { 'metadata.tags': 'ops' },
+        { 'metadata.tags': 'use-in-controller' },
+      ],
+    });
+  });
+
   it('omits source filtering when no sources are selected', () => {
     const query = buildHomeTemplateCatalogQuery({
       jobTemplateIds: [2],

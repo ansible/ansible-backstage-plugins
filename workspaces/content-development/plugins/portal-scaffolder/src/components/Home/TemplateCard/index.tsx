@@ -17,11 +17,19 @@ import { FavoriteEntity } from '@backstage/plugin-catalog-react';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
+import {
+  CONTROLLER_TEMPLATE_TAG,
+  type ControllerTemplateSource,
+} from '../../controllerTemplateSource';
 import { rootRouteRef } from '../../../routes';
 
 export function WizardCard({
   template,
-}: Readonly<{ template: TemplateEntityV1beta3 }>) {
+  controllerSource,
+}: Readonly<{
+  template: TemplateEntityV1beta3;
+  controllerSource?: ControllerTemplateSource;
+}>) {
   const theme = useTheme();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
@@ -31,11 +39,22 @@ export function WizardCard({
     permission: taskCreatePermission,
   });
 
+  const initialFormData = template.metadata.tags?.includes(
+    CONTROLLER_TEMPLATE_TAG,
+  )
+    ? controllerSource
+    : undefined;
+  const openTemplate = (path: string) => {
+    if (initialFormData) {
+      navigate(path, { state: { initialFormData } });
+    } else {
+      navigate(path);
+    }
+  };
   const chooseWizardItem = () =>
-    navigate(`${rootLink()}/create/templates/${namespace}/${name}`);
-
+    openTemplate(`${rootLink()}/create/templates/${namespace}/${name}`);
   const onTemplateClick = () =>
-    navigate(`${rootLink()}/catalog/${namespace}/${name}`);
+    openTemplate(`${rootLink()}/catalog/${namespace}/${name}`);
 
   return (
     <Card data-testid={`${namespace}-${name}`}>
