@@ -268,6 +268,11 @@ describe('createEEDefinition', () => {
       expect.objectContaining({ method: 'POST' }),
     );
     expect(ctx.getInitiatorCredentials).toHaveBeenCalled();
+    expect(auth.getPluginRequestToken).toHaveBeenCalledWith({
+      onBehalfOf: await ctx.getInitiatorCredentials(),
+      targetPluginId: 'catalog',
+    });
+    expect(auth.getOwnServiceCredentials).not.toHaveBeenCalled();
     expect(ctx.output).toHaveBeenCalledWith('eeCleanupStatus', 'ok');
   });
 

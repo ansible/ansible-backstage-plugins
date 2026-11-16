@@ -443,6 +443,21 @@ export class GitlabClient extends BaseScmClient {
     }
   }
 
+  async getRepositoryInfo(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<RepositoryInfo> {
+    const project = await this.fetchRest<{
+      name: string;
+      path_with_namespace: string;
+      default_branch: string;
+      web_url: string;
+      description: string | null;
+    }>(`/projects/${encodeURIComponent(`${owner}/${repo}`)}`, signal);
+    return this.projectToRepositoryInfo(project);
+  }
+
   async getProjectId(
     owner: string,
     repo: string,

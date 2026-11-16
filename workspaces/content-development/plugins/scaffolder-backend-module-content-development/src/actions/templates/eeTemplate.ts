@@ -583,7 +583,7 @@ spec:
     - id: dispatch-ee-build
       action: github:actions:dispatch
       name: Start EE Build Workflow
-      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' }}
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' and (steps['prepare-publish'].output.createNewRepo or steps['prepare-publish'].output.githubEeBuildWorkflowExists) }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         workflowId: ee-build.yml

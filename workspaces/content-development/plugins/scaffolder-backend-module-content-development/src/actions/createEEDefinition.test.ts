@@ -240,6 +240,10 @@ describe('createEEDefinition', () => {
       '/tmp/test-workspace/test-ee/test-ee-template.yml',
       expect.stringContaining('kind: Template'),
     );
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      '/tmp/test-workspace/test-ee/test-ee-template.yml',
+      expect.stringContaining('githubEeBuildWorkflowExists'),
+    );
     expect(ctx.output).toHaveBeenCalledWith(
       'catalogInfoPath',
       'test-ee/catalog-info.yaml',
@@ -909,6 +913,32 @@ describe('createEEDefinition', () => {
     ]);
   });
 
+  it('preserves slashes in SCM refs while removing picker display metadata', async () => {
+    const action = makeAction(
+      makeScmConfig({
+        github: [{ name: 'github-public', host: 'github.com' }],
+      }),
+    );
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: 'img:latest',
+        publishToSCM: true,
+        collections: [
+          {
+            name: 'my.collection',
+            source: 'Github / github-public / my-org / my-repo',
+            version: 'release/1.0 / v1.0.0',
+          },
+        ],
+      }),
+    );
+
+    expect(mockDownloadEEScaffold.mock.calls[0][3].collections[0].version).toBe(
+      'release/1.0',
+    );
+  });
+
   // ─── mergeRequirements / mergePackages ──────────────────────────────
 
   it('merges and deduplicates requirements from input and file', async () => {
@@ -1447,6 +1477,37 @@ describe('createEEDefinition', () => {
 
     const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
     expect(eeConfig.base_image).toBe('quay.io/org/custom:latest');
+  });
+
+  it('uses customBaseImage when the custom selector is selected', async () => {
+    const action = makeAction();
+    await action.handler(
+      makeCtx({
+        eeFileName: 'test-ee',
+        baseImage: 'custom',
+        customBaseImage: ' quay.io/org/custom:latest ',
+        publishToSCM: true,
+      }),
+    );
+
+    expect(mockDownloadEEScaffold.mock.calls[0][3].base_image).toBe(
+      'quay.io/org/custom:latest',
+    );
+  });
+
+  it('rejects a blank custom image when the custom selector is selected', async () => {
+    const action = makeAction();
+    await expect(
+      action.handler(
+        makeCtx({
+          eeFileName: 'test-ee',
+          baseImage: 'custom',
+          customBaseImage: '  ',
+          publishToSCM: true,
+        }),
+      ),
+    ).rejects.toThrow('customBaseImage is required when baseImage is custom');
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
   });
 
   it('canonicalizes eeFileName by stripping leading path', async () => {

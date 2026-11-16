@@ -10,6 +10,10 @@ import type {
 } from '@ansible/content-development-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
+const MAX_COLLECTIONS_CACHE_ENTRIES = 100;
+const MAX_INFLIGHT_COLLECTION_REQUESTS = 10;
+const MAX_SEARCH_QUERY_LENGTH = 512;
+const MAX_SEARCH_QUERY_TERMS = 10;
 const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';
 const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'kind',
@@ -90,8 +94,13 @@ export function buildCollectionsFromCatalogEntities(
   for (const item of entities) {
     const ns = item.spec?.collection_namespace;
     const cn = item.spec?.collection_name;
-    const name: string | undefined =
-      item.spec?.collection_full_name ?? (ns && cn ? `${ns}.${cn}` : undefined);
+    const fullName = item.spec?.collection_full_name;
+    let name: string | undefined;
+    if (typeof fullName === 'string') {
+      name = fullName;
+    } else if (ns && cn) {
+      name = `${ns}.${cn}`;
+    }
 
     if (!name) continue;
 
@@ -126,7 +135,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version ?? ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -186,14 +195,23 @@ export async function getCollections(options: {
   const { auth, discovery, logger, callerCredentials, searchQuery } = options;
   const filter = buildCatalogFilter(searchQuery);
   const cacheKey = JSON.stringify([callerCredentials.principal, filter]);
+  const now = Date.now();
+  for (const [key, entry] of collectionsCache) {
+    if (now - entry.timestamp >= COLLECTIONS_CACHE_TTL_MS) {
+      collectionsCache.delete(key);
+    }
+  }
   const cached = collectionsCache.get(cacheKey);
 
-  if (cached && Date.now() - cached.timestamp < COLLECTIONS_CACHE_TTL_MS) {
+  if (cached) {
     return cached.result;
   }
 
   if (inflightRequests.has(cacheKey)) {
     return inflightRequests.get(cacheKey)!;
+  }
+  if (inflightRequests.size >= MAX_INFLIGHT_COLLECTION_REQUESTS) {
+    throw new Error('Too many distinct collections requests are in progress');
   }
 
   const fetchPromise = (async () => {
@@ -221,11 +239,17 @@ export async function getCollections(options: {
       return { results: [] as Collections[] };
     }
     const body = await response.json();
-    const entities = Array.isArray(body) ? body : (body?.items ?? []);
+    const entities = Array.isArray(body) ? body : body?.items ?? [];
     const result = {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
+    collectionsCache.delete(cacheKey);
+    while (collectionsCache.size >= MAX_COLLECTIONS_CACHE_ENTRIES) {
+      const oldestKey = collectionsCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      collectionsCache.delete(oldestKey);
+    }
     collectionsCache.set(cacheKey, { result, timestamp: Date.now() });
 
     return result;
@@ -244,8 +268,10 @@ export async function getCollections(options: {
 }
 
 function buildCatalogFilter(searchQuery?: string): string {
-  const userFilters = (searchQuery ?? '')
+  const query = (searchQuery ?? '').slice(0, MAX_SEARCH_QUERY_LENGTH);
+  const userFilters = query
     .split(',')
+    .slice(0, MAX_SEARCH_QUERY_TERMS)
     .map(term => term.trim())
     .filter(term => {
       const separator = term.indexOf('=');

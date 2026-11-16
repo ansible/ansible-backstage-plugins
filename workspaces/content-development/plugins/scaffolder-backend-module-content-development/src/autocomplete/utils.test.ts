@@ -1,4 +1,8 @@
-import { clearCollectionsCache, getCollections } from './utils';
+import {
+  buildCollectionsFromCatalogEntities,
+  clearCollectionsCache,
+  getCollections,
+} from './utils';
 
 describe('getCollections catalog filters', () => {
   const auth = {
@@ -109,5 +113,90 @@ describe('getCollections catalog filters', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('evicts the oldest cache entry when the cache reaches its size limit', async () => {
+    for (let index = 0; index <= 100; index++) {
+      await getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials: {
+          principal: {
+            type: 'user',
+            userEntityRef: `user:default/user-${index}`,
+          },
+        } as any,
+      });
+    }
+
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      callerCredentials: {
+        principal: { type: 'user', userEntityRef: 'user:default/user-0' },
+      } as any,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(102);
+  });
+
+  it('uses the namespace/name fallback for a non-string full name', () => {
+    expect(
+      buildCollectionsFromCatalogEntities([
+        {
+          spec: {
+            collection_full_name: { invalid: true },
+            collection_namespace: 'ansible',
+            collection_name: 'core',
+          },
+        },
+      ]).map(collection => collection.name),
+    ).toEqual(['ansible.core']);
+  });
+
+  it('bounds search query terms and length before building the catalog filter', async () => {
+    const longValue = 'x'.repeat(600);
+    const query = Array.from(
+      { length: 12 },
+      (_, index) => `metadata.name=${index}${longValue}`,
+    ).join(',');
+
+    await requestedFilter(query);
+
+    const filter = new URL(String(fetchMock.mock.calls[0][0])).searchParams.get(
+      'filter',
+    );
+    expect(filter?.length).toBeLessThanOrEqual(600);
+    expect(filter?.split(',').length).toBeLessThanOrEqual(2);
+  });
+
+  it('caps distinct in-flight catalog requests', async () => {
+    const requests = Array.from({ length: 10 }, (_, index) =>
+      getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials: {
+          principal: {
+            type: 'user',
+            userEntityRef: `user:default/user-${index}`,
+          },
+        } as any,
+      }),
+    );
+
+    await expect(
+      getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials: {
+          principal: { type: 'user', userEntityRef: 'user:default/user-10' },
+        } as any,
+      }),
+    ).rejects.toThrow('Too many distinct collections requests are in progress');
+    await expect(Promise.all(requests)).resolves.toHaveLength(10);
   });
 });

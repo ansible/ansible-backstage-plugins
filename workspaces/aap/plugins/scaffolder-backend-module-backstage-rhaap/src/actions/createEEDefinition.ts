@@ -360,7 +360,7 @@ export function createEEDefinitionAction(options: {
         } else {
           const baseUrl = await discovery.getBaseUrl('catalog');
           const { token } = await auth.getPluginRequestToken({
-            onBehalfOf: await auth.getOwnServiceCredentials(),
+            onBehalfOf: await ctx.getInitiatorCredentials(),
             targetPluginId: 'catalog',
           });
 
@@ -500,7 +500,9 @@ async function bestEffortUnregisterExistingEE(options: {
       }
 
       logger.info(
-        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${response.status}, mode ${body?.mode ?? 'unknown'})`,
+        `[ansible:create:ee-definition] cleaned up existing EE catalog entity "${name}" (status ${
+          response.status
+        }, mode ${body?.mode ?? 'unknown'})`,
       );
 
       if (body?.mode === 'entity-transient') {

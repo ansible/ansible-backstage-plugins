@@ -387,17 +387,53 @@ export function createRouter(options: {
       return;
     }
 
-    const [createDecision] = await permissions.authorize(
+    const entityRef = stringifyEntityRef(entity);
+    const { token: callerCatalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+    let existingEntity = await catalogClient.getEntityByRef(entityRef, {
+      token: callerCatalogToken,
+    });
+    if (!existingEntity) {
+      const serviceCredentials = await auth.getOwnServiceCredentials();
+      const { token: serviceCatalogToken } = await auth.getPluginRequestToken({
+        onBehalfOf: serviceCredentials,
+        targetPluginId: 'catalog',
+      });
+      existingEntity = await catalogClient.getEntityByRef(entityRef, {
+        token: serviceCatalogToken,
+      });
+    }
+
+    if (
+      existingEntity &&
+      (existingEntity.kind !== 'Component' ||
+        existingEntity.spec?.type !== 'execution-environment')
+    ) {
+      response.status(409).json({
+        error: 'Refusing to replace a non-execution-environment entity',
+      });
+      return;
+    }
+
+    const requiredPermission = existingEntity
+      ? catalogEntityDeletePermission
+      : catalogEntityCreatePermission;
+    const [decision] = await permissions.authorize(
       [
         {
-          permission: catalogEntityCreatePermission,
+          permission: requiredPermission,
+          ...(existingEntity ? { resourceRef: entityRef } : {}),
         },
       ],
       { credentials },
     );
-    if (createDecision.result !== AuthorizeResult.ALLOW) {
+    if (decision.result !== AuthorizeResult.ALLOW) {
       response.status(403).json({
-        error: 'Forbidden: insufficient permissions to create entity',
+        error: `Forbidden: insufficient permissions to ${
+          existingEntity ? 'replace' : 'create'
+        } entity`,
       });
       return;
     }
@@ -510,6 +546,18 @@ export function createRouter(options: {
         entityRef,
         catalogOpts,
       );
+
+      if (
+        !location?.id &&
+        entity.metadata?.annotations?.[
+          'backstage.io/managed-by-origin-location'
+        ]
+      ) {
+        response.status(403).json({
+          error: 'Forbidden: cannot access the entity origin location',
+        });
+        return;
+      }
 
       if (location?.id) {
         // Count siblings with service credentials so catalog.entity.read

@@ -81,7 +81,14 @@ export function createEEDefinitionAction(options: {
     async handler(ctx) {
       const { input, logger, workspacePath } = ctx;
       const values = input.values as unknown as EEDefinitionInput;
-      const baseImage = values.baseImage || values.customBaseImage || '';
+      const customBaseImage = values.customBaseImage?.trim() || '';
+      if (values.baseImage === 'custom' && !customBaseImage) {
+        throw new Error('customBaseImage is required when baseImage is custom');
+      }
+      const baseImage =
+        values.baseImage === 'custom'
+          ? customBaseImage
+          : values.baseImage || customBaseImage;
       const collections = values.collections || [];
       const pythonRequirements = values.pythonRequirements || [];
       const pythonRequirementsFile = convertUploadToDataUrl(
@@ -648,9 +655,8 @@ function transformScmCollections(
       type: 'git',
     };
     if (c.version) {
-      // The UI may append display metadata after a "/" (e.g. "main / v1.2.3");
-      // only the segment before the first "/" is the actual git ref.
-      col.version = c.version.split('/')[0].trim();
+      // The UI appends display metadata after " / "; preserve slashes in refs.
+      col.version = c.version.split(' / ')[0].trim();
     }
     return col;
   });

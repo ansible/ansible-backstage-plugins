@@ -75,6 +75,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { ConflictError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
+import { catalogEntityDeletePermission } from '@backstage/plugin-catalog-common/alpha';
 import { CatalogClient } from '@backstage/catalog-client';
 import type { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
 import { ConfigReader } from '@backstage/config';
@@ -364,6 +365,9 @@ describe('createRouter', () => {
 
   describe('POST /ansible/ee', () => {
     it('should successfully register an execution environment', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const mockProvider = {};
 
       const testApp = express();
@@ -421,6 +425,70 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
       ).toHaveBeenCalledWith(mockEntity);
+    });
+
+    it('requires delete permission before replacing an existing hidden entity', async () => {
+      const existing = {
+        kind: 'Component',
+        metadata: { name: 'test-ee', namespace: 'default' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(existing as any);
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+
+      const response = await request(app)
+        .post('/ansible/ee')
+        .send({
+          entity: {
+            kind: 'Component',
+            metadata: { name: 'test-ee', namespace: 'default' },
+            spec: { type: 'execution-environment' },
+          },
+        })
+        .expect(403);
+
+      expect(response.body.error).toContain('replace entity');
+      expect(mockPermissions.authorize).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            permission: catalogEntityDeletePermission,
+            resourceRef: 'component:default/test-ee',
+          }),
+        ],
+        expect.anything(),
+      );
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('refuses to replace a different entity type', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        kind: 'Component',
+        metadata: { name: 'test-ee', namespace: 'default' },
+        spec: { type: 'service' },
+      } as any);
+
+      const response = await request(app)
+        .post('/ansible/ee')
+        .send({
+          entity: {
+            kind: 'Component',
+            metadata: { name: 'test-ee', namespace: 'default' },
+            spec: { type: 'execution-environment' },
+          },
+        })
+        .expect(409);
+
+      expect(response.body.error).toContain('non-execution-environment');
+      expect(mockPermissions.authorize).not.toHaveBeenCalled();
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).not.toHaveBeenCalled();
     });
 
     it('should return 400 when entity is missing', async () => {
@@ -498,6 +566,9 @@ describe('createRouter', () => {
     });
 
     it('should handle registerExecutionEnvironment failure with proper error response', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const mockProvider = {};
 
       mockEEEntityProvider.registerExecutionEnvironment = jest
@@ -553,6 +624,9 @@ describe('createRouter', () => {
     });
 
     it('should handle non-Error exceptions gracefully', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
       const mockProvider = {};
 
       mockEEEntityProvider.registerExecutionEnvironment = jest
@@ -926,6 +1000,29 @@ describe('createRouter', () => {
         'uid-ee1',
         expect.objectContaining({ token: 'mock-token' }),
       );
+    });
+
+    it('does not delete an origin-managed entity when its location is hidden', async () => {
+      mockCatalogClient.getEntityByRef.mockResolvedValueOnce({
+        ...eeEntity,
+        metadata: {
+          ...eeEntity.metadata,
+          annotations: {
+            'backstage.io/managed-by-origin-location':
+              'url:https://github.com/org/repo/catalog-info.yaml',
+          },
+        },
+      } as any);
+      mockCatalogClient.getLocationByEntity.mockResolvedValueOnce(undefined);
+      const testApp = await createDeleteTestApp();
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(403);
+
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+      expect(mockCatalogClient.removeEntityByUid).not.toHaveBeenCalled();
+      expect(mockCatalogClient.removeLocationById).not.toHaveBeenCalled();
     });
 
     it('succeeds when removeEntityByUid fails but entity is already gone via delta', async () => {
