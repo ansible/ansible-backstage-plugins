@@ -668,6 +668,17 @@ components:
               type: array
               description: Execution environments shipping this collection version.
               items: { type: string }
+            versions:
+              type: array
+              description: All known versions of this collection and their providers. Present on the detail endpoint.
+              items:
+                type: object
+                required: [version, providedBy]
+                properties:
+                  version: { type: string }
+                  providedBy:
+                    type: array
+                    items: { type: string }
 
     OptionSpec:
       type: object
@@ -3471,6 +3482,10 @@ paths:
                 type: object
                 properties:
                   enumeration: { $ref: '#/components/schemas/Enumeration' }
+                  classification: { $ref: '#/components/schemas/Classification' }
+                  collections:
+                    type: array
+                    items: { type: object }
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
@@ -3719,10 +3734,19 @@ paths:
         '403':
           description: Insufficient permissions
         '200':
-          description: The item
+          description: The item, or its variants
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ContentItem' }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ContentItem'
+                  - type: object
+                    properties:
+                      fqcn: { type: string }
+                      variantCount: { type: integer }
+                      variants:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentItem' }
         '404':
           description: Not found in any known environment
           content:
