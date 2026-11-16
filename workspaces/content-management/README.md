@@ -100,8 +100,10 @@ permissions.
 
 ### Use an image in Controller
 
-Select a version in the image details and choose **Use in Controller**. Start
-**Add execution environment to Controller** from the filtered Templates list.
+Choose **Use in Controller** from an image’s actions menu in either Images view
+to use its representative version. To choose a different version, open image
+details, select the version, and choose **Use in Controller**. Start **Add
+execution environment to Controller** from the filtered Templates list.
 The wizard prefills the execution environment name and image pull reference.
 Choose a Controller organization and run the task with your AAP sign-in. On
 success, the task links to the execution environment in Controller.

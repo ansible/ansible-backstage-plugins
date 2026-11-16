@@ -49,6 +49,7 @@ import {
 import { templatesRouteRef } from '../../routes';
 import { eeTranslationRef } from '../../strings/en';
 import { SigningEvidence } from './SigningEvidence';
+import { controllerTemplateHref } from './controllerTemplateHref';
 import { SyncAction } from './SyncAction';
 import { useEESelection } from './useEESelection';
 import { timeSince } from './timeSince';
@@ -104,13 +105,6 @@ function RepositoryDetails({
       : undefined;
   const image = selected?.taggedPullReference ?? currentArtifact?.pullReference;
   const templatesHref = templatesRoute?.();
-  const controllerSearch =
-    image &&
-    new URLSearchParams({
-      create: 'use-in-controller',
-      eeName: repository.substring(repository.lastIndexOf('/') + 1),
-      eeImage: image,
-    });
   const retryRepository = detail.retry;
   const reload = useCallback(() => {
     retryRepository();
@@ -162,10 +156,10 @@ function RepositoryDetails({
                 if (typeof key === 'string') selection.select(key);
               }}
             />
-            {templatesHref && controllerSearch && (
+            {templatesHref && image && (
               <ButtonLink
                 variant="secondary"
-                href={`${templatesHref}?${controllerSearch}`}
+                href={controllerTemplateHref(templatesHref, repository, image)}
               >
                 {t('detail.useInController')}
               </ButtonLink>
