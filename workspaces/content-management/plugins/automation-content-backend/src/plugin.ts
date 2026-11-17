@@ -104,7 +104,7 @@ export const automationContentPlugin = createBackendPlugin({
         });
         const manualSyncEnabled =
           config.getOptionalBoolean('automationContent.manualSync.enabled') ??
-          false;
+          true;
 
         permissionsRegistry.addPermissions([
           executionEnvironmentsViewPermission,

@@ -265,6 +265,10 @@ catalog:
     #         username: ${CONTENT_REGISTRY_USERNAME}
     #         password: ${CONTENT_REGISTRY_PASSWORD}
 
+automationContent:
+  manualSync:
+    enabled: true
+
 ansible:
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/
