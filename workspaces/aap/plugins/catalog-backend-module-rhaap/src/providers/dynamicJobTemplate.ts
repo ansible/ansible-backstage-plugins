@@ -25,6 +25,17 @@ function scaffolderSecretsRef(key: string): string {
   return `\${{ secrets[${JSON.stringify(key)}] }}`;
 }
 
+const AAP_TOKEN_SECRET_NAME = 'aapToken';
+
+export class ReservedSurveyPasswordVariableError extends Error {
+  constructor(variable: string) {
+    super(
+      `Survey password variable "${variable}" is reserved for AAP authentication`,
+    );
+    this.name = 'ReservedSurveyPasswordVariableError';
+  }
+}
+
 function normalizeMultiselectSurveyDefault(
   defaultValue: unknown,
 ): string[] | null {
@@ -495,6 +506,10 @@ export const getSurveyDetails = (
     return [promptForm, extraVariables];
   }
   for (const item of survey.spec ?? []) {
+    if (item.type === 'password' && item.variable === AAP_TOKEN_SECRET_NAME) {
+      throw new ReservedSurveyPasswordVariableError(AAP_TOKEN_SECRET_NAME);
+    }
+
     if (!promptForm.properties) {
       promptForm.properties = {} as JsonObject;
     }
@@ -579,6 +594,20 @@ export const generateTemplate = (options: {
             identity,
           ),
         }),
+      formDecorators: [{ id: 'ansible.aap-user-token' }],
+      secrets: {
+        schema: {
+          type: 'object',
+          required: [AAP_TOKEN_SECRET_NAME],
+          properties: {
+            [AAP_TOKEN_SECRET_NAME]: {
+              type: 'string',
+              minLength: 1,
+              pattern: String.raw`^[\s\S]*\S[\s\S]*$`,
+            },
+          },
+        },
+      },
       parameters: [finalPromptForm],
       steps: [
         {
