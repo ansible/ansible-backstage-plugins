@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import { Entity } from '@backstage/catalog-model';
 import { ConfigReader } from '@backstage/config';
 
 import {
@@ -103,7 +104,7 @@ describe('catalog barrel', () => {
     expect(typeof scmCollectionParser).toBe('function');
     expect(typeof repositoryParser).toBe('function');
 
-    const entity = {
+    const entity: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
       metadata: { name: 'community-general' },
