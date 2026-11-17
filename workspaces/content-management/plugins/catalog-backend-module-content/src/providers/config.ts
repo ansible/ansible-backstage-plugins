@@ -3,6 +3,7 @@
 // console.log is used intentionally for provider-configuration diagnostics.
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
+import { getResolvedCatalogProvidersConfig } from '@ansible/backstage-rhaap-common/catalog/catalogProviderConfig';
 import type { AnsibleGitContentsSourceConfig, ScmProvider } from './types';
 
 type ScheduleDefinition = ReturnType<
@@ -12,10 +13,10 @@ type ScheduleDefinition = ReturnType<
 export function readAnsibleGitContentsConfigs(
   config: Config,
 ): AnsibleGitContentsSourceConfig[] {
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = getResolvedCatalogProvidersConfig(config);
 
   if (!providerConfigs) {
-    console.log('No catalog.providers.rhaap config found');
+    console.log('No catalog provider config found for content module');
     return [];
   }
 

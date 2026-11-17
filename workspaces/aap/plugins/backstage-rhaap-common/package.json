@@ -23,6 +23,7 @@
     "./catalogEntity": "./src/catalogEntity.ts",
     "./catalog": "./src/catalog/index.ts",
     "./catalog/contentProviderContracts": "./src/catalog/contentProviderContracts.ts",
+    "./catalog/catalogProviderConfig": "./src/catalog/catalogProviderConfig.ts",
     "./catalog/providers/config": "./src/catalog/providers/config.ts",
     "./catalog/providers/types": "./src/catalog/providers/types.ts",
     "./catalog/providers/entityParser": "./src/catalog/providers/entityParser.ts",
@@ -59,6 +60,9 @@
       ],
       "catalog/contentProviderContracts": [
         "src/catalog/contentProviderContracts.ts"
+      ],
+      "catalog/catalogProviderConfig": [
+        "src/catalog/catalogProviderConfig.ts"
       ],
       "catalog/providers/config": [
         "src/catalog/providers/config.ts"
