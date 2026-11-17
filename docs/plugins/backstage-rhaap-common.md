@@ -43,20 +43,24 @@ scaffolder, or user-provisioner modules without a catalog package loader.
 
 ### RHDH dynamic installations
 
-The catalog package is the single transitional owner of the AAP factory.
-Enable its default dynamic plugin together with the auth, scaffolder, and
-user-provisioner dynamic plugins as needed. Its default loader registers the
-factory; the other three loaders register only their modules. No host-level
-AAP client factory registration is required for this combination.
+`catalog-backend-module-aap` is the single transitional owner of the AAP factory
+for split deployments. Enable its default dynamic plugin for AAP-only installs,
+or together with `catalog-backend-module-content` for a full split. Auth,
+scaffolder, and user-provisioner loaders register only their modules. No
+host-level AAP client factory registration is required for those combinations.
 
-For dynamic JIT user provisioning, use the catalog alpha entry point with the
-auth and user-provisioner modules, unless the host explicitly registers a shared
-factory for `userProvisionerRef` (`rhaap.user-provisioner`). The default catalog
-loader does not register that shared factory. Alpha also supplies the organization
-resolver. The user-provisioner module must register its creation callback, and
-the catalog must connect its provider before JIT requests can succeed.
-Install exactly one catalog entry point. Service registration order alone does
-not establish readiness for JIT requests.
+The deprecated `catalog-backend-module-rhaap` shim remains the factory owner
+only for legacy all-in-one bundles. Do not load the shim together with the
+split modules.
+
+For dynamic JIT user provisioning, use the AAP catalog alpha entry point with
+the auth and user-provisioner modules, unless the host explicitly registers a
+shared factory for `userProvisionerRef` (`rhaap.user-provisioner`). The default
+AAP catalog loader does not register that shared factory. Legacy shim alpha also
+supplies the organization resolver. The user-provisioner module must register
+its creation callback, and the catalog must connect its provider before JIT
+requests can succeed. Install exactly one catalog entry point. Service
+registration order alone does not establish readiness for JIT requests.
 
 Auth, scaffolder, and user-provisioner loaders do not provide the AAP factory
 on their own. A dynamic deployment without the catalog loader must explicitly
