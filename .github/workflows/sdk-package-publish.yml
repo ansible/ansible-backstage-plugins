@@ -20,6 +20,9 @@ jobs:
     if: github.repository == 'ansible/ansible-backstage-plugins' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: read
     env:
       NODE_OPTIONS: --max-old-space-size=8192
       SDK_RELEASE_VERSION: ${{ inputs.version }}
@@ -50,6 +53,18 @@ jobs:
         env:
           SYFT_CMD: ${{ steps.syft.outputs.cmd }}
         run: node scripts/sdk-package-validation/sbom.mjs
+      - name: Gate release on exact-commit SAST and consumer dependency SCA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/sdk-package-validation/security.mjs
+      - name: Retain security diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sdk-security-diagnostics
+          path: ${{ runner.temp }}/sdk-release/security
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Verify complete release set
         run: node scripts/sdk-package-validation/publish.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -59,6 +74,7 @@ jobs:
             ${{ runner.temp }}/sdk-release/artifacts
             ${{ runner.temp }}/sdk-release/sboms
             ${{ runner.temp }}/sdk-release/report.json
+            ${{ runner.temp }}/sdk-release/security
           if-no-files-found: error
           retention-days: 7
 
@@ -108,6 +124,7 @@ jobs:
             ${{ runner.temp }}/sdk-release/artifacts/*.tgz
             ${{ runner.temp }}/sdk-release/sboms/*.json
             ${{ runner.temp }}/sdk-release/report.json
+            ${{ runner.temp }}/sdk-release/security/**
           create-storage-record: false
       - name: Publish exact archives through npm OIDC
         working-directory: ${{ runner.temp }}
@@ -127,5 +144,6 @@ jobs:
             ${{ runner.temp }}/sdk-release/sboms
             ${{ runner.temp }}/sdk-release/report.json
             ${{ runner.temp }}/sdk-release/provenance.sigstore.json
+            ${{ runner.temp }}/sdk-release/security
           if-no-files-found: error
           retention-days: 30

@@ -37,6 +37,7 @@ function releaseFixture(t) {
     'release.mjs',
     'validate-archive.mjs',
     'sbom.mjs',
+    'security.mjs',
   ]) {
     copyFileSync(new URL(name, import.meta.url), join(scripts, name));
   }
@@ -114,6 +115,52 @@ function releaseFixture(t) {
   };
   json(join(directory, 'report.json'), report);
   json(join(directory, 'sboms/index.json'), index);
+  const security = join(directory, 'security');
+  mkdirSync(security);
+  const securityFiles = [];
+  for (const [offset, category] of [
+    '/language:javascript-typescript',
+    '/language:actions',
+  ].entries()) {
+    const id = offset + 1;
+    const metadata = `codeql-${id}.metadata.json`;
+    const sarif = `codeql-${id}.sarif.json`;
+    json(join(security, metadata), {
+      analysis_key: 'codeql-default-setup',
+      id,
+      category,
+      commit_sha: sha,
+      ref: 'refs/heads/main',
+      tool: { name: 'CodeQL' },
+      rules_count: 1,
+      results_count: 0,
+      error: '',
+    });
+    json(join(security, sarif), {
+      version: '2.1.0',
+      runs: [{ tool: { driver: { name: 'CodeQL' } }, results: [] }],
+    });
+    securityFiles.push(metadata, sarif);
+  }
+  writeFileSync(
+    join(security, 'consumer.yarn.lock'),
+    'isolated consumer lockfile',
+  );
+  writeFileSync(
+    join(security, 'yarn-audit.ndjson'),
+    JSON.stringify({ type: 'info', data: 'No audit suggestions' }),
+  );
+  securityFiles.push('consumer.yarn.lock', 'yarn-audit.ndjson');
+  json(join(security, 'report.json'), {
+    commit: sha,
+    policy: 'block-all-findings',
+    packages: candidates,
+    auditExitCode: 0,
+    files: securityFiles.map(name => ({
+      name,
+      sha256: digest(join(security, name)),
+    })),
+  });
 
   const events = join(root, 'events.jsonl');
   const preload = join(root, 'registry-stub.mjs');
@@ -203,6 +250,21 @@ test('publisher validates real archives and fails closed on tampering', t => {
   });
   assert.match(run().stderr, /clean release commit/);
   json(join(directory, 'report.json'), report);
+  const securityReport = join(directory, 'security/report.json');
+  const originalSecurity = readFileSync(securityReport, 'utf8');
+  rmSync(securityReport);
+  assert.match(run().stderr, /ENOENT/);
+  writeFileSync(securityReport, originalSecurity);
+  const changedSecurity = JSON.parse(originalSecurity);
+  changedSecurity.commit = 'b'.repeat(40);
+  json(securityReport, changedSecurity);
+  assert.match(run().stderr, /Security source revision mismatch/);
+  writeFileSync(securityReport, originalSecurity);
+  const sarifPath = join(directory, 'security/codeql-1.sarif.json');
+  const originalSarif = readFileSync(sarifPath, 'utf8');
+  writeFileSync(sarifPath, '{}');
+  assert.match(run().stderr, /Security evidence changed/);
+  writeFileSync(sarifPath, originalSarif);
   const sbom = join(directory, 'sboms/example.spdx.json');
   writeFileSync(sbom, '{}');
   assert.match(run().stderr, /AssertionError/);

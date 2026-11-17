@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateArchive } from './validate-archive.mjs';
 import { verifyArchiveDigest, verifySbom } from './sbom.mjs';
+import { verifySecurityEvidence } from './security.mjs';
 import {
   publicationOrder,
   registry,
@@ -93,6 +94,7 @@ for (const source of sources) {
   manifests.push(manifest);
 }
 validateReleaseManifests(manifests, version);
+verifySecurityEvidence(directory, report);
 const ordered = publicationOrder(manifests);
 console.log(`Verified ${ordered.length} archives for ${version} under next`);
 

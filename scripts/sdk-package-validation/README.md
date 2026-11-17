@@ -17,6 +17,9 @@ The allowlist records validation candidates, not approval to publish them.
 
 For the separate OIDC-only release workflow, maintainer setup and first-publication
 requirements, see [Publishing a Portal SDK developer preview](PUBLISHING.md).
+That release workflow additionally requires zero-finding CodeQL and dependency
+audit evidence before handing archives to the publisher. Ordinary candidate
+validation below does not perform those release-only security scans.
 
 The consumer compiles a frontend contribution, backend contribution, host imports,
 and the auth factories. It bundles the frontend entries, checks that packages and
