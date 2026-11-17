@@ -92,21 +92,20 @@ afterAll(() => {
   else Reflect.deleteProperty(globalThis, 'CSS');
 });
 
-it('shows a read-only digest for the selected tag and updates it with the selection', async () => {
+it('shows the selected tag digest as text and updates it with the selection', async () => {
   const user = userEvent.setup();
   mount(tags[0].taggedPullReference);
 
-  const digest = await screen.findByRole('textbox', { name: 'Image digest' });
-  expect(digest).toHaveProperty('readOnly', true);
-  await waitFor(() => expect(digest).toHaveProperty('value', tags[0].digest));
+  const digest = await screen.findByRole('definition', {
+    name: 'Image digest',
+  });
+  expect(screen.queryByRole('textbox', { name: 'Image digest' })).toBeNull();
+  await waitFor(() => expect(digest.textContent).toBe(tags[0].digest));
 
   await user.click(screen.getByRole('button', { name: /stable Tags$/ }));
   await user.click(await screen.findByRole('option', { name: 'latest' }));
   expect(await screen.findByText(tags[1].taggedPullReference)).toBeTruthy();
-  expect(screen.getByRole('textbox', { name: 'Image digest' })).toHaveProperty(
-    'value',
-    tags[1].digest,
-  );
+  expect(digest.textContent).toBe(tags[1].digest);
 });
 
 it('shows the digest of a digest-pinned reference', async () => {
@@ -114,6 +113,7 @@ it('shows the digest of a digest-pinned reference', async () => {
   mount(`${image}@${digest}`);
 
   expect(
-    await screen.findByRole('textbox', { name: 'Image digest' }),
-  ).toHaveProperty('value', digest);
+    (await screen.findByRole('definition', { name: 'Image digest' }))
+      .textContent,
+  ).toBe(digest);
 });

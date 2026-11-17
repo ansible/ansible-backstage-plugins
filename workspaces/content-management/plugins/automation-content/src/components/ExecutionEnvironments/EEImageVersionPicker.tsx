@@ -1,6 +1,16 @@
 import { useApi, useTranslationRef } from '@backstage/frontend-plugin-api';
 import type { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import { Alert, Button, Flex, Select, Text, TextField } from '@backstage/ui';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  Select,
+  Text,
+  TextField,
+} from '@backstage/ui';
 import { useLocation } from 'react-router-dom';
 import useAsyncRetry from 'react-use/lib/useAsyncRetry';
 import { automationContentApiRef } from '../../api';
@@ -95,14 +105,36 @@ function RepositoryVersionPicker({
         isDisabled={disabled || readonly || details.loading}
       />
       {formData && (
-        <>
-          <Text color="secondary">{formData}</Text>
-          <TextField
-            label={t('detail.digest')}
-            value={digest ?? (details.loading ? '' : t('unknown'))}
-            isReadOnly
-          />
-        </>
+        <Card>
+          <CardBody>
+            <Flex direction="column" gap="2">
+              <Box as="dl" m="0">
+                <Box as="dt">
+                  <Text variant="body-small" weight="bold">
+                    {t('inventory.image')}
+                  </Text>
+                </Box>
+                <Box as="dd" m="0" style={{ overflowWrap: 'anywhere' }}>
+                  <Text color="secondary">{formData}</Text>
+                </Box>
+              </Box>
+              <Box as="dl" m="0">
+                <Box as="dt">
+                  <Text variant="body-small" weight="bold">
+                    {t('detail.digest')}
+                  </Text>
+                </Box>
+                <Box as="dd" m="0" aria-label={t('detail.digest')}>
+                  <Box as="code" style={{ overflowWrap: 'anywhere' }}>
+                    <Text color="secondary">
+                      {digest ?? (details.loading ? '' : t('unknown'))}
+                    </Text>
+                  </Box>
+                </Box>
+              </Box>
+            </Flex>
+          </CardBody>
+        </Card>
       )}
       {details.loading && (
         <Text role="status">{t('controllerVersion.loading')}</Text>
