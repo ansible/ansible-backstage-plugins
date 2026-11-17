@@ -37,15 +37,18 @@ export function parseUploadedFileContent(dataUrl: string): string {
     }
     const base64Data = dataUrl.slice(delimiter + ';base64,'.length);
     const unpaddedBase64 = base64Data.replace(/=+$/, '');
-    const hasValidBase64Characters = /^[A-Za-z0-9+/]*={0,2}$/.test(base64Data);
-    const hasValidPadding =
-      !base64Data.includes('=') || base64Data.length % 4 === 0;
-    const decodedBase64 = Buffer.from(base64Data, 'base64').toString('base64');
+    const paddingLength = base64Data.length - unpaddedBase64.length;
+    const hasValidBase64Characters = /^[A-Za-z0-9+/]*$/.test(unpaddedBase64);
+    const hasValidBase64Length =
+      unpaddedBase64.length % 4 !== 1 &&
+      (paddingLength === 0 ||
+        (paddingLength <= 2 &&
+          base64Data.length % 4 === 0 &&
+          unpaddedBase64.length % 4 === 4 - paddingLength));
     if (
       base64Data.length > 0 &&
       (!hasValidBase64Characters ||
-        !hasValidPadding ||
-        decodedBase64.replace(/=+$/, '') !== unpaddedBase64)
+        !hasValidBase64Length)
     ) {
       throw new Error('Invalid base64 data in uploaded file');
     }
