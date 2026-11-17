@@ -25,7 +25,6 @@ jest.mock('@ansible/content-development-common', () => ({
 import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { prepareForPublishAction } from './prepareForPublish';
-import { ScmClientFactory } from '@ansible/content-development-common';
 
 jest.mock(
   '@ansible/plugin-scaffolder-backend-module-content-development',
