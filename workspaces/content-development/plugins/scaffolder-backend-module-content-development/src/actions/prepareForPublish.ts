@@ -62,6 +62,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         generatedCatalogInfoUrl: z => z.string().optional(),
         generatedFullRepoUrl: z => z.string().optional(),
         gitlabProjectId: z => z.number().optional(),
+        githubEeBuildWorkflowExists: z => z.boolean().optional(),
       },
     },
     async handler(ctx) {
@@ -127,6 +128,23 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         }
 
         ctx.output('createNewRepo', createNewRepo);
+
+        if (scmProvider === 'github' && repositoryInfo) {
+          let workflowExists = false;
+          try {
+            await scmClient.getFileContent(
+              repositoryInfo,
+              defaultBranch,
+              '.github/workflows/ee-build.yml',
+            );
+            workflowExists = true;
+          } catch {
+            logger.debug(
+              'Could not confirm ee-build.yml on the GitHub default branch',
+            );
+          }
+          ctx.output('githubEeBuildWorkflowExists', workflowExists);
+        }
 
         if (scmProvider === 'gitlab' && !createNewRepo) {
           const numericProjectId = await scmClient.getProjectId(

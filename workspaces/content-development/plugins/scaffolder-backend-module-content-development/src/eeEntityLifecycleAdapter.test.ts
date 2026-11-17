@@ -338,6 +338,43 @@ describe('EEEntityLifecycleAdapter', () => {
     expect(lockContext.clearRegistration).not.toHaveBeenCalled();
   });
 
+  it('preserves tracked provider registration when catalog visibility is delayed', async () => {
+    registrationState = 'pending';
+    catalog.getEntityByRef.mockResolvedValue(undefined);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials, {
+        skipProviderManaged: true,
+      }),
+    ).resolves.toEqual({ mode: 'provider' });
+
+    expect(permissions.authorize).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          permission: expect.objectContaining({
+            name: 'catalog.entity.delete',
+          }),
+          resourceRef: 'component:default/my-ee',
+        }),
+      ],
+      { credentials },
+    );
+    expect(provider.unregister).not.toHaveBeenCalled();
+    expect(lockContext.beginMutation).not.toHaveBeenCalled();
+    expect(lockContext.clearRegistration).not.toHaveBeenCalled();
+    expect(registrationState).toBe('pending');
+  });
+
   it('does not suppress a failed entity removal when the entity remains', async () => {
     const entity = {
       kind: 'Component',

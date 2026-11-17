@@ -54,6 +54,7 @@ describe('prepareForPublish', () => {
   let mockScmClient: {
     repositoryExists: jest.Mock;
     getRepositoryInfo: jest.Mock;
+    getFileContent: jest.Mock;
     getHost: jest.Mock;
     getProjectId: jest.Mock;
   };
@@ -64,7 +65,11 @@ describe('prepareForPublish', () => {
 
     mockScmClient = {
       repositoryExists: jest.fn(),
-      getRepositoryInfo: jest.fn().mockResolvedValue({ defaultBranch: 'main' }),
+      getRepositoryInfo: jest.fn().mockResolvedValue({
+        defaultBranch: 'main',
+        fullPath: 'test-owner/test-repo',
+      }),
+      getFileContent: jest.fn().mockResolvedValue('workflow'),
       getHost: jest.fn(),
       getProjectId: jest.fn(),
     };
@@ -159,8 +164,51 @@ describe('prepareForPublish', () => {
         'test-repo',
       );
       expect(ctx.output).toHaveBeenCalledWith('createNewRepo', false);
+      expect(mockScmClient.getFileContent).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultBranch: 'main' }),
+        'main',
+        '.github/workflows/ee-build.yml',
+      );
+      expect(ctx.output).toHaveBeenCalledWith(
+        'githubEeBuildWorkflowExists',
+        true,
+      );
       expect(logger.info).toHaveBeenCalledWith(
         'Github repository existence check completed: true',
+      );
+    });
+
+    it('reports an absent GitHub EE workflow for an existing repository', async () => {
+      mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getHost.mockReturnValue('github.com');
+      mockScmClient.getFileContent.mockRejectedValue(
+        new Error('404 Not Found'),
+      );
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
+      const ctx = {
+        input: {
+          sourceControlProvider: 'Github',
+          repositoryOwner: 'test-owner',
+          repositoryName: 'test-repo',
+          createNewRepository: false,
+          eeFileName: 'test-ee',
+          contextDirName: 'test-ee',
+        },
+        logger,
+        workspacePath: mockWorkspacePath,
+        output: jest.fn(),
+      } as any;
+
+      await action.handler(ctx);
+
+      expect(mockScmClient.getFileContent).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultBranch: 'main' }),
+        'main',
+        '.github/workflows/ee-build.yml',
+      );
+      expect(ctx.output).toHaveBeenCalledWith(
+        'githubEeBuildWorkflowExists',
+        false,
       );
     });
 

@@ -1749,7 +1749,7 @@ describe('createEEDefinition', () => {
     );
   });
 
-  it('strips display metadata after "/" from SCM collection version', async () => {
+  it('strips display metadata while preserving slashes in SCM refs', async () => {
     const scmCfg = makeScmConfig({
       github: [{ name: 'gh', host: 'github.com' }],
     });
@@ -1764,6 +1764,11 @@ describe('createEEDefinition', () => {
           source: 'Github / gh / org / repo',
           version: 'main / extra-info',
         },
+        {
+          name: 'nested-ref',
+          source: 'Github / gh / org / repo',
+          version: 'feature/fix',
+        },
       ],
     });
 
@@ -1771,6 +1776,7 @@ describe('createEEDefinition', () => {
 
     const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
     expect(eeConfig.collections[0].version).toBe('main');
+    expect(eeConfig.collections[1].version).toBe('feature/fix');
   });
 
   it('omits scmServers from eeConfig when no SCM collections', async () => {

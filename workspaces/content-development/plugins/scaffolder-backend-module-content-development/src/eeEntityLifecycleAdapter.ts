@@ -127,9 +127,10 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       }
       if (
         options.skipProviderManaged &&
-        (entity ?? hiddenEntity)?.metadata?.annotations?.[
+        ((entity ?? hiddenEntity)?.metadata?.annotations?.[
           'ansible.io/download-experience'
-        ] === 'true'
+        ] === 'true' ||
+          (!entity && lock.registrationState !== 'none'))
       ) {
         return { mode: 'provider' };
       }

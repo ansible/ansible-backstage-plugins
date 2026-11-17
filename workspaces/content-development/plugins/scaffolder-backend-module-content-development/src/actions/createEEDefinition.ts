@@ -683,9 +683,8 @@ function transformScmCollections(
       type: 'git',
     };
     if (c.version) {
-      // The UI may append display metadata after a "/" (e.g. "main / v1.2.3");
-      // only the segment before the first "/" is the actual git ref.
-      col.version = c.version.split('/')[0].trim();
+      // The UI appends display metadata with " / "; preserve slashes inside refs.
+      col.version = c.version.split(' / ')[0].trim();
     }
     return col;
   });
