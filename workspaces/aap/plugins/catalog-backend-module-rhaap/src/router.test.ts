@@ -925,7 +925,9 @@ describe('createRouter', () => {
       },
     };
 
-    async function createDeleteTestApp() {
+    async function createDeleteTestApp(
+      withEERegistrationLock?: EERegistrationLock,
+    ) {
       mockHttpAuth.credentials.mockResolvedValue(userCredentials as any);
       mockAuth.getOwnServiceCredentials.mockResolvedValue(
         serviceCredentials as any,
@@ -959,6 +961,7 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+          withEERegistrationLock,
         }),
       );
       return testApp;
@@ -1020,6 +1023,64 @@ describe('createRouter', () => {
       );
       expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
         'uid-ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+    });
+
+    it('re-reads and authorizes the entity after acquiring its registration lock', async () => {
+      const events: string[] = [];
+      const currentEntity = {
+        ...eeEntity,
+        metadata: { ...eeEntity.metadata, uid: 'current-uid' },
+      };
+      mockCatalogClient.getEntityByRef.mockImplementationOnce(async () => {
+        events.push('lookup');
+        return currentEntity as any;
+      });
+      mockPermissions.authorize.mockImplementationOnce(async () => {
+        events.push('authorize');
+        return [{ result: AuthorizeResult.ALLOW }] as any;
+      });
+      mockEEEntityProvider.unregisterExecutionEnvironment.mockImplementationOnce(
+        async () => {
+          events.push('unregister');
+        },
+      );
+      mockCatalogClient.removeEntityByUid.mockImplementationOnce(async () => {
+        events.push('remove');
+      });
+      const withEERegistrationLock: EERegistrationLock = async (
+        _entityRef,
+        operation,
+      ) => {
+        events.push('lock');
+        return operation({
+          assertLockHeld: () => {},
+          beginMutation: async () => {
+            events.push('beginMutation');
+          },
+          beginRegistrationMutation: async () => {
+            events.push('beginRegistrationMutation');
+          },
+          completeRegistration: async () => {},
+          clearRegistration: async () => {},
+          registrationState: 'registered',
+        });
+      };
+      const testApp = await createDeleteTestApp(withEERegistrationLock);
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(200);
+
+      expect(events).toEqual([
+        'lock',
+        'lookup',
+        'authorize',
+        'beginRegistrationMutation',
+        'unregister',
+        'remove',
+      ]);
+      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
+        'current-uid',
         expect.objectContaining({ token: 'mock-token' }),
       );
     });
