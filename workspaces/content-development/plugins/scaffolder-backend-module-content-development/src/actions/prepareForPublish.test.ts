@@ -22,7 +22,6 @@ jest.mock('@ansible/content-development-common', () => ({
   ScmClientFactory: jest.fn(),
 }));
 
-import { randomBytes } from 'node:crypto';
 import { mockServices } from '@backstage/backend-test-utils';
 import { ConfigReader } from '@backstage/config';
 import { prepareForPublishAction } from './prepareForPublish';
