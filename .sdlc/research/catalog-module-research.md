@@ -391,12 +391,41 @@ _(Research)_ An earlier peel sketch modeled EE as its own catalog module (`modul
 
 There is **no automatic config rewrite**. Operators **copy** `catalog.providers.rhaap.<env>` subtrees to the slice keys below **before** enabling split catalog modules (stack PR [#980](https://github.com/ansible/ansible-backstage-plugins/pull/980)). Split modules read their slice key first and **fall back** to `catalog.providers.rhaap` when the slice key is unset (compatibility during cutover; prefer explicit slice keys for new deployments).
 
-| Old key (monolithic)                              | New key (as-built)                                  | Catalog module                   |
-| ------------------------------------------------- | --------------------------------------------------- | -------------------------------- |
-| `catalog.providers.rhaap.sync.orgsUsersTeams`     | `catalog.providers.aap.sync.orgsUsersTeams`         | `catalog-backend-module-aap`     |
-| `catalog.providers.rhaap.sync.jobTemplates`       | `catalog.providers.aap.sync.jobTemplates`           | `catalog-backend-module-aap`     |
-| `catalog.providers.rhaap.sync.pahCollections`     | `catalog.providers.content.sync.pahCollections`     | `catalog-backend-module-content` |
-| `catalog.providers.rhaap.sync.ansibleGitContents` | `catalog.providers.content.sync.ansibleGitContents` | `catalog-backend-module-content` |
+| Monolithic (per env)                                    | As-built (same `<env>`)                                   | Catalog module                   |
+| ------------------------------------------------------- | --------------------------------------------------------- | -------------------------------- |
+| `catalog.providers.rhaap.<env>.sync.orgsUsersTeams`     | `catalog.providers.aap.<env>.sync.orgsUsersTeams`         | `catalog-backend-module-aap`     |
+| `catalog.providers.rhaap.<env>.sync.jobTemplates`       | `catalog.providers.aap.<env>.sync.jobTemplates`           | `catalog-backend-module-aap`     |
+| `catalog.providers.rhaap.<env>.sync.pahCollections`     | `catalog.providers.content.<env>.sync.pahCollections`     | `catalog-backend-module-content` |
+| `catalog.providers.rhaap.<env>.sync.ansibleGitContents` | `catalog.providers.content.<env>.sync.ansibleGitContents` | `catalog-backend-module-content` |
+
+**Example (copy per environment):**
+
+```yaml
+# Before (monolith) — one env block
+catalog:
+  providers:
+    rhaap:
+      development:
+        sync:
+          orgsUsersTeams: { schedule: { ... } }
+          jobTemplates: { schedule: { ... } }
+          pahCollections: { ... }
+          ansibleGitContents: { ... }
+
+# After (split, as-built) — same development subtree on both slice keys
+catalog:
+  providers:
+    aap:
+      development:
+        sync:
+          orgsUsersTeams: { schedule: { ... } }
+          jobTemplates: { schedule: { ... } }
+    content:
+      development:
+        sync:
+          pahCollections: { ... }
+          ansibleGitContents: { ... }
+```
 
 **EE definitions (as-built):** Copy any EE-related provider settings from `catalog.providers.rhaap.<env>` into the matching **`catalog.providers.content.<env>`** tree. `EEEntityProvider` registers on **`catalog-backend-module-content`** (§13), not on a separate catalog module.
 
