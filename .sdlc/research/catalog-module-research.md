@@ -209,11 +209,11 @@ Entity references (`user:default/alice`, `template:default/my-job`, etc.) are un
 
 **Route strategy:**
 
-| Module                            | Status endpoint                                                                                                           |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `catalog-backend-module-aap`      | `GET /ansible/sync/status/aap`                                                                                            |
-| `catalog-backend-module-content`  | `GET /ansible/sync/status/content`                                                                                        |
-| Self-service EE / definition path | `GET /ansible/sync/status/self-service` _(EE provider has no scheduled sync; endpoint reports push/register health only)_ |
+| Module                                      | Status endpoint                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `catalog-backend-module-aap`                | `GET /ansible/sync/status/aap`                                                                                                                   |
+| `catalog-backend-module-content`            | `GET /ansible/sync/status/content`                                                                                                               |
+| `catalog-backend-module-content` (EE slice) | `GET /ansible/sync/status/self-service` _(served from content catalog module in as-built §13; no scheduled EE sync — push/register health only)_ |
 
 The deprecated shim retains `GET /ansible/sync/status` (monolithic shape) for **shim-only** deployments. **Split deployments** (§4.5): the self-service UI (or other callers) requests each enabled endpoint in the table above and merges client-side. Legacy integrations that cannot call multiple endpoints should stay on **shim-only** until they migrate.
 
@@ -273,6 +273,10 @@ Scaffolder **actions** remain in the scaffolder backend module per the Scaffolde
 
 `createEEDefinition` calls `DELETE` before re-registering the same EE name; extraction must keep this cleanup path.
 
+#### _(Research)_ separate EE catalog module
+
+Earlier peel drafts introduced a dedicated catalog `moduleId` (e.g. `self-service-ee`) colocated with scaffolder in a single workspace. **Operator migration** does not use that layout; see §7.1 and §13.1 (EE on `catalog-backend-module-content`).
+
 ### 4.7 Git helpers
 
 **Resolved (Content Experience Architecture §7.4):** `GET /ansible/git/file-content` and related git helpers move to the **content management** source axis — terminal owner `automation-content-backend-module-source-git`. Phase 1 keeps them on `catalog-backend-module-content` with the same paths and permissions until source-git ships.
@@ -286,7 +290,7 @@ Loading the deprecated shim together with split modules that register the same e
 | Layer             | Requirement                                                                                                                                                                                  |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Runtime**       | On backend startup, detect overlapping provider keys / duplicate `moduleId` registrations between shim and split modules; **fail fast** with a clear config error (do not log-and-continue). |
-| **Operator docs** | Migration checklist: exactly one of {shim, split set}; matrix in §7.                                                                                                                         |
+| **Operator docs** | Migration checklist (as-built): §7.4; config keys §7.3; exactly one of {shim, split set}.                                                                                                    |
 | **CI**            | Dev-app or integration test that asserts backend refuses config with shim + `catalog-backend-module-content` both enabled.                                                                   |
 | **Packaging**     | `dynamic-plugins.yaml` examples show mutually exclusive bundles (AAP-only, split without shim, shim-only legacy).                                                                            |
 
@@ -345,12 +349,12 @@ Loading the deprecated shim together with split modules that register the same e
 
 ## 6. Contracts
 
-| Consumer                | Contract                                                   | Phase 1 provider               | Terminal (architecture)                                    |
-| ----------------------- | ---------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------- |
-| Auth provider           | Catalog `User` entities with stable refs                   | AAP catalog module             | Same                                                       |
-| Scaffolder autocomplete | Catalog entity query API unchanged                         | Backstage catalog core         | Same; long term via content client ops                     |
-| Self-service UI         | EE definition shape + `/api/catalog/ansible/ee*` unchanged | Self-service EE catalog module | Same                                                       |
-| Operators               | Mutually exclusive dynamic plugin bundles                  | Updated `dynamic-plugins.yaml` | Per-experience images (Content Experience Architecture §8) |
+| Consumer                | Contract                                                   | Phase 1 provider                                                                                    | Terminal (architecture)                                    |
+| ----------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Auth provider           | Catalog `User` entities with stable refs                   | AAP catalog module                                                                                  | Same                                                       |
+| Scaffolder autocomplete | Catalog entity query API unchanged                         | Backstage catalog core                                                                              | Same; long term via content client ops                     |
+| Self-service UI         | EE definition shape + `/api/catalog/ansible/ee*` unchanged | `catalog-backend-module-content` (EE slice) + `scaffolder-backend-module-content-development` (§13) | Same                                                       |
+| Operators               | Mutually exclusive dynamic plugin bundles                  | Updated `dynamic-plugins.yaml`                                                                      | Per-experience images (Content Experience Architecture §8) |
 
 **Semver:** Internal split — minor bump on new packages; major bump on deprecated shim with breaking removal timeline.
 
@@ -358,46 +362,67 @@ Loading the deprecated shim together with split modules that register the same e
 
 ## 7. Operator Impact
 
+**How to use this section:** **Actionable migration** for the catalog split stack ([#1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006)) is in **§7.3–§7.4**, aligned with **§13 (as-built)**. Deployment bundles in §4.5 and narrative elsewhere in §1–§6 remain valid for intent and architecture traceability; labels _(research)_ mark options that are **not** what operators should deploy when following the as-built peel.
+
 ### 7.1 AAP identity deployment (catalog vs auth)
 
-| Goal                                                            | Required dynamic plugins (Phase 1)                                        |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| AAP org/user/job-template **catalog sync**                      | `catalog-backend-module-aap`                                              |
-| AAP **username-matched sign-in** (`usernameMatchingUser`, §2.5) | `catalog-backend-module-aap` **and** `auth-backend-module-rhaap-provider` |
-| EE definitions (scaffolder / self-service)                      | Add self-service EE catalog module (§4.6 bundle 4)                        |
-| PAH/Git catalog sync                                            | Add `catalog-backend-module-content` (bundle 3)                           |
+| Goal                                                            | Required dynamic plugins (as-built — §7.4)                                                                                                                                            |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AAP org/user/job-template **catalog sync**                      | `catalog-backend-module-aap`                                                                                                                                                          |
+| AAP **username-matched sign-in** (`usernameMatchingUser`, §2.5) | `catalog-backend-module-aap` **and** `auth-backend-module-rhaap-provider`                                                                                                             |
+| PAH/Git catalog sync                                            | `catalog-backend-module-content` (`workspaces/content-management/`) — bundle 3                                                                                                        |
+| EE definitions (scaffolder / portal)                            | Same **`catalog-backend-module-content`** (PAH/Git/EE catalog slice) **plus** `scaffolder-backend-module-content-development` — bundle 4; not a separate EE-only catalog module (§13) |
 
 Loading only `catalog-backend-module-aap` without the auth provider breaks sign-in for deployments that rely on catalog-backed user matching.
+
+_(Research)_ An earlier peel sketch modeled EE as its own catalog module (`moduleId: self-service-ee`, config `catalog.providers.self-service-ee`). **Do not use that layout for migration** — EE catalog registration is folded into `catalog-backend-module-content` (§13).
 
 ### 7.2 Operator summary
 
 | Area                   | Before (Today)                      | After Phase 1                                                                     |
 | ---------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
 | `dynamic-plugins.yaml` | One `catalog-backend-module-rhaap`  | Mutually exclusive bundles per §4.5 (shim **or** split 2/3/4)                     |
-| Config keys            | All under `catalog.providers.rhaap` | Split per module (§7.3)                                                           |
+| Config keys            | All under `catalog.providers.rhaap` | `catalog.providers.aap` / `catalog.providers.content` (+ shim fallback) — §7.3    |
+| Migration checklist    | Implicit monolith                   | **As-built:** §7.4 (plugins + config + sync + cutover)                            |
 | Sync URLs              | Monolithic `/ansible/sync/status`   | Shim-only: unchanged; split: per-module status paths + UI aggregation (§4.2–§4.4) |
 | Minimal AAP identity   | Full `catalog-backend-module-rhaap` | `catalog-backend-module-aap` + `auth-backend-module-rhaap-provider` (§7.1)        |
 
-### 7.3 Configuration migration
+### 7.3 Configuration migration (as-built)
 
-**Configuration migration (no automatic mapping):**
+There is **no automatic config rewrite**. Operators **copy** `catalog.providers.rhaap.<env>` subtrees to the slice keys below **before** enabling split catalog modules (stack PR [#980](https://github.com/ansible/ansible-backstage-plugins/pull/980)). Split modules read their slice key first and **fall back** to `catalog.providers.rhaap` when the slice key is unset (compatibility during cutover; prefer explicit slice keys for new deployments).
 
-| Old Key (Monolithic)                              | New Key (Split)                                     | Target Module                    |
+| Old key (monolithic)                              | New key (as-built)                                  | Catalog module                   |
 | ------------------------------------------------- | --------------------------------------------------- | -------------------------------- |
 | `catalog.providers.rhaap.sync.orgsUsersTeams`     | `catalog.providers.aap.sync.orgsUsersTeams`         | `catalog-backend-module-aap`     |
 | `catalog.providers.rhaap.sync.jobTemplates`       | `catalog.providers.aap.sync.jobTemplates`           | `catalog-backend-module-aap`     |
 | `catalog.providers.rhaap.sync.pahCollections`     | `catalog.providers.content.sync.pahCollections`     | `catalog-backend-module-content` |
 | `catalog.providers.rhaap.sync.ansibleGitContents` | `catalog.providers.content.sync.ansibleGitContents` | `catalog-backend-module-content` |
 
-EE-related sync keys follow the same **`catalog.providers.content.<env>`** tree when using `catalog-backend-module-content` (§13). A separate `catalog.providers.self-service-ee` tree applied only when EE was modeled as its own catalog module (§4.6 research layout). The shim continues reading `catalog.providers.rhaap` until removed; split modules fall back to `rhaap` when their slice key is unset (stack PR [#980](https://github.com/ansible/ansible-backstage-plugins/pull/980)).
+**EE definitions (as-built):** Copy any EE-related provider settings from `catalog.providers.rhaap.<env>` into the matching **`catalog.providers.content.<env>`** tree. `EEEntityProvider` registers on **`catalog-backend-module-content`** (§13), not on a separate catalog module.
 
-**Operator action required:**
+**Shim:** `catalog-backend-module-rhaap` continues to read only `catalog.providers.rhaap` until removed.
 
-1. Choose a deployment bundle per §4.5 (never shim plus overlapping split modules — §4.8).
-2. Copy configuration sections to the new keys before enabling split modules.
-3. Update `dynamic-plugins.yaml`.
-4. Verify the selected split bundle in a separate environment or deployment revision with the shim disabled.
-5. Promote the verified split bundle and retire the shim in one bundle switch.
+#### _(Research)_ alternate config layout — separate EE catalog module
+
+| Old / monolithic | Keys under _(research)_ `catalog.providers.self-service-ee` | Module _(research)_                       |
+| ---------------- | ----------------------------------------------------------- | ----------------------------------------- |
+| EE provider sync | `catalog.providers.self-service-ee.*`                       | Standalone EE catalog slice (§4.6 sketch) |
+
+Superseded by the as-built table above and §13.1 (EE folded into `catalog-backend-module-content`).
+
+### 7.4 Operator migration checklist (as-built)
+
+Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contracts.
+
+1. **Choose one bundle:** Shim-only **or** split set (2 / 3 / 4) — never shim **and** a split module that registers overlapping providers.
+2. **`dynamic-plugins.yaml`:** Replace monolith with the packages for that bundle:
+   - **Shim:** `catalog-backend-module-rhaap` only.
+   - **Split AAP:** `catalog-backend-module-aap` (+ `auth-backend-module-rhaap-provider` when §7.1 sign-in applies).
+   - **+ Content:** add `catalog-backend-module-content` (`workspaces/content-management/`).
+   - **+ EE definitions / scaffolder:** keep `catalog-backend-module-content`; add `scaffolder-backend-module-content-development` (`workspaces/content-development/`) for scaffolder actions — **do not** add a separate EE catalog-only module.
+3. **Configuration:** Per §7.3, copy `catalog.providers.rhaap.<env>` sections to `catalog.providers.aap.<env>` and/or `catalog.providers.content.<env>` (include EE-related keys under **content**).
+4. **Sync status:** On split bundles, use per-slice URLs in §4.4 / §13.2; portal UI aggregates. Content-only split may still expose legacy `GET /ansible/sync/status` on the content catalog module (§4.2). Shim-only keeps monolithic `/ansible/sync/status`.
+5. **Verify** the split bundle with the shim **disabled** in a non-production revision; then switch bundles in one step and retire the shim.
 
 ---
 
@@ -421,7 +446,7 @@ EE-related sync keys follow the same **`catalog.providers.content.<env>`** tree 
 | EE provider                  | `catalog-backend-module-rhaap/src/providers/EE*.ts`                    | `workspaces/content-management/plugins/catalog-backend-module-content/` (§13) | `scaffolder-backend-module-self-service`        |
 | AAP sync routes              | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-aap/src/router.ts`                                    | Same                                            |
 | Content sync routes          | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-content/src/router.ts`                                | Content service APIs                            |
-| EE routes                    | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | Self-service catalog module router slice                                      | Same team/package                               |
+| EE routes                    | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-content` router slice (as-built §13)                  | Same team/package (architecture §7.4)           |
 | `SyncStateTracker`           | `catalog-backend-module-rhaap/src/...`                                 | Shared lib or interim content module                                          | `automation-content-backend`                    |
 | Config / module registration | `catalog-backend-module-rhaap/`                                        | Split per Phase 1 module                                                      | Per architecture §2.2 workspace layout          |
 
@@ -483,6 +508,8 @@ This section records **what the [catalog split stack](https://github.com/ansible
 | Monolith migration                                            | **`catalog-backend-module-rhaap`** remains a **deprecated shim** (`slice: 'all'`)                                                                                           |
 
 ### 13.2 Preserved contracts (still match §4 / §6)
+
+**Operator steps:** §7.4 (migration checklist) and §7.3 (config copy).
 
 - Public **URL paths** and entity ref shapes unchanged.
 - **§4.8** slice guard: shim cannot load with any split slice module.
