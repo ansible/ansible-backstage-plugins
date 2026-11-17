@@ -3,6 +3,7 @@
  */
 export {
   executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
   templatesViewPermission,

@@ -15,7 +15,6 @@ import { makeValidator } from '@backstage/catalog-model';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
-import { createEERegistrationLock } from './EERegistrationLock';
 
 export const catalogModuleRhaap = createBackendModule({
   pluginId: 'catalog',
@@ -34,7 +33,6 @@ export const catalogModuleRhaap = createBackendModule({
         auth: coreServices.auth,
         permissionsRegistry: coreServices.permissionsRegistry,
         permissionsApi: coreServices.permissions,
-        database: coreServices.database,
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
         signals: signalsServiceRef,
@@ -49,7 +47,6 @@ export const catalogModuleRhaap = createBackendModule({
         catalogModel,
         permissionsRegistry,
         permissionsApi,
-        database,
         httpAuth,
         userInfo,
         discovery,
@@ -141,7 +138,6 @@ export const catalogModuleRhaap = createBackendModule({
             auth: auth,
             catalogClient: catalogClient,
             permissions: permissionsApi,
-            withEERegistrationLock: createEERegistrationLock(database),
             ansibleGitContentsProviders,
             allowedExternalAccessSubjects:
               allowedExternalAccessSubjects.length > 0

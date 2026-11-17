@@ -279,7 +279,7 @@ function buildCatalogFilter(searchQuery?: string): string {
     .map(term => term.trim())
     .filter(term => {
       const separator = term.indexOf('=');
-      if (separator <= 0 || term.indexOf('=', separator + 1) !== -1) {
+      if (separator <= 0 || term.slice(separator + 1).includes('=')) {
         return false;
       }
 

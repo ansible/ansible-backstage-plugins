@@ -1,5 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import request from 'supertest';
+import scaffolderPlugin from '@backstage/plugin-scaffolder-backend';
+import { createBackendModule } from '@backstage/backend-plugin-api';
+import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
+import { catalogServiceMock } from '@backstage/plugin-catalog-node/testUtils';
+import type { TaskBroker } from '@backstage/plugin-scaffolder-node';
+import { scaffolderTaskBrokerExtensionPoint } from '@backstage/plugin-scaffolder-node/alpha';
 import {
   getPromptForm,
   getJobTypeProps,
@@ -22,6 +29,8 @@ import { IJobTemplate, ISurvey, ISpec } from '@ansible/aap-common';
 import {
   ANNOTATION_LOCATION,
   ANNOTATION_ORIGIN_LOCATION,
+  stringifyEntityRef,
+  type Entity,
 } from '@backstage/catalog-model';
 import { JsonObject } from '@backstage/types';
 
@@ -726,6 +735,58 @@ describe('dynamicJobTemplate', () => {
 
       expect(surveyForm).toEqual({});
       expect(extraVariables).toEqual({});
+    });
+
+    it('rejects password survey variables that use the reserved AAP token secret', () => {
+      const survey: ISurvey = {
+        name: 'Token collision survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'AAP token',
+            question_description: 'Enter a password',
+            variable: 'aapToken',
+            type: 'password',
+            required: true,
+            default: '',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ],
+      };
+
+      expect(() => getSurveyDetails({}, survey)).toThrow(
+        'Survey password variable "aapToken" is reserved for AAP authentication',
+      );
+    });
+
+    it('allows a non-password survey variable named aapToken', () => {
+      const survey: ISurvey = {
+        name: 'Token text survey',
+        description: '',
+        spec: [
+          {
+            question_name: 'Token label',
+            question_description: 'Enter a label',
+            variable: 'aapToken',
+            type: 'text',
+            required: true,
+            default: 'automation',
+            choices: [],
+            min: 0,
+            max: 100,
+            new_question: false,
+          },
+        ],
+      };
+
+      const [surveyForm] = getSurveyDetails({}, survey);
+
+      expect(surveyForm.properties).toMatchObject({
+        aapToken: { type: 'string', default: 'automation' },
+      });
     });
 
     it('should process survey with various input types', () => {
@@ -1442,6 +1503,202 @@ describe('dynamicJobTemplate', () => {
         'Test Job Template template executed successfully',
       );
       expect((result.spec as any).output.links).not.toBeDefined();
+    });
+
+    it('declares the AAP decorator and requires its token only in task secrets', () => {
+      const result = generateTemplate({
+        baseUrl: 'https://ansible.example.com',
+        nameSpace: 'default',
+        job: mockJob,
+        survey: null,
+        instanceGroup: [],
+      });
+
+      expect(result.spec?.formDecorators).toEqual([
+        { id: 'ansible.aap-user-token' },
+      ]);
+      expect(result.spec?.secrets).toEqual({
+        schema: {
+          type: 'object',
+          required: ['aapToken'],
+          properties: {
+            aapToken: {
+              type: 'string',
+              minLength: 1,
+              pattern: String.raw`^[\s\S]*\S[\s\S]*$`,
+            },
+          },
+        },
+      });
+      expect(result.spec?.steps).toEqual([
+        expect.objectContaining({
+          action: 'rhaap:launch-job-template',
+          input: expect.objectContaining({ token: '${{ secrets.aapToken }}' }),
+        }),
+      ]);
+      expect(JSON.stringify(result.spec?.parameters)).not.toContain('aapToken');
+    });
+
+    describe('native Scaffolder backend secret contract', () => {
+      const dispatch = jest.fn().mockResolvedValue({ taskId: 'aap-task' });
+      const taskBroker: TaskBroker = {
+        dispatch,
+        cancel: jest.fn(),
+        retry: jest.fn(),
+        claim: jest.fn(),
+        recoverTasks: jest.fn(),
+        vacuumTasks: jest.fn(),
+        event$: jest.fn(),
+        get: jest.fn(),
+        list: jest.fn(),
+      };
+      const brokerModule = createBackendModule({
+        pluginId: 'scaffolder',
+        moduleId: 'test-task-dispatch',
+        register(reg) {
+          reg.registerInit({
+            deps: { tasks: scaffolderTaskBrokerExtensionPoint },
+            async init({ tasks }) {
+              tasks.setTaskBroker(taskBroker);
+            },
+          });
+        },
+      });
+      let backend: Awaited<ReturnType<typeof startTestBackend>>;
+      let template: Entity;
+      const genericTemplate: Entity = {
+        apiVersion: 'scaffolder.backstage.io/v1beta3',
+        kind: 'Template',
+        metadata: { name: 'generic-template' },
+        spec: { type: 'service', parameters: [], steps: [] },
+      };
+      const log = mockServices.logger.mock();
+
+      beforeAll(async () => {
+        template = generateTemplate({
+          baseUrl: 'https://ansible.example.com',
+          nameSpace: 'default',
+          job: mockJob,
+          survey: null,
+          instanceGroup: [],
+        });
+        backend = await startTestBackend({
+          features: [
+            scaffolderPlugin,
+            brokerModule,
+            catalogServiceMock.factory({
+              entities: [template, genericTemplate],
+            }),
+            log.factory,
+            mockServices.rootConfig.factory({
+              data: { scaffolder: { concurrentTasksLimit: 0 } },
+            }),
+          ],
+        });
+      });
+
+      afterAll(async () => {
+        await backend?.stop();
+      });
+
+      beforeEach(() => {
+        dispatch.mockClear();
+      });
+
+      it('forwards the generated decorator declaration to the native wizard', async () => {
+        const response = await request(backend.server)
+          .get(
+            `/api/scaffolder/v2/templates/default/template/${template.metadata.name}/parameter-schema`,
+          )
+          .expect(200);
+
+        expect(response.body.formDecorators).toEqual([
+          { id: 'ansible.aap-user-token' },
+        ]);
+      });
+
+      it.each([
+        ['missing token without decorator submission', undefined],
+        ['missing token after skipped decorator', {}],
+        ['empty token', { aapToken: '' }],
+        ['whitespace-only token', { aapToken: '  \t\n' }],
+      ])('rejects %s before task creation', async (_description, secrets) => {
+        const response = await request(backend.server)
+          .post('/api/scaffolder/v2/tasks')
+          .send({
+            templateRef: stringifyEntityRef(template),
+            values: {},
+            secrets,
+          })
+          .expect(400);
+
+        expect(response.text).toContain('aapToken');
+        expect(dispatch).not.toHaveBeenCalled();
+      });
+
+      it('dispatches valid AAP credentials only through secrets', async () => {
+        const response = await request(backend.server)
+          .post('/api/scaffolder/v2/tasks')
+          .send({
+            templateRef: stringifyEntityRef(template),
+            values: {},
+            secrets: {
+              aapToken: 'current-user-token',
+              SCM_TOKEN: 'scm-secret',
+            },
+          })
+          .expect(201);
+
+        expect(response.body).toEqual({ id: 'aap-task' });
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        const [task] = dispatch.mock.calls[0];
+        expect(task.secrets).toEqual(
+          expect.objectContaining({
+            aapToken: 'current-user-token',
+            SCM_TOKEN: 'scm-secret',
+          }),
+        );
+        expect(task.spec.parameters).toEqual({});
+        expect(task.spec.steps).toEqual([
+          expect.objectContaining({
+            action: 'rhaap:launch-job-template',
+            input: expect.objectContaining({
+              token: '${{ secrets.aapToken }}',
+            }),
+          }),
+        ]);
+        expect(JSON.stringify(task.spec)).not.toContain('current-user-token');
+        expect(
+          JSON.stringify([
+            log.info.mock.calls,
+            log.warn.mock.calls,
+            log.error.mock.calls,
+            log.debug.mock.calls,
+          ]),
+        ).not.toContain('current-user-token');
+      });
+
+      it('allows a generic template to create tasks without AAP credentials', async () => {
+        const schema = await request(backend.server)
+          .get(
+            '/api/scaffolder/v2/templates/default/template/generic-template/parameter-schema',
+          )
+          .expect(200);
+        expect(schema.body.formDecorators).toBeUndefined();
+
+        await request(backend.server)
+          .post('/api/scaffolder/v2/tasks')
+          .send({
+            templateRef: stringifyEntityRef(genericTemplate),
+            values: {},
+          })
+          .expect(201);
+
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(dispatch.mock.calls[0][0].secrets).not.toHaveProperty(
+          'aapToken',
+        );
+      });
     });
 
     it('sets owner through org group builder in multi-org mode', () => {

@@ -6,12 +6,22 @@ export function generateEETemplate(values: EEDefinitionInput): string {
   const requirementsJson = JSON.stringify(values.pythonRequirements);
   const packagesJson = JSON.stringify(values.systemPackages);
   const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
-  const tagsJson = JSON.stringify(values.tags);
+  const tagsJson = JSON.stringify(values.tags ?? []);
   const quoteYamlScalar = (v: string) =>
     yaml.dump(v, { forceQuotes: true }).trim();
-  const defaultBaseImage = values.customBaseImage || values.baseImage || '';
-  const customBaseImageEnumEntry = values.customBaseImage?.trim()
-    ? `\n            - ${quoteYamlScalar(values.customBaseImage)}`
+  const defaultBaseImage =
+    values.baseImage && values.baseImage !== 'custom'
+      ? values.baseImage
+      : values.customBaseImage || '';
+  const customBaseImageEnumEntry =
+    defaultBaseImage &&
+    ![
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16',
+    ].includes(defaultBaseImage)
+      ? `\n            - ${quoteYamlScalar(defaultBaseImage)}`
     : '';
   return `---
 apiVersion: scaffolder.backstage.io/v1beta3

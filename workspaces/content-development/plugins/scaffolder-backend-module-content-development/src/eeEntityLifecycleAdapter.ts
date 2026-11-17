@@ -41,36 +41,48 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
     credentials: BackstageCredentials,
   ): Promise<void> {
     const entityRef = stringifyEntityRef(entity);
-    const [createDecision] = await this.permissions.authorize(
-      [{ permission: catalogEntityCreatePermission }],
-      { credentials },
-    );
-    if (createDecision.result !== AuthorizeResult.ALLOW) {
-      throw new Error('Forbidden: insufficient permissions to create entity');
-    }
-    const token = await this.getCatalogToken(credentials);
-    const existingForCaller = await this.catalogClient.getEntityByRef(
-      entityRef,
-      { token },
-    );
-    const existing =
-      existingForCaller ??
-      (await this.getEntityWithServiceCredentials(entityRef));
-    if (existing) {
-      const [deleteDecision] = await this.permissions.authorize(
-        [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
+    await this.provider.withRegistrationLock(entityRef, async lock => {
+      const [createDecision] = await this.permissions.authorize(
+        [{ permission: catalogEntityCreatePermission }],
         { credentials },
       );
-      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
-        throw new Error(
-          'Forbidden: insufficient permissions to replace existing entity',
-        );
+      if (createDecision.result !== AuthorizeResult.ALLOW) {
+        throw new Error('Forbidden: insufficient permissions to create entity');
       }
-    }
-    await this.provider.register(entity);
+      const token = await this.getCatalogToken(credentials);
+      const existingForCaller = await this.catalogClient.getEntityByRef(
+        entityRef,
+        { token },
+      );
+      const existing =
+        existingForCaller ??
+        (await this.getEntityWithServiceCredentials(entityRef));
+      const isReplacement =
+        Boolean(existing) || lock.registrationState !== 'none';
+      if (isReplacement) {
+        const [deleteDecision] = await this.permissions.authorize(
+          [
+            {
+              permission: catalogEntityDeletePermission,
+              resourceRef: entityRef,
+            },
+          ],
+          { credentials },
+        );
+        if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+          throw new Error(
+            'Forbidden: insufficient permissions to replace existing entity',
+          );
+        }
+      }
+      lock.assertLockHeld();
+      await lock.beginRegistrationMutation();
+      await this.provider.register(entity);
+      await lock.completeRegistration();
+    });
   }
 
-  async unregisterExecutionEnvironment(
+  unregisterExecutionEnvironment(
     rawName: string,
     credentials: BackstageCredentials,
     options: { skipProviderManaged?: boolean } = {},
@@ -83,94 +95,109 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       namespace: 'default',
       name,
     });
-    const catalogOpts = { token: await this.getCatalogToken(credentials) };
-    const entity = await this.catalogClient.getEntityByRef(
-      entityRef,
-      catalogOpts,
-    );
-    if (!entity) {
-      const hiddenEntity =
-        await this.getEntityWithServiceCredentials(entityRef);
-      if (hiddenEntity) {
-        throw new Error(
-          'Insufficient permissions to read existing execution environment.',
-        );
-      }
-      return { mode: 'noop' };
-    }
-    if (
-      entity.kind !== 'Component' ||
-      entity.spec?.type !== 'execution-environment'
-    ) {
-      throw new Error('Refusing to delete non-execution-environment entity');
-    }
-    const [deleteDecision] = await this.permissions.authorize(
-      [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
-      { credentials },
-    );
-    if (deleteDecision.result !== AuthorizeResult.ALLOW) {
-      throw new Error('Forbidden: insufficient permissions to delete entity');
-    }
-    if (
-      options.skipProviderManaged &&
-      entity.metadata?.annotations?.['ansible.io/download-experience'] ===
-        'true'
-    ) {
-      return { mode: 'provider' };
-    }
-    const location = await this.catalogClient.getLocationByEntity(
-      entityRef,
-      catalogOpts,
-    );
-    if (location?.id) {
-      const serviceCredentials = await this.auth.getOwnServiceCredentials();
-      const { items } = await this.catalogClient.getEntities(
-        {
-          filter: {
-            'metadata.annotations.backstage.io/managed-by-origin-location': `${location.type}:${location.target}`,
-          },
-          fields: ['kind', 'metadata.name', 'metadata.namespace'],
-        },
-        { token: await this.getCatalogToken(serviceCredentials) },
+    return this.provider.withRegistrationLock(entityRef, async lock => {
+      const catalogOpts = { token: await this.getCatalogToken(credentials) };
+      const entity = await this.catalogClient.getEntityByRef(
+        entityRef,
+        catalogOpts,
       );
-      if (items.length > 1) {
-        if (!entity.metadata?.uid) {
+      let hiddenEntity = entity;
+      if (!entity) {
+        hiddenEntity = await this.getEntityWithServiceCredentials(entityRef);
+        if (hiddenEntity && lock.registrationState === 'none') {
           throw new Error(
-            'Refusing to remove shared catalog location with colocated entities',
+            'Insufficient permissions to read existing execution environment.',
           );
         }
-        await this.catalogClient.removeEntityByUid(
-          entity.metadata.uid,
-          catalogOpts,
-        );
-        return {
-          mode: 'entity-transient',
-          warning:
-            'Shared catalog location still exists; the entity may reappear until catalog-info.yaml is updated.',
-        };
+        if (!hiddenEntity && lock.registrationState === 'none') {
+          return { mode: 'noop' };
+        }
+      } else if (
+        entity.kind !== 'Component' ||
+        entity.spec?.type !== 'execution-environment'
+      ) {
+        throw new Error('Refusing to delete non-execution-environment entity');
       }
-      await this.catalogClient.removeLocationById(location.id, catalogOpts);
-      return { mode: 'location' };
-    }
-    await this.provider.unregister(name);
-    if (entity.metadata?.uid) {
-      try {
-        await this.catalogClient.removeEntityByUid(
-          entity.metadata.uid,
-          catalogOpts,
-        );
-      } catch (error) {
-        const remaining = await this.catalogClient.getEntityByRef(
-          entityRef,
-          catalogOpts,
-        );
-        if (remaining) throw error;
-        this.logger.debug(
-          `EE entity was already removed by provider delta: ${String(error)}`,
-        );
+      const [deleteDecision] = await this.permissions.authorize(
+        [{ permission: catalogEntityDeletePermission, resourceRef: entityRef }],
+        { credentials },
+      );
+      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+        throw new Error('Forbidden: insufficient permissions to delete entity');
       }
-    }
-    return { mode: 'provider' };
+      if (
+        options.skipProviderManaged &&
+        ((entity ?? hiddenEntity)?.metadata?.annotations?.[
+          'ansible.io/download-experience'
+        ] === 'true' ||
+          (!entity && lock.registrationState !== 'none'))
+      ) {
+        return { mode: 'provider' };
+      }
+      lock.assertLockHeld();
+      await lock.beginMutation();
+      if (!entity) {
+        await this.provider.unregister(name);
+        await lock.clearRegistration();
+        return { mode: 'provider' };
+      }
+      const location = await this.catalogClient.getLocationByEntity(
+        entityRef,
+        catalogOpts,
+      );
+      if (location?.id) {
+        const serviceCredentials = await this.auth.getOwnServiceCredentials();
+        const { items } = await this.catalogClient.getEntities(
+          {
+            filter: {
+              'metadata.annotations.backstage.io/managed-by-origin-location': `${location.type}:${location.target}`,
+            },
+            fields: ['kind', 'metadata.name', 'metadata.namespace'],
+          },
+          { token: await this.getCatalogToken(serviceCredentials) },
+        );
+        if (items.length > 1) {
+          if (!entity.metadata?.uid) {
+            throw new Error(
+              'Refusing to remove shared catalog location with colocated entities',
+            );
+          }
+          await this.catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+          await lock.clearRegistration();
+          return {
+            mode: 'entity-transient',
+            warning:
+              'Shared catalog location still exists; the entity may reappear until catalog-info.yaml is updated.',
+          };
+        }
+        await this.catalogClient.removeLocationById(location.id, catalogOpts);
+        await lock.clearRegistration();
+        return { mode: 'location' };
+      }
+      await this.provider.unregister(name);
+      if (entity.metadata?.uid) {
+        try {
+          await this.catalogClient.removeEntityByUid(
+            entity.metadata.uid,
+            catalogOpts,
+          );
+        } catch (error) {
+          const remaining = await this.catalogClient.getEntityByRef(
+            entityRef,
+            catalogOpts,
+          );
+          if (remaining) throw error;
+          this.logger.debug(
+            `EE entity was already removed by provider delta: ${String(error)}`,
+          );
+        }
+      }
+      await lock.clearRegistration();
+      return { mode: 'provider' };
+    });
   }
 
   private async getCatalogToken(

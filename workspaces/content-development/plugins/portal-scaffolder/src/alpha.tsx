@@ -24,6 +24,7 @@ import HistoryIcon from '@material-ui/icons/History';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import { selfServiceManifest } from './selfServiceManifest';
+import { aapUserTokenFormDecorator } from './scaffolder/aapUserTokenDecorator';
 
 /** Native discovery and lifecycle around the existing Portal wizard. */
 const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
@@ -37,6 +38,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     history: convertLegacyRouteRef(historyRouteRef),
   },
   extensions: [
+    aapUserTokenFormDecorator,
     ApiBlueprint.make({ name: 'aap', params: define => define(AAPApis) }),
     ApiBlueprint.make({
       name: 'ee-build',

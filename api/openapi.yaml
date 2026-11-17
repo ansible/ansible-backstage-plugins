@@ -1661,7 +1661,11 @@ paths:
         Triggers the `ee-build.yml` GitHub Actions workflow via workflow_dispatch to build
         an execution environment image. The EE entity is resolved from the catalog to
         determine the repository, ee_dir, and ee_file_name from its annotations.
-        **Permissions**: Requires `ansible.execution-environments.view` and `catalog.entity.read`.
+        **Permissions**: Requires `ansible.execution-environments.build` (update),
+        `ansible.execution-environments.view`, and `catalog.entity.read`.
+        Service callers must additionally have their authenticated subject explicitly
+        listed in `catalog.eeBuild.allowedServiceSubjects`. A missing or empty list
+        denies all services; general external-access registration does not grant build access.
         Also accepts external-access service principals (filtered by allowlist).
       tags:
         - Execution Environments

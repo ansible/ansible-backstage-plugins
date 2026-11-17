@@ -110,20 +110,29 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Initial Rendering', () => {
-    it('loads collections through the authenticated scaffolder route', async () => {
-      mockFetchApi.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ results: [] }),
+    it('keeps collections returned by autocomplete available to the picker', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: [
+          {
+            name: 'community.general',
+            id: 'community.general',
+            sources: ['Galaxy'],
+            versions: [mockVersionOption('9.0.0')],
+          },
+        ],
       });
       render(<CollectionsPickerExtension {...createMockProps()} />);
 
-      await waitFor(() =>
-        expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-          'http://localhost/api/scaffolder/collections',
-          { headers: { Authorization: 'Bearer user-token' } },
-        ),
+      const collectionInput = getInputElement('Collection')!;
+      fireEvent.mouseDown(collectionInput);
+      fireEvent.change(collectionInput, {
+        target: { value: 'community.general' },
+      });
+
+      expect(await screen.findByText('community.general')).toBeInTheDocument();
+      expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'portal-catalog' }),
       );
-      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
     });
 
     it('renders the component with Add collection card', () => {

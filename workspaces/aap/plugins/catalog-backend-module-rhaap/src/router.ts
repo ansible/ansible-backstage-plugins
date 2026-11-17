@@ -32,6 +32,7 @@ import { catalogEntityReadPermission } from '@backstage/plugin-catalog-common/al
 import {
   gitRepositoriesViewPermission,
   executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
   collectionsViewPermission,
   ScmClientFactory,
   SCM_INTEGRATION_AUTH_FAILED_CODE,
@@ -125,7 +126,10 @@ export function createRouter(options: {
       httpAuth,
       auth,
       logger,
-      allowedExternalAccessSubjects,
+      allowedExternalAccessSubjects:
+        config.getOptionalStringArray(
+          'catalog.eeBuild.allowedServiceSubjects',
+        ) ?? [],
     });
 
   router.get('/health', (_, response) => {
@@ -330,6 +334,7 @@ export function createRouter(options: {
     requireUserOrExternalAccessForEeBuild,
     createPermissionCheckMiddleware({ httpAuth, permissions }, [
       executionEnvironmentsViewPermission,
+      executionEnvironmentsBuildPermission,
       catalogEntityReadPermission,
     ]),
     async (request, response) => {
