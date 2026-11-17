@@ -475,6 +475,30 @@ export class GithubClient extends BaseScmClient {
     }
   }
 
+  async getRepositoryInfo(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<RepositoryInfo> {
+    const data = await this.fetchRest<{
+      name: string;
+      full_name: string;
+      default_branch: string | null;
+      html_url: string;
+      description: string | null;
+    }>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+      signal,
+    );
+    return {
+      name: data.name,
+      fullPath: data.full_name,
+      defaultBranch: data.default_branch || 'main',
+      url: data.html_url,
+      description: data.description || undefined,
+    };
+  }
+
   buildUrl(options: UrlBuildOptions): string {
     const { repo, ref, path, type } = options;
     const urlType = type === 'file' ? 'blob' : 'tree';

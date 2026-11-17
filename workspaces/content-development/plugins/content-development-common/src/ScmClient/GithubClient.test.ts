@@ -1124,6 +1124,34 @@ describe('GithubClient', () => {
   });
 
   describe('repositoryExists', () => {
+    it('loads repository metadata for default-branch checks', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            name: 'test-repo',
+            full_name: 'test-owner/test-repo',
+            default_branch: 'develop',
+            html_url: 'https://github.com/test-owner/test-repo',
+            description: 'test repository',
+          }),
+      });
+
+      await expect(
+        client.getRepositoryInfo('test-owner', 'test-repo'),
+      ).resolves.toEqual({
+        name: 'test-repo',
+        fullPath: 'test-owner/test-repo',
+        defaultBranch: 'develop',
+        url: 'https://github.com/test-owner/test-repo',
+        description: 'test repository',
+      });
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/test-owner/test-repo',
+        expect.any(Object),
+      );
+    });
+
     it('should return true when repository exists', async () => {
       (fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

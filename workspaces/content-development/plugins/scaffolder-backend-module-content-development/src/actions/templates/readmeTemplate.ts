@@ -7,11 +7,12 @@ const SCM_SOURCE_SEGMENT_COUNT = 4;
 function registryHostForReadme(buildRegistry: string, pahBaseUrl: string): string {
   const reg = buildRegistry.trim();
   const base = pahBaseUrl.trim();
-  if (reg.startsWith('Private Automation Hub') && base) {
+  if (reg.startsWith(PAH_SOURCE_PREFIX)) {
+    if (!base) return '';
     try {
       return new URL(base).host;
     } catch {
-      return reg;
+      return '';
     }
   }
   return reg;
@@ -90,7 +91,7 @@ export function generateReadme(
   const buildImageName = values.buildImageName?.trim() || '';
   const buildImageTag = values.buildImageTag?.trim() || 'latest';
   const imageRef =
-    rawBuildRegistry && buildImageName
+    registryHost && buildImageName
       ? `${registryHost}/${buildImageName}:${buildImageTag}`
       : '';
 
@@ -179,10 +180,9 @@ export function generateReadme(
       ? eeDescription
       : 'No description provided. Update the description in your EE template so others know what this execution environment is for.';
 
-  const detailsImageRegistryLine =
-    rawBuildRegistry && buildImageName
-      ? `- **Image registry:** \`${imageRef}\``
-      : '';
+  const detailsImageRegistryLine = imageRef
+    ? `- **Image registry:** \`${imageRef}\``
+    : '';
   const detailsExtraLines = detailsImageRegistryLine
     ? `\n${detailsImageRegistryLine}`
     : '';

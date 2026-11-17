@@ -6,13 +6,29 @@ export function generateEETemplate(values: EEDefinitionInput): string {
   const requirementsJson = JSON.stringify(values.pythonRequirements);
   const packagesJson = JSON.stringify(values.systemPackages);
   const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
-  const tagsJson = JSON.stringify(values.tags);
+  const tagsJson = JSON.stringify(values.tags ?? []);
+  const quoteYamlScalar = (v: string) =>
+    yaml.dump(v, { forceQuotes: true }).trim();
+  const defaultBaseImage =
+    values.baseImage && values.baseImage !== 'custom'
+      ? values.baseImage
+      : values.customBaseImage || '';
+  const customBaseImageEnumEntry =
+    defaultBaseImage &&
+    ![
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16',
+    ].includes(defaultBaseImage)
+      ? `\n            - ${quoteYamlScalar(defaultBaseImage)}`
+    : '';
   return `---
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: ${values.eeFileName}
-  title: ${values.eeFileName}
+  name: ${quoteYamlScalar(values.eeFileName)}
+  title: ${quoteYamlScalar(values.eeFileName)}
   description: ${yaml.dump(values.eeDescription || 'Saved Ansible Execution Environment Definition template', { quotingType: '"', forceQuotes: true }).trim()}
   annotations:
     ansible.io/saved-template: 'true'
@@ -28,17 +44,17 @@ spec:
         baseImage:
           title: Base execution environment image
           type: string
-          default: '${values.customBaseImage || values.baseImage}'
+          default: ${quoteYamlScalar(defaultBaseImage)}
           enum:
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18'
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18'
             - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16'
-            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16'${customBaseImageEnumEntry}
           enumNames:
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 8)'
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.18 (RHEL 9)'
             - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 8)'
-            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)'${values.customBaseImage?.trim() ? `\n            - '${values.customBaseImage}'` : ''}
+            - 'Red Hat Ansible Minimal EE - Ansible Core 2.16 (RHEL 9)'${customBaseImageEnumEntry}
           ui:field: BaseImagePicker
       dependencies:
         baseImage:
@@ -54,7 +70,7 @@ spec:
                   ui:
                     field: EntityNamePicker
                     options:
-                    allowArbitraryValues: true
+                      allowArbitraryValues: true
                     help: 'Format: [registry[:port]/][namespace/]name[:tag]'
                     placeholder: 'e.g., quay.io/org/custom-ee:latest'
               required:
@@ -265,6 +281,7 @@ spec:
                               - repo
                               - workflow
                             gitlab:
+                              - api
                               - write_repository
                   required:
                     - sourceControlProvider
@@ -321,6 +338,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                         - properties:
                                             buildRegistry:
                                               const: 'Custom Registry'
@@ -343,6 +366,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                           required:
                                             - customRegistryUrl
                                 - properties:
@@ -399,6 +428,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                         - properties:
                                             buildRegistry:
                                               const: 'Custom Registry'
@@ -421,6 +456,12 @@ spec:
                                               default: true
                                               description: Verify TLS certificates when interacting with container registries.
                                               ui:help: "Uncheck to disable TLS verification for registries using self-signed or untrusted certificates."
+                                            galaxyTlsVerify:
+                                              title: Verify Galaxy server certificates
+                                              type: boolean
+                                              default: true
+                                              description: Verify TLS certificates when downloading collections from Galaxy or Private Automation Hub.
+                                              ui:help: "Uncheck only for Galaxy servers using self-signed or untrusted certificates."
                                           required:
                                             - customRegistryUrl
                                 - properties:
@@ -456,6 +497,7 @@ spec:
           buildImageName: \${{ parameters.publishAndBuild.buildImageName or '' }}
           buildImageTag: \${{ parameters.publishAndBuild.buildImageTag or '' }}
           registryTlsVerify: \${{ parameters.publishAndBuild.registryTlsVerify }}
+          galaxyTlsVerify: \${{ parameters.publishAndBuild.galaxyTlsVerify }}
           scmProvider: \${{ parameters.publishAndBuild.sourceControlProvider.provider or 'github' }}
 
     # Step 3: Validate the SCM repository (optional)
@@ -552,7 +594,7 @@ spec:
     - id: dispatch-ee-build
       action: github:actions:dispatch
       name: Start EE Build Workflow
-      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' }}
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' and (steps['prepare-publish'].output.createNewRepo or steps['prepare-publish'].output.githubEeBuildWorkflowExists) }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         workflowId: ee-build.yml
