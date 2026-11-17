@@ -59,6 +59,18 @@ describe('eeDefinitionInputSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts the optional galaxy TLS verification setting', () => {
+    const result = eeDefinitionInputSchema.safeParse({
+      eeFileName: 'my-ee',
+      eeDescription: 'desc',
+      publishToSCM: false,
+      baseImage: 'quay.io/ansible/ee-base:latest',
+      galaxyTlsVerify: false,
+    });
+    expect(result.success).toBe(true);
+    expect(result).toMatchObject({ data: { galaxyTlsVerify: false } });
+  });
+
   describe('eeFileName validation', () => {
     const base = {
       eeDescription: 'desc',

@@ -1,0 +1,38 @@
+import type {
+  AuthService,
+  DiscoveryService,
+  HttpAuthService,
+  LoggerService,
+} from '@backstage/backend-plugin-api';
+import express from 'express';
+import { getCollections } from './utils';
+
+export function createCollectionsAutocompleteRouter(options: {
+  auth: AuthService;
+  discovery: DiscoveryService;
+  logger: LoggerService;
+  httpAuth: HttpAuthService;
+}): express.Router {
+  const router = express.Router();
+  router.get('/collections', async (request, response, next) => {
+    try {
+      const credentials = await options.httpAuth.credentials(request as any, {
+        allow: ['user'],
+      });
+      const result = await getCollections({
+        auth: options.auth,
+        discovery: options.discovery,
+        logger: options.logger,
+        callerCredentials: credentials,
+        searchQuery:
+          typeof request.query.searchQuery === 'string'
+            ? request.query.searchQuery
+            : undefined,
+      });
+      response.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+  return router;
+}

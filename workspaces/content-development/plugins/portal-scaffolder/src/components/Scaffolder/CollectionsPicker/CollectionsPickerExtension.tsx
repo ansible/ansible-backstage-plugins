@@ -18,7 +18,12 @@ import Autocomplete from '@material-ui/lab/Autocomplete';
 import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
 import { CollectionItem } from './types';
-import { useApi } from '@backstage/core-plugin-api';
+import {
+  discoveryApiRef,
+  fetchApiRef,
+  identityApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import type { SourceVersionDetail } from '@ansible/aap-common';
 
@@ -125,31 +130,31 @@ export const CollectionsPickerExtension = ({
 
   const aapAuth = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
+  const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
+  const identityApi = useApi(identityApiRef);
   // Fetch collections for autocomplete
   const fetchCollections = useCallback(async () => {
     try {
       setLoadingCollections(true);
-      const token = await aapAuth.getAccessToken();
-      if (scaffolderApi.autocomplete) {
-        const { results } = await scaffolderApi.autocomplete({
-          token,
-          resource: 'collections',
-          provider: 'aap-api-cloud',
-          context: {
-            searchQuery: 'spec.type=ansible-collection',
-          },
-        });
-
-        // Process results to extract unique collections with their versions and sources
-        const processedCollections = results || [];
-        setAvailableCollections(processedCollections);
+      const [baseUrl, { token }] = await Promise.all([
+        discoveryApi.getBaseUrl('scaffolder'),
+        identityApi.getCredentials(),
+      ]);
+      const response = await fetchApi.fetch(`${baseUrl}/collections`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Collections request failed: ${response.status}`);
       }
+      const { results } = await response.json();
+      setAvailableCollections(results || []);
     } catch {
       setAvailableCollections([]);
     } finally {
       setLoadingCollections(false);
     }
-  }, [aapAuth, scaffolderApi]);
+  }, [discoveryApi, fetchApi, identityApi]);
 
   // Fetch sources when collection is selected
   const fetchSources = useCallback(
