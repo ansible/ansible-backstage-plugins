@@ -33,7 +33,9 @@ export class EEEntityProviderServiceImpl implements EEEntityProviderService {
     operation: (lock: EERegistrationLockContext) => Promise<T>,
   ): Promise<T> {
     if (!this.registrationLock) {
-      throw new Error('EE registration lock has not been initialized');
+      return Promise.reject(
+        new Error('EE registration lock has not been initialized'),
+      );
     }
     return this.registrationLock(entityRef, operation);
   }
