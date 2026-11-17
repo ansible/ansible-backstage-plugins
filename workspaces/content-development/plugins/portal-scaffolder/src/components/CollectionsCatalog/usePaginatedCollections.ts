@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
+import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import { SyncStatusMap } from '../common';
 import { filterCollectionsByRepository, sortEntities } from './utils';
 import { PAGE_SIZE } from './constants';
@@ -253,9 +254,7 @@ export function usePaginatedCollections({
   const fetchSyncStatus = useCallback(async () => {
     try {
       const baseUrl = await discoveryApi.getBaseUrl('catalog');
-      const response = await fetchApi.fetch(
-        `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-      );
+      const response = await fetchContentSyncStatus(fetchApi, baseUrl);
 
       if (!response.ok) {
         if (isMountedRef.current) {

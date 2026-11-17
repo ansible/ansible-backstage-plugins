@@ -20,8 +20,10 @@ import 'cross-fetch/polyfill';
 import { TextEncoder, TextDecoder } from 'node:util';
 import { ReadableStream, WritableStream } from 'web-streams-polyfill';
 
+const selfTarget = globalThis.self !== undefined ? globalThis.self : globalThis;
+
 // Mock browser crypto.subtle.digest method for sha-256 hashing.
-Object.defineProperty(globalThis.self, 'crypto', {
+Object.defineProperty(selfTarget, 'crypto', {
   value: {
     subtle: {
       digest: (_algo: string, data: Uint8Array): ArrayBuffer => data.buffer,
@@ -30,17 +32,17 @@ Object.defineProperty(globalThis.self, 'crypto', {
 });
 
 // Also used in browser-based APIs for hashing.
-Object.defineProperty(globalThis.self, 'TextEncoder', {
+Object.defineProperty(selfTarget, 'TextEncoder', {
   value: TextEncoder,
 });
 
-Object.defineProperty(globalThis.self, 'TextDecoder', {
+Object.defineProperty(selfTarget, 'TextDecoder', {
   value: TextDecoder,
 });
 
-Object.defineProperty(globalThis.self, 'ReadableStream', {
+Object.defineProperty(selfTarget, 'ReadableStream', {
   value: ReadableStream,
 });
-Object.defineProperty(globalThis.self, 'WritableStream', {
+Object.defineProperty(selfTarget, 'WritableStream', {
   value: WritableStream,
 });

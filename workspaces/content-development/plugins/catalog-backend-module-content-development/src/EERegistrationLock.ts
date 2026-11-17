@@ -31,11 +31,13 @@ export function createEERegistrationLock(
 
   return async (entityRef, operation) => {
     const knex = await database.getClient();
-    const ready = (schemaReady ??= ensureLockTable(knex));
+    if (!schemaReady) {
+      schemaReady = ensureLockTable(knex);
+    }
     try {
-      await ready;
+      await schemaReady;
     } catch (error) {
-      if (schemaReady === ready) schemaReady = undefined;
+      schemaReady = undefined;
       throw error;
     }
 
