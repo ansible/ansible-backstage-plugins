@@ -78,7 +78,6 @@ export function createEERegistrationLock(
           `EE registration lock lease was lost while updating registration state for ${entityRef}`,
         );
         assertLockHeld();
-        throw leaseLost;
       }
     };
     const heartbeat = setInterval(() => {
