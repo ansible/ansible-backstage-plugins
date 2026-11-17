@@ -9,8 +9,14 @@ yarn validate:sdk-packages
 The command emits declarations, builds and packs the ten candidates listed in
 `packages.json`, validates their archive metadata and contents, and installs them
 into a fresh temporary consumer outside the checkout. It never publishes packages.
-Candidate manifests must retain `private: true` during this preparation stage.
+Candidate manifests retain `private: true` during preparation. A coordinated,
+reviewed release commit may set all allowlisted packages to `private: false`
+with matching preview versions and public access metadata. Release guards then
+validate that metadata before building. Mixed or incompatible releases fail.
 The allowlist records validation candidates, not approval to publish them.
+
+For the separate OIDC-only release workflow, maintainer setup and first-publication
+requirements, see [Publishing a Portal SDK developer preview](PUBLISHING.md).
 
 The consumer compiles a frontend contribution, backend contribution, host imports,
 and the auth factories. It bundles the frontend entries, checks that packages and
