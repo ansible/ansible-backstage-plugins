@@ -204,6 +204,8 @@ Capture a machine-readable inventory before changing anything.
 
 The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and wires the content-development actions and EE modules, and switches backend composition to the split modules. Creator-dependent actions, content autocomplete, EE lifecycle contracts, and the EE catalog provider land in their final content-development workspace in Phase 1.
 
+_Snapshot as of 2026-11-17 — update the #999 row once it merges._
+
 | PR   | Delivery status                                                                                                        |
 | ---- | ---------------------------------------------------------------------------------------------------------------------- |
 | #992 | Merged: contract freeze for the split                                                                                  |
