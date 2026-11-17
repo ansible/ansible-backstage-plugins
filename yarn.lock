@@ -301,10 +301,15 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap"
   dependencies:
+    "@ansible/aap-common": "workspace:^"
+    "@ansible/aap-node": "workspace:^"
+    "@ansible/backstage-plugin-catalog-backend-module-content": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/cli": "npm:0.36.5"
     "@backstage/plugin-catalog-backend": "npm:3.9.1"
+    "@backstage/plugin-signals-node": "npm:0.2.4"
   languageName: unknown
   linkType: soft
 
@@ -345,6 +350,7 @@ __metadata:
     "@ansible/aap-node": "workspace:^"
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
     "@ansible/portal-plugin-node": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.6"
