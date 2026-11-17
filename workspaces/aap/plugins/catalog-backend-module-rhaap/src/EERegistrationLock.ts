@@ -131,7 +131,7 @@ async function ensureLockTable(knex: KnexClient): Promise<void> {
         table.string('owner').nullable();
         table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
         table.boolean('mutation_in_progress').notNullable().defaultTo(false);
-        table.string('registration_state').notNullable().defaultTo('none');
+        table.string('registration_state').notNullable().defaultTo('pending');
       });
     } catch (error) {
       // Multiple replicas may initialize the table at the same time.
@@ -155,7 +155,7 @@ async function ensureLockTable(knex: KnexClient): Promise<void> {
   if (!(await knex.schema.hasColumn(LOCK_TABLE, 'registration_state'))) {
     try {
       await knex.schema.alterTable(LOCK_TABLE, table => {
-        table.string('registration_state').notNullable().defaultTo('none');
+        table.string('registration_state').notNullable().defaultTo('pending');
       });
     } catch (error) {
       // Multiple replicas may add the column at the same time.
@@ -218,7 +218,12 @@ function tryAcquireLock(
   return knex.transaction(async transaction => {
     const now = Date.now();
     await transaction(LOCK_TABLE)
-      .insert({ entity_ref: entityRef, owner: null, lease_expires_at: 0 })
+      .insert({
+        entity_ref: entityRef,
+        owner: null,
+        lease_expires_at: 0,
+        registration_state: 'none',
+      })
       .onConflict('entity_ref')
       .ignore();
     const updated = await transaction(LOCK_TABLE)

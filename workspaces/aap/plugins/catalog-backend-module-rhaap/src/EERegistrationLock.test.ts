@@ -5,6 +5,30 @@ import { EEEntityProvider } from './providers/EEEntityProvider';
 const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 describe('createEERegistrationLock', () => {
+  it('treats existing lock rows as pending during the registration state migration', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    await knex.schema.createTable('ee_registration_lock_leases', table => {
+      table.string('entity_ref').primary();
+      table.string('owner').nullable();
+      table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
+      table.boolean('mutation_in_progress').notNullable().defaultTo(false);
+    });
+    await knex('ee_registration_lock_leases').insert({
+      entity_ref: 'component:default/legacy-ee',
+      owner: null,
+      lease_expires_at: 0,
+      mutation_in_progress: false,
+    });
+
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+    await lock('component:default/legacy-ee', async lockContext => {
+      expect(lockContext.registrationState).toBe('pending');
+    });
+    await knex.destroy();
+  });
+
   it('preserves pending registration state across lock instances and clears it after deletion', async () => {
     const knex = await testDatabases.init('SQLITE_3');
     const database = { getClient: async () => knex } as any;
