@@ -104,11 +104,12 @@ Choose **Use in Controller** from an image’s actions menu in either Images vie
 to use its representative version. To choose a different version, open image
 details, select the version, and choose **Use in Controller**. Start **Add
 execution environment to Controller** from the filtered Templates list.
-The wizard prefills the execution environment name and version. The Version
+The wizard prefills the execution environment name and tag. The **Tags**
 picker lists the selected repository’s tags and shows the resulting pull
-reference. If you start the template directly from Templates, enter a pull
-reference. Choose a Controller organization and run the task with your AAP sign-in. On
-success, the task links to the execution environment in Controller.
+reference and image digest. If you start the template directly from Templates,
+enter a pull reference. Choose a Controller organization and run the task with
+your AAP sign-in. On success, the task links to the execution environment in
+Controller.
 
 Administrators register the template from [ansible-rhdh-templates][templates-repo].
 For a disconnected deployment, mirror the repository and register the local

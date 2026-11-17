@@ -6,7 +6,7 @@ export const eeMessages = {
   unknown: 'Undetermined',
   reload: 'Reload results',
   controllerVersion: {
-    label: 'Version',
+    label: 'Tags',
     image: 'Image pull reference',
     loading: 'Loading image versions',
     failed: 'Image versions could not be loaded.',
@@ -82,7 +82,7 @@ export const eeMessages = {
     sections: 'Image information',
     overview: 'Overview',
     contents: 'All Content',
-    tag: 'Version',
+    tag: 'Tags',
     useInController: 'Use in Controller',
     latest: 'Latest',
     modified: 'Last modified',

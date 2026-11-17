@@ -78,6 +78,9 @@ function RepositoryVersionPicker({
       });
     }
   }
+  const digest =
+    details.value?.tags.find(tag => tag.taggedPullReference === formData)
+      ?.digest ?? formData?.split('@')[1];
   return (
     <Flex direction="column" gap="2">
       <Select
@@ -91,7 +94,16 @@ function RepositoryVersionPicker({
         isInvalid={Boolean(rawErrors?.length)}
         isDisabled={disabled || readonly || details.loading}
       />
-      {formData && <Text color="secondary">{formData}</Text>}
+      {formData && (
+        <>
+          <Text color="secondary">{formData}</Text>
+          <TextField
+            label={t('detail.digest')}
+            value={digest ?? (details.loading ? '' : t('unknown'))}
+            isReadOnly
+          />
+        </>
+      )}
       {details.loading && (
         <Text role="status">{t('controllerVersion.loading')}</Text>
       )}
