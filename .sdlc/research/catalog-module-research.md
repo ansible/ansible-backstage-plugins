@@ -107,18 +107,18 @@ Content Experience Architecture §7.2: this EE catalog holds **definitions** (`e
 
 ### 2.3 HTTP Routes
 
-| Route Group        | Path(s)                                         | Auth                                                                                   | Phase 1 owner                                              |
-| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Health             | `GET /health`                                   | Open (liveness only; no sync payload)                                                  | Each module that exposes health                            |
-| AAP identity sync  | `POST /ansible/sync/from-aap/orgs_users_teams`  | Superuser                                                                              | AAP                                                        |
-| AAP templates sync | `POST /ansible/sync/from-aap/job_templates`     | Superuser                                                                              | AAP                                                        |
-| Sync status        | `GET /ansible/sync/status` (+ per-module paths) | `catalogEntityRead`                                                                    | See §4.4                                                   |
-| PAH content sync   | `POST /ansible/sync/from-aap/content`           | Superuser                                                                              | `catalog-backend-module-content` (Phase 3: L2/L3)          |
-| SCM content sync   | `POST /ansible/sync/from-scm/content`           | Superuser                                                                              | `catalog-backend-module-content`                           |
-| EE register        | `POST /ansible/ee`                              | Service credentials only                                                               | Self-service (Content Experience Architecture §7.4)        |
-| EE delete          | `DELETE /ansible/ee/:name`                      | User or service + catalog entity delete (on behalf of caller); `204` if entity missing | Self-service                                               |
-| EE build           | `POST /ansible/ee/build`                        | User + EE view permission                                                              | Self-service                                               |
-| Git helpers        | `GET /ansible/git/*`                            | Authenticated + perms                                                                  | `catalog-backend-module-content` → Phase 3: `…-source-git` |
+| Route Group        | Path(s)                                         | Auth                                                                                                                                                                                     | Phase 1 owner                                              |
+| ------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Health             | `GET /health`                                   | Open (liveness only; no sync payload)                                                                                                                                                    | Each module that exposes health                            |
+| AAP identity sync  | `POST /ansible/sync/from-aap/orgs_users_teams`  | Superuser                                                                                                                                                                                | AAP                                                        |
+| AAP templates sync | `POST /ansible/sync/from-aap/job_templates`     | Superuser                                                                                                                                                                                | AAP                                                        |
+| Sync status        | `GET /ansible/sync/status` (+ per-module paths) | `catalogEntityRead`                                                                                                                                                                      | See §4.4                                                   |
+| PAH content sync   | `POST /ansible/sync/from-aap/content`           | Superuser                                                                                                                                                                                | `catalog-backend-module-content` (Phase 3: L2/L3)          |
+| SCM content sync   | `POST /ansible/sync/from-scm/content`           | Superuser                                                                                                                                                                                | `catalog-backend-module-content`                           |
+| EE register        | `POST /ansible/ee`                              | User or service; caller-scoped catalog access under EE lock — `catalog.entity.create` for net-new, `catalog.entity.delete` when replacing entity or pending registration (§4.6; #997)    | Self-service (Content Experience Architecture §7.4)        |
+| EE delete          | `DELETE /ansible/ee/:name`                      | User or service; caller-scoped catalog/unregister — `204` only when entity absent **and** persisted registration state is `none`; pending registration requires delete auth (§4.6; #997) | Self-service                                               |
+| EE build           | `POST /ansible/ee/build`                        | User + EE view permission                                                                                                                                                                | Self-service                                               |
+| Git helpers        | `GET /ansible/git/*`                            | Authenticated + perms                                                                                                                                                                    | `catalog-backend-module-content` → Phase 3: `…-source-git` |
 
 ### 2.4 Permissions
 
@@ -254,9 +254,9 @@ Content Experience Architecture §7.4: PAH is **Galaxy v3 / Pulp**, not OCI — 
 
 Architecture §7.4 assigns `EEEntityProvider` and `POST /ansible/ee` to **`scaffolder-backend-module-self-service`** (self-service experience). The provider is push-based definition registration — not registry/OCI ingestion.
 
-**Platform constraint:** `EEEntityProvider` still registers via `catalogProcessingExtensionPoint` (`pluginId: 'catalog'`). Routes remain on the catalog backend router at `/api/catalog/ansible/ee*`. On `main`, scaffolder **actions** live in `workspaces/content-development/`; the **as-built** catalog registration for EE is on the content slice inside `catalog-backend-module-content` (`workspaces/content-management/`) per §13 — not a separate `portal-scaffolder` workspace package.
+**Platform constraint:** `EEEntityProvider` still registers via `catalogProcessingExtensionPoint` (`pluginId: 'catalog'`). Routes remain on the catalog backend router at `/api/catalog/ansible/ee*`. Scaffolder **actions** already live in `workspaces/content-development/` on released `main`; after stack #1006 merges, EE **catalog** registration moves to the content slice inside `catalog-backend-module-content` (`workspaces/content-management/`, §13) — not a separate `portal-scaffolder` workspace package.
 
-Scaffolder **actions** remain in the scaffolder backend module per the Scaffolder Implementation Guide (§11) — on `main`, `scaffolder-backend-module-content-development`. EE **catalog** registration is on the content catalog module (§13).
+Scaffolder **actions** remain in the scaffolder backend module per the Scaffolder Implementation Guide (§11) — `scaffolder-backend-module-content-development` on `main`. EE **catalog** routes follow the stack layout in §13 (pending merge).
 
 | Field                    | Value                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
@@ -266,15 +266,15 @@ Scaffolder **actions** remain in the scaffolder backend module per the Scaffolde
 | Catalog registration     | `pluginId: 'catalog'` on `catalog-backend-module-content` (as-built §13; research alias `self-service-ee`)         |
 | Scaffolder actions       | `scaffolder-backend-module-content-development` on `main` (architecture: `scaffolder-backend-module-self-service`) |
 
-**Routes and auth (unchanged on move):**
+**Routes and auth (preserve on move — behavior merged via [#997](https://github.com/ansible/ansible-backstage-plugins/pull/997)):**
 
-| Route                      | Auth / behavior                                                                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST /ansible/ee`         | Service credentials only (scaffolder → catalog)                                                                                                        |
-| `DELETE /ansible/ee/:name` | User or service; catalog lookup + `catalogEntityDeletePermission` for caller; `204` when entity ref not found (before delete auth on missing resource) |
-| `POST /ansible/ee/build`   | User/external access + `executionEnvironmentsViewPermission` + catalog read                                                                            |
+| Route                      | Auth / behavior                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /ansible/ee`         | **User or service** credentials. Catalog reads use a plugin token **on behalf of the caller** (service token only when caller-scoped read cannot see an existing entity). Under the shared **EE registration lock**: `catalogEntityCreatePermission` for net-new registration; `catalogEntityDeletePermission` on the entity ref when replacing an existing entity **or** when persisted registration state is not `none`. |
+| `DELETE /ansible/ee/:name` | **User or service**; catalog lookup/unregister on behalf of the caller. Returns **`204` only when** the entity is absent after caller + service visibility checks **and** `registrationState === 'none'`. A **pending registration** without a visible entity still requires `catalogEntityDeletePermission` before provider cleanup.                                                                                      |
+| `POST /ansible/ee/build`   | User/external access + `executionEnvironmentsViewPermission` + catalog read                                                                                                                                                                                                                                                                                                                                                |
 
-`createEEDefinition` calls `DELETE` before re-registering the same EE name; extraction must keep this cleanup path.
+`createEEDefinition` calls `DELETE` before re-registering the same EE name; extraction must keep this cleanup path and the caller-scoped permission checks above.
 
 #### _(Research)_ separate EE catalog module
 
@@ -325,7 +325,7 @@ Loading the deprecated shim together with split modules that register the same e
 **Verification (extends EE flow; adds Content Experience Architecture §7.7 / §2.5):**
 
 - All catalog module tests pass; entity sync end-to-end in dev app.
-- EE: scaffolder action → `POST /ansible/ee` → `DELETE /ansible/ee/:name` → re-register same name (`204` on missing entity).
+- EE: scaffolder action → `POST /ansible/ee` (create) → `DELETE /ansible/ee/:name` (cleanup) → `POST /ansible/ee` (re-register same name). Assert caller-scoped `catalog.entity.create` / `catalog.entity.delete` under the EE lock ([#997](https://github.com/ansible/ansible-backstage-plugins/pull/997)); `DELETE` returns `204` only when entity and persisted registration state are both absent.
 - **URLs:** Every **functional** route in §2.3 reachable at the same path after split (§4.2); sync status on split bundles uses per-module paths (§4.4).
 - **Self-service:** Smoke test templates/tasks/EE definition UI with split modules (no regression per §7.7).
 - **Dependencies:** No new cross-workspace source imports (Content Experience Architecture §2.5 rules 9–10); content-type packages not imported from self-service except via published versions when content workspace exists.
@@ -365,7 +365,7 @@ Loading the deprecated shim together with split modules that register the same e
 
 ## 7. Operator Impact
 
-**How to use this section:** **Actionable migration** for Phase 1 (stack [#1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006)) is in **§7.3–§7.4**, aligned with **§13**. Deployment bundles in §4.5 and narrative in §1–§6 cover **Phases 1–3**; labels _(research)_ mark superseded options operators should **not** deploy.
+**How to use this section:** **Actionable migration** for Phase 1 (stack [#1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006)) is in **§7.3–§7.4**, aligned with **§13**. Apply **§7.3–§7.4 after stack #1006 merges to `main`** — until then, released `main` continues to ship `catalog-backend-module-rhaap` only (§13). Deployment bundles in §4.5 and narrative in §1–§6 cover **Phases 1–3**; labels _(research)_ mark superseded options operators should **not** deploy.
 
 ### 7.1 AAP identity deployment (catalog vs auth)
 
@@ -524,13 +524,27 @@ Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contra
 
 ---
 
-## 13. Phase 1 implementation (AAP-98845 stack — as built on `main`)
+## 13. Phase 1 implementation checkpoint (stack #1006 — pending merge)
 
-This section records **Phase 1 delivery** on the [catalog split stack](https://github.com/ansible/ansible-backstage-plugins/stack/1006) (AAP-98845, Nov 2026). §1–§12 describe **Phases 0–3** end to end; §13 is the as-built checkpoint for Phase 1 on **`main`** (`content-management`, `content-development`). **Phases 2–3** remain planned per §5.
+> **Released `main` today:** Split catalog packages are **not** operator-available until [stack #1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006) merges. Ship **`catalog-backend-module-rhaap`** (monolith/shim) on current `main`. Workspaces `content-management` / `content-development` exist on `main`; **`catalog-backend-module-aap`**, **`catalog-backend-module-content`**, and **`backstage-rhaap-common/src/catalog`** land via the stack PRs below.
 
-### 13.1 Package and workspace mapping
+This section is the **implementation-stack checkpoint** for Phase 1 (AAP-98845, Nov 2026) — not a statement that split modules are already on `main`. §1–§12 describe **Phases 0–3** end to end; **§7.3–§7.4** apply after the stack lands. **Phases 2–3** remain planned per §5.
 
-| Superseded name (§1.1)                                        | Phase 1 as built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981))    |
+### 13.0 Stack prerequisites
+
+| Item                                                                           | Role                                                              |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| [Stack #1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006) | Phase 1 peel delivery vehicle (AAP-98845)                         |
+| [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)          | Module split + shared `rhaap-common/catalog`                      |
+| [#980](https://github.com/ansible/ansible-backstage-plugins/pull/980)          | Config peel (`catalog.providers.aap` / `content`)                 |
+| [#981](https://github.com/ansible/ansible-backstage-plugins/pull/981)          | UI aggregation + tests                                            |
+| [#997](https://github.com/ansible/ansible-backstage-plugins/pull/997)          | EE `POST`/`DELETE` caller-scoped auth (preserved in split — §4.6) |
+
+Status at research revision: stack PRs **open**; treat §13 layout as **pending merge**, not current production `main`.
+
+### 13.1 Package and workspace mapping (stack branch)
+
+| Superseded name (§1.1)                                        | Phase 1 stack layout (PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981))      |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared provider library (was discussed as a separate package) | **`@ansible/backstage-rhaap-common/catalog`** — providers, sync router, `createCatalogModule()`, slice guard (`workspaces/aap/plugins/backstage-rhaap-common/src/catalog/`) |
 | Early-draft content catalog package names                     | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`**                                                                                        |
@@ -544,6 +558,7 @@ This section records **Phase 1 delivery** on the [catalog split stack](https://g
 **Operator steps:** §7.4 (migration checklist) and §7.3 (config copy).
 
 - Public **URL paths** and entity ref shapes unchanged.
+- EE **POST** / **DELETE** caller-scoped catalog authorization and pending-registration `204` rules unchanged ([#997](https://github.com/ansible/ansible-backstage-plugins/pull/997); §4.6).
 - **§4.8** slice guard: shim cannot load with any split slice module.
 - Split sync status: `/ansible/sync/status/aap`, `/ansible/sync/status/content`, `/ansible/sync/status/self-service` (EE status via content module router slice).
 - Legacy combined `GET /ansible/sync/status` on the **content** catalog module for content-only deployments and portal client fallback (§4.2).
