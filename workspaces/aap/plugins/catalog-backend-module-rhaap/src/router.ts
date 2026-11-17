@@ -390,6 +390,17 @@ export function createRouter(options: {
       return;
     }
 
+    if (
+      entity.kind !== 'Component' ||
+      entity.spec?.type !== 'execution-environment'
+    ) {
+      response.status(400).json({
+        error:
+          'Only Component execution-environment entities can be registered.',
+      });
+      return;
+    }
+
     const entityRef = stringifyEntityRef(entity);
     const { token: callerCatalogToken } = await auth.getPluginRequestToken({
       onBehalfOf: credentials,
@@ -425,7 +436,9 @@ export function createRouter(options: {
         return;
       }
 
-      const [decision] = existingEntity
+      const isReplacement =
+        Boolean(existingEntity) || lock.registrationState !== 'none';
+      const [decision] = isReplacement
         ? await permissions.authorize(
             [
               {
@@ -443,15 +456,16 @@ export function createRouter(options: {
       if (decision.result !== AuthorizeResult.ALLOW) {
         response.status(403).json({
           error: `Forbidden: insufficient permissions to ${
-            existingEntity ? 'replace' : 'create'
+            isReplacement ? 'replace' : 'create'
           } entity`,
         });
         return;
       }
 
       try {
-        await lock.beginMutation();
+        await lock.beginRegistrationMutation();
         await eeEntityProvider.registerExecutionEnvironment(entity);
+        await lock.completeRegistration();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -518,7 +532,39 @@ export function createRouter(options: {
           token: serviceToken,
         });
         if (!entity) {
-          response.status(204).send();
+          await withEERegistrationLock(entityRef, async lock => {
+            if (lock.registrationState === 'none') {
+              response.status(204).send();
+              return;
+            }
+
+            const [deleteDecision] = await permissions.authorize(
+              [
+                {
+                  permission: catalogEntityDeletePermission,
+                  resourceRef: entityRef,
+                },
+              ],
+              { credentials },
+            );
+            lock.assertLockHeld();
+            if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+              response.status(403).json({
+                error: 'Forbidden: insufficient permissions to delete entity',
+              });
+              return;
+            }
+
+            if (request.query.skipProviderManaged === 'true') {
+              response.status(200).json({ success: true, mode: 'provider' });
+              return;
+            }
+
+            await lock.beginRegistrationMutation();
+            await eeEntityProvider.unregisterExecutionEnvironment(name);
+            await lock.clearRegistration();
+            response.status(200).json({ success: true, mode: 'provider' });
+          });
           return;
         }
       }
@@ -607,10 +653,20 @@ export function createRouter(options: {
             });
             return;
           }
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
-          );
+          await withEERegistrationLock(entityRef, async lock => {
+            const hasTrackedRegistration = lock.registrationState !== 'none';
+            if (hasTrackedRegistration) {
+              await lock.beginRegistrationMutation();
+              await eeEntityProvider.unregisterExecutionEnvironment(name);
+            } else {
+              await lock.beginMutation();
+            }
+            await catalogClient.removeEntityByUid(
+              entity.metadata!.uid!,
+              catalogOpts,
+            );
+            if (hasTrackedRegistration) await lock.clearRegistration();
+          });
           response.status(200).json({
             success: true,
             mode: 'entity-transient',
@@ -622,61 +678,76 @@ export function createRouter(options: {
           return;
         }
 
-        await catalogClient.removeLocationById(location.id, catalogOpts);
+        await withEERegistrationLock(entityRef, async lock => {
+          const hasTrackedRegistration = lock.registrationState !== 'none';
+          if (hasTrackedRegistration) {
+            await lock.beginRegistrationMutation();
+            await eeEntityProvider.unregisterExecutionEnvironment(name);
+          } else {
+            await lock.beginMutation();
+          }
+          await catalogClient.removeLocationById(location.id!, catalogOpts);
+          if (hasTrackedRegistration) await lock.clearRegistration();
+        });
         response.status(200).json({ success: true, mode: 'location' });
         return;
       }
 
-      await eeEntityProvider.unregisterExecutionEnvironment(name);
+      await withEERegistrationLock(entityRef, async lock => {
+        await lock.beginRegistrationMutation();
+        await eeEntityProvider.unregisterExecutionEnvironment(name);
 
-      if (entity.metadata?.uid) {
-        try {
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
-          );
-        } catch (uidError) {
-          // Entity may already be gone after provider delta; verify before
-          // reporting success so we don't claim cleanup when it didn't happen.
-          let stillPresent: boolean;
+        if (entity.metadata?.uid) {
           try {
-            stillPresent = !!(await catalogClient.getEntityByRef(
-              entityRef,
+            await catalogClient.removeEntityByUid(
+              entity.metadata.uid,
               catalogOpts,
-            ));
-          } catch (verifyError) {
-            logger.warn(
-              `removeEntityByUid failed (${formatUnknownError(
+            );
+          } catch (uidError) {
+            // Entity may already be gone after provider delta; verify before
+            // reporting success so we don't claim cleanup when it didn't happen.
+            let stillPresent: boolean;
+            try {
+              stillPresent = !!(await catalogClient.getEntityByRef(
+                entityRef,
+                catalogOpts,
+              ));
+              lock.assertLockHeld();
+            } catch (verifyError) {
+              logger.warn(
+                `removeEntityByUid failed (${formatUnknownError(
+                  uidError,
+                )}) and verification also failed (${formatUnknownError(
+                  verifyError,
+                )})`,
+              );
+              response.status(500).json({
+                error: 'Failed to unregister Execution Environment',
+              });
+              return;
+            }
+            if (stillPresent) {
+              logger.warn(
+                `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
+                  uidError,
+                )}`,
+              );
+              response.status(500).json({
+                error: 'Failed to unregister Execution Environment',
+              });
+              return;
+            }
+            logger.debug(
+              `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
                 uidError,
-              )}) and verification also failed (${formatUnknownError(
-                verifyError,
               )})`,
             );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
           }
-          if (stillPresent) {
-            logger.warn(
-              `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
-                uidError,
-              )}`,
-            );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
-          }
-          logger.debug(
-            `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
-              uidError,
-            )})`,
-          );
         }
-      }
 
-      response.status(200).json({ success: true, mode: 'provider' });
+        await lock.clearRegistration();
+        response.status(200).json({ success: true, mode: 'provider' });
+      });
     } catch (error) {
       const errorMessage = formatUnknownError(error);
       logger.error(

@@ -101,6 +101,10 @@ const createRouter = (options: TestRouterOptions) =>
         operation({
           assertLockHeld: () => {},
           beginMutation: async () => {},
+          beginRegistrationMutation: async () => {},
+          completeRegistration: async () => {},
+          clearRegistration: async () => {},
+          registrationState: 'none',
         })),
   });
 
@@ -389,7 +393,7 @@ describe('createRouter', () => {
   });
 
   describe('POST /ansible/ee', () => {
-    it('serializes concurrent create requests across independent router locks', async () => {
+    it('requires replacement authorization for concurrent registrations while catalog visibility is delayed', async () => {
       const knex = await testDatabases.init('SQLITE_3');
       const lockA = createEERegistrationLock({
         getClient: async () => knex,
@@ -403,13 +407,7 @@ describe('createRouter', () => {
         metadata: { name: 'concurrent-ee' },
         spec: { type: 'execution-environment' },
       };
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce({
-          kind: 'Component',
-          spec: { type: 'execution-environment' },
-        } as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
       mockPermissions.authorize.mockResolvedValue([
         { result: AuthorizeResult.ALLOW },
       ] as any);
@@ -456,6 +454,139 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
       ).toHaveBeenCalledTimes(2);
+      await knex.destroy();
+    });
+
+    it('denies a create-only caller replacing a pending registration when catalog reads stay absent', async () => {
+      const knex = await testDatabases.init('SQLITE_3');
+      const lockA = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const lockB = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const createApp = async (withEERegistrationLock: EERegistrationLock) =>
+        express().use(
+          express.json(),
+          await createRouter({
+            logger: mockLogger,
+            config: mockConfig,
+            scheduler: mockScheduler,
+            aapEntityProvider: mockAAPEntityProvider,
+            jobTemplateProvider: mockJobTemplateProvider,
+            eeEntityProvider: mockEEEntityProvider,
+            pahCollectionProviders: [mockPAHCollectionProvider],
+            httpAuth: mockHttpAuth,
+            userInfo: mockUserInfo,
+            auth: mockAuth,
+            catalogClient: mockCatalogClient,
+            permissions: mockPermissions,
+            withEERegistrationLock,
+          }),
+        );
+      const [appA, appB] = await Promise.all([
+        createApp(lockA),
+        createApp(lockB),
+      ]);
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'pending-ee' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
+      mockPermissions.authorize
+        .mockResolvedValueOnce([{ result: AuthorizeResult.ALLOW }] as any)
+        .mockResolvedValueOnce([{ result: AuthorizeResult.DENY }] as any);
+
+      const first = await request(appA).post('/ansible/ee').send({ entity });
+      const second = await request(appB)
+        .post('/ansible/ee')
+        .send({
+          entity: {
+            ...entity,
+            metadata: { name: 'pending-ee' },
+            spec: { ...entity.spec, definition: 'replacement' },
+          },
+        });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(403);
+      expect(
+        mockPermissions.authorize.mock.calls.map(
+          ([permissions]) => permissions[0].permission,
+        ),
+      ).toEqual([catalogEntityCreatePermission, catalogEntityDeletePermission]);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledWith(entity);
+      await knex.destroy();
+    });
+
+    it('preserves skipped provider registrations and allows creation after authorized deletion', async () => {
+      const knex = await testDatabases.init('SQLITE_3');
+      const withEERegistrationLock = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const testApp = express().use(
+        express.json(),
+        await createRouter({
+          logger: mockLogger,
+          config: mockConfig,
+          scheduler: mockScheduler,
+          aapEntityProvider: mockAAPEntityProvider,
+          jobTemplateProvider: mockJobTemplateProvider,
+          eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
+          httpAuth: mockHttpAuth,
+          userInfo: mockUserInfo,
+          auth: mockAuth,
+          catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
+          withEERegistrationLock,
+        }),
+      );
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'recreated-ee' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
+
+      await request(testApp).post('/ansible/ee').send({ entity }).expect(200);
+      await request(testApp)
+        .delete('/ansible/ee/recreated-ee')
+        .query({ skipProviderManaged: 'true' })
+        .expect(200, { success: true, mode: 'provider' });
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+
+      await request(testApp)
+        .delete('/ansible/ee/recreated-ee')
+        .expect(200, { success: true, mode: 'provider' });
+      await request(testApp).post('/ansible/ee').send({ entity }).expect(200);
+
+      expect(
+        mockPermissions.authorize.mock.calls.map(
+          ([permissions]) => permissions[0].permission,
+        ),
+      ).toEqual([
+        catalogEntityCreatePermission,
+        catalogEntityDeletePermission,
+        catalogEntityDeletePermission,
+        catalogEntityCreatePermission,
+      ]);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).toHaveBeenCalledTimes(1);
       await knex.destroy();
     });
 
@@ -673,7 +804,7 @@ describe('createRouter', () => {
       expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
     });
 
-    it('should handle registerExecutionEnvironment failure with proper error response', async () => {
+    it('rejects non-execution-environment registrations before mutation', async () => {
       mockCatalogClient.getEntityByRef
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
@@ -717,18 +848,15 @@ describe('createRouter', () => {
       const response = await request(testApp)
         .post('/ansible/ee')
         .send({ entity: mockEntity })
-        .expect(500);
+        .expect(400);
 
       expect(response.body).toEqual({
         error:
-          'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
+          'Only Component execution-environment entities can be registered.',
       });
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
-      ).toHaveBeenCalledWith(mockEntity);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
-      );
+      ).not.toHaveBeenCalled();
     });
 
     it('should handle non-Error exceptions gracefully', async () => {
@@ -766,6 +894,7 @@ describe('createRouter', () => {
         apiVersion: 'backstage.io/v1alpha1',
         kind: 'Component',
         metadata: { name: 'test-ee' },
+        spec: { type: 'execution-environment' },
       };
 
       const response = await request(testApp)
