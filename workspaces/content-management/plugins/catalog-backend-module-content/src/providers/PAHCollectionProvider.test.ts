@@ -9,23 +9,18 @@ import {
 import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { PAHCollectionProvider } from './PAHCollectionProvider';
-import { mockAnsibleService } from '@ansible/backstage-rhaap-common/catalog/mock/mockIAAPService';
+import { mockAnsibleService } from '@ansible/backstage-rhaap-common/catalogMock';
 import { Collection } from '@ansible/aap-common';
 
-// Mock the entityParser module for testing parser errors
-jest.mock(
-  '@ansible/backstage-rhaap-common/catalog/providers/entityParser',
-  () => {
-    const actual = jest.requireActual(
-      '@ansible/backstage-rhaap-common/catalog/providers/entityParser',
-    );
-    return {
-      ...actual,
-      pahCollectionParser: jest.fn(actual.pahCollectionParser),
-    };
-  },
-);
-import { pahCollectionParser } from '@ansible/backstage-rhaap-common/catalog/providers/entityParser';
+// Mock the catalog barrel for testing parser errors
+jest.mock('@ansible/backstage-rhaap-common/catalog', () => {
+  const actual = jest.requireActual('@ansible/backstage-rhaap-common/catalog');
+  return {
+    ...actual,
+    pahCollectionParser: jest.fn(actual.pahCollectionParser),
+  };
+});
+import { pahCollectionParser } from '@ansible/backstage-rhaap-common/catalog';
 
 // Mock config for PAH collection provider
 const MOCK_PAH_CONFIG = {

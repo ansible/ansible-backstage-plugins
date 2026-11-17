@@ -10,16 +10,16 @@ import {
 } from '@backstage/plugin-catalog-node';
 import type { Config } from '@backstage/config';
 
-import { readAapApiEntityConfigs } from '@ansible/backstage-rhaap-common/catalog/providers/config';
+import {
+  pahCollectionParser,
+  readAapApiEntityConfigs,
+  stampLatestVersionAnnotations,
+  type AapConfig,
+  type PAHRepositoryConfig,
+} from '@ansible/backstage-rhaap-common/catalog';
 import { InputError, isError } from '@backstage/errors';
-import type {
-  AapConfig,
-  PAHRepositoryConfig,
-} from '@ansible/backstage-rhaap-common/catalog/providers/types';
 import { IAAPService } from '@ansible/aap-node';
-import { pahCollectionParser } from '@ansible/backstage-rhaap-common/catalog/providers/entityParser';
 import { Entity } from '@backstage/catalog-model';
-import { stampLatestVersionAnnotations } from '@ansible/backstage-rhaap-common/catalog/providers/versionUtils';
 
 export class PAHCollectionProvider implements EntityProvider {
   private readonly env: string;

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { Collection } from '@ansible/aap-common';
-import { pahCollectionParser } from '@ansible/backstage-rhaap-common/catalog/providers/entityParser';
+import { pahCollectionParser } from '@ansible/backstage-rhaap-common/catalog';
 
 describe('pahCollectionParser', () => {
   const baseUrl = 'https://pah.example.com';

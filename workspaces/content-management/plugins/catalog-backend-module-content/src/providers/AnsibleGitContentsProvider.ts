@@ -10,7 +10,11 @@ import {
 import type { Config } from '@backstage/config';
 import { isError, NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
-import { stampLatestVersionAnnotations } from '@ansible/backstage-rhaap-common/catalog/providers/versionUtils';
+import {
+  repositoryParser,
+  scmCollectionParser,
+  stampLatestVersionAnnotations,
+} from '@ansible/backstage-rhaap-common/catalog';
 
 import type {
   AnsibleGitContentsSourceConfig,
@@ -25,10 +29,6 @@ import {
   generateSourceId,
   generateCollectionEntityName,
 } from './ansible-collections/utils';
-import {
-  scmCollectionParser,
-  repositoryParser,
-} from '@ansible/backstage-rhaap-common/catalog/providers/entityParser';
 import { readAnsibleGitContentsConfigs } from './config';
 
 const DEFAULT_CRAWL_DEPTH = 1;

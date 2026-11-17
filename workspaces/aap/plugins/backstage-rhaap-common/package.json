@@ -22,13 +22,7 @@
     "./devSpaces": "./src/devSpaces.ts",
     "./catalogEntity": "./src/catalogEntity.ts",
     "./catalog": "./src/catalog/index.ts",
-    "./catalog/contentProviderContracts": "./src/catalog/contentProviderContracts.ts",
-    "./catalog/providers/config": "./src/catalog/providers/config.ts",
-    "./catalog/providers/types": "./src/catalog/providers/types.ts",
-    "./catalog/providers/entityParser": "./src/catalog/providers/entityParser.ts",
-    "./catalog/providers/versionUtils": "./src/catalog/providers/versionUtils.ts",
-    "./catalog/mock/mockIAAPService": "./src/catalog/mock/mockIAAPService.ts",
-    "./catalog/providers/ansible-collections/utils": "./src/catalog/providers/ansible-collections/utils.ts",
+    "./catalogMock": "./src/catalog/mock/mockIAAPService.ts",
     "./package.json": "./package.json"
   },
   "typesVersions": {
@@ -57,20 +51,8 @@
       "catalog": [
         "src/catalog/index.ts"
       ],
-      "catalog/contentProviderContracts": [
-        "src/catalog/contentProviderContracts.ts"
-      ],
-      "catalog/providers/config": [
-        "src/catalog/providers/config.ts"
-      ],
-      "catalog/providers/types": [
-        "src/catalog/providers/types.ts"
-      ],
-      "catalog/providers/entityParser": [
-        "src/catalog/providers/entityParser.ts"
-      ],
-      "catalog/providers/versionUtils": [
-        "src/catalog/providers/versionUtils.ts"
+      "catalogMock": [
+        "src/catalog/mock/mockIAAPService.ts"
       ]
     }
   },

@@ -1,7 +1,7 @@
 export type {
   CollectionParserOptions,
   RepositoryParserOptions,
-} from '@ansible/backstage-rhaap-common/catalog/providers/ansible-collections/utils';
+} from '@ansible/backstage-rhaap-common/catalog';
 export {
   createCollectionIdentifier,
   createCollectionKey,
@@ -13,4 +13,4 @@ export {
   sanitizeEntityName,
   sanitizeHostName,
   sanitizeTagForBackstage,
-} from '@ansible/backstage-rhaap-common/catalog/providers/ansible-collections/utils';
+} from '@ansible/backstage-rhaap-common/catalog';
