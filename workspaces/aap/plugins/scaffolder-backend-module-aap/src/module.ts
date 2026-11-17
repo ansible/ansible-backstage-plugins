@@ -18,7 +18,6 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
-import { createCollectionsAutocompleteRouter } from '@ansible/plugin-scaffolder-backend-module-content-development/autocomplete';
 import type { ExtensionPoint } from '@backstage/backend-plugin-api';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
