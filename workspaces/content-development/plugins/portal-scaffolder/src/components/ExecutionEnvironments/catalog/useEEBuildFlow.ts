@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { executionEnvironmentsBuildPermission } from '@ansible/aap-common/permissions';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { useNotifications } from '../../notifications';
@@ -26,6 +28,10 @@ function buildScmCredentialOptions(
 }
 
 export function useEEBuildFlow() {
+  const { allowed, loading, error } = usePermission({
+    permission: executionEnvironmentsBuildPermission,
+  });
+  const canBuild = allowed && !loading && !error;
   const scmAuthApi = useApi(scmAuthApiRef);
   const catalogApi = useApi(catalogApiRef);
   const { showNotification } = useNotifications();
@@ -48,6 +54,12 @@ export function useEEBuildFlow() {
 
   /** After full-page SCM OAuth, reopen the build dialog for the pending entity. */
   useEffect(() => {
+    if (loading) return undefined;
+    if (!canBuild) {
+      sessionStorage.removeItem(EE_BUILD_PENDING_SESSION_KEY);
+      closeDialog();
+      return undefined;
+    }
     const raw = sessionStorage.getItem(EE_BUILD_PENDING_SESSION_KEY);
     if (!raw) {
       return undefined;
@@ -144,11 +156,18 @@ export function useEEBuildFlow() {
     return () => {
       cancelled = true;
     };
-  }, [catalogApi, scmAuthApi, showNotification]);
+  }, [
+    catalogApi,
+    scmAuthApi,
+    showNotification,
+    canBuild,
+    loading,
+    closeDialog,
+  ]);
 
   const startBuildFlow = useCallback(
     async (entity: Entity) => {
-      if (authInFlight.current) {
+      if (!canBuild || authInFlight.current) {
         return;
       }
       const repoUrl = getScmRepoUrlForAuth(entity);
@@ -209,13 +228,14 @@ export function useEEBuildFlow() {
         setAuthBusy(false);
       }
     },
-    [scmAuthApi, showNotification],
+    [scmAuthApi, showNotification, canBuild],
   );
 
   return {
     startBuildFlow,
+    canBuild,
     authBusy,
-    dialogOpen,
+    dialogOpen: canBuild && dialogOpen,
     buildEntity,
     scmToken,
     scmProvider,

@@ -1537,6 +1537,35 @@ describe('helpers', () => {
       expect(res.status).toHaveBeenCalledWith(403);
     });
 
+    it.each([undefined, []])(
+      'rejects services with an absent or empty build allowlist: %j',
+      async allowedExternalAccessSubjects => {
+        const deps = createEeAuthDeps({
+          httpAuth: {
+            credentials: jest.fn().mockResolvedValue({
+              principal: { type: 'service', subject: 'ci-builder' },
+            }),
+          } as any,
+          auth: {
+            isPrincipal: jest
+              .fn()
+              .mockImplementation(
+                (_: unknown, type: string) => type === 'service',
+              ),
+          } as any,
+          allowedExternalAccessSubjects,
+        });
+        const res = {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn().mockReturnThis(),
+        } as any;
+        expect(
+          await checkRequireUserOrExternalAccess(deps)({} as any, res),
+        ).toBeNull();
+        expect(res.status).toHaveBeenCalledWith(403);
+      },
+    );
+
     it('sends 401 when credentials fail', async () => {
       const deps = createEeAuthDeps({
         httpAuth: {

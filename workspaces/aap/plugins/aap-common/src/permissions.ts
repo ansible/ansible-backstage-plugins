@@ -1,9 +1,15 @@
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 
-import { executionEnvironmentsViewPermission } from '@ansible/automation-content-common/permissions';
+import {
+  executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
+} from '@ansible/automation-content-common/permissions';
 
 /** @deprecated Import from @ansible/automation-content-common/permissions. */
-export { executionEnvironmentsViewPermission };
+export {
+  executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
+};
 
 export const gitRepositoriesViewPermission: BasicPermission = {
   type: 'basic',
@@ -30,6 +36,7 @@ export const historyViewPermission: BasicPermission = {
 };
 
 export const ansiblePermissions = [
+  executionEnvironmentsBuildPermission,
   executionEnvironmentsViewPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,

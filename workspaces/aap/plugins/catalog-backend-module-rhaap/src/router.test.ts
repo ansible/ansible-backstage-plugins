@@ -370,6 +370,7 @@ describe('createRouter', () => {
   });
 
   describe('POST /ansible/ee/build', () => {
+    afterEach(() => jest.restoreAllMocks());
     const validBuildBody = {
       entityRef: 'component:default/my-ee',
       customRegistryUrl: 'quay.io/ansible',
@@ -379,7 +380,10 @@ describe('createRouter', () => {
     };
 
     async function createEeBuildTestApp(
-      options: { allowedExternalAccessSubjects?: string[] } = {},
+      options: {
+        allowedExternalAccessSubjects?: string[];
+        allowedBuildServiceSubjects?: string[];
+      } = {},
     ) {
       const testApp = express();
       testApp.use(express.json());
@@ -387,7 +391,18 @@ describe('createRouter', () => {
         '/',
         await createRouter({
           logger: mockLogger,
-          config: mockConfig,
+          config: new ConfigReader(
+            {
+              catalog: {
+                eeBuild: {
+                  allowedServiceSubjects:
+                    options.allowedBuildServiceSubjects ?? [],
+                },
+              },
+            },
+            'test',
+            mockConfig,
+          ),
           aapEntityProvider: mockAAPEntityProvider,
           jobTemplateProvider: mockJobTemplateProvider,
           pahCollectionProviders: [mockPAHCollectionProvider],
@@ -403,6 +418,104 @@ describe('createRouter', () => {
       );
       return testApp;
     }
+
+    it.each(['user', 'service'])(
+      'rejects a %s without build permission before lookup or dispatch',
+      async principalType => {
+        const credentials = {
+          principal: {
+            type: principalType,
+            userEntityRef: 'user:default/viewer',
+            subject: 'allowed-ci',
+          },
+        };
+        mockHttpAuth.credentials.mockResolvedValue(credentials as any);
+        mockAuth.isPrincipal.mockImplementation(
+          (c: any, type: string) => c.principal.type === type,
+        );
+        mockPermissions.authorize.mockImplementation(async requests =>
+          requests.map(({ permission }) => ({
+            result:
+              permission.name === 'ansible.execution-environments.build'
+                ? AuthorizeResult.DENY
+                : AuthorizeResult.ALLOW,
+          })),
+        );
+        const dispatch = jest
+          .spyOn(global, 'fetch')
+          .mockRejectedValue(new Error('Unexpected dispatch'));
+        const testApp = await createEeBuildTestApp({
+          allowedBuildServiceSubjects: ['allowed-ci'],
+        });
+        await request(testApp)
+          .post('/ansible/ee/build')
+          .set('X-Github-Token', 'test-token')
+          .send(validBuildBody)
+          .expect(403);
+        expect(mockPermissions.authorize).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            {
+              permission: expect.objectContaining({
+                name: 'ansible.execution-environments.build',
+                attributes: { action: 'update' },
+              }),
+            },
+          ]),
+          { credentials },
+        );
+        expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+        expect(mockAuth.getPluginRequestToken).not.toHaveBeenCalled();
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(mockTriggerPipeline).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not dispatch when the permission service fails', async () => {
+      mockPermissions.authorize.mockRejectedValue(
+        new Error('Permission service unavailable'),
+      );
+      const dispatch = jest
+        .spyOn(global, 'fetch')
+        .mockRejectedValue(new Error('Unexpected dispatch'));
+      const testApp = await createEeBuildTestApp();
+      await request(testApp)
+        .post('/ansible/ee/build')
+        .send(validBuildBody)
+        .expect(500);
+      expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+      expect(dispatch).not.toHaveBeenCalled();
+      expect(mockTriggerPipeline).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, [], ['allowed-*'], ['another-ci']])(
+      'denies services unless the build list contains their exact subject: %j',
+      async allowedBuildServiceSubjects => {
+        const credentials = {
+          principal: { type: 'service', subject: 'allowed-ci' },
+        };
+        mockHttpAuth.credentials.mockResolvedValue(credentials as any);
+        mockAuth.isPrincipal.mockImplementation(
+          (c: any, type: string) => c.principal.type === type,
+        );
+        const dispatch = jest
+          .spyOn(global, 'fetch')
+          .mockRejectedValue(new Error('Unexpected dispatch'));
+        const testApp = await createEeBuildTestApp({
+          allowedBuildServiceSubjects,
+          allowedExternalAccessSubjects: ['allowed-ci'],
+        });
+        await request(testApp)
+          .post('/ansible/ee/build')
+          .set('X-Github-Token', 'test-token')
+          .send(validBuildBody)
+          .expect(403);
+        expect(mockPermissions.authorize).not.toHaveBeenCalled();
+        expect(mockCatalogClient.getEntityByRef).not.toHaveBeenCalled();
+        expect(mockAuth.getPluginRequestToken).not.toHaveBeenCalled();
+        expect(dispatch).not.toHaveBeenCalled();
+        expect(mockTriggerPipeline).not.toHaveBeenCalled();
+      },
+    );
 
     it('returns 400 when body is missing required fields', async () => {
       const testApp = await createEeBuildTestApp();
@@ -434,7 +547,7 @@ describe('createRouter', () => {
         return false;
       });
       const testApp = await createEeBuildTestApp({
-        allowedExternalAccessSubjects: ['allowed-ci'],
+        allowedBuildServiceSubjects: ['allowed-ci'],
       });
       const response = await request(testApp)
         .post('/ansible/ee/build')
@@ -548,7 +661,7 @@ describe('createRouter', () => {
       } as Response);
 
       const testApp = await createEeBuildTestApp({
-        allowedExternalAccessSubjects: ['allowed-ci'],
+        allowedBuildServiceSubjects: ['allowed-ci'],
       });
       const response = await request(testApp)
         .post('/ansible/ee/build')
@@ -711,6 +824,7 @@ describe('createRouter', () => {
     it('returns 403 when permissions are denied', async () => {
       mockHttpAuth.credentials.mockResolvedValue({} as any);
       mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
         { result: AuthorizeResult.DENY },
       ] as any);
       mockPermissions.authorizeConditional.mockResolvedValueOnce([
