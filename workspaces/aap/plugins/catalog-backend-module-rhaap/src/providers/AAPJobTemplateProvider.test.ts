@@ -481,6 +481,84 @@ describe('AAPJobTemplateProvider', () => {
       );
     });
 
+    it('skips templates with a survey password using the reserved AAP token variable', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const childLogger = mockServices.logger.mock();
+      logger.child.mockReturnValue(childLogger);
+      const schedule = new PersistingTaskRunner();
+      const reservedTemplate = {
+        ...MOCK_JOB_TEMPLATE,
+        id: 2,
+        name: 'Reserved Token Template',
+      };
+      const reservedSurvey: ISurvey = {
+        ...MOCK_SURVEY,
+        spec: [
+          {
+            ...MOCK_SURVEY.spec![0],
+            question_name: 'AAP token',
+            variable: 'aapToken',
+            type: 'password',
+          },
+        ],
+      };
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        { job: reservedTemplate, survey: reservedSurvey, instanceGroup: [] },
+        { job: MOCK_JOB_TEMPLATE, survey: null, instanceGroup: [] },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+      const connection: EntityProviderConnection = {
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      };
+      await provider.connect(connection);
+      await (schedule.getTasks()[0].fn as () => Promise<void>)();
+
+      const mutation = (connection.applyMutation as jest.Mock).mock.calls[0][0];
+      expect(mutation.entities).toHaveLength(1);
+      expect(mutation.entities[0].entity.metadata.aapJobTemplateId).toBe(1);
+      expect(childLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Skipping job template 2 (Reserved Token Template)',
+        ),
+      );
+      expect(provider.getLastSyncStatus()).toBe('success');
+    });
+
+    it('fails the sync when parsing a template throws an unexpected error', async () => {
+      const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+      mockAnsibleService.syncJobTemplates.mockResolvedValue([
+        {
+          job: MOCK_JOB_TEMPLATE,
+          survey: { ...MOCK_SURVEY, spec: [null] } as unknown as ISurvey,
+          instanceGroup: [],
+        },
+      ]);
+
+      const provider = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      )[0];
+      await provider.connect({
+        applyMutation: jest.fn(),
+        refresh: jest.fn(),
+      });
+
+      await expect(
+        (schedule.getTasks()[0].fn as () => Promise<void>)(),
+      ).rejects.toThrow();
+      expect(provider.getLastSyncStatus()).toBe('failure');
+    });
+
     it('warns and keeps the first job template when catalog keys collide', async () => {
       const config = new ConfigReader(MOCK_JOB_TEMPLATE_CONFIG);
       const logger = mockServices.logger.mock();

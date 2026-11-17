@@ -2,6 +2,8 @@
 
 The catalog-backend-module-rhaap plugin synchronizes users, teams, organizations, and job templates from AAP into RHDH / Ansible Self-Service.
 
+EE registration requests are serialized through this module's plugin database. Multi-replica deployments must configure all replicas to use the same persistent database.
+
 ## Installation
 
 Build plugin as a dynamic plugin.

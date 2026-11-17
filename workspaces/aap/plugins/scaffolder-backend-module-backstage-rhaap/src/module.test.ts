@@ -77,6 +77,8 @@ describe('scaffolderModuleAnsible', () => {
       discovery: {
         getBaseUrl: jest.fn(),
       },
+      httpAuth: { credentials: jest.fn() },
+      httpRouter: { use: jest.fn() },
     };
 
     // --- Get registrations from module ---
@@ -139,6 +141,7 @@ describe('scaffolderModuleAnsible', () => {
     expect(fakeEnv.autocomplete.addAutocompleteProvider).toHaveBeenCalledTimes(
       1,
     );
+    expect(fakeEnv.httpRouter.use).toHaveBeenCalledTimes(1);
     const providerArg =
       fakeEnv.autocomplete.addAutocompleteProvider.mock.calls[0][0];
     expect(providerArg).toHaveProperty('id', 'aap-api-cloud');

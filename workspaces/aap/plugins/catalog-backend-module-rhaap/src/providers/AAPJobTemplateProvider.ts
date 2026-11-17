@@ -17,6 +17,7 @@ import { IJobTemplate, ISurvey, InstanceGroup } from '@ansible/aap-common';
 import { IAAPService } from '@ansible/aap-node';
 import { Entity } from '@backstage/catalog-model';
 import { aapJobTemplateParser } from './entityParser';
+import { ReservedSurveyPasswordVariableError } from './dynamicJobTemplate';
 import { resolveTaskRunner } from './helpers';
 import { SyncStateTracker } from './SyncStateTracker';
 import { getEffectiveNamespace, validateNamespace } from '../helpers';
@@ -204,18 +205,29 @@ export class AAPJobTemplateProvider implements EntityProvider {
           ? getEffectiveNamespace(templateOrgName, this.orgs, identity)
           : 'default';
 
-        entities.push(
-          aapJobTemplateParser({
-            baseUrl: this.baseUrl,
-            nameSpace: ns,
-            job,
-            survey,
-            instanceGroup,
-            orgName: isMultiOrg ? templateOrgName : undefined,
-            ownerOrgName: templateOrgName,
-            identity,
-          }),
-        );
+        try {
+          entities.push(
+            aapJobTemplateParser({
+              baseUrl: this.baseUrl,
+              nameSpace: ns,
+              job,
+              survey,
+              instanceGroup,
+              orgName: isMultiOrg ? templateOrgName : undefined,
+              ownerOrgName: templateOrgName,
+              identity,
+            }),
+          );
+        } catch (templateError) {
+          if (!(templateError instanceof ReservedSurveyPasswordVariableError)) {
+            throw templateError;
+          }
+
+          this.logger.warn(
+            `[${AAPJobTemplateProvider.pluginLogName}]: Skipping job template ${job.id} (${job.name}): ${templateError.message}`,
+          );
+          continue;
+        }
         jobTemplateCount++;
       }
 

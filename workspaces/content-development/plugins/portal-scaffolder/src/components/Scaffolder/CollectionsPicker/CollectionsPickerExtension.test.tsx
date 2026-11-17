@@ -1,7 +1,12 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CollectionsPickerExtension } from './CollectionsPickerExtension';
 import { CollectionItem } from './types';
-import { useApi } from '@backstage/core-plugin-api';
+import {
+  discoveryApiRef,
+  fetchApiRef,
+  identityApiRef,
+  useApi,
+} from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
@@ -41,6 +46,9 @@ function mockVersionOption(
 describe('CollectionsPickerExtension', () => {
   let mockScaffolderApi: { autocomplete: jest.Mock };
   let mockAapAuth: { getAccessToken: jest.Mock };
+  let mockDiscoveryApi: { getBaseUrl: jest.Mock };
+  let mockFetchApi: { fetch: jest.Mock };
+  let mockIdentityApi: { getCredentials: jest.Mock };
 
   beforeEach(() => {
     mockScaffolderApi = {
@@ -49,6 +57,30 @@ describe('CollectionsPickerExtension', () => {
 
     mockAapAuth = {
       getAccessToken: jest.fn().mockResolvedValue('test-token'),
+    };
+    mockDiscoveryApi = {
+      getBaseUrl: jest
+        .fn()
+        .mockResolvedValue('http://localhost/api/scaffolder'),
+    };
+    mockIdentityApi = {
+      getCredentials: jest.fn().mockResolvedValue({ token: 'user-token' }),
+    };
+    // Existing component tests use scaffolder autocomplete fixtures as data;
+    // route them through the new authenticated endpoint mock.
+    mockFetchApi = {
+      fetch: jest.fn(async () => {
+        const result = await mockScaffolderApi.autocomplete({
+          token: await mockAapAuth.getAccessToken(),
+          resource: 'collections',
+          provider: 'aap-api-cloud',
+          context: { searchQuery: 'spec.type=ansible-collection' },
+        });
+        return {
+          ok: true,
+          json: async () => result,
+        };
+      }),
     };
 
     jest.clearAllMocks();
@@ -59,6 +91,15 @@ describe('CollectionsPickerExtension', () => {
       }
       if (ref === rhAapAuthApiRef) {
         return mockAapAuth;
+      }
+      if (ref === discoveryApiRef) {
+        return mockDiscoveryApi;
+      }
+      if (ref === fetchApiRef) {
+        return mockFetchApi;
+      }
+      if (ref === identityApiRef) {
+        return mockIdentityApi;
       }
       return {};
     });
@@ -101,6 +142,22 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Initial Rendering', () => {
+    it('loads collections through the authenticated scaffolder route', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() =>
+        expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+          'http://localhost/api/scaffolder/collections',
+          { headers: { Authorization: 'Bearer user-token' } },
+        ),
+      );
+      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
+    });
+
     it('renders the component with Add collection card', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
       const props = createMockProps();
