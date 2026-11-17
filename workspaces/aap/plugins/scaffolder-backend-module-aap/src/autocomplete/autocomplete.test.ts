@@ -3,7 +3,7 @@ import { handleAutocompleteRequest } from './autocomplete';
 import { clearCollectionsCache } from './utils';
 import { mockAnsibleService } from '../actions/mockIAAPService';
 import { mockServices } from '@backstage/backend-test-utils';
-import { MOCK_TOKEN } from '../mock';
+import { MOCK_TOKEN } from '../mockFixtures.test';
 import {
   InputError,
   NotAllowedError,

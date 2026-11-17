@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansible/ansible-backstage-plugins.git",
+    "directory": "workspaces/portal-core/plugins/portal-rhdh"
+  },
   "description": "Optional native RHDH profile-menu integration for Portal contributions",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -21,7 +26,10 @@
     "pluginId": "portal-rhdh",
     "features": {
       "./alpha": "@backstage/FrontendPlugin"
-    }
+    },
+    "pluginPackages": [
+      "@ansible/portal-rhdh"
+    ]
   },
   "sideEffects": false,
   "scripts": {
@@ -31,7 +39,7 @@
     "clean": "backstage-cli package clean",
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --no-generate-scalprum-assets"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export"
   },
   "dependencies": {
     "@ansible/portal-extension-host": "workspace:^",

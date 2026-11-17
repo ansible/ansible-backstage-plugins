@@ -18,6 +18,7 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
+import { createCollectionsAutocompleteRouter } from '@ansible/plugin-scaffolder-backend-module-content-development/autocomplete';
 import type { ExtensionPoint } from '@backstage/backend-plugin-api';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
@@ -63,6 +64,8 @@ export const scaffolderModuleAap = createBackendModule({
         ansibleService: ansibleServiceRef,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
+        httpAuth: coreServices.httpAuth,
+        httpRouter: coreServices.httpRouter,
       },
       async init({
         scaffolder,
@@ -73,6 +76,8 @@ export const scaffolderModuleAap = createBackendModule({
         ansibleService,
         auth,
         discovery,
+        httpAuth,
+        httpRouter,
       }) {
         scaffolder.addActions(
           createProjectAction(ansibleService),

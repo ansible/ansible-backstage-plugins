@@ -27,6 +27,11 @@ export interface ScmClient {
     repo: string,
     signal?: AbortSignal,
   ): Promise<boolean>;
+  getRepositoryInfo(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<RepositoryInfo>;
   /** Resolve a provider-specific numeric project ID when the provider supports one. */
   getProjectId(
     owner: string,
@@ -97,6 +102,11 @@ export abstract class BaseScmClient implements ScmClient {
     repo: string,
     signal?: AbortSignal,
   ): Promise<boolean>;
+  abstract getRepositoryInfo(
+    owner: string,
+    repo: string,
+    signal?: AbortSignal,
+  ): Promise<RepositoryInfo>;
   /** Return no numeric project ID by default; providers such as GitLab may override this lookup. */
   getProjectId(
     _owner: string,

@@ -110,6 +110,22 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Initial Rendering', () => {
+    it('loads collections through the authenticated scaffolder route', async () => {
+      mockFetchApi.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [] }),
+      });
+      render(<CollectionsPickerExtension {...createMockProps()} />);
+
+      await waitFor(() =>
+        expect(mockFetchApi.fetch).toHaveBeenCalledWith(
+          'http://localhost/api/scaffolder/collections',
+          { headers: { Authorization: 'Bearer user-token' } },
+        ),
+      );
+      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
+    });
+
     it('renders the component with Add collection card', () => {
       mockScaffolderApi.autocomplete.mockResolvedValue({ results: [] });
       const props = createMockProps();

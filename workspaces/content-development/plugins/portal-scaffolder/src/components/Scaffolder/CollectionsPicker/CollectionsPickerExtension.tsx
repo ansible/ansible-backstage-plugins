@@ -155,6 +155,8 @@ export const CollectionsPickerExtension = ({
         const processedCollections = results || [];
         setAvailableCollections(processedCollections);
       }
+      const { results } = await response.json();
+      setAvailableCollections(results || []);
     } catch {
       setAvailableCollections([]);
     } finally {

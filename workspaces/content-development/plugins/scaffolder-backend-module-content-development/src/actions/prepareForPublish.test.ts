@@ -28,12 +28,12 @@ import { ConfigReader } from '@backstage/config';
 import { prepareForPublishAction } from './prepareForPublish';
 import { ScmClientFactory } from '@ansible/content-development-common';
 
-const mockRandomBytes = randomBytes as jest.MockedFunction<
-  (size: number) => Buffer
->;
-const MockScmClientFactory = ScmClientFactory as jest.MockedClass<
-  typeof ScmClientFactory
->;
+jest.mock(
+  '@ansible/plugin-scaffolder-backend-module-content-development',
+  () => ({
+    prepareForPublishAction: jest.fn(),
+  }),
+);
 
 describe('prepareForPublish', () => {
   const logger = mockServices.logger.mock();

@@ -105,6 +105,36 @@ describe('ansibleContentCreate', () => {
       ).mockImplementation(() => mockBackendServiceAPI);
     });
 
+    it('rejects unsupported application types before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          '/tmp/test-workspace',
+          'devcontainer',
+          logger,
+          '',
+          'namespace',
+          'collection',
+          'http://localhost:8000/',
+        ),
+      ).rejects.toThrow('Unsupported application type: devcontainer');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid collection namespace before downloading', async () => {
+      await expect(
+        ansibleCreatorRun(
+          mockWorkspacePath,
+          appType.PLAYBOOK,
+          logger,
+          mockDescription,
+          'invalid namespace',
+          mockCollectionName,
+          mockCreatorServiceUrl,
+        ),
+      ).rejects.toThrow('Invalid collection namespace: invalid namespace');
+      expect(BackendServiceAPI).not.toHaveBeenCalled();
+    });
+
     it('should successfully run for PLAYBOOK application type', async () => {
       mockExecuteShellCommand.mockResolvedValueOnce(undefined);
       mockBackendServiceAPI.downloadPlaybookProject.mockResolvedValueOnce();

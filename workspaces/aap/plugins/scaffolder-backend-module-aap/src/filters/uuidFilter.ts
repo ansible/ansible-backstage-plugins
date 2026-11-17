@@ -1,5 +1,1 @@
-import { randomBytes } from 'node:crypto';
-
-export const uuidFilter = (): string => {
-  return randomBytes(4).toString('hex');
-};
+export { uuidFilter } from '@ansible/plugin-scaffolder-backend-module-aap';

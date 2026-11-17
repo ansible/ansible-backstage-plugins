@@ -27,6 +27,23 @@ export interface Descriptor {
   platform?: Platform;
 }
 
+export interface SigningEvidence {
+  mechanism: 'oci-referrers' | 'cosign-signature-tag';
+  outcome: 'found' | 'absent' | 'ambiguous' | 'unavailable' | 'failed';
+}
+
+/** Discovery evidence only. These observations do not verify signatures. */
+export interface SigningObservation {
+  state: 'signed' | 'not-signed' | 'undetermined';
+  observedAt: string;
+  mechanisms: SigningEvidence[];
+}
+
+/** OCI fallback indexes and Cosign attachments are metadata, not image tags. */
+export function isOciAttachmentTag(tag: string): boolean {
+  return /^sha256-[0-9a-f]{64}(?:\.(?:sig|att|sbom))?$/.test(tag);
+}
+
 export interface Platform {
   architecture: string;
   os: string;
@@ -75,6 +92,45 @@ export interface ImageConfig {
     empty_layer?: boolean;
   }>;
   created?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isManifestDescriptor(value: unknown): value is Descriptor {
+  return (
+    isRecord(value) &&
+    typeof value.digest === 'string' &&
+    typeof value.mediaType === 'string' &&
+    typeof value.size === 'number'
+  );
+}
+
+/** Checks the manifest shape before using it to replace indexed data. */
+export function isOciManifest(value: unknown): value is Manifest {
+  if (!isRecord(value) || value.schemaVersion !== 2) return false;
+  if (Array.isArray(value.manifests))
+    return value.manifests.every(isManifestDescriptor);
+  return (
+    isManifestDescriptor(value.config) &&
+    Array.isArray(value.layers) &&
+    value.layers.every(isManifestDescriptor)
+  );
+}
+
+/** Checks the config container and label values used by image classification. */
+export function isOciImageConfig(value: unknown): value is ImageConfig {
+  if (!isRecord(value)) return false;
+  if (value.config === null || value.config === undefined) return true;
+  if (!isRecord(value.config)) return false;
+  const labels = value.config.Labels;
+  return (
+    labels === null ||
+    labels === undefined ||
+    (isRecord(labels) &&
+      Object.values(labels).every(label => typeof label === 'string'))
+  );
 }
 
 export type AuthScheme = 'anonymous' | 'basic' | 'bearer' | 'oauth2';

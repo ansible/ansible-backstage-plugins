@@ -1,0 +1,92 @@
+name: Build SDK validation candidates
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        type: string
+        required: true
+      attest:
+        type: boolean
+        default: false
+
+# Permissions are inherited from the caller: PR validation is read-only.
+# Only the caller's trusted-main job grants OIDC and attestation writes.
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Enforce signing boundary
+        if: inputs.attest && (github.ref != 'refs/heads/main' || (github.event_name != 'push' && github.event_name != 'workflow_dispatch'))
+        run: |
+          echo 'Signing is allowed only for push or manual runs on main.' >&2
+          exit 1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: ${{ inputs.node-version }}
+      - uses: backstage/actions/yarn-install@b3c1841fd69e1658ac631afafd0fb140a2309024 # v0.6.17
+      - name: Install pinned SBOM generator
+        id: syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          syft-version: v1.57.1
+      - name: Test archive validation rules
+        run: node --test scripts/sdk-package-validation/validate-archive.test.mjs scripts/sdk-package-validation/sbom.test.mjs
+      - name: Build, pack, audit, and exercise isolated consumers
+        env:
+          SDK_VALIDATION_DIR: ${{ runner.temp }}/sdk-package-validation
+        run: yarn validate:sdk-packages
+      - name: Generate an SBOM for each archive
+        env:
+          SDK_VALIDATION_DIR: ${{ runner.temp }}/sdk-package-validation
+          SYFT_CMD: ${{ steps.syft.outputs.cmd }}
+        run: node scripts/sdk-package-validation/sbom.mjs
+      - name: Attest archive and SBOM build provenance
+        if: inputs.attest
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            ${{ runner.temp }}/sdk-package-validation/artifacts/*.tgz
+            ${{ runner.temp }}/sdk-package-validation/sboms/*.json
+            ${{ runner.temp }}/sdk-package-validation/report.json
+          create-storage-record: false
+      - name: Retain signed provenance bundle
+        if: inputs.attest
+        env:
+          BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
+          SDK_VALIDATION_DIR: ${{ runner.temp }}/sdk-package-validation
+        run: |
+          mkdir -p "$SDK_VALIDATION_DIR/attestations"
+          cp "$BUNDLE_PATH" "$SDK_VALIDATION_DIR/attestations/provenance.sigstore.json"
+      - name: Upload attested candidates
+        if: inputs.attest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: attested-sdk-candidates-node-${{ inputs.node-version }}
+          path: |
+            ${{ runner.temp }}/sdk-package-validation/artifacts
+            ${{ runner.temp }}/sdk-package-validation/sboms
+            ${{ runner.temp }}/sdk-package-validation/report.json
+            ${{ runner.temp }}/sdk-package-validation/attestations
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sdk-validation-diagnostics-node-${{ inputs.node-version }}
+          path: |
+            ${{ runner.temp }}/sdk-package-validation/report.json
+            ${{ runner.temp }}/sdk-package-validation/logs
+            ${{ runner.temp }}/sdk-package-validation/sboms
+            ${{ runner.temp }}/sdk-package-validation/consumer/yarn.lock
+            ${{ runner.temp }}/sdk-package-validation/consumer/bundle-metafile.json
+          if-no-files-found: ignore
+          retention-days: 7

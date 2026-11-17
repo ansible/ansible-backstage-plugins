@@ -27,7 +27,16 @@ import {
 } from '@material-ui/core';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
-type AapResourcePickerSelection = string | number | string[] | number[];
+type AapResourcePickerSelection = string | number | (string | number)[];
+
+function toSelectionValue(value: unknown): string | number | undefined {
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 const useStyles = makeStyles(theme => ({
   formControl: {
@@ -94,10 +103,14 @@ function getSelectionFromFieldValue(
     return fd;
   }
   if (multiple && Array.isArray(fd)) {
-    return fd.map((item: { [x: string]: any }) => item[_idKey]);
+    return fd.flatMap(item => {
+      const value = isRecord(item) ? item[_idKey] : item;
+      const selection = toSelectionValue(value);
+      return selection === undefined ? [] : [selection];
+    });
   }
-  if (typeof fd === 'object' && !Array.isArray(fd)) {
-    return (fd as Record<string, unknown>)[_idKey] as number;
+  if (isRecord(fd)) {
+    return toSelectionValue(fd[_idKey]) ?? '';
   }
   return '';
 }
@@ -106,7 +119,13 @@ function resourcesMatchingSelectedKeys(
   rows: Record<string, unknown>[],
   selectedArray: unknown[],
   lookupKey: string,
+  idKey: string,
 ): Record<string, unknown>[] {
+  if (lookupKey === idKey) {
+    return rows.filter(row =>
+      selectedArray.some(value => resourceIdsEqual(value, row[lookupKey])),
+    );
+  }
   return rows.filter(row => selectedArray.includes(row[lookupKey] as never));
 }
 
@@ -140,6 +159,7 @@ function applyInitialSelectionAfterAutocomplete(options: {
     records,
     selectedArray,
     lookupKey,
+    options.idKey,
   );
   const ids = extractIdsFromRows(matched, options.idKey);
   options.setSelected(
@@ -175,7 +195,12 @@ function stableSelectionFingerprint(
     return String(fd);
   }
   if (multiple && Array.isArray(fd)) {
-    return fd.map((item: any) => item[_idKey]).join(',');
+    return fd
+      .map(item => {
+        const value = isRecord(item) ? item[_idKey] : item;
+        return primitiveFieldToString(value);
+      })
+      .join(',');
   }
   if (typeof fd === 'object' && !Array.isArray(fd)) {
     return primitiveFieldToString((fd as Record<string, unknown>)[_idKey]);
@@ -384,14 +409,25 @@ export const AAPResourcePicker = (props: ScaffolderRJSFFieldProps) => {
     let {
       target: { value },
     } = event;
-    let endValue: Object | Array<Object> | undefined;
+    let endValue: unknown;
     if (multiple) {
-      value = value.map((e: any) => (e instanceof Object ? e[_idKey] : e));
-      endValue = filterResourcesMatchingAnyIdValue(
-        availableResources,
-        value,
-        _idKey,
+      const selectedValues = (Array.isArray(value) ? value : []).map(
+        (item: unknown) => (isRecord(item) ? item[_idKey] : item),
       );
+      if (resource === 'tags' || resource === 'skip_tags') {
+        const tagNames = selectedValues.filter(
+          (item): item is string => typeof item === 'string',
+        );
+        value = tagNames;
+        endValue = tagNames;
+      } else {
+        value = selectedValues;
+        endValue = filterResourcesMatchingAnyIdValue(
+          availableResources,
+          selectedValues,
+          _idKey,
+        );
+      }
     } else {
       if (value === '' || value === undefined) {
         return;

@@ -113,6 +113,7 @@ describe('BackendServiceAPI', () => {
         namespace: 'my-org',
         collection_name: 'my-collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -158,6 +159,7 @@ describe('BackendServiceAPI', () => {
         scm_org: 'my-org',
         scm_project: 'my-collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -229,6 +231,7 @@ describe('BackendServiceAPI', () => {
         collection: 'my-org.my-collection',
         project: 'collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -273,6 +276,7 @@ describe('BackendServiceAPI', () => {
         collection: 'my-org.my-collection',
         project: 'collection',
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -337,7 +341,24 @@ describe('BackendServiceAPI', () => {
     expect(privateFuncsendPostRequest).toHaveBeenCalledWith(
       'http://localhost:8000/v2/creator/devfile',
       {},
+      expect.any(AbortSignal),
     );
+  });
+
+  it('reports devfile download failures', async () => {
+    const api = new BackendServiceAPI();
+    jest
+      .spyOn(BackendServiceAPI.prototype as any, 'sendPostRequest')
+      .mockRejectedValueOnce(new Error('service unavailable'));
+
+    await expect(
+      api.downloadDevfileProject(
+        '/tmp/workspace',
+        mockLogger,
+        'http://localhost:8000/',
+        'devfile.tar',
+      ),
+    ).rejects.toThrow(':downloadDevfileProject:');
   });
 
   it('sends scm_provider in params when scmProvider is provided', async () => {
@@ -368,6 +389,7 @@ describe('BackendServiceAPI', () => {
         command_path: ['init', 'execution_env'],
         params: { ee_config: eeConfig, scm_provider: 'gitlab' },
       },
+      expect.any(AbortSignal),
     );
   });
 
@@ -398,6 +420,7 @@ describe('BackendServiceAPI', () => {
         command_path: ['init', 'execution_env'],
         params: { ee_config: eeConfig },
       },
+      expect.any(AbortSignal),
     );
   });
 

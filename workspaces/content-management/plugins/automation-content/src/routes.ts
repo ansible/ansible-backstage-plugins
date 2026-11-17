@@ -1,4 +1,5 @@
 import { createRouteRef } from '@backstage/core-plugin-api';
+import { createRouteRef as createNativeRouteRef } from '@backstage/frontend-plugin-api';
 
 /**
  * The plugin's root route.
@@ -10,3 +11,5 @@ import { createRouteRef } from '@backstage/core-plugin-api';
 export const rootRouteRef = createRouteRef({
   id: 'automation-content',
 });
+
+export const eeRouteRef = createNativeRouteRef();
