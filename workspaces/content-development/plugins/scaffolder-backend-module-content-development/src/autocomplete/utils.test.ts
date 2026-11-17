@@ -131,6 +131,18 @@ describe('getCollections catalog filters', () => {
         identityToken: 'service-token',
       }),
     ).rejects.toThrow(NotAllowedError);
+
+    await expect(
+      getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials,
+        identityToken: 'bob',
+      }),
+    ).rejects.toThrow(NotAllowedError);
+
+    expect(auth.getPluginRequestToken).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
