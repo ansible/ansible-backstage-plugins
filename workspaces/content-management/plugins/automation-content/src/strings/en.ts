@@ -46,7 +46,6 @@ export const eeMessages = {
     justNow: 'Just now',
     actions: 'Actions',
     rowActions: 'Actions for {{repository}}',
-    viewDetails: 'View details',
     controllerSourceFailed:
       'Could not load the image for Controller. Try again.',
     changeView: 'Change image view',

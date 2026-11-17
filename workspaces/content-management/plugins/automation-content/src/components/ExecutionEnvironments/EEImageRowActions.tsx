@@ -24,12 +24,10 @@ import { SyncFeedback, useEESync } from './SyncAction';
 
 export function EEImageRowActions({
   image,
-  detailHref,
   canSync,
   onReload,
 }: Readonly<{
   image: EERepositorySummary;
-  detailHref?: string;
   canSync: boolean;
   onReload: () => void;
 }>): JSX.Element {
@@ -90,14 +88,9 @@ export function EEImageRowActions({
             })}
             icon={<RiMore2Line />}
             variant="secondary"
-            isDisabled={!detailHref && !templatesHref && !sync.enabled}
+            isDisabled={!templatesHref && !sync.enabled}
           />
           <Menu placement="bottom end">
-            {detailHref && (
-              <MenuItem href={detailHref}>
-                {t('inventory.viewDetails')}
-              </MenuItem>
-            )}
             {templatesHref && (
               <MenuItem
                 isDisabled={controller.loading}
