@@ -180,4 +180,53 @@ describe('createEERegistrationLock', () => {
 
     await knex.destroy();
   });
+
+  it('retries an owner-scoped release after a database failure', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+    let signalReleaseFailure!: () => void;
+    const releaseFailed = new Promise<void>(resolve => {
+      signalReleaseFailure = resolve;
+    });
+    const onQueryError = (error: Error, query: { sql: string }) => {
+      if (
+        query.sql.includes('ee_registration_lock_leases') &&
+        error.message.includes('temporary release outage')
+      ) {
+        signalReleaseFailure();
+      }
+    };
+    knex.on('query-error', onQueryError);
+
+    const operation = lock('component:default/ee', async () => {
+      await knex.raw(`
+        CREATE TRIGGER fail_ee_lock_release
+        BEFORE UPDATE ON ee_registration_lock_leases
+        WHEN NEW.owner IS NULL
+        BEGIN
+          SELECT RAISE(FAIL, 'temporary release outage');
+        END
+      `);
+      return 'registered';
+    });
+
+    try {
+      await releaseFailed;
+      await knex.raw('DROP TRIGGER fail_ee_lock_release');
+      await expect(operation).resolves.toBe('registered');
+
+      const [lease] = await knex('ee_registration_lock_leases').select('*');
+      expect(lease).toMatchObject({
+        entity_ref: 'component:default/ee',
+        owner: null,
+      });
+      expect(Number(lease.mutation_in_progress)).toBe(0);
+    } finally {
+      knex.removeListener('query-error', onQueryError);
+      await knex.raw('DROP TRIGGER IF EXISTS fail_ee_lock_release');
+      await knex.destroy();
+    }
+  });
 });
