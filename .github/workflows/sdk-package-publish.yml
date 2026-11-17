@@ -76,9 +76,11 @@ jobs:
     steps:
       - name: Isolate publication configuration
         run: |
-          echo "SDK_VALIDATION_DIR=$RUNNER_TEMP/sdk-release" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/npm-user.npmrc" >> "$GITHUB_ENV"
-          echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/npm-global.npmrc" >> "$GITHUB_ENV"
+          {
+            echo "SDK_VALIDATION_DIR=$RUNNER_TEMP/sdk-release"
+            echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/npm-user.npmrc"
+            echo "NPM_CONFIG_GLOBALCONFIG=$RUNNER_TEMP/npm-global.npmrc"
+          } >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false

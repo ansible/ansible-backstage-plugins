@@ -10,33 +10,51 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { test } from 'node:test';
 
-test('publisher validates real archives and fails closed on tampering without publishing', () => {
+const version = '0.1.0-alpha.0';
+const sha = 'a'.repeat(40);
+const json = (path, data) => writeFileSync(path, JSON.stringify(data));
+const digest = path =>
+  createHash('sha256').update(readFileSync(path)).digest('hex');
+const oidc = {
+  GITHUB_ACTIONS: 'true',
+  GITHUB_EVENT_NAME: 'workflow_dispatch',
+  GITHUB_REPOSITORY: 'ansible/ansible-backstage-plugins',
+  GITHUB_REF: 'refs/heads/main',
+  ACTIONS_ID_TOKEN_REQUEST_URL: 'https://example.invalid',
+  ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'test-context',
+};
+
+function releaseFixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'sdk-publish-test-'));
-  const version = '0.1.0-alpha.0';
-  const sha = 'a'.repeat(40);
-  const json = (path, data) => writeFileSync(path, JSON.stringify(data));
-  const digest = path =>
-    createHash('sha256').update(readFileSync(path)).digest('hex');
-  try {
-    const scripts = join(root, 'scripts/sdk-package-validation');
-    mkdirSync(scripts, { recursive: true });
-    for (const name of [
-      'publish.mjs',
-      'release.mjs',
-      'validate-archive.mjs',
-      'sbom.mjs',
-    ]) {
-      copyFileSync(new URL(name, import.meta.url), join(scripts, name));
-    }
-    const path = 'workspaces/portal-core/plugins/example';
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const scripts = join(root, 'scripts/sdk-package-validation');
+  mkdirSync(scripts, { recursive: true });
+  for (const name of [
+    'publish.mjs',
+    'release.mjs',
+    'validate-archive.mjs',
+    'sbom.mjs',
+  ]) {
+    copyFileSync(new URL(name, import.meta.url), join(scripts, name));
+  }
+  writeFileSync(join(root, 'LICENSE'), 'test license');
+  const directory = join(root, 'release');
+  mkdirSync(join(directory, 'artifacts'), { recursive: true });
+  mkdirSync(join(directory, 'sboms'));
+  mkdirSync(join(root, 'package'));
+  const candidates = [];
+  const index = [];
+  const paths = [];
+  // Deliberately list the consumer first so sorting bugs cannot pass by accident.
+  for (const name of ['example', 'common']) {
+    const path = `workspaces/portal-core/plugins/${name}`;
+    paths.push(path);
     mkdirSync(join(root, path), { recursive: true });
-    json(join(scripts, 'packages.json'), [path]);
-    writeFileSync(join(root, 'LICENSE'), 'test license');
     const manifest = {
-      name: '@ansible/example',
+      name: `@ansible/${name}`,
       version,
       private: false,
       license: 'Apache-2.0',
@@ -48,28 +66,23 @@ test('publisher validates real archives and fails closed on tampering without pu
       },
       main: 'index.js',
       types: 'index.d.ts',
+      ...(name === 'example'
+        ? { dependencies: { '@ansible/common': version } }
+        : {}),
     };
     json(join(root, path, 'package.json'), manifest);
-    const directory = join(root, 'release');
-    mkdirSync(join(directory, 'artifacts'), { recursive: true });
-    mkdirSync(join(directory, 'sboms'));
-    mkdirSync(join(root, 'package'));
     json(join(root, 'package/package.json'), manifest);
     for (const file of ['LICENSE', 'index.js', 'index.d.ts'])
       writeFileSync(
         join(root, 'package', file),
         file === 'LICENSE' ? 'test license' : '',
       );
-    const archive = join(directory, 'artifacts/example.tgz');
+    const archive = join(directory, `artifacts/${name}.tgz`);
     execFileSync('tar', ['-czf', archive, '-C', root, 'package']);
     const candidate = { name: manifest.name, version, sha256: digest(archive) };
-    const report = {
-      commit: sha,
-      includesUncommittedChanges: false,
-      packages: [candidate],
-    };
-    json(join(directory, 'report.json'), report);
-    const sbom = join(directory, 'sboms/example.spdx.json');
+    candidates.push(candidate);
+    const sbomName = `${name}.spdx.json`;
+    const sbom = join(directory, 'sboms', sbomName);
     json(sbom, {
       spdxVersion: 'SPDX-2.3',
       packages: [
@@ -85,65 +98,179 @@ test('publisher validates real archives and fails closed on tampering without pu
         },
       ],
     });
-    json(join(directory, 'sboms/index.json'), [
-      {
-        name: manifest.name,
-        version,
-        archiveSha256: candidate.sha256,
-        sbom: 'example.spdx.json',
-        sbomSha256: digest(sbom),
-      },
-    ]);
-    const run = (...args) =>
-      spawnSync(process.execPath, [join(scripts, 'publish.mjs'), ...args], {
-        encoding: 'utf8',
-        env: {
-          SDK_VALIDATION_DIR: directory,
-          SDK_RELEASE_VERSION: version,
-          GITHUB_SHA: sha,
-        },
+    index.push({
+      name: manifest.name,
+      version,
+      archiveSha256: candidate.sha256,
+      sbom: sbomName,
+      sbomSha256: digest(sbom),
+    });
+  }
+  json(join(scripts, 'packages.json'), paths);
+  const report = {
+    commit: sha,
+    includesUncommittedChanges: false,
+    packages: candidates,
+  };
+  json(join(directory, 'report.json'), report);
+  json(join(directory, 'sboms/index.json'), index);
+
+  const events = join(root, 'events.jsonl');
+  const preload = join(root, 'registry-stub.mjs');
+  writeFileSync(
+    preload,
+    String.raw`
+    import assert from 'node:assert/strict';
+    import { appendFileSync } from 'node:fs';
+    globalThis.fetch = async url => {
+      assert(url.startsWith('https://registry.npmjs.org/'));
+      const name = decodeURIComponent(new URL(url).pathname.slice(1));
+      appendFileSync(process.env.PUBLISH_EVENTS, JSON.stringify({ kind: 'precheck', name, url }) + '\n');
+      const failing = name === '@ansible/example';
+      const exists = failing && process.env.REGISTRY_CASE === 'existing';
+      return new Response(JSON.stringify({ versions: exists ? { [process.env.SDK_RELEASE_VERSION]: {} } : {} }), {
+        status: failing && process.env.REGISTRY_CASE === 'missing' ? 404 : 200,
       });
-    assert.equal(run().status, 0);
-    assert.notEqual(
-      run('--publish').status,
-      0,
-      'Actual publishing requires GitHub OIDC context',
-    );
-    for (const key of ['NPM_TOKEN', 'NODE_AUTH_TOKEN']) {
-      const forbidden = spawnSync(
+    };
+  `,
+  );
+  const bin = join(root, 'bin');
+  mkdirSync(bin);
+  writeFileSync(
+    join(bin, 'npm'),
+    String.raw`#!${process.execPath}
+    const { appendFileSync } = require('node:fs');
+    appendFileSync(process.env.PUBLISH_EVENTS, JSON.stringify({ kind: 'publish', args: process.argv.slice(2) }) + '\n');
+  `,
+    { mode: 0o755 },
+  );
+
+  return {
+    directory,
+    report,
+    index,
+    run(args = [], env = {}) {
+      writeFileSync(events, '');
+      // Every invocation stubs fetch and npm, including rejection tests: no registry writes.
+      const result = spawnSync(
         process.execPath,
-        [join(scripts, 'publish.mjs'), '--publish'],
+        ['--import', preload, join(scripts, 'publish.mjs'), ...args],
         {
           encoding: 'utf8',
           env: {
+            PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
+            PUBLISH_EVENTS: events,
             SDK_VALIDATION_DIR: directory,
             SDK_RELEASE_VERSION: version,
             GITHUB_SHA: sha,
-            GITHUB_ACTIONS: 'true',
-            GITHUB_EVENT_NAME: 'workflow_dispatch',
-            GITHUB_REPOSITORY: 'ansible/ansible-backstage-plugins',
-            GITHUB_REF: 'refs/heads/main',
-            ACTIONS_ID_TOKEN_REQUEST_URL: 'https://example.invalid',
-            ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'test-context',
-            [key]: 'forbidden-test-credential',
+            ...env,
           },
         },
       );
-      assert.match(forbidden.stderr, /Static npm authentication/);
-    }
-    json(join(directory, 'report.json'), { ...report, commit: 'b'.repeat(40) });
-    assert.match(run().stderr, /revision mismatch/);
-    json(join(directory, 'report.json'), {
-      ...report,
-      includesUncommittedChanges: true,
-    });
-    assert.match(run().stderr, /clean release commit/);
-    json(join(directory, 'report.json'), report);
-    writeFileSync(sbom, '{}');
-    assert.match(run().stderr, /AssertionError/);
-    writeFileSync(archive, 'tampered');
-    assert.match(run().stderr, /archive changed/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
+      return {
+        ...result,
+        events: readFileSync(events, 'utf8')
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map(line => JSON.parse(line)),
+      };
+    },
+  };
+}
+
+test('publisher validates real archives and fails closed on tampering', t => {
+  const fixture = releaseFixture(t);
+  const { directory, report, index, run } = fixture;
+  assert.equal(run().status, 0);
+  assert.notEqual(
+    run(['--publish']).status,
+    0,
+    'Publishing requires GitHub OIDC context',
+  );
+  for (const key of ['NPM_TOKEN', 'NODE_AUTH_TOKEN']) {
+    assert.match(
+      run(['--publish'], { ...oidc, [key]: 'forbidden-test-credential' })
+        .stderr,
+      /Static npm authentication/,
+    );
   }
+  json(join(directory, 'report.json'), { ...report, commit: 'b'.repeat(40) });
+  assert.match(run().stderr, /revision mismatch/);
+  json(join(directory, 'report.json'), {
+    ...report,
+    includesUncommittedChanges: true,
+  });
+  assert.match(run().stderr, /clean release commit/);
+  json(join(directory, 'report.json'), report);
+  const sbom = join(directory, 'sboms/example.spdx.json');
+  writeFileSync(sbom, '{}');
+  assert.match(run().stderr, /AssertionError/);
+  // A matching digest must not make an SBOM for a different package acceptable.
+  json(sbom, {
+    spdxVersion: 'SPDX-2.3',
+    packages: [
+      {
+        name: '@ansible/unrelated',
+        versionInfo: version,
+        externalRefs: [
+          {
+            referenceType: 'purl',
+            referenceLocator: `pkg:npm/@ansible/unrelated@${version}`,
+          },
+        ],
+      },
+    ],
+  });
+  index[0].sbomSha256 = digest(sbom);
+  json(join(directory, 'sboms/index.json'), index);
+  assert.match(run().stderr, /SBOM does not describe the packed npm package/);
+  writeFileSync(join(directory, 'artifacts/example.tgz'), 'tampered');
+  assert.match(run().stderr, /archive changed/);
 });
+
+test('checks the entire registry set before publishing exact archives in dependency order', t => {
+  const { directory, run } = releaseFixture(t);
+  const result = run(['--publish'], oidc);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.events, [
+    ...['common', 'example'].map(name => ({
+      kind: 'precheck',
+      name: `@ansible/${name}`,
+      url: `https://registry.npmjs.org/${encodeURIComponent(
+        `@ansible/${name}`,
+      )}`,
+    })),
+    ...['common', 'example'].map(name => ({
+      kind: 'publish',
+      args: [
+        'publish',
+        join(directory, `artifacts/${name}.tgz`),
+        '--registry',
+        'https://registry.npmjs.org/',
+        '--access',
+        'public',
+        '--tag',
+        'next',
+        '--provenance',
+        '--ignore-scripts',
+      ],
+    })),
+  ]);
+});
+
+for (const scenario of ['missing', 'existing']) {
+  test(`a ${scenario} package stops the release before any npm invocation`, t => {
+    const { run } = releaseFixture(t);
+    const result = run(['--publish'], { ...oidc, REGISTRY_CASE: scenario });
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      scenario === 'missing' ? /package must already exist/ : /already exists/,
+    );
+    assert.deepEqual(
+      result.events.map(event => event.kind),
+      ['precheck', 'precheck'],
+    );
+  });
+}
