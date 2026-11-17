@@ -82,7 +82,7 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
     });
   }
 
-  async unregisterExecutionEnvironment(
+  unregisterExecutionEnvironment(
     rawName: string,
     credentials: BackstageCredentials,
     options: { skipProviderManaged?: boolean } = {},

@@ -28,7 +28,7 @@ export class EEEntityProviderServiceImpl implements EEEntityProviderService {
     this.registrationLock = lock;
   }
 
-  async withRegistrationLock<T>(
+  withRegistrationLock<T>(
     entityRef: string,
     operation: (lock: EERegistrationLockContext) => Promise<T>,
   ): Promise<T> {

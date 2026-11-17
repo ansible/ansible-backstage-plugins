@@ -36,11 +36,16 @@ export function parseUploadedFileContent(dataUrl: string): string {
       throw new Error('Invalid data URL format for the file uploaded');
     }
     const base64Data = dataUrl.slice(delimiter + ';base64,'.length);
+    const unpaddedBase64 = base64Data.replace(/=+$/, '');
+    const hasValidBase64Characters = /^[A-Za-z0-9+/]*={0,2}$/.test(base64Data);
+    const hasValidPadding =
+      !base64Data.includes('=') || base64Data.length % 4 === 0;
+    const decodedBase64 = Buffer.from(base64Data, 'base64').toString('base64');
     if (
       base64Data.length > 0 &&
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/.test(
-        base64Data,
-      )
+      (!hasValidBase64Characters ||
+        !hasValidPadding ||
+        decodedBase64.replace(/=+$/, '') !== unpaddedBase64)
     ) {
       throw new Error('Invalid base64 data in uploaded file');
     }

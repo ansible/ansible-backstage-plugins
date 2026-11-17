@@ -16,7 +16,7 @@ export const catalogModuleContentDevelopment = createBackendModule({
         provider: eeEntityProviderServiceRef,
         database: coreServices.database,
       },
-      async init({ catalogProcessing, provider, database }) {
+      init({ catalogProcessing, provider, database }) {
         provider.initializeRegistrationLock(createEERegistrationLock(database));
         catalogProcessing.addEntityProvider(provider);
       },

@@ -64,7 +64,7 @@ export const scaffolderModuleAap = createBackendModule({
         auth: coreServices.auth,
         discovery: coreServices.discovery,
       },
-      async init({
+      init({
         scaffolder,
         config,
         logger,
