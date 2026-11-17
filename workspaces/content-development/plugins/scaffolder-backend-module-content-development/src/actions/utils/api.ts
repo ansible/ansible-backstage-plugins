@@ -1,5 +1,3 @@
-import { BackendServiceAPI as ContentDevelopmentBackendServiceAPI } from '@ansible/plugin-scaffolder-backend-module-content-development/compat';
-
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { pipeline } from 'node:stream/promises';
