@@ -82,7 +82,7 @@ async function serveRegistry() {
 async function startBackend(
   registryUrl: string,
   grantedPermissions: string[] = ['ansible.content.sync'],
-  manualSyncEnabled = true,
+  manualSyncEnabled?: boolean,
 ) {
   const permissions = mockServices.permissions.mock();
   permissions.authorize.mockImplementation(async queries =>
@@ -104,7 +104,13 @@ async function startBackend(
       }),
       mockServices.rootConfig.factory({
         data: {
-          automationContent: { manualSync: { enabled: manualSyncEnabled } },
+          ...(manualSyncEnabled === undefined
+            ? {}
+            : {
+                automationContent: {
+                  manualSync: { enabled: manualSyncEnabled },
+                },
+              }),
           catalog: {
             providers: {
               automationContent: {
@@ -142,18 +148,25 @@ describe('the sign-in barrier at the plugin boundary', () => {
     expect(served.registry.requests.length).toBe(0);
   });
 
-  it('lets a signed-in caller trigger a global sync', async () => {
-    const served = await serveRegistry();
-    const backend = await startBackend(served.url);
+  it.each([undefined, true])(
+    'lets a signed-in caller trigger a global sync with manual sync set to %s',
+    async manualSyncEnabled => {
+      const served = await serveRegistry();
+      const backend = await startBackend(
+        served.url,
+        ['ansible.content.sync'],
+        manualSyncEnabled,
+      );
 
-    const res = await request(backend.server)
-      .post('/api/automation-content/sync')
-      .set('Authorization', mockCredentials.user.header());
+      const res = await request(backend.server)
+        .post('/api/automation-content/sync')
+        .set('Authorization', mockCredentials.user.header());
 
-    expect(res.status).toBe(202);
-    expect(res.body.status).toBe('scheduled');
-    expect(res.body.taskId).toBeDefined();
-  });
+      expect(res.status).toBe(202);
+      expect(res.body.status).toBe('scheduled');
+      expect(res.body.taskId).toBeDefined();
+    },
+  );
 
   it('honors the deployed EE view grant without granting sync', async () => {
     const served = await serveRegistry();

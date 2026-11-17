@@ -123,11 +123,9 @@ An EE view grant does not authorize manual refresh. Operators need
 `ansible.content.sync`, and repository refresh also requires the EE view grant.
 Register `automation-content` in the host's RBAC plugin metadata list.
 
-Manual refresh, including existing registry poll and sync API routes, defaults
-to disabled. Deployments that have verified a separate, append-only audit sink
-may explicitly enable `automationContent.manualSync.enabled`. The default
-Backstage audit logger does not provide that guarantee. Scheduled reconciliation
-continues independently.
+Manual refresh, including existing registry poll and sync API routes, is enabled
+by default for authorized users. Set `automationContent.manualSync.enabled` to
+`false` to disable manual refresh. Scheduled reconciliation runs independently.
 
 Inventory refresh returns a scheduling acknowledgment. The last successful
 reconciliation timestamp describes a registry or repository, independent of
