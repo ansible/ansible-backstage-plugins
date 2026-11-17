@@ -29,18 +29,20 @@ describe('ansible-aap:jobTemplate:launch', () => {
     mockAnsibleService.logJobStdoutMessages.mockResolvedValue(undefined);
   });
 
-  it('throws when authorization token is missing', async () => {
-    const ctx = createMockActionContext({
-      input: {
-        token: '',
-        values: projectData,
-      },
-    });
-    await expect(action.handler(ctx as any)).rejects.toThrow(
-      'Authorization token not provided.',
-    );
-    expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
-  });
+  it.each(['', '   ', '\t\n'])(
+    'rejects an empty or blank token (%j) before any AAP side effect',
+    async token => {
+      const ctx = createMockActionContext({
+        input: { token, values: projectData, waitForCompletion: false },
+      });
+      await expect(action.handler(ctx)).rejects.toThrow(
+        'Authorization token not provided.',
+      );
+      expect(mockAnsibleService.setLogger).not.toHaveBeenCalled();
+      expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    },
+  );
 
   it('should launch job template (default: blocking)', async () => {
     // Mock launch to return terminal status (fast job that completes immediately)
@@ -58,7 +60,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
     // @ts-ignore
     await action.handler({ ...mockContext });
     expect(mockContext.output).toHaveBeenCalledWith('data', launchResponse);
-    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
+      expect.objectContaining({ template: 'Test job template' }),
+      MOCK_TOKEN,
+    );
     // getJobStatus should NOT be called if job already completed
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
     expect(mockAnsibleService.logJobStdoutMessages).toHaveBeenCalledWith(
@@ -169,7 +174,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
     // @ts-ignore
     await action.handler(ctx);
     expect(ctx.output).toHaveBeenCalledWith('data', expectedResponse);
-    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
+      expect.objectContaining({ template: 'Test job template' }),
+      MOCK_TOKEN,
+    );
     expect(mockAnsibleService.launchJobTemplate).not.toHaveBeenCalled();
     expect(mockAnsibleService.logJobStdoutMessages).not.toHaveBeenCalled();
   });
