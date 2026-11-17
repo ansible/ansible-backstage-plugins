@@ -140,6 +140,7 @@ const mockFetchApi = {
     json: () =>
       Promise.resolve({
         content: {
+          syncInProgress: false,
           providers: [
             {
               sourceId: 'source-1',

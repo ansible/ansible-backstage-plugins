@@ -4,6 +4,7 @@ import {
   EEBuildApiClient,
   ansibleApiRef,
 } from './apis.ts';
+import { _resetSplitOnlyCache } from '@ansible/portal-plugin-sdk';
 
 const mockRhaapAuthApi = {
   getAccessToken: jest.fn().mockResolvedValue('mock-aap-access-token'),
@@ -21,6 +22,7 @@ const createAnsibleApiClient = (options: {
 
 describe('Ansible API module', () => {
   afterEach(() => {
+    _resetSplitOnlyCache();
     jest.restoreAllMocks();
     jest.clearAllMocks();
   });
@@ -166,6 +168,7 @@ describe('Ansible API module', () => {
     const mockFetch = {
       fetch: jest.fn().mockResolvedValue({
         ok: true,
+        status: 200,
         json: jest.fn().mockResolvedValue({
           aap: {
             orgsUsersTeams: { lastSync: '2024-01-15T10:00:00Z' },
@@ -194,21 +197,31 @@ describe('Ansible API module', () => {
     });
   });
 
-  it('AnsibleApiClient.getSyncStatus falls back to slice route when legacy returns 404', async () => {
+  it('AnsibleApiClient.getSyncStatus uses split route when monolithic status is 404', async () => {
     const mockDiscovery = {
       getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
     };
-    const sliceJson = jest.fn().mockResolvedValue({
+    const splitPayload = {
       aap: {
-        orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
-        jobTemplates: { lastSync: null },
+        orgsUsersTeams: {
+          lastSync: '2024-02-01T10:00:00Z',
+          syncInProgress: false,
+        },
+        jobTemplates: { lastSync: null, syncInProgress: true },
       },
-    });
+    };
     const mockFetch = {
       fetch: jest
         .fn()
-        .mockResolvedValueOnce({ status: 404 })
-        .mockResolvedValueOnce({ status: 200, ok: true, json: sliceJson }),
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: jest.fn(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(splitPayload),
+        }),
     };
 
     const client = createAnsibleApiClient({
@@ -226,38 +239,7 @@ describe('Ansible API module', () => {
       2,
       'http://example.com/ansible/sync/status/aap',
     );
-    expect(result).toEqual({
-      aap: {
-        orgsUsersTeams: { lastSync: '2024-02-01T10:00:00Z' },
-        jobTemplates: { lastSync: null },
-      },
-    });
-  });
-
-  it('AnsibleApiClient.getSyncStatus returns default values when fallback returns non-OK', async () => {
-    const mockDiscovery = {
-      getBaseUrl: jest.fn().mockResolvedValue('http://example.com'),
-    };
-    const mockFetch = {
-      fetch: jest
-        .fn()
-        .mockResolvedValueOnce({ status: 404 })
-        .mockResolvedValueOnce({ status: 403, ok: false }),
-    };
-
-    const client = createAnsibleApiClient({
-      discoveryApi: mockDiscovery,
-      fetchApi: mockFetch,
-    });
-
-    const result = await client.getSyncStatus();
-
-    expect(result).toEqual({
-      aap: {
-        orgsUsersTeams: { lastSync: null, syncInProgress: false },
-        jobTemplates: { lastSync: null, syncInProgress: false },
-      },
-    });
+    expect(result).toEqual(splitPayload);
   });
 
   it('AnsibleApiClient.getSyncStatus returns default values when fetch throws', async () => {
