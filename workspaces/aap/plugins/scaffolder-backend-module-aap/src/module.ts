@@ -102,6 +102,7 @@ export const scaffolderModuleAap = createBackendModule({
               includeCollections: false,
             }),
         });
+        return Promise.resolve();
       },
     });
   },

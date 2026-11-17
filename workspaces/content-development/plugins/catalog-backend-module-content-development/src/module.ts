@@ -19,6 +19,7 @@ export const catalogModuleContentDevelopment = createBackendModule({
       init({ catalogProcessing, provider, database }) {
         provider.initializeRegistrationLock(createEERegistrationLock(database));
         catalogProcessing.addEntityProvider(provider);
+        return Promise.resolve();
       },
     });
   },
