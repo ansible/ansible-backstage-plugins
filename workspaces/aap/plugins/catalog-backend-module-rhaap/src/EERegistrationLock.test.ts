@@ -200,7 +200,8 @@ describe('createEERegistrationLock', () => {
     };
     knex.on('query-error', onQueryError);
 
-    const operation = lock('component:default/ee', async () => {
+    const operation = lock('component:default/ee', async lockContext => {
+      await lockContext.beginMutation();
       await knex.raw(`
         CREATE TRIGGER fail_ee_lock_release
         BEFORE UPDATE ON ee_registration_lock_leases
