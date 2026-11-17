@@ -1,14 +1,17 @@
-import { Box, Chip, Typography, makeStyles } from '@material-ui/core';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import { OptionSpec } from '../api';
 
-const useStyles = makeStyles(theme => ({
+const styles = {
   mono: { fontFamily: 'monospace', fontSize: '0.82rem' },
   nested: {
-    paddingLeft: theme.spacing(2),
-    borderLeft: `2px solid ${theme.palette.divider}`,
-    marginTop: theme.spacing(1),
+    paddingLeft: 2,
+    borderLeft: 2,
+    borderColor: 'divider',
+    marginTop: 1,
   },
-}));
+} as const;
 
 /**
  * Render an argument specification, recursing into suboptions.
@@ -26,18 +29,19 @@ export const OptionTree = ({
   spec: OptionSpec;
   depth?: number;
 }) => {
-  const classes = useStyles();
   if (!spec || depth > 4) return null;
 
   const choices = spec.choices ?? [];
   const suboptions = spec.suboptions ?? {};
 
   return (
-    <Box className={depth > 0 ? classes.nested : undefined} mb={1}>
+    <Box sx={depth > 0 ? styles.nested : undefined} mb={1}>
       <Typography variant="body2">
-        <span className={classes.mono}>{name}</span>{' '}
+        <Box component="span" sx={styles.mono}>
+          {name}
+        </Box>{' '}
         {spec.type && (
-          <Typography variant="caption" color="textSecondary" component="span">
+          <Typography variant="caption" color="text.secondary" component="span">
             {spec.type}
             {spec.elements ? `[${spec.elements}]` : ''}
           </Typography>
@@ -48,13 +52,13 @@ export const OptionTree = ({
       </Typography>
 
       {choices.length > 0 && (
-        <Typography variant="caption" color="textSecondary" component="div">
+        <Typography variant="caption" color="text.secondary" component="div">
           choices: {choices.map(String).join(' | ')}
           {spec.default !== undefined && `   default: ${String(spec.default)}`}
         </Typography>
       )}
       {choices.length === 0 && spec.default !== undefined && (
-        <Typography variant="caption" color="textSecondary" component="div">
+        <Typography variant="caption" color="text.secondary" component="div">
           default: {String(spec.default)}
         </Typography>
       )}
