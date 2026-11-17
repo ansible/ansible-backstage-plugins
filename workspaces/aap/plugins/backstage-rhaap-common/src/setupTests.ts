@@ -20,7 +20,7 @@ import 'cross-fetch/polyfill';
 import { TextEncoder, TextDecoder } from 'node:util';
 import { ReadableStream, WritableStream } from 'web-streams-polyfill';
 
-const selfTarget = globalThis.self !== undefined ? globalThis.self : globalThis;
+const selfTarget = globalThis.self ?? globalThis;
 
 // Mock browser crypto.subtle.digest method for sha-256 hashing.
 Object.defineProperty(selfTarget, 'crypto', {
