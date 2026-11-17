@@ -204,6 +204,17 @@ Capture a machine-readable inventory before changing anything.
 
 The eight-PR sequence freezes contracts, adds and wires the AAP module, adds and wires the content-development actions and EE modules, and switches backend composition to the split modules. Creator-dependent actions, content autocomplete, EE lifecycle contracts, and the EE catalog provider land in their final content-development workspace in Phase 1.
 
+| PR   | Delivery status                                                                                                        |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| #992 | Merged: contract freeze for the split                                                                                  |
+| #993 | Merged: AAP scaffolder actions                                                                                         |
+| #994 | Merged: AAP autocomplete and template filters                                                                          |
+| #995 | Merged: AAP module wiring and dynamic export                                                                           |
+| #996 | Merged: content-development creator actions                                                                            |
+| #997 | Merged: EE definition and publish actions                                                                              |
+| #998 | Merged: Portal picker/provider migration and split-module wiring                                                       |
+| #999 | Pending merge: final content-development ownership, EE lifecycle/provider cutover, route removal, and monolith removal |
+
 | Item                                                                                                                 | Notes                                                                                                                                                                                                                                                                        |
 | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Create `workspaces/aap/plugins/scaffolder-backend-module-aap/`                                                       | `aap*.ts`, autocomplete, filters, `ansibleService` deps. `moduleId: 'aap'`                                                                                                                                                                                                   |
