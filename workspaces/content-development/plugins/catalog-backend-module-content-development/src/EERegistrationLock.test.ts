@@ -272,9 +272,9 @@ describe('createEERegistrationLock', () => {
       getClient: async () => knex,
     } as any);
 
-    await expect(
-      lock('component:default/ee', async () => 'ok'),
-    ).resolves.toBe('ok');
+    await expect(lock('component:default/ee', async () => 'ok')).resolves.toBe(
+      'ok',
+    );
 
     await knex.destroy();
   });
@@ -300,9 +300,9 @@ describe('createEERegistrationLock', () => {
       getClient: async () => knex,
     } as any);
 
-    await expect(
-      lock('component:default/ee', async () => 'ok'),
-    ).resolves.toBe('ok');
+    await expect(lock('component:default/ee', async () => 'ok')).resolves.toBe(
+      'ok',
+    );
 
     await knex.destroy();
   });
