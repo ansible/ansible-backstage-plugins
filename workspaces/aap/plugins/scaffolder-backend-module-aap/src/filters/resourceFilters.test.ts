@@ -29,6 +29,10 @@ describe('ansible-aap:resourceFilters', () => {
     expect(resourceFilter({})).toBeNull();
   });
 
+  it('preserves zero-valued resource fields', () => {
+    expect(resourceFilter({ count: 0 }, 'count')).toBe(0);
+  });
+
   it('should return multiple resource id', () => {
     const result = multiResourceFilter(...[multiTestData]);
     expect(result).toEqual([1, 2, 3]);

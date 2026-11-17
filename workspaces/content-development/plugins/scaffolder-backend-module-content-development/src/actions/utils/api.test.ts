@@ -361,6 +361,23 @@ describe('BackendServiceAPI', () => {
     ).rejects.toThrow(':downloadDevfileProject:');
   });
 
+  it('aborts the request when the creator response fails before download', async () => {
+    const api = new BackendServiceAPI();
+    let requestSignal: AbortSignal | undefined;
+    jest
+      .spyOn(api as any, 'sendPostRequest')
+      .mockImplementation((_url, _data, signal) => {
+        requestSignal = signal as AbortSignal;
+        return Promise.reject(new Error('service unavailable'));
+      });
+
+    await expect(
+      (api as any).sendCreatorPost('http://creator.local', {}),
+    ).rejects.toThrow('service unavailable');
+
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
   it('sends scm_provider in params when scmProvider is provided', async () => {
     const api = new BackendServiceAPI();
     const mockSendPost = jest.spyOn(

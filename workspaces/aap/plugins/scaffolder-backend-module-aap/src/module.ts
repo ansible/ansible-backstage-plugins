@@ -63,8 +63,6 @@ export const scaffolderModuleAap = createBackendModule({
         ansibleService: ansibleServiceRef,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
-        httpAuth: coreServices.httpAuth,
-        httpRouter: coreServices.httpRouter,
       },
       async init({
         scaffolder,
@@ -75,8 +73,6 @@ export const scaffolderModuleAap = createBackendModule({
         ansibleService,
         auth,
         discovery,
-        httpAuth,
-        httpRouter,
       }) {
         scaffolder.addActions(
           createProjectAction(ansibleService),

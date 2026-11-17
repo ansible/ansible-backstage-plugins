@@ -694,7 +694,7 @@ describe('createEEDefinition', () => {
     expect(eeConfig.registry).toBe('pah.example.com');
   });
 
-  it('passes PAH registry as-is when no rhaap baseUrl configured', async () => {
+  it('requires a PAH base URL when using PAH as the build registry', async () => {
     const action = makeAction();
     const ctx = makeCtx({
       eeFileName: 'test-ee',
@@ -703,10 +703,9 @@ describe('createEEDefinition', () => {
       buildRegistry: 'Private Automation Hub (PAH)',
     });
 
-    await action.handler(ctx);
-
-    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
-    expect(eeConfig.registry).toBe('Private Automation Hub (PAH)');
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'ansible.rhaap.baseUrl is required when using Private Automation Hub as the build registry',
+    );
   });
 
   it('sets registry_tls_verify false when explicitly disabled', async () => {
@@ -1093,6 +1092,22 @@ describe('createEEDefinition', () => {
     expect(content).toContain('AdditionalBuildStepsPicker');
   });
 
+  it('serializes missing tags as an empty list in the regenerated template', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    expect(templateWriteCall![1]).toContain('  tags: []');
+  });
+
   it('quotes numeric-looking names in the generated template metadata', async () => {
     const action = makeAction();
     const ctx = makeCtx({
@@ -1409,6 +1424,27 @@ describe('createEEDefinition', () => {
     expect(eeConfig.base_image).toBe('quay.io/org/custom:latest');
   });
 
+  it('resolves custom base image and includes it in the regenerated template', async () => {
+    const action = makeAction();
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'custom',
+      customBaseImage: 'quay.io/org/custom:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.base_image).toBe('quay.io/org/custom:latest');
+    const templateWriteCall = mockWriteFile.mock.calls.find((call: any[]) =>
+      call[0].toString().endsWith('-template.yml'),
+    );
+    const template = templateWriteCall![1] as string;
+    expect(template).toContain("default: 'quay.io/org/custom:latest'");
+    expect(template).toContain("- 'quay.io/org/custom:latest'");
+  });
+
   it('canonicalizes eeFileName by stripping leading path', async () => {
     const action = makeAction();
     const ctx = makeCtx({
@@ -1544,6 +1580,77 @@ describe('createEEDefinition', () => {
         token_env_var: 'AAP_EE_BUILDER_GITHUB_GITHUB_PUBLIC_ORG2_TOKEN',
       },
     ]);
+  });
+
+  it('preserves nested GitLab namespaces in SCM collection sources', async () => {
+    const scmCfg = makeScmConfig({
+      gitlab: [{ name: 'corp', host: 'gitlab.example.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'collection',
+          source: 'Gitlab / corp / team/subgroup / collection',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].name).toBe(
+      'https://${AAP_EE_BUILDER_GITLAB_CORP_TEAM_SUBGROUP_TOKEN}@gitlab.example.com/team/subgroup/collection',
+    );
+  });
+
+  it('rejects traversal segments in SCM collection namespaces', async () => {
+    const scmCfg = makeScmConfig({
+      gitlab: [{ name: 'corp', host: 'gitlab.example.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'collection',
+          source: 'Gitlab / corp / team/../other / collection',
+        },
+      ],
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Invalid SCM collection namespace "team/../other"',
+    );
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
+  });
+
+  it('rejects traversal paths in SCM collection repository names', async () => {
+    const scmCfg = makeScmConfig({
+      gitlab: [{ name: 'corp', host: 'gitlab.example.com' }],
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'collection',
+          source: 'Gitlab / corp / team / safe/../../other/collection',
+        },
+      ],
+    });
+
+    await expect(action.handler(ctx)).rejects.toThrow(
+      'Invalid SCM collection repository "safe/../../other/collection"',
+    );
+    expect(mockDownloadEEScaffold).not.toHaveBeenCalled();
   });
 
   it('deduplicates scmServers when multiple collections share the same provider and org', async () => {

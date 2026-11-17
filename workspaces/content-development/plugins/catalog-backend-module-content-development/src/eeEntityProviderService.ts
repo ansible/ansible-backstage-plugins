@@ -5,15 +5,37 @@ import {
 import type { LoggerService } from '@backstage/backend-plugin-api';
 import type { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import type { Entity } from '@backstage/catalog-model';
-import type { EEEntityProviderService } from '@ansible/content-development-common';
+import type {
+  EEEntityProviderService,
+  EERegistrationLock,
+  EERegistrationLockContext,
+} from '@ansible/content-development-common';
 import { eeEntityProviderServiceRef } from '@ansible/content-development-common';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 
 export class EEEntityProviderServiceImpl implements EEEntityProviderService {
   private readonly provider: EEEntityProvider;
+  private registrationLock?: EERegistrationLock;
 
   constructor(logger: LoggerService) {
     this.provider = new EEEntityProvider(logger);
+  }
+
+  initializeRegistrationLock(lock: EERegistrationLock): void {
+    if (this.registrationLock && this.registrationLock !== lock) {
+      throw new Error('EE registration lock is already initialized');
+    }
+    this.registrationLock = lock;
+  }
+
+  async withRegistrationLock<T>(
+    entityRef: string,
+    operation: (lock: EERegistrationLockContext) => Promise<T>,
+  ): Promise<T> {
+    if (!this.registrationLock) {
+      throw new Error('EE registration lock has not been initialized');
+    }
+    return this.registrationLock(entityRef, operation);
   }
 
   getProviderName(): string {

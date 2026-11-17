@@ -2,6 +2,7 @@ import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { EEEntityLifecycleAdapter } from './eeEntityLifecycleAdapter';
 
 describe('EEEntityLifecycleAdapter', () => {
+  let registrationState: 'none' | 'pending' | 'registered' = 'none';
   const credentials = {} as any;
   const auth = {
     getPluginRequestToken: jest
@@ -12,14 +13,41 @@ describe('EEEntityLifecycleAdapter', () => {
   const permissions = {
     authorize: jest.fn().mockResolvedValue([{ result: AuthorizeResult.ALLOW }]),
   } as any;
-  const provider = { register: jest.fn(), unregister: jest.fn() } as any;
+  const lockContext = {
+    assertLockHeld: jest.fn(),
+    beginMutation: jest.fn(async () => {}),
+    beginRegistrationMutation: jest.fn(async () => {
+      registrationState = 'pending';
+    }),
+    completeRegistration: jest.fn(async () => {
+      registrationState = 'registered';
+    }),
+    clearRegistration: jest.fn(async () => {
+      registrationState = 'none';
+    }),
+    get registrationState() {
+      return registrationState;
+    },
+  };
+  const provider = {
+    register: jest.fn(),
+    unregister: jest.fn(),
+    withRegistrationLock: jest.fn(),
+  } as any;
   const catalog = {
     getEntityByRef: jest.fn(),
     getLocationByEntity: jest.fn(),
     removeEntityByUid: jest.fn(),
   } as any;
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    registrationState = 'none';
+    provider.withRegistrationLock.mockImplementation(
+      (_entityRef: string, operation: (lock: typeof lockContext) => unknown) =>
+        operation(lockContext),
+    );
+  });
 
   it('uses service credentials only to confirm a caller-visible absence during registration', async () => {
     catalog.getEntityByRef
@@ -122,6 +150,42 @@ describe('EEEntityLifecycleAdapter', () => {
     expect(provider.register).not.toHaveBeenCalled();
   });
 
+  it('requires delete permission when retrying a pending registration without a catalog entity', async () => {
+    registrationState = 'pending';
+    catalog.getEntityByRef.mockResolvedValue(undefined);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await adapter.registerExecutionEnvironment(
+      { kind: 'Component', metadata: { name: 'my-ee' } },
+      credentials,
+    );
+
+    expect(permissions.authorize).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          permission: expect.objectContaining({
+            name: 'catalog.entity.delete',
+          }),
+          resourceRef: 'component:default/my-ee',
+        }),
+      ],
+      { credentials },
+    );
+    expect(lockContext.beginRegistrationMutation).toHaveBeenCalledTimes(1);
+    expect(provider.register).toHaveBeenCalledTimes(1);
+  });
+
   it('denies cleanup when the caller lacks delete permission', async () => {
     catalog.getEntityByRef.mockResolvedValue({
       kind: 'Component',
@@ -176,6 +240,42 @@ describe('EEEntityLifecycleAdapter', () => {
     expect(provider.unregister).not.toHaveBeenCalled();
   });
 
+  it('removes a pending registration even when the catalog entity is absent', async () => {
+    registrationState = 'pending';
+    catalog.getEntityByRef.mockResolvedValue(undefined);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials),
+    ).resolves.toEqual({ mode: 'provider' });
+
+    expect(permissions.authorize).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          permission: expect.objectContaining({
+            name: 'catalog.entity.delete',
+          }),
+          resourceRef: 'component:default/my-ee',
+        }),
+      ],
+      { credentials },
+    );
+    expect(lockContext.beginMutation).toHaveBeenCalledTimes(1);
+    expect(provider.unregister).toHaveBeenCalledWith('my-ee');
+    expect(lockContext.clearRegistration).toHaveBeenCalledTimes(1);
+    expect(registrationState).toBe('none');
+  });
+
   it('skips provider cleanup for provider-managed entities when requested', async () => {
     catalog.getEntityByRef.mockResolvedValue({
       kind: 'Component',
@@ -202,6 +302,40 @@ describe('EEEntityLifecycleAdapter', () => {
 
     expect(provider.unregister).not.toHaveBeenCalled();
     expect(catalog.removeEntityByUid).not.toHaveBeenCalled();
+  });
+
+  it('skips cleanup for a hidden provider-managed pending registration', async () => {
+    registrationState = 'pending';
+    catalog.getEntityByRef.mockResolvedValueOnce(undefined);
+    auth.getOwnServiceCredentials.mockResolvedValue({
+      principal: { type: 'service', subject: 'catalog' },
+    });
+    catalog.getEntityByRef.mockResolvedValueOnce({
+      kind: 'Component',
+      spec: { type: 'execution-environment' },
+      metadata: {
+        name: 'my-ee',
+        annotations: { 'ansible.io/download-experience': 'true' },
+      },
+    });
+    const adapter = new EEEntityLifecycleAdapter(
+      provider,
+      {} as any,
+      auth,
+      permissions,
+      catalog,
+    );
+
+    await expect(
+      adapter.unregisterExecutionEnvironment('my-ee', credentials, {
+        skipProviderManaged: true,
+      }),
+    ).resolves.toEqual({ mode: 'provider' });
+
+    expect(permissions.authorize).toHaveBeenCalled();
+    expect(provider.unregister).not.toHaveBeenCalled();
+    expect(lockContext.beginMutation).not.toHaveBeenCalled();
+    expect(lockContext.clearRegistration).not.toHaveBeenCalled();
   });
 
   it('does not suppress a failed entity removal when the entity remains', async () => {

@@ -81,7 +81,14 @@ export function createEEDefinitionAction(options: {
     async handler(ctx) {
       const { input, logger, workspacePath } = ctx;
       const values = input.values as unknown as EEDefinitionInput;
-      const baseImage = values.baseImage || values.customBaseImage || '';
+      const customBaseImage = values.customBaseImage?.trim() || '';
+      if (values.baseImage === 'custom' && !customBaseImage) {
+        throw new Error('customBaseImage is required when baseImage is custom');
+      }
+      const baseImage =
+        values.baseImage === 'custom'
+          ? customBaseImage
+          : values.baseImage || customBaseImage;
       const collections = values.collections || [];
       const pythonRequirements = values.pythonRequirements || [];
       const pythonRequirementsFile = convertUploadToDataUrl(
@@ -250,6 +257,11 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
+          baseImage,
+          customBaseImage:
+            values.baseImage === 'custom' || !values.baseImage
+              ? customBaseImage
+              : '',
           pahBaseUrl,
           // Keep user-facing collection sources for README/template defaults.
           // Normalized sources are only needed for the creator service payload.
@@ -618,11 +630,34 @@ function transformScmCollections(
 
   const transformed = collections.map(c => {
     const source = c.source ?? '';
-    const parts = source.split('/').map(s => s.trim());
+    const parts = source.split(' / ').map(s => s.trim());
+    if (parts.length !== 4 || parts.some(part => !part)) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection source "${source}": expected "<provider> / <canonical name> / <org> / <repo>"`,
+      );
+    }
     const provider = parts[0];
     const canonicalName = parts[1];
     const org = parts[2];
     const repo = parts[3];
+    const namespaceSegments = org.split('/');
+    if (
+      namespaceSegments.some(
+        segment =>
+          segment === '.' ||
+          segment === '..' ||
+          !/^[A-Za-z0-9._-]+$/.test(segment),
+      )
+    ) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection namespace "${org}" in source "${source}": expected valid path segments`,
+      );
+    }
+    if (repo === '.' || repo === '..' || !/^[A-Za-z0-9._-]+$/.test(repo)) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection repository "${repo}" in source "${source}": expected one valid path segment`,
+      );
+    }
 
     const host = lookupScmHostFromConfig(
       config,
@@ -992,11 +1027,27 @@ function buildEEConfig(params: {
 
   // EE build and publish configuration
   if (params.buildRegistry) {
-    if (
-      params.buildRegistry.startsWith('Private Automation Hub') &&
-      params.pahBaseUrl
-    ) {
-      eeConfig.registry = new URL(params.pahBaseUrl).host;
+    if (params.buildRegistry.startsWith('Private Automation Hub')) {
+      if (!params.pahBaseUrl.trim()) {
+        throw new Error(
+          'Missing required configuration: ansible.rhaap.baseUrl is required when using Private Automation Hub as the build registry',
+        );
+      }
+      let pahUrl: URL;
+      try {
+        pahUrl = new URL(params.pahBaseUrl);
+      } catch (error) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must be a valid URL',
+          { cause: error },
+        );
+      }
+      if (!['http:', 'https:'].includes(pahUrl.protocol)) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must use HTTP or HTTPS',
+        );
+      }
+      eeConfig.registry = pahUrl.host;
     } else {
       eeConfig.registry = params.buildRegistry;
     }
