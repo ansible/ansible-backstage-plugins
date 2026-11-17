@@ -2,16 +2,19 @@
 
 > **Architecture reference:** _Content Experience Architecture_ — §1.3 (canonical state), §2.2 (workspace layout), §2.3 (layer mapping), §2.5 (dependency rules), §7.3–§7.4 (provider boundaries), §7.7 (split constraints), §8 (delivery).
 >
-> **Scope:** Analyze the monolithic `catalog-backend-module-rhaap` and define an **interim peel** that preserves entity refs, operator URLs, and downstream consumers, while naming **terminal owners** per Content Experience Architecture §7.4.
+> **Scope:** Analyze the monolithic `catalog-backend-module-rhaap` and document the **Phase 0–3** catalog split (§5): contract inventory, module peel (Phase 1), URL compatibility and operator migration (Phase 2), and content-workspace independence (Phase 3). Preserves entity refs, operator URLs, and downstream consumers in every phase; terminal owners per Content Experience Architecture §7.4.
 >
 > **Repo (`main`, Nov 2026):** Catalog peel targets **`workspaces/content-management/`**; portal UI and scaffolder actions live in **`workspaces/content-development/`**. The retired `workspaces/portal-scaffolder/` tree is not on `main`.
 
 This document distinguishes:
 
-| Horizon                     | Meaning                                                                                |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| **Phase 1 (interim)**       | Minimal packages peeled from `catalog-backend-module-rhaap` in the current repo layout |
-| **Terminal (architecture)** | Target packages and owning experiences per Content Experience Architecture §7.4        |
+| Horizon                     | Meaning                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| **Phase 0**                 | Contract inventory — providers, routes, consumers, sync aggregation (§5)          |
+| **Phase 1**                 | Split into deployable catalog modules in current `main` workspaces (stack #1006)  |
+| **Phase 2**                 | URL compatibility, `dynamic-plugins.yaml` bundles, operator cutover from monolith |
+| **Phase 3**                 | L2/L3 content service ownership; retire catalog-side PAH/Git providers            |
+| **Terminal (architecture)** | Target packages and owning experiences per Content Experience Architecture §7.4   |
 
 ### Repo layout on `main`
 
@@ -32,13 +35,13 @@ Terminal architecture names (e.g. `scaffolder-backend-module-self-service`, `wor
 
 The catalog backend module today is a single package that registers entity providers for AAP identity, job templates, PAH collections, Git-hosted Ansible content, and execution environment **definitions** — all under one `moduleId: 'rhaap'`. These concerns belong to different domains and should be independently deployable.
 
-Per Content Experience Architecture §2.2, experiences live in `workspaces/<experience>/`. The **interim Phase 1** peel creates deployable modules without waiting for the full content service (L3) or source modules (L2, §2.3):
+Per Content Experience Architecture §2.2, experiences live in `workspaces/<experience>/`. **Phase 1** creates independently deployable catalog modules on `main`; **Phases 2–3** preserve URLs and migrate PAH/Git/sync state to L2/L3 per §2.3:
 
-| Concern                                    | Phase 1 (interim) module                                                | Workspace (Phase 1)                                                                                                                  | Terminal owner / package (architecture §7.4)                                                                                                                               |
-| ------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AAP identity + job templates               | `catalog-backend-module-aap`                                            | `workspaces/aap/plugins/`                                                                                                            | Same — `workspaces/aap/` experience                                                                                                                                        |
-| PAH + Git catalog sync (today’s providers) | `catalog-backend-module-content` _(research codename: interim content)_ | `workspaces/content-management/plugins/`                                                                                             | `automation-content-backend-module-source-automation-hub`, `…-source-git`, projector `catalog-backend-module-automation-content` (already on `main` in content-management) |
-| EE **definition** register/delete/build    | Catalog routes + `EEEntityProvider` on content catalog slice (§13)      | `workspaces/content-management/plugins/` (`catalog-backend-module-content`); scaffolder actions in `workspaces/content-development/` | `scaffolder-backend-module-self-service` — self-service experience (architecture §7.4)                                                                                     |
+| Concern                                    | Phase 1 module                                                     | Workspace (Phase 1)                                                                                                                  | Terminal owner / package (architecture §7.4, Phase 3)                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AAP identity + job templates               | `catalog-backend-module-aap`                                       | `workspaces/aap/plugins/`                                                                                                            | Same — `workspaces/aap/` experience                                                                                                                                        |
+| PAH + Git catalog sync (today’s providers) | `catalog-backend-module-content`                                   | `workspaces/content-management/plugins/`                                                                                             | `automation-content-backend-module-source-automation-hub`, `…-source-git`, projector `catalog-backend-module-automation-content` (already on `main` in content-management) |
+| EE **definition** register/delete/build    | Catalog routes + `EEEntityProvider` on content catalog slice (§13) | `workspaces/content-management/plugins/` (`catalog-backend-module-content`); scaffolder actions in `workspaces/content-development/` | `scaffolder-backend-module-self-service` — self-service experience (architecture §7.4)                                                                                     |
 
 The original `catalog-backend-module-rhaap` package is retained as a **deprecated shim** during migration.
 
@@ -47,7 +50,7 @@ The original `catalog-backend-module-rhaap` package is retained as a **deprecate
 | Superseded terminology                                                  | Phase 1 package / workspace                                                              | Terminal naming (architecture §2.2)                                    |
 | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `catalog-backend-module-portal-content`                                 | `catalog-backend-module-content` in `workspaces/content-management/`                     | Source modules + `catalog-backend-module-automation-content` on `main` |
-| `catalog-backend-module-interim-content` (research / early stack docs)  | `catalog-backend-module-content` in `workspaces/content-management/`                     | Same package name on `main`; peel ships via stack #1006                |
+| Superseded early-draft package names (pre-stack #1006)                  | `catalog-backend-module-content` in `workspaces/content-management/`                     | Same package name on `main`; Phase 1 ships via stack #1006             |
 | `catalog-backend-module-portal-scaffolder`                              | EE + PAH/Git catalog slice under `workspaces/content-management/` (§13)                  | `scaffolder-backend-module-self-service` (architecture §7.4)           |
 | `workspaces/self-service/` or `workspaces/portal-scaffolder/` (retired) | `workspaces/content-development/` (UI) + `workspaces/content-management/` (catalog peel) | Self-service experience per Content Experience Architecture §2.2       |
 | `workspaces/content/plugins/…` (architecture §2.2 terminal path)        | L3 POC packages already under `workspaces/content-management/`                           | Terminal `automation-content-backend*` per §7.4                        |
@@ -63,7 +66,7 @@ The original `catalog-backend-module-rhaap` package is retained as a **deprecate
 | `workspaces/content-management/README.md`                                    | L3 automation-content POC; separate from PAH/Git **catalog peel** (`catalog-backend-module-content`) but same experience axis.                                       |
 | Scaffolder Implementation Guide (§11)                                        | Scaffolder **actions** in `content-development`; EE **definition** catalog registration on `catalog-backend-module-content` (`pluginId: catalog`, §4.6 / §13).       |
 
-When this research disagrees with in-repo architecture markdown, **Content Experience Architecture §7.4** governs terminal ownership; Phase 1 package names in §1.1 are the **interim peel** from `catalog-backend-module-rhaap`.
+When this research disagrees with in-repo architecture markdown, **Content Experience Architecture §7.4** governs terminal ownership; Phase 1 package names in §1.1 are the split packages peeled from `catalog-backend-module-rhaap` (Phases 2–3 in §5 complete the migration).
 
 ---
 
@@ -104,18 +107,18 @@ Content Experience Architecture §7.2: this EE catalog holds **definitions** (`e
 
 ### 2.3 HTTP Routes
 
-| Route Group        | Path(s)                                         | Auth                                                                                   | Phase 1 owner                                       |
-| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Health             | `GET /health`                                   | Open (liveness only; no sync payload)                                                  | Each module that exposes health                     |
-| AAP identity sync  | `POST /ansible/sync/from-aap/orgs_users_teams`  | Superuser                                                                              | AAP                                                 |
-| AAP templates sync | `POST /ansible/sync/from-aap/job_templates`     | Superuser                                                                              | AAP                                                 |
-| Sync status        | `GET /ansible/sync/status` (+ per-module paths) | `catalogEntityRead`                                                                    | See §4.4                                            |
-| PAH content sync   | `POST /ansible/sync/from-aap/content`           | Superuser                                                                              | Interim content (terminal: content L2/L3)           |
-| SCM content sync   | `POST /ansible/sync/from-scm/content`           | Superuser                                                                              | Interim content                                     |
-| EE register        | `POST /ansible/ee`                              | Service credentials only                                                               | Self-service (Content Experience Architecture §7.4) |
-| EE delete          | `DELETE /ansible/ee/:name`                      | User or service + catalog entity delete (on behalf of caller); `204` if entity missing | Self-service                                        |
-| EE build           | `POST /ansible/ee/build`                        | User + EE view permission                                                              | Self-service                                        |
-| Git helpers        | `GET /ansible/git/*`                            | Authenticated + perms                                                                  | Interim content → terminal: `…-source-git`          |
+| Route Group        | Path(s)                                         | Auth                                                                                   | Phase 1 owner                                              |
+| ------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Health             | `GET /health`                                   | Open (liveness only; no sync payload)                                                  | Each module that exposes health                            |
+| AAP identity sync  | `POST /ansible/sync/from-aap/orgs_users_teams`  | Superuser                                                                              | AAP                                                        |
+| AAP templates sync | `POST /ansible/sync/from-aap/job_templates`     | Superuser                                                                              | AAP                                                        |
+| Sync status        | `GET /ansible/sync/status` (+ per-module paths) | `catalogEntityRead`                                                                    | See §4.4                                                   |
+| PAH content sync   | `POST /ansible/sync/from-aap/content`           | Superuser                                                                              | `catalog-backend-module-content` (Phase 3: L2/L3)          |
+| SCM content sync   | `POST /ansible/sync/from-scm/content`           | Superuser                                                                              | `catalog-backend-module-content`                           |
+| EE register        | `POST /ansible/ee`                              | Service credentials only                                                               | Self-service (Content Experience Architecture §7.4)        |
+| EE delete          | `DELETE /ansible/ee/:name`                      | User or service + catalog entity delete (on behalf of caller); `204` if entity missing | Self-service                                               |
+| EE build           | `POST /ansible/ee/build`                        | User + EE view permission                                                              | Self-service                                               |
+| Git helpers        | `GET /ansible/git/*`                            | Authenticated + perms                                                                  | `catalog-backend-module-content` → Phase 3: `…-source-git` |
 
 ### 2.4 Permissions
 
@@ -154,32 +157,32 @@ Registered in `module.ts` via `ansiblePermissions`:
 
 ### 3.2 HTTP Routes
 
-| Route Group              | Phase 1 destination                      | URL stability (Content Experience Architecture §7.7)                                   |
-| ------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| AAP sync triggers        | `catalog-backend-module-aap`             | Same paths                                                                             |
-| Sync status              | Per-module paths + shim aggregate (§4.4) | Same paths; client-side aggregation for split deployments                              |
-| PAH / SCM content sync   | `catalog-backend-module-content`         | Same paths until content service cutover                                               |
-| EE register/delete/build | Self-service workspace (§4.6)            | Same `/api/catalog/ansible/ee*` paths                                                  |
-| Git helpers              | Interim content module                   | Same paths; terminal: source-git **capability** (Content Experience Architecture §7.4) |
+| Route Group              | Phase 1 destination                      | URL stability (Content Experience Architecture §7.7)                                  |
+| ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| AAP sync triggers        | `catalog-backend-module-aap`             | Same paths                                                                            |
+| Sync status              | Per-module paths + shim aggregate (§4.4) | Same paths; client-side aggregation for split deployments                             |
+| PAH / SCM content sync   | `catalog-backend-module-content`         | Same paths until content service cutover                                              |
+| EE register/delete/build | Self-service workspace (§4.6)            | Same `/api/catalog/ansible/ee*` paths                                                 |
+| Git helpers              | `catalog-backend-module-content`         | Same paths; Phase 3: source-git **capability** (Content Experience Architecture §7.4) |
 
 ### 3.3 Shared Infrastructure
 
-| Component          | Phase 1                                                                             | Terminal (Content Experience Architecture §7.4)         |
-| ------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `config.ts`        | Per-module copy; each module reads only its config keys                             | Per-package config in owning workspace                  |
-| `SyncStateTracker` | Shared library or single writer in interim content module; aggregated status (§4.4) | `automation-content-backend` (canonical job/sync state) |
-| `entityParser.ts`  | AAP parsing in AAP module; content parsing in interim content module                | Type modules in `content-type-*`                        |
-| Backstage signals  | Each module registers its own refresh signals                                       | Projectors driven from content service outbox           |
+| Component          | Phase 1                                                                                       | Terminal (Content Experience Architecture §7.4)                  |
+| ------------------ | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `config.ts`        | Per-module copy; each module reads only its config keys                                       | Per-package config in owning workspace                           |
+| `SyncStateTracker` | Shared library or single writer in `catalog-backend-module-content`; aggregated status (§4.4) | `automation-content-backend` (canonical job/sync state, Phase 3) |
+| `entityParser.ts`  | AAP parsing in AAP module; content parsing in `catalog-backend-module-content`                | Type modules in `content-type-*` (Phase 3)                       |
+| Backstage signals  | Each module registers its own refresh signals                                                 | Projectors driven from content service outbox                    |
 
 ### 3.4 Permissions
 
-| Permission                            | Post-split owner (Phase 1)            |
-| ------------------------------------- | ------------------------------------- |
-| `catalogEntityReadPermission`         | Shared (Backstage core)               |
-| `executionEnvironmentsViewPermission` | Self-service EE surface               |
-| `gitRepositoriesViewPermission`       | Interim content → terminal source-git |
-| `collectionsViewPermission`           | Interim content → terminal source-hub |
-| `templatesViewPermission`             | Self-service UI                       |
+| Permission                            | Post-split owner (Phase 1)                             |
+| ------------------------------------- | ------------------------------------------------------ |
+| `catalogEntityReadPermission`         | Shared (Backstage core)                                |
+| `executionEnvironmentsViewPermission` | Self-service EE surface                                |
+| `gitRepositoriesViewPermission`       | `catalog-backend-module-content` → Phase 3: source-git |
+| `collectionsViewPermission`           | `catalog-backend-module-content` → Phase 3: source-hub |
+| `templatesViewPermission`             | Self-service UI                                        |
 
 ---
 
@@ -187,7 +190,7 @@ Registered in `module.ts` via `ansiblePermissions`:
 
 ### 4.1 Minimal split preserves operator experience
 
-Phase 1 creates independently loadable modules instead of one monolith. **AAP identity sign-in** requires the plugin set in §7.1 (catalog AAP module + auth provider), not the catalog module alone. Content and git sync require the interim content module until the architecture’s L2/L3 packages exist (§2.3).
+Phase 1 creates independently loadable modules instead of one monolith. **AAP identity sign-in** requires the plugin set in §7.1 (catalog AAP module + auth provider), not the catalog module alone. Content and git sync run on `catalog-backend-module-content` in Phases 1–2; **Phase 3** moves those concerns to the architecture’s L2/L3 packages (§2.3).
 
 ### 4.2 URL paths stay stable
 
@@ -201,7 +204,7 @@ RHDH `dynamic-plugins.yaml` changes from one entry to multiple.
 
 Entity references (`user:default/alice`, `template:default/my-job`, etc.) are unchanged during the peel. Downstream consumers see no ref churn.
 
-**Canonical state (Content Experience Architecture §1.3):** Long term, evidence and primitive history live in the **content service**; catalog entities are **projections**. This split keeps today’s catalog contracts stable while content management ingests built images and collections. Interim catalog providers remain authoritative for **synced AAP identity/templates** and **EE definitions** until the corresponding content pipelines own those projections.
+**Canonical state (Content Experience Architecture §1.3):** Long term, evidence and primitive history live in the **content service**; catalog entities are **projections**. This split keeps today’s catalog contracts stable while content management ingests built images and collections. Phase 1–2 catalog providers remain authoritative for **synced AAP identity/templates** and **EE definitions** until **Phase 3** content pipelines own those projections.
 
 ### 4.4 Sync status aggregation
 
@@ -245,7 +248,7 @@ Content Experience Architecture §7.4: PAH is **Galaxy v3 / Pulp**, not OCI — 
 
 **Forbidden:** Shim and any split module that registers the same entity providers (e.g. shim + `catalog-backend-module-content`). See §4.8.
 
-**Phase 3:** Retire interim content catalog module; ingest via content service; `catalog-backend-module-automation-content` projects entities.
+**Phase 3:** Retire PAH/Git providers on `catalog-backend-module-content`; ingest via content service; `catalog-backend-module-automation-content` projects entities.
 
 ### 4.6 EE surface: self-service ownership, catalog attachment
 
@@ -300,13 +303,13 @@ Loading the deprecated shim together with split modules that register the same e
 
 ### Phase 0 — Contract Inventory
 
-| Item                                                                     | Status   |
-| ------------------------------------------------------------------------ | -------- |
-| Document all entity provider outputs (kinds, refs)                       | ✅       |
-| Document all HTTP routes with auth requirements                          | ✅       |
-| Map downstream consumers to entity/route dependencies                    | ✅       |
-| Identify sync status aggregation requirements                            | ✅       |
-| Map interim peel to Content Experience Architecture §7.4 terminal owners | ✅ (§12) |
+| Item                                                                        | Status   |
+| --------------------------------------------------------------------------- | -------- |
+| Document all entity provider outputs (kinds, refs)                          | ✅       |
+| Document all HTTP routes with auth requirements                             | ✅       |
+| Map downstream consumers to entity/route dependencies                       | ✅       |
+| Identify sync status aggregation requirements                               | ✅       |
+| Map Phase 0–3 split to Content Experience Architecture §7.4 terminal owners | ✅ (§12) |
 
 ### Phase 1 — Split the Backend Module
 
@@ -326,7 +329,7 @@ Loading the deprecated shim together with split modules that register the same e
 - **URLs:** Every **functional** route in §2.3 reachable at the same path after split (§4.2); sync status on split bundles uses per-module paths (§4.4).
 - **Self-service:** Smoke test templates/tasks/EE definition UI with split modules (no regression per §7.7).
 - **Dependencies:** No new cross-workspace source imports (Content Experience Architecture §2.5 rules 9–10); content-type packages not imported from self-service except via published versions when content workspace exists.
-- **Migration:** CI case proving shim + interim content cannot start together.
+- **Migration:** CI case proving shim + `catalog-backend-module-content` cannot start together.
 
 ### Phase 2 — URL Compatibility Layer
 
@@ -340,8 +343,8 @@ Loading the deprecated shim together with split modules that register the same e
 
 | Item                                              | Notes                                 |
 | ------------------------------------------------- | ------------------------------------- |
-| `PAHCollectionProvider` → source-automation-hub   | Drop interim catalog provider         |
-| Git provider → source-git                         | Retire git routes from interim module |
+| `PAHCollectionProvider` → source-automation-hub   | Drop Phase 1–2 catalog provider       |
+| Git provider → source-git                         | Retire git routes from content module |
 | `SyncStateTracker` → `automation-content-backend` | Catalog projectors only               |
 | Remove `catalog-backend-module-content`           | After cutover                         |
 
@@ -362,7 +365,7 @@ Loading the deprecated shim together with split modules that register the same e
 
 ## 7. Operator Impact
 
-**How to use this section:** **Actionable migration** for the catalog split stack ([#1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006)) is in **§7.3–§7.4**, aligned with **§13 (as-built)**. Deployment bundles in §4.5 and narrative elsewhere in §1–§6 remain valid for intent and architecture traceability; labels _(research)_ mark options that are **not** what operators should deploy when following the as-built peel.
+**How to use this section:** **Actionable migration** for Phase 1 (stack [#1006](https://github.com/ansible/ansible-backstage-plugins/stack/1006)) is in **§7.3–§7.4**, aligned with **§13**. Deployment bundles in §4.5 and narrative in §1–§6 cover **Phases 1–3**; labels _(research)_ mark superseded options operators should **not** deploy.
 
 ### 7.1 AAP identity deployment (catalog vs auth)
 
@@ -460,8 +463,8 @@ Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contra
 | Question                                                           | Status                                                                                   |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | Should sync status be aggregated server-side or client-side?       | ✅ Resolved — client-side (§4.4)                                                         |
-| Should `PAHCollectionProvider` stay in catalog or move to content? | ✅ Resolved — interim catalog peel; terminal source-hub (§4.5)                           |
-| Should Git helpers move to content or stay with catalog?           | ✅ Resolved — interim content module; terminal source-git (§4.7)                         |
+| Should `PAHCollectionProvider` stay in catalog or move to content? | ✅ Resolved — Phase 1–2 on `catalog-backend-module-content`; Phase 3 source-hub (§4.5)   |
+| Should Git helpers move to content or stay with catalog?           | ✅ Resolved — Phase 1–2 on content module; Phase 3 source-git (§4.7)                     |
 | What is the minimal dynamic plugin set for AAP-only identity sync? | ✅ Resolved — `catalog-backend-module-aap` + `auth-backend-module-rhaap-provider` (§7.1) |
 
 ---
@@ -476,7 +479,7 @@ Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contra
 | AAP sync routes              | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-aap/src/router.ts`                                    | Same                                            |
 | Content sync routes          | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-content/src/router.ts`                                | Content service APIs                            |
 | EE routes                    | `catalog-backend-module-rhaap/src/router.ts` (partial)                 | `catalog-backend-module-content` router slice (as-built §13)                  | Same team/package (architecture §7.4)           |
-| `SyncStateTracker`           | `catalog-backend-module-rhaap/src/...`                                 | Shared lib or interim content module                                          | `automation-content-backend`                    |
+| `SyncStateTracker`           | `catalog-backend-module-rhaap/src/...`                                 | Shared lib or `catalog-backend-module-content` (Phase 1–2)                    | `automation-content-backend` (Phase 3)          |
 | Config / module registration | `catalog-backend-module-rhaap/`                                        | Split per Phase 1 module                                                      | Per architecture §2.2 workspace layout          |
 
 ---
@@ -506,13 +509,13 @@ Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contra
 
 ## 12. Alignment with Content Experience Architecture
 
-| Architecture §7.4 row                         | Terminal package / owner                                     | Phase 1 (this peel)                                                                                     | Status                                                 |
+| Architecture §7.4 row                         | Terminal package / owner (Phase 3)                           | Phase 1–2 (catalog split)                                                                               | Status                                                 |
 | --------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | `EEEntityProvider`, `POST /ansible/ee`        | `scaffolder-backend-module-self-service` / self-service      | `catalog-backend-module-content` in `workspaces/content-management/` (§13); UI in `content-development` | **Match** (catalog attachment + content-dev ownership) |
-| `PAHCollectionProvider`                       | `…-module-source-automation-hub` + `content-type-collection` | `catalog-backend-module-content`                                                                        | **Interim** — retire in Phase 3                        |
-| `AnsibleGitContentsProvider`                  | `…-module-source-git`                                        | `catalog-backend-module-content`                                                                        | **Interim**                                            |
-| `SyncStateTracker`                            | `automation-content-backend`                                 | Shared/interim content module                                                                           | **Interim**                                            |
-| `GET /ansible/git/file-content`               | source-git capability                                        | Interim content routes                                                                                  | **Interim**                                            |
+| `PAHCollectionProvider`                       | `…-module-source-automation-hub` + `content-type-collection` | `catalog-backend-module-content`                                                                        | **Phase 3** — move to source-hub                       |
+| `AnsibleGitContentsProvider`                  | `…-module-source-git`                                        | `catalog-backend-module-content`                                                                        | **Phase 3** — move to source-git                       |
+| `SyncStateTracker`                            | `automation-content-backend`                                 | Shared lib or `catalog-backend-module-content`                                                          | **Phase 3** — canonical sync state                     |
+| `GET /ansible/git/file-content`               | source-git capability                                        | `catalog-backend-module-content` routes                                                                 | **Phase 3** — source-git capability                    |
 | `AAPEntityProvider`, `AAPJobTemplateProvider` | `catalog-backend-module-aap`                                 | Same                                                                                                    | **Match**                                              |
 | Definition vs built-image catalog (§7.2)      | Built images via content UI/types                            | EE definitions stay self-service                                                                        | **Match**                                              |
 | §7.7 URLs / no self-service regression        | Required                                                     | Phase 1 verification (§5)                                                                               | **Planned**                                            |
@@ -521,16 +524,16 @@ Use with §4.5 bundles and §4.8 duplicate-provider rules. Mirrors §13.2 contra
 
 ---
 
-## 13. Implementation alignment (AAP-98845 stack — as built)
+## 13. Phase 1 implementation (AAP-98845 stack — as built on `main`)
 
-This section records **what the [catalog split stack](https://github.com/ansible/ansible-backstage-plugins/stack/1006) implements** (AAP-98845, Nov 2026). It does not replace §1–§12 (interim peel intent); it reconciles research names with **`main`** workspace layout (`content-management`, `content-development`).
+This section records **Phase 1 delivery** on the [catalog split stack](https://github.com/ansible/ansible-backstage-plugins/stack/1006) (AAP-98845, Nov 2026). §1–§12 describe **Phases 0–3** end to end; §13 is the as-built checkpoint for Phase 1 on **`main`** (`content-management`, `content-development`). **Phases 2–3** remain planned per §5.
 
 ### 13.1 Package and workspace mapping
 
-| Research / interim name (§1.1)                                | As built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981))            |
+| Superseded name (§1.1)                                        | Phase 1 as built (stack PRs [#979](https://github.com/ansible/ansible-backstage-plugins/pull/979)–[#981](https://github.com/ansible/ansible-backstage-plugins/pull/981))    |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared provider library (was discussed as a separate package) | **`@ansible/backstage-rhaap-common/catalog`** — providers, sync router, `createCatalogModule()`, slice guard (`workspaces/aap/plugins/backstage-rhaap-common/src/catalog/`) |
-| `catalog-backend-module-interim-content` (research codename)  | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`**                                                                                        |
+| Early-draft content catalog package names                     | **`catalog-backend-module-content`** in **`workspaces/content-management/plugins/`**                                                                                        |
 | `catalog-backend-module-aap`                                  | Unchanged — **`workspaces/aap/plugins/`**                                                                                                                                   |
 | Separate EE catalog module (`self-service-ee`)                | **Folded into `catalog-backend-module-content`** (content slice registers PAH, Git SCM, and EE)                                                                             |
 | `workspaces/portal-scaffolder/` (retired experience root)     | **Not on `main`**; UI + scaffolder actions in **`workspaces/content-development/`** (`portal-scaffolder`, `scaffolder-backend-module-content-development`)                  |
