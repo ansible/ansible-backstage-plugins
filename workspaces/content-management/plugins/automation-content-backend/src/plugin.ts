@@ -15,6 +15,7 @@ import {
 import { ContentStore, type TagChange } from './ContentStore';
 import { auditResource, auditTagChanges, startRefreshAudit } from './audit';
 import { createRouter, registryRefreshTaskId } from './router';
+import { registerAll } from './taskRegistration';
 import {
   createContentScheduler,
   DRIFT_POLL_TASK_ID,
@@ -204,26 +205,30 @@ export const automationContentPlugin = createBackendPlugin({
           },
         });
 
-        for (const { connection, schedule } of registries) {
-          await scheduler.scheduleTask({
-            id: registryRefreshTaskId(connection.name),
-            frequency: schedule.frequency,
-            timeout: schedule.timeout,
-            initialDelay: schedule.initialDelay ?? { seconds: 30 },
-            fn: async () => {
-              const result = await store.refreshRegistry(connection.name);
-              await auditScheduledOutcome(
-                'scheduled-refresh',
-                connection.name,
-                result.ok ? 'committed' : 'retained',
-                result.changes ?? [],
-              );
-              logger.info(
-                `registry '${connection.name}' refreshed: ${result.discovered} artifacts, ok=${result.ok}`,
-              );
-            },
-          });
-        }
+        // Every registry gets its refresh task registered; one failure does
+        // not stop the rest, and the whole batch fails loudly together.
+        await registerAll(
+          registries.map(({ connection, schedule }) => async () => {
+            await scheduler.scheduleTask({
+              id: registryRefreshTaskId(connection.name),
+              frequency: schedule.frequency,
+              timeout: schedule.timeout,
+              initialDelay: schedule.initialDelay ?? { seconds: 30 },
+              fn: async () => {
+                const result = await store.refreshRegistry(connection.name);
+                await auditScheduledOutcome(
+                  'scheduled-refresh',
+                  connection.name,
+                  result.ok ? 'committed' : 'retained',
+                  result.changes ?? [],
+                );
+                logger.info(
+                  `registry '${connection.name}' refreshed: ${result.discovered} artifacts, ok=${result.ok}`,
+                );
+              },
+            });
+          }),
+        );
       },
     });
   },
