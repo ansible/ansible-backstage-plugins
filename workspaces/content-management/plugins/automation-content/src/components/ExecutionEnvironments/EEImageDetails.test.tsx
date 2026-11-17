@@ -117,6 +117,7 @@ it.each([
     const link = await screen.findByRole<HTMLAnchorElement>('link', {
       name: 'Use in Controller',
     });
+    expect(screen.getByRole('button', { name: /Tags$/ })).toBeTruthy();
     const destination = new URL(link.href);
     expect(destination.pathname).toBe('/custom-templates');
     expect(destination.searchParams.get('create')).toBe('use-in-controller');
