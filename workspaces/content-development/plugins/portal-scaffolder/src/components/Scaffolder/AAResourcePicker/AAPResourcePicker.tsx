@@ -163,7 +163,7 @@ function applyInitialSelectionAfterAutocomplete(options: {
   );
   const ids = extractIdsFromRows(matched, options.idKey);
   options.setSelected(
-    options.multiple ? (ids as string[] | number[]) : ids[0] ?? '',
+    options.multiple ? (ids as string[] | number[]) : (ids[0] ?? ''),
   );
 }
 
