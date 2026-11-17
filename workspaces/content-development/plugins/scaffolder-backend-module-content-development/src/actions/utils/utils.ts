@@ -47,8 +47,7 @@ export function parseUploadedFileContent(dataUrl: string): string {
           unpaddedBase64.length % 4 === 4 - paddingLength));
     if (
       base64Data.length > 0 &&
-      (!hasValidBase64Characters ||
-        !hasValidBase64Length)
+      (!hasValidBase64Characters || !hasValidBase64Length)
     ) {
       throw new Error('Invalid base64 data in uploaded file');
     }
