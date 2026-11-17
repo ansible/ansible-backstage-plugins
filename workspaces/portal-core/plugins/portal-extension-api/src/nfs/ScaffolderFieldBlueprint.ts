@@ -247,7 +247,11 @@ export function createNativeFieldValidation<TValue, TUiOptions>(
     TUiOptions
   >['validation'] = undefined,
 ): NonNullable<FieldExtensionOptions<TValue, TUiOptions>['validation']> {
-  return async (...args) => {
+  const wrappedValidation = async (
+    ...args: Parameters<
+      NonNullable<FieldExtensionOptions<TValue, TUiOptions>['validation']>
+    >
+  ) => {
     const [value, validation, context] = args;
     if (!(await isFieldEligible(params, context.apiHolder))) {
       validation.addError(
@@ -257,6 +261,7 @@ export function createNativeFieldValidation<TValue, TUiOptions>(
     }
     await fieldValidation?.(value, validation, context);
   };
+  return wrappedValidation;
 }
 
 /**
