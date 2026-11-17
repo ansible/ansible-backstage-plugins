@@ -101,6 +101,10 @@ const createRouter = (options: TestRouterOptions) =>
         operation({
           assertLockHeld: () => {},
           beginMutation: async () => {},
+          beginRegistrationMutation: async () => {},
+          completeRegistration: async () => {},
+          clearRegistration: async () => {},
+          registrationState: 'none',
         })),
   });
 
@@ -389,7 +393,7 @@ describe('createRouter', () => {
   });
 
   describe('POST /ansible/ee', () => {
-    it('serializes concurrent create requests across independent router locks', async () => {
+    it('requires replacement authorization for concurrent registrations while catalog visibility is delayed', async () => {
       const knex = await testDatabases.init('SQLITE_3');
       const lockA = createEERegistrationLock({
         getClient: async () => knex,
@@ -403,13 +407,7 @@ describe('createRouter', () => {
         metadata: { name: 'concurrent-ee' },
         spec: { type: 'execution-environment' },
       };
-      mockCatalogClient.getEntityByRef
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce({
-          kind: 'Component',
-          spec: { type: 'execution-environment' },
-        } as any);
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
       mockPermissions.authorize.mockResolvedValue([
         { result: AuthorizeResult.ALLOW },
       ] as any);
@@ -456,6 +454,139 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
       ).toHaveBeenCalledTimes(2);
+      await knex.destroy();
+    });
+
+    it('denies a create-only caller replacing a pending registration when catalog reads stay absent', async () => {
+      const knex = await testDatabases.init('SQLITE_3');
+      const lockA = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const lockB = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const createApp = async (withEERegistrationLock: EERegistrationLock) =>
+        express().use(
+          express.json(),
+          await createRouter({
+            logger: mockLogger,
+            config: mockConfig,
+            scheduler: mockScheduler,
+            aapEntityProvider: mockAAPEntityProvider,
+            jobTemplateProvider: mockJobTemplateProvider,
+            eeEntityProvider: mockEEEntityProvider,
+            pahCollectionProviders: [mockPAHCollectionProvider],
+            httpAuth: mockHttpAuth,
+            userInfo: mockUserInfo,
+            auth: mockAuth,
+            catalogClient: mockCatalogClient,
+            permissions: mockPermissions,
+            withEERegistrationLock,
+          }),
+        );
+      const [appA, appB] = await Promise.all([
+        createApp(lockA),
+        createApp(lockB),
+      ]);
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'pending-ee' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
+      mockPermissions.authorize
+        .mockResolvedValueOnce([{ result: AuthorizeResult.ALLOW }] as any)
+        .mockResolvedValueOnce([{ result: AuthorizeResult.DENY }] as any);
+
+      const first = await request(appA).post('/ansible/ee').send({ entity });
+      const second = await request(appB)
+        .post('/ansible/ee')
+        .send({
+          entity: {
+            ...entity,
+            metadata: { name: 'pending-ee' },
+            spec: { ...entity.spec, definition: 'replacement' },
+          },
+        });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(403);
+      expect(
+        mockPermissions.authorize.mock.calls.map(
+          ([permissions]) => permissions[0].permission,
+        ),
+      ).toEqual([catalogEntityCreatePermission, catalogEntityDeletePermission]);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledWith(entity);
+      await knex.destroy();
+    });
+
+    it('preserves skipped provider registrations and allows creation after authorized deletion', async () => {
+      const knex = await testDatabases.init('SQLITE_3');
+      const withEERegistrationLock = createEERegistrationLock({
+        getClient: async () => knex,
+      } as any);
+      const testApp = express().use(
+        express.json(),
+        await createRouter({
+          logger: mockLogger,
+          config: mockConfig,
+          scheduler: mockScheduler,
+          aapEntityProvider: mockAAPEntityProvider,
+          jobTemplateProvider: mockJobTemplateProvider,
+          eeEntityProvider: mockEEEntityProvider,
+          pahCollectionProviders: [mockPAHCollectionProvider],
+          httpAuth: mockHttpAuth,
+          userInfo: mockUserInfo,
+          auth: mockAuth,
+          catalogClient: mockCatalogClient,
+          permissions: mockPermissions,
+          withEERegistrationLock,
+        }),
+      );
+      const entity = {
+        apiVersion: 'backstage.io/v1alpha1',
+        kind: 'Component',
+        metadata: { name: 'recreated-ee' },
+        spec: { type: 'execution-environment' },
+      };
+      mockCatalogClient.getEntityByRef.mockResolvedValue(undefined);
+
+      await request(testApp).post('/ansible/ee').send({ entity }).expect(200);
+      await request(testApp)
+        .delete('/ansible/ee/recreated-ee')
+        .query({ skipProviderManaged: 'true' })
+        .expect(200, { success: true, mode: 'provider' });
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+
+      await request(testApp)
+        .delete('/ansible/ee/recreated-ee')
+        .expect(200, { success: true, mode: 'provider' });
+      await request(testApp).post('/ansible/ee').send({ entity }).expect(200);
+
+      expect(
+        mockPermissions.authorize.mock.calls.map(
+          ([permissions]) => permissions[0].permission,
+        ),
+      ).toEqual([
+        catalogEntityCreatePermission,
+        catalogEntityDeletePermission,
+        catalogEntityDeletePermission,
+        catalogEntityCreatePermission,
+      ]);
+      expect(
+        mockEEEntityProvider.registerExecutionEnvironment,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).toHaveBeenCalledTimes(1);
       await knex.destroy();
     });
 
@@ -673,7 +804,7 @@ describe('createRouter', () => {
       expect(mockProvider.registerExecutionEnvironment).not.toHaveBeenCalled();
     });
 
-    it('should handle registerExecutionEnvironment failure with proper error response', async () => {
+    it('rejects non-execution-environment registrations before mutation', async () => {
       mockCatalogClient.getEntityByRef
         .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined);
@@ -717,18 +848,15 @@ describe('createRouter', () => {
       const response = await request(testApp)
         .post('/ansible/ee')
         .send({ entity: mockEntity })
-        .expect(500);
+        .expect(400);
 
       expect(response.body).toEqual({
         error:
-          'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
+          'Only Component execution-environment entities can be registered.',
       });
       expect(
         mockEEEntityProvider.registerExecutionEnvironment,
-      ).toHaveBeenCalledWith(mockEntity);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to register Execution Environment: Type [spec.type] must be "execution-environment" for Execution Environment registration',
-      );
+      ).not.toHaveBeenCalled();
     });
 
     it('should handle non-Error exceptions gracefully', async () => {
@@ -766,6 +894,7 @@ describe('createRouter', () => {
         apiVersion: 'backstage.io/v1alpha1',
         kind: 'Component',
         metadata: { name: 'test-ee' },
+        spec: { type: 'execution-environment' },
       };
 
       const response = await request(testApp)
@@ -796,7 +925,9 @@ describe('createRouter', () => {
       },
     };
 
-    async function createDeleteTestApp() {
+    async function createDeleteTestApp(
+      withEERegistrationLock?: EERegistrationLock,
+    ) {
       mockHttpAuth.credentials.mockResolvedValue(userCredentials as any);
       mockAuth.getOwnServiceCredentials.mockResolvedValue(
         serviceCredentials as any,
@@ -830,9 +961,31 @@ describe('createRouter', () => {
           scheduler: mockScheduler,
           permissions: mockPermissions,
           ansibleGitContentsProviders: [],
+          withEERegistrationLock,
         }),
       );
       return testApp;
+    }
+
+    function createDeleteLock(
+      registrationState: 'none' | 'pending' | 'registered',
+      events: string[] = [],
+    ): EERegistrationLock {
+      return async (_entityRef, operation) =>
+        operation({
+          assertLockHeld: () => {},
+          beginMutation: async () => {
+            events.push('beginMutation');
+          },
+          beginRegistrationMutation: async () => {
+            events.push('beginRegistrationMutation');
+          },
+          completeRegistration: async () => {},
+          clearRegistration: async () => {
+            events.push('clearRegistration');
+          },
+          registrationState,
+        });
     }
 
     const eeEntity = {
@@ -864,6 +1017,56 @@ describe('createRouter', () => {
       ).not.toHaveBeenCalled();
     });
 
+    it('requires delete permission for a tracked entity absent from catalog reads', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      const testApp = await createDeleteTestApp(createDeleteLock('registered'));
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(403);
+
+      expect(mockPermissions.authorize).toHaveBeenCalledWith(
+        [
+          {
+            permission: catalogEntityDeletePermission,
+            resourceRef: 'component:default/ee1',
+          },
+        ],
+        { credentials: userCredentials },
+      );
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('unregisters a tracked entity absent from catalog after delete authorization', async () => {
+      const events: string[] = [];
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+      mockPermissions.authorize.mockImplementationOnce(async () => {
+        events.push('authorize');
+        return [{ result: AuthorizeResult.ALLOW }] as any;
+      });
+      const testApp = await createDeleteTestApp(
+        createDeleteLock('pending', events),
+      );
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(200);
+
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).toHaveBeenCalledWith('ee1');
+      expect(events).toEqual([
+        'authorize',
+        'beginRegistrationMutation',
+        'clearRegistration',
+      ]);
+    });
+
     it('uses service credentials only to detect a hidden entity before caller delete authorization', async () => {
       mockCatalogClient.getEntityByRef
         .mockResolvedValueOnce(undefined)
@@ -891,6 +1094,64 @@ describe('createRouter', () => {
       );
       expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
         'uid-ee1',
+        expect.objectContaining({ token: 'mock-token' }),
+      );
+    });
+
+    it('re-reads and authorizes the entity after acquiring its registration lock', async () => {
+      const events: string[] = [];
+      const currentEntity = {
+        ...eeEntity,
+        metadata: { ...eeEntity.metadata, uid: 'current-uid' },
+      };
+      mockCatalogClient.getEntityByRef.mockImplementationOnce(async () => {
+        events.push('lookup');
+        return currentEntity as any;
+      });
+      mockPermissions.authorize.mockImplementationOnce(async () => {
+        events.push('authorize');
+        return [{ result: AuthorizeResult.ALLOW }] as any;
+      });
+      mockEEEntityProvider.unregisterExecutionEnvironment.mockImplementationOnce(
+        async () => {
+          events.push('unregister');
+        },
+      );
+      mockCatalogClient.removeEntityByUid.mockImplementationOnce(async () => {
+        events.push('remove');
+      });
+      const withEERegistrationLock: EERegistrationLock = async (
+        _entityRef,
+        operation,
+      ) => {
+        events.push('lock');
+        return operation({
+          assertLockHeld: () => {},
+          beginMutation: async () => {
+            events.push('beginMutation');
+          },
+          beginRegistrationMutation: async () => {
+            events.push('beginRegistrationMutation');
+          },
+          completeRegistration: async () => {},
+          clearRegistration: async () => {},
+          registrationState: 'registered',
+        });
+      };
+      const testApp = await createDeleteTestApp(withEERegistrationLock);
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(200);
+
+      expect(events).toEqual([
+        'lock',
+        'lookup',
+        'authorize',
+        'beginRegistrationMutation',
+        'unregister',
+        'remove',
+      ]);
+      expect(mockCatalogClient.removeEntityByUid).toHaveBeenCalledWith(
+        'current-uid',
         expect.objectContaining({ token: 'mock-token' }),
       );
     });

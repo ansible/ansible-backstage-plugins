@@ -5,6 +5,62 @@ import { EEEntityProvider } from './providers/EEEntityProvider';
 const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 describe('createEERegistrationLock', () => {
+  it('treats existing lock rows as pending during the registration state migration', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    await knex.schema.createTable('ee_registration_lock_leases', table => {
+      table.string('entity_ref').primary();
+      table.string('owner').nullable();
+      table.bigInteger('lease_expires_at').notNullable().defaultTo(0);
+      table.boolean('mutation_in_progress').notNullable().defaultTo(false);
+    });
+    await knex('ee_registration_lock_leases').insert({
+      entity_ref: 'component:default/legacy-ee',
+      owner: null,
+      lease_expires_at: 0,
+      mutation_in_progress: false,
+    });
+
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+    await lock('component:default/legacy-ee', async lockContext => {
+      expect(lockContext.registrationState).toBe('pending');
+    });
+    await knex.destroy();
+  });
+
+  it('preserves pending registration state across lock instances and clears it after deletion', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    const database = { getClient: async () => knex } as any;
+    const lockA = createEERegistrationLock(database);
+    const lockB = createEERegistrationLock(database);
+
+    await expect(
+      lockA('component:default/ee', async lock => {
+        expect(lock.registrationState).toBe('none');
+        await lock.beginRegistrationMutation();
+        throw new Error('provider result is uncertain');
+      }),
+    ).rejects.toThrow('provider result is uncertain');
+
+    await lockB('component:default/ee', async lock => {
+      expect(lock.registrationState).toBe('pending');
+      await lock.beginRegistrationMutation();
+      await lock.completeRegistration();
+    });
+
+    await lockA('component:default/ee', async lock => {
+      expect(lock.registrationState).toBe('registered');
+      await lock.beginRegistrationMutation();
+      await lock.clearRegistration();
+    });
+
+    await lockB('component:default/ee', async lock => {
+      expect(lock.registrationState).toBe('none');
+    });
+    await knex.destroy();
+  });
+
   it('serializes catalog reads and writes without holding a transaction', async () => {
     const knex = await testDatabases.init('SQLITE_3');
     await knex.schema.createTable('catalog_entities', table => {
@@ -45,7 +101,7 @@ describe('createEERegistrationLock', () => {
 
     const first = lockA(
       'component:default/ee',
-      async ({ assertLockHeld, beginMutation }) => {
+      async ({ assertLockHeld, beginRegistrationMutation }) => {
         assertLockHeld();
         const existing = await knex('catalog_entities')
           .where({ entity_ref: 'component:default/ee' })
@@ -54,7 +110,7 @@ describe('createEERegistrationLock', () => {
         signalFirstRead();
         await firstGate;
         assertLockHeld();
-        await beginMutation();
+        await beginRegistrationMutation();
         await provider.registerExecutionEnvironment(entity);
       },
     );
@@ -63,14 +119,14 @@ describe('createEERegistrationLock', () => {
     let secondStarted = false;
     const second = lockB(
       'component:default/ee',
-      async ({ assertLockHeld, beginMutation }) => {
+      async ({ assertLockHeld, beginRegistrationMutation }) => {
         secondStarted = true;
         assertLockHeld();
         const existing = await knex('catalog_entities')
           .where({ entity_ref: 'component:default/ee' })
           .first();
         observations.push(Boolean(existing));
-        await beginMutation();
+        await beginRegistrationMutation();
         await provider.registerExecutionEnvironment(entity);
       },
     );
@@ -134,7 +190,7 @@ describe('createEERegistrationLock', () => {
     };
 
     const first = lockA('component:default/ee', async lock => {
-      await lock.beginMutation();
+      await lock.beginRegistrationMutation();
       await provider.registerExecutionEnvironment(entity);
     });
     await mutationStarted;
@@ -146,7 +202,7 @@ describe('createEERegistrationLock', () => {
     let secondStarted = false;
     const second = lockB('component:default/ee', async lock => {
       secondStarted = true;
-      await lock.beginMutation();
+      await lock.beginRegistrationMutation();
       await provider.registerExecutionEnvironment(entity);
     });
 

@@ -390,6 +390,17 @@ export function createRouter(options: {
       return;
     }
 
+    if (
+      entity.kind !== 'Component' ||
+      entity.spec?.type !== 'execution-environment'
+    ) {
+      response.status(400).json({
+        error:
+          'Only Component execution-environment entities can be registered.',
+      });
+      return;
+    }
+
     const entityRef = stringifyEntityRef(entity);
     const { token: callerCatalogToken } = await auth.getPluginRequestToken({
       onBehalfOf: credentials,
@@ -425,7 +436,9 @@ export function createRouter(options: {
         return;
       }
 
-      const [decision] = existingEntity
+      const isReplacement =
+        Boolean(existingEntity) || lock.registrationState !== 'none';
+      const [decision] = isReplacement
         ? await permissions.authorize(
             [
               {
@@ -443,15 +456,16 @@ export function createRouter(options: {
       if (decision.result !== AuthorizeResult.ALLOW) {
         response.status(403).json({
           error: `Forbidden: insufficient permissions to ${
-            existingEntity ? 'replace' : 'create'
+            isReplacement ? 'replace' : 'create'
           } entity`,
         });
         return;
       }
 
       try {
-        await lock.beginMutation();
+        await lock.beginRegistrationMutation();
         await eeEntityProvider.registerExecutionEnvironment(entity);
+        await lock.completeRegistration();
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -494,189 +508,241 @@ export function createRouter(options: {
         name,
       });
 
-      // Look up with the caller's catalog token first so missing entities
-      // return 204 before delete permission is evaluated (conditional
-      // policies often DENY when the resource does not exist).
-      const { token } = await auth.getPluginRequestToken({
-        onBehalfOf: credentials,
-        targetPluginId: 'catalog',
-      });
-      const catalogOpts = { token };
-
-      let entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
-
-      if (!entity) {
-        // Caller-scoped catalog reads can hide an existing EE. Use service
-        // credentials only to distinguish absence from invisibility; all
-        // permission checks and mutations remain caller-scoped below.
-        const serviceCredentials = await auth.getOwnServiceCredentials();
-        const { token: serviceToken } = await auth.getPluginRequestToken({
-          onBehalfOf: serviceCredentials,
+      await withEERegistrationLock(entityRef, async lock => {
+        // Re-read after acquiring the entity lock. A pre-lock lookup can become
+        // stale while another request registers or removes this entity.
+        const { token } = await auth.getPluginRequestToken({
+          onBehalfOf: credentials,
           targetPluginId: 'catalog',
         });
-        entity = await catalogClient.getEntityByRef(entityRef, {
-          token: serviceToken,
-        });
+        const catalogOpts = { token };
+        let entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+        lock.assertLockHeld();
+
         if (!entity) {
-          response.status(204).send();
-          return;
-        }
-      }
+          // Caller-scoped reads can hide an existing EE. Service credentials
+          // only distinguish absence from invisibility; authorization and
+          // mutations remain caller-scoped.
+          const serviceCredentials = await auth.getOwnServiceCredentials();
+          const { token: serviceToken } = await auth.getPluginRequestToken({
+            onBehalfOf: serviceCredentials,
+            targetPluginId: 'catalog',
+          });
+          entity = await catalogClient.getEntityByRef(entityRef, {
+            token: serviceToken,
+          });
+          lock.assertLockHeld();
 
-      if (
-        entity.kind !== 'Component' ||
-        entity.spec?.type !== 'execution-environment'
-      ) {
-        response.status(400).json({
-          error: 'Refusing to delete non-execution-environment entity',
-        });
-        return;
-      }
+          if (!entity) {
+            if (lock.registrationState === 'none') {
+              response.status(204).send();
+              return;
+            }
 
-      const [deleteDecision] = await permissions.authorize(
-        [
-          {
-            permission: catalogEntityDeletePermission,
-            resourceRef: entityRef,
-          },
-        ],
-        { credentials },
-      );
-      if (deleteDecision.result !== AuthorizeResult.ALLOW) {
-        response.status(403).json({
-          error: 'Forbidden: insufficient permissions to delete entity',
-        });
-        return;
-      }
+            const [deleteDecision] = await permissions.authorize(
+              [
+                {
+                  permission: catalogEntityDeletePermission,
+                  resourceRef: entityRef,
+                },
+              ],
+              { credentials },
+            );
+            lock.assertLockHeld();
+            if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+              response.status(403).json({
+                error: 'Forbidden: insufficient permissions to delete entity',
+              });
+              return;
+            }
 
-      // Provider-managed entities are already upserted by the provider. A
-      // non-SCM recreate must leave that provider-owned catalog entry intact.
-      if (
-        request.query.skipProviderManaged === 'true' &&
-        entity.metadata?.annotations?.['ansible.io/download-experience']
-      ) {
-        response.status(200).json({ success: true, mode: 'provider' });
-        return;
-      }
+            if (request.query.skipProviderManaged === 'true') {
+              response.status(200).json({ success: true, mode: 'provider' });
+              return;
+            }
 
-      const location = await catalogClient.getLocationByEntity(
-        entityRef,
-        catalogOpts,
-      );
-
-      if (
-        !location?.id &&
-        entity.metadata?.annotations?.[
-          'backstage.io/managed-by-origin-location'
-        ]
-      ) {
-        response.status(403).json({
-          error: 'Forbidden: cannot access the entity origin location',
-        });
-        return;
-      }
-
-      if (location?.id) {
-        // Count siblings with service credentials so catalog.entity.read
-        // filtering cannot under-count colocated entities the user cannot see.
-        // Mutations below still use the caller's token so delete RBAC applies.
-        const originLocationRef = `${location.type}:${location.target}`;
-        const serviceCredentials = await auth.getOwnServiceCredentials();
-        const { token: serviceToken } = await auth.getPluginRequestToken({
-          onBehalfOf: serviceCredentials,
-          targetPluginId: 'catalog',
-        });
-        const { items } = await catalogClient.getEntities(
-          {
-            filter: {
-              'metadata.annotations.backstage.io/managed-by-origin-location':
-                originLocationRef,
-            },
-            fields: ['kind', 'metadata.name', 'metadata.namespace'],
-          },
-          { token: serviceToken },
-        );
-        const colocatedCount = items.length;
-
-        // Never wipe a shared location that owns sibling entities.
-        if (colocatedCount > 1) {
-          if (!entity.metadata?.uid) {
-            response.status(409).json({
-              error:
-                'Refusing to remove shared catalog location with colocated entities',
-            });
+            await lock.beginRegistrationMutation();
+            await eeEntityProvider.unregisterExecutionEnvironment(name);
+            await lock.clearRegistration();
+            response.status(200).json({ success: true, mode: 'provider' });
             return;
           }
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
-          );
-          response.status(200).json({
-            success: true,
-            mode: 'entity-transient',
-            warning:
-              'Entity removed but the shared catalog location still exists. ' +
-              'The entity may reappear on the next location refresh unless ' +
-              'the source catalog-info.yaml is also updated.',
+        }
+
+        if (
+          entity.kind !== 'Component' ||
+          entity.spec?.type !== 'execution-environment'
+        ) {
+          response.status(400).json({
+            error: 'Refusing to delete non-execution-environment entity',
           });
           return;
         }
 
-        await catalogClient.removeLocationById(location.id, catalogOpts);
-        response.status(200).json({ success: true, mode: 'location' });
-        return;
-      }
+        const [deleteDecision] = await permissions.authorize(
+          [
+            {
+              permission: catalogEntityDeletePermission,
+              resourceRef: entityRef,
+            },
+          ],
+          { credentials },
+        );
+        lock.assertLockHeld();
+        if (deleteDecision.result !== AuthorizeResult.ALLOW) {
+          response.status(403).json({
+            error: 'Forbidden: insufficient permissions to delete entity',
+          });
+          return;
+        }
 
-      await eeEntityProvider.unregisterExecutionEnvironment(name);
+        // Provider-managed entities are already upserted by the provider. A
+        // non-SCM recreate must leave that provider-owned catalog entry intact.
+        if (
+          request.query.skipProviderManaged === 'true' &&
+          entity.metadata?.annotations?.['ansible.io/download-experience']
+        ) {
+          response.status(200).json({ success: true, mode: 'provider' });
+          return;
+        }
 
-      if (entity.metadata?.uid) {
-        try {
-          await catalogClient.removeEntityByUid(
-            entity.metadata.uid,
-            catalogOpts,
+        const location = await catalogClient.getLocationByEntity(
+          entityRef,
+          catalogOpts,
+        );
+        lock.assertLockHeld();
+
+        if (
+          !location?.id &&
+          entity.metadata?.annotations?.[
+            'backstage.io/managed-by-origin-location'
+          ]
+        ) {
+          response.status(403).json({
+            error: 'Forbidden: cannot access the entity origin location',
+          });
+          return;
+        }
+
+        const hasTrackedRegistration = lock.registrationState !== 'none';
+        if (location?.id) {
+          // Count siblings with service credentials so catalog.entity.read
+          // filtering cannot under-count colocated entities the user cannot see.
+          const originLocationRef = `${location.type}:${location.target}`;
+          const serviceCredentials = await auth.getOwnServiceCredentials();
+          const { token: serviceToken } = await auth.getPluginRequestToken({
+            onBehalfOf: serviceCredentials,
+            targetPluginId: 'catalog',
+          });
+          const { items } = await catalogClient.getEntities(
+            {
+              filter: {
+                'metadata.annotations.backstage.io/managed-by-origin-location':
+                  originLocationRef,
+              },
+              fields: ['kind', 'metadata.name', 'metadata.namespace'],
+            },
+            { token: serviceToken },
           );
-        } catch (uidError) {
-          // Entity may already be gone after provider delta; verify before
-          // reporting success so we don't claim cleanup when it didn't happen.
-          let stillPresent: boolean;
-          try {
-            stillPresent = !!(await catalogClient.getEntityByRef(
-              entityRef,
+          lock.assertLockHeld();
+
+          // Never wipe a shared location that owns sibling entities.
+          if (items.length > 1) {
+            if (!entity.metadata?.uid) {
+              response.status(409).json({
+                error:
+                  'Refusing to remove shared catalog location with colocated entities',
+              });
+              return;
+            }
+            if (hasTrackedRegistration) {
+              await lock.beginRegistrationMutation();
+              await eeEntityProvider.unregisterExecutionEnvironment(name);
+            } else {
+              await lock.beginMutation();
+            }
+            await catalogClient.removeEntityByUid(
+              entity.metadata.uid,
               catalogOpts,
-            ));
-          } catch (verifyError) {
-            logger.warn(
-              `removeEntityByUid failed (${formatUnknownError(
+            );
+            if (hasTrackedRegistration) await lock.clearRegistration();
+            response.status(200).json({
+              success: true,
+              mode: 'entity-transient',
+              warning:
+                'Entity removed but the shared catalog location still exists. ' +
+                'The entity may reappear on the next location refresh unless ' +
+                'the source catalog-info.yaml is also updated.',
+            });
+            return;
+          }
+
+          if (hasTrackedRegistration) {
+            await lock.beginRegistrationMutation();
+            await eeEntityProvider.unregisterExecutionEnvironment(name);
+          } else {
+            await lock.beginMutation();
+          }
+          await catalogClient.removeLocationById(location.id, catalogOpts);
+          if (hasTrackedRegistration) await lock.clearRegistration();
+          response.status(200).json({ success: true, mode: 'location' });
+          return;
+        }
+
+        await lock.beginRegistrationMutation();
+        await eeEntityProvider.unregisterExecutionEnvironment(name);
+
+        if (entity.metadata?.uid) {
+          try {
+            await catalogClient.removeEntityByUid(
+              entity.metadata.uid,
+              catalogOpts,
+            );
+          } catch (uidError) {
+            // Entity may already be gone after provider delta; verify before
+            // reporting success so we don't claim cleanup when it didn't happen.
+            let stillPresent: boolean;
+            try {
+              stillPresent = !!(await catalogClient.getEntityByRef(
+                entityRef,
+                catalogOpts,
+              ));
+              lock.assertLockHeld();
+            } catch (verifyError) {
+              logger.warn(
+                `removeEntityByUid failed (${formatUnknownError(
+                  uidError,
+                )}) and verification also failed (${formatUnknownError(
+                  verifyError,
+                )})`,
+              );
+              response.status(500).json({
+                error: 'Failed to unregister Execution Environment',
+              });
+              return;
+            }
+            if (stillPresent) {
+              logger.warn(
+                `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
+                  uidError,
+                )}`,
+              );
+              response.status(500).json({
+                error: 'Failed to unregister Execution Environment',
+              });
+              return;
+            }
+            logger.debug(
+              `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
                 uidError,
-              )}) and verification also failed (${formatUnknownError(
-                verifyError,
               )})`,
             );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
           }
-          if (stillPresent) {
-            logger.warn(
-              `removeEntityByUid after provider unregister failed and entity still exists: ${formatUnknownError(
-                uidError,
-              )}`,
-            );
-            response.status(500).json({
-              error: 'Failed to unregister Execution Environment',
-            });
-            return;
-          }
-          logger.debug(
-            `removeEntityByUid after provider unregister: entity already removed by delta (${formatUnknownError(
-              uidError,
-            )})`,
-          );
         }
-      }
 
-      response.status(200).json({ success: true, mode: 'provider' });
+        await lock.clearRegistration();
+        response.status(200).json({ success: true, mode: 'provider' });
+      });
     } catch (error) {
       const errorMessage = formatUnknownError(error);
       logger.error(
