@@ -3,6 +3,7 @@
  */
 
 import { scaffolderModuleAnsible } from './module';
+import { assertAapScaffolderModuleIsUnique } from '@ansible/backstage-rhaap-common';
 
 // --- Mock dependencies ---
 jest.mock('./actions', () => ({
@@ -35,6 +36,7 @@ jest.mock('@ansible/aap-node', () => ({
 
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   getAnsibleConfig: jest.fn(() => ({ ansible: 'config' })),
+  assertAapScaffolderModuleIsUnique: jest.fn(),
 }));
 
 // import mocks for assertions
@@ -75,6 +77,8 @@ describe('scaffolderModuleAnsible', () => {
       discovery: {
         getBaseUrl: jest.fn(),
       },
+      httpAuth: { credentials: jest.fn() },
+      httpRouter: { use: jest.fn() },
     };
 
     // --- Get registrations from module ---
@@ -85,6 +89,10 @@ describe('scaffolderModuleAnsible', () => {
     for (const reg of registrations) {
       await reg.init.func(fakeEnv);
     }
+    expect(assertAapScaffolderModuleIsUnique).toHaveBeenCalledWith(
+      fakeEnv.scaffolder,
+      'scaffolderModuleAnsible',
+    );
 
     // --- Verify actions registered ---
     expect(fakeEnv.scaffolder.addActions).toHaveBeenCalledTimes(1);
@@ -133,6 +141,7 @@ describe('scaffolderModuleAnsible', () => {
     expect(fakeEnv.autocomplete.addAutocompleteProvider).toHaveBeenCalledTimes(
       1,
     );
+    expect(fakeEnv.httpRouter.use).toHaveBeenCalledTimes(1);
     const providerArg =
       fakeEnv.autocomplete.addAutocompleteProvider.mock.calls[0][0];
     expect(providerArg).toHaveProperty('id', 'aap-api-cloud');

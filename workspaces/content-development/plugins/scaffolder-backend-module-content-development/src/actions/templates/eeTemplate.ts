@@ -6,12 +6,22 @@ export function generateEETemplate(values: EEDefinitionInput): string {
   const requirementsJson = JSON.stringify(values.pythonRequirements);
   const packagesJson = JSON.stringify(values.systemPackages);
   const buildStepsJson = JSON.stringify(values.additionalBuildSteps);
-  const tagsJson = JSON.stringify(values.tags);
+  const tagsJson = JSON.stringify(values.tags ?? []);
   const quoteYamlScalar = (v: string) =>
     yaml.dump(v, { forceQuotes: true }).trim();
-  const defaultBaseImage = values.customBaseImage || values.baseImage || '';
-  const customBaseImageEnumEntry = values.customBaseImage?.trim()
-    ? `\n            - ${quoteYamlScalar(values.customBaseImage)}`
+  const defaultBaseImage =
+    values.baseImage && values.baseImage !== 'custom'
+      ? values.baseImage
+      : values.customBaseImage || '';
+  const customBaseImageEnumEntry =
+    defaultBaseImage &&
+    ![
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.18',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel8:2.16',
+      'registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.16',
+    ].includes(defaultBaseImage)
+      ? `\n            - ${quoteYamlScalar(defaultBaseImage)}`
     : '';
   return `---
 apiVersion: scaffolder.backstage.io/v1beta3
@@ -271,6 +281,7 @@ spec:
                               - repo
                               - workflow
                             gitlab:
+                              - api
                               - write_repository
                   required:
                     - sourceControlProvider
@@ -583,7 +594,7 @@ spec:
     - id: dispatch-ee-build
       action: github:actions:dispatch
       name: Start EE Build Workflow
-      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' }}
+      if: \${{ parameters.publishAndBuild.buildExecutionEnvironment and parameters.publishAndBuild.sourceControlProvider.provider == 'github' and (steps['prepare-publish'].output.createNewRepo or steps['prepare-publish'].output.githubEeBuildWorkflowExists) }}
       input:
         repoUrl: \${{ steps['prepare-publish'].output.generatedRepoUrl }}
         workflowId: ee-build.yml

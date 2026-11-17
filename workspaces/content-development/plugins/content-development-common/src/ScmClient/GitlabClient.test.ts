@@ -969,6 +969,36 @@ describe('GitlabClient', () => {
     });
   });
 
+  describe('getRepositoryInfo', () => {
+    it('returns repository metadata including its default branch', async () => {
+      (fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            name: 'test-project',
+            path_with_namespace: 'test-owner/test-project',
+            default_branch: 'develop',
+            web_url: 'https://gitlab.com/test-owner/test-project',
+            description: 'test project',
+          }),
+      });
+
+      await expect(
+        client.getRepositoryInfo('test-owner', 'test-project'),
+      ).resolves.toEqual({
+        name: 'test-project',
+        fullPath: 'test-owner/test-project',
+        defaultBranch: 'develop',
+        url: 'https://gitlab.com/test-owner/test-project',
+        description: 'test project',
+      });
+      expect(fetch).toHaveBeenCalledWith(
+        'https://gitlab.com/api/v4/projects/test-owner%2Ftest-project',
+        expect.any(Object),
+      );
+    });
+  });
+
   describe('getProjectId', () => {
     const projectResponse = (id: number) => ({
       ok: true,

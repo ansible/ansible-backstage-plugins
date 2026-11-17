@@ -19,11 +19,13 @@ function buildScmUrls(
   owner: string,
   repo: string,
   contextDir: string,
+  branch: string,
 ): { catalogInfoUrl: string; fullRepoUrl: string } {
   const blobSegment = scmProvider === 'gitlab' ? '/-/blob' : '/blob';
+  const ref = encodeURIComponent(branch);
   return {
-    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/catalog-info.yaml`,
-    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/main/${contextDir}/`,
+    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/catalog-info.yaml`,
+    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/`,
   };
 }
 
@@ -60,6 +62,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
         generatedCatalogInfoUrl: z => z.string().optional(),
         generatedFullRepoUrl: z => z.string().optional(),
         gitlabProjectId: z => z.number().optional(),
+        githubEeBuildWorkflowExists: z => z.boolean().optional(),
       },
     },
     async handler(ctx) {
@@ -75,10 +78,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
       let createNewRepo = false;
 
       try {
-        const repoPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        const ownerPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        const repositoryNamePart = /^(?=.*[A-Za-z0-9])[A-Za-z0-9._-]+$/;
         if (
-          !repositoryOwner.split('/').every(part => repoPart.test(part)) ||
-          !repoPart.test(repositoryName)
+          !repositoryOwner.split('/').every(part => ownerPart.test(part)) ||
+          !repositoryNamePart.test(repositoryName)
         ) {
           throw new Error('Invalid repository owner or name');
         }
@@ -106,6 +110,11 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           `${sourceControlProvider} repository existence check completed: ${exists}`,
         );
 
+        const repositoryInfo = exists
+          ? await scmClient.getRepositoryInfo(repositoryOwner, repositoryName)
+          : undefined;
+        const defaultBranch = repositoryInfo?.defaultBranch || 'main';
+
         if (!exists) {
           if (!createNewRepository) {
             throw new Error(
@@ -131,6 +140,25 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
             logger.info('Resolved GitLab numeric project ID');
             ctx.output('gitlabProjectId', numericProjectId);
           }
+        }
+
+        if (scmProvider === 'github' && !createNewRepo) {
+          let workflowExists = false;
+          try {
+            await scmClient.getFileContent(
+              repositoryInfo!,
+              defaultBranch,
+              '.github/workflows/ee-build.yml',
+            );
+            workflowExists = true;
+          } catch (error) {
+            logger.debug(
+              `Could not confirm ee-build.yml on the GitHub default branch: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
+          ctx.output('githubEeBuildWorkflowExists', workflowExists);
         }
 
         const host = scmClient.getHost();
@@ -170,6 +198,7 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
           repositoryOwner,
           repositoryName,
           contextDirName,
+          defaultBranch,
         );
         logger.info('Generated repository contents URL');
         ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);

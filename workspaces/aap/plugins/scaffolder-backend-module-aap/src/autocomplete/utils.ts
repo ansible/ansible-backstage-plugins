@@ -3,12 +3,17 @@ import {
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import { InputError, ServiceUnavailableError } from '@backstage/errors';
 import type {
   Collections,
   SourceVersionDetail,
 } from '@ansible/backstage-rhaap-common';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
+const MAX_SEARCH_QUERY_LENGTH = 512;
+const MAX_SEARCH_QUERY_TERMS = 10;
+const MAX_INFLIGHT_COLLECTION_REQUESTS = 10;
+const ALLOWED_COLLECTION_FILTER_KEYS = new Set(['kind', 'spec.type']);
 
 let collectionsCache: {
   result: { results: Collections[] };
@@ -174,9 +179,29 @@ export async function getCollections(options: {
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
   const { auth, discovery, logger, searchQuery } = options;
+  if (searchQuery && searchQuery.length > MAX_SEARCH_QUERY_LENGTH) {
+    throw new InputError('Collection search query is too long.');
+  }
   const trimmed = searchQuery?.trim();
   const baseFilter = 'spec.type=ansible-collection';
   const terms = trimmed ? trimmed.split(',').map(term => term.trim()) : [];
+  if (terms.length > MAX_SEARCH_QUERY_TERMS) {
+    throw new InputError('Collection search query has too many filters.');
+  }
+  for (const term of terms) {
+    const separator = term.indexOf('=');
+    const key = term.slice(0, separator).trim();
+    const value = term.slice(separator + 1).trim();
+    if (
+      separator < 1 ||
+      !ALLOWED_COLLECTION_FILTER_KEYS.has(key) ||
+      !/^[\w .:/-]+$/.test(value)
+    ) {
+      throw new InputError(
+        'Collection search query contains an invalid filter.',
+      );
+    }
+  }
   const filter = (
     terms.includes(baseFilter) ? terms : [...terms, baseFilter]
   ).join(',');
@@ -190,6 +215,11 @@ export async function getCollections(options: {
 
   if (inflightRequests.has(filter)) {
     return await inflightRequests.get(filter)!;
+  }
+  if (inflightRequests.size >= MAX_INFLIGHT_COLLECTION_REQUESTS) {
+    throw new ServiceUnavailableError(
+      'Too many collection catalog requests are in progress.',
+    );
   }
 
   const fetchPromise = (async () => {

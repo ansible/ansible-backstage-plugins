@@ -14,7 +14,7 @@ export const EERoutesPage = () => (
       <Routes>
         <Route index element={<Navigate to="catalog" replace />} />
         <Route path="catalog" element={<EETabs />} />
-        <Route path="create" element={<EETabs />} />
+        <Route path="create" element={<Navigate to="/create" replace />} />
         <Route path="*" element={<Navigate to="catalog" replace />} />
       </Routes>
     </EENotificationBoundary>

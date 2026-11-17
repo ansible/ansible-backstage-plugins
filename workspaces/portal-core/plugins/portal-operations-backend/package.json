@@ -2,7 +2,13 @@
   "name": "@ansible/portal-operations-backend",
   "version": "0.1.0",
   "private": true,
+  "description": "Backend operation dispatch and authorization for Portal plugin contributions",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ansible/ansible-backstage-plugins.git",
+    "directory": "workspaces/portal-core/plugins/portal-operations-backend"
+  },
   "main": "src/index.ts",
   "types": "src/index.ts",
   "publishConfig": {
@@ -22,7 +28,10 @@
   ],
   "backstage": {
     "role": "backend-plugin",
-    "pluginId": "portal-operations"
+    "pluginId": "portal-operations",
+    "pluginPackages": [
+      "@ansible/portal-operations-backend"
+    ]
   },
   "scripts": {
     "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common",

@@ -1,0 +1,12 @@
+[
+  "workspaces/portal-core/plugins/portal-extension-common",
+  "workspaces/portal-core/plugins/portal-extension-api",
+  "workspaces/portal-core/plugins/portal-plugin-sdk",
+  "workspaces/portal-core/plugins/portal-plugin-node",
+  "workspaces/portal-core/plugins/portal-extension-host",
+  "workspaces/portal-core/plugins/portal-core",
+  "workspaces/portal-core/plugins/portal-rhdh",
+  "workspaces/portal-core/plugins/portal-operations-backend",
+  "workspaces/portal-core/plugins/portal-health-backend",
+  "workspaces/aap/plugins/aap-app-auth"
+]

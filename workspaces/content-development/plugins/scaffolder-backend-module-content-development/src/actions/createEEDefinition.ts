@@ -25,7 +25,7 @@ import {
 } from './types';
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
-import { eeDefinitionInputSchema } from './schemas/eeDefinitionSchema';
+import { eeDefinitionInputSchema } from '@ansible/portal-scaffolder-common';
 import type { ZodType } from 'zod';
 
 const eeInputSchema: ZodType = eeDefinitionInputSchema;
@@ -81,7 +81,14 @@ export function createEEDefinitionAction(options: {
     async handler(ctx) {
       const { input, logger, workspacePath } = ctx;
       const values = input.values as unknown as EEDefinitionInput;
-      const baseImage = values.baseImage || values.customBaseImage || '';
+      const customBaseImage = values.customBaseImage?.trim() || '';
+      if (values.baseImage === 'custom' && !customBaseImage) {
+        throw new Error('customBaseImage is required when baseImage is custom');
+      }
+      const baseImage =
+        values.baseImage === 'custom'
+          ? customBaseImage
+          : values.baseImage || customBaseImage;
       const collections = values.collections || [];
       const pythonRequirements = values.pythonRequirements || [];
       const pythonRequirementsFile = convertUploadToDataUrl(
@@ -250,6 +257,13 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
+          // Keep generated artifacts aligned with the resolved image used by
+          // the build, even if a stale custom image remains in the inputs.
+          baseImage,
+          customBaseImage:
+            values.baseImage === 'custom' || !values.baseImage
+              ? customBaseImage
+              : '',
           pahBaseUrl,
           // Keep user-facing collection sources for README/template defaults.
           // Normalized sources are only needed for the creator service payload.
@@ -618,7 +632,12 @@ function transformScmCollections(
 
   const transformed = collections.map(c => {
     const source = c.source ?? '';
-    const parts = source.split('/').map(s => s.trim());
+    const parts = source.split(' / ').map(s => s.trim());
+    if (parts.length !== 4 || parts.some(part => !part)) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection source "${source}": expected "<provider> / <canonical name> / <org> / <repo>"`,
+      );
+    }
     const provider = parts[0];
     const canonicalName = parts[1];
     const org = parts[2];
@@ -648,9 +667,8 @@ function transformScmCollections(
       type: 'git',
     };
     if (c.version) {
-      // The UI may append display metadata after a "/" (e.g. "main / v1.2.3");
-      // only the segment before the first "/" is the actual git ref.
-      col.version = c.version.split('/')[0].trim();
+      // The UI appends display metadata after " / "; preserve slashes in refs.
+      col.version = c.version.split(' / ')[0].trim();
     }
     return col;
   });
@@ -992,11 +1010,27 @@ function buildEEConfig(params: {
 
   // EE build and publish configuration
   if (params.buildRegistry) {
-    if (
-      params.buildRegistry.startsWith('Private Automation Hub') &&
-      params.pahBaseUrl
-    ) {
-      eeConfig.registry = new URL(params.pahBaseUrl).host;
+    if (params.buildRegistry.startsWith('Private Automation Hub')) {
+      if (!params.pahBaseUrl.trim()) {
+        throw new Error(
+          'Missing required configuration: ansible.rhaap.baseUrl is required when using Private Automation Hub as the build registry',
+        );
+      }
+      let pahUrl: URL;
+      try {
+        pahUrl = new URL(params.pahBaseUrl);
+      } catch (error) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must be a valid URL',
+          { cause: error },
+        );
+      }
+      if (!['http:', 'https:'].includes(pahUrl.protocol)) {
+        throw new Error(
+          'Invalid configuration: ansible.rhaap.baseUrl must use HTTP or HTTPS',
+        );
+      }
+      eeConfig.registry = pahUrl.host;
     } else {
       eeConfig.registry = params.buildRegistry;
     }

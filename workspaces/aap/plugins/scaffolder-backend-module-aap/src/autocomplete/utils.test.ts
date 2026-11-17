@@ -454,6 +454,85 @@ describe('autocomplete utils', () => {
       );
     });
 
+    it('rejects oversized search queries before requesting catalog credentials', async () => {
+      await expect(
+        getCollections({
+          auth: mockAuthService,
+          discovery: mockDiscoveryService,
+          logger,
+          searchQuery: 'x'.repeat(513),
+        }),
+      ).rejects.toThrow('Collection search query is too long.');
+      expect(mockAuthService.getPluginRequestToken).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('rejects excessive or unsupported filter terms', async () => {
+      const options = {
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+        logger,
+      };
+      await expect(
+        getCollections({
+          ...options,
+          searchQuery: Array(11).fill('kind=Component').join(','),
+        }),
+      ).rejects.toThrow('Collection search query has too many filters.');
+      await expect(
+        getCollections({ ...options, searchQuery: 'metadata.name=example' }),
+      ).rejects.toThrow('Collection search query contains an invalid filter.');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('caps distinct in-flight catalog requests while joining duplicate filters', async () => {
+      const pendingResolves: Array<(value: unknown) => void> = [];
+      let resolveStarted!: () => void;
+      const started = new Promise<void>(resolve => {
+        resolveStarted = resolve;
+      });
+      mockFetch.mockImplementation(
+        () =>
+          new Promise(resolve => {
+            pendingResolves.push(resolve);
+            if (pendingResolves.length === 10) resolveStarted();
+          }),
+      );
+
+      const options = {
+        auth: mockAuthService,
+        discovery: mockDiscoveryService,
+        logger,
+      };
+      const inFlight = Array.from({ length: 10 }, (_, index) =>
+        getCollections({
+          ...options,
+          searchQuery: `spec.type=collection-${index}`,
+        }),
+      );
+      await started;
+
+      const duplicateFilter = getCollections({
+        ...options,
+        searchQuery: 'spec.type=collection-0',
+      });
+      await expect(
+        getCollections({
+          ...options,
+          searchQuery: 'spec.type=collection-overflow',
+        }),
+      ).rejects.toThrow(
+        'Too many collection catalog requests are in progress.',
+      );
+      expect(mockFetch).toHaveBeenCalledTimes(10);
+
+      for (const resolve of pendingResolves) {
+        resolve({ ok: true, json: async () => [] });
+      }
+      const results = await Promise.all([...inFlight, duplicateFilter]);
+      expect(results[10]).toBe(results[0]);
+    });
+
     it('uses default filter when searchQuery is not provided', async () => {
       mockFetch.mockResolvedValue({
         ok: true,

@@ -20,6 +20,15 @@ describe('ansible-aap:resourceFilters', () => {
     expect(result).toEqual('testName');
   });
 
+  it('should preserve zero-valued resource fields', () => {
+    expect(resourceFilter(...[{ count: 0 }, 'count'])).toBe(0);
+  });
+
+  it('should return none for missing or null resource fields', () => {
+    expect(resourceFilter(...[{ name: 'testName' }, 'count'])).toBeNull();
+    expect(resourceFilter(...[{ count: null }, 'count'])).toBeNull();
+  });
+
   it('should return none', () => {
     const result = resourceFilter(...[]);
     expect(result).toEqual(null);

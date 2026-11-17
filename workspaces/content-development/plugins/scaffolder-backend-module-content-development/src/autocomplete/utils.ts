@@ -1,17 +1,21 @@
-import { createHash } from 'node:crypto';
-import {
-  AuthService,
-  DiscoveryService,
-  LoggerService,
-} from '@backstage/backend-plugin-api';
-import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 import type {
   Collections,
   SourceVersionDetail,
 } from '@ansible/content-development-common';
+import { createHash } from 'node:crypto';
+import {
+  AuthService,
+  BackstageCredentials,
+  DiscoveryService,
+  LoggerService,
+} from '@backstage/backend-plugin-api';
+import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
-const COLLECTIONS_CACHE_MAX_ENTRIES = 100;
+const MAX_COLLECTIONS_CACHE_ENTRIES = 100;
+const MAX_INFLIGHT_COLLECTION_REQUESTS = 10;
+const MAX_SEARCH_QUERY_LENGTH = 512;
+const MAX_SEARCH_QUERY_TERMS = 10;
 const COLLECTION_TYPE_FILTER = 'spec.type=ansible-collection';
 const ALLOWED_CATALOG_FILTER_FIELDS = new Set([
   'kind',
@@ -92,8 +96,13 @@ export function buildCollectionsFromCatalogEntities(
   for (const item of entities) {
     const ns = item.spec?.collection_namespace;
     const cn = item.spec?.collection_name;
-    const name: string | undefined =
-      item.spec?.collection_full_name ?? (ns && cn ? `${ns}.${cn}` : undefined);
+    const fullName = item.spec?.collection_full_name;
+    let name: string | undefined;
+    if (typeof fullName === 'string') {
+      name = fullName;
+    } else if (ns && cn) {
+      name = `${ns}.${cn}`;
+    }
 
     if (!name) continue;
 
@@ -128,7 +137,7 @@ export function buildCollectionsFromCatalogEntities(
       const detail: SourceVersionDetail = {
         ref,
         version,
-        label: ref && version ? `${ref} / ${version}` : (version ?? ref),
+        label: ref && version ? `${ref} / ${version}` : version || ref,
         ...(source ? { source } : {}),
       };
       const isDuplicate = versions.some(
@@ -182,20 +191,33 @@ export async function getCollections(options: {
   auth: AuthService;
   discovery: DiscoveryService;
   logger: LoggerService;
-  searchQuery?: string;
+  callerCredentials: BackstageCredentials;
   identityToken?: string;
+  searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
-  const { auth, discovery, logger, searchQuery, identityToken } = options;
+  const {
+    auth,
+    discovery,
+    logger,
+    callerCredentials,
+    identityToken,
+    searchQuery,
+  } = options;
   if (!identityToken) {
     throw new AuthenticationError(
       'Authenticated user credentials are required for collection autocomplete',
     );
   }
 
-  const callerCredentials = await auth.authenticate(identityToken);
-  if (!auth.isPrincipal(callerCredentials, 'user')) {
+  const authenticatedCredentials = await auth.authenticate(identityToken);
+  if (
+    !auth.isPrincipal(callerCredentials, 'user') ||
+    !auth.isPrincipal(authenticatedCredentials, 'user') ||
+    authenticatedCredentials.principal.userEntityRef !==
+      callerCredentials.principal.userEntityRef
+  ) {
     throw new NotAllowedError(
-      'Only an authenticated user can request collection autocomplete',
+      'Only the authenticated user can request collection autocomplete',
     );
   }
 
@@ -203,21 +225,24 @@ export async function getCollections(options: {
   const visibilityKey = createHash('sha256')
     .update(identityToken)
     .digest('hex');
-  const cacheKey = `${visibilityKey}:${filter}`;
-
-  const cached = collectionsCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < COLLECTIONS_CACHE_TTL_MS) {
-    // Refresh insertion order so frequently used visibility scopes stay cached.
-    collectionsCache.delete(cacheKey);
-    collectionsCache.set(cacheKey, cached);
-    return cached.result;
+  const cacheKey = JSON.stringify([visibilityKey, filter]);
+  const now = Date.now();
+  for (const [key, entry] of collectionsCache) {
+    if (now - entry.timestamp >= COLLECTIONS_CACHE_TTL_MS) {
+      collectionsCache.delete(key);
+    }
   }
+  const cached = collectionsCache.get(cacheKey);
+
   if (cached) {
-    collectionsCache.delete(cacheKey);
+    return cached.result;
   }
 
   if (inflightRequests.has(cacheKey)) {
     return inflightRequests.get(cacheKey)!;
+  }
+  if (inflightRequests.size >= MAX_INFLIGHT_COLLECTION_REQUESTS) {
+    throw new Error('Too many distinct collections requests are in progress');
   }
 
   const fetchPromise = (async () => {
@@ -250,11 +275,11 @@ export async function getCollections(options: {
       results: buildCollectionsFromCatalogEntities(entities),
     };
 
-    if (collectionsCache.size >= COLLECTIONS_CACHE_MAX_ENTRIES) {
+    collectionsCache.delete(cacheKey);
+    while (collectionsCache.size >= MAX_COLLECTIONS_CACHE_ENTRIES) {
       const oldestKey = collectionsCache.keys().next().value;
-      if (oldestKey !== undefined) {
-        collectionsCache.delete(oldestKey);
-      }
+      if (oldestKey === undefined) break;
+      collectionsCache.delete(oldestKey);
     }
     collectionsCache.set(cacheKey, { result, timestamp: Date.now() });
 
@@ -274,12 +299,14 @@ export async function getCollections(options: {
 }
 
 function buildCatalogFilter(searchQuery?: string): string {
-  const userFilters = (searchQuery ?? '')
+  const query = (searchQuery ?? '').slice(0, MAX_SEARCH_QUERY_LENGTH);
+  const userFilters = query
     .split(',')
+    .slice(0, MAX_SEARCH_QUERY_TERMS)
     .map(term => term.trim())
     .filter(term => {
       const separator = term.indexOf('=');
-      if (separator <= 0 || term.indexOf('=', separator + 1) !== -1) {
+      if (separator <= 0 || term.includes('=', separator + 1)) {
         return false;
       }
 
@@ -288,7 +315,7 @@ function buildCatalogFilter(searchQuery?: string): string {
       return (
         ALLOWED_CATALOG_FILTER_FIELDS.has(field) &&
         value.length > 0 &&
-        /^[A-Za-z0-9_.:*\-/]+$/.test(value)
+        /^[A-Za-z0-9_.:/-]+$/.test(value)
       );
     });
 

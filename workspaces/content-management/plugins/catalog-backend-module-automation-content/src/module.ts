@@ -26,37 +26,46 @@ export const catalogModuleAutomationContent = createBackendModule({
         logger: coreServices.logger,
         scheduler: coreServices.scheduler,
       },
-      async init({ catalog, config, logger, scheduler }) {
-        const registries = readRegistryConfigs(config);
-        if (registries.length === 0) {
-          logger.info('automation-content: no OCI registries configured');
-          return;
-        }
+      init({ catalog, config, logger, scheduler }) {
+        return Promise.resolve().then(() => {
+          const registries = readRegistryConfigs(config);
+          if (registries.length === 0) {
+            logger.info('automation-content: no OCI registries configured');
+            return;
+          }
 
-        const contentTypes = defaultContentTypes();
+          const contentTypes = defaultContentTypes();
 
-        // One redactor across every provider: any provider's client can mint
-        // a bearer token at runtime, and every provider's logs, errors and
-        // entities must recognise it.
-        const redactor = redactorForConnections(
-          registries.map(registry => registry.connection),
-        );
+          // One redactor across every provider: any provider's client can mint
+          // a bearer token at runtime, and every provider's logs, errors and
+          // entities must recognise it.
+          const redactor = redactorForConnections(
+            registries.map(registry => registry.connection),
+          );
 
-        for (const { connection, schedule, owner, system } of registries) {
-          const provider = new OCIRegistryEntityProvider({
+          for (const {
             connection,
-            contentTypes,
-            logger,
+            schedule,
             owner,
             system,
-            taskRunner: scheduler.createScheduledTaskRunner(schedule),
-            redactor,
-          });
-          catalog.addEntityProvider(provider);
-          logger.info(
-            `automation-content: registered provider for ${connection.name}`,
-          );
-        }
+            repositoryTags,
+          } of registries) {
+            const provider = new OCIRegistryEntityProvider({
+              connection,
+              contentTypes,
+              logger,
+              owner,
+              repositoryTags,
+              system,
+              taskRunner: scheduler.createScheduledTaskRunner(schedule),
+              redactor,
+            });
+            catalog.addEntityProvider(provider);
+            logger.info(
+              `automation-content: registered provider for ${connection.name}`,
+            );
+          }
+        });
       },
     });
   },

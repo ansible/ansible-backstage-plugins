@@ -29,6 +29,7 @@ import {
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import {
+  catalogEntityCreatePermission,
   catalogEntityDeletePermission,
   catalogEntityReadPermission,
 } from '@backstage/plugin-catalog-common/alpha';
@@ -70,6 +71,7 @@ import { ConflictError } from '@backstage/errors';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import { EEEntityProvider } from './providers/EEEntityProvider';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
+import type { EERegistrationLock } from './EERegistrationLock';
 
 /** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
 const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
@@ -122,6 +124,7 @@ export function createRouter(options: {
   auth: AuthService;
   catalogClient: CatalogClient;
   permissions: PermissionsService;
+  withEERegistrationLock: EERegistrationLock;
   ansibleGitContentsProviders?: AnsibleGitContentsProvider[];
   allowedExternalAccessSubjects?: string[];
 }): Promise<express.Router> {
@@ -138,6 +141,7 @@ export function createRouter(options: {
     auth,
     catalogClient,
     permissions,
+    withEERegistrationLock,
     ansibleGitContentsProviders = [],
     allowedExternalAccessSubjects,
   } = options;
@@ -367,15 +371,10 @@ export function createRouter(options: {
   );
 
   router.post('/ansible/ee', express.json(), async (request, response) => {
-    // Only allow backend service calls (for example, scaffolder to catalog), not user requests
-    await httpAuth.credentials(
-      // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS (e.g. `param` on Request).
-      request,
-      {
-        allow: ['service'],
-      },
-    );
+    // Registration runs on behalf of the scaffolder task initiator.
+    const credentials = await httpAuth.credentials(request as any, {
+      allow: ['user', 'service'],
+    });
 
     const { entity } = request.body;
 
@@ -384,17 +383,89 @@ export function createRouter(options: {
       return;
     }
 
-    try {
-      await eeEntityProvider.registerExecutionEnvironment(entity);
-      response.status(200).json({ success: true });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      logger.error(`Failed to register Execution Environment: ${errorMessage}`);
-      response.status(500).json({
-        error: `Failed to register Execution Environment: ${errorMessage}`,
+    if (!entity.kind || !entity.metadata?.name) {
+      response.status(400).json({
+        error: 'Entity kind and metadata.name are required.',
       });
+      return;
     }
+
+    const entityRef = stringifyEntityRef(entity);
+    const { token: callerCatalogToken } = await auth.getPluginRequestToken({
+      onBehalfOf: credentials,
+      targetPluginId: 'catalog',
+    });
+    await withEERegistrationLock(entityRef, async lock => {
+      let existingEntity = await catalogClient.getEntityByRef(entityRef, {
+        token: callerCatalogToken,
+      });
+      lock.assertLockHeld();
+      if (!existingEntity) {
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const { token: serviceCatalogToken } = await auth.getPluginRequestToken(
+          {
+            onBehalfOf: serviceCredentials,
+            targetPluginId: 'catalog',
+          },
+        );
+        existingEntity = await catalogClient.getEntityByRef(entityRef, {
+          token: serviceCatalogToken,
+        });
+        lock.assertLockHeld();
+      }
+
+      if (
+        existingEntity &&
+        (existingEntity.kind !== 'Component' ||
+          existingEntity.spec?.type !== 'execution-environment')
+      ) {
+        response.status(409).json({
+          error: 'Refusing to replace a non-execution-environment entity',
+        });
+        return;
+      }
+
+      const [decision] = existingEntity
+        ? await permissions.authorize(
+            [
+              {
+                permission: catalogEntityDeletePermission,
+                resourceRef: entityRef,
+              },
+            ],
+            { credentials },
+          )
+        : await permissions.authorize(
+            [{ permission: catalogEntityCreatePermission }],
+            { credentials },
+          );
+      lock.assertLockHeld();
+      if (decision.result !== AuthorizeResult.ALLOW) {
+        response.status(403).json({
+          error: `Forbidden: insufficient permissions to ${
+            existingEntity ? 'replace' : 'create'
+          } entity`,
+        });
+        return;
+      }
+
+      try {
+        await lock.beginMutation();
+        await eeEntityProvider.registerExecutionEnvironment(entity);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        logger.error(
+          `Failed to register Execution Environment: ${errorMessage}`,
+        );
+        response.status(500).json({
+          error: `Failed to register Execution Environment: ${errorMessage}`,
+        });
+        return;
+      }
+      lock.assertLockHeld();
+      response.status(200).json({ success: true });
+    });
   });
 
   /**
@@ -404,13 +475,9 @@ export function createRouter(options: {
    * the caller so catalog RBAC (delete permission) applies.
    */
   router.delete('/ansible/ee/:name', async (request, response) => {
-    const credentials = await httpAuth.credentials(
-      // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
-      request,
-      {
-        allow: ['user', 'service'],
-      },
-    );
+    const credentials = await httpAuth.credentials(request as any, {
+      allow: ['user', 'service'],
+    });
 
     const name = parseExecutionEnvironmentNameParam(request.params.name);
     if (!name) {
@@ -436,11 +503,24 @@ export function createRouter(options: {
       });
       const catalogOpts = { token };
 
-      const entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
+      let entity = await catalogClient.getEntityByRef(entityRef, catalogOpts);
 
       if (!entity) {
-        response.status(204).send();
-        return;
+        // Caller-scoped catalog reads can hide an existing EE. Use service
+        // credentials only to distinguish absence from invisibility; all
+        // permission checks and mutations remain caller-scoped below.
+        const serviceCredentials = await auth.getOwnServiceCredentials();
+        const { token: serviceToken } = await auth.getPluginRequestToken({
+          onBehalfOf: serviceCredentials,
+          targetPluginId: 'catalog',
+        });
+        entity = await catalogClient.getEntityByRef(entityRef, {
+          token: serviceToken,
+        });
+        if (!entity) {
+          response.status(204).send();
+          return;
+        }
       }
 
       if (
@@ -469,10 +549,32 @@ export function createRouter(options: {
         return;
       }
 
+      // Provider-managed entities are already upserted by the provider. A
+      // non-SCM recreate must leave that provider-owned catalog entry intact.
+      if (
+        request.query.skipProviderManaged === 'true' &&
+        entity.metadata?.annotations?.['ansible.io/download-experience']
+      ) {
+        response.status(200).json({ success: true, mode: 'provider' });
+        return;
+      }
+
       const location = await catalogClient.getLocationByEntity(
         entityRef,
         catalogOpts,
       );
+
+      if (
+        !location?.id &&
+        entity.metadata?.annotations?.[
+          'backstage.io/managed-by-origin-location'
+        ]
+      ) {
+        response.status(403).json({
+          error: 'Forbidden: cannot access the entity origin location',
+        });
+        return;
+      }
 
       if (location?.id) {
         // Count siblings with service credentials so catalog.entity.read

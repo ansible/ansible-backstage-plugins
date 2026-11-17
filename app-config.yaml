@@ -19,9 +19,14 @@
 app:
   title: Automation Portal
   baseUrl: http://localhost:3000
+  packages:
+    include:
+      - "@ansible/plugin-automation-content"
   extensions:
     - nav-content:app/sidebar: false
     - nav-content:app/portal: true
+    - sub-page:automation-content/images: true
+    - sub-page:portal-scaffolder/ee-definitions: true
 portal:
   navigation:
     topOffset: 64
@@ -36,7 +41,7 @@ portal:
         path: /self-service/create/tasks
         title: History
       - id: execution-environments
-        path: /self-service/ee
+        page: page:automation-content/ee
         title: Execution Environments
       - id: collections
         path: /self-service/collections
@@ -293,6 +298,7 @@ permission:
       - catalog
       - scaffolder
       - permission
+      - automation-content
     # Multi-org RBAC examples (uncomment when configuring 2+ orgs):
     # Team groups use org-scoped namespaces; org groups stay in default.
     #   g, group:engineering/deploy-team, role:default/deployer

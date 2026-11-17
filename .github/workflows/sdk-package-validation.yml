@@ -1,0 +1,65 @@
+name: SDK package validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/sdk-package-validation*.yml'
+      - 'scripts/sdk-package-validation/**'
+      - 'workspaces/portal-core/plugins/**'
+      - 'workspaces/aap/plugins/aap-app-auth/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.json'
+      - 'LICENSE'
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sdk-package-validation*.yml"
+      - "scripts/sdk-package-validation/**"
+      - "workspaces/portal-core/plugins/**"
+      - "workspaces/aap/plugins/aap-app-auth/**"
+      - "package.json"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+      - "tsconfig.json"
+      - "LICENSE"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-package-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')
+    name: Packed SDK consumer / Node ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sdk-package-validation-run.yml
+    with:
+      node-version: ${{ matrix.node }}
+      attest: false
+
+  attested-packages:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: Attested SDK candidates / Node ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/sdk-package-validation-run.yml
+    with:
+      node-version: ${{ matrix.node }}
+      attest: true

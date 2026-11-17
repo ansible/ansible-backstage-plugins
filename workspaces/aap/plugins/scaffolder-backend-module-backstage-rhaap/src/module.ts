@@ -18,6 +18,7 @@ import {
   coreServices,
   createBackendModule,
 } from '@backstage/backend-plugin-api';
+import { createCollectionsAutocompleteRouter } from '@ansible/plugin-scaffolder-backend-module-content-development/autocomplete';
 import type { ExtensionPoint } from '@backstage/backend-plugin-api';
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
@@ -27,6 +28,7 @@ import {
 } from '@backstage/plugin-scaffolder-node/alpha';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
 import { ansibleServiceRef } from '@ansible/aap-node';
+import { assertAapScaffolderModuleIsUnique } from '@ansible/backstage-rhaap-common';
 import {
   createAnsibleContentAction,
   cleanUp,
@@ -71,6 +73,8 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService: ansibleServiceRef,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
+        httpAuth: coreServices.httpAuth,
+        httpRouter: coreServices.httpRouter,
       },
       /** Register AAP resource, execution-environment and content scaffolder actions. */
       init({
@@ -82,7 +86,13 @@ export const scaffolderModuleAnsible = createBackendModule({
         ansibleService,
         auth,
         discovery,
+        httpAuth,
+        httpRouter,
       }) {
+        assertAapScaffolderModuleIsUnique(
+          scaffolder,
+          'scaffolderModuleAnsible',
+        );
         return Promise.resolve().then(() => {
           const frontendUrl = config.getString('app.baseUrl');
           scaffolder.addActions(
@@ -130,6 +140,14 @@ export const scaffolderModuleAnsible = createBackendModule({
                 discovery,
               }),
           });
+          httpRouter.use(
+            createCollectionsAutocompleteRouter({
+              auth,
+              discovery,
+              logger,
+              httpAuth,
+            }) as any,
+          );
         });
       },
     });

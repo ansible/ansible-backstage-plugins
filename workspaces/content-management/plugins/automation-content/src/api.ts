@@ -1,8 +1,19 @@
 import {
   createApiRef,
+  createApiFactory,
+  discoveryApiRef,
+  fetchApiRef,
   DiscoveryApi,
   FetchApi,
 } from '@backstage/core-plugin-api';
+import type {
+  EERepositoryDetails,
+  EERepositoryQuery,
+  EERepositoryQueryResult,
+  EERepositorySyncResult,
+  InventorySyncResult,
+  SigningObservation,
+} from '@ansible/automation-content-common/eeRepository';
 
 /** Provenance of a content inventory. Fidelity varies, so the UI must show it. */
 export interface Enumeration {
@@ -40,6 +51,7 @@ export interface ExecutionEnvironment {
   enumeration: Enumeration;
   /** When the registry this came from was last successfully read. */
   lastReconciledAt?: string;
+  signing?: SigningObservation;
   counts?: ContentCounts;
   collections: Array<{
     namespace: string;
@@ -116,6 +128,7 @@ export interface Registry {
   lastReconcileOk?: boolean;
   /** Fixed failure summary — the public listing carries no detailed cause. */
   lastReconcileError?: string;
+  lastSuccessfulReconcileAt?: string;
   namespaces?: string[];
   repositories?: string[];
   capabilities?: RegistryCapabilities;
@@ -143,6 +156,16 @@ export interface Classification {
 
 export interface AutomationContentApi {
   listRegistries(): Promise<Registry[]>;
+  getRegistryStatus(): Promise<RegistryStatus>;
+  queryEERepositories(
+    query: EERepositoryQuery,
+  ): Promise<EERepositoryQueryResult>;
+  getEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<EERepositoryDetails>;
+  getEEArtifact(ref: string): Promise<ExecutionEnvironment>;
+  getEEArtifactContents(ref: string): Promise<ArtifactContents>;
   listExecutionEnvironments(): Promise<ExecutionEnvironment[]>;
   getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment>;
   getContents(
@@ -159,21 +182,47 @@ export interface AutomationContentApi {
     limit?: number;
   }): Promise<{ totalItems: number; items: ContentItemSummary[] }>;
   getContentItem(fqcn: string, inArtifact?: string): Promise<ContentItem>;
-  /** Re-read every registry and rebuild the index. */
-  syncAll(): Promise<SyncResult>;
+  /** Schedule an index refresh. */
+  syncAll(): Promise<InventorySyncResult>;
+  syncRegistry(name: string): Promise<RegistrySyncResult>;
+  syncEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<EERepositorySyncResult>;
 }
 
-export interface SyncResult {
-  status: 'completed' | 'partial';
-  durationMs: number;
-  refreshedAt?: string;
-  registries: Array<{
-    registry: string;
-    ok: boolean;
-    discovered: number;
-    error?: string;
-  }>;
-  cache?: { hits: number; misses: number; entries: number; bytes: number };
+export interface RegistrySyncResult {
+  status: 'completed' | 'failed';
+  discovered: number;
+}
+
+export const registrySyncEvents = new EventTarget();
+
+export interface RegistryStatus {
+  items: Registry[];
+  manualSyncEnabled?: boolean;
+}
+
+export class ContentApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retainedPrevious?: boolean,
+    readonly lastSuccessfulReconcileAt?: string,
+    readonly code?: string,
+  ) {
+    super(`Content API request failed: ${status}`);
+    this.name = 'ContentApiError';
+  }
+}
+
+export class IncompleteEEListError extends Error {
+  constructor(
+    readonly items: ExecutionEnvironment[],
+    cause: unknown,
+  ) {
+    super('Some execution environments could not be loaded.', { cause });
+    this.name = 'IncompleteEEListError';
+  }
 }
 
 export const automationContentApiRef = createApiRef<AutomationContentApi>({
@@ -195,49 +244,130 @@ export class AutomationContentClient implements AutomationContentApi {
     },
   ) {}
 
-  private async baseUrl(): Promise<string> {
+  private baseUrl(): Promise<string> {
     return this.options.discoveryApi.getBaseUrl('automation-content');
   }
 
-  private async post<T>(path: string): Promise<T> {
+  private async post<T>(path: string, body?: object): Promise<T> {
     const base = await this.baseUrl();
     const res = await this.options.fetchApi.fetch(`${base}${path}`, {
       method: 'POST',
+      ...(body === undefined
+        ? {}
+        : {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }),
     });
-    if (!res.ok && res.status !== 207) {
-      throw new Error(
-        `Content API request failed: ${res.status} ${res.statusText}`,
-      );
+    if (!res.ok) {
+      if (
+        path === '/execution-environment-repositories/sync' ||
+        /^\/registries\/[^/]+\/sync\?wait=true$/.test(path)
+      ) {
+        const data: unknown = await res.json().catch(() => undefined);
+        if (typeof data === 'object' && data !== null) {
+          throw new ContentApiError(
+            res.status,
+            'retainedPrevious' in data &&
+            typeof data.retainedPrevious === 'boolean'
+              ? data.retainedPrevious
+              : undefined,
+            'lastSuccessfulReconcileAt' in data &&
+            typeof data.lastSuccessfulReconcileAt === 'string'
+              ? data.lastSuccessfulReconcileAt
+              : undefined,
+            'code' in data && typeof data.code === 'string'
+              ? data.code
+              : undefined,
+          );
+        }
+      }
+      throw new ContentApiError(res.status);
     }
     return (await res.json()) as T;
   }
 
-  async syncAll(): Promise<SyncResult> {
+  async syncAll(): Promise<InventorySyncResult> {
     return this.post('/sync');
+  }
+
+  async syncRegistry(name: string): Promise<RegistrySyncResult> {
+    return this.post(`/registries/${encodeURIComponent(name)}/sync?wait=true`);
+  }
+
+  async syncEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<EERepositorySyncResult> {
+    return this.post('/execution-environment-repositories/sync', {
+      registry,
+      repository,
+    });
   }
 
   private async get<T>(path: string): Promise<T> {
     const base = await this.baseUrl();
     const res = await this.options.fetchApi.fetch(`${base}${path}`);
-    if (!res.ok) {
-      throw new Error(
-        `Content API request failed: ${res.status} ${res.statusText}`,
-      );
-    }
+    if (!res.ok) throw new ContentApiError(res.status);
     return (await res.json()) as T;
   }
 
   async listRegistries(): Promise<Registry[]> {
-    const { items } = await this.get<{ items: Registry[] }>('/registries');
+    const { items } = await this.getRegistryStatus();
     return items;
   }
 
-  async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
-    const { items } = await this.get<{ items: ExecutionEnvironment[] }>(
-      // '/content?type=execution-environment',
-      '/content',
+  async getRegistryStatus(): Promise<RegistryStatus> {
+    return this.get('/registries');
+  }
+
+  async queryEERepositories(
+    query: EERepositoryQuery,
+  ): Promise<EERepositoryQueryResult> {
+    return this.post('/execution-environment-repositories/query', query);
+  }
+
+  async getEERepository(
+    registry: string,
+    repository: string,
+  ): Promise<EERepositoryDetails> {
+    return this.get(
+      `/execution-environment-repositories/by-name/${encodeURIComponent(
+        registry,
+      )}/${encodeURIComponent(repository)}`,
     );
-    return items;
+  }
+
+  async getEEArtifact(ref: string): Promise<ExecutionEnvironment> {
+    return this.get(`/execution-environments/${encodeURIComponent(ref)}`);
+  }
+
+  async getEEArtifactContents(ref: string): Promise<ArtifactContents> {
+    return this.get(
+      `/execution-environments/${encodeURIComponent(ref)}/contents`,
+    );
+  }
+
+  async listExecutionEnvironments(): Promise<ExecutionEnvironment[]> {
+    const environments: ExecutionEnvironment[] = [];
+    try {
+      for (let page = 1; ; page++) {
+        const { items, next } = await this.get<{
+          items: ExecutionEnvironment[];
+          next: string | null;
+        }>(`/execution-environments?per_page=50&page=${page}`);
+        environments.push(...items);
+        if (!next) return environments;
+      }
+    } catch (error) {
+      const accessDenied =
+        error instanceof ContentApiError &&
+        (error.status === 401 || error.status === 403);
+      if (environments.length && !accessDenied) {
+        throw new IncompleteEEListError(environments, error);
+      }
+      throw error;
+    }
   }
 
   async getExecutionEnvironment(ref: string): Promise<ExecutionEnvironment> {
@@ -301,3 +431,10 @@ export class AutomationContentClient implements AutomationContentApi {
     return body;
   }
 }
+
+export const automationContentApiFactory = createApiFactory({
+  api: automationContentApiRef,
+  deps: { discoveryApi: discoveryApiRef, fetchApi: fetchApiRef },
+  factory: ({ discoveryApi, fetchApi }) =>
+    new AutomationContentClient({ discoveryApi, fetchApi }),
+});
