@@ -1,3 +1,9 @@
+import { usePermission } from '@backstage/plugin-permission-react';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
 import { ReactNode } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
@@ -56,11 +62,44 @@ const entityNoScm: Entity = {
 
 describe('useEEBuildFlow', () => {
   beforeEach(() => {
+    jest
+      .mocked(usePermission)
+      .mockReturnValue({ allowed: true, loading: false });
     jest.clearAllMocks();
     sessionStorage.clear();
     notificationStore.clearAll();
     mockGetCredentials.mockResolvedValue({ token: 't', headers: {} });
   });
+
+  it.each([
+    { allowed: false, loading: false },
+    { allowed: false, loading: true },
+    {
+      allowed: false,
+      loading: false,
+      error: new Error('permission unavailable'),
+    },
+  ])(
+    'does not start or resume builds when permission is unavailable: %j',
+    async decision => {
+      jest.mocked(usePermission).mockReturnValue(decision);
+      sessionStorage.setItem(
+        EE_BUILD_PENDING_SESSION_KEY,
+        JSON.stringify({
+          entityRef: 'component:default/my-ee',
+          savedAt: Date.now(),
+        }),
+      );
+      const { result } = renderHook(() => useEEBuildFlow(), { wrapper });
+      await act(async () => {
+        await result.current.startBuildFlow(entityWithGithub);
+      });
+      expect(result.current.canBuild).toBe(false);
+      expect(result.current.dialogOpen).toBe(false);
+      expect(mockGetCredentials).not.toHaveBeenCalled();
+      expect(mockGetEntityByRef).not.toHaveBeenCalled();
+    },
+  );
 
   it('shows notification and skips SCM auth when entity has no Git source', async () => {
     const showSpy = jest.spyOn(notificationStore, 'showNotification');

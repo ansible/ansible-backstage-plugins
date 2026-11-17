@@ -200,29 +200,10 @@ export type User = {
   is_orguser?: boolean;
 };
 
-/**
- * @deprecated PAH transitional type — will move to the content workspace when
- * PAH methods are stripped from IAAPService.
- */
-export type SourceVersionDetail = {
-  source?: string;
-  ref: string;
-  version: string | null;
-  label: string;
-  name?: string;
-};
-
-/**
- * @deprecated PAH transitional type — will move to the content workspace when
- * PAH methods are stripped from IAAPService.
- */
-export type Collections = {
-  name: string;
-  id?: number;
-  versions?: SourceVersionDetail[];
-  sources?: string[];
-  sourceVersions?: Record<string, string[]>;
-};
+export type {
+  SourceVersionDetail,
+  Collections,
+} from '@ansible/content-development-common';
 
 export type Users = User[];
 

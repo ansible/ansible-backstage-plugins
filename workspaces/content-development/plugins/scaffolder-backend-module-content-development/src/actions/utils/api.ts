@@ -112,6 +112,7 @@ export class BackendServiceAPI {
       });
       return response;
     } catch (error) {
+      controller.abort();
       clearTimeout(timeout);
       signal?.removeEventListener('abort', onExternalAbort);
       throw error;

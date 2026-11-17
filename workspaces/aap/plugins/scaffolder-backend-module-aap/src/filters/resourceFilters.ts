@@ -4,11 +4,11 @@ export const resourceFilter = (...args: JsonValue[]) => {
   if (!args?.length) {
     return null;
   }
-  const key = args[1] ?? 'id';
-  // @ts-ignore
-  const value = args[0]?.[key];
-  // @ts-ignore
-  if (args.length && value !== null && value !== undefined) {
+  const key = String(args[1] ?? 'id');
+  const value = (args[0] as Record<string, JsonValue> | null | undefined)?.[
+    key
+  ];
+  if (value !== undefined && value !== null) {
     return value;
   }
   return null;

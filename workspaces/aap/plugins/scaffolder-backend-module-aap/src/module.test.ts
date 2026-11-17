@@ -1,9 +1,8 @@
-import { scaffolderModuleAap } from './module';
-import { assertAapScaffolderModuleIsUnique } from '@ansible/backstage-rhaap-common';
+import { scaffolderModuleAap as moduleImplementation } from './module';
+import defaultModule, { scaffolderModuleAap } from './index';
 
 jest.mock('@ansible/backstage-rhaap-common', () => ({
   ansibleServiceRef: Symbol('ansibleServiceRef'),
-  assertAapScaffolderModuleIsUnique: jest.fn(),
 }));
 
 import {
@@ -31,6 +30,11 @@ const config = {
 } as any;
 
 describe('scaffolderModuleAap', () => {
+  it('exports the module by name and as the default export', () => {
+    expect(scaffolderModuleAap).toBe(moduleImplementation);
+    expect(defaultModule).toBe(moduleImplementation);
+  });
+
   it('registers its actions, filters, and autocomplete provider', async () => {
     const env: any = {
       scaffolder: { addActions: jest.fn() },
@@ -52,10 +56,6 @@ describe('scaffolderModuleAap', () => {
     for (const registration of registrations) {
       await registration.init.func(env);
     }
-    expect(assertAapScaffolderModuleIsUnique).toHaveBeenCalledWith(
-      env.scaffolder,
-      'scaffolderModuleAap',
-    );
 
     const actions = env.scaffolder.addActions.mock.calls[0];
     expect(actions.map((action: any) => action.id)).toEqual([

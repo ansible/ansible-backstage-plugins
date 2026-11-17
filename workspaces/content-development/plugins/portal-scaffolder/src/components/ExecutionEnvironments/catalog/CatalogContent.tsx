@@ -332,6 +332,7 @@ export const EEListPage = ({
   );
   const {
     startBuildFlow,
+    canBuild,
     authBusy,
     dialogOpen,
     buildEntity,
@@ -647,7 +648,7 @@ export const EEListPage = ({
                         </MenuItem>,
                       ]
                     : [
-                        ...(isEntityBuildable(actionsMenuEntity)
+                        ...(canBuild && isEntityBuildable(actionsMenuEntity)
                           ? [
                               <MenuItem
                                 key="build"

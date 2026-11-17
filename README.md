@@ -294,7 +294,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/backstage-rhaap-common`](./docs/plugins/backstage-rhaap-common.md): AAP/SCM clients, service contracts, types, and permissions.
 - [`@ansible/backstage-plugin-catalog-backend-module-rhaap`](./docs/plugins/catalog.md): AAP resource and content synchronization.
 - [`@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner`](./docs/plugins/catalog-user-provisioner.md): on-demand catalog user provisioning.
-- [`@ansible/plugin-scaffolder-backend-module-backstage-rhaap`](./docs/plugins/scaffolder.md): AAP scaffolder actions.
+- [Scaffolder backend modules](./docs/plugins/scaffolder.md): separate AAP and portal-scaffolder actions and autocomplete providers.
 
 ### Self-service
 

@@ -1,3 +1,9 @@
+import { usePermission } from '@backstage/plugin-permission-react';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { TestApiProvider } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
@@ -395,6 +401,9 @@ const renderWithCatalogApi = async (
 // ------------------ Tests ------------------
 describe('EEListPage', () => {
   beforeEach(() => {
+    jest
+      .mocked(usePermission)
+      .mockReturnValue({ allowed: true, loading: false });
     jest.clearAllMocks();
     mockNavigate.mockClear();
     sessionStorage.clear();
@@ -997,6 +1006,23 @@ describe('EEListPage', () => {
       }
 
       windowOpenSpy.mockRestore();
+    });
+
+    test('hides Build from view-only users on a buildable EE', async () => {
+      jest
+        .mocked(usePermission)
+        .mockReturnValue({ allowed: false, loading: false });
+      await renderWithCatalogApi(() =>
+        Promise.resolve({ items: [entityGitHubPublished] }),
+      );
+      await screen.findByTestId('stubbed-table-title');
+      fireEvent.click(screen.getByRole('button', { name: /actions/i }));
+      expect(
+        screen.getByRole('menuitem', { name: /edit/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('menuitem', { name: /^build$/i }),
+      ).not.toBeInTheDocument();
     });
 
     test('shows Build, Edit, View, Delete when download-experience is false and EE is on GitHub', async () => {

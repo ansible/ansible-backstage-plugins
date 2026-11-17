@@ -156,6 +156,14 @@ describe('parseUploadedFileContent', () => {
     }).toThrow('Invalid data URL format for the file uploaded');
   });
 
+  it('should reject data URLs with repeated base64 delimiters and line breaks', () => {
+    const invalidDataUrl = 'data:text/plain;base64,SGVsbG8=;base64,SGVsbG8=\n';
+
+    expect(() => parseUploadedFileContent(invalidDataUrl)).toThrow(
+      'Invalid data URL format for the file uploaded',
+    );
+  });
+
   it('should return empty string for data URL with empty base64 data', () => {
     const invalidDataUrl = 'data:text/plain;base64,';
 
@@ -164,16 +172,14 @@ describe('parseUploadedFileContent', () => {
     expect(result).toBe('');
   });
 
-  it('should decode invalid base64 data without throwing (Buffer.from behavior)', () => {
-    // Invalid base64 characters - Buffer.from doesn't throw, it decodes what it can
-    const invalidDataUrl = 'data:text/plain;base64,!!!invalid!!!';
-
-    const result = parseUploadedFileContent(invalidDataUrl);
-
-    // Buffer.from will decode invalid base64 without throwing
-    // The result will be decoded bytes (may be garbage)
-    expect(typeof result).toBe('string');
-  });
+  it.each(['SGVsbG8!', 'SGVsbG8===', 'A'])(
+    'should reject malformed base64 payload %s',
+    payload => {
+      expect(() =>
+        parseUploadedFileContent(`data:text/plain;base64,${payload}`),
+      ).toThrow('Invalid base64 data in uploaded file');
+    },
+  );
 
   it('should handle data URL with charset parameter', () => {
     const content = 'Hello, World!';

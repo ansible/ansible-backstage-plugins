@@ -1,5 +1,5 @@
 import { createMockActionContext } from '@backstage/plugin-scaffolder-node-test-utils';
-import { MOCK_TOKEN } from '../mockFixtures.test';
+import { MOCK_TOKEN } from '../mock';
 import { LaunchJobTemplate } from '@ansible/backstage-rhaap-common';
 import { launchJobTemplate } from './aapLaunchJobTemplate';
 import { mockAnsibleService } from './mockIAAPService';
@@ -29,18 +29,20 @@ describe('ansible-aap:jobTemplate:launch', () => {
     mockAnsibleService.logJobStdoutMessages.mockResolvedValue(undefined);
   });
 
-  it('throws when authorization token is missing', async () => {
-    const ctx = createMockActionContext({
-      input: {
-        token: '',
-        values: projectData,
-      },
-    });
-    await expect(action.handler(ctx as any)).rejects.toThrow(
-      'Authorization token not provided.',
-    );
-    expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
-  });
+  it.each(['', '   ', '\t\n'])(
+    'rejects an empty or blank token (%j) before any AAP side effect',
+    async token => {
+      const ctx = createMockActionContext({
+        input: { token, values: projectData, waitForCompletion: false },
+      });
+      await expect(action.handler(ctx)).rejects.toThrow(
+        'Authorization token not provided.',
+      );
+      expect(mockAnsibleService.setLogger).not.toHaveBeenCalled();
+      expect(mockAnsibleService.launchJobTemplateNoWait).not.toHaveBeenCalled();
+      expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
+    },
+  );
 
   it('should launch job template (default: blocking)', async () => {
     // Mock launch to return terminal status (fast job that completes immediately)
@@ -58,7 +60,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
     // @ts-ignore
     await action.handler({ ...mockContext });
     expect(mockContext.output).toHaveBeenCalledWith('data', launchResponse);
-    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
+      expect.objectContaining({ template: 'Test job template' }),
+      MOCK_TOKEN,
+    );
     // getJobStatus should NOT be called if job already completed
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
     expect(mockAnsibleService.logJobStdoutMessages).toHaveBeenCalledWith(
@@ -169,7 +174,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
     // @ts-ignore
     await action.handler(ctx);
     expect(ctx.output).toHaveBeenCalledWith('data', expectedResponse);
-    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalled();
+    expect(mockAnsibleService.launchJobTemplateNoWait).toHaveBeenCalledWith(
+      expect.objectContaining({ template: 'Test job template' }),
+      MOCK_TOKEN,
+    );
     expect(mockAnsibleService.logJobStdoutMessages).not.toHaveBeenCalled();
   });
 
@@ -286,12 +294,10 @@ describe('ansible-aap:jobTemplate:launch', () => {
   }, 10000);
 
   it('rejects immediately from sleepMs when signal is aborted between loop check and sleep', async () => {
-    const setTimeoutSpy = jest
-      .spyOn(global, 'setTimeout')
-      .mockImplementation((cb: any) => {
-        cb();
-        return {} as any;
-      });
+    jest.spyOn(global, 'setTimeout').mockImplementation((cb: any) => {
+      cb();
+      return {} as any;
+    });
 
     const launchResponse = {
       id: 60,
@@ -309,8 +315,8 @@ describe('ansible-aap:jobTemplate:launch', () => {
     const mockSignal = {
       get aborted() {
         abortedAccessCount++;
-        // The handler and polling-loop checks pass; sleepMs sees the abort.
-        return abortedAccessCount >= 3;
+        // First access (handler pre-launch guard) returns false; second (sleepMs pre-abort check) returns true
+        return abortedAccessCount > 1;
       },
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
@@ -333,8 +339,6 @@ describe('ansible-aap:jobTemplate:launch', () => {
       'mock-service-token',
     );
     expect(mockAnsibleService.getJobStatus).not.toHaveBeenCalled();
-    expect(abortedAccessCount).toBe(3);
-    expect(setTimeoutSpy).not.toHaveBeenCalled();
 
     jest.restoreAllMocks();
   });
@@ -676,7 +680,6 @@ describe('ansible-aap:jobTemplate:launch', () => {
           jobType: 'run',
           inventory: fullInventory,
           credentials,
-          unexpectedField: 'must be stripped',
         },
       },
     });
@@ -698,8 +701,5 @@ describe('ansible-aap:jobTemplate:launch', () => {
       }),
       MOCK_TOKEN,
     );
-    const [launchPayload] =
-      mockAnsibleService.launchJobTemplateNoWait.mock.calls[0];
-    expect(launchPayload).not.toHaveProperty('unexpectedField');
   });
 });

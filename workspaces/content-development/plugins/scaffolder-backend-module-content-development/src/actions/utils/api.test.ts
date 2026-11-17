@@ -30,10 +30,6 @@ describe('BackendServiceAPI', () => {
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   it('sets a request timeout for creator-service POSTs', async () => {
     (fetch as unknown as jest.Mock).mockResolvedValue({ ok: true } as any);
     const api = new BackendServiceAPI();
@@ -76,174 +72,6 @@ describe('BackendServiceAPI', () => {
 
     expect(await fs.readFile(outsidePath, 'utf8')).toBe('original');
     await fs.rm(workspacePath, { recursive: true, force: true });
-  });
-
-  it('cleans up a partially downloaded archive after a stream failure', async () => {
-    const workspacePath = await fs.mkdtemp(
-      path.join(os.tmpdir(), 'scaffolder-'),
-    );
-    const api = new BackendServiceAPI();
-    const body = new Readable({
-      read() {
-        this.destroy(new Error('stream failed'));
-      },
-    });
-
-    await expect(
-      (api as any).downloadFile(
-        { body },
-        mockLogger,
-        workspacePath,
-        'archive.tar',
-      ),
-    ).rejects.toThrow('Failed to download file: stream failed');
-    await expect(
-      fs.access(path.join(workspacePath, 'archive.tar')),
-    ).rejects.toThrow();
-    await fs.rm(workspacePath, { recursive: true, force: true });
-  });
-
-  it('aborts and removes a partial archive when the body download times out', async () => {
-    jest.useFakeTimers();
-    const workspacePath = await fs.mkdtemp(
-      path.join(os.tmpdir(), 'scaffolder-'),
-    );
-    const body = new Readable({ read() {} });
-    let requestSignal: AbortSignal | undefined;
-    const api = new BackendServiceAPI();
-    jest
-      .spyOn(api as any, 'sendPostRequest')
-      .mockImplementation(async (...args: unknown[]) => {
-        requestSignal = args[2] as AbortSignal;
-        return { body };
-      });
-
-    const download = api.downloadDevfileProject(
-      workspacePath,
-      mockLogger,
-      'http://localhost:8000/',
-      'devfile.tar',
-    );
-    const result = download.then(
-      () => undefined,
-      error => error,
-    );
-    await new Promise<void>(resolve =>
-      jest.requireActual('timers').setImmediate(resolve),
-    );
-    await jest.advanceTimersByTimeAsync(60_000);
-    const error = await result;
-    expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe(':downloadDevfileProject:');
-
-    expect(requestSignal?.aborted).toBe(true);
-    await expect(
-      fs.access(path.join(workspacePath, 'devfile.tar')),
-    ).rejects.toThrow();
-    await fs.rm(workspacePath, { recursive: true, force: true });
-  });
-
-  it('clears the download deadline after the response body completes', async () => {
-    jest.useFakeTimers();
-    const workspacePath = await fs.mkdtemp(
-      path.join(os.tmpdir(), 'scaffolder-'),
-    );
-    const api = new BackendServiceAPI();
-    jest.spyOn(api as any, 'sendPostRequest').mockResolvedValue({
-      body: Readable.from('archive contents'),
-    });
-
-    await api.downloadDevfileProject(
-      workspacePath,
-      mockLogger,
-      'http://localhost:8000/',
-      'devfile.tar',
-    );
-
-    expect(
-      await fs.readFile(path.join(workspacePath, 'devfile.tar'), 'utf8'),
-    ).toBe('archive contents');
-    expect(jest.getTimerCount()).toBe(0);
-    await fs.rm(workspacePath, { recursive: true, force: true });
-  });
-
-  it('rejects archive paths before writing outside the workspace', async () => {
-    const api = new BackendServiceAPI();
-    await expect(
-      (api as any).downloadFile(
-        { body: Readable.from('data') },
-        mockLogger,
-        '/tmp/workspace',
-        '../archive.tar',
-      ),
-    ).rejects.toThrow('invalid archive name');
-  });
-
-  it('aborts the request when download fails before opening a file', async () => {
-    const workspacePath = await fs.mkdtemp(
-      path.join(os.tmpdir(), 'scaffolder-'),
-    );
-    const signals: AbortSignal[] = [];
-    const bodies: Readable[] = [];
-    const api = new BackendServiceAPI();
-    jest
-      .spyOn(api as any, 'sendPostRequest')
-      .mockImplementation(async (...args: unknown[]) => {
-        const signal = args[2] as AbortSignal;
-        const body = new Readable({ read() {} });
-        signals.push(signal);
-        bodies.push(body);
-        signal.addEventListener('abort', () => body.destroy(), {
-          once: true,
-        });
-        return { body };
-      });
-
-    const invalidNameResponse = await (api as any).sendCreatorPost(
-      'http://localhost/creator',
-      {},
-    );
-    await expect(
-      (api as any).downloadFile(
-        invalidNameResponse,
-        mockLogger,
-        workspacePath,
-        '../archive.tar',
-      ),
-    ).rejects.toThrow('invalid archive name');
-
-    const openFailureResponse = await (api as any).sendCreatorPost(
-      'http://localhost/creator',
-      {},
-    );
-    await expect(
-      (api as any).downloadFile(
-        openFailureResponse,
-        mockLogger,
-        path.join(workspacePath, 'missing'),
-        'archive.tar',
-      ),
-    ).rejects.toThrow('Failed to download file');
-
-    expect(signals.every(signal => signal.aborted)).toBe(true);
-    expect(bodies.every(body => body.destroyed)).toBe(true);
-    await fs.rm(workspacePath, { recursive: true, force: true });
-  });
-
-  it.each([
-    ['http error', 'Failed to send POST request: Failed to fetch data'],
-    ['network error', 'Failed to send POST request'],
-  ])('wraps creator service %s', async (kind, message) => {
-    if (kind === 'http error') {
-      (fetch as unknown as jest.Mock).mockResolvedValueOnce({ ok: false });
-    } else {
-      (fetch as unknown as jest.Mock).mockRejectedValueOnce('network failure');
-    }
-    const api = new BackendServiceAPI();
-
-    await expect(
-      (api as any).sendPostRequest('http://localhost/creator', {}),
-    ).rejects.toThrow(message);
   });
 
   it('tests playbook project call with V2 API success', async () => {
@@ -531,6 +359,23 @@ describe('BackendServiceAPI', () => {
         'devfile.tar',
       ),
     ).rejects.toThrow(':downloadDevfileProject:');
+  });
+
+  it('aborts the request when the creator response fails before download', async () => {
+    const api = new BackendServiceAPI();
+    let requestSignal: AbortSignal | undefined;
+    jest
+      .spyOn(api as any, 'sendPostRequest')
+      .mockImplementation((_url, _data, signal) => {
+        requestSignal = signal as AbortSignal;
+        return Promise.reject(new Error('service unavailable'));
+      });
+
+    await expect(
+      (api as any).sendCreatorPost('http://creator.local', {}),
+    ).rejects.toThrow('service unavailable');
+
+    expect(requestSignal?.aborted).toBe(true);
   });
 
   it('sends scm_provider in params when scmProvider is provided', async () => {

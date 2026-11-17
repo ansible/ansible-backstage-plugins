@@ -25,7 +25,7 @@ import {
 } from './types';
 import { generateReadme } from './templates/readmeTemplate';
 import { generateEETemplate } from './templates/eeTemplate';
-import { eeDefinitionInputSchema } from '@ansible/portal-scaffolder-common';
+import { eeDefinitionInputSchema } from './schemas/eeDefinitionSchema';
 import type { ZodType } from 'zod';
 
 const eeInputSchema: ZodType = eeDefinitionInputSchema;
@@ -257,8 +257,6 @@ export function createEEDefinitionAction(options: {
         const mergedValues = {
           ...values,
           eeFileName,
-          // Keep generated artifacts aligned with the resolved image used by
-          // the build, even if a stale custom image remains in the inputs.
           baseImage,
           customBaseImage:
             values.baseImage === 'custom' || !values.baseImage
@@ -642,6 +640,24 @@ function transformScmCollections(
     const canonicalName = parts[1];
     const org = parts[2];
     const repo = parts[3];
+    const namespaceSegments = org.split('/');
+    if (
+      namespaceSegments.some(
+        segment =>
+          segment === '.' ||
+          segment === '..' ||
+          !/^[A-Za-z0-9._-]+$/.test(segment),
+      )
+    ) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection namespace "${org}" in source "${source}": expected valid path segments`,
+      );
+    }
+    if (repo === '.' || repo === '..' || !/^[A-Za-z0-9._-]+$/.test(repo)) {
+      throw new Error(
+        `[ansible:create:ee-definition] Invalid SCM collection repository "${repo}" in source "${source}": expected one valid path segment`,
+      );
+    }
 
     const host = lookupScmHostFromConfig(
       config,
@@ -667,7 +683,7 @@ function transformScmCollections(
       type: 'git',
     };
     if (c.version) {
-      // The UI appends display metadata after " / "; preserve slashes in refs.
+      // The UI appends display metadata with " / "; preserve slashes inside refs.
       col.version = c.version.split(' / ')[0].trim();
     }
     return col;
