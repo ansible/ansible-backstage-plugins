@@ -600,7 +600,11 @@ export const generateTemplate = (options: {
           type: 'object',
           required: [AAP_TOKEN_SECRET_NAME],
           properties: {
-            [AAP_TOKEN_SECRET_NAME]: { type: 'string', minLength: 1 },
+            [AAP_TOKEN_SECRET_NAME]: {
+              type: 'string',
+              minLength: 1,
+              pattern: String.raw`^[\s\S]*\S[\s\S]*$`,
+            },
           },
         },
       },
