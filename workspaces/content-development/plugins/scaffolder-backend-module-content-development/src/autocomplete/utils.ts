@@ -2,12 +2,14 @@ import type {
   Collections,
   SourceVersionDetail,
 } from '@ansible/content-development-common';
+import { createHash } from 'node:crypto';
 import {
   AuthService,
   BackstageCredentials,
   DiscoveryService,
   LoggerService,
 } from '@backstage/backend-plugin-api';
+import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 
 const COLLECTIONS_CACHE_TTL_MS = 60_000;
 const MAX_COLLECTIONS_CACHE_ENTRIES = 100;
@@ -190,11 +192,40 @@ export async function getCollections(options: {
   discovery: DiscoveryService;
   logger: LoggerService;
   callerCredentials: BackstageCredentials;
+  identityToken?: string;
   searchQuery?: string;
 }): Promise<{ results: Collections[] }> {
-  const { auth, discovery, logger, callerCredentials, searchQuery } = options;
+  const {
+    auth,
+    discovery,
+    logger,
+    callerCredentials,
+    identityToken,
+    searchQuery,
+  } = options;
+  if (!identityToken) {
+    throw new AuthenticationError(
+      'Authenticated user credentials are required for collection autocomplete',
+    );
+  }
+
+  const authenticatedCredentials = await auth.authenticate(identityToken);
+  if (
+    !auth.isPrincipal(callerCredentials, 'user') ||
+    !auth.isPrincipal(authenticatedCredentials, 'user') ||
+    authenticatedCredentials.principal.userEntityRef !==
+      callerCredentials.principal.userEntityRef
+  ) {
+    throw new NotAllowedError(
+      'Only the authenticated user can request collection autocomplete',
+    );
+  }
+
   const filter = buildCatalogFilter(searchQuery);
-  const cacheKey = JSON.stringify([callerCredentials.principal, filter]);
+  const visibilityKey = createHash('sha256')
+    .update(identityToken)
+    .digest('hex');
+  const cacheKey = JSON.stringify([visibilityKey, filter]);
   const now = Date.now();
   for (const [key, entry] of collectionsCache) {
     if (now - entry.timestamp >= COLLECTIONS_CACHE_TTL_MS) {

@@ -20,5 +20,6 @@ export function handleCollectionsAutocompleteRequest(options: {
     logger: options.logger,
     callerCredentials: options.callerCredentials,
     searchQuery: options.context?.searchQuery,
+    identityToken: options.context?.backstageIdentityToken,
   });
 }

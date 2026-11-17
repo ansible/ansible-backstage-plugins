@@ -5,6 +5,10 @@ describe('collections autocomplete route', () => {
     principal: { type: 'user', userEntityRef: 'user:default/alice' },
   } as any;
   const auth = {
+    authenticate: jest.fn().mockResolvedValue(credentials),
+    isPrincipal: jest.fn(
+      (candidate: any, type: string) => candidate.principal.type === type,
+    ),
     getPluginRequestToken: jest
       .fn()
       .mockResolvedValue({ token: 'catalog-token' }),
@@ -49,7 +53,15 @@ describe('collections autocomplete route', () => {
     const handler = (router as any).stack[0].route.stack[0].handle;
     const response = { json: jest.fn() };
     const next = jest.fn();
-    await handler({ method: 'GET', query: {} }, response, next);
+    await handler(
+      {
+        method: 'GET',
+        query: {},
+        get: jest.fn().mockReturnValue('Bearer alice'),
+      },
+      response,
+      next,
+    );
 
     expect(
       response.json.mock.calls[0][0].results.map(

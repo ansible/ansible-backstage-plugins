@@ -19,11 +19,15 @@ export function createCollectionsAutocompleteRouter(options: {
       const credentials = await options.httpAuth.credentials(request as any, {
         allow: ['user'],
       });
+      const identityToken = request
+        .get('authorization')
+        ?.match(/^Bearer\s+(\S+)$/i)?.[1];
       const result = await getCollections({
         auth: options.auth,
         discovery: options.discovery,
         logger: options.logger,
         callerCredentials: credentials,
+        identityToken,
         searchQuery:
           typeof request.query.searchQuery === 'string'
             ? request.query.searchQuery

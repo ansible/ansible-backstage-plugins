@@ -967,6 +967,27 @@ describe('createRouter', () => {
       return testApp;
     }
 
+    function createDeleteLock(
+      registrationState: 'none' | 'pending' | 'registered',
+      events: string[] = [],
+    ): EERegistrationLock {
+      return async (_entityRef, operation) =>
+        operation({
+          assertLockHeld: () => {},
+          beginMutation: async () => {
+            events.push('beginMutation');
+          },
+          beginRegistrationMutation: async () => {
+            events.push('beginRegistrationMutation');
+          },
+          completeRegistration: async () => {},
+          clearRegistration: async () => {
+            events.push('clearRegistration');
+          },
+          registrationState,
+        });
+    }
+
     const eeEntity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -994,6 +1015,56 @@ describe('createRouter', () => {
       expect(
         mockEEEntityProvider.unregisterExecutionEnvironment,
       ).not.toHaveBeenCalled();
+    });
+
+    it('requires delete permission for a tracked entity absent from catalog reads', async () => {
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+      mockPermissions.authorize.mockResolvedValueOnce([
+        { result: AuthorizeResult.DENY },
+      ] as any);
+      const testApp = await createDeleteTestApp(createDeleteLock('registered'));
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(403);
+
+      expect(mockPermissions.authorize).toHaveBeenCalledWith(
+        [
+          {
+            permission: catalogEntityDeletePermission,
+            resourceRef: 'component:default/ee1',
+          },
+        ],
+        { credentials: userCredentials },
+      );
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('unregisters a tracked entity absent from catalog after delete authorization', async () => {
+      const events: string[] = [];
+      mockCatalogClient.getEntityByRef
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined);
+      mockPermissions.authorize.mockImplementationOnce(async () => {
+        events.push('authorize');
+        return [{ result: AuthorizeResult.ALLOW }] as any;
+      });
+      const testApp = await createDeleteTestApp(
+        createDeleteLock('pending', events),
+      );
+
+      await request(testApp).delete('/ansible/ee/ee1').expect(200);
+
+      expect(
+        mockEEEntityProvider.unregisterExecutionEnvironment,
+      ).toHaveBeenCalledWith('ee1');
+      expect(events).toEqual([
+        'authorize',
+        'beginRegistrationMutation',
+        'clearRegistration',
+      ]);
     });
 
     it('uses service credentials only to detect a hidden entity before caller delete authorization', async () => {

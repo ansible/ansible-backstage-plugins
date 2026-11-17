@@ -1,3 +1,4 @@
+import { AuthenticationError, NotAllowedError } from '@backstage/errors';
 import {
   buildCollectionsFromCatalogEntities,
   clearCollectionsCache,
@@ -6,7 +7,17 @@ import {
 
 describe('getCollections catalog filters', () => {
   const auth = {
-    getOwnServiceCredentials: jest.fn().mockResolvedValue({}),
+    authenticate: jest
+      .fn()
+      .mockImplementation(async (identityToken: string) => ({
+        principal: {
+          type: 'user',
+          userEntityRef: `user:default/${identityToken}`,
+        },
+      })),
+    isPrincipal: jest.fn(
+      (credentials: any, type: string) => credentials.principal.type === type,
+    ),
     getPluginRequestToken: jest
       .fn()
       .mockResolvedValue({ token: 'catalog-token' }),
@@ -41,6 +52,7 @@ describe('getCollections catalog filters', () => {
       discovery,
       logger,
       callerCredentials,
+      identityToken: 'alice',
       searchQuery,
     });
     const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
@@ -75,6 +87,7 @@ describe('getCollections catalog filters', () => {
       discovery,
       logger,
       callerCredentials,
+      identityToken: 'alice',
       searchQuery: 'kind=Component,metadata.name=ansible*',
     });
     const requestedUrl = new URL(String(fetchMock.mock.calls[0][0]));
@@ -101,8 +114,61 @@ describe('getCollections catalog filters', () => {
     );
   });
 
+  it('requires a verified user token matching the caller credentials', async () => {
+    await expect(
+      getCollections({ auth, discovery, logger, callerCredentials }),
+    ).rejects.toThrow(AuthenticationError);
+
+    auth.authenticate.mockResolvedValueOnce({
+      principal: { type: 'service' },
+    });
+    await expect(
+      getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials,
+        identityToken: 'service-token',
+      }),
+    ).rejects.toThrow(NotAllowedError);
+
+    await expect(
+      getCollections({
+        auth,
+        discovery,
+        logger,
+        callerCredentials,
+        identityToken: 'bob',
+      }),
+    ).rejects.toThrow(NotAllowedError);
+
+    expect(auth.getPluginRequestToken).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('uses the verified caller credentials for catalog requests', async () => {
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      callerCredentials,
+      identityToken: 'alice',
+    });
+
+    expect(auth.getPluginRequestToken).toHaveBeenCalledWith({
+      onBehalfOf: callerCredentials,
+      targetPluginId: 'catalog',
+    });
+  });
+
   it('does not share cached catalog results between callers', async () => {
-    await getCollections({ auth, discovery, logger, callerCredentials });
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      callerCredentials,
+      identityToken: 'alice',
+    });
     await getCollections({
       auth,
       discovery,
@@ -110,6 +176,30 @@ describe('getCollections catalog filters', () => {
       callerCredentials: {
         principal: { type: 'user', userEntityRef: 'user:default/bob' },
       } as any,
+      identityToken: 'bob',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not share cached results between visibility tokens for one caller', async () => {
+    auth.authenticate
+      .mockResolvedValueOnce(callerCredentials)
+      .mockResolvedValueOnce(callerCredentials);
+
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      callerCredentials,
+      identityToken: 'alice-visibility-a',
+    });
+    await getCollections({
+      auth,
+      discovery,
+      logger,
+      callerCredentials,
+      identityToken: 'alice-visibility-b',
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -127,6 +217,7 @@ describe('getCollections catalog filters', () => {
             userEntityRef: `user:default/user-${index}`,
           },
         } as any,
+        identityToken: `user-${index}`,
       });
     }
 
@@ -137,6 +228,7 @@ describe('getCollections catalog filters', () => {
       callerCredentials: {
         principal: { type: 'user', userEntityRef: 'user:default/user-0' },
       } as any,
+      identityToken: 'user-0',
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(102);
@@ -202,6 +294,7 @@ describe('getCollections catalog filters', () => {
             userEntityRef: `user:default/user-${index}`,
           },
         } as any,
+        identityToken: `user-${index}`,
       }),
     );
 
@@ -213,6 +306,7 @@ describe('getCollections catalog filters', () => {
         callerCredentials: {
           principal: { type: 'user', userEntityRef: 'user:default/user-10' },
         } as any,
+        identityToken: 'user-10',
       }),
     ).rejects.toThrow('Too many distinct collections requests are in progress');
     await expect(Promise.all(requests)).resolves.toHaveLength(10);
