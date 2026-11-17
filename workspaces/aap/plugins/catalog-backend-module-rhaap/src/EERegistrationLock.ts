@@ -7,6 +7,7 @@ const LOCK_TABLE = 'ee_registration_lock_leases';
 const LEASE_DURATION_MS = 60_000;
 const LEASE_RENEWAL_INTERVAL_MS = 20_000;
 const LOCK_POLL_INTERVAL_MS = 50;
+const LOCK_RELEASE_RETRY_INTERVAL_MS = 1_000;
 const LOCK_WAIT_TIMEOUT_MS = 60_000;
 
 export type EERegistrationLock = <T>(
@@ -85,11 +86,7 @@ export function createEERegistrationLock(
     } finally {
       clearInterval(heartbeat);
       if (renewalInFlight !== undefined) await renewalInFlight;
-      await knex(LOCK_TABLE).where({ entity_ref: entityRef, owner }).update({
-        owner: null,
-        lease_expires_at: 0,
-        mutation_in_progress: false,
-      });
+      await releaseLock(knex, entityRef, owner);
     }
   };
 }
@@ -166,7 +163,7 @@ function acquireLock(
   });
 }
 
-async function tryAcquireLock(
+function tryAcquireLock(
   knex: KnexClient,
   entityRef: string,
   owner: string,
@@ -196,4 +193,25 @@ async function renewLock(
     .where({ entity_ref: entityRef, owner })
     .update({ lease_expires_at: Date.now() + LEASE_DURATION_MS });
   return Number(updated) === 1;
+}
+
+async function releaseLock(
+  knex: KnexClient,
+  entityRef: string,
+  owner: string,
+): Promise<void> {
+  try {
+    await knex(LOCK_TABLE).where({ entity_ref: entityRef, owner }).update({
+      owner: null,
+      lease_expires_at: 0,
+      mutation_in_progress: false,
+    });
+  } catch {
+    // Keep retrying the idempotent, owner-scoped release after transient DB
+    // failures so an unfinished mutation cannot remain marked indefinitely.
+    await new Promise(resolve =>
+      setTimeout(resolve, LOCK_RELEASE_RETRY_INTERVAL_MS),
+    );
+    await releaseLock(knex, entityRef, owner);
+  }
 }
