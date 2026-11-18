@@ -618,6 +618,7 @@ components:
         metadata:
           type: object
           additionalProperties: true
+          description: Caller-supplied metadata. Nesting is limited to 64 levels; deeper submissions are rejected.
 
     ExecutionEnvironment:
       type: object

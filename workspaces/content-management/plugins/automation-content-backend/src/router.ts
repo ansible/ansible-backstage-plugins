@@ -91,6 +91,31 @@ function isMetadataOverlay(value: unknown): value is MetadataOverlay {
   );
 }
 
+/** Nesting cap for submitted overlay metadata; matches redaction maxDepth. */
+const MAX_METADATA_DEPTH = 64;
+
+/**
+ * Iterative on purpose: the submitted body is untrusted, and a recursive
+ * walk would overflow the call stack before any validation response.
+ */
+function metadataWithinDepth(value: unknown): boolean {
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 1 }];
+  while (stack.length > 0) {
+    const { value: item, depth } = stack.pop()!;
+    if (depth > MAX_METADATA_DEPTH) return false;
+    if (Array.isArray(item)) {
+      for (const child of item) {
+        stack.push({ value: child, depth: depth + 1 });
+      }
+    } else if (item && typeof item === 'object') {
+      for (const child of Object.values(item)) {
+        stack.push({ value: child, depth: depth + 1 });
+      }
+    }
+  }
+  return true;
+}
+
 const ALLOWED_PAGE_SIZES = [10, 20, 50] as const;
 
 function isRepositoryQuery(value: unknown): value is EERepositoryQuery {
@@ -507,6 +532,13 @@ function buildRouter(options: RouterOptions): express.Router {
         res.status(400).json({
           code: 'BAD_REQUEST',
           error: 'Provide a metadata version and a JSON metadata object',
+        });
+        return;
+      }
+      if (!metadataWithinDepth(overlay.metadata)) {
+        res.status(400).json({
+          code: 'METADATA_OVERLAY_TOO_DEEP',
+          error: `Metadata overlay nesting must not exceed ${MAX_METADATA_DEPTH} levels`,
         });
         return;
       }

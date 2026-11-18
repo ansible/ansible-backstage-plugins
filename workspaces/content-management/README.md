@@ -124,7 +124,7 @@ metadata in its database and applies it without contacting the registry, so
 the same file works in an air-gapped installation.
 
 Save a complete metadata revision in a file such as `overlay.json`. The request
-body can be up to 256 KiB.
+body can be up to 256 KiB, and metadata may be nested at most 64 levels deep.
 
 ```json
 {

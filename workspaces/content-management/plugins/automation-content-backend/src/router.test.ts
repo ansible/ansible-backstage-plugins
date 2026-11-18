@@ -319,6 +319,26 @@ describe('EE metadata overlay API', () => {
     expect(applyMetadataOverlay).not.toHaveBeenCalled();
   });
 
+  it('rejects deeply nested overlay metadata before fingerprinting it', async () => {
+    const applyMetadataOverlay = jest.fn().mockResolvedValue('applied');
+    const app = await appWith(stubDB({ applyMetadataOverlay }));
+    // Nested far past the 64-level cap but far below the call-stack limit,
+    // so only the depth check can answer the request.
+    const deep: unknown[] = [];
+    let cursor = deep;
+    for (let i = 0; i < 500; i++) {
+      cursor.push([]);
+      cursor = cursor[0] as unknown[];
+    }
+    const response = await request(app)
+      .put(overlayPath)
+      .send({ ...overlay, metadata: { deep } });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('METADATA_OVERLAY_TOO_DEEP');
+    expect(applyMetadataOverlay).not.toHaveBeenCalled();
+  });
+
   it('rejects writes without the sync grant and invalid metadata with the grant', async () => {
     const applyMetadataOverlay = jest.fn();
     const db = stubDB({ applyMetadataOverlay });
