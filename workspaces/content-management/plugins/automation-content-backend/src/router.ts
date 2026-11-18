@@ -337,11 +337,14 @@ function buildRouter(options: RouterOptions): express.Router {
 
   // Every JSON response passes through the live redactor so runtime bearer
   // tokens and registry-controlled metadata cannot bypass a route handler.
+  // Depth budget: responses wrap overlay metadata in two envelope levels
+  // (response root + metadataOverlay), so 64-level submissions — the PUT
+  // cap — survive the GET read-back intact.
   const redactor = db.redactor;
   router.use((_req: unknown, res: JsonCapableResponse, next: () => void) => {
     const original = res.json.bind(res);
     res.json = (body: unknown) =>
-      original(redactor.redactValue(body, { maxDepth: 64 }));
+      original(redactor.redactValue(body, { maxDepth: 66 }));
     next();
   });
 

@@ -339,6 +339,30 @@ describe('EE metadata overlay API', () => {
     expect(applyMetadataOverlay).not.toHaveBeenCalled();
   });
 
+  it('returns maximum-depth overlay metadata intact on the detail response', async () => {
+    // Exactly the 64 container levels the PUT route accepts. The detail
+    // response wraps it in two envelope levels (root + metadataOverlay),
+    // so the response redaction budget must cover 66 or the innermost
+    // levels would come back truncated.
+    const metadata: Record<string, unknown> = {};
+    let cursor = metadata;
+    for (let level = 1; level < 64; level++) {
+      cursor.child = {};
+      cursor = cursor.child as Record<string, unknown>;
+    }
+    const maximal = { ...overlay, metadata };
+    const db = stubDB({
+      getArtifact: async () => DEFAULT_ARTIFACT,
+      getMetadataOverlay: async () => maximal,
+      applyMetadataOverlay: jest.fn().mockResolvedValue('applied'),
+    });
+    const app = await appWith(db);
+
+    await request(app).put(overlayPath).send(maximal).expect(200, maximal);
+    const detail = await request(app).get(detailPath).expect(200);
+    expect(detail.body.metadataOverlay).toEqual(maximal);
+  });
+
   it('rejects writes without the sync grant and invalid metadata with the grant', async () => {
     const applyMetadataOverlay = jest.fn();
     const db = stubDB({ applyMetadataOverlay });
