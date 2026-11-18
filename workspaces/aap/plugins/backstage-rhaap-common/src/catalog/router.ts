@@ -96,44 +96,6 @@ const DEFAULT_AAP_STATUS_BLOCK: AapProviderSyncStatusBlock = {
   lastMissingOrganizations: [],
 };
 
-/** Aligns with OpenAPI maxLength and scaffolder EE slug charset. */
-const EE_ENTITY_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
-
-function formatUnknownError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return 'Unknown error';
-}
-
-function parseExecutionEnvironmentNameParam(
-  rawName: string | undefined,
-): string | undefined {
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(rawName ?? '');
-  } catch {
-    return undefined;
-  }
-  const name = decoded.toString().trim().toLowerCase();
-  if (
-    !name ||
-    name.length > 63 ||
-    !EE_ENTITY_NAME_PATTERN.test(name) ||
-    name.includes('/') ||
-    name.includes('\\') ||
-    name.includes('\0') ||
-    name === '.' ||
-    name === '..'
-  ) {
-    return undefined;
-  }
-  return name;
-}
-
 export function createRouter(options: {
   slice: CatalogModuleSlice;
   logger: LoggerService;
