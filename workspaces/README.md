@@ -61,8 +61,8 @@ domain rules.
 - `portal-rhdh`: optional adapter to RHDH's public header Blueprint for
   contributed profile-menu items. It has no AAP dependency;
   AAP auth owns its opt-in Sign out contribution. Generic SDK contracts do not import it.
-- `portal-plugin-node`: injected backend services and helpers for operations,
-  identity/context, audit, organization and health.
+- `portal-plugin-node`: injected backend services and helpers for SCM clients, EE
+  lifecycle contracts, operations, identity/context, audit, organization and health.
 - `portal-operations-backend`: authenticated operation transport and
   server-resolved entitlement decisions.
 - `portal-health-backend`: aggregated backend health endpoint.
@@ -76,8 +76,9 @@ singleton. Library packages are not standalone page plugins.
 - `@ansible/portal-scaffolder` owns templates, tasks, authoring and picker
   integration. It also hosts collection, repository and execution-environment
   browsing/detail pages.
-- `@ansible/content-development-common` owns creator SCM clients and EE
-  lifecycle service contracts.
+- `@ansible/portal-plugin-node` owns shared SCM clients and EE lifecycle
+  service contracts; `@ansible/content-development-common` keeps compatibility
+  re-exports and content-development types.
 - `@ansible/plugin-scaffolder-backend-module-content-development` owns
   creator actions, EE lifecycle coordination and collection autocomplete.
 - `@ansible/catalog-backend-module-content-development` owns the EE catalog

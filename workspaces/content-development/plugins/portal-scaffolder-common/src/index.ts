@@ -7,3 +7,7 @@ export type {
   EEBuildResult,
   UserJobTemplate,
 } from './types';
+export type {
+  Collections,
+  SourceVersionDetail,
+} from './types';
