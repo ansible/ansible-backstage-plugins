@@ -179,8 +179,22 @@ export function verifySecurityEvidence(directory, report, ref) {
   );
 }
 
-export async function collectSecurityEvidence(directory, commit, token, ref) {
+export async function collectSecurityEvidence(
+  directory,
+  commit,
+  token,
+  ref,
+  { attempts = 60, delayMs = 10_000 } = {},
+) {
   validateReleaseRef(ref);
+  assert(
+    Number.isSafeInteger(attempts) && attempts > 0,
+    'Invalid polling attempts',
+  );
+  assert(
+    Number.isSafeInteger(delayMs) && delayMs >= 0,
+    'Invalid polling delay',
+  );
   assert.match(commit ?? '', /^[a-f0-9]{40}$/, 'Invalid release revision');
   assert(token, 'CodeQL read token required');
   const report = readJson(join(directory, 'report.json'));
@@ -222,7 +236,7 @@ export async function collectSecurityEvidence(directory, commit, token, ref) {
   try {
     let selected;
     // Bound polling and pagination. Never substitute another branch or SHA.
-    for (let attempt = 0; attempt < 60; attempt++) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
       const analyses = [];
       for (let page = 1; page <= 10; page++) {
         const batch = await api(
@@ -237,9 +251,9 @@ export async function collectSecurityEvidence(directory, commit, token, ref) {
         assert(page < 10, 'CodeQL analysis search limit exceeded');
       }
       record('codeql-latest.metadata.json', analyses, false);
-      selected = selectCodeqlAnalyses(analyses, commit, ref);
       if (selected) break;
-      if (attempt < 59) await new Promise(done => setTimeout(done, 10_000));
+      if (attempt < attempts - 1)
+        await new Promise(done => setTimeout(done, delayMs));
     }
     assert(selected, 'Missing CodeQL analyses for the release SHA');
     for (const analysis of selected) {

@@ -199,6 +199,8 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     let downloadUnavailable = false;
     let paginated = false;
     let searchLimit = false;
+    let missingActions = false;
+    let polls = 0;
     t.mock.method(globalThis, 'fetch', async url => {
       const analyses = [
         analysis(undefined, ref),
@@ -208,6 +210,7 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
       if (unavailable || (downloadUnavailable && url.endsWith('/2')))
         return new Response('{}', { status: 403 });
       if (url.includes('analyses?')) {
+        polls++;
         assert.equal(new URL(url).searchParams.get('ref'), ref);
         const page = Number(new URL(url).searchParams.get('page'));
         if (searchLimit || (paginated && page === 1)) {
@@ -222,7 +225,9 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
           );
         }
         assert.equal(page, paginated ? 2 : 1);
-        return new Response(JSON.stringify(analyses));
+        return new Response(
+          JSON.stringify(missingActions ? analyses.slice(0, 1) : analyses),
+        );
       }
       const document = sarif();
       if (findings && url.endsWith('/1'))
@@ -289,6 +294,39 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     await assert.rejects(
       collectSecurityEvidence(folder, sha, 'test-read-token', ref),
       /CodeQL API unavailable/,
+    );
+    unavailable = false;
+    paginated = false;
+    searchLimit = false;
+    await t.test(
+      'missing scans exhaust finite polling without a passing handoff',
+      async () => {
+        missingActions = true;
+        polls = 0;
+        await assert.rejects(
+          collectSecurityEvidence(folder, sha, 'test-read-token', ref, {
+            attempts: 2,
+            delayMs: 0,
+          }),
+          /Missing CodeQL analyses/,
+        );
+        assert.equal(polls, 2);
+        assert.deepEqual(
+          JSON.parse(
+            readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
+          ),
+          { commit: sha, ref, sast: 'failed', sca: 'passed' },
+        );
+        assert.equal(existsSync(join(folder, 'security/report.json')), false);
+        missingActions = false;
+        polls = 0;
+        await collectSecurityEvidence(folder, sha, 'test-read-token', ref, {
+          attempts: 2,
+          delayMs: 0,
+        });
+        assert.equal(polls, 1, 'Complete scans stop polling immediately');
+        verifySecurityEvidence(folder, report, ref);
+      },
     );
   });
 }
