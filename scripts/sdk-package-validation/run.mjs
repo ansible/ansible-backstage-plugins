@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateArchive } from './validate-archive.mjs';
+import { validateReleaseManifests } from './release.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = realpathSync(resolve(here, '../..'));
@@ -27,6 +28,13 @@ const packages = paths.map(path => ({
   manifest: readJson(join(repo, path, 'package.json')),
 }));
 const candidates = new Set(packages.map(p => p.manifest.name));
+const releaseVersion = process.env.SDK_RELEASE_VERSION;
+if (releaseVersion || packages.some(p => p.manifest.private === false)) {
+  validateReleaseManifests(
+    packages.map(p => p.manifest),
+    releaseVersion ?? packages[0].manifest.version,
+  );
+}
 const output = process.env.SDK_VALIDATION_DIR
   ? resolve(process.env.SDK_VALIDATION_DIR)
   : mkdtempSync(join(tmpdir(), 'portal-sdk-validation-'));
