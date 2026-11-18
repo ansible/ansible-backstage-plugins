@@ -37,7 +37,7 @@ jobs:
         with:
           syft-version: v1.57.1
       - name: Test archive validation rules
-        run: node --test scripts/sdk-package-validation/validate-archive.test.mjs scripts/sdk-package-validation/sbom.test.mjs
+        run: node --test scripts/sdk-package-validation/*.test.mjs
       - name: Build, pack, audit, and exercise isolated consumers
         env:
           SDK_VALIDATION_DIR: ${{ runner.temp }}/sdk-package-validation

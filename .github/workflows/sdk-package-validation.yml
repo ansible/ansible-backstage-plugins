@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/sdk-package-validation*.yml'
+      - '.github/workflows/sdk-package-publish.yml'
       - 'scripts/sdk-package-validation/**'
       - 'workspaces/portal-core/plugins/**'
       - 'workspaces/aap/plugins/aap-app-auth/**'
@@ -15,15 +16,16 @@ on:
   push:
     branches: [main]
     paths:
-      - ".github/workflows/sdk-package-validation*.yml"
-      - "scripts/sdk-package-validation/**"
-      - "workspaces/portal-core/plugins/**"
-      - "workspaces/aap/plugins/aap-app-auth/**"
-      - "package.json"
-      - "yarn.lock"
-      - ".yarnrc.yml"
-      - "tsconfig.json"
-      - "LICENSE"
+      - '.github/workflows/sdk-package-validation*.yml'
+      - '.github/workflows/sdk-package-publish.yml'
+      - 'scripts/sdk-package-validation/**'
+      - 'workspaces/portal-core/plugins/**'
+      - 'workspaces/aap/plugins/aap-app-auth/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.json'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
