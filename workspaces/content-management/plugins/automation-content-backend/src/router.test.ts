@@ -319,14 +319,13 @@ describe('EE metadata overlay API', () => {
     expect(applyMetadataOverlay).not.toHaveBeenCalled();
   });
 
-  it('rejects deeply nested overlay metadata before fingerprinting it', async () => {
+  it('rejects a 65th nested container in overlay metadata', async () => {
     const applyMetadataOverlay = jest.fn().mockResolvedValue('applied');
     const app = await appWith(stubDB({ applyMetadataOverlay }));
-    // Nested far past the 64-level cap but far below the call-stack limit,
-    // so only the depth check can answer the request.
+    // Exactly one container past the 64-level cap.
     const deep: unknown[] = [];
     let cursor = deep;
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 64; i++) {
       cursor.push([]);
       cursor = cursor[0] as unknown[];
     }
@@ -340,16 +339,19 @@ describe('EE metadata overlay API', () => {
   });
 
   it('returns maximum-depth overlay metadata intact on the detail response', async () => {
-    // Exactly the 64 container levels the PUT route accepts. The detail
-    // response wraps it in two envelope levels (root + metadataOverlay),
-    // so the response redaction budget must cover 66 or the innermost
-    // levels would come back truncated.
+    // Exactly the 64 container levels the PUT route accepts, with a
+    // primitive inside the deepest object: primitives add no nesting, so
+    // they must not count toward the cap. The detail response wraps the
+    // metadata in two envelope levels (root + metadataOverlay), so the
+    // response redaction budget must cover 66 or the innermost levels
+    // would come back truncated.
     const metadata: Record<string, unknown> = {};
     let cursor = metadata;
     for (let level = 1; level < 64; level++) {
       cursor.child = {};
       cursor = cursor.child as Record<string, unknown>;
     }
+    cursor.value = 'leaf';
     const maximal = { ...overlay, metadata };
     const db = stubDB({
       getArtifact: async () => DEFAULT_ARTIFACT,

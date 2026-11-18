@@ -97,20 +97,23 @@ const MAX_METADATA_DEPTH = 64;
 /**
  * Iterative on purpose: the submitted body is untrusted, and a recursive
  * walk would overflow the call stack before any validation response.
+ * Only containers occupy a level — a primitive inside the deepest allowed
+ * object adds no nesting, the same rule the response redactor applies, so
+ * accepted submissions read back intact.
  */
 function metadataWithinDepth(value: unknown): boolean {
   const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 1 }];
   while (stack.length > 0) {
     const { value: item, depth } = stack.pop()!;
+    const container =
+      Array.isArray(item) || (item !== null && typeof item === 'object');
+    if (!container) continue;
     if (depth > MAX_METADATA_DEPTH) return false;
-    if (Array.isArray(item)) {
-      for (const child of item) {
-        stack.push({ value: child, depth: depth + 1 });
-      }
-    } else if (item && typeof item === 'object') {
-      for (const child of Object.values(item)) {
-        stack.push({ value: child, depth: depth + 1 });
-      }
+    const children = Array.isArray(item)
+      ? item
+      : Object.values(item as Record<string, unknown>);
+    for (const child of children) {
+      stack.push({ value: child, depth: depth + 1 });
     }
   }
   return true;
