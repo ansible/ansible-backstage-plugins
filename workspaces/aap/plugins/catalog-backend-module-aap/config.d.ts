@@ -25,7 +25,11 @@ export interface Config {
               surveyEnabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
-            pahCollections: {
+            /**
+             * Owned by the content catalog slice. Optional here so AAP-only
+             * deployments can enable job-template sync without PAH config.
+             */
+            pahCollections?: {
               enabled: boolean;
               repositories: Array<{
                 /** Name of the PAH repository to sync collections from */

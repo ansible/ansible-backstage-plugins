@@ -39,6 +39,7 @@
     "@ansible/backstage-plugin-catalog-backend-module-content": "workspace:^",
     "@backstage/backend-test-utils": "1.11.6",
     "@backstage/cli": "0.36.5",
+    "@backstage/config-loader": "1.11.2",
     "@backstage/plugin-signals-node": "0.2.4"
   },
   "files": [
