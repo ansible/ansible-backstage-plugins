@@ -9,6 +9,8 @@ export {
 export type {
   CreateScmClientOptions,
   DirectoryEntry,
+  RepositoryInfo,
+  ResolveGithubTokenOptions,
   ScmClient,
   ScmClientConfig,
   ScmClientOptions,
