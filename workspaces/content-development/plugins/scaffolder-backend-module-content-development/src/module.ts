@@ -7,18 +7,23 @@ import { eeEntityLifecycleServiceRef } from '@ansible/content-development-common
 import type { ScaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNode from '@backstage/plugin-scaffolder-node';
 import * as scaffolderNodeAlpha from '@backstage/plugin-scaffolder-node/alpha';
-import { createCollectionsAutocompleteRouter } from './autocomplete/router';
 import {
   createAnsibleContentAction,
   createEEDefinitionAction,
   prepareForPublishAction,
 } from './actions';
+import { handleCollectionsAutocompleteRequest } from './autocomplete';
 
 const scaffolderActionsExtensionPoint = ((
   scaffolderNode as Record<string, unknown>
 ).scaffolderActionsExtensionPoint ??
   (scaffolderNodeAlpha as Record<string, unknown>)
     .scaffolderActionsExtensionPoint) as ExtensionPoint<ScaffolderActionsExtensionPoint>;
+const scaffolderAutocompleteExtensionPoint = ((
+  scaffolderNode as Record<string, unknown>
+).scaffolderAutocompleteExtensionPoint ??
+  (scaffolderNodeAlpha as Record<string, unknown>)
+    .scaffolderAutocompleteExtensionPoint) as ExtensionPoint<any>;
 export const scaffolderModuleContentDevelopment = createBackendModule({
   pluginId: 'scaffolder',
   moduleId: 'content-development',
@@ -29,20 +34,18 @@ export const scaffolderModuleContentDevelopment = createBackendModule({
         config: coreServices.rootConfig,
         auth: coreServices.auth,
         discovery: coreServices.discovery,
-        httpAuth: coreServices.httpAuth,
-        httpRouter: coreServices.httpRouter,
         eeLifecycle: eeEntityLifecycleServiceRef,
         logger: coreServices.logger,
+        autocomplete: scaffolderAutocompleteExtensionPoint,
       },
       init({
         scaffolder,
         config,
         auth,
         discovery,
-        httpAuth,
-        httpRouter,
         eeLifecycle,
         logger,
+        autocomplete,
       }) {
         return Promise.resolve().then(() => {
           scaffolder.addActions(
@@ -54,14 +57,23 @@ export const scaffolderModuleContentDevelopment = createBackendModule({
             }),
             prepareForPublishAction({ rootConfig: config }),
           );
-          httpRouter.use(
-            createCollectionsAutocompleteRouter({
-              auth,
-              discovery,
-              httpAuth,
-              logger,
-            }) as any,
-          );
+          autocomplete.addAutocompleteProvider({
+            id: 'portal-catalog',
+            handler: ({
+              context,
+              resource,
+            }: {
+              context?: Record<string, string>;
+              resource: string;
+            }) =>
+              handleCollectionsAutocompleteRequest({
+                auth,
+                discovery,
+                logger,
+                resource,
+                context,
+              }),
+          });
         });
       },
     });

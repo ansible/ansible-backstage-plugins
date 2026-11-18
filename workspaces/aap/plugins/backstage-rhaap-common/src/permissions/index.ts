@@ -5,6 +5,7 @@ import { createPermission } from '@backstage/plugin-permission-common';
  */
 export {
   executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
   templatesViewPermission,

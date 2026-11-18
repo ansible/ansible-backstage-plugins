@@ -31,12 +31,12 @@ if [ "${BUILD_TYPE:-}" = "portal" ]; then
   $YARN_CMD export-local
 
 elif [ "${BUILD_TYPE:-}" = "rhdh" ]; then
-  echo "Building for RHDH - including only backstage-rhaap and scaffolder-backend-module-backstage-rhaap"
+  echo "Building for RHDH - including backstage-rhaap and the AAP scaffolder backend module"
 
   # Remove all plugins except the RHDH ones
   for plugin_dir in workspaces/aap/plugins/*/; do
     plugin_name=$(basename "$plugin_dir")
-    if [ "$plugin_name" != "backstage-rhaap" ] && [ "$plugin_name" != "scaffolder-backend-module-backstage-rhaap" ]; then
+    if [ "$plugin_name" != "backstage-rhaap" ] && [ "$plugin_name" != "scaffolder-backend-module-aap" ]; then
       if [ -d "$plugin_dir" ]; then
         rm -rf "$plugin_dir"
       fi

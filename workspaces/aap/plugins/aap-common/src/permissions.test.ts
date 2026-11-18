@@ -18,6 +18,7 @@ import { executionEnvironmentsViewPermission as ownedPermission } from '@ansible
 
 import {
   executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
   templatesViewPermission,
@@ -67,9 +68,10 @@ describe('permissions', () => {
     });
   });
 
-  it('ansiblePermissions contains all five permissions', () => {
-    expect(ansiblePermissions).toHaveLength(5);
+  it('ansiblePermissions contains all six permissions', () => {
+    expect(ansiblePermissions).toHaveLength(6);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
+    expect(ansiblePermissions).toContain(executionEnvironmentsBuildPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
     expect(ansiblePermissions).toContain(templatesViewPermission);
@@ -79,7 +81,11 @@ describe('permissions', () => {
   it('each permission has type basic and attributes object', () => {
     ansiblePermissions.forEach(permission => {
       expect(permission.type).toBe('basic');
-      expect(permission.attributes).toEqual({});
+      expect(permission.attributes).toEqual(
+        permission === executionEnvironmentsBuildPermission
+          ? { action: 'update' }
+          : {},
+      );
       expect(typeof permission.name).toBe('string');
       expect(permission.name.length).toBeGreaterThan(0);
     });

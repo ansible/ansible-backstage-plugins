@@ -171,6 +171,7 @@ export const EEDetailsPage: React.FC = () => {
   const catalogApi = useApi(catalogApiRef);
   const {
     startBuildFlow,
+    canBuild,
     authBusy,
     dialogOpen,
     buildEntity,
@@ -544,7 +545,7 @@ export const EEDetailsPage: React.FC = () => {
                   classes={{ paper: actionsMenuClasses.menuPaper }}
                   getContentAnchorEl={null}
                 >
-                  {isEntityBuildable(entity as Entity) && (
+                  {canBuild && isEntityBuildable(entity as Entity) && (
                     <MenuItem
                       onClick={() => {
                         handleBuild();

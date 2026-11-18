@@ -92,7 +92,6 @@ With the backend running on port 7007, these URLs are `http://localhost:7007/api
 
 - The Bearer token expires periodically. If you start getting `401 Unauthorized` responses, repeat step 3 to get a fresh token.
 - Some endpoints require **superuser** access (marked with a lock icon). Your AAP user must have the `aap.platform/is_superuser` annotation set to `true` in the catalog.
-- The `POST /ansible/ee` endpoint is restricted to **service-to-service** calls only and cannot be tested via Swagger UI.
 
 ### Stopping the application
 

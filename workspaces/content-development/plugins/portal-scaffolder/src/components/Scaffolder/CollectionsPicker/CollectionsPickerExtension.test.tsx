@@ -1,12 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CollectionsPickerExtension } from './CollectionsPickerExtension';
 import { CollectionItem } from './types';
-import {
-  discoveryApiRef,
-  fetchApiRef,
-  identityApiRef,
-  useApi,
-} from '@backstage/core-plugin-api';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 
@@ -46,8 +41,6 @@ function mockVersionOption(
 describe('CollectionsPickerExtension', () => {
   let mockScaffolderApi: { autocomplete: jest.Mock };
   let mockAapAuth: { getAccessToken: jest.Mock };
-  let mockDiscoveryApi: { getBaseUrl: jest.Mock };
-  let mockFetchApi: { fetch: jest.Mock };
   let mockIdentityApi: { getCredentials: jest.Mock };
 
   beforeEach(() => {
@@ -58,29 +51,10 @@ describe('CollectionsPickerExtension', () => {
     mockAapAuth = {
       getAccessToken: jest.fn().mockResolvedValue('test-token'),
     };
-    mockDiscoveryApi = {
-      getBaseUrl: jest
-        .fn()
-        .mockResolvedValue('http://localhost/api/scaffolder'),
-    };
     mockIdentityApi = {
-      getCredentials: jest.fn().mockResolvedValue({ token: 'user-token' }),
-    };
-    // Existing component tests use scaffolder autocomplete fixtures as data;
-    // route them through the new authenticated endpoint mock.
-    mockFetchApi = {
-      fetch: jest.fn(async () => {
-        const result = await mockScaffolderApi.autocomplete({
-          token: await mockAapAuth.getAccessToken(),
-          resource: 'collections',
-          provider: 'aap-api-cloud',
-          context: { searchQuery: 'spec.type=ansible-collection' },
-        });
-        return {
-          ok: true,
-          json: async () => result,
-        };
-      }),
+      getCredentials: jest
+        .fn()
+        .mockResolvedValue({ token: 'backstage-user-token' }),
     };
 
     jest.clearAllMocks();
@@ -91,12 +65,6 @@ describe('CollectionsPickerExtension', () => {
       }
       if (ref === rhAapAuthApiRef) {
         return mockAapAuth;
-      }
-      if (ref === discoveryApiRef) {
-        return mockDiscoveryApi;
-      }
-      if (ref === fetchApiRef) {
-        return mockFetchApi;
       }
       if (ref === identityApiRef) {
         return mockIdentityApi;
@@ -142,20 +110,29 @@ describe('CollectionsPickerExtension', () => {
   });
 
   describe('Initial Rendering', () => {
-    it('loads collections through the authenticated scaffolder route', async () => {
-      mockFetchApi.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ results: [] }),
+    it('keeps collections returned by autocomplete available to the picker', async () => {
+      mockScaffolderApi.autocomplete.mockResolvedValue({
+        results: [
+          {
+            name: 'community.general',
+            id: 'community.general',
+            sources: ['Galaxy'],
+            versions: [mockVersionOption('9.0.0')],
+          },
+        ],
       });
       render(<CollectionsPickerExtension {...createMockProps()} />);
 
-      await waitFor(() =>
-        expect(mockFetchApi.fetch).toHaveBeenCalledWith(
-          'http://localhost/api/scaffolder/collections',
-          { headers: { Authorization: 'Bearer user-token' } },
-        ),
+      const collectionInput = getInputElement('Collection')!;
+      fireEvent.mouseDown(collectionInput);
+      fireEvent.change(collectionInput, {
+        target: { value: 'community.general' },
+      });
+
+      expect(await screen.findByText('community.general')).toBeInTheDocument();
+      expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'portal-catalog' }),
       );
-      expect(mockScaffolderApi.autocomplete).not.toHaveBeenCalled();
     });
 
     it('renders the component with Add collection card', () => {
@@ -240,9 +217,10 @@ describe('CollectionsPickerExtension', () => {
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledWith({
           token: 'test-token',
           resource: 'collections',
-          provider: 'aap-api-cloud',
+          provider: 'portal-catalog',
           context: {
             searchQuery: 'spec.type=ansible-collection',
+            backstageIdentityToken: 'backstage-user-token',
           },
         });
       });

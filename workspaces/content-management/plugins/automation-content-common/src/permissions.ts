@@ -13,3 +13,10 @@ export const contentSyncPermission: BasicPermission = {
   name: 'ansible.content.sync',
   attributes: { action: 'update' },
 };
+
+/** Allows dispatching an execution-environment image build. */
+export const executionEnvironmentsBuildPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.execution-environments.build',
+  attributes: { action: 'update' },
+};
