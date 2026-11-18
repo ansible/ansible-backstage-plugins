@@ -53,7 +53,7 @@ const routeRegex =
 // because their authentication policies differ. Keep their identities distinct.
 const mountedHealthPaths = new Map([
   [
-    'workspaces/aap/plugins/catalog-backend-module-rhaap/src/router.ts',
+    'workspaces/aap/plugins/backstage-rhaap-common/src/catalog/router.ts',
     '/api/catalog/health',
   ],
   [

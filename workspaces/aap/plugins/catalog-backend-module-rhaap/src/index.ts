@@ -7,10 +7,13 @@ import {
   userProvisionerRef,
   UserProvisioner,
 } from '@ansible/backstage-rhaap-common';
+import {
+  createRouter as createSharedRouter,
+  type CatalogModuleSlice,
+} from '@ansible/backstage-rhaap-common/catalog';
 import { catalogModuleRhaap } from './module';
 import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 
-/***/
 /**
  * The rhaap backend module for the catalog plugin.
  *
@@ -18,10 +21,23 @@ import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
  */
 
 export { catalogModuleRhaap };
-export * from './router';
+export { createCatalogModule } from '@ansible/backstage-rhaap-common/catalog';
 
-export default createBackendFeatureLoader({
-  loader: function* loader() {
+/** Backward-compatible wrapper: defaults `slice` to `'all'` for legacy callers. */
+export function createRouter(
+  options: Omit<Parameters<typeof createSharedRouter>[0], 'slice'> & {
+    slice?: CatalogModuleSlice;
+  },
+): Promise<import('express').Router> {
+  return createSharedRouter({
+    ...options,
+    slice: options.slice ?? 'all',
+  });
+}
+
+/** The catalog loader owns transitional AAP service registration for dynamic installs. */
+const catalogFeatureLoader = createBackendFeatureLoader({
+  loader: function* () {
     yield ansibleServiceFactory;
     yield rhaapOrganizationServiceFactory;
     yield createServiceFactory({
@@ -32,3 +48,5 @@ export default createBackendFeatureLoader({
     yield catalogModuleRhaap;
   },
 });
+
+export default catalogFeatureLoader;

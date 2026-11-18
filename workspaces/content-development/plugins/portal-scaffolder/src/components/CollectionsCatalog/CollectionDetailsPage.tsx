@@ -31,6 +31,7 @@ import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
+import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
 import {
   useExtensionTabs,
   useExtensionCards,
@@ -140,9 +141,7 @@ const CollectionDetailsPageInner = () => {
     const fetchSyncStatus = async () => {
       try {
         const baseUrl = await discoveryApi.getBaseUrl('catalog');
-        const response = await fetchApi.fetch(
-          `${baseUrl}/ansible/sync/status?ansible_contents=true`,
-        );
+        const response = await fetchContentSyncStatus(fetchApi, baseUrl);
         if (response.ok) {
           const data = await response.json();
           const providers = data.content?.providers || [];
