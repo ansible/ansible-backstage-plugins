@@ -236,16 +236,42 @@ scaffolder templates, not arbitrary routes.
 
 ### Field declarations and optional templates adapters
 
-Declare native fields through `ScaffolderFieldBlueprint` using the existing
-`ScaffolderFieldDescriptor` and `defineScaffolderField` contracts. The Blueprint
-attaches metadata to Portal's shared contribution provider, not to a
-portal-scaffolder page. The provider validates ownership, manifests, version
+Contribute any custom picker through the generic field API; the picker does not
+need to belong to `portal-scaffolder` or be an EE-specific field. Add a
+`scaffolder-field` entry point to your plugin manifest, then pair its Portal
+declaration with a native Scaffolder field blueprint:
+
+```tsx
+import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension-api/alpha';
+
+const teamPickerFields = createPortalScaffolderFieldBlueprints('team-picker', {
+  manifest: myPluginManifest,
+  capabilityId: 'my-plugin.scaffolder-fields',
+  entryPointId: 'my-plugin.team-picker',
+  attachment: 'scaffolder.fields',
+  fieldName: 'TeamPicker',
+  loader: async () => {
+    const { TeamPicker } = await import('./TeamPicker');
+    return { name: 'TeamPicker', component: TeamPicker };
+  },
+});
+
+// Include both definitions in the contributing plugin's extensions.
+const extensions = [...teamPickerFields];
+```
+
+The template's `ui:field` name must match `fieldName`. Declare supported
+content types and any required permission in the manifest entry point. The
+Blueprint attaches metadata to Portal's shared contribution provider, not to a
+`portal-scaffolder` page. The provider validates ownership, manifests, version
 compatibility, and duplicate IDs/names without loading the widget.
 
 An installed templates host uses `createPortalScaffolderPage` and
 `NativeScaffolderFields` from `@ansible/portal-extension-host/alpha` to consume
-accepted declarations and apply runtime gates before loading widgets. Field
-names, value/UI schemas, component props, and validation functions are unchanged.
+accepted declarations and apply runtime gates before loading widgets. The same
+field declaration can be consumed by the existing Portal wizard and native
+Scaffolder through the paired blueprints. Field names, value/UI schemas,
+component props, and validation functions are unchanged.
 Without a templates consumer, declarations remain inspectable but unused and
 widget loaders do not run. Declaring a field does not install a templates page
 or make its workflow available.

@@ -3,14 +3,6 @@ dynamicPlugins:
     ansible.portal-scaffolder:
       scaffolderFieldExtensions:
         - importName: AAPTokenFieldExtension
-        - importName: AAPResourcePickerExtension
-        - importName: BaseImagePickerFieldExtension
-        - importName: CollectionsPickerFieldExtension
-        - importName: EEFileNamePickerExtension
-        - importName: FileUploadPickerFieldExtension
-        - importName: PackagesPickerFieldExtension
-        - importName: MCPServersPickerFieldExtension
-        - importName: AdditionalBuildStepsPickerFieldExtension
       dynamicRoutes:
         - importName: LandingPage
           path: /

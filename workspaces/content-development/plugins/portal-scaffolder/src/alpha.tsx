@@ -11,6 +11,7 @@ import {
 } from '@backstage/core-compat-api';
 import { createPortalScaffolderPage } from '@ansible/portal-extension-host/alpha';
 import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension-api/alpha';
+import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
 import {
@@ -23,8 +24,137 @@ import HomeIcon from '@material-ui/icons/Home';
 import HistoryIcon from '@material-ui/icons/History';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
-import { selfServiceManifest } from './selfServiceManifest';
+import {
+  scaffolderFieldEntries,
+  selfServiceManifest,
+} from './selfServiceManifest';
 import { aapUserTokenFormDecorator } from './scaffolder/aapUserTokenDecorator';
+import {
+  validateEEFileName,
+  validateEETags,
+  validateScmSelector,
+} from './scaffolder/nativeFieldValidation';
+
+type ScaffolderFieldName = (typeof scaffolderFieldEntries)[number]['fieldName'];
+
+/** Erase each widget's value/UI generics only at the heterogeneous loader map boundary. */
+function eraseScaffolderFieldTypes<TValue, TUiOptions>(
+  field: FieldExtensionOptions<TValue, TUiOptions>,
+): FieldExtensionOptions<any, any> {
+  return field as unknown as FieldExtensionOptions<any, any>;
+}
+
+/** Load custom widgets lazily while exposing them through the generic SDK field contract. */
+export const scaffolderFieldLoaders: Record<
+  ScaffolderFieldName,
+  () => Promise<FieldExtensionOptions<any, any>>
+> = {
+  AAPResourcePicker: async () => {
+    const { AAPResourcePicker } = await import(
+      './components/Scaffolder/AAResourcePicker/AAPResourcePicker'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'AAPResourcePicker',
+      component: AAPResourcePicker,
+    });
+  },
+  CollectionsPicker: async () => {
+    const { CollectionsPickerExtension } = await import(
+      './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'CollectionsPicker',
+      component: CollectionsPickerExtension,
+    });
+  },
+  BaseImagePicker: async () => {
+    const { BaseImagePickerExtension } = await import(
+      './components/Scaffolder/BaseImagePicker/BaseImagePickerExtension'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'BaseImagePicker',
+      component: BaseImagePickerExtension,
+    });
+  },
+  FileUploadPicker: async () => {
+    const { FileUploadPickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'FileUploadPicker',
+      component: FileUploadPickerExtension,
+    });
+  },
+  PackagesPicker: async () => {
+    const { PackagesPickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'PackagesPicker',
+      component: PackagesPickerExtension,
+    });
+  },
+  MCPServersPicker: async () => {
+    const { MCPServersPickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'MCPServersPicker',
+      component: MCPServersPickerExtension,
+    });
+  },
+  ScmSelector: async () => {
+    const { ScmSelectorExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'ScmSelector',
+      component: ScmSelectorExtension,
+      validation: (value, validation, context) => {
+        const options = context.uiSchema?.['ui:options'] as
+          | { requestUserCredentials?: unknown }
+          | undefined;
+        validateScmSelector(
+          value,
+          Boolean(options?.requestUserCredentials),
+        ).forEach(error => validation.addError(error));
+      },
+    });
+  },
+  AdditionalBuildStepsPicker: async () => {
+    const { AdditionalBuildStepsPickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'AdditionalBuildStepsPicker',
+      component: AdditionalBuildStepsPickerExtension,
+    });
+  },
+  EEFileNamePicker: async () => {
+    const { EEFileNamePickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'EEFileNamePicker',
+      component: EEFileNamePickerExtension,
+      validation: (value, validation) => {
+        validateEEFileName(value).forEach(error => validation.addError(error));
+      },
+    });
+  },
+  EETagsPicker: async () => {
+    const { EETagsPickerExtension } = await import(
+      '@ansible/portal-scaffolder-react'
+    );
+    return eraseScaffolderFieldTypes({
+      name: 'EETagsPicker',
+      component: EETagsPickerExtension,
+      validation: (value, validation) => {
+        validateEETags(value).forEach(error => validation.addError(error));
+      },
+    });
+  },
+};
 
 /** Native discovery and lifecycle around the existing Portal wizard. */
 const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
@@ -44,35 +174,16 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
       name: 'ee-build',
       params: define => define(EEBuildApis),
     }),
-    ...createPortalScaffolderFieldBlueprints('aap-resource-picker', {
-      manifest: selfServiceManifest,
-      capabilityId: 'portal-scaffolder.scaffolder-fields',
-      entryPointId: 'portal-scaffolder.aap-resource-picker',
-      attachment: 'scaffolder.fields',
-      fieldName: 'AAPResourcePicker',
-      loader: async () => {
-        const { AAPResourcePicker } = await import(
-          './components/Scaffolder/AAResourcePicker/AAPResourcePicker'
-        );
-        return { name: 'AAPResourcePicker', component: AAPResourcePicker };
-      },
-    }),
-    ...createPortalScaffolderFieldBlueprints('collections-picker', {
-      manifest: selfServiceManifest,
-      capabilityId: 'portal-scaffolder.scaffolder-fields',
-      entryPointId: 'portal-scaffolder.collections-picker',
-      attachment: 'scaffolder.fields',
-      fieldName: 'CollectionsPicker',
-      loader: async () => {
-        const { CollectionsPickerExtension } = await import(
-          './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
-        );
-        return {
-          name: 'CollectionsPicker',
-          component: CollectionsPickerExtension,
-        };
-      },
-    }),
+    ...scaffolderFieldEntries.flatMap(({ fieldName, id }) =>
+      createPortalScaffolderFieldBlueprints(fieldName, {
+        manifest: selfServiceManifest,
+        capabilityId: 'portal-scaffolder.scaffolder-fields',
+        entryPointId: id,
+        attachment: 'scaffolder.fields',
+        fieldName,
+        loader: scaffolderFieldLoaders[fieldName],
+      }),
+    ),
     PageBlueprint.make({
       name: 'collections',
       params: {

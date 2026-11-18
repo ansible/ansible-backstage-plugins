@@ -20,17 +20,7 @@ describe('formExtraFields', () => {
   });
 
   const expectedFields = [
-    'AAPResourcePicker',
     'AAPTokenField',
-    'BaseImagePicker',
-    'CollectionsPicker',
-    'FileUploadPicker',
-    'PackagesPicker',
-    'MCPServersPicker',
-    'ScmSelector',
-    'AdditionalBuildStepsPicker',
-    'EEFileNamePicker',
-    'EETagsPicker',
     'EntityPicker',
     'EntityNamePicker',
     'EntityTagsPicker',
@@ -42,6 +32,21 @@ describe('formExtraFields', () => {
     'MultiEntityPicker',
     'RepoBranchPicker',
   ];
+
+  it.each([
+    'AAPResourcePicker',
+    'BaseImagePicker',
+    'CollectionsPicker',
+    'FileUploadPicker',
+    'PackagesPicker',
+    'MCPServersPicker',
+    'ScmSelector',
+    'AdditionalBuildStepsPicker',
+    'EEFileNamePicker',
+    'EETagsPicker',
+  ])('does not keep SDK-contributed %s in the legacy host registry', name => {
+    expect(formExtraFields.map(field => field.name)).not.toContain(name);
+  });
 
   it.each(expectedFields)('includes %s field', fieldName => {
     const field = formExtraFields.find(f => f.name === fieldName);

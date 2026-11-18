@@ -1,5 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { FileUploadPickerExtension } from './FileUploadPickerExtension';
+import {
+  FileUploadPickerExtension,
+  MAX_UPLOAD_SIZE_BYTES,
+} from './FileUploadPickerExtension';
 
 const sessionStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -687,6 +690,27 @@ describe('FileUploadPickerExtension', () => {
       );
 
       expect(props.onChange).toHaveBeenCalledWith(
+        expect.stringContaining('data:text/plain;base64,'),
+      );
+    });
+
+    it('rejects oversized files before reading their contents', async () => {
+      const props = createMockProps();
+      render(<FileUploadPickerExtension {...props} />);
+      const input = document.querySelector(
+        'input[type="file"]',
+      ) as HTMLInputElement;
+      const file = new File(['x'], 'large.yml');
+      Object.defineProperty(file, 'size', {
+        configurable: true,
+        value: MAX_UPLOAD_SIZE_BYTES + 1,
+      });
+
+      fireEvent.change(input, { target: { files: [file] } });
+
+      expect(file.text).not.toHaveBeenCalled();
+      expect(await screen.findByRole('alert')).toHaveTextContent('5 MB');
+      expect(props.onChange).not.toHaveBeenCalledWith(
         expect.stringContaining('data:text/plain;base64,'),
       );
     });

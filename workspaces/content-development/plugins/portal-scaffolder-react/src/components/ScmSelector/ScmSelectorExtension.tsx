@@ -38,7 +38,7 @@ interface ProviderConfig {
   apiBaseUrl?: string;
 }
 
-interface ScmSelectorOptions {
+export interface ScmSelectorOptions {
   providers?: ProviderConfig[];
   requestUserCredentials?: {
     secretsKey: string;
@@ -55,6 +55,8 @@ export interface ScmSelectorData {
   org: string;
   repoName: string;
   repoExists: boolean;
+  /** Present only while a restored selection is waiting for credentials. */
+  authenticationPending?: true;
 }
 
 interface OrgItem {
@@ -466,15 +468,46 @@ export const ScmSelectorExtension = ({
       !isAuthenticating
     ) {
       hasInitializedRef.current = true;
+      if (
+        formData?.org &&
+        formData.repoName &&
+        !formData.authenticationPending
+      ) {
+        onChangeRef.current({ ...formData, authenticationPending: true });
+      }
       void authenticateWithProvider(selectedProvider);
     }
   }, [
+    formData,
     selectedProvider,
     requestUserCredentials,
     isAuthenticated,
     isAuthenticating,
     authenticateWithProvider,
   ]);
+
+  useEffect(() => {
+    if (!formData) return;
+    if (
+      requestUserCredentials &&
+      authError &&
+      (formData.org || formData.repoName || formData.authenticationPending)
+    ) {
+      onChangeRef.current({
+        ...formData,
+        authenticationPending: undefined,
+        org: '',
+        repoName: '',
+        repoExists: false,
+      });
+    } else if (
+      formData.authenticationPending &&
+      (isAuthenticated || !requestUserCredentials)
+    ) {
+      // Explicitly clear the flag because the Portal wizard merges field changes.
+      onChangeRef.current({ ...formData, authenticationPending: undefined });
+    }
+  }, [authError, isAuthenticated, requestUserCredentials, formData]);
 
   useEffect(() => {
     let cancelled = false;

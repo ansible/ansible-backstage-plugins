@@ -1,5 +1,8 @@
 import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
-import { createFieldValidation } from '@backstage/plugin-scaffolder-react/alpha';
+import {
+  createFieldValidation,
+  createFormField,
+} from '@backstage/plugin-scaffolder-react/alpha';
 import { TestApiProvider, TestApiRegistry } from '@backstage/test-utils';
 import { configApiRef } from '@backstage/core-plugin-api';
 import { ConfigReader } from '@backstage/config';
@@ -21,6 +24,11 @@ import {
   defineScaffolderField,
   type ScaffolderFieldDescriptor,
 } from './ScaffolderFieldBlueprint';
+
+jest.mock('@backstage/plugin-scaffolder-react/alpha', () => {
+  const actual = jest.requireActual('@backstage/plugin-scaffolder-react/alpha');
+  return { ...actual, createFormField: jest.fn(actual.createFormField) };
+});
 
 const descriptor = {
   manifest: {
@@ -95,6 +103,24 @@ function makeParams(
   };
 }
 
+const makeFieldProps = () =>
+  ({
+    name: descriptor.fieldName,
+    formData: 'existing value',
+    onChange: jest.fn(),
+    schema: {},
+    uiSchema: {},
+    idSchema: { $id: 'root_repository' },
+    onBlur: jest.fn(),
+    onFocus: jest.fn(),
+    disabled: false,
+    readonly: false,
+    rawErrors: [],
+    registry: {},
+  }) as unknown as Parameters<
+    NonNullable<FieldExtensionOptions['component']>
+  >[0];
+
 describe('createPortalScaffolderFieldBlueprints', () => {
   it('pairs the Portal contribution with a native Scaffolder field registration', () => {
     const [portalField, nativeField] = createPortalScaffolderFieldBlueprints(
@@ -118,6 +144,56 @@ describe('createPortalScaffolderFieldBlueprints', () => {
 
     expect(loader).toHaveBeenCalledTimes(1);
     expect(field.$$type).toBe('@backstage/scaffolder/FormField');
+  });
+
+  it('keeps a failed lazy widget from rejecting the native form field registry', async () => {
+    const loaderError = new Error('Chunk unavailable');
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const loadField = createNativeScaffolderFieldLoader(
+      makeParams(),
+      async () => {
+        throw loaderError;
+      },
+    );
+
+    try {
+      await expect(loadField()).resolves.toMatchObject({
+        $$type: '@backstage/scaffolder/FormField',
+      });
+      const [fallback] = jest.mocked(createFormField).mock.lastCall!;
+      const message =
+        'Field RepositoryInput could not be loaded. Enable its contributing plugin or contact your administrator.';
+      const props = {
+        ...makeFieldProps(),
+        formData: undefined,
+        onChange: jest.fn(),
+      };
+      const { rerender } = render(createElement(fallback.component, props));
+      expect(screen.getByRole('alert')).toHaveTextContent(message);
+      expect(props.onChange).toHaveBeenCalledWith(undefined, {
+        __errors: [message],
+      });
+
+      const updatedProps = { ...props, onChange: jest.fn() };
+      rerender(createElement(fallback.component, updatedProps));
+      expect(updatedProps.onChange).not.toHaveBeenCalled();
+
+      const validation = createFieldValidation();
+      await fallback.validation?.('existing value', validation, {
+        apiHolder: TestApiRegistry.from(),
+        formData: {},
+        schema: {},
+      });
+      expect(validation.__errors).toEqual([message]);
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to load native Scaffolder field RepositoryInput:',
+        loaderError,
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('preserves legacy value and UI schemas when building native fields', () => {
@@ -354,24 +430,6 @@ describe('createPortalScaffolderFieldBlueprints', () => {
 });
 
 describe('native Scaffolder field eligibility component', () => {
-  const makeFieldProps = () =>
-    ({
-      name: descriptor.fieldName,
-      formData: 'existing value',
-      onChange: jest.fn(),
-      schema: {},
-      uiSchema: {},
-      idSchema: { $id: 'root_repository' },
-      onBlur: jest.fn(),
-      onFocus: jest.fn(),
-      disabled: false,
-      readonly: false,
-      rawErrors: [],
-      registry: {},
-    }) as unknown as Parameters<
-      NonNullable<FieldExtensionOptions['component']>
-    >[0];
-
   const renderWithPermission = (
     component: NonNullable<FieldExtensionOptions['component']>,
     authorize: jest.Mock,

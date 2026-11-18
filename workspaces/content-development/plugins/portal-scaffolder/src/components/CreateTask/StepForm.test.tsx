@@ -152,7 +152,7 @@ describe('StepForm', () => {
         />,
       );
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Required template fields are unavailable: UnavailableField',
+        'Template fields are unavailable: UnavailableField',
       );
       expect(screen.queryByText('MockForm')).not.toBeInTheDocument();
       expect(submitFunction).not.toHaveBeenCalled();

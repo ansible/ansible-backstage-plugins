@@ -6,6 +6,7 @@ import type { ExtensionDefinition } from '@backstage/frontend-plugin-api';
 import { configApiRef, useApiHolder } from '@backstage/core-plugin-api';
 import { makeFieldSchema } from '@backstage/plugin-scaffolder-react';
 import type {
+  FieldExtensionComponentProps,
   FieldExtensionOptions,
   FieldSchema,
 } from '@backstage/plugin-scaffolder-react';
@@ -239,7 +240,37 @@ export function createNativeScaffolderFieldLoader<TValue, TUiOptions>(
   loader: () => Promise<FieldExtensionOptions<TValue, TUiOptions>>,
 ): () => Promise<ReturnType<typeof createFormField>> {
   return async () => {
-    const field = await loader();
+    let field: FieldExtensionOptions<TValue, TUiOptions>;
+    try {
+      field = await loader();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `Failed to load native Scaffolder field ${params.fieldName}:`,
+        error,
+      );
+      const errorMessage = `Field ${params.fieldName} could not be loaded. Enable its contributing plugin or contact your administrator.`;
+      return createFormField({
+        name: params.fieldName,
+        component: function UnavailableField({
+          formData,
+          onChange,
+        }: FieldExtensionComponentProps<unknown>) {
+          const reported = useRef(false);
+          useEffect(() => {
+            // An absent optional value is skipped by Scaffolder's validator.
+            if (!reported.current) {
+              reported.current = true;
+              onChange(formData, { __errors: [errorMessage] });
+            }
+          }, [formData, onChange]);
+          return createElement('p', { role: 'alert' }, errorMessage);
+        },
+        validation: (_value, validation) => {
+          validation.addError(errorMessage);
+        },
+      });
+    }
     return createNativeScaffolderField(params, field);
   };
 }

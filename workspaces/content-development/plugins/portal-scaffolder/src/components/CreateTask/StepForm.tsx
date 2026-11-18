@@ -832,13 +832,16 @@ export const StepForm = ({
 
   const contributedFields = useScaffolderFields();
   const outletFields = useCustomFieldExtensions(useOutlet());
-  const mergedFields = useMemo(
-    () =>
-      mergeScaffolderFields(formExtraFields, [
-        ...(nativeFields ?? [...outletFields, ...contributedFields]),
-      ]),
-    [outletFields, contributedFields, nativeFields],
-  );
+  const mergedFields = useMemo(() => {
+    // Native SDK declarations are authoritative when a field name also has
+    // a legacy host fallback. Keep legacy fields available for names with no
+    // SDK declaration and retain the existing fallback order otherwise.
+    const hostFields = nativeFields ?? formExtraFields;
+    const discoveredFields = nativeFields
+      ? formExtraFields
+      : [...outletFields, ...contributedFields];
+    return mergeScaffolderFields(hostFields, discoveredFields);
+  }, [outletFields, contributedFields, nativeFields]);
   const extensions = useMemo(() => {
     return Object.fromEntries(
       mergedFields.map(({ name, component }) => [name, component]),
@@ -1288,8 +1291,8 @@ export const StepForm = ({
   if (unavailableFields.length)
     return (
       <p role="alert">
-        Required template fields are unavailable: {unavailableFields.join(', ')}
-        . Enable the contributing plugin or contact your administrator.
+        Template fields are unavailable: {unavailableFields.join(', ')}. Enable
+        the contributing plugin or contact your administrator.
       </p>
     );
 

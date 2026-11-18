@@ -11,11 +11,15 @@ export function findUnavailableFields(
       return;
     }
     const record = node as Record<string, unknown>;
-    if (
-      typeof record['ui:field'] === 'string' &&
-      !available.has(record['ui:field'])
-    )
-      missing.add(record['ui:field']);
+    const ui = record.ui;
+    let fieldName: unknown;
+    if (typeof record['ui:field'] === 'string') {
+      fieldName = record['ui:field'];
+    } else if (ui && typeof ui === 'object' && !Array.isArray(ui)) {
+      fieldName = (ui as Record<string, unknown>).field;
+    }
+    if (typeof fieldName === 'string' && !available.has(fieldName))
+      missing.add(fieldName);
     Object.values(record).forEach(inspect);
   }
   inspect(value);

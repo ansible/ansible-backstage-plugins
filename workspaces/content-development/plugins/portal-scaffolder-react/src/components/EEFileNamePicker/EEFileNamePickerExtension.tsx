@@ -39,7 +39,7 @@ const useStyles = makeStyles(theme => ({
  * - Cannot start or end with a separator (eg. -abc, abc_)
  * - Cannot have consecutive separators (eg. abc.-abc)
  */
-const isValidEntityName = (
+export const isValidEntityName = (
   name: string,
 ): { valid: boolean; error?: string } => {
   if (!name || name.trim().length === 0) {
