@@ -127,14 +127,14 @@ describe('self-service', () => {
         ],
       }) as jest.MockedFunction<any>;
     } else {
-      (
-        mockScaffolderApi.autocomplete as jest.MockedFunction<any>
-      ).mockResolvedValue({
-        results: [
-          { id: '1', title: 'Template 1' },
-          { id: '2', title: 'Template 2' },
-        ],
-      });
+      (mockScaffolderApi.autocomplete as jest.MockedFunction<any>)
+        .mockReset()
+        .mockResolvedValue({
+          results: [
+            { id: '1', title: 'Template 1' },
+            { id: '2', title: 'Template 2' },
+          ],
+        });
     }
   });
 
@@ -640,7 +640,7 @@ describe('self-service', () => {
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
       // Mount: IDs 1, 2
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
+      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValue({
         results: [
           { id: '1', title: 'Template 1' },
           { id: '2', title: 'Template 2' },
@@ -650,14 +650,17 @@ describe('self-service', () => {
       await render(<HomeComponent />);
 
       await waitFor(() => {
-        expect(screen.getByText('Sync now')).toBeInTheDocument();
+        expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(1);
+        expect(
+          screen.queryByTestId('loading-templates'),
+        ).not.toBeInTheDocument();
       });
 
       const facetCallsBeforeSync =
         mockCatalogApi.getEntityFacets.mock.calls.length;
 
       // After sync: IDs 1, 2, 3 — new template added
-      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValueOnce({
+      (mockScaffolderApi.autocomplete as jest.Mock).mockResolvedValue({
         results: [
           { id: '1', title: 'Template 1' },
           { id: '2', title: 'Template 2' },
@@ -667,6 +670,7 @@ describe('self-service', () => {
 
       await triggerTemplateSync();
 
+      await screen.findByText('Templates synced successfully');
       await waitFor(() => {
         expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
         expect(mockScaffolderApi.autocomplete).toHaveBeenCalledTimes(2);
