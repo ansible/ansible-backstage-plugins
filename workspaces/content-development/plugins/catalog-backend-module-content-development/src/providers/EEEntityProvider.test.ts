@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { EEEntityProvider } from './EEEntityProvider';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { mockServices } from '@backstage/backend-test-utils';
