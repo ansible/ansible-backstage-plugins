@@ -1210,7 +1210,7 @@ export interface RequireSuperuserDeps {
   allowedExternalAccessSubjects?: string[];
 }
 
-/** Same allowlist semantics as sync superuser routes: optional subject filter for service principals. */
+/** EE build service subjects must be explicitly allowed; missing or empty lists deny services. */
 export interface RequireUserOrExternalAccessDeps {
   httpAuth: HttpAuthService;
   auth: AuthService;
@@ -1237,8 +1237,7 @@ export function checkRequireUserOrExternalAccess(
       if (auth.isPrincipal(credentials, 'service')) {
         const subject = credentials.principal.subject;
         const allowed =
-          !allowedExternalAccessSubjects?.length ||
-          allowedExternalAccessSubjects.includes(subject);
+          allowedExternalAccessSubjects?.includes(subject) === true;
         if (allowed) {
           logger.info(
             `[EE build] Allowing request: external access (service principal, subject=${subject})`,
@@ -1279,6 +1278,7 @@ export function createRequireUserOrExternalAccessMiddleware(
       (res.locals as Record<string, BackstageCredentials>)[
         EE_BUILD_CATALOG_CREDENTIALS_LOCALS_KEY
       ] = credentials;
+      res.locals.credentials = credentials;
       next();
     }
   };
@@ -1847,7 +1847,9 @@ export function createPermissionCheckMiddleware(
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const credentials = await httpAuth.credentials(request as any);
+      const credentials: BackstageCredentials =
+        response.locals.credentials ??
+        (await httpAuth.credentials(request as any));
 
       const [basicDecisions, conditionalDecisions] = await Promise.all([
         basicPerms.length

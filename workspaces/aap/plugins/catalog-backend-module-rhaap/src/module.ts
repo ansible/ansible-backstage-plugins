@@ -12,11 +12,9 @@ import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node'
 import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { AAPEntityProvider } from './providers/AAPEntityProvider';
 import { makeValidator } from '@backstage/catalog-model';
-import { EEEntityProvider } from './providers/EEEntityProvider';
 import { PAHCollectionProvider } from './providers/PAHCollectionProvider';
 import { CatalogClient } from '@backstage/catalog-client';
 import { AnsibleGitContentsProvider } from './providers/AnsibleGitContentsProvider';
-import { createEERegistrationLock } from './EERegistrationLock';
 
 export const catalogModuleRhaap = createBackendModule({
   pluginId: 'catalog',
@@ -35,7 +33,6 @@ export const catalogModuleRhaap = createBackendModule({
         auth: coreServices.auth,
         permissionsRegistry: coreServices.permissionsRegistry,
         permissionsApi: coreServices.permissions,
-        database: coreServices.database,
         httpAuth: coreServices.httpAuth,
         userInfo: coreServices.userInfo,
         signals: signalsServiceRef,
@@ -50,7 +47,6 @@ export const catalogModuleRhaap = createBackendModule({
         catalogModel,
         permissionsRegistry,
         permissionsApi,
-        database,
         httpAuth,
         userInfo,
         discovery,
@@ -78,7 +74,6 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
           },
         );
-        const eeEntityProvider = new EEEntityProvider(logger);
         const jobTemplateProvider = AAPJobTemplateProvider.fromConfig(
           config,
           ansibleService,
@@ -112,7 +107,6 @@ export const catalogModuleRhaap = createBackendModule({
         catalogProcessing.addEntityProvider(
           aapEntityProvider,
           jobTemplateProvider,
-          eeEntityProvider,
           ...pahCollectionProviders,
           ansibleGitContentsProviders,
         );
@@ -138,14 +132,12 @@ export const catalogModuleRhaap = createBackendModule({
             scheduler,
             aapEntityProvider: aapEntityProvider[0],
             jobTemplateProvider: jobTemplateProvider[0],
-            eeEntityProvider: eeEntityProvider,
             pahCollectionProviders: pahCollectionProviders,
             httpAuth: httpAuth,
             userInfo: userInfo,
             auth: auth,
             catalogClient: catalogClient,
             permissions: permissionsApi,
-            withEERegistrationLock: createEERegistrationLock(database),
             ansibleGitContentsProviders,
             allowedExternalAccessSubjects:
               allowedExternalAccessSubjects.length > 0

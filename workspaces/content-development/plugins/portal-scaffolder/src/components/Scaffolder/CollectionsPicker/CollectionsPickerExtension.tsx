@@ -18,12 +18,7 @@ import Autocomplete from '@material-ui/lab/Autocomplete';
 import AddIcon from '@material-ui/icons/Add';
 import CloseIcon from '@material-ui/icons/Close';
 import { CollectionItem } from './types';
-import {
-  discoveryApiRef,
-  fetchApiRef,
-  identityApiRef,
-  useApi,
-} from '@backstage/core-plugin-api';
+import { identityApiRef, useApi } from '@backstage/core-plugin-api';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import type { SourceVersionDetail } from '@ansible/aap-common';
 
@@ -130,31 +125,42 @@ export const CollectionsPickerExtension = ({
 
   const aapAuth = useApi(rhAapAuthApiRef);
   const scaffolderApi = useApi(scaffolderApiRef);
-  const discoveryApi = useApi(discoveryApiRef);
-  const fetchApi = useApi(fetchApiRef);
   const identityApi = useApi(identityApiRef);
+  const getBackstageIdentityToken = useCallback(async () => {
+    const { token } = await identityApi.getCredentials();
+    if (!token) {
+      throw new Error('A verified Backstage user identity is required');
+    }
+    return token;
+  }, [identityApi]);
+
   // Fetch collections for autocomplete
   const fetchCollections = useCallback(async () => {
     try {
       setLoadingCollections(true);
-      const [baseUrl, { token }] = await Promise.all([
-        discoveryApi.getBaseUrl('scaffolder'),
-        identityApi.getCredentials(),
-      ]);
-      const response = await fetchApi.fetch(`${baseUrl}/collections`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) {
-        throw new Error(`Collections request failed: ${response.status}`);
+      const token = await aapAuth.getAccessToken();
+      const backstageIdentityToken = await getBackstageIdentityToken();
+      if (scaffolderApi.autocomplete) {
+        const { results } = await scaffolderApi.autocomplete({
+          token,
+          resource: 'collections',
+          provider: 'portal-catalog',
+          context: {
+            searchQuery: 'spec.type=ansible-collection',
+            backstageIdentityToken,
+          },
+        });
+
+        // Process results to extract unique collections with their versions and sources
+        const processedCollections = results || [];
+        setAvailableCollections(processedCollections);
       }
-      const { results } = await response.json();
-      setAvailableCollections(results || []);
     } catch {
       setAvailableCollections([]);
     } finally {
       setLoadingCollections(false);
     }
-  }, [discoveryApi, fetchApi, identityApi]);
+  }, [aapAuth, getBackstageIdentityToken, scaffolderApi]);
 
   // Fetch sources when collection is selected
   const fetchSources = useCallback(
@@ -182,12 +188,13 @@ export const CollectionsPickerExtension = ({
         try {
           setLoadingSources(true);
           const token = await aapAuth.getAccessToken();
+          const backstageIdentityToken = await getBackstageIdentityToken();
           if (scaffolderApi.autocomplete) {
             const { results } = await scaffolderApi.autocomplete({
               token,
               resource: 'collection_sources',
-              provider: 'aap-api-cloud',
-              context: { collection: collectionName },
+              provider: 'portal-catalog',
+              context: { collection: collectionName, backstageIdentityToken },
             });
             setAvailableSources(results || []);
           }
@@ -198,7 +205,7 @@ export const CollectionsPickerExtension = ({
         }
       }
     },
-    [aapAuth, scaffolderApi, availableCollections],
+    [aapAuth, getBackstageIdentityToken, scaffolderApi, availableCollections],
   );
 
   // Fetch versions when source is selected
@@ -283,12 +290,17 @@ export const CollectionsPickerExtension = ({
         try {
           setLoadingVersions(true);
           const token = await aapAuth.getAccessToken();
+          const backstageIdentityToken = await getBackstageIdentityToken();
           if (scaffolderApi.autocomplete) {
             const { results } = await scaffolderApi.autocomplete({
               token,
               resource: 'collection_versions',
-              provider: 'aap-api-cloud',
-              context: { collection: collectionName, source: sourceId },
+              provider: 'portal-catalog',
+              context: {
+                collection: collectionName,
+                source: sourceId,
+                backstageIdentityToken,
+              },
             });
             setAvailableVersions(
               (results || []).map((item: any) => {
@@ -307,7 +319,7 @@ export const CollectionsPickerExtension = ({
         }
       }
     },
-    [aapAuth, scaffolderApi, availableCollections],
+    [aapAuth, getBackstageIdentityToken, scaffolderApi, availableCollections],
   );
   useEffect(() => {
     if (formData !== undefined) {

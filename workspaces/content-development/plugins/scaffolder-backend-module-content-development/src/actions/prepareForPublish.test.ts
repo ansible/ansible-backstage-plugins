@@ -1,9 +1,3 @@
-import { randomBytes } from 'node:crypto';
-import { ScmClientFactory } from '@ansible/content-development-common';
-import { mockServices } from '@backstage/backend-test-utils';
-import { ConfigReader } from '@backstage/config';
-import { prepareForPublishAction } from './prepareForPublish';
-
 /*
  * Copyright 2025 The Ansible plugin Authors
  *
@@ -24,16 +18,28 @@ jest.mock('node:crypto', () => ({
   randomBytes: jest.fn(),
 }));
 
+import { randomBytes } from 'node:crypto';
+import { ScmClientFactory } from '@ansible/content-development-common';
+
 jest.mock('@ansible/content-development-common', () => ({
   ScmClientFactory: jest.fn(),
 }));
 
-const mockRandomBytes = randomBytes as jest.MockedFunction<
-  (size: number) => Buffer
->;
+import { mockServices } from '@backstage/backend-test-utils';
+import { ConfigReader } from '@backstage/config';
+import { prepareForPublishAction } from './prepareForPublish';
+
+const mockRandomBytes = randomBytes as unknown as jest.Mock;
 const MockScmClientFactory = ScmClientFactory as jest.MockedClass<
   typeof ScmClientFactory
 >;
+
+jest.mock(
+  '@ansible/plugin-scaffolder-backend-module-content-development',
+  () => ({
+    prepareForPublishAction: jest.fn(),
+  }),
+);
 
 describe('prepareForPublish', () => {
   const logger = mockServices.logger.mock();
@@ -77,32 +83,6 @@ describe('prepareForPublish', () => {
   });
 
   describe('repository input validation', () => {
-    it('accepts a repository name beginning with a dot', async () => {
-      mockScmClient.repositoryExists.mockResolvedValue(true);
-      mockScmClient.getHost.mockReturnValue('github.com');
-
-      const ctx = {
-        input: {
-          sourceControlProvider: 'Github',
-          repositoryOwner: 'org',
-          repositoryName: '.github',
-          createNewRepository: false,
-          eeFileName: 'test-ee',
-          contextDirName: 'test-ee',
-        },
-        logger,
-        workspacePath: mockWorkspacePath,
-        output: jest.fn(),
-      } as any;
-
-      await prepareForPublishAction({ rootConfig: mockConfig }).handler(ctx);
-
-      expect(mockScmClient.repositoryExists).toHaveBeenCalledWith(
-        'org',
-        '.github',
-      );
-    });
-
     it('rejects query delimiters before creating an SCM client', async () => {
       const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
@@ -124,22 +104,17 @@ describe('prepareForPublish', () => {
       );
       expect(MockScmClientFactory).not.toHaveBeenCalled();
     });
-  });
 
-  describe('repository existence check functionality', () => {
-    it('uses an existing repository default branch in the catalog URL', async () => {
+    it('accepts a valid repository name beginning with a dot', async () => {
       mockScmClient.repositoryExists.mockResolvedValue(true);
-      mockScmClient.getRepositoryInfo.mockResolvedValue({
-        defaultBranch: 'develop',
-        fullPath: 'test-owner/test-repo',
-      });
       mockScmClient.getHost.mockReturnValue('github.com');
 
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
-          repositoryOwner: 'test-owner',
-          repositoryName: 'test-repo',
+          repositoryOwner: 'org',
+          repositoryName: '.github',
           createNewRepository: false,
           eeFileName: 'test-ee',
           contextDirName: 'test-ee',
@@ -149,18 +124,20 @@ describe('prepareForPublish', () => {
         output: jest.fn(),
       } as any;
 
-      await prepareForPublishAction({ rootConfig: mockConfig }).handler(ctx);
+      await action.handler(ctx);
 
-      expect(ctx.output).toHaveBeenCalledWith(
-        'generatedCatalogInfoUrl',
-        'https://github.com/test-owner/test-repo/blob/develop/test-ee/catalog-info.yaml',
+      expect(mockScmClient.repositoryExists).toHaveBeenCalledWith(
+        'org',
+        '.github',
       );
-      expect(mockScmClient.getRepositoryInfo).toHaveBeenCalledWith(
-        'test-owner',
-        'test-repo',
+      expect(ctx.output).toHaveBeenCalledWith(
+        'generatedRepoUrl',
+        'github.com?repo=.github&owner=org',
       );
     });
+  });
 
+  describe('repository existence check functionality', () => {
     it('should set createNewRepo to false when repository exists', async () => {
       mockScmClient.repositoryExists.mockResolvedValue(true);
       mockScmClient.getHost.mockReturnValue('github.com');
@@ -187,6 +164,11 @@ describe('prepareForPublish', () => {
         'test-repo',
       );
       expect(ctx.output).toHaveBeenCalledWith('createNewRepo', false);
+      expect(mockScmClient.getFileContent).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultBranch: 'main' }),
+        'main',
+        '.github/workflows/ee-build.yml',
+      );
       expect(ctx.output).toHaveBeenCalledWith(
         'githubEeBuildWorkflowExists',
         true,
@@ -196,12 +178,13 @@ describe('prepareForPublish', () => {
       );
     });
 
-    it('disables immediate GitHub dispatch when the default branch has no EE workflow', async () => {
+    it('reports an absent GitHub EE workflow for an existing repository', async () => {
       mockScmClient.repositoryExists.mockResolvedValue(true);
       mockScmClient.getHost.mockReturnValue('github.com');
       mockScmClient.getFileContent.mockRejectedValue(
         new Error('404 Not Found'),
       );
+      const action = prepareForPublishAction({ rootConfig: mockConfig });
       const ctx = {
         input: {
           sourceControlProvider: 'Github',
@@ -216,7 +199,7 @@ describe('prepareForPublish', () => {
         output: jest.fn(),
       } as any;
 
-      await prepareForPublishAction({ rootConfig: mockConfig }).handler(ctx);
+      await action.handler(ctx);
 
       expect(mockScmClient.getFileContent).toHaveBeenCalledWith(
         expect.objectContaining({ defaultBranch: 'main' }),
@@ -503,6 +486,9 @@ describe('prepareForPublish', () => {
   describe('catalog info URL generation functionality', () => {
     it('should generate catalog info URL for Github', async () => {
       mockScmClient.repositoryExists.mockResolvedValue(true);
+      mockScmClient.getRepositoryInfo.mockResolvedValue({
+        defaultBranch: 'develop',
+      });
       mockScmClient.getHost.mockReturnValue('github.com');
 
       const action = prepareForPublishAction({ rootConfig: mockConfig });
@@ -524,7 +510,7 @@ describe('prepareForPublish', () => {
 
       expect(ctx.output).toHaveBeenCalledWith(
         'generatedCatalogInfoUrl',
-        'https://github.com/test-owner/test-repo/blob/main/my-ee/catalog-info.yaml',
+        'https://github.com/test-owner/test-repo/blob/develop/my-ee/catalog-info.yaml',
       );
       expect(logger.info).toHaveBeenCalledWith(
         'Generated repository contents URL',

@@ -129,6 +129,23 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
 
         ctx.output('createNewRepo', createNewRepo);
 
+        if (scmProvider === 'github' && repositoryInfo) {
+          let workflowExists = false;
+          try {
+            await scmClient.getFileContent(
+              repositoryInfo,
+              defaultBranch,
+              '.github/workflows/ee-build.yml',
+            );
+            workflowExists = true;
+          } catch {
+            logger.debug(
+              'Could not confirm ee-build.yml on the GitHub default branch',
+            );
+          }
+          ctx.output('githubEeBuildWorkflowExists', workflowExists);
+        }
+
         if (scmProvider === 'gitlab' && !createNewRepo) {
           const numericProjectId = await scmClient.getProjectId(
             repositoryOwner,
@@ -140,25 +157,6 @@ export function prepareForPublishAction(options: { rootConfig: Config }) {
             logger.info('Resolved GitLab numeric project ID');
             ctx.output('gitlabProjectId', numericProjectId);
           }
-        }
-
-        if (scmProvider === 'github' && !createNewRepo) {
-          let workflowExists = false;
-          try {
-            await scmClient.getFileContent(
-              repositoryInfo!,
-              defaultBranch,
-              '.github/workflows/ee-build.yml',
-            );
-            workflowExists = true;
-          } catch (error) {
-            logger.debug(
-              `Could not confirm ee-build.yml on the GitHub default branch: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          }
-          ctx.output('githubEeBuildWorkflowExists', workflowExists);
         }
 
         const host = scmClient.getHost();

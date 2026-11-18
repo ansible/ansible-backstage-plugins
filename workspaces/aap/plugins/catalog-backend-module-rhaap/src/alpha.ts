@@ -1,24 +1,5 @@
-import {
-  createBackendFeatureLoader,
-  createServiceFactory,
-} from '@backstage/backend-plugin-api';
-import { userProvisionerRef, UserProvisioner } from '@ansible/aap-node';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
-import { catalogModuleRhaap } from './module';
-import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
-
-/** Dynamic deployments need the same organization adapter as the development backend. */
-export default createBackendFeatureLoader({
-  loader: function* () {
-    yield ansibleServiceFactory;
-    yield rhaapOrganizationServiceFactory;
-    // Embedded packages carry distinct service-ref objects; explicitly register
-    // the factory by service ID so auth and catalog share one provisioner.
-    yield createServiceFactory({
-      service: userProvisionerRef,
-      deps: {},
-      factory: () => new UserProvisioner(),
-    });
-    yield catalogModuleRhaap;
-  },
-});
+/**
+ * Compatibility entry point for dynamic hosts that load the catalog alpha
+ * feature, including RHDH JIT provisioning.
+ */
+export { default } from './index';

@@ -1,3 +1,9 @@
+import { usePermission } from '@backstage/plugin-permission-react';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  ...jest.requireActual('@backstage/plugin-permission-react'),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
 import {
   render,
   screen,
@@ -255,6 +261,9 @@ const renderWithCatalogApi = (
 // ----------------- Tests -----------------
 describe('EEDetailsPage', () => {
   beforeEach(() => {
+    jest
+      .mocked(usePermission)
+      .mockReturnValue({ allowed: true, loading: false });
     jest.clearAllMocks();
     sessionStorage.clear();
     notificationStore.clearAll();
@@ -729,6 +738,22 @@ describe('EEDetailsPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('unregister-dialog')).toBeInTheDocument(),
     );
+  });
+
+  test('hides Build on the details page from view-only users', async () => {
+    jest
+      .mocked(usePermission)
+      .mockReturnValue({ allowed: false, loading: false });
+    const { mockScmAuthApi } = renderWithCatalogApi(() =>
+      Promise.resolve({ items: [entityNoDownload] }),
+    );
+    await screen.findByTestId('favorite-entity');
+    fireEvent.click(screen.getByRole('button', { name: /Actions/i }));
+    expect(screen.getByText(/Edit definition/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /^Build$/i }),
+    ).not.toBeInTheDocument();
+    expect(mockScmAuthApi.getCredentials).not.toHaveBeenCalled();
   });
 
   test('Actions menu: clicking Build runs SCM auth and opens build dialog (GitHub-published EE)', async () => {

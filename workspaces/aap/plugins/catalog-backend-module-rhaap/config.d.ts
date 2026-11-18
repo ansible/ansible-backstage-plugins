@@ -2,6 +2,15 @@ import { SchedulerServiceTaskScheduleDefinitionConfig } from '@backstage/backend
 
 export interface Config {
   catalog?: {
+    /** @visibility backend */
+    eeBuild?: {
+      /**
+       * Exact authenticated service subjects allowed to dispatch EE builds.
+       * Missing or empty denies all service callers. No wildcard matching.
+       * @visibility backend
+       */
+      allowedServiceSubjects?: string[];
+    };
     providers?: {
       /** @visibility frontend */
       rhaap?: {

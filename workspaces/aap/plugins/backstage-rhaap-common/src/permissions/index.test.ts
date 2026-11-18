@@ -1,5 +1,6 @@
 import {
   executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
   gitRepositoriesViewPermission,
   collectionsViewPermission,
   templatesViewPermission,
@@ -64,8 +65,14 @@ describe('permissions', () => {
     expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
   });
 
-  it('ansiblePermissions contains all view permissions', () => {
-    expect(ansiblePermissions).toHaveLength(5);
+  it('ansiblePermissions contains all view permissions and the EE build permission', () => {
+    expect(ansiblePermissions).toHaveLength(6);
+    expect(executionEnvironmentsBuildPermission).toEqual({
+      type: 'basic',
+      name: 'ansible.execution-environments.build',
+      attributes: { action: 'update' },
+    });
+    expect(ansiblePermissions).toContain(executionEnvironmentsBuildPermission);
     expect(ansiblePermissions).toContain(executionEnvironmentsViewPermission);
     expect(ansiblePermissions).toContain(gitRepositoriesViewPermission);
     expect(ansiblePermissions).toContain(collectionsViewPermission);
