@@ -1,4 +1,4 @@
-import { isDeepStrictEqual } from 'node:util';
+import { createHash } from 'node:crypto';
 import {
   AnsibleContentManifest,
   CONTENT_MANIFEST_ARTIFACT_TYPE,
@@ -75,6 +75,33 @@ export interface IndexedArtifact {
 export interface MetadataOverlay {
   version: string;
   metadata: Record<string, unknown>;
+}
+
+/**
+ * Stable JSON form: object keys sorted, `undefined` dropped, so two
+ * submissions that deep-compare equal also produce the same fingerprint.
+ */
+function compareKeys(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .sort(([a], [b]) => compareKeys(a, b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`);
+    return `{${entries.join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+/** Identity of a submission, independent of any live redactor state. */
+function overlayFingerprint(metadata: MetadataOverlay['metadata']): string {
+  return createHash('sha256').update(canonicalJson(metadata)).digest('hex');
 }
 
 export class RegistryWriterBusy extends Error {}
@@ -778,11 +805,15 @@ export class ContentStore {
     if (!artifact) return 'not-found';
 
     const revision = { artifact_ref: ref, version: overlay.version };
+    // Retry identity is the submitted metadata, not its redaction: runtime
+    // secret registrations come and go, so redacted text stored earlier can
+    // differ from the same submission redacted again later.
+    const fingerprint = overlayFingerprint(overlay.metadata);
     const metadata = JSON.stringify(
       this.redactor.redactValue(overlay.metadata, { maxDepth: 64 }),
     );
     const inserted = await this.db('ee_metadata_overlays')
-      .insert({ ...revision, metadata })
+      .insert({ ...revision, metadata, fingerprint })
       .onConflict(['artifact_ref', 'version'])
       .ignore()
       .returning('id');
@@ -790,10 +821,8 @@ export class ContentStore {
 
     const saved = await this.db('ee_metadata_overlays')
       .where(revision)
-      .first('metadata');
-    return isDeepStrictEqual(JSON.parse(saved.metadata), JSON.parse(metadata))
-      ? 'applied'
-      : 'conflict';
+      .first('fingerprint');
+    return saved.fingerprint === fingerprint ? 'applied' : 'conflict';
   }
 
   private itemQuery(excludeArtifactType?: string) {

@@ -67,7 +67,7 @@ async function storeOver(
 const EE_LABEL = 'ansible-execution-environment';
 
 describe('EE metadata overlays', () => {
-  it('redacts runtime credentials before storing overlays and comparing retries', async () => {
+  it('redacts stored overlays and keeps identical retries safe after a runtime registration is released', async () => {
     const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
     const store = await storeOver(
       new MockRegistry({ repositories: { 'ansible/ee': [image] } }),
@@ -87,6 +87,19 @@ describe('EE metadata overlays', () => {
 
     store.redactor.releaseRuntimeSecret(token, 'mock');
     expect(store.redactor.redact(token)).toBe(token);
+
+    // Identical retry after the registration is gone: the stored text stays
+    // redacted, so only the submitted fingerprint can prove the retry is
+    // the same submission (#1102).
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, {
+        ...overlay,
+        metadata: { nested: { token: 'different-value' } },
+      }),
+    ).resolves.toBe('conflict');
     await expect(store.getMetadataOverlay(artifact.ref)).resolves.toEqual({
       version: '1',
       metadata: { nested: { token: '[REDACTED]' } },

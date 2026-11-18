@@ -6,6 +6,10 @@ exports.up = async function up(knex) {
     table.text('artifact_ref').notNullable();
     table.string('version', 64).notNullable();
     table.text('metadata').notNullable();
+    // Hash of the metadata as submitted, before redaction. Runtime secret
+    // registrations change between requests, so the redacted text cannot
+    // decide whether a retry is identical (#1102 review).
+    table.string('fingerprint', 64).notNullable();
     table.unique(['artifact_ref', 'version']);
     table.index(['artifact_ref', 'id']);
   });
