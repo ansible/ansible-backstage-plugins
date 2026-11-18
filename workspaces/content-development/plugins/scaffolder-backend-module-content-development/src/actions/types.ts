@@ -41,6 +41,7 @@ export interface EEDefinitionInput {
   buildImageName?: string;
   buildImageTag?: string;
   registryTlsVerify?: boolean;
+  galaxyTlsVerify?: boolean;
   owner?: string;
   scmProvider?: 'github' | 'gitlab';
 }

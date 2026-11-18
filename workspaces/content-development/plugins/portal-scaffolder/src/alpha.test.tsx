@@ -12,7 +12,9 @@ import { compatWrapper } from '@backstage/core-compat-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
-import scaffolderFrontendPlugin from '@backstage/plugin-scaffolder/alpha';
+import scaffolderFrontendPlugin, {
+  formDecoratorsApiRef,
+} from '@backstage/plugin-scaffolder/alpha';
 import { formFieldsApiRef } from '@backstage/plugin-scaffolder-react/alpha';
 import {
   contributionRegistry,
@@ -56,6 +58,52 @@ const nativeFormFieldsProbePlugin = createFrontendPlugin({
       },
     }),
   ],
+});
+
+function NativeFormDecoratorsProbe() {
+  const decoratorsApi = useApi(formDecoratorsApiRef);
+  const [ids, setIds] = useState<string[]>();
+  useEffect(() => {
+    void decoratorsApi
+      .getFormDecorators()
+      .then(decorators => setIds(decorators.map(decorator => decorator.id)));
+  }, [decoratorsApi]);
+  return (
+    <div data-testid="native-form-decorators">
+      {ids?.join(',') ?? 'loading'}
+    </div>
+  );
+}
+
+const nativeFormDecoratorsProbePlugin = createFrontendPlugin({
+  pluginId: 'native-form-decorators-probe',
+  extensions: [
+    PageBlueprint.make({
+      params: {
+        path: '/native-form-decorators-probe',
+        title: 'Native form decorators probe',
+        loader: async () => compatWrapper(<NativeFormDecoratorsProbe />),
+      },
+    }),
+  ],
+});
+
+it('registers the AAP token decorator through the native app extension tree', async () => {
+  await renderTestApp({
+    features: [
+      portalHost,
+      scaffolderFrontendPlugin,
+      plugin,
+      nativeFormDecoratorsProbePlugin,
+    ],
+    initialRouteEntries: ['/native-form-decorators-probe'],
+    apis: [mockApis.permission()],
+  });
+  await waitFor(() =>
+    expect(screen.getByTestId('native-form-decorators')).toHaveTextContent(
+      'ansible.aap-user-token',
+    ),
+  );
 });
 
 const mockSuperuser = jest.fn(() => ({ isSuperuser: true, loading: false }));
