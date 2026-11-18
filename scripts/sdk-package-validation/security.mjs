@@ -50,7 +50,9 @@ export function selectCodeqlAnalyses(analyses, commit, ref) {
   }
   if (
     !requiredCategories.every(category =>
-      [...latest.values()].some(analysis => analysis.category === category),
+      [...latest.values()].some(analysis =>
+        analysis.category.endsWith(category),
+      ),
     )
   )
     return undefined;
@@ -216,64 +218,83 @@ export async function collectSecurityEvidence(directory, commit, token, ref) {
     );
     return response.json();
   }
-  let selected;
-  // CodeQL runs separately. Never substitute another branch or SHA.
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const analyses = await api(
-      `analyses?ref=${encodeURIComponent(ref)}&tool_name=CodeQL&per_page=100`,
-    );
-    record('codeql-latest.metadata.json', analyses, false);
-    selected = selectCodeqlAnalyses(analyses, commit, ref);
-    if (selected) break;
-    await new Promise(done => setTimeout(done, 10_000));
-  }
-  assert(selected, 'Missing CodeQL analyses for the release SHA');
   let sastError;
-  for (const analysis of selected) {
-    const sarif = await api(`analyses/${analysis.id}`, true);
-    record(`codeql-${analysis.id}.metadata.json`, analysis);
-    record(`codeql-${analysis.id}.sarif.json`, sarif);
-    try {
-      verifyCodeql(analysis, sarif, commit, ref);
-    } catch (error) {
-      sastError ??= error;
+  try {
+    let selected;
+    // Bound polling and pagination. Never substitute another branch or SHA.
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const analyses = [];
+      for (let page = 1; page <= 10; page++) {
+        const batch = await api(
+          `analyses?ref=${encodeURIComponent(
+            ref,
+          )}&tool_name=CodeQL&per_page=100&page=${page}`,
+        );
+        assert(Array.isArray(batch), 'Invalid CodeQL analysis response');
+        analyses.push(...batch);
+        selected = selectCodeqlAnalyses(analyses, commit, ref);
+        if (selected || batch.length < 100) break;
+        assert(page < 10, 'CodeQL analysis search limit exceeded');
+      }
+      record('codeql-latest.metadata.json', analyses, false);
+      selected = selectCodeqlAnalyses(analyses, commit, ref);
+      if (selected) break;
+      if (attempt < 59) await new Promise(done => setTimeout(done, 10_000));
     }
+    assert(selected, 'Missing CodeQL analyses for the release SHA');
+    for (const analysis of selected) {
+      try {
+        const sarif = await api(`analyses/${analysis.id}`, true);
+        record(`codeql-${analysis.id}.metadata.json`, analysis);
+        record(`codeql-${analysis.id}.sarif.json`, sarif);
+        verifyCodeql(analysis, sarif, commit, ref);
+      } catch (error) {
+        sastError ??= error;
+      }
+    }
+  } catch (error) {
+    sastError = error;
   }
   const consumer = join(directory, 'consumer');
-  copyFileSync(join(consumer, 'yarn.lock'), join(folder, 'consumer.yarn.lock'));
-  files.push('consumer.yarn.lock');
-  const audit = spawnSync(
-    'corepack',
-    [
-      'yarn',
-      'npm',
-      'audit',
-      '--recursive',
-      '--environment',
-      'production',
-      '--severity',
-      'info',
-      '--no-deprecations',
-      '--json',
-    ],
-    {
-      cwd: consumer,
-      encoding: 'utf8',
-      timeout: 300_000,
-      maxBuffer: 32 * 1024 * 1024,
-      env: {
-        ...process.env,
-        GH_TOKEN: '',
-        GITHUB_TOKEN: '',
-        YARN_ENABLE_SCRIPTS: 'false',
-      },
-    },
-  );
-  writeFileSync(join(folder, 'yarn-audit.ndjson'), audit.stdout ?? '');
-  writeFileSync(join(folder, 'yarn-audit.stderr.log'), audit.stderr ?? '');
-  files.push('yarn-audit.ndjson');
   let scaError;
+  let auditExitCode;
   try {
+    copyFileSync(
+      join(consumer, 'yarn.lock'),
+      join(folder, 'consumer.yarn.lock'),
+    );
+    files.push('consumer.yarn.lock');
+    const audit = spawnSync(
+      'corepack',
+      [
+        'yarn',
+        'npm',
+        'audit',
+        '--recursive',
+        '--environment',
+        'production',
+        '--severity',
+        'info',
+        '--no-deprecations',
+        '--json',
+      ],
+      {
+        cwd: consumer,
+        encoding: 'utf8',
+        timeout: 300_000,
+        maxBuffer: 32 * 1024 * 1024,
+        env: {
+          ...process.env,
+          GH_TOKEN: '',
+          GITHUB_TOKEN: '',
+          YARN_ENABLE_SCRIPTS: 'false',
+        },
+      },
+    );
+    auditExitCode = audit.status;
+    writeFileSync(join(folder, 'yarn-audit.ndjson'), audit.stdout ?? '');
+    writeFileSync(join(folder, 'yarn-audit.stderr.log'), audit.stderr ?? '');
+    files.push('yarn-audit.ndjson');
     assert(!audit.error, 'Dependency audit could not run');
     verifyAudit(audit.stdout, audit.status);
   } catch (error) {
@@ -284,8 +305,8 @@ export async function collectSecurityEvidence(directory, commit, token, ref) {
     {
       commit,
       ref,
-      sast: sastError?.message ?? 'passed',
-      sca: scaError?.message ?? 'passed',
+      sast: sastError ? 'failed' : 'passed',
+      sca: scaError ? 'failed' : 'passed',
     },
     false,
   );
@@ -301,7 +322,7 @@ export async function collectSecurityEvidence(directory, commit, token, ref) {
         ref,
         policy: 'block-all-findings',
         packages: report.packages,
-        auditExitCode: audit.status,
+        auditExitCode,
         files: files.map(name => ({
           name,
           sha256: digest(join(folder, name)),

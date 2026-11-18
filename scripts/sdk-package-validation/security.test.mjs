@@ -196,15 +196,32 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     process.env.PATH = `${join(folder, 'bin')}${delimiter}${previousPath}`;
     let findings = false;
     let unavailable = false;
+    let downloadUnavailable = false;
+    let paginated = false;
+    let searchLimit = false;
     t.mock.method(globalThis, 'fetch', async url => {
       const analyses = [
         analysis(undefined, ref),
         { ...analysis('/language:actions', ref), id: 2 },
       ];
       analyses[0].results_count = findings ? 1 : 0;
-      if (unavailable) return new Response('{}', { status: 403 });
+      if (unavailable || (downloadUnavailable && url.endsWith('/2')))
+        return new Response('{}', { status: 403 });
       if (url.includes('analyses?')) {
         assert.equal(new URL(url).searchParams.get('ref'), ref);
+        const page = Number(new URL(url).searchParams.get('page'));
+        if (searchLimit || (paginated && page === 1)) {
+          return new Response(
+            JSON.stringify(
+              Array.from({ length: 100 }, (_, i) => ({
+                ...analysis(),
+                id: 100 + i,
+                commit_sha: 'b'.repeat(40),
+              })),
+            ),
+          );
+        }
+        assert.equal(page, paginated ? 2 : 1);
         return new Response(JSON.stringify(analyses));
       }
       const document = sarif();
@@ -232,15 +249,40 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
       /CodeQL findings block/,
     );
     assert.equal(existsSync(join(folder, 'security/report.json')), false);
-    assert.match(
-      readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
-      /CodeQL findings block/,
+    assert.deepEqual(
+      JSON.parse(
+        readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
+      ),
+      { commit: sha, ref, sast: 'failed', sca: 'passed' },
     );
     findings = false;
     writeFileSync(join(folder, 'consumer/audit-fails'), '');
     await assert.rejects(
       collectSecurityEvidence(folder, sha, 'test-read-token', ref),
       /Dependency audit failed/,
+    );
+    assert.equal(existsSync(join(folder, 'security/report.json')), false);
+    rmSync(join(folder, 'consumer/audit-fails'));
+    downloadUnavailable = true;
+    await assert.rejects(
+      collectSecurityEvidence(folder, sha, 'test-read-token', ref),
+      /CodeQL API unavailable/,
+    );
+    assert.deepEqual(
+      JSON.parse(
+        readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
+      ),
+      { commit: sha, ref, sast: 'failed', sca: 'passed' },
+    );
+    assert.equal(existsSync(join(folder, 'security/report.json')), false);
+    downloadUnavailable = false;
+    paginated = true;
+    await collectSecurityEvidence(folder, sha, 'test-read-token', ref);
+    verifySecurityEvidence(folder, report, ref);
+    searchLimit = true;
+    await assert.rejects(
+      collectSecurityEvidence(folder, sha, 'test-read-token', ref),
+      /search limit exceeded/,
     );
     assert.equal(existsSync(join(folder, 'security/report.json')), false);
     unavailable = true;
@@ -250,3 +292,51 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     );
   });
 }
+
+test('accepts prefixed language categories while retaining every configuration', () => {
+  const js = {
+    ...analysis(),
+    category: 'release/language:javascript-typescript',
+  };
+  const actions = {
+    ...analysis('/language:actions'),
+    id: 2,
+    category: 'release/language:actions',
+  };
+  assert.deepEqual(selectCodeqlAnalyses([js, actions], sha, ref), [
+    js,
+    actions,
+  ]);
+  const extra = { ...js, id: 3, analysis_key: 'another-configuration' };
+  assert.deepEqual(selectCodeqlAnalyses([js, actions, extra], sha, ref), [
+    js,
+    actions,
+    extra,
+  ]);
+  assert.throws(
+    () =>
+      verifyCodeql(
+        { ...extra, results_count: 1 },
+        {
+          ...sarif(),
+          runs: [
+            {
+              tool: { driver: { name: 'CodeQL' } },
+              results: [{ ruleId: 'example', level: 'note' }],
+            },
+          ],
+        },
+        sha,
+        ref,
+      ),
+    /findings block/,
+  );
+  assert.equal(
+    selectCodeqlAnalyses(
+      [js, { ...actions, category: 'release/language:actions-extra' }],
+      sha,
+      ref,
+    ),
+    undefined,
+  );
+});

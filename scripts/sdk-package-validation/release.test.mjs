@@ -117,3 +117,37 @@ test('permits only main and release-* branches matching the environment rules', 
     assert.throws(() => validateReleaseRef(ref), /Release/);
   }
 });
+
+test('rejects npm aliases to internal packages in every runtime dependency section', () => {
+  for (const section of [
+    'dependencies',
+    'optionalDependencies',
+    'peerDependencies',
+  ]) {
+    for (const target of ['@ansible/common', '@ansible/outside-release']) {
+      assert.throws(
+        () =>
+          validateReleaseManifests(
+            [
+              {
+                ...manifest('sdk'),
+                [section]: { alias: `npm:${target}@${version}` },
+              },
+              manifest('common'),
+            ],
+            version,
+          ),
+        /npm aliases to @ansible/,
+      );
+    }
+  }
+  validateReleaseManifests(
+    [
+      {
+        ...manifest('sdk'),
+        dependencies: { alias: 'npm:external-package@1.0.0' },
+      },
+    ],
+    version,
+  );
+});

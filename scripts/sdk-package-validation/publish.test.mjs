@@ -268,8 +268,9 @@ test('publisher validates real archives and fails closed on tampering', t => {
   assert.match(run().stderr, /Security evidence changed/);
   writeFileSync(sarifPath, originalSarif);
   const sbom = join(directory, 'sboms/example.spdx.json');
-  writeFileSync(sbom, '{}');
-  assert.match(run().stderr, /AssertionError/);
+  const originalSbom = readFileSync(sbom, 'utf8');
+  writeFileSync(sbom, `${originalSbom}\n`);
+  assert.match(run().stderr, /SBOM digest mismatch/);
   // A matching digest must not make an SBOM for a different package acceptable.
   json(sbom, {
     spdxVersion: 'SPDX-2.3',

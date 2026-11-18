@@ -25,6 +25,8 @@ jobs:
       github.ref_name != 'release-' && !contains(github.ref_name, '/')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.handoff.outputs.artifact-id }}
     permissions:
       contents: read
       security-events: read
@@ -32,6 +34,13 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=8192
       SDK_RELEASE_VERSION: ${{ inputs.version }}
     steps:
+      - name: Validate release branch
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != refs/heads/main && ! "$GITHUB_REF" =~ ^refs/heads/release-[^/]+$ ]]; then
+            echo 'Release requires main or a release-* branch without slashes.' >&2
+            exit 1
+          fi
       - name: Set artifact directory
         run: echo "SDK_VALIDATION_DIR=$RUNNER_TEMP/sdk-release" >> "$GITHUB_ENV"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -66,15 +75,16 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: sdk-security-diagnostics
-          path: ${{ runner.temp }}/sdk-release/security
+          name: sdk-security-diagnostics-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sdk-release/security/scan-status.json
           if-no-files-found: ignore
           retention-days: 30
       - name: Verify complete release set
         run: node scripts/sdk-package-validation/publish.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        id: handoff
         with:
-          name: sdk-npm-preview
+          name: sdk-npm-preview-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/sdk-release/artifacts
             ${{ runner.temp }}/sdk-release/sboms
@@ -117,7 +127,8 @@ jobs:
           echo "$RUNNER_TEMP/npm-cli/bin" >> "$GITHUB_PATH"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: sdk-npm-preview
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
           path: ${{ runner.temp }}/sdk-release
       - name: Revalidate approved archive bytes and release metadata
         run: node scripts/sdk-package-validation/publish.mjs
@@ -131,19 +142,14 @@ jobs:
             ${{ runner.temp }}/sdk-release/report.json
             ${{ runner.temp }}/sdk-release/security/**
           create-storage-record: false
-      - name: Publish exact archives through npm OIDC
-        working-directory: ${{ runner.temp }}
-        run: node "$GITHUB_WORKSPACE/scripts/sdk-package-validation/publish.mjs" --publish
       - name: Retain signed release evidence
-        if: always() && steps.provenance.outcome == 'success'
         env:
           BUNDLE_PATH: ${{ steps.provenance.outputs.bundle-path }}
         run: cp "$BUNDLE_PATH" "$SDK_VALIDATION_DIR/provenance.sigstore.json"
       - name: Upload signed release evidence
-        if: always() && steps.provenance.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: sdk-npm-preview-signed
+          name: sdk-npm-preview-signed-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/sdk-release/artifacts
             ${{ runner.temp }}/sdk-release/sboms
@@ -152,3 +158,6 @@ jobs:
             ${{ runner.temp }}/sdk-release/security
           if-no-files-found: error
           retention-days: 30
+      - name: Publish exact archives through npm OIDC
+        working-directory: ${{ runner.temp }}
+        run: node "$GITHUB_WORKSPACE/scripts/sdk-package-validation/publish.mjs" --publish

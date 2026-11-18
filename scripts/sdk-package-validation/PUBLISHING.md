@@ -35,14 +35,18 @@ exceptions. Missing, incomplete, failed or inaccessible scans also block release
   commit and selected branch ref. Require JavaScript/TypeScript and Actions categories,
   inspect their SARIF results, and reject any reported result at any severity.
   A successful analysis job alone does not establish a clean result. The gate
-  waits up to ten minutes for matching analyses. It never substitutes another SHA
+  polls up to 60 times for matching analyses, searching up to ten pages of 100
+  results per poll. It never substitutes another SHA
   or branch, even when two branches point to the same commit.
   Existing findings must be resolved before publication. This is repository-wide
   SAST, so findings outside the package allowlist can also block release.
 - **SCA:** Run the pinned consumer's Yarn audit recursively across its resolved
   production dependencies at severity `info` and above. The consumer declares
   packages, peers and verification tools as dependencies, so this intentionally
-  covers that whole installed graph, including its transitive dependencies.
+  audits registry-resolved (`npm:`) dependencies reachable from those packages,
+  including transitive dependencies. The SDK candidates themselves are installed
+  as local `file:` tarballs and are not submitted to the advisory API. Their source
+  is covered separately by SAST and release review.
   Deprecation notices are excluded because they are not vulnerability findings.
   Dependency lifecycle scripts remain disabled. No advisory exclusions are added.
 
@@ -55,11 +59,19 @@ appropriate for the repository setup. The publishing workflow does not create
 missing scans or fall back to results from `main`. No additional personal token
 is needed.
 
-The `sdk-security-diagnostics` artifact retains CodeQL reports, audit output and
-the audited consumer lockfile even when a gate fails. Successful evidence binds
-the source branch ref and SHA, archive hashes and security-report hashes. The
-publisher verifies that evidence again and includes it in signed provenance. No artifact handoff or
-npm publication happens after a failed security gate.
+The `sdk-security-diagnostics-<attempt>` artifact contains only a sanitized
+`scan-status.json` with the source ref/SHA and pass/fail states. Failed scan
+reports and raw SARIF are never uploaded as public workflow artifacts. Detailed
+CodeQL findings remain in the repository's restricted code-scanning interface.
+The independent dependency audit still runs after a CodeQL lookup or download
+failure. If the job fails before it can write a status file, no diagnostic
+artifact may exist; inspect the failed step log instead.
+
+After both gates pass, the successful handoff retains zero-finding CodeQL
+reports, the clean audit output and the audited consumer lockfile. Successful
+evidence binds the source branch ref and SHA, archive hashes and security-report
+hashes. The publisher verifies that evidence again and includes it in signed
+provenance. No release handoff or npm publication happens after a failed gate.
 
 ## Prerequisites
 
@@ -86,6 +98,10 @@ npm publication happens after a failed security gate.
   workflow filename `sdk-package-publish.yml`, and environment `npm-preview`.
   Permit `npm publish`. Require 2FA and disallow token-based publishing in package
   settings. Do not add `NPM_TOKEN` or `NODE_AUTH_TOKEN` repository secrets.
+  Configure trust during the release window: npm requires the first successful
+  publish within two days of creating a trusted publisher. An unused configuration
+  expires after that deadline. Delete and recreate expired configurations before
+  approval. See [npm trusted publisher expiry](https://docs.npmjs.com/trusted-publishers/#trusted-publisher-configuration-expiry).
 
 ### First publication
 
@@ -109,15 +125,23 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 2. Open **Actions → Publish SDK preview → Run workflow**. Select the reviewed `main` or `release-*` branch and enter
    the exact reviewed version, such as `0.1.0-alpha.0`. The input validates the
    committed version. It does not rewrite manifests or remove private guards.
-3. Wait for the build job. Download `sdk-npm-preview` and review its source commit,
+3. Wait for the build job. Download `sdk-npm-preview-<attempt>` and review its source commit,
    package names, versions, validation report, archive hashes and SBOMs. Confirm
    release-specific security and runtime evidence applies to that source commit.
-4. An authorized maintainer approves the `npm-preview` environment deployment.
-   The publisher signs the evidence and sends the exact archives to npm under
+4. An authorized maintainer approves the `npm-preview` environment deployment
+   before the reviewed handoff artifact expires after seven days. If it expires,
+   start a fresh dispatch for the reviewed release and review the new handoff
+   before approving. Also check that newly configured npm trust has not expired.
+   The publisher signs the evidence and successfully uploads the signed artifact
+   before sending any archives to npm under
    `next`. npm version `11.6.4` and Node `22.22.3` are pinned for publishing.
-5. Retain the `sdk-npm-preview-signed` artifact, including the provenance bundle,
+5. Retain the `sdk-npm-preview-signed-<attempt>` artifact, including the provenance bundle,
    for release evidence. It is retained for 30 days in Actions. Copy it into the
    project's approved long-term release storage if longer retention is required.
+
+Artifact names include the build or publish attempt number so reruns preserve
+earlier evidence. The publish job downloads the exact artifact ID produced by
+its successful build, including when only a failed publish job is rerun.
 
 ## Verification
 
@@ -127,13 +151,19 @@ Check the version and tag for each published candidate, for example:
 npm view @ansible/portal-extension-api@next version dist.integrity
 ```
 
-Verify an archive's signed GitHub provenance after downloading the signed artifact:
+Verify an archive's signed GitHub provenance after downloading the signed artifact.
+Use a current GitHub CLI supporting `--source-ref` and `--source-digest`.
+Set the reviewed branch and commit from the approved handoff, for example:
 
 ```bash
+RELEASE_REF=refs/heads/main
+RELEASE_SHA='replace-with-reviewed-40-character-commit-sha'
 gh attestation verify artifacts/portal-extension-api.tgz \
   --bundle provenance.sigstore.json \
   --repo ansible/ansible-backstage-plugins \
-  --signer-workflow ansible/ansible-backstage-plugins/.github/workflows/sdk-package-publish.yml
+  --signer-workflow ansible/ansible-backstage-plugins/.github/workflows/sdk-package-publish.yml \
+  --source-ref "$RELEASE_REF" \
+  --source-digest "$RELEASE_SHA"
 ```
 
 Confirm npm displays registry provenance and install the exact versions into an

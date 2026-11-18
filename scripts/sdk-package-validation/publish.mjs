@@ -91,6 +91,7 @@ for (const source of sources) {
   assert.equal(
     entry.sbomSha256,
     createHash('sha256').update(sbom).digest('hex'),
+    'SBOM digest mismatch',
   );
   verifySbom(JSON.parse(sbom), candidate);
   manifests.push(manifest);

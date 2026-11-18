@@ -68,6 +68,10 @@ export function validateReleaseManifests(packages, version) {
       'peerDependencies',
     ]) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
+        assert(
+          typeof range !== 'string' || !range.startsWith('npm:@ansible/'),
+          `${manifest.name}: npm aliases to @ansible packages are not supported`,
+        );
         if (!name.startsWith('@ansible/')) continue;
         assert(names.has(name), `Internal dependency outside release: ${name}`);
         assert(
