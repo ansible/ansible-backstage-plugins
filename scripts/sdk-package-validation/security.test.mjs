@@ -20,12 +20,16 @@ import {
 } from './security.mjs';
 
 const sha = 'a'.repeat(40);
-const analysis = (category = '/language:javascript-typescript') => ({
+const ref = 'refs/heads/main';
+const analysis = (
+  category = '/language:javascript-typescript',
+  sourceRef = ref,
+) => ({
   analysis_key: 'codeql-default-setup',
   id: 1,
   category,
   commit_sha: sha,
-  ref: 'refs/heads/main',
+  ref: sourceRef,
   tool: { name: 'CodeQL' },
   error: '',
   warning: '',
@@ -37,20 +41,30 @@ const sarif = () => ({
   runs: [{ tool: { driver: { name: 'CodeQL' } }, results: [] }],
 });
 
-test('requires both CodeQL categories on the exact release SHA and main ref', () => {
+test('requires both CodeQL categories on the exact release SHA and selected branch ref', () => {
   const js = analysis();
   const actions = { ...analysis('/language:actions'), id: 2 };
-  assert.equal(selectCodeqlAnalyses([js], sha), undefined);
+  assert.equal(selectCodeqlAnalyses([js], sha, ref), undefined);
   assert.equal(
-    selectCodeqlAnalyses([js, { ...actions, commit_sha: 'b'.repeat(40) }], sha),
+    selectCodeqlAnalyses(
+      [js, { ...actions, commit_sha: 'b'.repeat(40) }],
+      sha,
+      ref,
+    ),
     undefined,
   );
   assert.equal(
-    selectCodeqlAnalyses([js, { ...actions, ref: 'refs/pull/1/merge' }], sha),
+    selectCodeqlAnalyses(
+      [js, { ...actions, ref: 'refs/pull/1/merge' }],
+      sha,
+      ref,
+    ),
     undefined,
   );
   assert.deepEqual(
-    selectCodeqlAnalyses([js, actions, { ...js, id: 3 }], sha).map(a => a.id),
+    selectCodeqlAnalyses([js, actions, { ...js, id: 3 }], sha, ref).map(
+      a => a.id,
+    ),
     [3, 2],
   );
   assert.equal(
@@ -61,18 +75,20 @@ test('requires both CodeQL categories on the exact release SHA and main ref', ()
         { ...js, id: 4, analysis_key: 'another-codeql-configuration' },
       ],
       sha,
+      ref,
     ).length,
     3,
   );
 });
 
 test('CodeQL gate accepts complete zero-finding results only', () => {
-  verifyCodeql(analysis(), sarif(), sha);
+  verifyCodeql(analysis(), sarif(), sha, ref);
   for (const level of ['note', 'warning', 'error']) {
     const document = sarif();
     document.runs[0].results.push({ ruleId: 'test-rule', level });
     assert.throws(
-      () => verifyCodeql({ ...analysis(), results_count: 1 }, document, sha),
+      () =>
+        verifyCodeql({ ...analysis(), results_count: 1 }, document, sha, ref),
       /findings block publication/,
     );
   }
@@ -84,18 +100,42 @@ test('CodeQL gate accepts complete zero-finding results only', () => {
     { commit_sha: 'b'.repeat(40) },
   ]) {
     assert.throws(() =>
-      verifyCodeql({ ...analysis(), ...changes }, sarif(), sha),
+      verifyCodeql({ ...analysis(), ...changes }, sarif(), sha, ref),
     );
   }
   assert.throws(
-    () => verifyCodeql(analysis(), { ...sarif(), runs: [] }, sha),
+    () => verifyCodeql(analysis(), { ...sarif(), runs: [] }, sha, ref),
     /Missing CodeQL runs/,
   );
   const failed = sarif();
   failed.runs[0].invocations = [{ executionSuccessful: false }];
   assert.throws(
-    () => verifyCodeql(analysis(), failed, sha),
+    () => verifyCodeql(analysis(), failed, sha, ref),
     /execution failed/,
+  );
+});
+
+test('never substitutes another branch even when it has the same release SHA', () => {
+  const releaseRef = 'refs/heads/release-2.1';
+  const js = analysis(undefined, releaseRef);
+  const actions = { ...analysis('/language:actions', releaseRef), id: 2 };
+  assert.deepEqual(selectCodeqlAnalyses([js, actions], sha, releaseRef), [
+    js,
+    actions,
+  ]);
+  assert.equal(selectCodeqlAnalyses([js, actions], sha, ref), undefined);
+  assert.equal(
+    selectCodeqlAnalyses([analysis(), actions], sha, releaseRef),
+    undefined,
+  );
+  verifyCodeql(js, sarif(), sha, releaseRef);
+  assert.throws(
+    () => verifyCodeql(js, sarif(), sha, ref),
+    /source branch mismatch/,
+  );
+  assert.throws(
+    () => selectCodeqlAnalyses([js, actions], sha, 'refs/tags/release-2.1'),
+    /Release/,
   );
 });
 
@@ -116,33 +156,34 @@ test('dependency audit fails closed on findings, scanner errors and malformed ou
   }
 });
 
-test('collects and binds exact-commit scans and removes stale passing evidence on failure', async t => {
-  const folder = mkdtempSync(join(tmpdir(), 'sdk-security-test-'));
-  const previousPath = process.env.PATH;
-  t.after(() => {
-    process.env.PATH = previousPath;
-    rmSync(folder, { recursive: true, force: true });
-  });
-  for (const path of ['artifacts', 'consumer', 'bin'])
-    mkdirSync(join(folder, path));
-  const archive = Buffer.from('validated archive fixture');
-  writeFileSync(join(folder, 'artifacts/example.tgz'), archive);
-  const report = {
-    commit: sha,
-    includesUncommittedChanges: false,
-    packages: [
-      {
-        name: '@ansible/example',
-        version: '0.1.0-alpha.0',
-        sha256: createHash('sha256').update(archive).digest('hex'),
-      },
-    ],
-  };
-  writeFileSync(join(folder, 'report.json'), JSON.stringify(report));
-  writeFileSync(join(folder, 'consumer/yarn.lock'), 'consumer lock');
-  writeFileSync(
-    join(folder, 'bin/corepack'),
-    String.raw`#!${process.execPath}
+for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
+  test(`collects and binds scans on ${ref} and removes stale passing evidence on failure`, async t => {
+    const folder = mkdtempSync(join(tmpdir(), 'sdk-security-test-'));
+    const previousPath = process.env.PATH;
+    t.after(() => {
+      process.env.PATH = previousPath;
+      rmSync(folder, { recursive: true, force: true });
+    });
+    for (const path of ['artifacts', 'consumer', 'bin'])
+      mkdirSync(join(folder, path));
+    const archive = Buffer.from('validated archive fixture');
+    writeFileSync(join(folder, 'artifacts/example.tgz'), archive);
+    const report = {
+      commit: sha,
+      includesUncommittedChanges: false,
+      packages: [
+        {
+          name: '@ansible/example',
+          version: '0.1.0-alpha.0',
+          sha256: createHash('sha256').update(archive).digest('hex'),
+        },
+      ],
+    };
+    writeFileSync(join(folder, 'report.json'), JSON.stringify(report));
+    writeFileSync(join(folder, 'consumer/yarn.lock'), 'consumer lock');
+    writeFileSync(
+      join(folder, 'bin/corepack'),
+      String.raw`#!${process.execPath}
     const assert = require('node:assert/strict');
     const fs = require('node:fs');
     assert.deepEqual(process.argv.slice(2), ['yarn','npm','audit','--recursive','--environment','production','--severity','info','--no-deprecations','--json']);
@@ -150,49 +191,62 @@ test('collects and binds exact-commit scans and removes stale passing evidence o
     assert.equal(process.env.YARN_ENABLE_SCRIPTS, 'false');
     if (fs.existsSync('audit-fails')) { console.log('{}'); process.exitCode = 1; }
   `,
-    { mode: 0o755 },
-  );
-  process.env.PATH = `${join(folder, 'bin')}${delimiter}${previousPath}`;
-  let findings = false;
-  let unavailable = false;
-  t.mock.method(globalThis, 'fetch', async url => {
-    const analyses = [analysis(), { ...analysis('/language:actions'), id: 2 }];
-    analyses[0].results_count = findings ? 1 : 0;
-    if (unavailable) return new Response('{}', { status: 403 });
-    if (url.includes('analyses?'))
-      return new Response(JSON.stringify(analyses));
-    const document = sarif();
-    if (findings && url.endsWith('/1'))
-      document.runs[0].results.push({ ruleId: 'example', level: 'note' });
-    return new Response(JSON.stringify(document));
+      { mode: 0o755 },
+    );
+    process.env.PATH = `${join(folder, 'bin')}${delimiter}${previousPath}`;
+    let findings = false;
+    let unavailable = false;
+    t.mock.method(globalThis, 'fetch', async url => {
+      const analyses = [
+        analysis(undefined, ref),
+        { ...analysis('/language:actions', ref), id: 2 },
+      ];
+      analyses[0].results_count = findings ? 1 : 0;
+      if (unavailable) return new Response('{}', { status: 403 });
+      if (url.includes('analyses?')) {
+        assert.equal(new URL(url).searchParams.get('ref'), ref);
+        return new Response(JSON.stringify(analyses));
+      }
+      const document = sarif();
+      if (findings && url.endsWith('/1'))
+        document.runs[0].results.push({ ruleId: 'example', level: 'note' });
+      return new Response(JSON.stringify(document));
+    });
+    await collectSecurityEvidence(folder, sha, 'test-read-token', ref);
+    verifySecurityEvidence(folder, report, ref);
+    const evidence = JSON.parse(
+      readFileSync(join(folder, 'security/report.json'), 'utf8'),
+    );
+    assert.equal(evidence.policy, 'block-all-findings');
+    assert.equal(evidence.ref, ref);
+    const otherRef =
+      ref === 'refs/heads/main' ? 'refs/heads/release-2.1' : 'refs/heads/main';
+    assert.throws(
+      () => verifySecurityEvidence(folder, report, otherRef),
+      /Security source branch mismatch/,
+    );
+    assert(evidence.files.some(file => file.name === 'consumer.yarn.lock'));
+    findings = true;
+    await assert.rejects(
+      collectSecurityEvidence(folder, sha, 'test-read-token', ref),
+      /CodeQL findings block/,
+    );
+    assert.equal(existsSync(join(folder, 'security/report.json')), false);
+    assert.match(
+      readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
+      /CodeQL findings block/,
+    );
+    findings = false;
+    writeFileSync(join(folder, 'consumer/audit-fails'), '');
+    await assert.rejects(
+      collectSecurityEvidence(folder, sha, 'test-read-token', ref),
+      /Dependency audit failed/,
+    );
+    assert.equal(existsSync(join(folder, 'security/report.json')), false);
+    unavailable = true;
+    await assert.rejects(
+      collectSecurityEvidence(folder, sha, 'test-read-token', ref),
+      /CodeQL API unavailable/,
+    );
   });
-  await collectSecurityEvidence(folder, sha, 'test-read-token');
-  verifySecurityEvidence(folder, report);
-  const evidence = JSON.parse(
-    readFileSync(join(folder, 'security/report.json'), 'utf8'),
-  );
-  assert.equal(evidence.policy, 'block-all-findings');
-  assert(evidence.files.some(file => file.name === 'consumer.yarn.lock'));
-  findings = true;
-  await assert.rejects(
-    collectSecurityEvidence(folder, sha, 'test-read-token'),
-    /CodeQL findings block/,
-  );
-  assert.equal(existsSync(join(folder, 'security/report.json')), false);
-  assert.match(
-    readFileSync(join(folder, 'security/scan-status.json'), 'utf8'),
-    /CodeQL findings block/,
-  );
-  findings = false;
-  writeFileSync(join(folder, 'consumer/audit-fails'), '');
-  await assert.rejects(
-    collectSecurityEvidence(folder, sha, 'test-read-token'),
-    /Dependency audit failed/,
-  );
-  assert.equal(existsSync(join(folder, 'security/report.json')), false);
-  unavailable = true;
-  await assert.rejects(
-    collectSecurityEvidence(folder, sha, 'test-read-token'),
-    /CodeQL API unavailable/,
-  );
-});
+}

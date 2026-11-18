@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { repository } from './release.mjs';
+import { repository, validateReleaseRef } from './release.mjs';
 import { verifyArchiveDigest } from './sbom.mjs';
 
 export const requiredCategories = [
@@ -21,13 +21,14 @@ const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
 const digest = path =>
   createHash('sha256').update(readFileSync(path)).digest('hex');
 
-export function selectCodeqlAnalyses(analyses, commit) {
+export function selectCodeqlAnalyses(analyses, commit, ref) {
+  validateReleaseRef(ref);
   assert(Array.isArray(analyses), 'Invalid CodeQL analysis response');
   const latest = new Map();
   for (const analysis of analyses) {
     if (
       analysis.commit_sha !== commit ||
-      analysis.ref !== 'refs/heads/main' ||
+      analysis.ref !== ref ||
       analysis.tool?.name !== 'CodeQL'
     )
       continue;
@@ -56,9 +57,10 @@ export function selectCodeqlAnalyses(analyses, commit) {
   return [...latest.values()];
 }
 
-export function verifyCodeql(analysis, sarif, commit) {
+export function verifyCodeql(analysis, sarif, commit, ref) {
+  validateReleaseRef(ref);
   assert.equal(analysis.commit_sha, commit, 'CodeQL source revision mismatch');
-  assert.equal(analysis.ref, 'refs/heads/main');
+  assert.equal(analysis.ref, ref, 'CodeQL source branch mismatch');
   assert.equal(analysis.tool?.name, 'CodeQL');
   assert(
     !analysis.error && !analysis.warning,
@@ -118,9 +120,11 @@ export function verifyAudit(output, status) {
 }
 
 /** Revalidate the security handoff without giving the publisher scanning credentials. */
-export function verifySecurityEvidence(directory, report) {
+export function verifySecurityEvidence(directory, report, ref) {
+  validateReleaseRef(ref);
   const folder = join(directory, 'security');
   const evidence = readJson(join(folder, 'report.json'));
+  assert.equal(evidence.ref, ref, 'Security source branch mismatch');
   assert.equal(
     evidence.commit,
     report.commit,
@@ -157,7 +161,7 @@ export function verifySecurityEvidence(directory, report) {
   const analyses = [...names]
     .filter(name => name.endsWith('.metadata.json'))
     .map(name => readJson(join(folder, name)));
-  const selected = selectCodeqlAnalyses(analyses, report.commit);
+  const selected = selectCodeqlAnalyses(analyses, report.commit, ref);
   assert(
     selected && selected.length === analyses.length,
     'Missing or inconsistent CodeQL evidence',
@@ -165,7 +169,7 @@ export function verifySecurityEvidence(directory, report) {
   for (const analysis of selected) {
     const file = `codeql-${analysis.id}.sarif.json`;
     assert(names.has(file), 'Missing CodeQL SARIF evidence');
-    verifyCodeql(analysis, readJson(join(folder, file)), report.commit);
+    verifyCodeql(analysis, readJson(join(folder, file)), report.commit, ref);
   }
   verifyAudit(
     readFileSync(join(folder, 'yarn-audit.ndjson'), 'utf8'),
@@ -173,7 +177,8 @@ export function verifySecurityEvidence(directory, report) {
   );
 }
 
-export async function collectSecurityEvidence(directory, commit, token) {
+export async function collectSecurityEvidence(directory, commit, token, ref) {
+  validateReleaseRef(ref);
   assert.match(commit ?? '', /^[a-f0-9]{40}$/, 'Invalid release revision');
   assert(token, 'CodeQL read token required');
   const report = readJson(join(directory, 'report.json'));
@@ -212,13 +217,13 @@ export async function collectSecurityEvidence(directory, commit, token) {
     return response.json();
   }
   let selected;
-  // CodeQL default setup runs separately on main. Never substitute another SHA.
+  // CodeQL runs separately. Never substitute another branch or SHA.
   for (let attempt = 0; attempt < 60; attempt++) {
     const analyses = await api(
-      'analyses?ref=refs%2Fheads%2Fmain&tool_name=CodeQL&per_page=100',
+      `analyses?ref=${encodeURIComponent(ref)}&tool_name=CodeQL&per_page=100`,
     );
     record('codeql-latest.metadata.json', analyses, false);
-    selected = selectCodeqlAnalyses(analyses, commit);
+    selected = selectCodeqlAnalyses(analyses, commit, ref);
     if (selected) break;
     await new Promise(done => setTimeout(done, 10_000));
   }
@@ -229,7 +234,7 @@ export async function collectSecurityEvidence(directory, commit, token) {
     record(`codeql-${analysis.id}.metadata.json`, analysis);
     record(`codeql-${analysis.id}.sarif.json`, sarif);
     try {
-      verifyCodeql(analysis, sarif, commit);
+      verifyCodeql(analysis, sarif, commit, ref);
     } catch (error) {
       sastError ??= error;
     }
@@ -278,6 +283,7 @@ export async function collectSecurityEvidence(directory, commit, token) {
     'scan-status.json',
     {
       commit,
+      ref,
       sast: sastError?.message ?? 'passed',
       sca: scaError?.message ?? 'passed',
     },
@@ -292,6 +298,7 @@ export async function collectSecurityEvidence(directory, commit, token) {
     `${JSON.stringify(
       {
         commit,
+        ref,
         policy: 'block-all-findings',
         packages: report.packages,
         auditExitCode: audit.status,
@@ -304,7 +311,7 @@ export async function collectSecurityEvidence(directory, commit, token) {
       2,
     )}\n`,
   );
-  verifySecurityEvidence(directory, report);
+  verifySecurityEvidence(directory, report, ref);
 }
 
 if (
@@ -315,6 +322,7 @@ if (
     resolve(process.env.SDK_VALIDATION_DIR),
     process.env.GITHUB_SHA,
     process.env.GH_TOKEN,
+    process.env.GITHUB_REF,
   );
   console.log('SAST and SCA gates passed with zero reported findings');
 }

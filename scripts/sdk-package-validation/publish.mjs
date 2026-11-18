@@ -12,12 +12,14 @@ import {
   registry,
   repository,
   validateReleaseManifests,
+  validateReleaseRef,
 } from './release.mjs';
 
 const repo = fileURLToPath(new URL('../../', import.meta.url));
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
 const directory = resolve(process.env.SDK_VALIDATION_DIR);
 const version = process.env.SDK_RELEASE_VERSION;
+const ref = validateReleaseRef(process.env.GITHUB_REF);
 const execute = process.argv.includes('--publish');
 assert(
   process.argv.slice(2).every(arg => arg === '--publish'),
@@ -94,7 +96,7 @@ for (const source of sources) {
   manifests.push(manifest);
 }
 validateReleaseManifests(manifests, version);
-verifySecurityEvidence(directory, report);
+verifySecurityEvidence(directory, report, ref);
 const ordered = publicationOrder(manifests);
 console.log(`Verified ${ordered.length} archives for ${version} under next`);
 
@@ -102,7 +104,6 @@ if (execute) {
   assert.equal(process.env.GITHUB_ACTIONS, 'true');
   assert.equal(process.env.GITHUB_EVENT_NAME, 'workflow_dispatch');
   assert.equal(process.env.GITHUB_REPOSITORY, repository);
-  assert.equal(process.env.GITHUB_REF, 'refs/heads/main');
   assert(
     process.env.ACTIONS_ID_TOKEN_REQUEST_URL &&
       process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN,

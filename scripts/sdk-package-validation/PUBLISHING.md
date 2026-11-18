@@ -7,7 +7,11 @@ packages in `packages.json` directly from this repository. Feature plugins and
 dynamic OCI artifacts are outside this workflow. Every package in a release uses
 the same explicit `0.y.z-alpha.N` version and the npm `next` distribution tag.
 
-The workflow runs manually on `main` in `ansible/ansible-backstage-plugins`.
+The workflow runs manually on `main` or a `release-*` branch in
+`ansible/ansible-backstage-plugins`. Release branch names must not contain slashes.
+Tags and other branches cannot publish. All branches use the same preview version
+policy and npm `next` tag.
+
 Its build job tests the repository, builds and packs the candidates, exercises
 the isolated consumer, and generates SBOMs without OIDC permissions. The publisher
 uses a separate GitHub-hosted runner behind the `npm-preview` environment. It
@@ -28,10 +32,11 @@ publisher. The preview policy blocks **all reported findings**, without automati
 exceptions. Missing, incomplete, failed or inaccessible scans also block release.
 
 - **SAST:** Reuse the repository's completed CodeQL analyses for the exact release
-  commit on `refs/heads/main`. Require JavaScript/TypeScript and Actions categories,
+  commit and selected branch ref. Require JavaScript/TypeScript and Actions categories,
   inspect their SARIF results, and reject any reported result at any severity.
   A successful analysis job alone does not establish a clean result. The gate
-  waits up to ten minutes for matching analyses, never substituting another SHA.
+  waits up to ten minutes for matching analyses. It never substitutes another SHA
+  or branch, even when two branches point to the same commit.
   Existing findings must be resolved before publication. This is repository-wide
   SAST, so findings outside the package allowlist can also block release.
 - **SCA:** Run the pinned consumer's Yarn audit recursively across its resolved
@@ -43,13 +48,17 @@ exceptions. Missing, incomplete, failed or inaccessible scans also block release
 
 The build job requires only `contents: read` and `security-events: read`. It does
 not receive OIDC or attestation write permissions. A repository administrator must
-keep CodeQL default setup enabled for both required categories on main and allow
-the workflow token to read its analyses. No additional personal token is needed.
+ensure CodeQL scans both required categories on every publishing branch and
+allow the workflow token to read its analyses. Enable scanning for protected
+release branches or explicitly include them in the CodeQL configuration as
+appropriate for the repository setup. The publishing workflow does not create
+missing scans or fall back to results from `main`. No additional personal token
+is needed.
 
 The `sdk-security-diagnostics` artifact retains CodeQL reports, audit output and
 the audited consumer lockfile even when a gate fails. Successful evidence binds
-the source SHA, archive hashes and security-report hashes. The publisher verifies
-that evidence again and includes it in signed provenance. No artifact handoff or
+the source branch ref and SHA, archive hashes and security-report hashes. The
+publisher verifies that evidence again and includes it in signed provenance. No artifact handoff or
 npm publication happens after a failed security gate.
 
 ## Prerequisites
@@ -57,16 +66,20 @@ npm publication happens after a failed security gate.
 - Maintainers have approved the package scope, public APIs, compatibility baseline,
   dependency/license/security checks and preview release. The workflow's tests,
   SBOMs and attestations do not constitute security approval or live RHDH testing.
-- A reviewed release commit on `main` sets all ten candidate versions to the same
-  preview version, sets `private: false` and `publishConfig.access: public`, and
+- A reviewed release commit on `main` or the selected `release-*` branch sets
+  all ten candidate versions to the same preview version, sets `private: false`
+  and `publishConfig.access: public`, and
   updates the lockfile. Internal dependencies resolve to the matching candidates.
   Existing `workspace:^`, `workspace:~` and `workspace:*` references are supported
   because Yarn rewrites them during packing. No feature package loses its guard.
-- Required PR checks pass for that release commit. Protect `main`, require review
+- Required PR checks pass for that release commit. Protect `main` and every
+  publishing release branch, require review
   of the workflow and its scripts, and prevent bypass by unauthorized users.
 - A repository administrator creates the `npm-preview` GitHub environment,
-  restricts deployment branches to `main`, requires maintainer approval, and
-  prevents self-approval. The YAML references this environment but cannot create
+  allows only the `main` and `release-*` branch patterns (no tag rules), requires
+  approval from `@ansible/automation-portal-engineers` or
+  `@ansible/automation-portal-admin`, prevents self-approval and disables
+  administrator bypass. The YAML references this environment but cannot create
   or enforce its repository-side protection settings by itself.
 - Each npm package exists and has an authorized maintainer. Configure its trusted
   publisher with organization `ansible`, repository `ansible-backstage-plugins`,
@@ -93,7 +106,7 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 ## Procedure
 
 1. Merge the reviewed release metadata and complete the prerequisites above.
-2. Open **Actions → Publish SDK preview → Run workflow**. Select `main` and enter
+2. Open **Actions → Publish SDK preview → Run workflow**. Select the reviewed `main` or `release-*` branch and enter
    the exact reviewed version, such as `0.1.0-alpha.0`. The input validates the
    committed version. It does not rewrite manifests or remove private guards.
 3. Wait for the build job. Download `sdk-npm-preview` and review its source commit,

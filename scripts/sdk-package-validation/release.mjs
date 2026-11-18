@@ -5,6 +5,17 @@ import { pathToFileURL } from 'node:url';
 export const registry = 'https://registry.npmjs.org/';
 export const repository = 'ansible/ansible-backstage-plugins';
 
+/** Match the protected environment's branch rules, never tags or nested branches. */
+export function validateReleaseRef(ref) {
+  assert.equal(typeof ref, 'string', 'Release branch ref required');
+  assert.match(
+    ref,
+    /^refs\/heads\/(?:main|release-[^/]+)$/,
+    'Release requires main or a release-* branch without slashes',
+  );
+  return ref;
+}
+
 /** Require an explicitly reviewed, coordinated developer-preview release. */
 export function validateReleaseManifests(packages, version) {
   assert.match(
@@ -103,6 +114,7 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
+  validateReleaseRef(process.env.GITHUB_REF);
   const paths = JSON.parse(
     readFileSync(new URL('packages.json', import.meta.url), 'utf8'),
   );

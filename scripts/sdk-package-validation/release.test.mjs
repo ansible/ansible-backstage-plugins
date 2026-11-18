@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { publicationOrder, validateReleaseManifests } from './release.mjs';
+import {
+  publicationOrder,
+  validateReleaseManifests,
+  validateReleaseRef,
+} from './release.mjs';
 
 const version = '0.1.0-alpha.0';
 const manifest = name => ({
@@ -90,4 +94,26 @@ test('publishes dependency and peer providers before consumers', () => {
   );
   packages[2].dependencies = { '@ansible/host': version };
   assert.throws(() => publicationOrder(packages), /Cyclic/);
+});
+
+test('permits only main and release-* branches matching the environment rules', () => {
+  for (const ref of [
+    'refs/heads/main',
+    'refs/heads/release-2.1',
+    'refs/heads/release-preview',
+  ]) {
+    assert.equal(validateReleaseRef(ref), ref);
+  }
+  for (const ref of [
+    undefined,
+    '',
+    'main',
+    'refs/heads/feature/example',
+    'refs/heads/release-',
+    'refs/heads/release-2.1/hotfix',
+    'refs/tags/release-2.1',
+    'refs/pull/1/merge',
+  ]) {
+    assert.throws(() => validateReleaseRef(ref), /Release/);
+  }
 });

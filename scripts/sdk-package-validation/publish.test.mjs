@@ -27,7 +27,7 @@ const oidc = {
   ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'test-context',
 };
 
-function releaseFixture(t) {
+function releaseFixture(t, ref = 'refs/heads/main') {
   const root = mkdtempSync(join(tmpdir(), 'sdk-publish-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const scripts = join(root, 'scripts/sdk-package-validation');
@@ -130,7 +130,7 @@ function releaseFixture(t) {
       id,
       category,
       commit_sha: sha,
-      ref: 'refs/heads/main',
+      ref,
       tool: { name: 'CodeQL' },
       rules_count: 1,
       results_count: 0,
@@ -153,6 +153,7 @@ function releaseFixture(t) {
   securityFiles.push('consumer.yarn.lock', 'yarn-audit.ndjson');
   json(join(security, 'report.json'), {
     commit: sha,
+    ref,
     policy: 'block-all-findings',
     packages: candidates,
     auditExitCode: 0,
@@ -210,6 +211,7 @@ function releaseFixture(t) {
             SDK_VALIDATION_DIR: directory,
             SDK_RELEASE_VERSION: version,
             GITHUB_SHA: sha,
+            GITHUB_REF: ref,
             ...env,
           },
         },
@@ -336,3 +338,32 @@ for (const scenario of ['missing', 'existing']) {
     );
   });
 }
+
+test('publishes release-branch archives only with evidence from that same branch', t => {
+  const ref = 'refs/heads/release-2.1';
+  const { run } = releaseFixture(t, ref);
+  const success = run(['--publish'], { ...oidc, GITHUB_REF: ref });
+  assert.equal(success.status, 0, success.stderr);
+  assert.equal(
+    success.events.filter(event => event.kind === 'publish').length,
+    2,
+  );
+  const mismatch = run(['--publish'], oidc);
+  assert.match(mismatch.stderr, /Security source branch mismatch/);
+  assert.deepEqual(mismatch.events, []);
+});
+
+test('rejects unapproved branch and tag refs before registry access', t => {
+  const { run } = releaseFixture(t);
+  for (const ref of [
+    'refs/heads/feature/example',
+    'refs/heads/release-',
+    'refs/heads/release-2.1/hotfix',
+    'refs/tags/release-2.1',
+  ]) {
+    const result = run(['--publish'], { ...oidc, GITHUB_REF: ref });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Release requires/);
+    assert.deepEqual(result.events, []);
+  }
+});

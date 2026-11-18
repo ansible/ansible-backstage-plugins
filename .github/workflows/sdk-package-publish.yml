@@ -17,7 +17,12 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'ansible/ansible-backstage-plugins' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'ansible/ansible-backstage-plugins' &&
+      github.ref_type == 'branch' &&
+      (github.ref == 'refs/heads/main' ||
+      (startsWith(github.ref_name, 'release-') &&
+      github.ref_name != 'release-' && !contains(github.ref_name, '/')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
