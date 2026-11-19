@@ -230,7 +230,6 @@ function EEInventory(): JSX.Element {
     <>
       <EEImageRowActions
         image={row}
-        detailHref={canOpen(row) ? entityLink(row.entityRef) : undefined}
         canSync={
           syncPermission === 'allowed' &&
           registries.value?.manualSyncEnabled === true

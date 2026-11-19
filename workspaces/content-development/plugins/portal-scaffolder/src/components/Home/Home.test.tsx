@@ -154,7 +154,7 @@ describe('self-service', () => {
     });
   });
 
-  const render = (children: JSX.Element) => {
+  const render = (children: JSX.Element, routeEntries?: string[]) => {
     return renderInTestApp(
       <TestApiProvider
         apis={[
@@ -169,6 +169,7 @@ describe('self-service', () => {
         </MockEntityListContextProvider>
       </TestApiProvider>,
       {
+        routeEntries,
         mountedRoutes: {
           '/self-service': rootRouteRef,
         },
@@ -185,6 +186,43 @@ describe('self-service', () => {
       'metadata.tags': tags.map((value, idx) => ({ value, count: idx })),
       'spec.type': types.map(value => ({ value, count: 1 })),
     },
+  });
+
+  it('keeps the Controller scope when guidance is dismissed and removes it when filters are cleared', async () => {
+    const requiredTag = { 'metadata.tags': 'use-in-controller' };
+    mockCatalogApi.getEntityFacets.mockResolvedValue(
+      facetsFromEntityRefs([], []),
+    );
+    await render(<HomeComponent />, [
+      '/self-service?create=use-in-controller&eeName=network-ee&eeImage=registry.example.com%2Fnetwork-ee%3Astable',
+    ]);
+    expect(
+      await screen.findByText('Use an execution environment in Controller'),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockCatalogApi.queryEntities).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          query: { $all: expect.arrayContaining([requiredTag]) },
+        }),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(
+      screen.queryByText('Use an execution environment in Controller'),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(
+      screen.queryByRole('button', { name: 'Clear filters' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockCatalogApi.queryEntities).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          query: { $all: expect.not.arrayContaining([requiredTag]) },
+        }),
+      ),
+    );
   });
 
   it('should render', async () => {
@@ -1389,7 +1427,7 @@ describe('TemplatesRoutesPage notifications', () => {
     });
   });
 
-  const renderPage = () => {
+  const renderPage = (routeEntries?: string[]) => {
     mockCatalogApi.getEntityFacets.mockResolvedValue({
       facets: {
         'relations.ownedBy': [{ count: 1, value: 'component:default/e1' }],
@@ -1409,12 +1447,28 @@ describe('TemplatesRoutesPage notifications', () => {
         <TemplatesRoutesPage />
       </TestApiProvider>,
       {
+        routeEntries,
         mountedRoutes: {
           '/self-service': rootRouteRef,
         },
       },
     );
   };
+
+  it('preserves the Controller image context on the redirect to the catalog', async () => {
+    mockCatalogApi.queryEntities.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+      pageInfo: {},
+    });
+    await renderPage([
+      '/self-service?create=use-in-controller&eeName=sample-ee&eeImage=registry.example.com%2Fsample-ee%3Astable',
+    ]);
+
+    expect(
+      await screen.findByText('Use an execution environment in Controller'),
+    ).toBeInTheDocument();
+  });
 
   it('renders NotificationStack with notifications', async () => {
     await renderPage();

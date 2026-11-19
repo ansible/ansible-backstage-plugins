@@ -17,15 +17,19 @@ import {
   EE_REPOSITORY_ANNOTATIONS,
   EE_REPOSITORY_ENTITY_TYPE,
 } from '@ansible/automation-content-common/eeRepository';
-import { EntityDetailTabBlueprint } from '@ansible/portal-extension-api/alpha';
+import {
+  createPortalScaffolderFieldBlueprints,
+  EntityDetailTabBlueprint,
+} from '@ansible/portal-extension-api/alpha';
 import { automationContentApiFactory } from './api';
 import {
   automationContentManifest,
   eeCapabilityId,
   eeDetailsEntryId,
+  eeVersionFieldEntryId,
 } from './manifest';
 
-import { eeRouteRef } from './routes';
+import { eeRouteRef, templatesRouteRef } from './routes';
 
 function isEERepository(entity: Entity): boolean {
   return (
@@ -60,6 +64,7 @@ export const eeOverviewLayout: ExtensionDefinition =
 const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
   pluginId: 'automation-content',
   routes: { ee: eeRouteRef },
+  externalRoutes: { templates: templatesRouteRef },
   extensions: [
     ApiBlueprint.make({
       params: define => define(automationContentApiFactory),
@@ -96,6 +101,22 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
           );
           return <EEHeaderActions />;
         },
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('ee-image-version', {
+      manifest: automationContentManifest,
+      capabilityId: eeCapabilityId,
+      entryPointId: eeVersionFieldEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'EEImageVersionPicker',
+      loader: async () => {
+        const { EEImageVersionPicker } = await import(
+          './components/ExecutionEnvironments/EEImageVersionPicker'
+        );
+        return {
+          name: 'EEImageVersionPicker',
+          component: EEImageVersionPicker,
+        };
       },
     }),
     eeHeaderLayout,

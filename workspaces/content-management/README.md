@@ -98,16 +98,34 @@ Images filters indexed repositories by **Source**, **Source Type**, and
 Existing digest Components remain available under their existing Catalog
 permissions.
 
+### Use an image in Controller
+
+Choose **Use in Controller** from an image’s actions menu in either Images view
+to use its representative version. To choose a different version, open image
+details, select the version, and choose **Use in Controller**. Start **Add
+execution environment to Controller** from the filtered Templates list.
+The wizard prefills the execution environment name and tag. The **Tags**
+picker lists the selected repository’s tags and shows the resulting pull
+reference and image digest. If you start the template directly from Templates,
+enter a pull reference. Choose a Controller organization and run the task with
+your AAP sign-in. On success, the task links to the execution environment in
+Controller.
+
+Administrators register the template from [ansible-rhdh-templates][templates-repo].
+For a disconnected deployment, mirror the repository and register the local
+SCM location. The feature resolves the Portal Templates route through the
+native `automation-content.templates` route binding.
+
+[templates-repo]: https://github.com/ansible/ansible-rhdh-templates
+
 The inventory and digest APIs require `ansible.execution-environments.view`.
 An EE view grant does not authorize manual refresh. Operators need
 `ansible.content.sync`, and repository refresh also requires the EE view grant.
 Register `automation-content` in the host's RBAC plugin metadata list.
 
-Manual refresh, including existing registry poll and sync API routes, defaults
-to disabled. Deployments that have verified a separate, append-only audit sink
-may explicitly enable `automationContent.manualSync.enabled`. The default
-Backstage audit logger does not provide that guarantee. Scheduled reconciliation
-continues independently.
+Manual refresh, including existing registry poll and sync API routes, is enabled
+by default for authorized users. Set `automationContent.manualSync.enabled` to
+`false` to disable manual refresh. Scheduled reconciliation runs independently.
 
 Inventory refresh returns a scheduling acknowledgment. The last successful
 reconciliation timestamp describes a registry or repository, independent of

@@ -140,6 +140,28 @@ describe('WizardCard', () => {
     );
   });
 
+  it('starts the matching template with the selected image prefilled', () => {
+    const initialFormData = {
+      name: 'network-ee',
+      image: 'registry.example.com/team/network-ee:stable',
+    };
+    const controllerRepository = {
+      registry: 'test',
+      repository: 'team/network-ee',
+    };
+    renderWithTheme(
+      <WizardCard
+        template={makeTemplate({ tags: ['use-in-controller'] })}
+        controllerSource={{ ...initialFormData, controllerRepository }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/self-service/create/templates/default/test-template',
+      { state: { initialFormData, controllerRepository } },
+    );
+  });
+
   it('shows fallback text when description is empty', () => {
     renderWithTheme(
       <WizardCard template={makeTemplate({ description: '   ' })} />,

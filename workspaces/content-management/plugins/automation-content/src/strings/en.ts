@@ -5,6 +5,13 @@ export const eeMessages = {
   retry: 'Retry',
   unknown: 'Undetermined',
   reload: 'Reload results',
+  controllerVersion: {
+    label: 'Tags',
+    image: 'Image pull reference',
+    loading: 'Loading image versions',
+    failed: 'Image versions could not be loaded.',
+    untagged: 'Untagged',
+  },
   inventory: {
     denied: 'You do not have permission to view execution environment images.',
     permissionError:
@@ -39,7 +46,8 @@ export const eeMessages = {
     justNow: 'Just now',
     actions: 'Actions',
     rowActions: 'Actions for {{repository}}',
-    viewDetails: 'View details',
+    controllerSourceFailed:
+      'Could not load the image for Controller. Try again.',
     changeView: 'Change image view',
     registry: 'Registry',
     allRegistries: 'All registries',
@@ -73,7 +81,8 @@ export const eeMessages = {
     sections: 'Image information',
     overview: 'Overview',
     contents: 'All Content',
-    tag: 'Version',
+    tag: 'Tags',
+    useInController: 'Use in Controller',
     latest: 'Latest',
     modified: 'Last modified',
     classification: 'Classification',

@@ -1,4 +1,6 @@
 import '@testing-library/jest-dom';
+import { readFileSync } from 'node:fs';
+import { load } from 'js-yaml';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
@@ -25,7 +27,10 @@ afterAll(() => {
 });
 afterEach(cleanup);
 
-async function submitTemplate(isAapTemplate: boolean) {
+async function submitTemplate(
+  formDecorators: { id: string }[] | undefined,
+  templateName = 'test-job',
+) {
   const getAccessToken = jest.fn().mockResolvedValue('current-user-token');
   // Keep the backend request pending so the test remains on the wizard page.
   const scaffold = jest.fn(() => new Promise<never>(() => {}));
@@ -46,9 +51,7 @@ async function submitTemplate(isAapTemplate: boolean) {
         },
       },
     ],
-    ...(isAapTemplate
-      ? { formDecorators: [{ id: 'ansible.aap-user-token' }] }
-      : {}),
+    formDecorators,
   });
   await renderTestApp({
     features: [
@@ -56,7 +59,7 @@ async function submitTemplate(isAapTemplate: boolean) {
       createPortalScaffolderPlugin(),
       portalScaffolderPlugin,
     ],
-    initialRouteEntries: ['/create/templates/default/test-job'],
+    initialRouteEntries: [`/create/templates/default/${templateName}`],
     apis: [
       mockApis.permission(),
       [rhAapAuthApiRef, { getAccessToken }],
@@ -76,7 +79,9 @@ async function submitTemplate(isAapTemplate: boolean) {
 }
 
 it('runs the registered decorator before the native wizard sends task secrets', async () => {
-  const { scaffold, getAccessToken } = await submitTemplate(true);
+  const { scaffold, getAccessToken } = await submitTemplate([
+    { id: 'ansible.aap-user-token' },
+  ]);
   expect(getAccessToken).toHaveBeenCalledTimes(1);
   expect(scaffold).toHaveBeenCalledWith({
     templateRef: 'template:default/test-job',
@@ -86,7 +91,7 @@ it('runs the registered decorator before the native wizard sends task secrets', 
 });
 
 it('does not request AAP authentication for a generic native template', async () => {
-  const { scaffold, getAccessToken } = await submitTemplate(false);
+  const { scaffold, getAccessToken } = await submitTemplate(undefined);
   expect(getAccessToken).not.toHaveBeenCalled();
   expect(scaffold).toHaveBeenCalledWith({
     templateRef: 'template:default/test-job',
@@ -94,3 +99,25 @@ it('does not request AAP authentication for a generic native template', async ()
     secrets: {},
   });
 });
+
+// The template is published from ansible-rhdh-templates. Use its actual file
+// when that checkout is available, so this test catches missing opt-in there.
+const controllerTemplatePath = process.env.CONTROLLER_TEMPLATE_PATH;
+if (controllerTemplatePath) {
+  it('sends the Controller template token in task secrets only', async () => {
+    const template = load(readFileSync(controllerTemplatePath, 'utf8')) as {
+      metadata: { name: string };
+      spec: { formDecorators?: { id: string }[] };
+    };
+    const { scaffold, getAccessToken } = await submitTemplate(
+      template.spec.formDecorators,
+      template.metadata.name,
+    );
+    expect(getAccessToken).toHaveBeenCalledTimes(1);
+    expect(scaffold).toHaveBeenCalledWith({
+      templateRef: 'template:default/use-execution-environment-in-controller',
+      values: { jobLabel: 'Example' },
+      secrets: { aapToken: 'current-user-token' },
+    });
+  });
+}

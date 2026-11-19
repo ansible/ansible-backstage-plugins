@@ -3,9 +3,8 @@ export interface Config {
     manualSync?: {
       /**
        * Allows authorized users to request manual registry reconciliation.
-       * Requires separate, durable audit storage outside disposable local fixtures.
        * @visibility backend
-       * @default false
+       * @default true
        */
       enabled?: boolean;
     };
