@@ -64,9 +64,12 @@ The report's `includesUncommittedChanges` flag detects tracked changes only.
 It does not detect untracked inputs, including extra `.d.ts` files copied from
 the consumer fixture. Remove untracked validation inputs before the run or
 commit and review them. Do not associate results with a revision based on this
-flag alone. Retain the output directory and run:
+flag alone. Retain the output directory and run the following subshell. It stops
+if validation or changing directory fails without closing an interactive shell:
 
 ```bash
+(
+set -e
 SDK_VALIDATION_DIR=/absolute/path/to/fresh-sdk-validation yarn validate:sdk-packages
 cd /absolute/path/to/fresh-sdk-validation/consumer
 if yarn npm audit --recursive --environment production --severity info --no-deprecations --json > yarn-audit.ndjson 2> yarn-audit.stderr.log; then
@@ -76,6 +79,7 @@ else
 fi
 printf '%s\n' "$audit_status" > yarn-audit.exit-code
 test "$audit_status" -eq 0
+)
 ```
 
 Retain `yarn-audit.ndjson`, `yarn-audit.stderr.log`, `yarn-audit.exit-code`, the
