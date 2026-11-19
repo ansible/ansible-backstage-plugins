@@ -32,9 +32,14 @@ export function validateArchive({
     expected.version,
     'Unexpected package version',
   );
+  for (const candidate of [manifest, expected])
+    assert(
+      candidate.private === undefined || typeof candidate.private === 'boolean',
+      'Invalid private guard metadata',
+    );
   assert.equal(
-    manifest.private,
-    expected.private ?? true,
+    manifest.private === true,
+    expected.private === true,
     'Packed private guard differs from reviewed source',
   );
   assert.equal(manifest.license, 'Apache-2.0');
