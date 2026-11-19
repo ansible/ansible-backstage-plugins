@@ -20,8 +20,7 @@ unchanged. This package does not depend on `@ansible/aap-backend`.
 
 Importing this library does not register an AAP service factory. The host
 installs `@ansible/aap-backend`, whose default export supplies the factory for
-`ansibleServiceRef`. The catalog loader temporarily supplies that factory
-during the extraction handover.
+`ansibleServiceRef`. The catalog loaders do not register that factory.
 
 Ordinary consumers request the reference through backend dependency injection.
 Direct client construction remains available for the existing root-scoped

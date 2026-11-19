@@ -1,5 +1,5 @@
 import { createBackend } from '@backstage/backend-defaults';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import { ansibleServiceFactory } from '@ansible/aap-backend';
 
 const backend = createBackend();
 

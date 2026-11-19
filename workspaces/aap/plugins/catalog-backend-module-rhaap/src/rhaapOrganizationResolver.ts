@@ -5,11 +5,11 @@ import {
 } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
 import { toUserEntityName } from '@ansible/aap-common';
-import { type IAAPService } from '@ansible/aap-node';
 import {
+  type IAAPService,
   AAPClient,
   resolveActiveOrganizations,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/aap-node';
 import {
   portalActiveOrganizationServiceRef,
   type ActiveOrganizationResolver,

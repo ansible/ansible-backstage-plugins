@@ -11,6 +11,7 @@ import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 
 const backend = createBackend();
 backend.add(rhaapOrganizationServiceFactory);
+backend.add(import('@ansible/aap-backend'));
 
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));

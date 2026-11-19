@@ -12,7 +12,7 @@ export { aapAuthAuthenticator } from './authenticator';
 export { AAPAuthSignInResolvers } from './resolvers';
 export { authModuleRhaapProvider };
 
-/** Load the auth module; the catalog loader or host provides the AAP service. */
+/** Load the auth module; explicitly install @ansible/aap-backend for the AAP service. */
 export default createBackendFeatureLoader({
   loader: function* () {
     yield authModuleRhaapProvider;

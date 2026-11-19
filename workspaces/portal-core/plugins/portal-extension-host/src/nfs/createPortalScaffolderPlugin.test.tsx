@@ -233,7 +233,7 @@ it('does not advance when a denied optional field has no default value', async (
 
   // Wait for the wizard step to mount before asserting the gate alert so
   // slow full-suite runs do not race the initial scaffolder schema load.
-  await screen.findByRole('button', { name: 'Review' });
+  await screen.findByRole('button', { name: 'Review' }, { timeout: 5000 });
   expect(
     await screen.findByRole('alert', {}, { timeout: 5000 }),
   ).toHaveTextContent(
