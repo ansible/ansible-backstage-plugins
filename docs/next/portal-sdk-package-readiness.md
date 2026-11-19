@@ -29,7 +29,7 @@ First publication remains subject to an agreed bootstrap procedure with the
 `@ansible` namespace owners and security maintainers. All ten names returned
 HTTP 404 from the public registry on 2026-11-19. An authorized owner must also
 check whether any name already exists privately. See the
-[publishing prerequisites and bootstrap procedure](../../scripts/sdk-package-validation/PUBLISHING.md#first-publication).
+[publishing prerequisites and bootstrap procedure](https://github.com/ansible/ansible-backstage-plugins/blob/main/scripts/sdk-package-validation/PUBLISHING.md#first-publication).
 
 ## Preview validation results (2026-11-19)
 
