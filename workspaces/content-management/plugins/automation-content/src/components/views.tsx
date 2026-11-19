@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useAsync from 'react-use/lib/useAsync';
 import useAsyncFn from 'react-use/lib/useAsyncFn';
-import {
-  Box,
-  Chip,
-  Divider,
-  Grid,
-  IconButton,
-  MenuItem,
-  TextField,
-  Tooltip,
-  Typography,
-  makeStyles,
-} from '@material-ui/core';
-import FileCopyIcon from '@material-ui/icons/FileCopy';
-import RefreshIcon from '@material-ui/icons/Refresh';
-import Button from '@material-ui/core/Button';
-import CircularProgress from '@material-ui/core/CircularProgress';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import FileCopyIcon from '@mui/icons-material/FileCopy';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import {
   EmptyState,
   InfoCard,
@@ -64,44 +61,42 @@ function since(iso?: string): string {
   return `${Math.floor(hours / 24)} day(s) ago`;
 }
 
-const useStyles = makeStyles(theme => ({
+const styles = {
   mono: {
     fontFamily: 'monospace',
     fontSize: '0.82rem',
     wordBreak: 'break-all',
   },
-  counts: { display: 'flex', flexWrap: 'wrap', gap: theme.spacing(0.5) },
-  unknown: { color: theme.palette.text.secondary, fontStyle: 'italic' },
-  clickable: { cursor: 'pointer' },
+  counts: { display: 'flex', flexWrap: 'wrap', gap: 0.5 },
+  unknown: { color: 'text.secondary', fontStyle: 'italic' },
   pull: {
     fontFamily: 'monospace',
     fontSize: '0.78rem',
-    background: theme.palette.background.default,
-    padding: theme.spacing(1),
-    borderRadius: theme.shape.borderRadius,
+    bgcolor: 'background.default',
+    padding: 1,
+    borderRadius: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1),
+    gap: 1,
   },
   code: {
     fontFamily: 'monospace',
     fontSize: '0.78rem',
     whiteSpace: 'pre-wrap',
-    background: theme.palette.background.default,
-    padding: theme.spacing(1.5),
-    borderRadius: theme.shape.borderRadius,
+    bgcolor: 'background.default',
+    padding: 1.5,
+    borderRadius: 1,
     maxHeight: 320,
     overflow: 'auto',
   },
-  section: { marginTop: theme.spacing(3) },
   controls: {
     display: 'flex',
-    gap: theme.spacing(2),
-    marginBottom: theme.spacing(2),
+    gap: 2,
+    marginBottom: 2,
     flexWrap: 'wrap',
   },
-}));
+} as const;
 
 /**
  * Where a content inventory came from.
@@ -130,7 +125,7 @@ const ProvenanceChip = ({ env }: { env: ExecutionEnvironment }) => {
       <Chip
         size="small"
         color={exact ? 'primary' : 'default'}
-        variant={exact ? 'default' : 'outlined'}
+        variant={exact ? 'filled' : 'outlined'}
         label={
           exact ? 'build-time manifest' : (env.enumeration?.source ?? 'unknown')
         }
@@ -208,14 +203,18 @@ const RegistriesCard = ({ registries }: { registries: Registry[] }) => (
           <Typography variant="subtitle2">{registry.name}</Typography>
           <Typography
             variant="caption"
-            color="textSecondary"
+            color="text.secondary"
             component="div"
             gutterBottom
           >
             {registry.url}
           </Typography>
           <Tooltip title={registry.lastReconciledAt ?? 'never reconciled'}>
-            <Typography variant="caption" color="textSecondary" component="div">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="div"
+            >
               Last reconciled {since(registry.lastReconciledAt)}
               {registry.lastReconcileOk === false && ' · last attempt failed'}
               {registry.lastCheckedAt &&
@@ -229,7 +228,7 @@ const RegistriesCard = ({ registries }: { registries: Registry[] }) => (
               </Typography>
             )}
           {caps && (
-            <Box display="flex" flexWrap="wrap" gridGap={4} mt={1}>
+            <Box display="flex" flexWrap="wrap" gap="4px" mt={1}>
               <Tooltip title={referrersTooltip(caps.referrers)}>
                 <Chip
                   size="small"
@@ -272,7 +271,6 @@ export const OverviewView = ({
 }: {
   onOpenEnvironment: (ref: string) => void;
 }) => {
-  const classes = useStyles();
   const api = useApi(automationContentApiRef);
   const syncAllowed = useContentPermission(contentSyncPermission) === 'allowed';
   // Reload observed inventory after scheduling, independently of task completion.
@@ -290,7 +288,7 @@ export const OverviewView = ({
       render: env => (
         <>
           <Typography variant="body2">{env.repository}</Typography>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             {(env.tags ?? []).join(', ') || 'untagged'} · {env.registry}
           </Typography>
         </>
@@ -300,7 +298,7 @@ export const OverviewView = ({
       title: 'Contents',
       render: env =>
         env.counts ? (
-          <div className={classes.counts}>
+          <Box sx={styles.counts}>
             <Chip
               size="small"
               label={`${env.counts.collections ?? 0} collections`}
@@ -312,27 +310,29 @@ export const OverviewView = ({
             {Boolean(env.counts.rulebooks) && (
               <Chip size="small" label={`${env.counts.rulebooks} rulebooks`} />
             )}
-          </div>
+          </Box>
         ) : (
-          <span className={classes.unknown}>not determined</span>
+          <Box component="span" sx={styles.unknown}>
+            not determined
+          </Box>
         ),
     },
     { title: 'Provenance', render: env => <ProvenanceChip env={env} /> },
     {
       title: 'ansible-core',
       render: env => (
-        <span className={classes.mono}>
+        <Box component="span" sx={styles.mono}>
           {env.enumeration?.ansibleCore ?? '—'}
-        </span>
+        </Box>
       ),
     },
     {
       title: 'Digest',
       render: env => (
         <Tooltip title={env.pullReference ?? ''}>
-          <span className={classes.mono}>
+          <Box component="span" sx={styles.mono}>
             {(env.digest ?? '').slice(7, 19)}
-          </span>
+          </Box>
         </Tooltip>
       ),
     },
@@ -413,7 +413,6 @@ export const EnvironmentView = ({
   environmentRef: string;
   onOpenCollection: (fqcn: string) => void;
 }) => {
-  const classes = useStyles();
   const api = useApi(automationContentApiRef);
 
   const env = useAsync(
@@ -438,8 +437,8 @@ export const EnvironmentView = ({
       title: 'Collection',
       render: c => (
         <>
-          <Typography className={classes.mono}>{c.fqcn}</Typography>
-          <Typography variant="caption" color="textSecondary">
+          <Typography sx={styles.mono}>{c.fqcn}</Typography>
+          <Typography variant="caption" color="text.secondary">
             {c.version}
           </Typography>
         </>
@@ -477,7 +476,11 @@ export const EnvironmentView = ({
               registry: image.registry,
               repository: image.repository,
               tags: (image.tags ?? []).join(', ') || '—',
-              digest: <span className={classes.mono}>{image.digest}</span>,
+              digest: (
+                <Box component="span" sx={styles.mono}>
+                  {image.digest}
+                </Box>
+              ),
               'ansible-core': image.enumeration?.ansibleCore ?? '—',
               'last reconciled': (
                 <Tooltip title={image.lastReconciledAt ?? 'never reconciled'}>
@@ -495,13 +498,13 @@ export const EnvironmentView = ({
                   <Chip
                     size="small"
                     color={exact ? 'primary' : 'default'}
-                    variant={exact ? 'default' : 'outlined'}
+                    variant={exact ? 'filled' : 'outlined'}
                     label={image.enumeration?.source ?? 'unknown'}
                   />
                 </Tooltip>
               ),
               pull: (
-                <div className={classes.pull}>
+                <Box sx={styles.pull}>
                   <span>{image.pullReference}</span>
                   <IconButton
                     size="small"
@@ -512,12 +515,12 @@ export const EnvironmentView = ({
                   >
                     <FileCopyIcon fontSize="small" />
                   </IconButton>
-                </div>
+                </Box>
               ),
             }}
           />
           <Box mt={1}>
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="text.secondary">
               The portal is never in the data path — pull straight from the
               registry.
             </Typography>
@@ -533,7 +536,7 @@ export const EnvironmentView = ({
           {contents.loading && <SkeletonLoader />}
           {contents.error && <ResponseErrorPanel error={contents.error} />}
           {!contents.loading && collections.length === 0 && (
-            <Typography className={classes.unknown}>
+            <Typography sx={styles.unknown}>
               {contents.value?.enumeration?.status === 'unknown'
                 ? 'Contents could not be determined — no content manifest is published for this image. That is not the same as it containing nothing.'
                 : 'No collections.'}
@@ -604,7 +607,6 @@ export const CollectionView = ({
   collectionFqcn: string;
   onOpenItem: (fqcn: string) => void;
 }) => {
-  const classes = useStyles();
   const api = useApi(automationContentApiRef);
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
@@ -664,9 +666,9 @@ export const CollectionView = ({
       title: 'Name',
       render: item => (
         <>
-          <Typography className={classes.mono}>{item.fqcn}</Typography>
+          <Typography sx={styles.mono}>{item.fqcn}</Typography>
           {item.shortDescription && (
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="text.secondary">
               {item.shortDescription}
             </Typography>
           )}
@@ -702,12 +704,12 @@ export const CollectionView = ({
     >
       {initial.error && <ResponseErrorPanel error={initial.error} />}
 
-      <Box display="flex" flexWrap="wrap" gridGap={4} mb={2}>
+      <Box display="flex" flexWrap="wrap" gap="4px" mb={2}>
         {Array.from(byType).map(([t, n]) => (
           <Chip
             key={t}
             size="small"
-            variant={type === t ? 'default' : 'outlined'}
+            variant={type === t ? 'filled' : 'outlined'}
             color={type === t ? 'primary' : 'default'}
             label={`${n} ${t}`}
             onClick={() => push({ type: type === t ? '' : t })}
@@ -715,7 +717,7 @@ export const CollectionView = ({
         ))}
       </Box>
 
-      <Box className={classes.controls}>
+      <Box sx={styles.controls}>
         <TextField
           label="Search"
           placeholder="e.g. vlans, bgp, ipaddr"
@@ -742,7 +744,7 @@ export const CollectionView = ({
           ))}
         </TextField>
         <Box display="flex" alignItems="center">
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             {result?.totalItems ?? 0} matching
           </Typography>
         </Box>
@@ -778,7 +780,6 @@ export const ContentItemView = ({
   environmentRef: string;
   fqcn: string;
 }) => {
-  const classes = useStyles();
   const api = useApi(automationContentApiRef);
   const item = useAsync(
     () => api.getContentItem(fqcn, environmentRef),
@@ -800,7 +801,7 @@ export const ContentItemView = ({
     <Grid container spacing={3} direction="column">
       <Grid item>
         <InfoCard title={doc.fqcn} subheader={doc.shortDescription}>
-          <Box display="flex" flexWrap="wrap" gridGap={8} mb={2}>
+          <Box display="flex" flexWrap="wrap" gap="8px" mb={2}>
             <Chip size="small" label={doc.type} />
             <Chip
               size="small"
@@ -836,7 +837,11 @@ export const ContentItemView = ({
           )}
 
           {author.length > 0 && (
-            <Typography variant="caption" color="textSecondary" component="div">
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              component="div"
+            >
               {author.join(', ')}
             </Typography>
           )}
@@ -858,7 +863,7 @@ export const ContentItemView = ({
       {doc.examples && (
         <Grid item>
           <InfoCard title="Examples">
-            <div className={classes.code}>{doc.examples.slice(0, 8000)}</div>
+            <Box sx={styles.code}>{doc.examples.slice(0, 8000)}</Box>
           </InfoCard>
         </Grid>
       )}
@@ -866,9 +871,9 @@ export const ContentItemView = ({
       {doc.returns && Object.keys(doc.returns).length > 0 && (
         <Grid item>
           <InfoCard title="Return values">
-            <div className={classes.code}>
+            <Box sx={styles.code}>
               {JSON.stringify(doc.returns, null, 2).slice(0, 6000)}
-            </div>
+            </Box>
           </InfoCard>
         </Grid>
       )}
@@ -883,7 +888,7 @@ export const ContentItemView = ({
                   key={ref}
                   variant="caption"
                   component="div"
-                  className={classes.mono}
+                  sx={styles.mono}
                 >
                   {ref}
                 </Typography>

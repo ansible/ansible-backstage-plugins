@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Breadcrumbs, Link, Typography, makeStyles } from '@material-ui/core';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Link from '@mui/material/Link';
+import Typography from '@mui/material/Typography';
 import {
   Content,
   ContentHeader,
@@ -19,11 +21,6 @@ import {
   EnvironmentView,
   OverviewView,
 } from './views';
-
-const useStyles = makeStyles(theme => ({
-  crumbs: { marginBottom: theme.spacing(2) },
-  crumb: { cursor: 'pointer' },
-}));
 
 /** Short label for an artifact ref: `registry/repo@sha256:abcd…` → `repo`. */
 function shortEnvironment(ref: string): string {
@@ -62,7 +59,6 @@ const ContentNotifications = () => {
 };
 
 const AutomationContentPageContent = () => {
-  const classes = useStyles();
   const [params, setParams] = useSearchParams();
 
   const environmentRef = params.get('ee') ?? undefined;
@@ -93,13 +89,14 @@ const AutomationContentPageContent = () => {
       <Link
         key={label}
         color="inherit"
-        className={classes.crumb}
+        underline="hover"
+        sx={{ cursor: 'pointer' }}
         onClick={onClick}
       >
         {label}
       </Link>
     ) : (
-      <Typography key={label} color="textPrimary">
+      <Typography key={label} color="text.primary">
         {label}
       </Typography>
     );
@@ -170,7 +167,7 @@ const AutomationContentPageContent = () => {
         </ContentHeader>
 
         {crumbs.length > 1 && (
-          <Breadcrumbs className={classes.crumbs} aria-label="breadcrumb">
+          <Breadcrumbs sx={{ mb: 2 }} aria-label="breadcrumb">
             {crumbs}
           </Breadcrumbs>
         )}
