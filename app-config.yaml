@@ -27,6 +27,9 @@ app:
     - nav-content:app/portal: true
     - sub-page:automation-content/images: true
     - sub-page:portal-scaffolder/ee-definitions: true
+    - sub-page:scaffolder/actions: false
+    - sub-page:scaffolder/editor: false
+    - sub-page:scaffolder/templating-extensions: false
 portal:
   navigation:
     topOffset: 64
@@ -35,8 +38,8 @@ portal:
         page: page:ansible
         title: Ansible
       - id: templates
-        path: /self-service
-        title: Templates
+        path: /create
+        title: Self-service
       - id: history
         path: /self-service/create/tasks
         title: History

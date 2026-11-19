@@ -107,7 +107,19 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />}>
+    <Route
+      path="/create"
+      element={
+        <ScaffolderPage
+          contextMenu={{
+            actions: false,
+            editor: false,
+            tasks: true,
+            templatingExtensions: false,
+          }}
+        />
+      }
+    >
       <ScaffolderFieldExtensions>
         <DelayingComponentFieldExtension />
         <AAPTokenFieldExtension />
