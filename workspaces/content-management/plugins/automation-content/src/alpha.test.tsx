@@ -2,6 +2,7 @@ import '@testing-library/jest-dom';
 import type { Entity } from '@backstage/catalog-model';
 import {
   createFrontendPlugin,
+  SubPageBlueprint,
   type FrontendFeature,
 } from '@backstage/frontend-plugin-api';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
@@ -18,7 +19,10 @@ import {
   type EntityDetailTabDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { createPortalContributionProvider } from '@ansible/portal-extension-host/alpha';
-import { eeHeaderLayout, eeOverviewLayout } from './alpha';
+import automationContentPlugin, {
+  eeHeaderLayout,
+  eeOverviewLayout,
+} from './alpha';
 import { automationContentApiRef } from './api';
 import { EEImageDetails } from './components/ExecutionEnvironments/EEImageDetails';
 import {
@@ -68,6 +72,113 @@ const cards = createFrontendPlugin({
 });
 
 beforeEach(() => window.localStorage.clear());
+
+const definitionsPlugin = createFrontendPlugin({
+  pluginId: 'portal-scaffolder',
+  extensions: [
+    SubPageBlueprint.make({
+      name: 'ee-definitions',
+      attachTo: { id: 'page:automation-content/ee', input: 'pages' },
+      params: {
+        path: 'definitions',
+        title: 'Definitions',
+        loader: async () => <p>Definition files</p>,
+      },
+    }),
+  ],
+});
+
+function renderExecutionEnvironments(path: string, enabled: 'true' | 'false') {
+  const queryEERepositories = jest.fn(async () => ({
+    page: 1,
+    pageSize: 10,
+    totalItems: 0,
+    items: [],
+  }));
+  renderTestApp({
+    config: {
+      app: {
+        extensions: [
+          { 'sub-page:automation-content/images': enabled },
+          { 'scaffolder-field:automation-content/ee-image-version': enabled },
+          {
+            'scaffolder-form-field:automation-content/ee-image-version':
+              enabled,
+          },
+          { 'entity-header-layout:automation-content/ee-repository': enabled },
+          { 'entity-content-layout:automation-content/ee-repository': enabled },
+          { 'entity-detail-tab:automation-content/image': enabled },
+        ],
+      },
+    },
+    features: [
+      automationContentPlugin,
+      definitionsPlugin,
+      catalogPlugin,
+      portal,
+    ],
+    apis: [
+      mockApis.permission({ authorize: AuthorizeResult.ALLOW }),
+      [
+        automationContentApiRef,
+        {
+          queryEERepositories,
+          getRegistryStatus: async () => ({
+            items: [],
+            manualSyncEnabled: true,
+          }),
+        },
+      ],
+    ],
+    initialRouteEntries: [path],
+  });
+  return queryEERepositories;
+}
+
+describe('EE discovery developer preview', () => {
+  it('opens Definitions and retains Create when preview is off', async () => {
+    renderExecutionEnvironments('/content/ee', 'false');
+
+    expect(await screen.findByText('Definition files')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Create' })).toHaveAttribute(
+      'href',
+      '/create/templates?filters%5Bkind%5D=template&filters%5Btags%5D=execution-environment',
+    );
+    expect(
+      screen.queryByRole('tab', { name: 'Images' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides discovery controls on the Images URL when preview is off', async () => {
+    const queryEERepositories = renderExecutionEnvironments(
+      '/content/ee/images',
+      'false',
+    );
+
+    expect(
+      await screen.findByRole('link', { name: 'Create' }),
+    ).toBeInTheDocument();
+    await expect(
+      screen.findByRole('button', { name: 'Sync registries' }),
+    ).rejects.toThrow('Unable to find');
+    expect(queryEERepositories).not.toHaveBeenCalled();
+  });
+
+  it('opens Images with manual sync and retains Definitions when preview is on', async () => {
+    renderExecutionEnvironments('/content/ee/images', 'true');
+
+    expect(
+      await screen.findByRole('button', { name: 'Sync registries' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Images' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(
+      screen.getByRole('tab', { name: 'Definitions' }),
+    ).toBeInTheDocument();
+  });
+});
 
 function content(
   options: {
