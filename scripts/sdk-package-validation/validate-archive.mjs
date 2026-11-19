@@ -34,8 +34,8 @@ export function validateArchive({
   );
   assert.equal(
     manifest.private,
-    true,
-    'Keep the pre-publication private guard',
+    expected.private ?? true,
+    'Packed private guard differs from reviewed source',
   );
   assert.equal(manifest.license, 'Apache-2.0');
   assert.equal(
