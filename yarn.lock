@@ -239,6 +239,7 @@ __metadata:
     "@jest/globals": "npm:^30.1.2"
     "@types/lodash.uniqby": "npm:^4"
     lodash.uniqby: "npm:^4.7.0"
+    typescript: "npm:~5.8.0"
     undici: "npm:^6.26.0"
     yaml: "npm:^2.0.0"
   languageName: unknown
@@ -288,7 +289,6 @@ __metadata:
     "@ansible/aap-backend": "workspace:^"
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
-    "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-defaults": "npm:0.17.8"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
@@ -721,7 +721,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-scaffolder-backend-module-aap@workspace:workspaces/aap/plugins/scaffolder-backend-module-aap"
   dependencies:
-    "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/aap-common": "workspace:^"
+    "@ansible/aap-node": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.6"

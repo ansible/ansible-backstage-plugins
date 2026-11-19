@@ -17,3 +17,4 @@ export {
   resolveActiveOrganizations,
   findMissingConfiguredOrganizations,
 } from './AAPClient/utils/config';
+export { assertAapScaffolderModuleIsUnique } from './scaffolderModuleOwnership';

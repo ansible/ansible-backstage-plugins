@@ -1,12 +1,12 @@
 # @ansible/backstage-rhaap-common
 
-Shared AAP integration library. Source:
+Compatibility library for existing consumers and remaining shared Git utilities. Source:
 `workspaces/aap/plugins/backstage-rhaap-common`.
 
 ## Responsibilities
 
-Provides the AAP client/service contracts, SCM utilities, resource types,
-permissions, naming helpers, and user-provisioning service contracts.
+AAP exports forward to their new owners. SCM utilities and other not-yet-moved
+shared exports remain here temporarily.
 
 Backend modules consume `ansibleServiceRef` to access the AAP service through
 dependency injection. Frontend consumers use browser-safe exports and the
@@ -93,6 +93,54 @@ Catalog/helper artifacts therefore embed shared libraries without embedding
 New client/helper consumers import node directly. Existing callers can retain
 the old factory import until the common-package cleanup, but must not register
 it alongside the explicitly installed backend factory.
+
+## AAP import migration
+
+`@ansible/backstage-rhaap-common` is deprecated for AAP usage inside
+`workspaces/aap`. Import AAP types, permissions, constants and naming helpers
+from `@ansible/aap-common`; the reusable client, configuration/organization
+helpers, service contracts, references, user provisioning and shared scaffolder
+ownership guard from `@ansible/aap-node`; and the installation factory from
+`@ansible/aap-backend`.
+
+Auth, the AAP-only scaffolder and the JIT provisioner have no direct dependency
+on the legacy package, including their tests, development harnesses and dynamic
+build configuration. The retired combined scaffolder package is not restored.
+The standalone AAP module keeps its current `aap-api` autocomplete registration.
+
+### Temporary catalog compatibility imports
+
+The catalog split merged under AAP-98845 places its shared implementation in
+`@ansible/backstage-rhaap-common/catalog`. Preserve that upstream ownership in
+this stack. The remaining direct imports inside `workspaces/aap` are limited to:
+
+- `catalog-backend-module-aap/src/module.ts`: `createCatalogModule`.
+- `catalog-backend-module-aap/src/index.test.ts`:
+  `resetCatalogModuleSliceGuardForTests`.
+- `catalog-backend-module-rhaap/src/index.ts` and `src/module.ts`:
+  `createRouter`, `CatalogModuleSlice` and `createCatalogModule`.
+- `catalog-backend-module-rhaap/src/index.test.ts`: the router and slice-guard
+  test helper, plus the matching catalog-subpath mock.
+
+Both catalog packages retain the dependency and dynamic embedding needed for
+that temporary catalog implementation. AAP clients, contracts, service refs,
+permissions and organization helpers use the new libraries. Catalog-specific
+compatibility cleanup should be coordinated with AAP-98845; the shared catalog
+implementation is not relocated again by this client/service refactor.
+
+SCM provider implementation now belongs to content-management, with shared
+catalog adapters retained in the legacy package. The deprecated factory adapter
+has no production dependency on backend. Retire it with the remaining legacy
+common-package exports during follow-on cleanup.
+
+Compatibility exports remain available for external consumers. Complete the
+catalog and SCM follow-on cleanup before removing the legacy package; no new
+cleanup issue is created by this stack.
+
+The old guard `Symbol.for` key and client log name remain unchanged for
+compatibility. The node import-boundary regression check permits only the
+listed catalog exports and rejects legacy AAP client/contract imports and
+node-to-backend coupling.
 
 ## Related modules
 

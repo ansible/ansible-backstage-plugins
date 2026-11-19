@@ -11,6 +11,7 @@ types, constants and permissions remain in `@ansible/aap-common`.
   `findMissingConfiguredOrganizations`.
 - Existing client fixtures for compatibility.
 - `UserProvisioner`, its consumer/wiring interfaces and `userProvisionerRef`.
+- `assertAapScaffolderModuleIsUnique`, shared by the old and new scaffolders.
 
 The configuration schema travels with the client reader. Existing keys,
 defaults, Git integration reads, PAH behavior, credentials and logging remain

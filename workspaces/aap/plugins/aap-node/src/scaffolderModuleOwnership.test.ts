@@ -22,3 +22,27 @@ describe('assertAapScaffolderModuleIsUnique', () => {
     ).toThrow(/Install only one AAP scaffolder module/);
   });
 });
+
+it('shares ownership across separately loaded module copies', () => {
+  const extensionPoint = {};
+  jest.isolateModules(() => {
+    const copy = jest.requireActual<
+      typeof import('./scaffolderModuleOwnership')
+    >('./scaffolderModuleOwnership');
+    copy.assertAapScaffolderModuleIsUnique(
+      extensionPoint,
+      'scaffolderModuleAnsible',
+    );
+  });
+  jest.isolateModules(() => {
+    const copy = jest.requireActual<
+      typeof import('./scaffolderModuleOwnership')
+    >('./scaffolderModuleOwnership');
+    expect(() =>
+      copy.assertAapScaffolderModuleIsUnique(
+        extensionPoint,
+        'scaffolderModuleAap',
+      ),
+    ).toThrow(/Install only one AAP scaffolder module/);
+  });
+});
