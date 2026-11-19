@@ -7,6 +7,8 @@ import {
   PortalOperations,
   PortalEntitlements,
   PortalHealth,
+  PortalCatalogEntityProviders,
+  portalCatalogEntityProvidersServiceRef,
   portalOperationsServiceRef,
   portalEntitlementsServiceRef,
   portalHealthServiceRef,
@@ -40,6 +42,11 @@ export default createBackendFeatureLoader({
       service: portalHealthServiceRef,
       deps: {},
       factory: () => new PortalHealth(),
+    });
+    yield createServiceFactory({
+      service: portalCatalogEntityProvidersServiceRef,
+      deps: {},
+      factory: () => new PortalCatalogEntityProviders(),
     });
     yield plugin;
   },

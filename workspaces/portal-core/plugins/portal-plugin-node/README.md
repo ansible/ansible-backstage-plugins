@@ -326,6 +326,81 @@ backend.add(import('@ansible/portal-health-backend'));
 
 The frontend `PortalHealthStatus` component (from `@ansible/portal-extension-host`) polls this endpoint and renders the results. See that package's README for usage.
 
+## Catalog entity provider contributions
+
+Use `portalCatalogEntityProvidersServiceRef` to connect backend contributors
+through a shared contract without importing another feature workspace. The SDK
+contains the registry and interfaces. Contributors supply their own provider
+implementations and namespaced IDs; adding a provider needs no SDK changes.
+
+Inject the service into a backend module and register the provider during init:
+
+```ts
+reg.registerInit({
+  deps: { providers: portalCatalogEntityProvidersServiceRef },
+  async init({ providers }) {
+    providers.register({ id: 'my-plugin.resources', provider });
+  },
+});
+```
+
+Here `provider` implements the SDK's `CatalogEntityProvider` interface in the
+contributing plugin. It supplies `isReady()` and
+`withEntityMutation({ entityRef }, operation)`. It must acquire a durable lock
+for that entity, invoke and await `operation` exactly once while holding the
+lock, and release the lock in `finally`. The SDK does not implement database
+locks, connect providers to the catalog or make an in-memory lock safe across
+multiple backend replicas.
+
+The mutation handle exposes:
+
+- `registrationState`: `none`, `pending` or `registered`. Pending writes count
+  as replacements for authorization purposes, even before catalog processing
+  makes an entity visible.
+- `upsert(entity)`: persist pending state before the provider mutation and mark
+  it registered only after success. Preserve pending state if interrupted.
+- `remove()`: remove only this provider's registration and clear its state.
+- `clearRegistration()`: clear bookkeeping after an authorized catalog API
+  cleanup. This method must not delete catalog locations or another source's
+  entities.
+
+Consumers resolve the provider when handling an operation, not during backend
+initialization. Module initialization order is not a provider-readiness
+guarantee. Select the ID through trusted host configuration, rather than an
+unvalidated form parameter. A registered provider can remain unavailable until
+its catalog connection and lock are initialized. Readiness is checked for each
+mutation, including calls through a previously resolved handle.
+
+```ts
+const provider = providers.get(configuredProviderId);
+await provider.withEntityMutation({ entityRef }, async mutation => {
+  await authorizeMutation(credentials, entityRef, mutation.registrationState);
+  await mutation.upsert(entity);
+});
+```
+
+The consumer supplies `authorizeMutation` and preserves the initiating caller's
+Backstage credentials. It must check create permission, replacement/delete
+permission, organization scope and resource access as applicable before any
+write. This internal backend registry is **not** a REST endpoint, operation
+authorization dispatcher or permission grant. Continue to secure each caller's
+transport and effects. Provider IDs are discovery keys, not access controls.
+
+Use a full `kind:namespace/name` reference. The SDK canonicalizes it and rejects
+an upsert for another entity. Mutation handles expire when their callback ends.
+All writes must be awaited. The SDK drains accepted writes before returning,
+serializes writes within a callback, propagates failures even if a provider
+swallows them, and rejects missing, duplicate or premature callbacks. These
+guards cannot repair a provider that fails to hold its promised durable lock.
+An error after a write does not roll it back; recover using the provider's
+persisted registration state. Do not blindly retry domain effects.
+
+The default service factory provides one registry per backend instance through
+Backstage dependency injection. A dynamic distribution using independently
+embedded SDK copies can install the explicit root services through
+`@ansible/portal-operations-backend/alpha`, alongside its existing host service
+composition. Provider implementations remain in their own dynamic bundles.
+
 ## Peer dependencies
 
 - `express` ^4

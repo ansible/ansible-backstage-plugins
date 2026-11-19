@@ -10,6 +10,11 @@ where versioned packages apply.
 
 ### Added
 
+- **Backend SDK catalog provider contributions** add a dependency-injected
+  provider registry and generic entity mutation contracts. Providers retain
+  domain validation, catalog connectivity and durable locks. Consumers retain
+  authorization. No feature-specific provider is installed or migrated.
+
 - **SDK relative time** adds the neutral `formatTimeAgo()` utility. Timestamp consumers no longer strip synchronization wording, and portal-scaffolder keeps its sync labels in a local wrapper. The existing SDK `formatRelativeTime()` remains available as a deprecated compatibility export with unchanged output.
 
 - **SDK page header** adds `PageHeader` with a title, optional description/help, and consumer-owned actions. It requires no sync configuration or authentication APIs. Portal-scaffolder uses a local `CatalogSyncHeader` to retain existing sync controls, permission checks, progress, and timestamps. The SDK's `PageHeaderSection` and its props remain available as deprecated compatibility exports.
