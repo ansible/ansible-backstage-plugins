@@ -18,8 +18,7 @@ import {
   toOrgGroupRef,
   toTeamGroupRef,
 } from '@ansible/aap-common';
-import { IAAPService } from '@ansible/aap-node';
-import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
+import { IAAPService, resolveActiveOrganizations } from '@ansible/aap-node';
 
 const PROVIDER_NAME = 'rhaap-user-provisioner';
 const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;

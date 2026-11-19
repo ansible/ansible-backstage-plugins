@@ -3,7 +3,7 @@
 // console.log is used intentionally for provider-configuration diagnostics.
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
-import { resolveActiveOrganizations } from '@ansible/backstage-rhaap-common';
+import { resolveActiveOrganizations } from '@ansible/aap-node';
 import type { AapConfig, PAHRepositoryConfig } from './types';
 
 export function readAapApiEntityConfigs(

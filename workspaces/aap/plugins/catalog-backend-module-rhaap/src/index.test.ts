@@ -6,10 +6,8 @@ jest.mock('@ansible/backstage-rhaap-common/catalog', () => {
   };
 });
 
-import {
-  ansibleServiceFactory,
-  userProvisionerRef,
-} from '@ansible/backstage-rhaap-common';
+import ansibleServiceFactory from '@ansible/aap-backend';
+import { userProvisionerRef } from '@ansible/aap-node';
 import { createRouter as createSharedRouter } from '@ansible/backstage-rhaap-common/catalog';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { createServiceFactory } from '@backstage/backend-plugin-api';
@@ -56,7 +54,7 @@ describe('catalog backend feature loader', () => {
     resetCatalogModuleSliceGuardForTests();
   });
 
-  it('yields the AAP services and catalog module', async () => {
+  it('yields the JIT adapters and catalog module without the AAP client factory', async () => {
     const loader = catalogFeatureLoader as unknown as BackendFeatureLoader;
 
     expect(loader.featureType).toBe('loader');
@@ -64,12 +62,12 @@ describe('catalog backend feature loader', () => {
     const features = await loader.loader({});
     expect(features).toEqual(
       expect.arrayContaining([
-        ansibleServiceFactory,
         rhaapOrganizationServiceFactory,
         catalogModuleRhaap,
       ]),
     );
-    expect(features).toHaveLength(4);
+    expect(features).toHaveLength(3);
+    expect(features).not.toContain(ansibleServiceFactory);
     expect(features).toContainEqual(
       expect.objectContaining({
         service: userProvisionerRef,
@@ -82,6 +80,7 @@ describe('catalog backend feature loader', () => {
     const backend = await startTestBackend({
       features: [
         catalogPlugin,
+        ansibleServiceFactory,
         catalogFeatureLoader,
         mockSignalsServiceFactory,
         splitBackendConfig,

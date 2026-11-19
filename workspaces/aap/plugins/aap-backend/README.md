@@ -14,12 +14,19 @@ and a plugin-scoped logger. The service ID remains `rhaap.client.service`, with
 plugin scope and no reference default factory. Ordinary backend consumers
 request `ansibleServiceRef` from `@ansible/aap-node`.
 
-## Registration during extraction
+## Installation
 
-The catalog loader still supplies the factory through the legacy compatibility
-export at this stage. The next change transfers installation responsibility to
-an explicit `backend.add(import('@ansible/aap-backend'))` registration and
-includes source and dynamic migration instructions.
+Register the service factory once in the source backend:
+
+```ts
+backend.add(import('@ansible/aap-backend'));
+```
+
+The catalog loaders no longer supply the client factory. Named modules and
+package loaders need the same explicit owner. A custom host factory can be
+installed instead; do not install competing explicit factories for the same
+service. Dynamic deployments must separately enable the exported backend
+artifact; embedding code is not service registration.
 
 ## Compatibility and packaging
 

@@ -3,7 +3,6 @@ import {
   createServiceFactory,
 } from '@backstage/backend-plugin-api';
 import { userProvisionerRef, UserProvisioner } from '@ansible/aap-node';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
 
 import { catalogModuleAap } from './module';
 
@@ -14,7 +13,6 @@ import { catalogModuleAap } from './module';
  */
 export default createBackendFeatureLoader({
   loader: function* () {
-    yield ansibleServiceFactory;
     // Embedded packages carry distinct service-ref objects; explicitly
     // register the factory by service ID so auth and catalog share one
     // provisioner instance for JIT callback wiring.

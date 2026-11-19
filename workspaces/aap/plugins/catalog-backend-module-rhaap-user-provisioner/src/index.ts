@@ -10,7 +10,7 @@ import { catalogModuleRhaapUserProvisioner } from './module';
 
 export { catalogModuleRhaapUserProvisioner };
 
-/** Load the provisioner module; the catalog loader or host provides the AAP service. */
+/** Load the provisioner module; explicitly install @ansible/aap-backend for the AAP service. */
 export default createBackendFeatureLoader({
   loader: function* () {
     yield catalogModuleRhaapUserProvisioner;
