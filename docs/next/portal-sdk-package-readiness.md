@@ -37,7 +37,7 @@ On Node `22.22.3`, the prepared preview passes declaration emission, all ten
 package builds, archive metadata/content checks and an isolated consumer install.
 The consumer passes TypeScript, frontend bundling and backend health/runtime
 checks. All ten archives have verified SPDX 2.3 SBOMs generated with Syft `1.57.1`.
-The 60 validation-tooling tests and immutable repository installation also pass.
+The 63 validation-tooling tests and immutable repository installation also pass.
 The full repository suite passes with 457 suites and 6,917 tests, with one suite
 and five tests skipped.
 
