@@ -1,16 +1,4 @@
-import { AAPResourcePicker } from '../Scaffolder/AAResourcePicker/AAPResourcePicker';
 import { AAPTokenField } from '../Scaffolder/AAPTokenField/AAPTokenFieldExtension';
-import { BaseImagePickerExtension } from '../Scaffolder/BaseImagePicker/BaseImagePickerExtension';
-import { CollectionsPickerExtension } from '../Scaffolder/CollectionsPicker/CollectionsPickerExtension';
-import {
-  AdditionalBuildStepsPickerExtension,
-  EEFileNamePickerExtension,
-  EETagsPickerExtension,
-  FileUploadPickerExtension,
-  MCPServersPickerExtension,
-  PackagesPickerExtension,
-  ScmSelectorExtension,
-} from '@ansible/portal-scaffolder-react';
 import {
   EntityNamePicker,
   EntityPicker,
@@ -25,26 +13,7 @@ import {
 } from './BsCustomComponents';
 
 export const formExtraFields = [
-  { name: 'AAPResourcePicker', component: AAPResourcePicker },
   { name: 'AAPTokenField', component: AAPTokenField },
-  { name: 'BaseImagePicker', component: BaseImagePickerExtension },
-  { name: 'CollectionsPicker', component: CollectionsPickerExtension },
-  { name: 'FileUploadPicker', component: FileUploadPickerExtension },
-  { name: 'PackagesPicker', component: PackagesPickerExtension },
-  { name: 'MCPServersPicker', component: MCPServersPickerExtension },
-  { name: 'ScmSelector', component: ScmSelectorExtension },
-  {
-    name: 'AdditionalBuildStepsPicker',
-    component: AdditionalBuildStepsPickerExtension,
-  },
-  {
-    name: 'EEFileNamePicker',
-    component: EEFileNamePickerExtension,
-  },
-  {
-    name: 'EETagsPicker',
-    component: EETagsPickerExtension,
-  },
   { name: 'EntityPicker', component: EntityPicker },
   { name: 'EntityNamePicker', component: EntityNamePicker },
   { name: 'EntityTagsPicker', component: EntityTagsPicker },

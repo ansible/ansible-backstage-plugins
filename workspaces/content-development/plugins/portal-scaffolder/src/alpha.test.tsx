@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom';
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import {
   createFrontendPlugin,
@@ -21,6 +27,7 @@ import {
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
 import {
+  createPortalScaffolderFieldBlueprints,
   ScaffolderFieldBlueprint,
   type ScaffolderFieldDescriptor,
 } from '@ansible/portal-extension-api/alpha';
@@ -37,13 +44,21 @@ const portalHost = createFrontendPlugin({
 
 function NativeFormFieldsProbe() {
   const formFieldsApi = useApi(formFieldsApiRef);
-  const [fieldCount, setFieldCount] = useState<number>();
+  const [fieldNames, setFieldNames] = useState<string[]>();
   useEffect(() => {
     void formFieldsApi
       .loadFormFields()
-      .then(fields => setFieldCount(fields.length));
+      .then(fields =>
+        setFieldNames(
+          fields.map(field => (field as unknown as { name: string }).name),
+        ),
+      );
   }, [formFieldsApi]);
-  return <div data-testid="native-form-fields">{fieldCount ?? 'loading'}</div>;
+  return (
+    <div data-testid="native-form-fields">
+      {fieldNames?.join(',') ?? 'loading'}
+    </div>
+  );
 }
 
 const nativeFormFieldsProbePlugin = createFrontendPlugin({
@@ -242,8 +257,8 @@ it('provides distinct native sidebar icons for the existing self-service section
   ).toBeNull();
 });
 
-it('loads contributed AAP fields through Backstage formFieldsApiRef', async () => {
-  async function loadFieldCount(features: FrontendFeature[]) {
+it('loads contributed custom picker fields through Backstage formFieldsApiRef', async () => {
+  async function loadFieldNames(features: FrontendFeature[]) {
     cleanup();
     await renderTestApp({
       features,
@@ -251,23 +266,97 @@ it('loads contributed AAP fields through Backstage formFieldsApiRef', async () =
       apis: [mockApis.permission()],
     });
     const fieldCount = await screen.findByTestId('native-form-fields');
-    await waitFor(() => expect(fieldCount.textContent).toMatch(/^\d+$/));
-    return Number(fieldCount.textContent);
+    await waitFor(() => expect(fieldCount.textContent).not.toBe('loading'));
+    return (fieldCount.textContent ?? '').split(',').filter(Boolean).sort();
   }
 
-  const baseFieldCount = await loadFieldCount([
+  const baseFieldNames = await loadFieldNames([
     portalHost,
     scaffolderFrontendPlugin,
     nativeFormFieldsProbePlugin,
   ]);
-  const contributedFieldCount = await loadFieldCount([
+  const contributedFieldNames = await loadFieldNames([
     portalHost,
     scaffolderFrontendPlugin,
     plugin,
     nativeFormFieldsProbePlugin,
   ]);
 
-  expect(contributedFieldCount).toBe(baseFieldCount + 2);
+  const contributedNames = contributedFieldNames.filter(
+    name => !baseFieldNames.includes(name),
+  );
+  expect(contributedNames).toEqual(
+    [
+      'AAPResourcePicker',
+      'CollectionsPicker',
+      'BaseImagePicker',
+      'FileUploadPicker',
+      'PackagesPicker',
+      'MCPServersPicker',
+      'ScmSelector',
+      'AdditionalBuildStepsPicker',
+      'EEFileNamePicker',
+      'EETagsPicker',
+    ].sort(),
+  );
+});
+
+it('blocks native submission when an optional field with no default fails to load', async () => {
+  const scaffold = jest.fn();
+  await renderTestApp({
+    features: [
+      portalHost,
+      scaffolderFrontendPlugin,
+      createFrontendPlugin({
+        pluginId: 'contributor',
+        extensions: [
+          ...createPortalScaffolderFieldBlueprints('url', {
+            ...declaration,
+            loader: jest.fn().mockRejectedValue(new Error('Chunk unavailable')),
+          }),
+        ],
+      }),
+    ],
+    initialRouteEntries: ['/create/templates/default/register-repo'],
+    apis: [
+      mockApis.permission(),
+      [
+        catalogApiRef,
+        { getEntityByRef: jest.fn().mockResolvedValue(undefined) },
+      ],
+      [
+        scaffolderApiRef,
+        {
+          getTemplateParameterSchema: jest.fn().mockResolvedValue({
+            title: 'Register repository',
+            steps: [
+              {
+                title: 'Details',
+                schema: {
+                  type: 'object',
+                  properties: {
+                    repoUrl: { type: 'string', 'ui:field': 'RepositoryURL' },
+                  },
+                },
+              },
+            ],
+          }),
+          scaffold,
+        },
+      ],
+    ],
+  });
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Field RepositoryURL could not be loaded',
+  );
+  const review = await screen.findByRole('button', { name: 'Review' });
+  await act(async () => {
+    fireEvent.click(review);
+  });
+  expect(
+    screen.queryByRole('button', { name: 'Create' }),
+  ).not.toBeInTheDocument();
+  expect(scaffold).not.toHaveBeenCalled();
 });
 
 it('discovers native fields on the real Portal wizard route and keeps the existing task/secrets flow', async () => {

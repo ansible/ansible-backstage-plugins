@@ -6,6 +6,8 @@ import UploadIcon from '@material-ui/icons/CloudUpload';
 import DeleteIcon from '@material-ui/icons/Delete';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 
+export const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
+
 const useStyles = makeStyles(theme => ({
   title: {
     fontSize: '1.2rem',
@@ -144,6 +146,7 @@ export const FileUploadPickerExtension = ({
     name: string;
     content: string;
   } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const isInitialized = useRef(false);
 
   const customTitle =
@@ -251,6 +254,12 @@ export const FileUploadPickerExtension = ({
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        setUploadError('File size must be 5 MB or less.');
+        event.target.value = '';
+        return;
+      }
+      setUploadError(null);
       try {
         const content = await file.text();
         setUploadedFile({ name: file.name, content });
@@ -363,6 +372,11 @@ export const FileUploadPickerExtension = ({
           style={{ marginTop: '8px', display: 'block' }}
         >
           {rawErrors.join(', ')}
+        </Typography>
+      )}
+      {uploadError && (
+        <Typography role="alert" color="error" variant="caption">
+          {uploadError}
         </Typography>
       )}
     </Box>

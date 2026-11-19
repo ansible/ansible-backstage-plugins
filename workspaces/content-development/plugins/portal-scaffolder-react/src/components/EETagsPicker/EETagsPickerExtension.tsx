@@ -86,7 +86,7 @@ const useStyles = makeStyles(theme => ({
 // Tag validation function - validates according to Backstage rules
 // Tags must be sequences of [a-z0-9+#] separated by [-], at most 63 characters
 
-const isValidTag = (tag: string): { valid: boolean; error?: string } => {
+export const isValidTag = (tag: string): { valid: boolean; error?: string } => {
   if (!tag || tag.trim().length === 0) {
     return { valid: false, error: 'Tag is required' };
   }

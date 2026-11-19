@@ -30,6 +30,15 @@ it('does not mistake ordinary enums or nulls for widget declarations', () => {
   ).toEqual([]);
 });
 
+it('finds unavailable fields declared with the nested ui.field syntax', () => {
+  expect(
+    findUnavailableFields(
+      { tags: { ui: { field: 'MissingTagsPicker' } } },
+      new Set(),
+    ),
+  ).toEqual(['MissingTagsPicker']);
+});
+
 it('alphabetically orders missing fields with mixed-case names', () => {
   expect(
     findUnavailableFields(

@@ -452,6 +452,62 @@ describe('ScmSelectorExtension', () => {
     });
   });
 
+  it.each([true, false])(
+    'finishes a previously pending selection after reload (credentials granted: %s)',
+    async granted => {
+      const saved = {
+        provider: 'github',
+        providerLabel: 'Github',
+        org: 'team',
+        repoName: 'repo',
+        repoExists: false,
+      };
+      if (!granted)
+        mockScmAuthApi.getCredentials.mockRejectedValue(
+          new Error('OAuth failed'),
+        );
+      const onChange = jest.fn();
+      renderComponent({
+        formData: { ...saved, authenticationPending: true },
+        onChange,
+      });
+      await waitFor(() =>
+        expect(onChange).toHaveBeenCalledWith({
+          ...saved,
+          ...(!granted && { org: '', repoName: '' }),
+          authenticationPending: undefined,
+        }),
+      );
+    },
+  );
+
+  it('clears a saved pending flag without signing in when credentials are disabled', async () => {
+    const saved = {
+      provider: 'github',
+      providerLabel: 'Github',
+      org: 'team',
+      repoName: 'repo',
+      repoExists: false,
+    };
+    const onChange = jest.fn();
+    renderComponent({
+      formData: { ...saved, authenticationPending: true },
+      onChange,
+      uiSchema: {
+        'ui:options': {
+          providers: defaultProps.uiSchema['ui:options'].providers,
+        },
+      },
+    });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        ...saved,
+        authenticationPending: undefined,
+      }),
+    );
+    expect(mockScmAuthApi.getCredentials).not.toHaveBeenCalled();
+  });
+
   it('sets OAuth pending flag in sessionStorage before authentication', async () => {
     const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
     renderComponent();

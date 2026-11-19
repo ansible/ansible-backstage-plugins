@@ -24,7 +24,7 @@ const EEDetailsPage = lazy(() =>
   })),
 );
 
-const reservedNames = formExtraFields.map(field => field.name);
+const reservedLegacyFieldNames = formExtraFields.map(field => field.name);
 
 function LegacyEEDefinitionsRedirect(): JSX.Element {
   const { search, hash } = useLocation();
@@ -77,7 +77,7 @@ export function NativeScaffolderPage({
           <RequirePermission permission={templatesViewPermission}>
             <NativeScaffolderFields
               declarations={declarations}
-              reservedNames={reservedNames}
+              reservedNames={reservedLegacyFieldNames}
             >
               {fields => <CreateTask nativeFields={fields} />}
             </NativeScaffolderFields>
