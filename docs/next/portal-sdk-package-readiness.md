@@ -54,18 +54,37 @@ They do not establish the current dependency graph or security status. The SCM
 dependencies merged in #1054 also require a fresh consumer audit.
 
 To reproduce candidate validation and dependency scanning from a reviewed
-revision, retain the output directory and run:
+revision, use a fresh checkout and inspect untracked files before running:
+
+```bash
+git status --porcelain --untracked-files=all
+```
+
+The report's `includesUncommittedChanges` flag detects tracked changes only.
+It does not detect untracked inputs, including extra `.d.ts` files copied from
+the consumer fixture. Remove untracked validation inputs before the run or
+commit and review them. Do not associate results with a revision based on this
+flag alone. Retain the output directory and run:
 
 ```bash
 SDK_VALIDATION_DIR=/absolute/path/to/fresh-sdk-validation yarn validate:sdk-packages
 cd /absolute/path/to/fresh-sdk-validation/consumer
-yarn npm audit --recursive --environment production --severity info --no-deprecations --json > yarn-audit.ndjson
+if yarn npm audit --recursive --environment production --severity info --no-deprecations --json > yarn-audit.ndjson 2> yarn-audit.stderr.log; then
+  audit_status=0
+else
+  audit_status=$?
+fi
+printf '%s\n' "$audit_status" > yarn-audit.exit-code
+test "$audit_status" -eq 0
 ```
 
-The audit command returns a nonzero status when it reports findings. Retain
-`yarn-audit.ndjson`, the consumer's `yarn.lock` and the validation `report.json`
-together. Check the report's source SHA and uncommitted-change flag before
-associating results with a revision. Packed-candidate validation, dependency
+Retain `yarn-audit.ndjson`, `yarn-audit.stderr.log`, `yarn-audit.exit-code`, the
+consumer's `yarn.lock` and the validation `report.json` together. A clean audit
+can produce empty stdout; empty output alone does not establish success. The
+recorded exit status and stderr distinguish that result from a failed command.
+Findings or a failed scan keep the final check nonzero. Check the source SHA,
+tracked-change flag and untracked-input inventory before associating results
+with a revision. Packed-candidate validation, dependency
 auditing and exact-commit CodeQL checks are distinct checks; successful PR
 package validation alone is not a clean security report. The publishing
 workflow requires security evidence for its exact release revision and branch.
