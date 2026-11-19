@@ -1,0 +1,9 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    { "id": 1, "name": "localhost" },
+    { "id": 2, "name": "rhel9-1" }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "pathContains": "/api/controller/v2/jobs/206/stdout/?format=json"
+}

@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "pathContains": "/api/controller/v2/job_templates/17/launch/",
+  "body": {
+    "extra_vars": "{\"scan_id\":\"scan-2\",\"ingest_token\":\"token-2\"}",
+    "limit": "rhel9-1",
+    "inventory": 1
+  }
+}

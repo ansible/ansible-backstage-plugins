@@ -5247,4 +5247,194 @@ describe('AAPClient', () => {
       expect(lastMessage).toBe('Job output is available in the RHAAP portal.');
     });
   });
+
+  describe('Compliance Controller endpoints', () => {
+    const loadFixture = (name: string) =>
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require(`./fixtures/${name}`) as Record<string, any>;
+
+    const mockJsonResponse = (body: unknown) => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(body),
+      });
+    };
+
+    const expectFetchUrlContains = (pathContains: string) => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(pathContains),
+        expect.any(Object),
+      );
+    };
+
+    const expectFetchBody = (body: Record<string, unknown>) => {
+      const [, options] = mockFetch.mock.calls[0];
+      expect(JSON.parse(options.body)).toEqual(body);
+    };
+
+    beforeEach(() => {
+      mockFetch = fetch as jest.Mock;
+    });
+
+    it('listWorkflowJobTemplates matches request/response fixtures', async () => {
+      const request = loadFixture('listWorkflowJobTemplates.request.json');
+      const response = loadFixture('listWorkflowJobTemplates.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.listWorkflowJobTemplates(
+        'test-token',
+        'compliance',
+      );
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('launchWorkflow matches request/response fixtures', async () => {
+      const request = loadFixture('launchWorkflow.request.json');
+      const response = loadFixture('launchWorkflow.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.launchWorkflow(42, 'test-token', {
+        extraVars: { scan_id: 'scan-1', ingest_token: 'token-1' },
+        limit: 'rhel9-1',
+        jobTags: 'accounts_tmout',
+        inventoryId: 1,
+      });
+
+      expectFetchUrlContains(request.pathContains);
+      expectFetchBody(request.body);
+      expect(result).toEqual(response);
+    });
+
+    it('listJobTemplatesByNameContains matches request/response fixtures', async () => {
+      const request = loadFixture(
+        'listJobTemplatesByNameContains.request.json',
+      );
+      const response = loadFixture(
+        'listJobTemplatesByNameContains.response.json',
+      );
+      mockJsonResponse(response);
+
+      const result = await client.listJobTemplatesByNameContains(
+        'test-token',
+        'compliance-remediate',
+      );
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('getJobTemplateDetail matches request/response fixtures', async () => {
+      const request = loadFixture('getJobTemplateDetail.request.json');
+      const response = loadFixture('getJobTemplateDetail.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getJobTemplateDetail(17, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('getWorkflowTemplateNodes matches request/response fixtures', async () => {
+      const request = loadFixture('getWorkflowTemplateNodes.request.json');
+      const response = loadFixture('getWorkflowTemplateNodes.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getWorkflowTemplateNodes(42, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('launchJobTemplateById matches request/response fixtures', async () => {
+      const request = loadFixture('launchJobTemplateById.request.json');
+      const response = loadFixture('launchJobTemplateById.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.launchJobTemplateById(17, 'test-token', {
+        extraVars: { scan_id: 'scan-2', ingest_token: 'token-2' },
+        limit: 'rhel9-1',
+        inventoryId: 1,
+      });
+
+      expectFetchUrlContains(request.pathContains);
+      expectFetchBody(request.body);
+      expect(result).toEqual(response);
+    });
+
+    it('getWorkflowJobStatus matches request/response fixtures', async () => {
+      const request = loadFixture('getWorkflowJobStatus.request.json');
+      const response = loadFixture('getWorkflowJobStatus.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getWorkflowJobStatus(1001, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('getWorkflowNodes matches request/response fixtures', async () => {
+      const request = loadFixture('getWorkflowNodes.request.json');
+      const response = loadFixture('getWorkflowNodes.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getWorkflowNodes(1001, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('fetchEvents with event filter matches request/response fixtures', async () => {
+      const request = loadFixture('fetchEventsFiltered.request.json');
+      const response = loadFixture('fetchEventsFiltered.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.fetchEvents(
+        206,
+        'test-token',
+        undefined,
+        undefined,
+        'runner_on_failed',
+      );
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response.results);
+    });
+
+    it('getJobStdoutJson matches request/response fixtures', async () => {
+      const request = loadFixture('getJobStdoutJson.request.json');
+      const response = loadFixture('getJobStdoutJson.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getJobStdoutJson(206, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+
+    it('getInventoryHostnames matches request fixture and maps host names', async () => {
+      const request = loadFixture('getInventoryHostnames.request.json');
+      const response = loadFixture('getInventoryHostnames.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getInventoryHostnames(1, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(
+        response.results.map((host: { name: string }) => host.name),
+      );
+    });
+
+    it('getHostAnsibleFacts matches request/response fixtures', async () => {
+      const request = loadFixture('getHostAnsibleFacts.request.json');
+      const response = loadFixture('getHostAnsibleFacts.response.json');
+      mockJsonResponse(response);
+
+      const result = await client.getHostAnsibleFacts(2, 'test-token');
+
+      expectFetchUrlContains(request.pathContains);
+      expect(result).toEqual(response);
+    });
+  });
 });

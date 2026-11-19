@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "pathContains": "/api/controller/v2/hosts/2/ansible_facts/"
+}

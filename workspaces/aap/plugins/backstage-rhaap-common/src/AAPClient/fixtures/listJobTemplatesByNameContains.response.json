@@ -1,0 +1,12 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 21,
+      "name": "compliance-remediate-unified-stig-rhel9",
+      "description": "STIG remediate"
+    }
+  ]
+}

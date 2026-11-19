@@ -1,0 +1,10 @@
+{
+  "method": "POST",
+  "pathContains": "/api/controller/v2/workflow_job_templates/42/launch/",
+  "body": {
+    "extra_vars": "{\"scan_id\":\"scan-1\",\"ingest_token\":\"token-1\"}",
+    "limit": "rhel9-1",
+    "job_tags": "accounts_tmout",
+    "inventory": 1
+  }
+}

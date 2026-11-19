@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "pathContains": "/api/controller/v2/workflow_job_templates/42/workflow_nodes/?page_size=50"
+}

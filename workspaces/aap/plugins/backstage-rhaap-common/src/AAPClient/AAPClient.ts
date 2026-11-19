@@ -561,17 +561,29 @@ export class AAPClient implements IAAPService {
     token: string,
     results?: never[],
     fullUrl?: string,
+    event?:
+      | 'runner_on_ok'
+      | 'runner_item_on_ok'
+      | 'runner_on_failed'
+      | 'runner_on_unreachable',
   ): Promise<any> {
     let result = results ?? [];
+    const eventQuery = event ? `?event=${encodeURIComponent(event)}` : '';
     const eventsResponse = await this.executeGetRequest(
-      `api/controller/v2/jobs/${jobID}/job_events/`,
+      `api/controller/v2/jobs/${jobID}/job_events/${eventQuery}`,
       token,
       fullUrl,
     );
     const response = await eventsResponse.json();
     result = [...result, ...response.results] as never[];
     if (response.next) {
-      return await this.fetchEvents(jobID, token, result, response.next);
+      return await this.fetchEvents(
+        jobID,
+        token,
+        result,
+        response.next,
+        event,
+      );
     }
     return result;
   }
@@ -792,6 +804,209 @@ export class AAPClient implements IAAPService {
       this.logger.error(`Failed to cancel job ${jobID}.`);
       throw error;
     }
+  }
+
+  // ─── Compliance Controller helpers ──────────────────────────────────
+  // Paths and bodies match compliance ControllerClient. Existing name-based
+  // launch and format=txt stdout helpers above stay unchanged.
+
+  private buildComplianceLaunchBody(options?: {
+    extraVars?: Record<string, unknown>;
+    limit?: string;
+    jobTags?: string;
+    inventoryId?: number;
+  }): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+    if (options?.extraVars) {
+      body.extra_vars = JSON.stringify(options.extraVars);
+    }
+    if (options?.limit) {
+      body.limit = options.limit;
+    }
+    if (options?.jobTags) {
+      body.job_tags = options.jobTags;
+    }
+    if (options?.inventoryId != null) {
+      body.inventory = options.inventoryId;
+    }
+    return body;
+  }
+
+  public async listWorkflowJobTemplates(
+    token: string,
+    nameFilter?: string,
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{ id: number; name: string; description: string }>;
+  }> {
+    const query = nameFilter
+      ? `?name__icontains=${encodeURIComponent(nameFilter)}`
+      : '';
+    const response = await this.executeGetRequest(
+      `api/controller/v2/workflow_job_templates/${query}`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async launchWorkflow(
+    workflowId: number,
+    token: string,
+    options?: {
+      extraVars?: Record<string, unknown>;
+      limit?: string;
+      jobTags?: string;
+      inventoryId?: number;
+    },
+  ): Promise<{ id: number; workflow_job: number; status: string }> {
+    const response = await this.executePostRequest(
+      `api/controller/v2/workflow_job_templates/${workflowId}/launch/`,
+      token,
+      this.buildComplianceLaunchBody(options),
+    );
+    return response.json();
+  }
+
+  public async listJobTemplatesByNameContains(
+    token: string,
+    nameFilter?: string,
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: Array<{ id: number; name: string; description: string }>;
+  }> {
+    const query = nameFilter
+      ? `?name__icontains=${encodeURIComponent(nameFilter)}&page_size=10`
+      : '?page_size=50';
+    const response = await this.executeGetRequest(
+      `api/controller/v2/job_templates/${query}`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async getJobTemplateDetail(
+    templateId: number,
+    token: string,
+  ): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    extra_vars: string;
+    execution_environment: number | null;
+  }> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/job_templates/${templateId}/`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async getWorkflowTemplateNodes(
+    templateId: number,
+    token: string,
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: unknown[];
+  }> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/workflow_job_templates/${templateId}/workflow_nodes/?page_size=50`,
+      token,
+    );
+    return response.json();
+  }
+
+  /**
+   * Launch a job template by numeric id and return without waiting for the job.
+   * Name-based launchJobTemplate / launchJobTemplateNoWait stay unchanged.
+   */
+  public async launchJobTemplateById(
+    templateId: number,
+    token: string,
+    options?: {
+      extraVars?: Record<string, unknown>;
+      limit?: string;
+      jobTags?: string;
+      inventoryId?: number;
+    },
+  ): Promise<{ id: number; status: string }> {
+    const response = await this.executePostRequest(
+      `api/controller/v2/job_templates/${templateId}/launch/`,
+      token,
+      this.buildComplianceLaunchBody(options),
+    );
+    return response.json();
+  }
+
+  public async getWorkflowJobStatus(
+    jobId: number,
+    token: string,
+  ): Promise<{
+    id: number;
+    status: string;
+    finished?: string | null;
+    failed?: boolean;
+  }> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/workflow_jobs/${jobId}/`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async getWorkflowNodes(
+    jobId: number,
+    token: string,
+  ): Promise<{
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: unknown[];
+  }> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/workflow_jobs/${jobId}/workflow_nodes/?page_size=200`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async getJobStdoutJson(
+    jobId: number,
+    token: string,
+  ): Promise<{ content: string }> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/jobs/${jobId}/stdout/?format=json`,
+      token,
+    );
+    return response.json();
+  }
+
+  public async getInventoryHostnames(
+    inventoryId: number,
+    token: string,
+  ): Promise<string[]> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`,
+      token,
+    );
+    const data = await response.json();
+    return (data.results ?? []).map((host: { name: string }) => host.name);
+  }
+
+  public async getHostAnsibleFacts(
+    hostId: number,
+    token: string,
+  ): Promise<Record<string, unknown>> {
+    const response = await this.executeGetRequest(
+      `api/controller/v2/hosts/${hostId}/ansible_facts/`,
+      token,
+    );
+    return response.json();
   }
 
   public async cleanUp(payload: CleanUp, token: string): Promise<void> {

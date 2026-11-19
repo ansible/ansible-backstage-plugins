@@ -1,0 +1,4 @@
+{
+  "method": "GET",
+  "pathContains": "/api/controller/v2/inventories/1/hosts/?page_size=200"
+}

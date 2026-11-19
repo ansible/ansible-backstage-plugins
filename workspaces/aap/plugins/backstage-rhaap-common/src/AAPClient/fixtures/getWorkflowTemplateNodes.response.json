@@ -1,0 +1,12 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 7,
+      "identifier": "run-oscap",
+      "unified_job_template": 17
+    }
+  ]
+}

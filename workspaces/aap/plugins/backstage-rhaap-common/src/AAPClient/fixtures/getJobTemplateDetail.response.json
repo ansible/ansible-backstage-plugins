@@ -1,0 +1,7 @@
+{
+  "id": 17,
+  "name": "compliance-scan-unified-stig-rhel9",
+  "description": "STIG scan",
+  "extra_vars": "{\"profile_slug\": \"rhel9-stig\"}",
+  "execution_environment": 8
+}
