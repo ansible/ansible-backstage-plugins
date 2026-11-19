@@ -1,5 +1,5 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
-import { Collection } from '../interfaces';
+import { Collection } from '@ansible/aap-common';
 
 export interface PAHHelperContext {
   logger: LoggerService;

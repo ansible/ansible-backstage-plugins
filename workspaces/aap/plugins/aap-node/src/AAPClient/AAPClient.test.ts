@@ -3,8 +3,8 @@ import { LoggerService } from '@backstage/backend-plugin-api';
 import { AuthenticationError } from '@backstage/errors';
 import { AAPClient } from './AAPClient';
 import { fetch } from 'undici';
-import { AnsibleConfig } from '../types';
-import { TERMINAL_JOB_STATUSES } from '../constants';
+import { AnsibleConfig } from '@ansible/aap-common';
+import { TERMINAL_JOB_STATUSES } from '@ansible/aap-common';
 import { mockJobTemplateResponse, mockSurveyResponse } from './mockData';
 
 jest.mock('undici', () => ({

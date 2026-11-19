@@ -1,4 +1,5 @@
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import ansibleServiceFactory from '@ansible/aap-backend';
+import { userProvisionerRef } from '@ansible/aap-node';
 import { resetCatalogModuleSliceGuardForTests } from '@ansible/backstage-rhaap-common/catalog';
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import { createServiceFactory } from '@backstage/backend-plugin-api';
@@ -42,19 +43,20 @@ describe('catalog AAP feature loader', () => {
     resetCatalogModuleSliceGuardForTests();
   });
 
-  it('yields the AAP client factory and AAP catalog module', async () => {
+  it('yields the AAP catalog module without the client factory', async () => {
     const loader = catalogAapFeatureLoader as unknown as BackendFeatureLoader;
 
     expect(loader.featureType).toBe('loader');
 
     const features = await loader.loader({});
-    expect(features).toEqual([ansibleServiceFactory, catalogModuleAap]);
+    expect(features).toEqual([catalogModuleAap]);
   });
 
   it('starts the AAP catalog module without the deprecated rhaap shim', async () => {
     const backend = await startTestBackend({
       features: [
         catalogPlugin,
+        ansibleServiceFactory,
         catalogAapFeatureLoader,
         mockSignalsServiceFactory,
         splitBackendConfig,
@@ -72,6 +74,7 @@ describe('catalog AAP feature loader', () => {
     const backend = await startTestBackend({
       features: [
         catalogPlugin,
+        ansibleServiceFactory,
         catalogAapFeatureLoader,
         catalogModuleContent,
         mockSignalsServiceFactory,
@@ -88,22 +91,29 @@ describe('catalog AAP feature loader', () => {
 });
 
 describe('catalog AAP alpha feature loader', () => {
-  it('yields the AAP factory, JIT provisioner factory, and AAP module', async () => {
+  it('yields the JIT provisioner factory and AAP module without the client factory', async () => {
     const loader =
       catalogAapAlphaFeatureLoader as unknown as BackendFeatureLoader;
 
     expect(loader.featureType).toBe('loader');
 
     const features = await loader.loader({});
-    expect(features).toHaveLength(3);
-    expect(features[0]).toBe(ansibleServiceFactory);
-    expect(features[2]).toBe(catalogModuleAap);
+    expect(features).toHaveLength(2);
+    expect(features).not.toContain(ansibleServiceFactory);
+    expect(features[0]).toEqual(
+      expect.objectContaining({
+        featureType: 'service',
+        service: userProvisionerRef,
+      }),
+    );
+    expect(features[1]).toBe(catalogModuleAap);
   });
 
   it('starts the alpha loader with the JIT user provisioner factory', async () => {
     const backend = await startTestBackend({
       features: [
         catalogPlugin,
+        ansibleServiceFactory,
         catalogAapAlphaFeatureLoader,
         mockSignalsServiceFactory,
         splitBackendConfig,

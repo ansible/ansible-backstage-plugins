@@ -6,3 +6,15 @@ export {
   type IUserProvisioner,
   type IUserProvisionerConnectable,
 } from './UserProvisioner';
+export { AAPClient } from './AAPClient/AAPClient';
+export {
+  mockJobTemplateResponse,
+  mockSurveyResponse,
+} from './AAPClient/mockData';
+export {
+  getAnsibleConfig,
+  getCatalogConfig,
+  resolveActiveOrganizations,
+  findMissingConfiguredOrganizations,
+} from './AAPClient/utils/config';
+export { assertAapScaffolderModuleIsUnique } from './scaffolderModuleOwnership';

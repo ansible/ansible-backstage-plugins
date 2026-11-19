@@ -1,7 +1,7 @@
 import { Config } from '@backstage/config';
 import { ScmIntegrations } from '@backstage/integration';
 
-import { AnsibleConfig, CatalogConfig } from '../../types';
+import { AnsibleConfig, CatalogConfig } from '@ansible/aap-common';
 
 export function getAnsibleConfig(config: Config): AnsibleConfig {
   const ansibleConfig = config.getConfig('ansible');

@@ -9,8 +9,8 @@ import {
 } from '@backstage/plugin-auth-node';
 import { AuthenticationError } from '@backstage/errors';
 import uniqBy from 'lodash.uniqby';
-import { sanitizeAapName } from '../utils/nameFormatting';
 import {
+  sanitizeAapName,
   AAPTemplate,
   CleanUp,
   ExecutionEnvironment,
@@ -27,15 +27,13 @@ import {
   User,
   Users,
   CatalogConfig,
-} from '../types';
-import {
   IJobTemplate,
   Collection,
   ISurvey,
   InstanceGroup,
-} from '../interfaces';
+  TERMINAL_JOB_STATUSES,
+} from '@ansible/aap-common';
 
-import { TERMINAL_JOB_STATUSES } from '../constants';
 import {
   getAnsibleConfig,
   getCatalogConfig,
@@ -52,9 +50,9 @@ import {
   fetchCollectionsPage,
   extractNextUrl,
 } from './pahHelpers';
-import type { IAAPService } from '@ansible/aap-node';
+import type { IAAPService } from '../IAAPService';
 
-export type { IAAPService } from '@ansible/aap-node';
+export type { IAAPService } from '../IAAPService';
 
 export class AAPClient implements IAAPService {
   static readonly pluginLogName = 'backstage-rhaap-common';

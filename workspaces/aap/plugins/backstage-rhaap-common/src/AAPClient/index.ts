@@ -1,3 +1,10 @@
-export * from './AAPClient';
-export * from './mockData';
-export * from './utils/config';
+export {
+  AAPClient,
+  type IAAPService,
+  mockJobTemplateResponse,
+  mockSurveyResponse,
+  getAnsibleConfig,
+  getCatalogConfig,
+  resolveActiveOrganizations,
+  findMissingConfiguredOrganizations,
+} from '@ansible/aap-node';

@@ -16,6 +16,7 @@
     "build-image": "docker build ../.. -f Dockerfile --tag backstage"
   },
   "dependencies": {
+    "@ansible/aap-backend": "workspace:^",
     "@ansible/backstage-plugin-auth-backend-module-rhaap-provider": "workspace:^",
     "@ansible/backstage-plugin-catalog-backend-module-apme": "workspace:^",
     "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^",
@@ -66,7 +67,11 @@
     "pg": "^8.11.3"
   },
   "devDependencies": {
-    "@backstage/cli": "0.36.5"
+    "@ansible/aap-node": "workspace:^",
+    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/cli": "0.36.5",
+    "@backstage/plugin-catalog-node": "2.2.4",
+    "@backstage/plugin-scaffolder-node": "0.13.6"
   },
   "files": [
     "dist"

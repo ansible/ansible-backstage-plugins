@@ -231,12 +231,15 @@ it('does not advance when a denied optional field has no default value', async (
     noDefaultFields: true,
   });
 
+  // Wait for the wizard step to mount before asserting the gate alert so
+  // slow full-suite runs do not race the initial scaffolder schema load.
+  await screen.findByRole('button', { name: 'Review' }, { timeout: 5000 });
   expect(
     await screen.findByRole('alert', {}, { timeout: 5000 }),
   ).toHaveTextContent(
     'Field GatedField is unavailable due to configuration or permissions.',
   );
-  fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 
   expect(
     await screen.findByRole('button', { name: 'Review' }),

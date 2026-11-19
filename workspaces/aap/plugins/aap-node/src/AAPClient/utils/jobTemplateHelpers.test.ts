@@ -1,6 +1,6 @@
 import { LoggerService } from '@backstage/backend-plugin-api';
 import { buildLaunchPayload } from './jobTemplateHelpers';
-import { LaunchJobTemplate } from '../../types';
+import { LaunchJobTemplate } from '@ansible/aap-common';
 
 describe('jobTemplateHelpers', () => {
   let mockLogger: jest.Mocked<LoggerService>;

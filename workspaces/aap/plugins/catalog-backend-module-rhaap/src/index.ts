@@ -2,11 +2,7 @@ import {
   createBackendFeatureLoader,
   createServiceFactory,
 } from '@backstage/backend-plugin-api';
-import {
-  ansibleServiceFactory,
-  userProvisionerRef,
-  UserProvisioner,
-} from '@ansible/backstage-rhaap-common';
+import { userProvisionerRef, UserProvisioner } from '@ansible/aap-node';
 import {
   createRouter as createSharedRouter,
   type CatalogModuleSlice,
@@ -35,10 +31,9 @@ export function createRouter(
   });
 }
 
-/** The catalog loader owns transitional AAP service registration for dynamic installs. */
+/** Install @ansible/aap-backend explicitly; this loader keeps the catalog and JIT adapters. */
 const catalogFeatureLoader = createBackendFeatureLoader({
   loader: function* () {
-    yield ansibleServiceFactory;
     yield rhaapOrganizationServiceFactory;
     yield createServiceFactory({
       service: userProvisionerRef,

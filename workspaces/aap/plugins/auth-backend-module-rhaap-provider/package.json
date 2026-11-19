@@ -25,12 +25,11 @@
     "prepack": "backstage-cli package prepack",
     "postpack": "backstage-cli package postpack",
     "fix": "backstage-cli repo fix --publish",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/aap-node --embed-package @ansible/backstage-rhaap-common --embed-package @ansible/content-development-common --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/portal-plugin-node"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/aap-node --embed-package @ansible/content-development-common --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/portal-plugin-node"
   },
   "dependencies": {
     "@ansible/aap-common": "workspace:^",
     "@ansible/aap-node": "workspace:^",
-    "@ansible/backstage-rhaap-common": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-model": "1.10.0",
@@ -46,6 +45,7 @@
     "undici": "^6.26.0"
   },
   "devDependencies": {
+    "@ansible/aap-backend": "workspace:^",
     "@backstage/backend-defaults": "0.17.8",
     "@backstage/backend-test-utils": "1.11.6",
     "@backstage/cli": "0.36.5",

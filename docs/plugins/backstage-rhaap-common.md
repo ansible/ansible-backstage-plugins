@@ -1,76 +1,146 @@
 # @ansible/backstage-rhaap-common
 
-Shared AAP integration library. Source:
+Compatibility library for existing consumers and remaining shared Git utilities. Source:
 `workspaces/aap/plugins/backstage-rhaap-common`.
 
 ## Responsibilities
 
-Provides the AAP client/service contracts, SCM utilities, resource types,
-permissions, naming helpers, and user-provisioning service contracts.
+AAP exports forward to their new owners. SCM utilities and other not-yet-moved
+shared exports remain here temporarily.
 
 Backend modules consume `ansibleServiceRef` to access the AAP service through
 dependency injection. Frontend consumers use browser-safe exports and the
 Portal/backend API seams rather than transporting AAP credentials directly.
 
-## AAP service registration during the package split
+## AAP service registration
 
-`ansibleServiceRef` now comes from `@ansible/aap-node` and has no default
-factory. Its ID remains `rhaap.client.service`, with plugin scope. The common
-package re-exports the reference and retains `ansibleServiceFactory` alongside
-`AAPClient` until the implementation moves to `@ansible/aap-backend`.
-Import compatibility through the common package does not register the service.
+`@ansible/aap-node` owns the reusable `AAPClient`, configuration/organization
+helpers, service contracts and references. `@ansible/aap-backend` supplies
+`ansibleServiceFactory` and its loadable default export. The service ID remains
+`rhaap.client.service`, with plugin scope and no default factory.
+
+### Breaking installation change
+
+The catalog default and alpha loaders no longer register the AAP client factory.
+Every installation using AAP modules must explicitly install `@ansible/aap-backend`
+or supply its own implementation of `ansibleServiceRef`. Updating imports or
+embedding the package in a dynamic artifact does not install the service.
+
+This requirement applies to catalog, auth, scaffolder and JIT user provisioning,
+including installations that enable only some of those modules.
 
 ### Native Backstage hosts
 
-Register the factory once in the host. Both named modules and default package
-loaders can then consume the service. For example:
+Add the backend feature once in the host:
 
 ```ts
 import { createBackend } from '@backstage/backend-defaults';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
-import { catalogModuleRhaap } from '@ansible/backstage-plugin-catalog-backend-module-rhaap';
-import { scaffolderModuleAnsible } from '@ansible/plugin-scaffolder-backend-module-backstage-rhaap';
 
 const backend = createBackend();
-backend.add(ansibleServiceFactory);
-backend.add(catalogModuleRhaap);
-backend.add(scaffolderModuleAnsible);
-// Also install the catalog and scaffolder backend plugins and other required services.
+backend.add(import('@ansible/aap-backend'));
+backend.add(import('@ansible/backstage-plugin-catalog-backend-module-rhaap'));
+backend.add(
+  import('@ansible/backstage-plugin-auth-backend-module-rhaap-provider'),
+);
+backend.add(import('@ansible/plugin-scaffolder-backend-module-aap'));
+backend.add(
+  import(
+    '@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner'
+  ),
+);
+// Also install the underlying catalog, auth and scaffolder backend plugins.
 ```
 
-This registration is also required for installations that use only auth,
-scaffolder, or user-provisioner modules without a catalog package loader.
+Named module registrations need the same explicit service owner. A host that
+provides a custom factory for `ansibleServiceRef` should register that factory
+instead of `@ansible/aap-backend`; do not register two explicit factories for the
+same service. The contract and all existing service IDs/scopes remain unchanged.
 
 ### RHDH dynamic installations
 
-`catalog-backend-module-aap` is the single transitional owner of the AAP factory
-for split deployments. Enable its default dynamic plugin for AAP-only installs,
-or together with `catalog-backend-module-content` for a full split. Auth,
-scaffolder, and user-provisioner loaders register only their modules. No
-host-level AAP client factory registration is required for those combinations.
+1. Export the backend with
+   `yarn workspace @ansible/aap-backend export-dynamic --clean`.
+2. Rebuild or obtain the updated catalog artifact for the selected split AAP
+   module or deprecated combined shim, keeping the required default/alpha entry.
+3. In the same deployment configuration update, replace the previous catalog
+   artifact with that updated artifact and enable the backend's `dist-dynamic`
+   artifact. Do this before restarting or rolling out the deployment. The old
+   catalog loader registers the client factory automatically, even when the host
+   has no explicit factory registration, and must not remain loaded alongside
+   the new backend.
+4. Remove any explicit legacy client factory registration if the deployment has
+   one. Keep exactly one AAP service owner and choose either the split catalog
+   modules or the deprecated combined catalog shim, never both.
+5. Apply the combined configuration and restart or roll out the deployment.
 
-The deprecated `catalog-backend-module-rhaap` shim remains the factory owner
-only for legacy all-in-one bundles. Do not load the shim together with the
-split modules.
+Both the split AAP catalog and deprecated shim loaders require this explicit
+client service installation. Their default and alpha entries do not supply the
+AAP client factory.
 
-For dynamic JIT user provisioning, use the AAP catalog alpha entry point with
-the auth and user-provisioner modules, unless the host explicitly registers a
-shared factory for `userProvisionerRef` (`rhaap.user-provisioner`). The default
-AAP catalog loader does not register that shared factory. Legacy shim alpha also
-supplies the organization resolver. The user-provisioner module must register
-its creation callback, and the catalog must connect its provider before JIT
-requests can succeed. Install exactly one catalog entry point. Service
-registration order alone does not establish readiness for JIT requests.
+For dynamic JIT provisioning, the split AAP catalog alpha entry supplies the
+shared root `userProvisionerRef` factory. The deprecated shim default/alpha also
+retain the organization resolver and shared root provisioner. The split default
+entry does not supply those JIT adapters; source hosts can register them explicitly.
+The user-provisioner module must register its callback, and the catalog must
+connect its provider before JIT requests can succeed. Registration order alone
+does not establish readiness; module initialization does not wait for connection.
 
-Auth, scaffolder, and user-provisioner loaders do not provide the AAP factory
-on their own. A dynamic deployment without the catalog loader must explicitly
-provide `ansibleServiceFactory` through its host or a dedicated service provider.
-Keeping the common package embedded in a dynamic artifact only makes its code
-available; embedding does not register the factory.
+`backstage-rhaap-common` keeps compatibility exports for external consumers.
+Its deprecated factory adapter uses `AAPClient` and `ansibleServiceRef` from
+`@ansible/aap-node` directly, without a production dependency on the backend.
+Catalog/helper artifacts therefore embed shared libraries without embedding
+`@ansible/aap-backend`; the host installs the backend artifact separately.
+New client/helper consumers import node directly. Existing callers can retain
+the old factory import until the common-package cleanup, but must not register
+it alongside the explicitly installed backend factory.
 
-When `@ansible/aap-backend` ships, it will become the explicit service owner and
-replace this transitional catalog ownership. The service reference stays in
-`@ansible/aap-node` without importing the concrete client.
+## AAP import migration
+
+`@ansible/backstage-rhaap-common` is deprecated for AAP usage inside
+`workspaces/aap`. Import AAP types, permissions, constants and naming helpers
+from `@ansible/aap-common`; the reusable client, configuration/organization
+helpers, service contracts, references, user provisioning and shared scaffolder
+ownership guard from `@ansible/aap-node`; and the installation factory from
+`@ansible/aap-backend`.
+
+Auth, the AAP-only scaffolder and the JIT provisioner have no direct dependency
+on the legacy package, including their tests, development harnesses and dynamic
+build configuration. The retired combined scaffolder package is not restored.
+The standalone AAP module keeps its current `aap-api` autocomplete registration.
+
+### Temporary catalog compatibility imports
+
+The catalog split merged under AAP-98845 places its shared implementation in
+`@ansible/backstage-rhaap-common/catalog`. Preserve that upstream ownership in
+this stack. The remaining direct imports inside `workspaces/aap` are limited to:
+
+- `catalog-backend-module-aap/src/module.ts`: `createCatalogModule`.
+- `catalog-backend-module-aap/src/index.test.ts`:
+  `resetCatalogModuleSliceGuardForTests`.
+- `catalog-backend-module-rhaap/src/index.ts` and `src/module.ts`:
+  `createRouter`, `CatalogModuleSlice` and `createCatalogModule`.
+- `catalog-backend-module-rhaap/src/index.test.ts`: the router and slice-guard
+  test helper, plus the matching catalog-subpath mock.
+
+Both catalog packages retain the dependency and dynamic embedding needed for
+that temporary catalog implementation. AAP clients, contracts, service refs,
+permissions and organization helpers use the new libraries. Catalog-specific
+compatibility cleanup should be coordinated with AAP-98845; the shared catalog
+implementation is not relocated again by this client/service refactor.
+
+SCM provider implementation now belongs to content-management, with shared
+catalog adapters retained in the legacy package. The deprecated factory adapter
+has no production dependency on backend. Retire it with the remaining legacy
+common-package exports during follow-on cleanup.
+
+Compatibility exports remain available for external consumers. Complete the
+catalog and SCM follow-on cleanup before removing the legacy package; no new
+cleanup issue is created by this stack.
+
+The old guard `Symbol.for` key and client log name remain unchanged for
+compatibility. The node import-boundary regression check permits only the
+listed catalog exports and rejects legacy AAP client/contract imports and
+node-to-backend coupling.
 
 ## Related modules
 
