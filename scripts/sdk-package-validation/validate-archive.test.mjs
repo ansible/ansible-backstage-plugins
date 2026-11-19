@@ -28,6 +28,7 @@ function archive() {
     ],
     license: 'repository license',
     expected: {
+      private: true,
       name: '@ansible/example',
       version: '0.1.0',
       license: 'repository license',
@@ -134,4 +135,25 @@ test('accepts tilde semver ranges in published dependency fields', () => {
     input.manifest[field] = { dependency: '~1.2.3' };
   }
   validateArchive(input);
+});
+
+test('accepts omitted and false public metadata equivalently after Yarn normalization', () => {
+  for (const source of [undefined, false]) {
+    for (const packed of [undefined, false]) {
+      const input = archive();
+      input.expected.private = source;
+      input.manifest.private = packed;
+      validateArchive(input);
+    }
+  }
+});
+
+test('rejects a private archive for a reviewed public package and invalid private metadata', () => {
+  const input = archive();
+  delete input.expected.private;
+  assert.throws(() => validateArchive(input), /private guard/);
+  for (const invalid of [null, 'false', 0]) {
+    input.manifest.private = invalid;
+    assert.throws(() => validateArchive(input), /private guard/);
+  }
 });

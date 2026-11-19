@@ -38,10 +38,10 @@ export function validateReleaseManifests(packages, version) {
       version,
       `${manifest.name}: release version mismatch`,
     );
-    assert.equal(
-      manifest.private,
-      false,
-      `${manifest.name}: release requires reviewed private: false metadata`,
+    // Yarn removes private: false when persisting workspace manifests.
+    assert(
+      manifest.private === undefined || manifest.private === false,
+      `${manifest.name}: release requires reviewed public package metadata`,
     );
     assert.equal(
       manifest.publishConfig?.access,

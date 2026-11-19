@@ -1,7 +1,6 @@
 {
   "name": "@ansible/portal-operations-backend",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
   "description": "Backend operation dispatch and authorization for Portal plugin contributions",
   "license": "Apache-2.0",
   "repository": {

@@ -1,7 +1,6 @@
 {
   "name": "@ansible/aap-app-auth",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.0-alpha.0",
   "description": "Independent AAP authentication module for the Portal app",
   "license": "Apache-2.0",
   "repository": {
