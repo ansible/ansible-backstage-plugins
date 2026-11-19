@@ -36,8 +36,7 @@ describe('AAPTokenField', () => {
 
   it('should show loading state initially', async () => {
     mockRhAapAuthApi.getAccessToken.mockImplementation(
-      () =>
-        new Promise(resolve => setTimeout(() => resolve('test-token'), 100)),
+      () => new Promise<string>(() => {}),
     );
 
     await renderComponent();
