@@ -10,6 +10,48 @@ this branch, with Backstage `1.54.9`, Backstage CLI `0.36.5`, Yarn `4.12.0`,
 and RHDH CLI `1.10.8` for the original checks. Native export tooling on this
 branch now uses RHDH CLI `2.1.2`.
 
+## Preview metadata preparation
+
+The ten candidates below are prepared together as `0.1.0-alpha.0`, with
+`private: false` and public access metadata. The intended distribution tag is
+`next`. This makes the reviewed candidates publishable, but does not publish them
+or authorize a release. Feature packages retain their existing metadata.
+
+The original packaging results below describe the earlier `0.1.0` private
+candidates. Repeat validation for this preview revision. The release workflow
+requires completed CodeQL analyses for the exact merged commit and selected
+release branch, a clean dependency audit, archive validation and SBOMs before an
+approved publication. Local checks cannot substitute another commit's evidence.
+
+First publication remains subject to an agreed bootstrap procedure with the
+`@ansible` namespace owners and security maintainers. All ten names returned
+HTTP 404 from the public registry on 2026-11-19. An authorized owner must also
+check whether any name already exists privately. See the
+[publishing prerequisites and bootstrap procedure](../../scripts/sdk-package-validation/PUBLISHING.md#first-publication).
+
+## Preview validation results (2026-11-19)
+
+On Node `22.22.3`, the prepared preview passes declaration emission, all ten
+package builds, archive metadata/content checks and an isolated consumer install.
+The consumer passes TypeScript, frontend bundling and backend health/runtime
+checks. All ten archives have verified SPDX 2.3 SBOMs generated with Syft `1.57.1`.
+The 60 validation-tooling tests and immutable repository installation also pass.
+The full repository suite passes with 457 suites and 6,917 tests, with one suite
+and five tests skipped.
+
+The recursive production dependency audit of that isolated consumer reports
+13 advisory records: three high and ten moderate. This graph includes the
+candidate packages, their external peers and consumer verification dependencies.
+These findings block publication under the existing all-findings policy. Fix the
+resolved dependency paths and repeat the checks before requesting release
+approval. No advisory exclusions or security-policy exceptions are introduced.
+
+The latest `main` CodeQL analyses for `5b34e298350a0a67a5cc6cdaf4097dbf2a7d9ed9`
+report zero findings within the boundary computed from these archives. This is
+baseline evidence only. The preview metadata changes are not included in that
+commit, and the release workflow must obtain analyses for the final merged
+revision and selected release branch.
+
 ## Publication scope
 
 Publish the SDK libraries and supporting packages needed to author and host
@@ -22,9 +64,7 @@ to install a host, an authentication backend, or the existing feature plugins.
 
 ### SDK and host libraries
 
-All five currently have version `0.1.0`, `private: true`, and
-`publishConfig.access: public`. Public access metadata does not override the
-private publication guard.
+All five use the coordinated `0.1.0-alpha.0` preview metadata described above.
 
 - **`@ansible/portal-extension-common`** — shared manifest, contribution, operation,
   and content-type contracts. No internal runtime package dependencies.
@@ -46,7 +86,7 @@ private publication guard.
 
 ### Host and runtime plugins
 
-All four currently have version `0.1.0` and `private: true`. Each is a proposed
+All four use the coordinated `0.1.0-alpha.0` preview metadata. Each is a
 supporting package, not a dependency every contributor must declare.
 
 - **`@ansible/portal-core`** — native frontend host and navigation. Depends on
@@ -64,7 +104,7 @@ supporting package, not a dependency every contributor must declare.
 
 ### Optional frontend authentication package
 
-**`@ansible/aap-app-auth`** currently has version `0.1.0` and `private: true`.
+**`@ansible/aap-app-auth`** uses the same `0.1.0-alpha.0` preview metadata.
 It exports `rhAapAuthApiRef` for consumers needing the user's AAP credentials,
 and `/alpha` supplies the native sign-in and profile contribution module.
 It depends on `portal-extension-api` for the profile contribution.
@@ -180,7 +220,10 @@ field libraries in content development are not included in the first scope.
 Include those reusable libraries only if an external author's agreed use case
 requires them. This does not add the Portal scaffolder feature plugin to npm scope.
 
-## Packaging findings
+## Historical packaging findings
+
+These results describe the original private `0.1.0` candidates. They are retained
+as baseline evidence and do not establish readiness of the new preview revision.
 
 Local checks use freshly emitted TypeScript declarations, package builds, and
 `yarn workspace <package> pack --out <temporary-path>`. These commands create
@@ -198,8 +241,8 @@ The installed Backstage prepack hook rewrites entry points to built artifacts,
 and postpack restores the source manifests. Inspect the generated archive instead
 of rewriting source exports solely because they point to TypeScript.
 
-All ten candidate archives retain `private: true`, preventing publication, and
-keep their existing `0.1.0` versions. Each contains a `LICENSE` file identical
+All ten baseline archives retained `private: true`, preventing publication, and
+kept their existing `0.1.0` versions. Each contains a `LICENSE` file identical
 to the repository Apache-2.0 license. The earlier missing-license finding is
 resolved for the candidate packages. This checks the repository license text,
 not third-party dependency licenses, required third-party notices, or security
@@ -219,8 +262,8 @@ All five supporting plugins now build and pack with the required metadata:
 
 All ten tarballs passed checks that declared `main`, `module`, `types`, export,
 and configuration-schema targets exist. Runtime and peer dependencies contain
-no `workspace:`, `file:`, `link:`, or `portal:` references. Each tarball includes
-its license and retains the private guard. Archive file lists contain no
+no `workspace:`, `file:`, `link:`, or `portal:` references. Each baseline tarball
+included its license and retained the private guard. Archive file lists contain no
 `.env`, `.git`, `node_modules`, or `app-config*.yaml` files. These filename checks
 are not a secret-content scan or a substitute for security review.
 
@@ -348,7 +391,7 @@ tar -tzf "$package_artifacts/portal-extension-api.tgz"
 Resolve every `main`, `module`, `types`, and export target against the archive
 contents. Check internal runtime and peer dependency ranges, license files,
 notices, and unintended files. Repeat for each archive. A successful local pack
-does not remove the private publication guard or validate a real host install.
+does not authorize publication or validate a real host install.
 
 ## Release decisions and acceptance gates
 
@@ -359,16 +402,16 @@ does not remove the private publication guard or validate a real host install.
    the merged experience-ID removal, but the historical ten-package consumer
    results predate it. Repeat packing and consumer checks on the selected merged
    release revision rather than releasing those baseline artifacts unchanged.
-2. **Choose versions and tags.** Current `0.1.0` values are ordinary versions,
-   not SemVer prereleases. Decide whether to use an explicit prerelease such as
-   `0.1.0-alpha.0` with a `next` tag. Specify compatible internal ranges and the
-   relationship between npm package versions and dynamic OCI artifacts.
+2. **Review versions and tags.** The candidates use `0.1.0-alpha.0` with the
+   intended `next` tag. Yarn rewrites internal workspace references to matching
+   preview ranges during packing. Dynamic OCI artifacts remain outside this
+   release. If an approved bootstrap publishes this version, prepare a new
+   coordinated version before running the automated publisher.
 3. **Finalize publishable metadata and contents.** The initial metadata and
-   repository-license gaps are fixed and tarballs pass local checks. Remove
-   the private guard only
-   for approved packages, supply required plugin metadata, and include licenses
-   and notices. Validate root and subpath imports and configuration schemas from
-   the packed files.
+   repository-license gaps are fixed and tarballs pass local checks. Only the ten
+   candidates have their private guards removed. Review required plugin metadata,
+   licenses and notices. Validate root and subpath imports and configuration
+   schemas from the packed files.
 4. **Validate host authentication composition.** API-only and opt-in UI entry
    points are implemented, with the combined entry retained for compatibility.
    Verify the documented backend prerequisites and test standard RHDH coexistence

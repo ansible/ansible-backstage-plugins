@@ -9,9 +9,9 @@ yarn validate:sdk-packages
 The command emits declarations, builds and packs the ten candidates listed in
 `packages.json`, validates their archive metadata and contents, and installs them
 into a fresh temporary consumer outside the checkout. It never publishes packages.
-Candidate manifests retain `private: true` during preparation. A coordinated,
-reviewed release commit may set all allowlisted packages to `private: false`
-with matching preview versions and public access metadata. Release guards then
+The initial private candidates used `private: true`. Preview preparation sets
+all ten allowlisted packages to `private: false` together, with matching
+prerelease versions and public access metadata for release review. Release guards then
 validate that metadata before building. Mixed or incompatible releases fail.
 The allowlist records validation candidates, not approval to publish them.
 
