@@ -1,11 +1,11 @@
 export {
-  createGithubClientForWorkflowDispatch,
+  BaseScmClient,
   GithubClient,
   GitlabClient,
-  resolveGithubToken,
   ScmClientFactory,
-} from '@ansible/content-development-common';
-
+  createGithubClientForWorkflowDispatch,
+  resolveGithubToken,
+} from '@ansible/portal-plugin-node';
 export type {
   CreateScmClientOptions,
   DirectoryEntry,
@@ -16,4 +16,4 @@ export type {
   ScmClientOptions,
   ScmProvider,
   UrlBuildOptions,
-} from '@ansible/content-development-common';
+} from '@ansible/portal-plugin-node';

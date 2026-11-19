@@ -12,6 +12,11 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { test } from 'node:test';
+import {
+  createSecurityScope,
+  scopeDigest,
+  securityPolicy,
+} from './security-scope.mjs';
 
 const version = '0.1.0-alpha.0';
 const sha = 'a'.repeat(40);
@@ -38,6 +43,7 @@ function releaseFixture(t, ref = 'refs/heads/main') {
     'validate-archive.mjs',
     'sbom.mjs',
     'security.mjs',
+    'security-scope.mjs',
   ]) {
     copyFileSync(new URL(name, import.meta.url), join(scripts, name));
   }
@@ -118,13 +124,14 @@ function releaseFixture(t, ref = 'refs/heads/main') {
   const security = join(directory, 'security');
   mkdirSync(security);
   const securityFiles = [];
+  const scope = createSecurityScope(paths);
   for (const [offset, category] of [
     '/language:javascript-typescript',
     '/language:actions',
   ].entries()) {
     const id = offset + 1;
     const metadata = `codeql-${id}.metadata.json`;
-    const sarif = `codeql-${id}.sarif.json`;
+    const summary = `codeql-${id}.summary.json`;
     json(join(security, metadata), {
       analysis_key: 'codeql-default-setup',
       id,
@@ -136,11 +143,15 @@ function releaseFixture(t, ref = 'refs/heads/main') {
       results_count: 0,
       error: '',
     });
-    json(join(security, sarif), {
-      version: '2.1.0',
-      runs: [{ tool: { driver: { name: 'CodeQL' } }, results: [] }],
+    json(join(security, summary), {
+      policy: securityPolicy,
+      scopeSha256: scopeDigest(scope),
+      sourceSarifSha256: 'a'.repeat(64),
+      reportedFindings: 0,
+      excludedFindings: 0,
+      blockingFindings: 0,
     });
-    securityFiles.push(metadata, sarif);
+    securityFiles.push(metadata, summary);
   }
   writeFileSync(
     join(security, 'consumer.yarn.lock'),
@@ -154,7 +165,8 @@ function releaseFixture(t, ref = 'refs/heads/main') {
   json(join(security, 'report.json'), {
     commit: sha,
     ref,
-    policy: 'block-all-findings',
+    policy: securityPolicy,
+    scope,
     packages: candidates,
     auditExitCode: 0,
     files: securityFiles.map(name => ({
@@ -262,7 +274,17 @@ test('publisher validates real archives and fails closed on tampering', t => {
   json(securityReport, changedSecurity);
   assert.match(run().stderr, /Security source revision mismatch/);
   writeFileSync(securityReport, originalSecurity);
-  const sarifPath = join(directory, 'security/codeql-1.sarif.json');
+  const oldPolicy = JSON.parse(originalSecurity);
+  oldPolicy.policy = 'block-all-findings';
+  json(securityReport, oldPolicy);
+  assert.match(run().stderr, /Security policy mismatch/);
+  writeFileSync(securityReport, originalSecurity);
+  const changedScope = JSON.parse(originalSecurity);
+  changedScope.scope.paths = [];
+  json(securityReport, changedScope);
+  assert.match(run().stderr, /Security release scope mismatch/);
+  writeFileSync(securityReport, originalSecurity);
+  const sarifPath = join(directory, 'security/codeql-1.summary.json');
   const originalSarif = readFileSync(sarifPath, 'utf8');
   writeFileSync(sarifPath, '{}');
   assert.match(run().stderr, /Security evidence changed/);
