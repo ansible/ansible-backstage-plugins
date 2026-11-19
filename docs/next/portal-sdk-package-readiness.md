@@ -41,26 +41,40 @@ The 63 validation-tooling tests and immutable repository installation also pass.
 The full repository suite passes with 457 suites and 6,917 tests, with one suite
 and five tests skipped.
 
-Before the rebase onto main containing the SCM migration (#1054), the initial
-recursive production audit reported 13 advisory records: three high
-and ten moderate. Requiring `@backstage/catalog-model@1.10.2` in the affected
-candidate dependencies and peer ranges, and selecting it in the consumer,
-removes the remaining Zod 3 dependency path. This uses the upstream catalog-model
-patch release rather than overriding its Zod major version. The packed-consumer audit at remediation commit
-`ea567bb7` confirmed that the Zod advisory was no longer reported.
+Requiring `@backstage/catalog-model@1.10.2` in the affected candidate
+dependencies and peer ranges moves that dependency path from Zod 3 to Zod 4.
+The repository lockfile also selects patched Zod `4.6.7` for compatible Zod 4
+ranges. Existing consumers that require Zod 3 are not forced across a major
+version. This change therefore does not eliminate every affected Zod dependency
+from the repository.
 
-That pre-rebase audit reported 12 advisory records: two high and ten moderate.
-These counts do not describe the current dependency graph, which now includes
-the SCM dependencies merged in #1054. Rerun the packed-consumer audit against
-the final release revision before reporting current counts. The audited graph
-includes the candidate packages, external peers and consumer verification
-dependencies. All ten rebuilt candidates pass archive/consumer checks and SBOM
-generation. The 63 tooling tests and 801 candidate-package tests pass, as do root
-TypeScript and immutable installation. These checks retain the Backstage
-`1.54.9` and RHDH `2.1` baseline. Hosts consuming the revised peer ranges must
-satisfy the catalog-model `^1.10.2` minimum. An unchanged RHDH image is not proven
-to satisfy that minimum by these checks. Live validation of the changed package
-set remains a separate requirement.
+Earlier local audit counts are omitted because their source commit was replaced
+by rebasing and their output is not retained as reproducible release evidence.
+They do not establish the current dependency graph or security status. The SCM
+dependencies merged in #1054 also require a fresh consumer audit.
+
+To reproduce candidate validation and dependency scanning from a reviewed
+revision, retain the output directory and run:
+
+```bash
+SDK_VALIDATION_DIR=/absolute/path/to/fresh-sdk-validation yarn validate:sdk-packages
+cd /absolute/path/to/fresh-sdk-validation/consumer
+yarn npm audit --recursive --environment production --severity info --no-deprecations --json > yarn-audit.ndjson
+```
+
+The audit command returns a nonzero status when it reports findings. Retain
+`yarn-audit.ndjson`, the consumer's `yarn.lock` and the validation `report.json`
+together. Check the report's source SHA and uncommitted-change flag before
+associating results with a revision. Packed-candidate validation, dependency
+auditing and exact-commit CodeQL checks are distinct checks; successful PR
+package validation alone is not a clean security report. The publishing
+workflow requires security evidence for its exact release revision and branch.
+
+These changes retain the Backstage `1.54.9` and RHDH `2.1` baseline. Hosts
+consuming the revised peer ranges must satisfy the catalog-model `^1.10.2`
+minimum. An unchanged RHDH image is not proven to satisfy that minimum by local
+source or packed-consumer checks. Live validation of the changed package set
+remains a separate requirement.
 
 Remaining dependency paths require compatible upstream fixes or backports:
 
