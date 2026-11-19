@@ -1,0 +1,29 @@
+import {
+  createServiceFactory,
+  coreServices,
+} from '@backstage/backend-plugin-api';
+
+import { ansibleServiceRef, AAPClient } from '@ansible/aap-node';
+
+export { ansibleServiceRef } from '@ansible/aap-node';
+
+/**
+ * Wires the reusable `AAPClient` from `@ansible/aap-node` to `ansibleServiceRef`.
+ *
+ * @public
+ */
+export const ansibleServiceFactory = createServiceFactory({
+  service: ansibleServiceRef,
+  deps: {
+    rootConfig: coreServices.rootConfig,
+    logger: coreServices.logger,
+  },
+  /** Create the shared AAP client from backend configuration and logging dependencies. */
+  factory({ rootConfig, logger }) {
+    logger.info('Creating a new AAP client');
+    return new AAPClient({
+      rootConfig: rootConfig,
+      logger: logger,
+    });
+  },
+});

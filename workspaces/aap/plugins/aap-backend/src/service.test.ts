@@ -38,16 +38,13 @@ describe('AAPService', () => {
 
     jest.doMock('@ansible/aap-node', () => ({
       ansibleServiceRef: ansibleServiceRefMock,
-    }));
-
-    jest.doMock('../AAPClient/AAPClient', () => ({
       AAPClient: AAPClientMock,
     }));
   });
 
   it('re-exports ansibleServiceRef without defaultFactory and exports ansibleServiceFactory', async () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('./AAPService');
+    const mod = require('./service');
     const { ansibleServiceRef, ansibleServiceFactory } = mod as any;
 
     expect(ansibleServiceRef).toBe(ansibleServiceRefMock);

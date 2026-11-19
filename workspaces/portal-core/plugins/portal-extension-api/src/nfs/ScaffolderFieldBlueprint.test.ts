@@ -437,6 +437,39 @@ describe('native Scaffolder field eligibility component', () => {
     expect(ContributorField).not.toHaveBeenCalled();
   });
 
+  it('keeps the denied alert when the optional field has no default value', async () => {
+    const authorize = jest
+      .fn()
+      .mockResolvedValue({ result: AuthorizeResult.DENY });
+    const props = { ...makeFieldProps(), formData: undefined };
+    const ContributorField = jest.fn(() => createElement('input'));
+    const EligibleField = createEligibleComponent(
+      makeParams({ gated: true }),
+      ContributorField,
+    );
+
+    render(
+      createElement(TestApiProvider, {
+        apis: [[permissionApiRef, { authorize }]],
+        children: createElement(EligibleField, props),
+      }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Field RepositoryInput is unavailable due to configuration or permissions.',
+    );
+    await waitFor(() => {
+      expect(props.onChange).toHaveBeenCalledWith(undefined, {
+        __errors: [
+          'Field RepositoryInput is unavailable due to configuration or permissions.',
+        ],
+      });
+    });
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(ContributorField).not.toHaveBeenCalled();
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a pending permission result after the field unmounts', async () => {
     let resolveAuthorization!: (decision: { result: AuthorizeResult }) => void;
     const authorize = jest.fn(

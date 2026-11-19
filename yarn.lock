@@ -199,6 +199,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ansible/aap-backend@workspace:^, @ansible/aap-backend@workspace:workspaces/aap/plugins/aap-backend":
+  version: 0.0.0-use.local
+  resolution: "@ansible/aap-backend@workspace:workspaces/aap/plugins/aap-backend"
+  dependencies:
+    "@ansible/aap-node": "workspace:^"
+    "@backstage/backend-plugin-api": "npm:1.10.0"
+    "@backstage/backend-test-utils": "npm:1.11.6"
+    "@backstage/cli": "npm:0.36.5"
+    "@jest/globals": "npm:^30.1.2"
+  languageName: unknown
+  linkType: soft
+
 "@ansible/aap-common@workspace:^, @ansible/aap-common@workspace:workspaces/aap/plugins/aap-common":
   version: 0.0.0-use.local
   resolution: "@ansible/aap-common@workspace:workspaces/aap/plugins/aap-common"
@@ -220,8 +232,15 @@ __metadata:
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/cli": "npm:^0.36.0"
+    "@backstage/config": "npm:1.3.8"
+    "@backstage/errors": "npm:1.3.1"
+    "@backstage/integration": "npm:2.1.1"
     "@backstage/plugin-auth-node": "npm:0.7.5"
     "@jest/globals": "npm:^30.1.2"
+    "@types/lodash.uniqby": "npm:^4"
+    lodash.uniqby: "npm:^4.7.0"
+    undici: "npm:^6.26.0"
+    yaml: "npm:^2.0.0"
   languageName: unknown
   linkType: soft
 
@@ -433,6 +452,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-rhaap-common@workspace:workspaces/aap/plugins/backstage-rhaap-common"
   dependencies:
+    "@ansible/aap-backend": "workspace:^"
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
     "@ansible/content-development-common": "workspace:^"
