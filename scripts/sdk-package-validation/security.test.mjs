@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { securityPolicy } from './security-scope.mjs';
 import {
   existsSync,
   mkdirSync,
@@ -19,6 +21,14 @@ import {
   verifySecurityEvidence,
 } from './security.mjs';
 
+const finding = (
+  level = 'warning',
+  path = 'workspaces/portal-core/plugins/portal-plugin-node/src/index.ts',
+) => ({
+  ruleId: 'test-rule',
+  level,
+  locations: [{ physicalLocation: { artifactLocation: { uri: path } } }],
+});
 const sha = 'a'.repeat(40);
 const ref = 'refs/heads/main';
 const analysis = (
@@ -85,7 +95,7 @@ test('CodeQL gate accepts complete zero-finding results only', () => {
   verifyCodeql(analysis(), sarif(), sha, ref);
   for (const level of ['note', 'warning', 'error']) {
     const document = sarif();
-    document.runs[0].results.push({ ruleId: 'test-rule', level });
+    document.runs[0].results.push(finding(level));
     assert.throws(
       () =>
         verifyCodeql({ ...analysis(), results_count: 1 }, document, sha, ref),
@@ -166,8 +176,24 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     });
     for (const path of ['artifacts', 'consumer', 'bin'])
       mkdirSync(join(folder, path));
-    const archive = Buffer.from('validated archive fixture');
-    writeFileSync(join(folder, 'artifacts/example.tgz'), archive);
+    mkdirSync(join(folder, 'package'));
+    writeFileSync(
+      join(folder, 'package/package.json'),
+      JSON.stringify({
+        name: '@ansible/example',
+        repository: {
+          directory: 'workspaces/portal-core/plugins/portal-plugin-node',
+        },
+      }),
+    );
+    execFileSync('tar', [
+      '-czf',
+      join(folder, 'artifacts/example.tgz'),
+      '-C',
+      folder,
+      'package',
+    ]);
+    const archive = readFileSync(join(folder, 'artifacts/example.tgz'));
     const report = {
       commit: sha,
       includesUncommittedChanges: false,
@@ -195,6 +221,7 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     );
     process.env.PATH = `${join(folder, 'bin')}${delimiter}${previousPath}`;
     let findings = false;
+    let outsideFindings = false;
     let unavailable = false;
     let downloadUnavailable = false;
     let paginated = false;
@@ -206,7 +233,7 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
         analysis(undefined, ref),
         { ...analysis('/language:actions', ref), id: 2 },
       ];
-      analyses[0].results_count = findings ? 1 : 0;
+      analyses[0].results_count = findings || outsideFindings ? 1 : 0;
       if (unavailable || (downloadUnavailable && url.endsWith('/2')))
         return new Response('{}', { status: 403 });
       if (url.includes('analyses?')) {
@@ -230,8 +257,16 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
         );
       }
       const document = sarif();
-      if (findings && url.endsWith('/1'))
-        document.runs[0].results.push({ ruleId: 'example', level: 'note' });
+      if ((findings || outsideFindings) && url.endsWith('/1'))
+        document.runs[0].results.push({
+          ...finding(
+            'note',
+            outsideFindings
+              ? 'workspaces/feature/plugins/example/index.ts'
+              : undefined,
+          ),
+          message: { text: 'restricted-detail-sentinel' },
+        });
       return new Response(JSON.stringify(document));
     });
     await collectSecurityEvidence(folder, sha, 'test-read-token', ref);
@@ -239,7 +274,7 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     const evidence = JSON.parse(
       readFileSync(join(folder, 'security/report.json'), 'utf8'),
     );
-    assert.equal(evidence.policy, 'block-all-findings');
+    assert.equal(evidence.policy, securityPolicy);
     assert.equal(evidence.ref, ref);
     const otherRef =
       ref === 'refs/heads/main' ? 'refs/heads/release-2.1' : 'refs/heads/main';
@@ -248,6 +283,26 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
       /Security source branch mismatch/,
     );
     assert(evidence.files.some(file => file.name === 'consumer.yarn.lock'));
+    outsideFindings = true;
+    await collectSecurityEvidence(folder, sha, 'test-read-token', ref);
+    verifySecurityEvidence(folder, report, ref);
+    const scopedEvidence = JSON.parse(
+      readFileSync(join(folder, 'security/report.json'), 'utf8'),
+    );
+    for (const file of scopedEvidence.files) {
+      assert(!file.name.endsWith('.sarif.json'));
+      assert(
+        !readFileSync(join(folder, 'security', file.name), 'utf8').includes(
+          'restricted-detail-sentinel',
+        ),
+      );
+    }
+    assert.equal(
+      JSON.parse(readFileSync(join(folder, 'security/codeql-1.summary.json')))
+        .excludedFindings,
+      1,
+    );
+    outsideFindings = false;
     findings = true;
     await assert.rejects(
       collectSecurityEvidence(folder, sha, 'test-read-token', ref),
@@ -360,7 +415,7 @@ test('accepts prefixed language categories while retaining every configuration',
           runs: [
             {
               tool: { driver: { name: 'CodeQL' } },
-              results: [{ ruleId: 'example', level: 'note' }],
+              results: [finding('note')],
             },
           ],
         },
