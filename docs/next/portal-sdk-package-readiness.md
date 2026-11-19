@@ -41,14 +41,18 @@ The 63 validation-tooling tests and immutable repository installation also pass.
 The full repository suite passes with 457 suites and 6,917 tests, with one suite
 and five tests skipped.
 
-The initial recursive production audit reported 13 advisory records: three high
+Before the rebase onto main containing the SCM migration (#1054), the initial
+recursive production audit reported 13 advisory records: three high
 and ten moderate. Requiring `@backstage/catalog-model@1.10.2` in the affected
 candidate dependencies and peer ranges, and selecting it in the consumer,
 removes the remaining Zod 3 dependency path. This uses the upstream catalog-model
-patch release rather than overriding its Zod major version. A fresh packed
-consumer audit confirms that the Zod advisory is no longer reported.
+patch release rather than overriding its Zod major version. The packed-consumer audit at remediation commit
+`ea567bb7` confirmed that the Zod advisory was no longer reported.
 
-The audit now reports 12 advisory records: two high and ten moderate. Its graph
+That pre-rebase audit reported 12 advisory records: two high and ten moderate.
+These counts do not describe the current dependency graph, which now includes
+the SCM dependencies merged in #1054. Rerun the packed-consumer audit against
+the final release revision before reporting current counts. The audited graph
 includes the candidate packages, external peers and consumer verification
 dependencies. All ten rebuilt candidates pass archive/consumer checks and SBOM
 generation. The 63 tooling tests and 801 candidate-package tests pass, as do root

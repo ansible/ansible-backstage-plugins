@@ -24546,7 +24546,7 @@ __metadata:
     "@backstage-community/plugin-github-actions": "npm:^0.11.1"
     "@backstage-community/plugin-rbac": "npm:1.51.0"
     "@backstage/app-defaults": "npm:1.7.11"
-    "@backstage/catalog-model": "npm:1.10.0"
+    "@backstage/catalog-model": "npm:1.10.2"
     "@backstage/cli": "npm:0.36.5"
     "@backstage/core-app-api": "npm:1.20.4"
     "@backstage/core-compat-api": "npm:0.5.14"
