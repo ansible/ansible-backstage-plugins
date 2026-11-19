@@ -26,6 +26,7 @@ app:
     - nav-content:app/sidebar: false
     - nav-content:app/portal: true
     # Enable EE discovery by default in the monorepo development app.
+    # Remove the CONTENT_MANAGEMENT switch when EE discovery reaches general availability.
     - sub-page:automation-content/images: ${CONTENT_MANAGEMENT:-true}
     - scaffolder-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-true}
     - scaffolder-form-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-true}

@@ -6,6 +6,7 @@ import { SyncRegistriesDialog } from './SyncRegistriesDialog';
 export function EEHeaderActions(): JSX.Element {
   const { pathname } = useLocation();
   const { tree } = useApi(appTreeApiRef).getTree();
+  // The shared header can render on a direct Images URL while the tab is disabled.
   const imagesPage = tree.nodes.get('sub-page:automation-content/images');
   return (
     <Flex align="start" gap="2">
