@@ -41,12 +41,83 @@ The 63 validation-tooling tests and immutable repository installation also pass.
 The full repository suite passes with 457 suites and 6,917 tests, with one suite
 and five tests skipped.
 
-The recursive production dependency audit of that isolated consumer reports
-13 advisory records: three high and ten moderate. This graph includes the
-candidate packages, their external peers and consumer verification dependencies.
-These findings block publication under the existing all-findings policy. Fix the
-resolved dependency paths and repeat the checks before requesting release
-approval. No advisory exclusions or security-policy exceptions are introduced.
+Requiring `@backstage/catalog-model@1.10.2` in the affected candidate
+dependencies and peer ranges moves that dependency path from Zod 3 to Zod 4.
+The repository lockfile also selects patched Zod `4.6.7` for compatible Zod 4
+ranges. Existing consumers that require Zod 3 are not forced across a major
+version. This change therefore does not eliminate every affected Zod dependency
+from the repository.
+
+Earlier local audit counts are omitted because their source commit was replaced
+by rebasing and their output is not retained as reproducible release evidence.
+They do not establish the current dependency graph or security status. The SCM
+dependencies merged in #1054 also require a fresh consumer audit.
+
+To reproduce candidate validation and dependency scanning from a reviewed
+revision, use a fresh checkout and inspect untracked files before running:
+
+```bash
+git status --porcelain --untracked-files=all
+```
+
+The report's `includesUncommittedChanges` flag detects tracked changes only.
+It does not detect untracked inputs, including extra `.d.ts` files copied from
+the consumer fixture. Remove untracked validation inputs before the run or
+commit and review them. Do not associate results with a revision based on this
+flag alone. Retain the output directory and run the following subshell. It stops
+if validation or changing directory fails without closing an interactive shell:
+
+```bash
+(
+set -e
+SDK_VALIDATION_DIR=/absolute/path/to/fresh-sdk-validation yarn validate:sdk-packages
+cd /absolute/path/to/fresh-sdk-validation/consumer
+if yarn npm audit --recursive --environment production --severity info --no-deprecations --json > yarn-audit.ndjson 2> yarn-audit.stderr.log; then
+  audit_status=0
+else
+  audit_status=$?
+fi
+printf '%s\n' "$audit_status" > yarn-audit.exit-code
+test "$audit_status" -eq 0
+)
+```
+
+Retain `yarn-audit.ndjson`, `yarn-audit.stderr.log`, `yarn-audit.exit-code`, the
+consumer's `yarn.lock` and the validation `report.json` together. A clean audit
+can produce empty stdout; empty output alone does not establish success. The
+recorded exit status and stderr distinguish that result from a failed command.
+Findings or a failed scan keep the final check nonzero. Check the source SHA,
+tracked-change flag and untracked-input inventory before associating results
+with a revision. Packed-candidate validation, dependency
+auditing and exact-commit CodeQL checks are distinct checks; successful PR
+package validation alone is not a clean security report. The publishing
+workflow requires security evidence for its exact release revision and branch.
+
+These changes retain the Backstage `1.54.9` and RHDH `2.1` baseline. Hosts
+consuming the revised peer ranges must satisfy the catalog-model `^1.10.2`
+minimum. An unchanged RHDH image is not proven to satisfy that minimum by local
+source or packed-consumer checks. Live validation of the changed package set
+remains a separate requirement.
+
+Remaining dependency paths require compatible upstream fixes or backports:
+
+- The RHDH global-header package pulls in search backend and TechDocs dependencies
+  that lead to the GraphQL Tools, basic-ftp and file-type findings. The published
+  `3.3.1` manifest still declares those dependency paths.
+- Backstage integration dependencies lead to the three Octokit advisories.
+- Backstage core components lead to the PrismJS finding through refractor, and
+  some UUID findings through material-table. Published react-syntax-highlighter
+  `15.6.6` still depends on refractor `3.6.0`, which requires PrismJS `~1.27.0`.
+- The React Router 6 line remains affected by two advisories whose published
+  patched versions start at `7.18.0`. Do not force Router 7 into a Router 6 host.
+- UUID also has affected paths through the global-header backend dependencies.
+
+These findings still block publication under the existing all-findings policy.
+No advisory exclusions, blanket cross-major resolutions or security-policy
+exceptions are introduced. Recheck the exact merged release revision after
+upstream remediation. See the
+[Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) and
+[React Router advisory](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6).
 
 The latest `main` CodeQL analyses for `5b34e298350a0a67a5cc6cdaf4097dbf2a7d9ed9`
 report zero findings within the boundary computed from these archives. This is
