@@ -41,12 +41,42 @@ The 63 validation-tooling tests and immutable repository installation also pass.
 The full repository suite passes with 457 suites and 6,917 tests, with one suite
 and five tests skipped.
 
-The recursive production dependency audit of that isolated consumer reports
-13 advisory records: three high and ten moderate. This graph includes the
-candidate packages, their external peers and consumer verification dependencies.
-These findings block publication under the existing all-findings policy. Fix the
-resolved dependency paths and repeat the checks before requesting release
-approval. No advisory exclusions or security-policy exceptions are introduced.
+The initial recursive production audit reported 13 advisory records: three high
+and ten moderate. Requiring `@backstage/catalog-model@1.10.2` in the affected
+candidate dependencies and peer ranges, and selecting it in the consumer,
+removes the remaining Zod 3 dependency path. This uses the upstream catalog-model
+patch release rather than overriding its Zod major version. A fresh packed
+consumer audit confirms that the Zod advisory is no longer reported.
+
+The audit now reports 12 advisory records: two high and ten moderate. Its graph
+includes the candidate packages, external peers and consumer verification
+dependencies. All ten rebuilt candidates pass archive/consumer checks and SBOM
+generation. The 63 tooling tests and 801 candidate-package tests pass, as do root
+TypeScript and immutable installation. These checks retain the Backstage
+`1.54.9` and RHDH `2.1` baseline. Hosts consuming the revised peer ranges must
+satisfy the catalog-model `^1.10.2` minimum. An unchanged RHDH image is not proven
+to satisfy that minimum by these checks. Live validation of the changed package
+set remains a separate requirement.
+
+Remaining dependency paths require compatible upstream fixes or backports:
+
+- The RHDH global-header package pulls in search backend and TechDocs dependencies
+  that lead to the GraphQL Tools, basic-ftp and file-type findings. The published
+  `3.3.1` manifest still declares those dependency paths.
+- Backstage integration dependencies lead to the three Octokit advisories.
+- Backstage core components lead to the PrismJS finding through refractor, and
+  some UUID findings through material-table. Published react-syntax-highlighter
+  `15.6.6` still depends on refractor `3.6.0`, which requires PrismJS `~1.27.0`.
+- The React Router 6 line remains affected by two advisories whose published
+  patched versions start at `7.18.0`. Do not force Router 7 into a Router 6 host.
+- UUID also has affected paths through the global-header backend dependencies.
+
+These findings still block publication under the existing all-findings policy.
+No advisory exclusions, blanket cross-major resolutions or security-policy
+exceptions are introduced. Recheck the exact merged release revision after
+upstream remediation. See the
+[Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) and
+[React Router advisory](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6).
 
 The latest `main` CodeQL analyses for `5b34e298350a0a67a5cc6cdaf4097dbf2a7d9ed9`
 report zero findings within the boundary computed from these archives. This is
