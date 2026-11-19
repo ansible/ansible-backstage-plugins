@@ -193,6 +193,46 @@ test('archive source maps extend scope to repository code outside the package ro
   );
 });
 
+test('source-map and SARIF paths decode once and preserve literal percent sequences', () => {
+  for (const name of ['a%41.ts', '100%.ts', 'a%2F.ts']) {
+    const encodedName = encodeURIComponent(name);
+    const external = `workspaces/shared/plugins/helper/src/${name}`;
+    for (const source of [
+      `../../helper/src/${encodedName}`,
+      `webpack://example/../helper/src/${encodedName}`,
+    ]) {
+      const sources = sourceMapPaths(
+        { sources: [source] },
+        'workspaces/shared/plugins/example',
+        'dist/index.js.map',
+      );
+      assert.deepEqual(sources, [external]);
+      const derived = createSecurityScope([root], sources);
+      assert(derived.paths.includes(external));
+      const finding = result(encodeURI(external));
+      assert(findingInScope(finding, {}, derived));
+      assert.throws(
+        () => verifyCodeql(metadata(1), sarif([finding]), sha, ref, derived),
+        /findings block/,
+      );
+    }
+    const rooted = sourceMapPaths(
+      { sourceRoot: `../../helper/${encodedName}`, sources: ['index.ts'] },
+      'workspaces/shared/plugins/example',
+      'dist/index.js.map',
+    );
+    const rootedPath = `workspaces/shared/plugins/helper/${name}/index.ts`;
+    assert.deepEqual(rooted, [rootedPath]);
+    assert(
+      findingInScope(
+        result(encodeURI(rootedPath)),
+        {},
+        createSecurityScope([root], rooted),
+      ),
+    );
+  }
+});
+
 test('scope includes outside repository sources from real hashed tarballs', async t => {
   const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } =
     await import('node:fs');

@@ -26,13 +26,12 @@ const releaseInputs = [
   'tsconfig.json',
 ];
 
-/** Accept only unambiguous repository-relative paths; URI decoding precedes validation. */
-export function repositoryPath(uri) {
+/** Validate a decoded repository path without interpreting literal percent sequences. */
+function validateRepositoryPath(path) {
   assert(
-    typeof uri === 'string' && uri.length > 0,
+    typeof path === 'string' && path.length > 0,
     'Missing CodeQL source path',
   );
-  const path = decodeURIComponent(uri);
   assert(
     !/[\\\s\x00-\x1f?#:]/.test(path) &&
       !path.startsWith('/') &&
@@ -47,6 +46,16 @@ export function repositoryPath(uri) {
   return normalized;
 }
 
+/** Decode an encoded SARIF URI exactly once before validating its path. */
+export function repositoryPath(uri) {
+  assert(
+    typeof uri === 'string' && uri.length > 0,
+    'Missing CodeQL source path',
+  );
+  return validateRepositoryPath(decodeURIComponent(uri));
+}
+
+/** extraSources contains decoded repository paths derived from archive source maps. */
 export function createSecurityScope(roots = packageRoots, extraSources = []) {
   assert(
     Array.isArray(roots) && roots.length > 0,
@@ -64,7 +73,7 @@ export function createSecurityScope(roots = packageRoots, extraSources = []) {
         ...roots.map(root => `${root}/`),
         ...releaseInputs,
         ...extraSources
-          .map(repositoryPath)
+          .map(validateRepositoryPath)
           .filter(path => !roots.some(root => path.startsWith(`${root}/`))),
       ]),
     ].sort(),
@@ -81,9 +90,9 @@ export function sourceMapPaths(map, packageRoot, mapPath) {
       sourceMapPaths(section.map, packageRoot, mapPath),
     );
   assert(Array.isArray(map.sources), 'Missing archive source-map sources');
+  const sourceRoot = decodeURIComponent(map.sourceRoot ?? '');
   assert(
-    !map.sourceRoot ||
-      (!/[:\\]/.test(map.sourceRoot) && !posix.isAbsolute(map.sourceRoot)),
+    !/[:\\]/.test(sourceRoot) && !posix.isAbsolute(sourceRoot),
     'Unsupported archive source root',
   );
   return map.sources.flatMap(source => {
@@ -102,13 +111,13 @@ export function sourceMapPaths(map, packageRoot, mapPath) {
       posix.join(
         packageRoot,
         webpack ? '' : posix.dirname(mapPath),
-        map.sourceRoot ?? '',
+        sourceRoot,
         relative,
       ),
     );
     // Registry dependencies are covered by the consumer dependency audit.
     if (path.split('/').includes('node_modules')) return [];
-    return [repositoryPath(path)];
+    return [validateRepositoryPath(path)];
   });
 }
 
