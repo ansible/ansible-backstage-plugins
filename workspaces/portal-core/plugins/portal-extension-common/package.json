@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-extension-common"
   },
-  "private": false,
   "description": "Serialisable types shared between frontend and backend portal plugins — plugin manifest, capability contributions, launch types, extension point IDs, and content type constants. No React, no DOM, no Node APIs.",
   "main": "src/index.ts",
   "types": "src/index.ts",

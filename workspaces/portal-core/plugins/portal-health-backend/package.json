@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-health-backend"
   },
-  "private": false,
   "description": "Backstage backend plugin that aggregates portal plugin health statuses and exposes them at GET /api/portal-health/status. Reads from the push-based HealthRegistry populated by portal-plugin-node's pushHealthStatus().",
   "main": "src/index.ts",
   "types": "src/index.ts",

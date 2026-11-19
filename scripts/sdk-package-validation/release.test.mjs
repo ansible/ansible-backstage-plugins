@@ -21,6 +21,8 @@ test('requires reviewed public preview metadata', () => {
   validateReleaseManifests([manifest('sdk')], version);
   for (const changes of [
     { private: true },
+    { private: null },
+    { private: 'false' },
     { version: '0.1.0' },
     { publishConfig: { access: 'restricted' } },
     { publishConfig: { access: 'public', provenance: false } },
@@ -149,5 +151,14 @@ test('rejects npm aliases to internal packages in every runtime dependency secti
       },
     ],
     version,
+  );
+});
+
+test('accepts the public metadata form persisted by Yarn without changing release requirements', () => {
+  const normalized = manifest('sdk');
+  delete normalized.private;
+  validateReleaseManifests([normalized], version);
+  assert.throws(() =>
+    validateReleaseManifests([{ ...normalized, version: '0.1.0' }], version),
   );
 });

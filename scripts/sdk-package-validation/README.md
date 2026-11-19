@@ -10,9 +10,9 @@ The command emits declarations, builds and packs the ten candidates listed in
 `packages.json`, validates their archive metadata and contents, and installs them
 into a fresh temporary consumer outside the checkout. It never publishes packages.
 The initial private candidates used `private: true`. Preview preparation sets
-all ten allowlisted packages to `private: false` together, with matching
-prerelease versions and public access metadata for release review. Release guards then
-validate that metadata before building. Mixed or incompatible releases fail.
+all ten allowlisted packages to public metadata together (omitting `private`),
+with matching prerelease versions and public access metadata for release review.
+Release guards then validate that metadata before building. Mixed or incompatible releases fail.
 The allowlist records validation candidates, not approval to publish them.
 
 For the separate OIDC-only release workflow, maintainer setup and first-publication

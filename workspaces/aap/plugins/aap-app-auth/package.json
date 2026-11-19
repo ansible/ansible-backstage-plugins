@@ -8,7 +8,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/aap/plugins/aap-app-auth"
   },
-  "private": false,
   "main": "src/index.ts",
   "types": "src/index.ts",
   "configSchema": "config.d.ts",

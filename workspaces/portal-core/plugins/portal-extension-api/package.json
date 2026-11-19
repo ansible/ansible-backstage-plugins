@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-extension-api"
   },
-  "private": false,
   "description": "Extension contracts SDK for Ansible portal plugins — types, registry, hooks, and helpers for contributing tabs, cards, and actions",
   "main": "src/index.ts",
   "types": "src/index.ts",

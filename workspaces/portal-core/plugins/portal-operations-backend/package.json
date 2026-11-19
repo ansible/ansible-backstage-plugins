@@ -8,7 +8,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-operations-backend"
   },
-  "private": false,
   "main": "src/index.ts",
   "types": "src/index.ts",
   "publishConfig": {

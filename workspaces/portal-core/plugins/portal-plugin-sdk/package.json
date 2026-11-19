@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-plugin-sdk"
   },
-  "private": false,
   "description": "Shared React component library and SDK for Ansible portal plugins",
   "main": "src/index.ts",
   "types": "src/index.ts",

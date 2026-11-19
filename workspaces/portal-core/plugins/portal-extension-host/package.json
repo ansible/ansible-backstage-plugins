@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-extension-host"
   },
-  "private": false,
   "description": "Runtime host for portal plugin contributions — ExperienceSlot, ExtensionRenderer, ErrorBoundary, manifest validation, and dynamic discovery",
   "main": "src/index.ts",
   "types": "src/index.ts",

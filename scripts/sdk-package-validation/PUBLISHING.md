@@ -94,9 +94,11 @@ No release handoff or npm publication happens after a failed gate.
   dependency/license/security checks and preview release. The workflow's tests,
   SBOMs and attestations do not constitute security approval or live RHDH testing.
 - A reviewed release commit on `main` or the selected `release-*` branch sets
-  all ten candidate versions to the same preview version, sets `private: false`
-  and `publishConfig.access: public`, and
+  all ten candidate versions to the same preview version, removes `private: true`
+  and sets `publishConfig.access: public`, and
   updates the lockfile. Internal dependencies resolve to the matching candidates.
+  Yarn normalizes `private: false` by omitting the field. Both public forms are
+  accepted, while `private: true` and non-boolean values are rejected.
   Existing `workspace:^`, `workspace:~` and `workspace:*` references are supported
   because Yarn rewrites them during packing. No feature package loses its guard.
 - Required PR checks pass for that release commit. Protect `main` and every

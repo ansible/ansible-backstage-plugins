@@ -7,7 +7,6 @@
     "url": "https://github.com/ansible/ansible-backstage-plugins.git",
     "directory": "workspaces/portal-core/plugins/portal-core"
   },
-  "private": false,
   "description": "Singleton provider for the Portal plugin extension system. Must be loaded before any portal content plugin in RHDH so that @ansible/portal-extension-api is available as a shared module federation singleton.",
   "main": "src/index.ts",
   "types": "src/index.ts",

@@ -29,7 +29,7 @@ const packages = paths.map(path => ({
 }));
 const candidates = new Set(packages.map(p => p.manifest.name));
 const releaseVersion = process.env.SDK_RELEASE_VERSION;
-if (releaseVersion || packages.some(p => p.manifest.private === false)) {
+if (releaseVersion || packages.some(p => p.manifest.private !== true)) {
   validateReleaseManifests(
     packages.map(p => p.manifest),
     releaseVersion ?? packages[0].manifest.version,

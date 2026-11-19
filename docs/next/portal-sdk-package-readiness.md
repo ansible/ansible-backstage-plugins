@@ -13,9 +13,11 @@ branch now uses RHDH CLI `2.1.2`.
 ## Preview metadata preparation
 
 The ten candidates below are prepared together as `0.1.0-alpha.0`, with
-`private: false` and public access metadata. The intended distribution tag is
-`next`. This makes the reviewed candidates publishable, but does not publish them
+the `private: true` guard removed and public access metadata. The intended
+distribution tag is `next`. This makes the reviewed candidates publishable, but does not publish them
 or authorize a release. Feature packages retain their existing metadata.
+Yarn removes `private: false` when persisting manifests, so the candidates omit
+the field. Release checks accept both public forms and reject private packages.
 
 The original packaging results below describe the earlier `0.1.0` private
 candidates. Repeat validation for this preview revision. The release workflow
