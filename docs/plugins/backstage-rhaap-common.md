@@ -16,8 +16,10 @@ Portal/backend API seams rather than transporting AAP credentials directly.
 
 `ansibleServiceRef` now comes from `@ansible/aap-node` and has no default
 factory. Its ID remains `rhaap.client.service`, with plugin scope. The common
-package re-exports the reference and retains `ansibleServiceFactory` alongside
-`AAPClient` until the implementation moves to `@ansible/aap-backend`.
+package re-exports the reference. `AAPClient` and its configuration/organization
+helpers live in the reusable `@ansible/aap-node` library. The concrete
+`ansibleServiceFactory` and loadable default export live in `@ansible/aap-backend`.
+The common package keeps compatibility exports for existing consumers.
 Import compatibility through the common package does not register the service.
 
 ### Native Backstage hosts
@@ -27,7 +29,7 @@ loaders can then consume the service. For example:
 
 ```ts
 import { createBackend } from '@backstage/backend-defaults';
-import { ansibleServiceFactory } from '@ansible/backstage-rhaap-common';
+import { ansibleServiceFactory } from '@ansible/aap-backend';
 import { catalogModuleRhaap } from '@ansible/backstage-plugin-catalog-backend-module-rhaap';
 import { scaffolderModuleAnsible } from '@ansible/plugin-scaffolder-backend-module-backstage-rhaap';
 
@@ -68,9 +70,17 @@ provide `ansibleServiceFactory` through its host or a dedicated service provider
 Keeping the common package embedded in a dynamic artifact only makes its code
 available; embedding does not register the factory.
 
-When `@ansible/aap-backend` ships, it will become the explicit service owner and
-replace this transitional catalog ownership. The service reference stays in
-`@ansible/aap-node` without importing the concrete client.
+The old factory export remains as a deprecated adapter built directly on
+`@ansible/aap-node`; it does not import `@ansible/aap-backend`. Catalog/helper
+artifacts therefore embed the shared libraries without embedding the backend.
+New client/helper consumers import node directly. Retire the legacy adapter
+with the remaining common-package cleanup; do not register it together with
+the explicitly installed backend factory.
+
+The next change transfers installation responsibility to an explicit
+`@ansible/aap-backend` registration and replaces this transitional catalog
+ownership. The service reference stays in `@ansible/aap-node` without importing
+the factory package or defining a default factory.
 
 ## Related modules
 

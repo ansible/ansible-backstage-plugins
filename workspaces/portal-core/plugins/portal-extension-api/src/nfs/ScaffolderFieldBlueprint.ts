@@ -129,7 +129,9 @@ export function createEligibleComponent<TValue, TUiOptions>(
   ) {
     const apiHolder = useApiHolder();
     const currentProps = useRef(props);
+    const denialReported = useRef(false);
     const [eligible, setEligible] = useState<boolean>();
+    const unavailableMessage = `Field ${params.fieldName} is unavailable due to configuration or permissions.`;
 
     useEffect(() => {
       currentProps.current = props;
@@ -137,21 +139,28 @@ export function createEligibleComponent<TValue, TUiOptions>(
 
     useEffect(() => {
       let cancelled = false;
+      denialReported.current = false;
       void isFieldEligible(params, apiHolder).then(result => {
         if (cancelled) return;
+        // Paint the denied alert before reporting form errors. Calling
+        // onChange in the same turn as setEligible can remount optional
+        // fields that have no default value and drop the alert under load.
         setEligible(result);
-        if (!result) {
-          currentProps.current.onChange(currentProps.current.formData, {
-            __errors: [
-              `Field ${params.fieldName} is unavailable due to configuration or permissions.`,
-            ],
-          });
-        }
       });
       return () => {
         cancelled = true;
       };
     }, [apiHolder]);
+
+    useEffect(() => {
+      if (eligible !== false || denialReported.current) {
+        return;
+      }
+      denialReported.current = true;
+      currentProps.current.onChange(currentProps.current.formData, {
+        __errors: [unavailableMessage],
+      });
+    }, [eligible, unavailableMessage]);
 
     if (eligible === undefined) {
       return createElement(
@@ -161,11 +170,7 @@ export function createEligibleComponent<TValue, TUiOptions>(
       );
     }
     if (!eligible) {
-      return createElement(
-        'p',
-        { role: 'alert' },
-        `Field ${params.fieldName} is unavailable due to configuration or permissions.`,
-      );
+      return createElement('p', { role: 'alert' }, unavailableMessage);
     }
     return createElement(component, props);
   };

@@ -3,16 +3,17 @@ import {
   coreServices,
 } from '@backstage/backend-plugin-api';
 
-import { ansibleServiceRef } from '@ansible/aap-node';
-import { AAPClient } from '../AAPClient/AAPClient';
+import { ansibleServiceRef, AAPClient } from '@ansible/aap-node';
 
 export { ansibleServiceRef } from '@ansible/aap-node';
 
 /**
  * Transitional factory that wires `AAPClient` to `ansibleServiceRef`.
  *
- * Lives next to `AAPClient` in `backstage-rhaap-common` until `@ansible/aap-backend`
- * owns both the client and this factory (AAP-98937).
+ * Keeps the legacy factory API independent of the installable backend package.
+ *
+ * @deprecated Explicitly install `@ansible/aap-backend` instead. Do not register
+ * both factories for the same service.
  *
  * @public
  */

@@ -1,0 +1,47 @@
+{
+  "name": "@ansible/aap-backend",
+  "description": "AAP backend service factory registration",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "main": "dist/index.cjs.js",
+    "types": "dist/index.d.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "backstage": {
+    "role": "backend-plugin",
+    "pluginId": "aap"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "backstage-cli package build",
+    "lint": "backstage-cli package lint",
+    "test": "backstage-cli package test",
+    "clean": "backstage-cli package clean",
+    "prepack": "backstage-cli package prepack",
+    "postpack": "backstage-cli package postpack",
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-node --embed-package @ansible/aap-common --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/content-development-common --embed-package @ansible/portal-plugin-node"
+  },
+  "dependencies": {
+    "@ansible/aap-node": "workspace:^",
+    "@backstage/backend-plugin-api": "1.10.0"
+  },
+  "devDependencies": {
+    "@backstage/backend-test-utils": "1.11.6",
+    "@backstage/cli": "0.36.5",
+    "@jest/globals": "^30.1.2"
+  },
+  "files": [
+    "dist",
+    "dist-dynamic/*.*",
+    "dist-dynamic/dist/**",
+    "src/**/*.d.ts"
+  ]
+}

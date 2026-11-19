@@ -5,9 +5,9 @@ import type { IAAPService } from './IAAPService';
 /**
  * A reference to the ansible service.
  *
- * No `defaultFactory` — the concrete `AAPClient` factory is registered by the
- * package that owns the HTTP client (`backstage-rhaap-common` during
- * transition, then `@ansible/aap-backend`).
+ * No `defaultFactory` — `@ansible/aap-backend` supplies the concrete factory
+ * for the reusable `AAPClient` in this package. Hosts explicitly install the
+ * factory rather than importing the implementation from this reference.
  *
  * @public
  */

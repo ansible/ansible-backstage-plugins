@@ -6,7 +6,7 @@ import { createServiceFactory } from '@backstage/backend-plugin-api';
 import catalogPlugin from '@backstage/plugin-catalog-backend';
 import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
-import { ansibleServiceFactory } from '../AAPService/AAPService';
+import ansibleServiceFactory from '@ansible/aap-backend';
 import { createCatalogModule } from './registerModule';
 import { resetCatalogModuleSliceGuardForTests } from './sliceGuard';
 import type { ContentCatalogRegistration } from './contentProviderContracts';
