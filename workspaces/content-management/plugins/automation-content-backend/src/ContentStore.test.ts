@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+import path from 'node:path';
 import knexFactory from 'knex';
 import { defaultContentTypes } from '@ansible/plugin-catalog-backend-module-automation-content';
 import { CONTENT_MANIFEST_ARTIFACT_TYPE } from '@ansible/content-model';
@@ -29,41 +30,8 @@ async function createTestDB() {
     connection: { filename: ':memory:' },
     useNullAsDefault: true,
   });
-  await db.schema.createTable('artifacts', table => {
-    table.string('ref').primary();
-    table.string('type').notNullable();
-    table.string('registry').notNullable().index();
-    table.string('repository').notNullable();
-    table.string('digest').notNullable();
-    table.text('tags').notNullable().defaultTo('[]');
-    table.string('pull_reference').notNullable();
-    table.boolean('contents_known').notNullable().defaultTo(false);
-    table.text('classification').notNullable().defaultTo('{}');
-    table.text('manifest');
-    table.text('signing');
-    table.text('tag_timestamps');
-    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
-  });
-  await db.schema.createTable('items', table => {
-    table.string('key').primary();
-    table.string('fqcn').notNullable().index();
-    table.string('name').notNullable();
-    table.string('type').notNullable();
-    table.string('collection').notNullable();
-    table.string('collection_version').notNullable();
-    table.string('short_description');
-    table.string('version_added');
-    table.boolean('deprecated').notNullable().defaultTo(false);
-    table
-      .string('artifact_ref')
-      .notNullable()
-      .references('ref')
-      .inTable('artifacts')
-      .onDelete('CASCADE');
-    table.text('detail');
-    table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
-    table.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+  await db.migrate.latest({
+    directory: path.resolve(__dirname, '../migrations'),
   });
   return db;
 }
@@ -97,6 +65,91 @@ async function storeOver(
 }
 
 const EE_LABEL = 'ansible-execution-environment';
+
+describe('EE metadata overlays', () => {
+  it('redacts stored overlays and keeps identical retries safe after a runtime registration is released', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const store = await storeOver(
+      new MockRegistry({ repositories: { 'ansible/ee': [image] } }),
+    );
+    await store.refreshRegistry('mock');
+    const [artifact] = await store.listArtifacts();
+    const token = 'mock-overlay-runtime-token';
+    const overlay = { version: '1', metadata: { nested: { token } } };
+    expect(store.redactor.addRuntimeSecret(token, 300_000, 'mock')).toBe(true);
+
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+
+    store.redactor.releaseRuntimeSecret(token, 'mock');
+    expect(store.redactor.redact(token)).toBe(token);
+
+    // Identical retry after the registration is gone: the stored text stays
+    // redacted, so only the submitted fingerprint can prove the retry is
+    // the same submission (#1102).
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, overlay),
+    ).resolves.toBe('applied');
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, {
+        ...overlay,
+        metadata: { nested: { token: 'different-value' } },
+      }),
+    ).resolves.toBe('conflict');
+    await expect(store.getMetadataOverlay(artifact.ref)).resolves.toEqual({
+      version: '1',
+      metadata: { nested: { token: '[REDACTED]' } },
+    });
+  });
+
+  it('applies revisions offline, preserves them on refresh, and follows the digest when a tag moves', async () => {
+    const image = makeLabelledImage('latest', { [EE_LABEL]: 'true' });
+    const repositories = { 'ansible/ee': [image] };
+    const registry = new MockRegistry({ repositories });
+    const fetch = jest.spyOn(registry, 'fetch');
+    const store = await storeOver(registry);
+    await store.refreshRegistry('mock');
+    const [artifact] = await store.listArtifacts();
+    fetch.mockClear();
+
+    const first = { version: '2.0', metadata: { summary: 'Initial review' } };
+    const latest = { version: '2.1', metadata: { summary: 'Updated review' } };
+    await expect(store.applyMetadataOverlay(artifact.ref, first)).resolves.toBe(
+      'applied',
+    );
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, latest),
+    ).resolves.toBe('applied');
+    await expect(store.applyMetadataOverlay(artifact.ref, first)).resolves.toBe(
+      'applied',
+    );
+    await expect(
+      store.applyMetadataOverlay(artifact.ref, {
+        ...first,
+        metadata: latest.metadata,
+      }),
+    ).resolves.toBe('conflict');
+    expect(await store.getMetadataOverlay(artifact.ref)).toEqual(latest);
+    expect(await store.getArtifact(artifact.ref)).toEqual(artifact);
+    expect(fetch).not.toHaveBeenCalled();
+
+    await store.refreshRegistry('mock');
+    expect(await store.getMetadataOverlay(artifact.ref)).toEqual(latest);
+
+    repositories['ansible/ee'] = [
+      { ...image, digest: `sha256:${'9'.repeat(64)}` },
+    ];
+    await store.refreshRegistry('mock');
+    const [replacement] = await store.listArtifacts();
+    expect(replacement.ref).not.toBe(artifact.ref);
+    expect(await store.getMetadataOverlay(replacement.ref)).toBeUndefined();
+    expect(await store.getMetadataOverlay(artifact.ref)).toEqual(latest);
+  });
+});
 
 describe('EE repository projection', () => {
   it('applies typed repository search and favorites before stable sorting and pagination', async () => {

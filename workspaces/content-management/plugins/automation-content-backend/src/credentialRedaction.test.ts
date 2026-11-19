@@ -173,6 +173,11 @@ function seededStore(_logs: string[] = []): ContentStore {
       return { items: filtered, totalCount: filtered.length };
     },
     getArtifact: async (ref: string) => (ref === REF ? artifact : undefined),
+    getMetadataOverlay: async () => ({
+      version: '2.1',
+      metadata: { summary: SECRET },
+    }),
+    applyMetadataOverlay: async () => 'applied',
     listItems: async () => [...items.values()],
     itemsIn: async (ref: string) =>
       [...items.values()].filter(item => item.artifactRef === ref),
@@ -375,6 +380,17 @@ const CASES: RouteCase[] = [
     },
   },
   {
+    route: 'PUT /execution-environments/:ref(*)/metadata-overlay',
+    run: app =>
+      request(app)
+        .put(`/execution-environments/${REF}/metadata-overlay`)
+        .send({ version: '2.1', metadata: { summary: TOKEN } }),
+    check: res => {
+      expect(res.status).toBe(200);
+      expect(res.body.metadata.summary).toBe('[REDACTED]');
+    },
+  },
+  {
     route: 'GET /execution-environments/:ref(*)/contents',
     run: app => request(app).get(`/execution-environments/${REF}/contents`),
     check: res => {
@@ -388,6 +404,7 @@ const CASES: RouteCase[] = [
     check: res => {
       expect(res.status).toBe(200);
       expect(res.body.pullReference).toContain('demo/ee');
+      expect(res.body.metadataOverlay.metadata.summary).toBe('[REDACTED]');
     },
   },
   {

@@ -41,6 +41,7 @@ function stubDB(overrides: Partial<ContentStore> = {}): ContentStore {
     listArtifacts: async () => [],
     listArtifactsPaginated: async () => ({ items: [], totalCount: 0 }),
     getArtifact: async () => undefined,
+    getMetadataOverlay: async () => undefined,
     listItems: async () => [],
     itemsIn: async () => [],
     findItems: async () => [],
@@ -280,6 +281,112 @@ describe('EE read authorization', () => {
     await request(await appWith(db))
       .get('/execution-environments/reg/repo@sha256:abc')
       .expect(404);
+  });
+});
+
+describe('EE metadata overlay API', () => {
+  const detailPath = `/execution-environments/${DEFAULT_ARTIFACT.ref}`;
+  const overlayPath = `${detailPath}/metadata-overlay`;
+  const overlay = { version: '2.1', metadata: { summary: 'Certified image' } };
+
+  it('accepts a JSON overlay and exposes it on the EE detail', async () => {
+    const applyMetadataOverlay = jest.fn().mockResolvedValue('applied');
+    const db = stubDB({
+      getArtifact: async () => DEFAULT_ARTIFACT,
+      getMetadataOverlay: async () => overlay,
+      applyMetadataOverlay,
+    });
+    const app = await appWith(db);
+    await request(app).put(overlayPath).send(overlay).expect(200, overlay);
+    expect(applyMetadataOverlay).toHaveBeenCalledWith(
+      DEFAULT_ARTIFACT.ref,
+      overlay,
+    );
+    const detail = await request(app).get(detailPath).expect(200);
+    expect(detail.body.metadataOverlay).toEqual(overlay);
+    expect(detail.body.digest).toBe(DEFAULT_ARTIFACT.digest);
+  });
+
+  it('rejects an overlay over 256 KiB before writing it', async () => {
+    const applyMetadataOverlay = jest.fn().mockResolvedValue('applied');
+    const app = await appWith(stubDB({ applyMetadataOverlay }));
+    const response = await request(app)
+      .put(overlayPath)
+      .send({ ...overlay, metadata: { summary: 'x'.repeat(256 * 1024) } });
+
+    expect(response.status).toBe(413);
+    expect(response.body.code).toBe('METADATA_OVERLAY_TOO_LARGE');
+    expect(applyMetadataOverlay).not.toHaveBeenCalled();
+  });
+
+  it('rejects a 65th nested container in overlay metadata', async () => {
+    const applyMetadataOverlay = jest.fn().mockResolvedValue('applied');
+    const app = await appWith(stubDB({ applyMetadataOverlay }));
+    // Exactly one container past the 64-level cap.
+    const deep: unknown[] = [];
+    let cursor = deep;
+    for (let i = 0; i < 64; i++) {
+      cursor.push([]);
+      cursor = cursor[0] as unknown[];
+    }
+    const response = await request(app)
+      .put(overlayPath)
+      .send({ ...overlay, metadata: { deep } });
+
+    expect(response.status).toBe(400);
+    expect(response.body.code).toBe('METADATA_OVERLAY_TOO_DEEP');
+    expect(applyMetadataOverlay).not.toHaveBeenCalled();
+  });
+
+  it('returns maximum-depth overlay metadata intact on the detail response', async () => {
+    // Exactly the 64 container levels the PUT route accepts, with a
+    // primitive inside the deepest object: primitives add no nesting, so
+    // they must not count toward the cap. The detail response wraps the
+    // metadata in two envelope levels (root + metadataOverlay), so the
+    // response redaction budget must cover 66 or the innermost levels
+    // would come back truncated.
+    const metadata: Record<string, unknown> = {};
+    let cursor = metadata;
+    for (let level = 1; level < 64; level++) {
+      cursor.child = {};
+      cursor = cursor.child as Record<string, unknown>;
+    }
+    cursor.value = 'leaf';
+    const maximal = { ...overlay, metadata };
+    const db = stubDB({
+      getArtifact: async () => DEFAULT_ARTIFACT,
+      getMetadataOverlay: async () => maximal,
+      applyMetadataOverlay: jest.fn().mockResolvedValue('applied'),
+    });
+    const app = await appWith(db);
+
+    await request(app).put(overlayPath).send(maximal).expect(200, maximal);
+    const detail = await request(app).get(detailPath).expect(200);
+    expect(detail.body.metadataOverlay).toEqual(maximal);
+  });
+
+  it('rejects writes without the sync grant and invalid metadata with the grant', async () => {
+    const applyMetadataOverlay = jest.fn();
+    const db = stubDB({ applyMetadataOverlay });
+    const restrictedApp = await appWith(
+      db,
+      undefined,
+      async ([{ permission }]) => [
+        {
+          result:
+            permission.name === 'ansible.content.sync'
+              ? AuthorizeResult.DENY
+              : AuthorizeResult.ALLOW,
+        },
+      ],
+    );
+    await request(restrictedApp).put(overlayPath).send(overlay).expect(403);
+    const app = await appWith(db);
+    await request(app)
+      .put(overlayPath)
+      .send({ ...overlay, metadata: [] })
+      .expect(400);
+    expect(applyMetadataOverlay).not.toHaveBeenCalled();
   });
 });
 

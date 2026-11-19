@@ -605,6 +605,21 @@ components:
             the `ansible-execution-environment` label that ansible-builder emits on
             every EE it builds, or our own manifest label.
 
+    EEMetadataOverlay:
+      type: object
+      required: [version, metadata]
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+          description: Caller-supplied metadata revision identifier, independent of the image version.
+          pattern: '^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$'
+          examples: ['2.1']
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Caller-supplied metadata. Nesting is limited to 64 levels; deeper submissions are rejected.
+
     ExecutionEnvironment:
       type: object
       required: [ref, type, registry, repository, digest, contentsKnown]
@@ -635,6 +650,9 @@ components:
         contentsKnown:
           type: boolean
           description: False when no content manifest is published. Distinct from containing nothing.
+        metadataOverlay:
+          description: The most recently applied metadata revision, when available on execution environment detail responses.
+          $ref: '#/components/schemas/EEMetadataOverlay'
         signing:
           $ref: '#/components/schemas/SigningObservation'
         enumeration:
@@ -3438,6 +3456,53 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ContentErrorResponse' }
+        '503':
+          description: Authorization temporarily unavailable
+
+
+  /execution-environments/{ref}(*)/metadata-overlay:
+    servers:
+      - url: /api/automation-content
+    put:
+      operationId: applyExecutionEnvironmentMetadataOverlay
+      tags: [Automation Content Execution Environments]
+      security:
+        - JWT: []
+      summary: Apply a metadata revision to an execution environment
+      description: |
+        Requires `ansible.content.sync` and `ansible.execution-environments.view`.
+        Saves a revision for an already indexed image without contacting its registry.
+        A new version becomes current. Retrying a saved version with the same
+        metadata succeeds without changing which version is current.
+      parameters:
+        - name: ref
+          in: path
+          required: true
+          description: Digest-qualified execution environment ref from the portal.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EEMetadataOverlay' }
+      responses:
+        '200':
+          description: The applied revision
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EEMetadataOverlay' }
+        '400':
+          description: Invalid overlay
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: No indexed execution environment with this ref
+        '409':
+          description: The version already exists with different metadata
+        '413':
+          description: Request body exceeds the 256 KiB limit
         '503':
           description: Authorization temporarily unavailable
 

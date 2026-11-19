@@ -27,6 +27,7 @@ import {
   ContentStore,
   IndexedArtifact,
   IndexedItem,
+  type MetadataOverlay,
   RegistryScanIncomplete,
   RegistryWriterBusy,
 } from './ContentStore';
@@ -76,6 +77,47 @@ type JsonCapableResponse = {
 };
 
 const EE_TYPE = 'execution-environment';
+
+function isMetadataOverlay(value: unknown): value is MetadataOverlay {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const { version, metadata } = value as Partial<MetadataOverlay>;
+  return (
+    Object.keys(value).length === 2 &&
+    typeof version === 'string' &&
+    /^[a-zA-Z0-9][a-zA-Z0-9._+-]{0,63}$/.test(version) &&
+    !!metadata &&
+    typeof metadata === 'object' &&
+    !Array.isArray(metadata)
+  );
+}
+
+/** Nesting cap for submitted overlay metadata; matches redaction maxDepth. */
+const MAX_METADATA_DEPTH = 64;
+
+/**
+ * Iterative on purpose: the submitted body is untrusted, and a recursive
+ * walk would overflow the call stack before any validation response.
+ * Only containers occupy a level — a primitive inside the deepest allowed
+ * object adds no nesting, the same rule the response redactor applies, so
+ * accepted submissions read back intact.
+ */
+function metadataWithinDepth(value: unknown): boolean {
+  const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 1 }];
+  while (stack.length > 0) {
+    const { value: item, depth } = stack.pop()!;
+    const container =
+      Array.isArray(item) || (item !== null && typeof item === 'object');
+    if (!container) continue;
+    if (depth > MAX_METADATA_DEPTH) return false;
+    const children = Array.isArray(item)
+      ? item
+      : Object.values(item as Record<string, unknown>);
+    for (const child of children) {
+      stack.push({ value: child, depth: depth + 1 });
+    }
+  }
+  return true;
+}
 
 const ALLOWED_PAGE_SIZES = [10, 20, 50] as const;
 
@@ -298,11 +340,14 @@ function buildRouter(options: RouterOptions): express.Router {
 
   // Every JSON response passes through the live redactor so runtime bearer
   // tokens and registry-controlled metadata cannot bypass a route handler.
+  // Depth budget: responses wrap overlay metadata in two envelope levels
+  // (response root + metadataOverlay), so 64-level submissions — the PUT
+  // cap — survive the GET read-back intact.
   const redactor = db.redactor;
   router.use((_req: unknown, res: JsonCapableResponse, next: () => void) => {
     const original = res.json.bind(res);
     res.json = (body: unknown) =>
-      original(redactor.redactValue(body, { maxDepth: 64 }));
+      original(redactor.redactValue(body, { maxDepth: 66 }));
     next();
   });
 
@@ -454,6 +499,70 @@ function buildRouter(options: RouterOptions): express.Router {
         return;
       }
       res.json(details);
+    },
+  );
+
+  const parseMetadataOverlay = express.json({ limit: '256kb' });
+  router.put(
+    '/execution-environments/:ref(*)/metadata-overlay',
+    async (req, res, next) => {
+      if (
+        respondToDenial(res, await authorize(req, contentSyncPermission)) ||
+        respondToDenial(
+          res,
+          await authorize(req, executionEnvironmentsViewPermission),
+        )
+      ) {
+        return;
+      }
+
+      next();
+    },
+    (req, res, next) => {
+      parseMetadataOverlay(req, res, (error?: { status?: number }) => {
+        if (!error) {
+          next();
+        } else if (error.status === 413) {
+          res.status(413).json({
+            code: 'METADATA_OVERLAY_TOO_LARGE',
+            error: 'Metadata overlay requests must be 256 KiB or smaller',
+          });
+        } else {
+          next(error);
+        }
+      });
+    },
+    async (req, res) => {
+      const overlay: unknown = req.body;
+      if (!isMetadataOverlay(overlay)) {
+        res.status(400).json({
+          code: 'BAD_REQUEST',
+          error: 'Provide a metadata version and a JSON metadata object',
+        });
+        return;
+      }
+      if (!metadataWithinDepth(overlay.metadata)) {
+        res.status(400).json({
+          code: 'METADATA_OVERLAY_TOO_DEEP',
+          error: `Metadata overlay nesting must not exceed ${MAX_METADATA_DEPTH} levels`,
+        });
+        return;
+      }
+
+      const result = await db.applyMetadataOverlay(req.params.ref, overlay);
+      if (result === 'not-found') {
+        res.status(404).json({
+          code: 'CONTENT_NOT_FOUND',
+          error: 'Content not found',
+        });
+      } else if (result === 'conflict') {
+        res.status(409).json({
+          code: 'METADATA_VERSION_CONFLICT',
+          error: 'This metadata version already exists with different content',
+        });
+      } else {
+        res.json(overlay);
+      }
     },
   );
 
@@ -969,7 +1078,11 @@ function buildRouter(options: RouterOptions): express.Router {
   ) => {
     const artifact = await readArtifact(req, res, eeOnly);
     if (!artifact) return;
-    res.json(artifactView(db, artifact));
+    const metadataOverlay =
+      artifact.type === EE_TYPE
+        ? await db.getMetadataOverlay(artifact.ref)
+        : undefined;
+    res.json({ ...artifactView(db, artifact), metadataOverlay });
   };
 
   router.get('/content', (req, res) => listContent(req, res));
