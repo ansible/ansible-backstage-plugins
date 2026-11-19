@@ -12,6 +12,13 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { repository, validateReleaseRef } from './release.mjs';
 import { verifyArchiveDigest } from './sbom.mjs';
+import {
+  archiveSecurityScope,
+  createSecurityScope,
+  findingInScope,
+  scopeDigest,
+  securityPolicy,
+} from './security-scope.mjs';
 
 export const requiredCategories = [
   '/language:javascript-typescript',
@@ -59,7 +66,7 @@ export function selectCodeqlAnalyses(analyses, commit, ref) {
   return [...latest.values()];
 }
 
-export function verifyCodeql(analysis, sarif, commit, ref) {
+function verifyCodeqlMetadata(analysis, commit, ref) {
   validateReleaseRef(ref);
   assert.equal(analysis.commit_sha, commit, 'CodeQL source revision mismatch');
   assert.equal(analysis.ref, ref, 'CodeQL source branch mismatch');
@@ -69,12 +76,23 @@ export function verifyCodeql(analysis, sarif, commit, ref) {
     'CodeQL analysis failed or reported incomplete coverage',
   );
   assert(analysis.rules_count > 0, 'CodeQL did not run rules');
+}
+
+export function verifyCodeql(
+  analysis,
+  sarif,
+  commit,
+  ref,
+  scope = createSecurityScope(),
+) {
+  verifyCodeqlMetadata(analysis, commit, ref);
   assert.equal(sarif.version, '2.1.0', 'Invalid CodeQL SARIF');
   assert(
     Array.isArray(sarif.runs) && sarif.runs.length > 0,
     'Missing CodeQL runs',
   );
   let findings = 0;
+  let blocking = 0;
   for (const run of sarif.runs) {
     assert.equal(run.tool?.driver?.name, 'CodeQL');
     assert(
@@ -88,6 +106,8 @@ export function verifyCodeql(analysis, sarif, commit, ref) {
       'Invalid CodeQL results',
     );
     findings += run.results?.length ?? 0;
+    for (const result of run.results ?? [])
+      if (findingInScope(result, run, scope)) blocking++;
   }
   assert.equal(
     findings,
@@ -95,10 +115,55 @@ export function verifyCodeql(analysis, sarif, commit, ref) {
     'Incomplete CodeQL result set',
   );
   assert.equal(
-    findings,
+    blocking,
     0,
-    'CodeQL findings block publication (all severities)',
+    'Release-scoped CodeQL findings block publication (all severities)',
   );
+  return {
+    policy: securityPolicy,
+    scopeSha256: scopeDigest(scope),
+    sourceSarifSha256: createHash('sha256')
+      .update(JSON.stringify(sarif))
+      .digest('hex'),
+    reportedFindings: findings,
+    excludedFindings: findings,
+    blockingFindings: 0,
+  };
+}
+
+/** The trusted read-only build emits counts and digests, never excluded findings. */
+function verifyCodeqlSummary(analysis, summary, commit, ref, scope) {
+  verifyCodeqlMetadata(analysis, commit, ref);
+  assert.deepEqual(
+    Object.keys(summary).sort(),
+    [
+      'policy',
+      'scopeSha256',
+      'sourceSarifSha256',
+      'reportedFindings',
+      'excludedFindings',
+      'blockingFindings',
+    ].sort(),
+    'Invalid scoped CodeQL summary',
+  );
+  assert.equal(summary.policy, securityPolicy);
+  assert.equal(
+    summary.scopeSha256,
+    scopeDigest(scope),
+    'CodeQL scope mismatch',
+  );
+  assert.match(summary.sourceSarifSha256, /^[a-f0-9]{64}$/);
+  assert(
+    Number.isSafeInteger(summary.reportedFindings) &&
+      summary.reportedFindings >= 0,
+  );
+  assert.equal(summary.reportedFindings, analysis.results_count);
+  assert.equal(
+    summary.blockingFindings,
+    0,
+    'Release-scoped CodeQL findings block publication',
+  );
+  assert.equal(summary.excludedFindings, summary.reportedFindings);
 }
 
 export function verifyAudit(output, status) {
@@ -132,7 +197,9 @@ export function verifySecurityEvidence(directory, report, ref) {
     report.commit,
     'Security source revision mismatch',
   );
-  assert.equal(evidence.policy, 'block-all-findings');
+  assert.equal(evidence.policy, securityPolicy, 'Security policy mismatch');
+  const scope = archiveSecurityScope(directory, report);
+  assert.deepEqual(evidence.scope, scope, 'Security release scope mismatch');
   assert.deepEqual(
     evidence.packages,
     report.packages,
@@ -143,7 +210,7 @@ export function verifySecurityEvidence(directory, report, ref) {
   const names = new Set();
   for (const file of evidence.files) {
     assert(
-      /^(?:codeql-\d+\.(?:metadata|sarif)\.json|yarn-audit\.ndjson|consumer\.yarn\.lock)$/.test(
+      /^(?:codeql-\d+\.(?:metadata|summary)\.json|yarn-audit\.ndjson|consumer\.yarn\.lock)$/.test(
         file.name,
       ),
       'Unsafe security evidence path',
@@ -169,9 +236,15 @@ export function verifySecurityEvidence(directory, report, ref) {
     'Missing or inconsistent CodeQL evidence',
   );
   for (const analysis of selected) {
-    const file = `codeql-${analysis.id}.sarif.json`;
-    assert(names.has(file), 'Missing CodeQL SARIF evidence');
-    verifyCodeql(analysis, readJson(join(folder, file)), report.commit, ref);
+    const file = `codeql-${analysis.id}.summary.json`;
+    assert(names.has(file), 'Missing scoped CodeQL evidence');
+    verifyCodeqlSummary(
+      analysis,
+      readJson(join(folder, file)),
+      report.commit,
+      ref,
+      scope,
+    );
   }
   verifyAudit(
     readFileSync(join(folder, 'yarn-audit.ndjson'), 'utf8'),
@@ -202,6 +275,7 @@ export async function collectSecurityEvidence(
   assert.equal(report.includesUncommittedChanges, false);
   for (const candidate of report.packages)
     verifyArchiveDigest(directory, candidate);
+  const scope = archiveSecurityScope(directory, report);
   const folder = join(directory, 'security');
   mkdirSync(folder, { recursive: true });
   rmSync(join(folder, 'report.json'), { force: true });
@@ -260,8 +334,8 @@ export async function collectSecurityEvidence(
       try {
         const sarif = await api(`analyses/${analysis.id}`, true);
         record(`codeql-${analysis.id}.metadata.json`, analysis);
-        record(`codeql-${analysis.id}.sarif.json`, sarif);
-        verifyCodeql(analysis, sarif, commit, ref);
+        const summary = verifyCodeql(analysis, sarif, commit, ref, scope);
+        record(`codeql-${analysis.id}.summary.json`, summary);
       } catch (error) {
         sastError ??= error;
       }
@@ -334,7 +408,8 @@ export async function collectSecurityEvidence(
       {
         commit,
         ref,
-        policy: 'block-all-findings',
+        policy: securityPolicy,
+        scope,
         packages: report.packages,
         auditExitCode,
         files: files.map(name => ({
@@ -359,5 +434,7 @@ if (
     process.env.GH_TOKEN,
     process.env.GITHUB_REF,
   );
-  console.log('SAST and SCA gates passed with zero reported findings');
+  console.log(
+    'SAST passed with zero release-scoped findings; SCA passed with zero reported findings',
+  );
 }
