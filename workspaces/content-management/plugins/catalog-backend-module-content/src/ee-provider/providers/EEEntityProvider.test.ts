@@ -121,6 +121,38 @@ describe('EEEntityProvider', () => {
       expect(lock.clearRegistration).toHaveBeenCalledTimes(1);
     });
 
+    it('removes only the locked namespace when entity names match', async () => {
+      await provider.connect(mockConnection);
+      initializeLock('registered');
+      const registrations = new Set([
+        'component:team-a/shared-ee',
+        'component:team-b/shared-ee',
+      ]);
+      const applyMutation = mockConnection.applyMutation as jest.Mock;
+      applyMutation.mockImplementation(async mutation => {
+        for (const removed of mutation.removed) {
+          registrations.delete(removed.entityRef);
+        }
+      });
+
+      await provider.withEntityMutation(
+        { entityRef: 'component:team-a/shared-ee' },
+        mutation => mutation.remove(),
+      );
+
+      expect(registrations).toEqual(new Set(['component:team-b/shared-ee']));
+      expect(applyMutation).toHaveBeenCalledWith({
+        type: 'delta',
+        added: [],
+        removed: [
+          {
+            entityRef: 'component:team-a/shared-ee',
+            locationKey: 'EEEntityProvider',
+          },
+        ],
+      });
+    });
+
     it('invalidates the mutation handle after its callback ends', async () => {
       await provider.connect(mockConnection);
       initializeLock();
@@ -265,10 +297,14 @@ describe('EEEntityProvider', () => {
       await provider.connect(mockConnection);
     });
 
-    it('should successfully unregister an execution environment by name', async () => {
-      await provider.unregisterExecutionEnvironment('test-ee');
+    it('should successfully unregister an execution environment by entity reference', async () => {
+      await provider.unregisterExecutionEnvironment(
+        'component:default/test-ee',
+      );
 
-      expect(logger.info).toHaveBeenCalledWith('Unregistering entity test-ee');
+      expect(logger.info).toHaveBeenCalledWith(
+        'Unregistering entity component:default/test-ee',
+      );
       expect(mockConnection.applyMutation).toHaveBeenCalledWith({
         type: 'delta',
         added: [],
@@ -281,15 +317,17 @@ describe('EEEntityProvider', () => {
       });
     });
 
-    it('should trim whitespace from the name', async () => {
-      await provider.unregisterExecutionEnvironment('  my-ee  ');
+    it('should trim whitespace from the entity reference', async () => {
+      await provider.unregisterExecutionEnvironment(
+        '  component:team-a/my-ee  ',
+      );
 
       expect(mockConnection.applyMutation).toHaveBeenCalledWith({
         type: 'delta',
         added: [],
         removed: [
           {
-            entityRef: 'component:default/my-ee',
+            entityRef: 'component:team-a/my-ee',
             locationKey: 'EEEntityProvider',
           },
         ],
@@ -300,22 +338,22 @@ describe('EEEntityProvider', () => {
       const unconnectedProvider = new EEEntityProvider(logger);
 
       await expect(
-        unconnectedProvider.unregisterExecutionEnvironment('test-ee'),
+        unconnectedProvider.unregisterExecutionEnvironment(
+          'component:default/test-ee',
+        ),
       ).rejects.toThrow('EEEntityProvider is not connected yet');
     });
 
-    it('should throw error when name is empty', async () => {
+    it('should throw error when entity reference is empty', async () => {
       await expect(provider.unregisterExecutionEnvironment('')).rejects.toThrow(
-        'Name is required for Execution Environment unregistration',
+        'Entity reference is required for unregistration',
       );
     });
 
-    it('should throw error when name is only whitespace', async () => {
+    it('should throw error when entity reference is only whitespace', async () => {
       await expect(
         provider.unregisterExecutionEnvironment('   '),
-      ).rejects.toThrow(
-        'Name is required for Execution Environment unregistration',
-      );
+      ).rejects.toThrow('Entity reference is required for unregistration');
     });
   });
 });

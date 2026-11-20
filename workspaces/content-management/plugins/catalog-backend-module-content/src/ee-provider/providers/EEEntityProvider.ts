@@ -80,10 +80,7 @@ export class EEEntityProvider implements EntityProvider, CatalogEntityProvider {
           assertLockHeld();
           await lock.beginMutation();
           assertLockHeld();
-          await this.unregisterExecutionEnvironment(
-            this.nameFromEntityRef(entityRef),
-            assertLockHeld,
-          );
+          await this.unregisterExecutionEnvironment(entityRef, assertLockHeld);
           assertLockHeld();
           await lock.clearRegistration();
         },
@@ -121,28 +118,22 @@ export class EEEntityProvider implements EntityProvider, CatalogEntityProvider {
   }
 
   async unregisterExecutionEnvironment(
-    name: string,
+    entityRef: string,
     assertLockHeld: () => void = () => undefined,
   ): Promise<void> {
-    const normalizedName = name.trim().toLowerCase();
-    if (!normalizedName) {
-      throw new Error(
-        'Name is required for Execution Environment unregistration',
-      );
+    const normalizedEntityRef = entityRef.trim();
+    if (!normalizedEntityRef) {
+      throw new Error('Entity reference is required for unregistration');
     }
     const connection = this.requireConnection();
     assertLockHeld();
-    this.logger.info(`Unregistering entity ${normalizedName}`);
+    this.logger.info(`Unregistering entity ${normalizedEntityRef}`);
     await connection.applyMutation({
       type: 'delta',
       added: [],
       removed: [
         {
-          entityRef: stringifyEntityRef({
-            kind: 'Component',
-            namespace: 'default',
-            name: normalizedName,
-          }),
+          entityRef: normalizedEntityRef,
           locationKey: this.getProviderName(),
         },
       ],
@@ -171,9 +162,5 @@ export class EEEntityProvider implements EntityProvider, CatalogEntityProvider {
       throw new Error('EEEntityProvider is not connected yet');
     }
     return this.connection;
-  }
-
-  private nameFromEntityRef(entityRef: string): string {
-    return entityRef.slice(entityRef.lastIndexOf('/') + 1);
   }
 }

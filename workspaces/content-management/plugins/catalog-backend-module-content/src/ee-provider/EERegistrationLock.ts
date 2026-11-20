@@ -81,7 +81,7 @@ export function createEERegistrationLock(
         ? { mutation_in_progress: true, registration_state: 'pending' }
         : { mutation_in_progress: true };
       const updated = await client(LOCK_TABLE)
-        .where({ entity_ref: entityRef, owner, mutation_in_progress: false })
+        .where({ entity_ref: entityRef, owner })
         .andWhere('lease_expires_at', '>', Date.now())
         .update(mutationState);
       if (Number(updated) !== 1) {
