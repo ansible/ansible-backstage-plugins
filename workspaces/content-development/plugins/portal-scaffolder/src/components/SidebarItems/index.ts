@@ -4,5 +4,4 @@ export {
   CollectionsSidebarItem,
   GitRepositoriesSidebarItem,
   TemplatesSidebarItem,
-  HistorySidebarItem,
 } from './SidebarItems';

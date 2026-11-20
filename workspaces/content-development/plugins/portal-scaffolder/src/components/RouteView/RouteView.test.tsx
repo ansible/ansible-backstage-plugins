@@ -12,12 +12,6 @@ jest.mock('../CatalogImport', () => ({
 jest.mock('../CreateTask', () => ({
   CreateTask: () => <div data-testid="create-task">CreateTask</div>,
 }));
-jest.mock('../RunTask', () => ({
-  RunTask: () => <div data-testid="run-task">RunTask</div>,
-}));
-jest.mock('../TaskList', () => ({
-  TaskList: () => <div data-testid="task-list">TaskList</div>,
-}));
 jest.mock('../CatalogItemDetails', () => ({
   CatalogItemsDetails: () => (
     <div data-testid="catalog-details">CatalogDetails</div>
@@ -72,11 +66,6 @@ jest.mock('@ansible/aap-common/permissions', () => ({
   templatesViewPermission: {
     type: 'basic',
     name: 'templates.view',
-    attributes: {},
-  },
-  historyViewPermission: {
-    type: 'basic',
-    name: 'history.view',
     attributes: {},
   },
 }));
@@ -158,26 +147,6 @@ describe('RouteView', () => {
     expect(screen.getByTestId('catalog-import')).toBeInTheDocument();
   });
 
-  it('renders TaskList route', () => {
-    render(
-      <MemoryRouter initialEntries={['/create/tasks']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByTestId('task-list')).toBeInTheDocument();
-  });
-
-  it('renders RunTask route', () => {
-    render(
-      <MemoryRouter initialEntries={['/create/tasks/123']}>
-        <RouteView />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByTestId('run-task')).toBeInTheDocument();
-  });
-
   it('renders CreateTask route', () => {
     render(
       <MemoryRouter initialEntries={['/create/templates/ns/template1']}>
@@ -199,16 +168,6 @@ describe('RouteView', () => {
         path: '/catalog/ns/my-template',
         childTestId: 'catalog-details',
         permissionName: 'templates.view',
-      },
-      {
-        path: '/create/tasks',
-        childTestId: 'task-list',
-        permissionName: 'history.view',
-      },
-      {
-        path: '/create/tasks/123',
-        childTestId: 'run-task',
-        permissionName: 'history.view',
       },
       {
         path: '/ee/catalog',
@@ -267,7 +226,6 @@ describe('RouteView', () => {
 
     it.each([
       { path: '/catalog', childTestId: 'home' },
-      { path: '/create/tasks', childTestId: 'task-list' },
       { path: '/ee/catalog', childTestId: 'ee-tabs' },
       { path: '/collections', childTestId: 'collections-catalog' },
       { path: '/repositories/catalog', childTestId: 'git-repositories' },
