@@ -1,11 +1,6 @@
 import { ConfigReader } from '@backstage/config';
 
 import {
-  CATALOG_PROVIDERS_AAP,
-  CATALOG_PROVIDERS_RHAAP,
-  runWithCatalogProvidersConfigRoot,
-} from '@ansible/backstage-rhaap-common/catalog';
-import {
   findMissingConfiguredOrganizations,
   getAnsibleConfig,
   getCatalogConfig,
@@ -65,7 +60,7 @@ describe('getCatalogConfig', () => {
     ]);
   });
 
-  it('uses the active provider organization list instead of the other root', () => {
+  it('prefers catalog.providers.aap when both roots are present', () => {
     const config = new ConfigReader({
       catalog: {
         providers: {
@@ -75,18 +70,19 @@ describe('getCatalogConfig', () => {
       },
     });
 
-    expect(
-      runWithCatalogProvidersConfigRoot(
-        CATALOG_PROVIDERS_RHAAP,
-        () => getCatalogConfig(config).organizations,
-      ),
-    ).toEqual(['engineering']);
-    expect(
-      runWithCatalogProvidersConfigRoot(
-        CATALOG_PROVIDERS_AAP,
-        () => getCatalogConfig(config).organizations,
-      ),
-    ).toEqual(['platform']);
+    expect(getCatalogConfig(config).organizations).toEqual(['platform']);
+  });
+
+  it('falls back to catalog.providers.rhaap when aap is unset', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          rhaap: { dev: { orgs: ['Engineering'] } },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config).organizations).toEqual(['engineering']);
   });
 });
 

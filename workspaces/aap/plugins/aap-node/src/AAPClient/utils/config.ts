@@ -2,7 +2,18 @@ import { Config } from '@backstage/config';
 import { ScmIntegrations } from '@backstage/integration';
 
 import { AnsibleConfig, CatalogConfig } from '@ansible/aap-common';
-import { getProviderScopedCatalogConfig } from '@ansible/backstage-rhaap-common/catalog';
+
+const CATALOG_PROVIDERS_AAP = 'catalog.providers.aap';
+const CATALOG_PROVIDERS_RHAAP = 'catalog.providers.rhaap';
+
+function resolveAapCatalogProvidersConfig(
+  rootConfig: Config,
+): Config | undefined {
+  return (
+    rootConfig.getOptionalConfig(CATALOG_PROVIDERS_AAP) ??
+    rootConfig.getOptionalConfig(CATALOG_PROVIDERS_RHAAP)
+  );
+}
 
 export function getAnsibleConfig(config: Config): AnsibleConfig {
   const integrations = ScmIntegrations.fromConfig(config);
@@ -68,7 +79,7 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
 }
 
 export function getCatalogConfig(rootConfig: Config): CatalogConfig {
-  const catalogRhaapConfig = getProviderScopedCatalogConfig(rootConfig);
+  const catalogRhaapConfig = resolveAapCatalogProvidersConfig(rootConfig);
   const catalogConfig: CatalogConfig = {
     organizations: [],
     surveyEnabled: undefined,
