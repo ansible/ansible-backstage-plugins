@@ -10,7 +10,6 @@ import {
   collectionsRouteRef,
   gitRepositoriesRouteRef,
   templatesRouteRef,
-  historyRouteRef,
 } from './routes';
 import { AAPApis, EEBuildApis } from './apis';
 
@@ -23,7 +22,6 @@ export const selfServicePlugin = createPlugin({
     collections: collectionsRouteRef,
     gitRepositories: gitRepositoriesRouteRef,
     templates: templatesRouteRef,
-    history: historyRouteRef,
   },
 });
 
@@ -107,21 +105,6 @@ export const TemplatesPage = selfServicePlugin.provide(
 );
 
 /**
- * History page component for mounting at /self-service/create/tasks
- * Contains routing for the History (task list and task detail) section.
- *
- * @public
- */
-export const HistoryPage = selfServicePlugin.provide(
-  createRoutableExtension({
-    name: 'HistoryPage',
-    component: () =>
-      import('./components/TaskList').then(m => m.HistoryRoutesPage),
-    mountPoint: historyRouteRef,
-  }),
-);
-
-/**
  * A sidebar item that checks EE Builder permissions before rendering.
  * Returns null if the user doesn't have permission, hiding the sidebar entry.
  *
@@ -200,22 +183,6 @@ export const TemplatesSidebarItem = selfServicePlugin.provide(
     component: {
       lazy: () =>
         import('./components/SidebarItems').then(m => m.TemplatesSidebarItem),
-    },
-  }),
-);
-
-/**
- * A sidebar item that checks History permissions before rendering.
- * Returns null if the user doesn't have permission, hiding the sidebar entry.
- *
- * @public
- */
-export const HistorySidebarItem = selfServicePlugin.provide(
-  createComponentExtension({
-    name: 'HistorySidebarItem',
-    component: {
-      lazy: () =>
-        import('./components/SidebarItems').then(m => m.HistorySidebarItem),
     },
   }),
 );
