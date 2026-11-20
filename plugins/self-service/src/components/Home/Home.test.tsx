@@ -1,4 +1,10 @@
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -17,6 +23,15 @@ import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
 import { mockAnsibleApi } from '../../tests/mockAnsibleApi';
+import { invalidateTemplatesCatalog } from './templatesCatalog/invalidation';
+
+jest.mock('./templatesCatalog/invalidation', () => {
+  const actual = jest.requireActual('./templatesCatalog/invalidation');
+  return {
+    ...actual,
+    invalidateTemplatesCatalog: jest.fn(actual.invalidateTemplatesCatalog),
+  };
+});
 
 const mockUseIsSuperuser = jest.fn(() => ({
   isSuperuser: true,
@@ -477,6 +492,30 @@ describe('self-service', () => {
       fireEvent.click(screen.getByText('Ok'));
     };
 
+    /** Home + SoftRefresh defer catalog invalidation via setTimeout(0). */
+    const flushDeferredMacrotasks = async (turns = 25) => {
+      for (let i = 0; i < turns; i += 1) {
+        await act(async () => {
+          await new Promise<void>(resolve => {
+            setTimeout(resolve, 0);
+          });
+        });
+      }
+    };
+
+    /** Past CATALOG_SETTLE_MS invalidation on first JT load (see Home.tsx). */
+    const waitForCatalogSettle = async () => {
+      await waitFor(() => {
+        expect(mockCatalogApi.queryEntities).toHaveBeenCalled();
+      });
+      await act(async () => {
+        await new Promise<void>(resolve => {
+          setTimeout(resolve, 900);
+        });
+      });
+      await flushDeferredMacrotasks();
+    };
+
     it('should fetch job templates on mount', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
@@ -690,12 +729,13 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-        ],
-      });
+      let jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ];
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockImplementation(
+        async () => ({ items: jobTemplateItems }),
+      );
 
       await render(<HomeComponent />);
 
@@ -703,38 +743,47 @@ describe('self-service', () => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
+      await waitForCatalogSettle();
+
+      const invalidateMock = invalidateTemplatesCatalog as jest.Mock;
       const facetCallsBeforeSync =
         mockCatalogApi.getEntityFacets.mock.calls.length;
-      const queryCallsBeforeSync =
-        mockCatalogApi.queryEntities.mock.calls.length;
+      const invalidateCallsBeforeSync = invalidateMock.mock.calls.length;
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Renamed Template' },
-        ],
-      });
+      jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Renamed Template' },
+      ];
 
       await triggerTemplateSync();
 
-      await waitFor(() => {
-        expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
+      await waitFor(
+        () => {
+          expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 4000 },
+      );
 
-      // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
-      });
-    });
+      await flushDeferredMacrotasks();
+
+      // Same JT ids — facets (syncKey) + deferred catalog invalidation after sync.
+      await waitFor(
+        () => {
+          expect(
+            mockCatalogApi.getEntityFacets.mock.calls.length,
+          ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(invalidateMock.mock.calls.length).toBeGreaterThan(
+            invalidateCallsBeforeSync,
+          );
+        },
+        { timeout: 4000 },
+      );
+
+      const items = await lastFetchedJobTemplates();
+      expect(items?.map(t => t.id)).toEqual([1, 2]);
+      expect(items?.[1]?.name).toBe('Renamed Template');
+    }, 25_000);
   });
 
   describe('HomeTagPicker', () => {

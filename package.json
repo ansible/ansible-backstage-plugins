@@ -99,6 +99,7 @@
     "node-forge": "^1.4.0",
     "@backstage/cli-module-build": "^0.1.4",
     "flatted": "^3.4.2",
+    "webpack-dev-middleware": "^7.4.6",
     "webpack-dev-server": "^5.2.5",
     "launch-editor": "^2.14.1",
     "linkify-it": "^5.0.1",
