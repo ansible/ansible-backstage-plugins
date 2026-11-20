@@ -58,7 +58,8 @@ export class ComplianceService {
     const ansibleConfig = config.getOptionalConfig('ansible');
     const baseUrl = ansibleConfig?.getOptionalString('rhaap.baseUrl') ?? '';
     const token = ansibleConfig?.getOptionalString('rhaap.token') ?? '';
-    const checkSSL = ansibleConfig?.getOptionalBoolean('rhaap.checkSSL') ?? true;
+    const checkSSL =
+      ansibleConfig?.getOptionalBoolean('rhaap.checkSSL') ?? true;
 
     if (!baseUrl || !token) {
       throw new Error(
@@ -98,7 +99,9 @@ export class ComplianceService {
 
   // ─── Inventories ────────────────────────────────────────────────────
 
-  async getInventories(token?: string): Promise<Array<{ id: number; name: string; hostCount: number }>> {
+  async getInventories(
+    token?: string,
+  ): Promise<Array<{ id: number; name: string; hostCount: number }>> {
     const result = await this.controllerClient.listInventories(token);
     return result.results.map(inv => ({
       id: inv.id,
@@ -110,7 +113,14 @@ export class ComplianceService {
   async getInventoryHostFacts(
     inventoryId: number,
     token?: string,
-  ): Promise<Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string; device_type?: string }>> {
+  ): Promise<
+    Array<{
+      hostname: string;
+      ansible_os_family?: string;
+      ansible_distribution_major_version?: string;
+      device_type?: string;
+    }>
+  > {
     return this.controllerClient.getInventoryHostFacts(inventoryId, token);
   }
 
@@ -120,7 +130,10 @@ export class ComplianceService {
     nameFilter?: string,
     token?: string,
   ): Promise<Array<{ id: number; name: string; description: string }>> {
-    const result = await this.controllerClient.listWorkflowJobTemplates(nameFilter, token);
+    const result = await this.controllerClient.listWorkflowJobTemplates(
+      nameFilter,
+      token,
+    );
     return result.results;
   }
 
@@ -128,7 +141,10 @@ export class ComplianceService {
     nameFilter?: string,
     token?: string,
   ): Promise<Array<{ id: number; name: string; description: string }>> {
-    const result = await this.controllerClient.listJobTemplates(nameFilter, token);
+    const result = await this.controllerClient.listJobTemplates(
+      nameFilter,
+      token,
+    );
     return result.results;
   }
 
@@ -137,21 +153,40 @@ export class ComplianceService {
   async getJobTemplateDetail(
     id: number,
     token?: string,
-  ): Promise<{ id: number; name: string; description: string; extra_vars: string; execution_environment: number | null }> {
+  ): Promise<{
+    id: number;
+    name: string;
+    description: string;
+    extra_vars: string;
+    execution_environment: number | null;
+  }> {
     const raw = await this.controllerClient.getJobTemplateDetail(id, token);
-    return { id: raw.id, name: raw.name, description: raw.description, extra_vars: raw.extra_vars, execution_environment: raw.execution_environment ?? null };
+    return {
+      id: raw.id,
+      name: raw.name,
+      description: raw.description,
+      extra_vars: raw.extra_vars,
+      execution_environment: raw.execution_environment ?? null,
+    };
   }
 
   // ─── Execution environments ─────────────────────────────────────────
 
-  async getExecutionEnvironments(token?: string): Promise<Array<{ id: number; name: string; image: string }>> {
+  async getExecutionEnvironments(
+    token?: string,
+  ): Promise<Array<{ id: number; name: string; image: string }>> {
     const result = await this.controllerClient.listExecutionEnvironments(token);
     return result.results;
   }
 
   // ─── Scan ───────────────────────────────────────────────────────────
 
-  async launchScan(request: LaunchScanRequest, token?: string, scanId?: string, ingestToken?: string): Promise<LaunchScanResponse> {
+  async launchScan(
+    request: LaunchScanRequest,
+    token?: string,
+    scanId?: string,
+    ingestToken?: string,
+  ): Promise<LaunchScanResponse> {
     // ── Resolve the workflow template ID ──────────────────────────────
     const resolvedTemplateId = await this.resolveWorkflowTemplateId(
       request.profileId,
@@ -162,9 +197,12 @@ export class ComplianceService {
     // ── Build extra_vars for the workflow launch ─────────────────────
     // backstage_api_url and scan_id enable the playbook to POST findings
     // directly to the plugin API after normalization (Direct POST pattern).
-    const backstageUrl = this.config?.getOptionalString('backend.baseUrl') || '';
-    const pahRegistry = this.config?.getOptionalString('ansible.compliance.pahRegistry')
-      || process.env.AAP_HOST_URL?.replace(/^https?:\/\//, '') || '';
+    const backstageUrl =
+      this.config?.getOptionalString('backend.baseUrl') || '';
+    const pahRegistry =
+      this.config?.getOptionalString('ansible.compliance.pahRegistry') ||
+      process.env.AAP_HOST_URL?.replace(/^https?:\/\//, '') ||
+      '';
     const extraVars: Record<string, unknown> = {
       compliance_profile: request.profileId,
       inventory_id: request.inventoryId,
@@ -179,8 +217,9 @@ export class ComplianceService {
 
     // ── Launch the workflow ──────────────────────────────────────────
     this.logger.info(
-      `Launching workflow template ${resolvedTemplateId} for profile=${request.profileId} inventory=${request.inventoryId}${ 
-      request.limit ? ` limit=${request.limit}` : ''}`,
+      `Launching workflow template ${resolvedTemplateId} for profile=${request.profileId} inventory=${request.inventoryId}${
+        request.limit ? ` limit=${request.limit}` : ''
+      }`,
     );
 
     let launch: { id: number; workflow_job?: number; status: string };
@@ -195,9 +234,12 @@ export class ComplianceService {
       );
     } catch (wftError) {
       // Fallback: template might be a JT, not a WJT
-      const is404 = wftError instanceof Error && wftError.message.includes('404');
+      const is404 =
+        wftError instanceof Error && wftError.message.includes('404');
       if (!is404) throw wftError;
-      this.logger.info(`Template ${resolvedTemplateId} is not a WJT, trying as JT`);
+      this.logger.info(
+        `Template ${resolvedTemplateId} is not a WJT, trying as JT`,
+      );
       const jtLaunch = await this.controllerClient.launchJobTemplate(
         resolvedTemplateId,
         extraVars,
@@ -258,15 +300,19 @@ export class ComplianceService {
     this.logger.info(
       `No workflow template configured for profile=${profileId} — searching Controller by name`,
     );
-    const templates = await this.controllerClient.listWorkflowJobTemplates('compliance', token);
-    const template = templates.results.find(t =>
-      t.name.toLowerCase().includes(profileId.replace(/-/g, '_')),
-    ) ?? templates.results[0];
+    const templates = await this.controllerClient.listWorkflowJobTemplates(
+      'compliance',
+      token,
+    );
+    const template =
+      templates.results.find(t =>
+        t.name.toLowerCase().includes(profileId.replace(/-/g, '_')),
+      ) ?? templates.results[0];
 
     if (!template) {
       throw new Error(
         `No compliance workflow job template found for profile ${profileId}. ` +
-        `Register one in the profile registry or provide workflowTemplateId in the scan request.`,
+          `Register one in the profile registry or provide workflowTemplateId in the scan request.`,
       );
     }
 
@@ -293,18 +339,27 @@ export class ComplianceService {
     if (this.database) {
       const profile = await this.database.getProfile(profileId);
       if (profile?.remediateJtId) {
-        this.logger.info(`Resolved remediate JT ${profile.remediateJtId} from profile registry`);
+        this.logger.info(
+          `Resolved remediate JT ${profile.remediateJtId} from profile registry`,
+        );
         return profile.remediateJtId;
       }
     }
 
-    const result = await this.controllerClient.listJobTemplates('compliance-remediate', token);
+    const result = await this.controllerClient.listJobTemplates(
+      'compliance-remediate',
+      token,
+    );
     if (result.results.length > 0) {
-      this.logger.warn(`Profile has no remediateJtId set — falling back to name search. This may pick the wrong JT in multi-profile deployments. Resolved remediate JT ${result.results[0].id}`);
+      this.logger.warn(
+        `Profile has no remediateJtId set — falling back to name search. This may pick the wrong JT in multi-profile deployments. Resolved remediate JT ${result.results[0].id}`,
+      );
       return result.results[0].id;
     }
 
-    throw new Error('No compliance remediate job template found. Set the Remediate Job Template on the profile, or ensure a JT named "compliance-remediate" exists.');
+    throw new Error(
+      'No compliance remediate job template found. Set the Remediate Job Template on the profile, or ensure a JT named "compliance-remediate" exists.',
+    );
   }
 
   // ─── Remediation ────────────────────────────────────────────────────
@@ -331,7 +386,7 @@ export class ComplianceService {
       const enabledCount = request.selections.filter(s => s.enabled).length;
       throw new Error(
         `No failing hosts found for the ${enabledCount} selected rule(s). ` +
-        `Run a new scan for this profile before launching remediation.`,
+          `Run a new scan for this profile before launching remediation.`,
       );
     }
 
@@ -345,8 +400,8 @@ export class ComplianceService {
 
       this.logger.info(
         `Launching remediate JT ${resolvedJtId} group ${launches.length + 1}/${plan.groups.length}` +
-        ` (${group.ruleCount} rules, ${group.hostCount} hosts)` +
-        ` limit=${limit} job_tags=${jobTags}`,
+          ` (${group.ruleCount} rules, ${group.hostCount} hosts)` +
+          ` limit=${limit} job_tags=${jobTags}`,
       );
 
       const launch = await this.controllerClient.launchJobTemplate(
@@ -381,11 +436,19 @@ export class ComplianceService {
 
   // ─── Findings (delegated to FindingsParser) ─────────────────────────
 
-  async getFindings(scanId?: string, profileId?: string, inventoryId?: number): Promise<MultiHostFinding[]> {
+  async getFindings(
+    scanId?: string,
+    profileId?: string,
+    inventoryId?: number,
+  ): Promise<MultiHostFinding[]> {
     if (!scanId) {
       if (this.database) {
-        const latest = await this.database.getLatestFindings(profileId, inventoryId);
-        if (latest.length > 0) return this.findingsParser.aggregateFindingsWithMetadata(latest);
+        const latest = await this.database.getLatestFindings(
+          profileId,
+          inventoryId,
+        );
+        if (latest.length > 0)
+          return this.findingsParser.aggregateFindingsWithMetadata(latest);
       }
       return [];
     }
@@ -420,7 +483,9 @@ export class ComplianceService {
     token?: string,
   ): Promise<Array<Omit<StoredFinding, 'id'>>> {
     if (!this.controllerClient) {
-      throw new Error('Cannot fetch results in mock mode — no Controller client');
+      throw new Error(
+        'Cannot fetch results — Controller client not configured',
+      );
     }
 
     // Check if findings were already saved by Direct POST from the playbook.
@@ -470,7 +535,9 @@ export class ComplianceService {
         );
       }
     } catch {
-      this.logger.info(`Job ${workflowJobId} is not a workflow — using as direct JT for event parsing`);
+      this.logger.info(
+        `Job ${workflowJobId} is not a workflow — using as direct JT for event parsing`,
+      );
     }
 
     // Step 2: Fetch runner_on_ok events from the normalize job
@@ -506,30 +573,44 @@ export class ComplianceService {
         try {
           const allRawFindings: Array<Record<string, unknown>> = [];
           for (const event of events) {
-            const res = (event.event_data as Record<string, unknown>)?.res as Record<string, unknown> | undefined;
+            const res = (event.event_data as Record<string, unknown>)?.res as
+              | Record<string, unknown>
+              | undefined;
             if (!res) continue;
-            const factsSource = (res.ansible_facts as Record<string, unknown>) ?? {};
+            const factsSource =
+              (res.ansible_facts as Record<string, unknown>) ?? {};
             const rawFindings: Array<Record<string, unknown>> | undefined =
               (res.findings as Array<Record<string, unknown>>) ??
               (factsSource.findings as Array<Record<string, unknown>>) ??
-              ((factsSource.compliance_results as Record<string, unknown>)?.findings as Array<Record<string, unknown>>) ??
-              ((factsSource.compliance_report as Record<string, unknown>)?.findings as Array<Record<string, unknown>>);
+              ((factsSource.compliance_results as Record<string, unknown>)
+                ?.findings as Array<Record<string, unknown>>) ??
+              ((factsSource.compliance_report as Record<string, unknown>)
+                ?.findings as Array<Record<string, unknown>>);
             if (rawFindings && Array.isArray(rawFindings)) {
               allRawFindings.push(...rawFindings);
             }
           }
-          const hasFullMetadata = allRawFindings.some(f =>
-            (typeof f.fix_text === 'string' && f.fix_text.length > 0) ||
-            (typeof f.description === 'string' && f.description.length > 0));
+          const hasFullMetadata = allRawFindings.some(
+            f =>
+              (typeof f.fix_text === 'string' && f.fix_text.length > 0) ||
+              (typeof f.description === 'string' && f.description.length > 0),
+          );
           if (allRawFindings.length > 0 && hasFullMetadata) {
             const metadataRecords = buildRuleMetadataRecords(allRawFindings);
-            const metaCount = await this.database.upsertRuleMetadata(metadataRecords);
-            this.logger.info(`Upserted ${metaCount} rule metadata records from event parsing`);
+            const metaCount =
+              await this.database.upsertRuleMetadata(metadataRecords);
+            this.logger.info(
+              `Upserted ${metaCount} rule metadata records from event parsing`,
+            );
           } else if (allRawFindings.length > 0) {
-            this.logger.info('Skipped metadata upsert — event findings are slim format (no fix_text/description)');
+            this.logger.info(
+              'Skipped metadata upsert — event findings are slim format (no fix_text/description)',
+            );
           }
         } catch (metaErr) {
-          this.logger.warn(`Rule metadata upsert from events failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`);
+          this.logger.warn(
+            `Rule metadata upsert from events failed (non-fatal): ${metaErr instanceof Error ? metaErr.message : String(metaErr)}`,
+          );
         }
       } catch (persistError) {
         this.logger.warn(
@@ -624,7 +705,10 @@ export class ComplianceService {
 
       // Step 2: No traceback — extract error from job events (failed tasks / unreachable hosts)
       const targetJobId = childJobId ?? workflowJobId;
-      const failureEvents = await this.controllerClient.getJobFailureEvents(targetJobId, token);
+      const failureEvents = await this.controllerClient.getJobFailureEvents(
+        targetJobId,
+        token,
+      );
       if (failureEvents.results.length > 0) {
         const lines: string[] = [];
         for (const ev of failureEvents.results.slice(0, 10)) {
@@ -648,9 +732,14 @@ export class ComplianceService {
       // Step 3: No traceback, no events — fetch stdout as last resort
       // (catches Ansible parse errors that fail before the play starts)
       try {
-        const stdout = await this.controllerClient.getJobStdout(targetJobId, token);
+        const stdout = await this.controllerClient.getJobStdout(
+          targetJobId,
+          token,
+        );
         if (stdout.content) {
-          this.logger.info(`Fetched stdout for job ${targetJobId} as error detail`);
+          this.logger.info(
+            `Fetched stdout for job ${targetJobId} as error detail`,
+          );
           return stdout.content.slice(0, 2000);
         }
       } catch {
@@ -668,11 +757,18 @@ export class ComplianceService {
 
   // ─── Dashboard (delegated to DashboardAggregator) ──────────────────
 
-  async getBaselineScoresForProfile(
-    remediationProfileId: string,
-  ): Promise<Array<{ inventoryId: number; passRate: number; passCount: number; failCount: number }>> {
+  async getBaselineScoresForProfile(remediationProfileId: string): Promise<
+    Array<{
+      inventoryId: number;
+      passRate: number;
+      passCount: number;
+      failCount: number;
+    }>
+  > {
     if (!this.database || !this.dashboardAggregator) return [];
-    return this.dashboardAggregator.getBaselineScoresForProfile(remediationProfileId);
+    return this.dashboardAggregator.getBaselineScoresForProfile(
+      remediationProfileId,
+    );
   }
 
   /**
@@ -691,54 +787,74 @@ export class ComplianceService {
     try {
       const capped = allJobIds.slice(0, 20);
 
-      const perJobLines = await Promise.all(capped.map(async (jobId): Promise<string[]> => {
-        try {
-          const jobStatus = await this.controllerClient.getJobStatus(jobId, token);
-          if (jobStatus.result_traceback) {
-            return [jobStatus.result_traceback];
-          }
-
-          if (!jobStatus.failed) return [];
-
-          const failureEvents = await this.controllerClient.getJobFailureEvents(jobId, token);
-          if (failureEvents.results.length > 0) {
-            const eventLines: string[] = [];
-            for (const ev of failureEvents.results.slice(0, 10)) {
-              const data = ev.event_data as Record<string, unknown> | undefined;
-              const res = data?.res as Record<string, unknown> | undefined;
-              const host = (data?.host as string) ?? 'unknown';
-              const task = (data?.task as string) ?? 'unknown';
-              const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
-              eventLines.push(`${host}: [${task}] ${msg}`);
-            }
-            if (failureEvents.count > 10) {
-              eventLines.push(`... and ${failureEvents.count - 10} more failure events in job ${jobId}`);
-            }
-            return eventLines;
-          } else if (jobStatus.job_explanation) {
-            return [`Job ${jobId}: ${jobStatus.job_explanation}`];
-          }
-          // Fallback: extract error lines from stdout (e.g. pre-runner failures)
+      const perJobLines = await Promise.all(
+        capped.map(async (jobId): Promise<string[]> => {
           try {
-            const stdout = await this.controllerClient.getJobStdout(jobId, token);
-            if (stdout.content) {
-              const errorLines = stdout.content.split('\n')
-                .filter((l: string) => /ERROR|FATAL|fatal:|FAILED|Could not match|no hosts to target/i.test(l))
-                // Strip ANSI color escape codes from Ansible job output.
-                // eslint-disable-next-line no-control-regex
-                .map((l: string) => l.replace(/\x1b\[[0-9;]*m/g, '').trim())
-                .filter(Boolean)
-                .slice(0, 5);
-              if (errorLines.length > 0) {
-                return [`Job ${jobId}:`, ...errorLines];
-              }
+            const jobStatus = await this.controllerClient.getJobStatus(
+              jobId,
+              token,
+            );
+            if (jobStatus.result_traceback) {
+              return [jobStatus.result_traceback];
             }
-          } catch { /* stdout not available */ }
-          return [];
-        } catch {
-          return [`Unable to fetch details for job ${jobId}`];
-        }
-      }));
+
+            if (!jobStatus.failed) return [];
+
+            const failureEvents =
+              await this.controllerClient.getJobFailureEvents(jobId, token);
+            if (failureEvents.results.length > 0) {
+              const eventLines: string[] = [];
+              for (const ev of failureEvents.results.slice(0, 10)) {
+                const data = ev.event_data as
+                  | Record<string, unknown>
+                  | undefined;
+                const res = data?.res as Record<string, unknown> | undefined;
+                const host = (data?.host as string) ?? 'unknown';
+                const task = (data?.task as string) ?? 'unknown';
+                const msg = (res?.msg as string) ?? ev.event ?? 'unknown error';
+                eventLines.push(`${host}: [${task}] ${msg}`);
+              }
+              if (failureEvents.count > 10) {
+                eventLines.push(
+                  `... and ${failureEvents.count - 10} more failure events in job ${jobId}`,
+                );
+              }
+              return eventLines;
+            } else if (jobStatus.job_explanation) {
+              return [`Job ${jobId}: ${jobStatus.job_explanation}`];
+            }
+            // Fallback: extract error lines from stdout (e.g. pre-runner failures)
+            try {
+              const stdout = await this.controllerClient.getJobStdout(
+                jobId,
+                token,
+              );
+              if (stdout.content) {
+                const errorLines = stdout.content
+                  .split('\n')
+                  .filter((l: string) =>
+                    /ERROR|FATAL|fatal:|FAILED|Could not match|no hosts to target/i.test(
+                      l,
+                    ),
+                  )
+                  // Strip ANSI color escape codes from Ansible job output.
+                  // eslint-disable-next-line no-control-regex
+                  .map((l: string) => l.replace(/\x1b\[[0-9;]*m/g, '').trim())
+                  .filter(Boolean)
+                  .slice(0, 5);
+                if (errorLines.length > 0) {
+                  return [`Job ${jobId}:`, ...errorLines];
+                }
+              }
+            } catch {
+              /* stdout not available */
+            }
+            return [];
+          } catch {
+            return [`Unable to fetch details for job ${jobId}`];
+          }
+        }),
+      );
 
       const lines = perJobLines.flat();
       if (lines.length === 0) return null;
@@ -759,15 +875,24 @@ export class ComplianceService {
 
   // ─── Workflow status (for polling) ──────────────────────────────────
 
-  async getWorkflowJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {
+  async getWorkflowJobStatus(
+    jobId: number,
+    token?: string,
+  ): Promise<WorkflowJobStatus> {
     return this.controllerClient.getWorkflowJobStatus(jobId, token);
   }
 
-  async getInventoryHostnames(inventoryId: number, token?: string): Promise<string[]> {
+  async getInventoryHostnames(
+    inventoryId: number,
+    token?: string,
+  ): Promise<string[]> {
     return this.controllerClient.getInventoryHostnames(inventoryId, token);
   }
 
-  async getJobStatus(jobId: number, token?: string): Promise<WorkflowJobStatus> {
+  async getJobStatus(
+    jobId: number,
+    token?: string,
+  ): Promise<WorkflowJobStatus> {
     const result = await this.controllerClient.getJobStatus(jobId, token);
     return {
       id: result.id,
@@ -799,7 +924,10 @@ export class ComplianceService {
     selections: RemediationSelection[],
     findings: MultiHostFinding[],
   ): RemediationPlan {
-    return this.remediationPlanBuilder.buildRemediationPlan(selections, findings);
+    return this.remediationPlanBuilder.buildRemediationPlan(
+      selections,
+      findings,
+    );
   }
 
   // ─── Dashboard (delegated to DashboardAggregator) ──────────────────
@@ -829,7 +957,11 @@ export class ComplianceService {
     inventoryId?: number,
   ): Promise<PostureSnapshot[]> {
     if (this.database) {
-      const snapshots = await this.database.getPostureHistory(profileId, days, inventoryId);
+      const snapshots = await this.database.getPostureHistory(
+        profileId,
+        days,
+        inventoryId,
+      );
       if (snapshots.length > 0) return snapshots;
     }
     return [];
@@ -847,25 +979,40 @@ export class ComplianceService {
 
     let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
     if (!scan) {
-      const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
+      const fallback = await this.database.getLatestCompletedScan(
+        profileId,
+        inventoryId,
+      );
       if (!fallback) {
-        return { hosts: [], scanId: '', scanTimestamp: '', scanType: 'assessment', profileId, inventoryId };
+        return {
+          hosts: [],
+          scanId: '',
+          scanTimestamp: '',
+          scanType: 'assessment',
+          profileId,
+          inventoryId,
+        };
       }
       scan = fallback;
     }
 
     let hosts: import('@ansible/compliance-common').HostPosture[];
     if (options?.baselineView) {
-      const targets = await this.database.getBaselineTargetsForProfile(profileId);
+      const targets =
+        await this.database.getBaselineTargetsForProfile(profileId);
       const target = targets.find(t => t.inventoryId === inventoryId);
       if (target) {
-        const remProfile = await this.database.getRemediationProfile(target.remediationProfileId);
-        const ruleIds = remProfile?.selections
-          .filter((s: any) => s.enabled !== false)
-          .map((s: any) => s.ruleId) ?? [];
-        hosts = ruleIds.length > 0
-          ? await this.database.getHostPostureBaseline(scan.id, ruleIds)
-          : await this.database.getHostPosture(scan.id);
+        const remProfile = await this.database.getRemediationProfile(
+          target.remediationProfileId,
+        );
+        const ruleIds =
+          remProfile?.selections
+            .filter((s: any) => s.enabled !== false)
+            .map((s: any) => s.ruleId) ?? [];
+        hosts =
+          ruleIds.length > 0
+            ? await this.database.getHostPostureBaseline(scan.id, ruleIds)
+            : await this.database.getHostPosture(scan.id);
       } else {
         hosts = await this.database.getHostPosture(scan.id);
       }
@@ -873,17 +1020,26 @@ export class ComplianceService {
       hosts = await this.database.getHostPosture(scan.id);
     }
 
-    let hostFacts: Array<{ hostname: string; ansible_os_family?: string; ansible_distribution_major_version?: string }> = [];
+    let hostFacts: Array<{
+      hostname: string;
+      ansible_os_family?: string;
+      ansible_distribution_major_version?: string;
+    }> = [];
     try {
       const token = req?.headers?.['x-aap-token'] as string | undefined;
       hostFacts = await this.getInventoryHostFacts(inventoryId, token);
-    } catch { /* Controller unavailable — proceed without OS data */ }
+    } catch {
+      /* Controller unavailable — proceed without OS data */
+    }
 
     const factsMap = new Map(hostFacts.map(f => [f.hostname, f]));
     for (const host of hosts) {
       const facts = factsMap.get(host.hostname);
       if (facts) {
-        host.os = [facts.ansible_os_family, facts.ansible_distribution_major_version].filter(Boolean).join(' ') || undefined;
+        host.os =
+          [facts.ansible_os_family, facts.ansible_distribution_major_version]
+            .filter(Boolean)
+            .join(' ') || undefined;
       }
     }
 
@@ -909,15 +1065,28 @@ export class ComplianceService {
 
     let scan = await this.database.getAuthoritativeScan(profileId, inventoryId);
     if (!scan) {
-      const fallback = await this.database.getLatestCompletedScan(profileId, inventoryId);
+      const fallback = await this.database.getLatestCompletedScan(
+        profileId,
+        inventoryId,
+      );
       if (!fallback) {
         return { hostname, scanId: '', profileId, findings: [], totalCount: 0 };
       }
       scan = fallback;
     }
 
-    const findings = await this.database.getHostFindings(scan.id, hostname, limit);
-    return { hostname, scanId: scan.id, profileId, findings, totalCount: findings.length };
+    const findings = await this.database.getHostFindings(
+      scan.id,
+      hostname,
+      limit,
+    );
+    return {
+      hostname,
+      scanId: scan.id,
+      profileId,
+      findings,
+      totalCount: findings.length,
+    };
   }
 
   async getRemediationEventsForTrend(
@@ -927,12 +1096,17 @@ export class ComplianceService {
     if (!this.database) return [];
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
-    return this.database.getExecutionsInTimeRange(cutoff.toISOString(), inventoryId);
+    return this.database.getExecutionsInTimeRange(
+      cutoff.toISOString(),
+      inventoryId,
+    );
   }
 
   // ─── Remediations (saved rule selections) ──────────────────────────
 
-  async getRemediationProfiles(statusFilter?: 'draft' | 'saved' | 'archived' | 'all'): Promise<RemediationProfile[]> {
+  async getRemediationProfiles(
+    statusFilter?: 'draft' | 'saved' | 'archived' | 'all',
+  ): Promise<RemediationProfile[]> {
     if (this.database) {
       return this.database.listRemediationProfiles(statusFilter);
     }

@@ -6,4 +6,3 @@ dynamicPlugins:
         ansible:
           compliance:
             enabled: true
-            authMode: development

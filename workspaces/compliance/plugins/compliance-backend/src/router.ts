@@ -39,7 +39,7 @@ export interface RouterOptions {
   /**
    * The host's operation registry (`@ansible/portal-plugin-node`). See
    * `routes/types.ts`'s `RouterDependencies.operations` doc comment — like
-   * `httpAuth`/`permissions` above, omitted in `development` auth mode.
+   * `httpAuth`/`permissions` above (omitted only in isolated unit tests).
    */
   operations?: PortalOperations;
   /**

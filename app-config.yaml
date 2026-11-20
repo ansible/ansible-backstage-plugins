@@ -296,7 +296,6 @@ ansible:
     enabled: false
   compliance:
     enabled: true
-    authMode: production
     retentionDays: 90
     ingestTokenTtlMinutes: 60
 kubernetes: null
