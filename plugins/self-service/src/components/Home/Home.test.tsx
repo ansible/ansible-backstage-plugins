@@ -23,6 +23,15 @@ import { rootRouteRef } from '../../routes';
 import { ansibleApiRef } from '../../apis';
 import { mockCatalogApi } from '../../tests/catalogApi_utils';
 import { mockAnsibleApi } from '../../tests/mockAnsibleApi';
+import { invalidateTemplatesCatalog } from './templatesCatalog/invalidation';
+
+jest.mock('./templatesCatalog/invalidation', () => {
+  const actual = jest.requireActual('./templatesCatalog/invalidation');
+  return {
+    ...actual,
+    invalidateTemplatesCatalog: jest.fn(actual.invalidateTemplatesCatalog),
+  };
+});
 
 const mockUseIsSuperuser = jest.fn(() => ({
   isSuperuser: true,
@@ -494,6 +503,19 @@ describe('self-service', () => {
       }
     };
 
+    /** Past CATALOG_SETTLE_MS invalidation on first JT load (see Home.tsx). */
+    const waitForCatalogSettle = async () => {
+      await waitFor(() => {
+        expect(mockCatalogApi.queryEntities).toHaveBeenCalled();
+      });
+      await act(async () => {
+        await new Promise<void>(resolve => {
+          setTimeout(resolve, 900);
+        });
+      });
+      await flushDeferredMacrotasks();
+    };
+
     it('should fetch job templates on mount', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
@@ -721,10 +743,12 @@ describe('self-service', () => {
         expect(screen.getByText('Sync Now')).toBeInTheDocument();
       });
 
+      await waitForCatalogSettle();
+
+      const invalidateMock = invalidateTemplatesCatalog as jest.Mock;
       const facetCallsBeforeSync =
         mockCatalogApi.getEntityFacets.mock.calls.length;
-      const queryCallsBeforeSync =
-        mockCatalogApi.queryEntities.mock.calls.length;
+      const invalidateCallsBeforeSync = invalidateMock.mock.calls.length;
 
       jobTemplateItems = [
         { id: 1, name: 'Template 1' },
@@ -743,29 +767,23 @@ describe('self-service', () => {
 
       await flushDeferredMacrotasks();
 
-      // Same JT ids — facets (syncKey) + catalog soft refresh still re-query.
+      // Same JT ids — facets (syncKey) + deferred catalog invalidation after sync.
       await waitFor(
         () => {
           expect(
             mockCatalogApi.getEntityFacets.mock.calls.length,
           ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(invalidateMock.mock.calls.length).toBeGreaterThan(
+            invalidateCallsBeforeSync,
+          );
         },
         { timeout: 4000 },
-      );
-
-      await waitFor(
-        () => {
-          expect(
-            mockCatalogApi.queryEntities.mock.calls.length,
-          ).toBeGreaterThan(queryCallsBeforeSync);
-        },
-        { timeout: 15000 },
       );
 
       const items = await lastFetchedJobTemplates();
       expect(items?.map(t => t.id)).toEqual([1, 2]);
       expect(items?.[1]?.name).toBe('Renamed Template');
-    });
+    }, 25_000);
   });
 
   describe('HomeTagPicker', () => {
