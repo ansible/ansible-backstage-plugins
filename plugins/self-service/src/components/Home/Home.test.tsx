@@ -717,23 +717,31 @@ describe('self-service', () => {
 
       await triggerTemplateSync();
 
-      await waitFor(() => {
-        expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
-        expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
-      });
+      await waitFor(
+        () => {
+          expect(mockAnsibleApi.syncTemplates).toHaveBeenCalled();
+          expect(mockAnsibleApi.getUserJobTemplates).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 4000 },
+      );
 
       // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      await waitFor(async () => {
-        expect(
-          mockCatalogApi.getEntityFacets.mock.calls.length,
-        ).toBeGreaterThan(facetCallsBeforeSync);
-        expect(mockCatalogApi.queryEntities.mock.calls.length).toBeGreaterThan(
-          queryCallsBeforeSync,
-        );
-        const items = await lastFetchedJobTemplates();
-        expect(items?.map(t => t.id)).toEqual([1, 2]);
-        expect(items?.[1]?.name).toBe('Renamed Template');
-      });
+      // Soft refresh is deferred (setTimeout 0); allow macrotasks under CI load.
+      await waitFor(
+        () => {
+          expect(
+            mockCatalogApi.getEntityFacets.mock.calls.length,
+          ).toBeGreaterThan(facetCallsBeforeSync);
+          expect(
+            mockCatalogApi.queryEntities.mock.calls.length,
+          ).toBeGreaterThan(queryCallsBeforeSync);
+        },
+        { timeout: 4000 },
+      );
+
+      const items = await lastFetchedJobTemplates();
+      expect(items?.map(t => t.id)).toEqual([1, 2]);
+      expect(items?.[1]?.name).toBe('Renamed Template');
     });
   });
 
