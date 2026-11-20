@@ -56,6 +56,15 @@ describe('resolvers', () => {
       },
     },
   });
+  const splitOnlyMultiOrgConfig = new ConfigReader({
+    catalog: {
+      providers: {
+        aap: {
+          dev: { orgs: ['Engineering', 'Finance'], multiOrgEnabled: true },
+        },
+      },
+    },
+  });
   const multiOrgInfo = {
     profile: { email: undefined, picture: undefined, displayName: 'Alice' },
     result: {
@@ -80,6 +89,28 @@ describe('resolvers', () => {
   it('uses the stable multi-org catalog identity during sign-in', async () => {
     const factory = AAPAuthSignInResolvers.usernameMatchingUser({
       config: multiOrgConfig,
+    });
+    const resolver = (factory as any)();
+    const context = {
+      findCatalogUser: jest
+        .fn()
+        .mockResolvedValue({ entity: mockUserEntity('aap-user-42') }),
+      issueToken: jest.fn().mockResolvedValue({ token: 'token' }),
+    };
+    await resolver(multiOrgInfo, context);
+    expect(context.findCatalogUser).toHaveBeenCalledWith({
+      entityRef: { name: 'aap-user-42' },
+    });
+    expect(context.issueToken).toHaveBeenCalledWith({
+      claims: {
+        sub: 'user:default/aap-user-42',
+        ent: ['user:default/aap-user-42'],
+      },
+    });
+  });
+  it('signs in synchronized multi-org users from catalog.providers.aap without a legacy rhaap copy', async () => {
+    const factory = AAPAuthSignInResolvers.usernameMatchingUser({
+      config: splitOnlyMultiOrgConfig,
     });
     const resolver = (factory as any)();
     const context = {

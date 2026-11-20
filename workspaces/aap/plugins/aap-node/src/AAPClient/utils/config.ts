@@ -2,10 +2,22 @@ import { Config } from '@backstage/config';
 import { ScmIntegrations } from '@backstage/integration';
 
 import { AnsibleConfig, CatalogConfig } from '@ansible/aap-common';
+import { getProviderScopedCatalogConfig } from '@ansible/backstage-rhaap-common/catalog';
 
 export function getAnsibleConfig(config: Config): AnsibleConfig {
-  const ansibleConfig = config.getConfig('ansible');
   const integrations = ScmIntegrations.fromConfig(config);
+  const ansibleConfig = config.getOptionalConfig('ansible');
+  if (!ansibleConfig) {
+    return {
+      rhaap: {
+        checkSSL: true,
+        showCaseLocation: { type: 'file' },
+      },
+      githubIntegration: integrations.github.list()[0]?.config,
+      gitlabIntegration: integrations.gitlab.list()[0]?.config,
+      feedback: { enabled: false },
+    };
+  }
   const githubIntegration = integrations.github.list()[0]?.config;
   const gitlabIntegration = integrations.gitlab.list()[0]?.config;
   const ansibleConfigVales: AnsibleConfig = {
@@ -56,9 +68,7 @@ export function getAnsibleConfig(config: Config): AnsibleConfig {
 }
 
 export function getCatalogConfig(rootConfig: Config): CatalogConfig {
-  const catalogRhaapConfig = rootConfig.getOptionalConfig(
-    'catalog.providers.rhaap',
-  );
+  const catalogRhaapConfig = getProviderScopedCatalogConfig(rootConfig);
   const catalogConfig: CatalogConfig = {
     organizations: [],
     surveyEnabled: undefined,
@@ -121,8 +131,8 @@ export function resolveActiveOrganizations(config: Config): string[] {
  * Comparison is case-insensitive; returned names keep the configured spelling.
  */
 export function findMissingConfiguredOrganizations(
-  configuredOrganizations: string[],
-  fetchedOrganizationNames: string[],
+  configuredOrganizations: readonly string[],
+  fetchedOrganizationNames: readonly string[],
 ): string[] {
   const found = new Set(
     fetchedOrganizationNames.map(name => name.toLowerCase()),

@@ -43,4 +43,70 @@ describe('catalog-backend-module-aap config schema', () => {
       ]),
     ).not.toThrow();
   });
+
+  it('accepts disabled job-template sync without a schedule', async () => {
+    const schema = await loadConfigSchema({
+      dependencies: [],
+      packagePaths: [resolve(__dirname, '../package.json')],
+      excludePackageDependencies: true,
+    });
+
+    expect(() =>
+      schema.process([
+        {
+          context: 'test',
+          data: {
+            catalog: {
+              providers: {
+                aap: {
+                  development: {
+                    sync: { jobTemplates: { enabled: false } },
+                  },
+                },
+              },
+            },
+            ansible: {
+              rhaap: {
+                baseUrl: 'https://aap.example.test',
+                token: 'test-token',
+              },
+            },
+          },
+        },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('rejects an aap job-template sync block that omits its schedule', async () => {
+    const schema = await loadConfigSchema({
+      dependencies: [],
+      packagePaths: [resolve(__dirname, '../package.json')],
+      excludePackageDependencies: true,
+    });
+
+    expect(() =>
+      schema.process([
+        {
+          context: 'test',
+          data: {
+            catalog: {
+              providers: {
+                aap: {
+                  development: {
+                    sync: { jobTemplates: { enabled: true } },
+                  },
+                },
+              },
+            },
+            ansible: {
+              rhaap: {
+                baseUrl: 'https://aap.example.test',
+                token: 'test-token',
+              },
+            },
+          },
+        },
+      ]),
+    ).toThrow(/schedule/);
+  });
 });

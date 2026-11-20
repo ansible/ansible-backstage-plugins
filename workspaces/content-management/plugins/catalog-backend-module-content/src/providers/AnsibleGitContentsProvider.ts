@@ -11,6 +11,7 @@ import type { Config } from '@backstage/config';
 import { isError, NotFoundError } from '@backstage/errors';
 import { Entity } from '@backstage/catalog-model';
 import {
+  getCatalogProvidersConfigRoot,
   repositoryParser,
   scmCollectionParser,
   stampLatestVersionAnnotations,
@@ -73,7 +74,7 @@ export class AnsibleGitContentsProvider implements EntityProvider {
     if (sourceConfigs.length === 0) {
       logger.info(
         `[${this.pluginLogName}]: No Ansible Git Contents sources configured. ` +
-          `Add providers under catalog.providers.rhaap.<env>.sync.ansibleGitContents.providers`,
+          `Add providers under ${getCatalogProvidersConfigRoot()}.<env>.sync.ansibleGitContents.providers (legacy fallback: catalog.providers.rhaap)`,
       );
       return [];
     }

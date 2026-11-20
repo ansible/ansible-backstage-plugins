@@ -439,6 +439,39 @@ describe('AAPEntityProvider', () => {
     expect(result).toBe(true);
   });
 
+  it('uses an injected task runner when identity sync omits a YAML schedule', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          rhaap: {
+            development: {
+              orgs: 'Default',
+              sync: { orgsUsersTeams: {} },
+            },
+          },
+        },
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: 'testtoken',
+          checkSSL: false,
+        },
+      },
+    });
+    const logger = mockServices.logger.mock();
+    const schedule = new PersistingTaskRunner();
+
+    const providers = AAPEntityProvider.fromConfig(config, mockAnsibleService, {
+      logger,
+      schedule,
+    });
+    expect(providers).toHaveLength(1);
+    expect(providers[0].getProviderName()).toEqual(
+      'AapEntityProvider:development',
+    );
+  });
+
   describe('bulk/per-user membership reconciliation', () => {
     it('warns but does not convert a missing bulk team into org membership', async () => {
       const config = new ConfigReader(MOCK_CONFIG.data);

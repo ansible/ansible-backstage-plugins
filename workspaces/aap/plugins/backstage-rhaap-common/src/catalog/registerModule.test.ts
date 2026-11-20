@@ -2,12 +2,20 @@
  * @jest-environment node
  */
 import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
-import { createServiceFactory } from '@backstage/backend-plugin-api';
+import {
+  createServiceFactory,
+  SchedulerServiceTaskScheduleDefinition,
+} from '@backstage/backend-plugin-api';
 import catalogPlugin from '@backstage/plugin-catalog-backend';
+import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
 import ansibleServiceFactory from '@ansible/aap-backend';
+import { AAPEntityProvider } from './providers/AAPEntityProvider';
+import { AAPJobTemplateProvider } from './providers/AAPJobTemplateProvider';
 import { createCatalogModule } from './registerModule';
+import { MOCK_CONFIG } from './mock';
 import { resetCatalogModuleSliceGuardForTests } from './sliceGuard';
 import type { ContentCatalogRegistration } from './contentProviderContracts';
 
@@ -204,5 +212,55 @@ describe('createCatalogModule', () => {
     } finally {
       await backend.stop();
     }
+  });
+
+  it('registers AAP entity providers from catalog.providers.aap with rhaap fallback', async () => {
+    const { AAPEntityProvider: ActualAAPEntityProvider } = jest.requireActual(
+      './providers/AAPEntityProvider',
+    );
+    const { AAPJobTemplateProvider: ActualAAPJobTemplateProvider } =
+      jest.requireActual('./providers/AAPJobTemplateProvider');
+    (AAPEntityProvider.fromConfig as jest.Mock).mockImplementation(
+      ActualAAPEntityProvider.fromConfig.bind(ActualAAPEntityProvider),
+    );
+    (AAPJobTemplateProvider.fromConfig as jest.Mock).mockImplementation(
+      ActualAAPJobTemplateProvider.fromConfig.bind(
+        ActualAAPJobTemplateProvider,
+      ),
+    );
+
+    let addedProviderCount = 0;
+    let usedSchedule: SchedulerServiceTaskScheduleDefinition | undefined;
+
+    const extensionPoint = {
+      addEntityProvider: (...providers: unknown[]) => {
+        addedProviderCount += providers.length;
+      },
+    };
+
+    const runner = jest.fn();
+    const scheduler = mockServices.scheduler.mock({
+      createScheduledTaskRunner(schedule) {
+        usedSchedule = schedule;
+        return { run: runner };
+      },
+    });
+
+    await startTestBackend({
+      extensionPoints: [
+        [catalogModelExtensionPoint, { setFieldValidators: () => undefined }],
+        [catalogProcessingExtensionPoint, extensionPoint],
+      ],
+      features: [
+        createCatalogModule({ moduleId: 'aap', slice: 'aap' }),
+        ansibleServiceFactory,
+        mockSignalsServiceFactory,
+        mockServices.rootConfig.factory(MOCK_CONFIG),
+        scheduler.factory,
+      ],
+    });
+
+    expect(usedSchedule?.frequency).toEqual({ months: 1 });
+    expect(addedProviderCount).toBeGreaterThan(0);
   });
 });

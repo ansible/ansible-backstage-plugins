@@ -390,6 +390,40 @@ describe('AAPJobTemplateProvider', () => {
         }),
       ).toThrow('No schedule provided via config');
     });
+
+    it('uses an injected task runner when enabled job templates omit a YAML schedule', () => {
+      const config = new ConfigReader({
+        ...MOCK_JOB_TEMPLATE_CONFIG,
+        catalog: {
+          providers: {
+            rhaap: {
+              development: {
+                orgs: 'Default',
+                sync: {
+                  jobTemplates: {
+                    enabled: true,
+                    surveyEnabled: false,
+                    labels: [],
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const providers = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      );
+      expect(providers).toHaveLength(1);
+      expect(providers[0].getProviderName()).toEqual(
+        'AAPJobTemplateProvider:development',
+      );
+    });
   });
 
   describe('getProviderName', () => {
@@ -454,6 +488,7 @@ describe('AAPJobTemplateProvider', () => {
         true, // surveyEnabled
         ['test-label', 'production'], // jobTemplateLabels
         [], // jobTemplateExcludeLabels
+        ['default'],
       );
 
       expect(entityProviderConnection.applyMutation).toHaveBeenCalledWith({
@@ -917,6 +952,7 @@ describe('AAPJobTemplateProvider', () => {
         false, // surveyEnabled = false
         [], // empty jobTemplateLabels
         [], // jobTemplateExcludeLabels
+        ['default'],
       );
     });
 
@@ -1040,6 +1076,7 @@ describe('AAPJobTemplateProvider', () => {
         true, // surveyEnabled
         ['test-label', 'production'], // jobTemplateLabels
         [], // jobTemplateExcludeLabels
+        ['default'],
       );
 
       expect(entityProviderConnection.applyMutation).toHaveBeenCalledWith({
@@ -1119,6 +1156,7 @@ describe('AAPJobTemplateProvider', () => {
         true, // surveyEnabled
         ['test-label', 'production'], // jobTemplateLabels
         ['deprecated', 'experimental'], // jobTemplateExcludeLabels
+        ['default'],
       );
     });
 
@@ -1175,6 +1213,7 @@ describe('AAPJobTemplateProvider', () => {
         true, // surveyEnabled
         ['test-label', 'production'], // jobTemplateLabels
         [], // empty jobTemplateExcludeLabels
+        ['default'],
       );
     });
 
@@ -1237,6 +1276,7 @@ describe('AAPJobTemplateProvider', () => {
         true, // surveyEnabled
         ['test-label', 'production'], // jobTemplateLabels
         [], // default empty jobTemplateExcludeLabels
+        ['default'],
       );
     });
   });
