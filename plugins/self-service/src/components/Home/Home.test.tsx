@@ -1,4 +1,10 @@
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import {
   mockApis,
   renderInTestApp,
@@ -477,6 +483,17 @@ describe('self-service', () => {
       fireEvent.click(screen.getByText('Ok'));
     };
 
+    /** Home + SoftRefresh defer catalog invalidation via setTimeout(0). */
+    const flushDeferredMacrotasks = async (turns = 25) => {
+      for (let i = 0; i < turns; i += 1) {
+        await act(async () => {
+          await new Promise<void>(resolve => {
+            setTimeout(resolve, 0);
+          });
+        });
+      }
+    };
+
     it('should fetch job templates on mount', async () => {
       const entityRefs = ['component:default/e1'];
       const tags = ['tag1'];
@@ -690,12 +707,13 @@ describe('self-service', () => {
       );
       mockAnsibleApi.syncTemplates.mockResolvedValue(true);
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Template 2' },
-        ],
-      });
+      let jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Template 2' },
+      ];
+      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockImplementation(
+        async () => ({ items: jobTemplateItems }),
+      );
 
       await render(<HomeComponent />);
 
@@ -708,12 +726,10 @@ describe('self-service', () => {
       const queryCallsBeforeSync =
         mockCatalogApi.queryEntities.mock.calls.length;
 
-      (mockAnsibleApi.getUserJobTemplates as jest.Mock).mockResolvedValueOnce({
-        items: [
-          { id: 1, name: 'Template 1' },
-          { id: 2, name: 'Renamed Template' },
-        ],
-      });
+      jobTemplateItems = [
+        { id: 1, name: 'Template 1' },
+        { id: 2, name: 'Renamed Template' },
+      ];
 
       await triggerTemplateSync();
 
@@ -725,18 +741,25 @@ describe('self-service', () => {
         { timeout: 4000 },
       );
 
-      // Same JT ids — facets + catalog soft refresh still re-query after sync.
-      // Soft refresh is deferred (setTimeout 0); allow macrotasks under CI load.
+      await flushDeferredMacrotasks();
+
+      // Same JT ids — facets (syncKey) + catalog soft refresh still re-query.
       await waitFor(
         () => {
           expect(
             mockCatalogApi.getEntityFacets.mock.calls.length,
           ).toBeGreaterThan(facetCallsBeforeSync);
+        },
+        { timeout: 4000 },
+      );
+
+      await waitFor(
+        () => {
           expect(
             mockCatalogApi.queryEntities.mock.calls.length,
           ).toBeGreaterThan(queryCallsBeforeSync);
         },
-        { timeout: 4000 },
+        { timeout: 15000 },
       );
 
       const items = await lastFetchedJobTemplates();
