@@ -93,7 +93,6 @@ function seededStore(_logs: string[] = []): ContentStore {
     contentsKnown: true,
     classification: {
       type: EE_TYPE,
-      confidence: 'certain',
       signals: [`label ${EE_LABEL}=true`, `config blob mentions ${SECRET}`],
       readsContentManifest: true,
     },

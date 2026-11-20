@@ -589,14 +589,11 @@ components:
       description: |
         Why an image was, or was not, recognised as a given content type. Recorded so an
         operator never has to guess why something is missing from a listing.
-      required: [type, confidence, signals]
+      required: [type, signals, readsContentManifest]
       properties:
         type:
           type: string
           description: '`execution-environment`, or `oci-image` when unrecognised.'
-        confidence:
-          type: string
-          enum: [certain, likely, no]
         signals:
           type: array
           items: { type: string }
@@ -604,6 +601,9 @@ components:
             The signals that fired, in the order checked: a content-manifest referrer,
             the `ansible-execution-environment` label that ansible-builder emits on
             every EE it builds, or our own manifest label.
+        readsContentManifest:
+          type: boolean
+          description: Whether the owning content type publishes a build-time content manifest.
 
     EEMetadataOverlay:
       type: object
@@ -686,6 +686,17 @@ components:
               type: array
               description: Execution environments shipping this collection version.
               items: { type: string }
+            versions:
+              type: array
+              description: All known versions of this collection and their providers. Present on the detail endpoint.
+              items:
+                type: object
+                required: [version, providedBy]
+                properties:
+                  version: { type: string }
+                  providedBy:
+                    type: array
+                    items: { type: string }
 
     OptionSpec:
       type: object
@@ -3542,6 +3553,10 @@ paths:
                 type: object
                 properties:
                   enumeration: { $ref: '#/components/schemas/Enumeration' }
+                  classification: { $ref: '#/components/schemas/Classification' }
+                  collections:
+                    type: array
+                    items: { type: object }
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/ContentItemSummary' }
@@ -3694,6 +3709,7 @@ paths:
                 oneOf:
                   - $ref: '#/components/schemas/ContentItem'
                   - type: object
+                    required: [fqcn, variantCount, variants]
                     properties:
                       fqcn: { type: string }
                       variantCount: { type: integer }
@@ -3790,10 +3806,20 @@ paths:
         '403':
           description: Insufficient permissions
         '200':
-          description: The item
+          description: The item, or its variants
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ContentItem' }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ContentItem'
+                  - type: object
+                    required: [fqcn, variantCount, variants]
+                    properties:
+                      fqcn: { type: string }
+                      variantCount: { type: integer }
+                      variants:
+                        type: array
+                        items: { $ref: '#/components/schemas/ContentItem' }
         '404':
           description: Not found in any known environment
           content:
