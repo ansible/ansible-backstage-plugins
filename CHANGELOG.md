@@ -26,6 +26,7 @@ where versioned packages apply.
 
 ### Fixed
 
+- **CVE-2026-106500 (AAP-95985):** pin `@backstage/plugin-scaffolder-backend` to `3.3.1` on release-2.2 (Backstage scaffolder improper task-state validation; GHSA-xvgh-hmx8-9xxf).
 - **AAP resource picker** (self-service): selection handling and typing for single vs multi-select resource lists.
 - Various **Sonar** / quality findings in catalog survey generation and UI components.
 
