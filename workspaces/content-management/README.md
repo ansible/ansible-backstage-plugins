@@ -29,6 +29,55 @@ Both backend packages are registered in the development backend at
 configuration lives under `catalog.providers.automationContent` in the root
 `app-config.yaml` (disabled by default).
 
+## EE discovery developer preview
+
+The deployment configuration below defaults EE discovery to off.
+**Definitions** and **Create** are available from `/content/ee` in either state.
+In a Portal Developer Preview deployment, set `CONTENT_MANAGEMENT=true`
+in the Portal process environment and restart the host to turn on discovery.
+The monorepo development app defaults discovery to on. Set the same variable
+to `false` to exercise the off state.
+
+In the effective RHDH app config, include these entries alongside the host's
+other `app.extensions` entries. Keep both the `automation-content` and
+`portal-scaffolder` frontend plugins loaded so the shared page can show
+Definitions. Backstage replaces the entire list when a higher-priority config
+file defines `app.extensions`.
+
+```yaml
+app:
+  extensions:
+    - sub-page:automation-content/images: ${CONTENT_MANAGEMENT:-false}
+    - scaffolder-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-false}
+    - scaffolder-form-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-false}
+    - entity-header-layout:automation-content/ee-repository: ${CONTENT_MANAGEMENT:-false}
+    - entity-content-layout:automation-content/ee-repository: ${CONTENT_MANAGEMENT:-false}
+    - entity-detail-tab:automation-content/image: ${CONTENT_MANAGEMENT:-false}
+```
+
+Check the frontend app API version in the preview host. Version 0.16.8 or later
+accepts the environment variable shorthand above. For older hosts, resolve
+`CONTENT_MANAGEMENT` to a boolean during config generation and
+write that value to all six entries. An unset variable resolves to `false`.
+
+### Rollout checks
+
+1. **Check the default.** Start with discovery off. Open `/content/ee` and verify
+   it opens **Definitions** and **Create** works. Visit `/content/ee/images`
+   directly and confirm the Images table and **Sync registries** are absent.
+2. **Stage data.** [Configure a registry](#registry-configuration) and let
+   scheduled sync run with discovery off. Synced repositories can appear in the
+   general Catalog. Manual sync still follows
+   `automationContent.manualSync.enabled` and the user's permissions.
+3. **Enable discovery.** Set `CONTENT_MANAGEMENT=true`, apply the
+   updated config, and restart Portal. Check that **Images** shows the staged
+   data and opens image details. Register the **Add execution environment to
+   Controller** template from `ansible-rhdh-templates` in the preview deployment
+   and check that its image version picker loads.
+4. **Turn discovery off.** Remove the companion template registration, set the
+   switch to `false`, apply the updated config, and restart Portal. Repeat the
+   default check and confirm the staged repository is still in the Catalog.
+
 ## How content gets here
 
 Content is discovered from configured OCI registries. Execution environments
