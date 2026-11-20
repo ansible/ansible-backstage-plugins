@@ -13,7 +13,9 @@ where versioned packages apply.
 - **Backend SDK catalog provider contributions** add a dependency-injected
   provider registry and generic entity mutation contracts. Providers retain
   domain validation, catalog connectivity and durable locks. Consumers retain
-  authorization. No feature-specific provider is installed or migrated.
+  authorization. Mutation scopes require a provider-owned lease assertion,
+  snapshot submitted entities and preserve rejected callback failures.
+  No feature-specific provider is installed or migrated.
 
 - **SDK relative time** adds the neutral `formatTimeAgo()` utility. Timestamp consumers no longer strip synchronization wording, and portal-scaffolder keeps its sync labels in a local wrapper. The existing SDK `formatRelativeTime()` remains available as a deprecated compatibility export with unchanged output.
 

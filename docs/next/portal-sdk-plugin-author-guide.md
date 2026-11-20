@@ -582,7 +582,11 @@ mutation callback. No domain-specific provider is installed by the SDK.
 Resolve providers while handling work, after backend initialization. Registration
 does not establish readiness. The registry fails for unknown IDs, unavailable
 providers and writes to a different entity reference. Mutation handles expire
-after their callback. Registration state includes interrupted, pending writes
+after their callback. Providers supply a synchronous `assertLockHeld()` guard,
+invalidate it before releasing their lock, and recheck it after internal awaits
+immediately before effects. The SDK checks it at callback admission and before
+state reads and queued writes. Accepted entity payloads are copied before any
+queue wait. Registration state includes interrupted, pending writes
 so replacement authorization does not rely solely on catalog visibility.
 
 See the [backend SDK provider contract](https://github.com/ansible/ansible-backstage-plugins/blob/main/workspaces/portal-core/plugins/portal-plugin-node/README.md#catalog-entity-provider-contributions)

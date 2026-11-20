@@ -32,12 +32,18 @@ class TestCatalogEntityProvider implements CatalogEntityProvider {
     this.locks.set(entityRef, current);
     await previous;
     const { states } = this;
+    let held = true;
+    const assertLockHeld = () => {
+      if (!held) throw new Error('Provider lock is not held');
+    };
     try {
       return await operation({
+        assertLockHeld,
         get registrationState() {
           return states.get(entityRef) ?? 'none';
         },
         upsert: async entity => {
+          assertLockHeld();
           this.states.set(entityRef, 'pending');
           if (this.failNextWrite) {
             this.failNextWrite = false;
@@ -48,15 +54,18 @@ class TestCatalogEntityProvider implements CatalogEntityProvider {
           this.writes.push(`upsert:${entityRef}`);
         },
         remove: async () => {
+          assertLockHeld();
           this.entities.delete(entityRef);
           this.states.delete(entityRef);
           this.writes.push(`remove:${entityRef}`);
         },
         clearRegistration: async () => {
+          assertLockHeld();
           this.states.delete(entityRef);
         },
       });
     } finally {
+      held = false;
       release();
       if (this.locks.get(entityRef) === current) this.locks.delete(entityRef);
     }
@@ -418,6 +427,18 @@ describe('catalog entity providers', () => {
         await mutation.upsert(entity);
       });
     await entered.promise;
+    let settled = false;
+    result.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    // Let the SDK observe the provider's return while the consumer is blocked.
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(settled).toBe(false);
     release.resolve();
     await expect(result).rejects.toThrow('before its mutation completed');
   });

@@ -354,6 +354,10 @@ multiple backend replicas.
 
 The mutation handle exposes:
 
+- `assertLockHeld()`: throw synchronously when this entity’s lock or lease is no
+  longer valid. Invalidate the handle before releasing the lock or returning,
+  including in `finally`. `isReady()` indicates initialization, not lock ownership.
+
 - `registrationState`: `none`, `pending` or `registered`. Pending writes count
   as replacements for authorization purposes, even before catalog processing
   makes an entity visible.
@@ -386,12 +390,22 @@ write. This internal backend registry is **not** a REST endpoint, operation
 authorization dispatcher or permission grant. Continue to secure each caller's
 transport and effects. Provider IDs are discovery keys, not access controls.
 
-Use a full `kind:namespace/name` reference. The SDK canonicalizes it and rejects
-an upsert for another entity. Mutation handles expire when their callback ends.
+Use a full `kind:namespace/name` reference following Backstage’s default ASCII
+catalog naming rules, with each part limited to 63 characters. Mixed case is
+canonicalized. Extra separators, whitespace and Unicode names are rejected.
+The SDK snapshots each upsert payload when the write is admitted and rejects
+an upsert for another entity. Later changes to the caller’s object do not change
+the queued write. Mutation handles expire when their callback ends.
 All writes must be awaited. The SDK drains accepted writes before returning,
 serializes writes within a callback, propagates failures even if a provider
 swallows them, and rejects missing, duplicate or premature callbacks. These
-guards cannot repair a provider that fails to hold its promised durable lock.
+guards check `assertLockHeld()` before entering the consumer callback, reading
+state and executing queued writes. Providers must also recheck their lease after
+their own asynchronous waits, immediately before catalog or state effects. Use
+the storage system’s fencing mechanism when required to enforce lease ownership.
+Callback timing checks diagnose protocol violations, but cannot prove that a
+provider owns a database lock. These are trusted backend interfaces, not a
+sandbox for untrusted providers, and cannot repair an incorrect lock implementation.
 An error after a write does not roll it back; recover using the provider's
 persisted registration state. Do not blindly retry domain effects.
 

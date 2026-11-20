@@ -5,6 +5,8 @@ export type CatalogEntityRegistrationState = 'none' | 'pending' | 'registered';
 
 /** A provider-owned, locked mutation of one full catalog entity reference. */
 export interface CatalogEntityMutation {
+  /** Throw synchronously if the provider no longer holds this entity's lease. */
+  assertLockHeld(): void;
   readonly registrationState: CatalogEntityRegistrationState;
   /** Persist pending state before writing, and complete it only after success. */
   upsert(entity: Entity): Promise<void>;
@@ -19,7 +21,9 @@ export interface CatalogEntityMutation {
  *
  * The provider owns catalog connectivity, entity validation, durable state and
  * cross-process locking. It must hold the lock for the entire callback and
- * await it before releasing the lock. Consumers authorize inside the callback
+ * await it before releasing the lock. Its synchronous assertLockHeld must be
+ * invalidated before releasing/returning, and rechecked after internal awaits
+ * immediately before effects. Consumers authorize inside the callback
  * before mutating. This internal backend contract is not an authorization API.
  */
 export interface CatalogEntityProvider {

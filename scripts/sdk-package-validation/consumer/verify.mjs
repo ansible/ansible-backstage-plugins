@@ -88,22 +88,34 @@ function addTestProvider(id) {
     provider: {
       isReady: () => true,
       async withEntityMutation({ entityRef }, operation) {
-        return operation({
-          get registrationState() {
-            return states.get(entityRef) ?? 'none';
-          },
-          async upsert(entity) {
-            entities.set(entityRef, entity);
-            states.set(entityRef, 'registered');
-          },
-          async remove() {
-            entities.delete(entityRef);
-            states.delete(entityRef);
-          },
-          async clearRegistration() {
-            states.delete(entityRef);
-          },
-        });
+        let held = true;
+        const assertLockHeld = () => {
+          assert(held, 'Provider lock has ended');
+        };
+        try {
+          return await operation({
+            assertLockHeld,
+            get registrationState() {
+              return states.get(entityRef) ?? 'none';
+            },
+            async upsert(entity) {
+              assertLockHeld();
+              entities.set(entityRef, entity);
+              states.set(entityRef, 'registered');
+            },
+            async remove() {
+              assertLockHeld();
+              entities.delete(entityRef);
+              states.delete(entityRef);
+            },
+            async clearRegistration() {
+              assertLockHeld();
+              states.delete(entityRef);
+            },
+          });
+        } finally {
+          held = false;
+        }
       },
     },
   });
