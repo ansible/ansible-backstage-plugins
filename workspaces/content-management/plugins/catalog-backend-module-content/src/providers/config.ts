@@ -3,6 +3,12 @@
 // console.log is used intentionally for provider-configuration diagnostics.
 import { readSchedulerServiceTaskScheduleDefinitionFromConfig } from '@backstage/backend-plugin-api';
 import type { Config } from '@backstage/config';
+import {
+  CATALOG_PROVIDERS_CONTENT,
+  CATALOG_PROVIDERS_RHAAP,
+  getCatalogProvidersConfigRoot,
+  getResolvedCatalogProvidersConfig,
+} from '@ansible/backstage-rhaap-common/catalog';
 import type { AnsibleGitContentsSourceConfig, ScmProvider } from './types';
 
 type ScheduleDefinition = ReturnType<
@@ -12,11 +18,27 @@ type ScheduleDefinition = ReturnType<
 export function readAnsibleGitContentsConfigs(
   config: Config,
 ): AnsibleGitContentsSourceConfig[] {
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = getResolvedCatalogProvidersConfig(config, {
+    validateIdentity: false,
+  });
 
   if (!providerConfigs) {
-    console.log('No catalog.providers.rhaap config found');
+    console.log('No catalog provider config found for content module');
     return [];
+  }
+
+  const contentRoot = config.getOptionalConfig(CATALOG_PROVIDERS_CONTENT);
+  const rhaapRoot = config.getOptionalConfig(CATALOG_PROVIDERS_RHAAP);
+  if (
+    getCatalogProvidersConfigRoot() === CATALOG_PROVIDERS_CONTENT &&
+    contentRoot &&
+    rhaapRoot
+      ?.keys()
+      .some(key => rhaapRoot.getConfig(key).has('sync.ansibleGitContents'))
+  ) {
+    console.warn(
+      'catalog.providers.content is set; Git sources under catalog.providers.rhaap.sync.ansibleGitContents are ignored. Move those sources to catalog.providers.content.',
+    );
   }
 
   const allSources: AnsibleGitContentsSourceConfig[] = [];

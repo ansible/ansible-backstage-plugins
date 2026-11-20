@@ -19,6 +19,11 @@ import {
   toTeamGroupRef,
 } from '@ansible/aap-common';
 import { IAAPService, resolveActiveOrganizations } from '@ansible/aap-node';
+import {
+  envPublishesAapIdentity,
+  getResolvedAapProvidersConfig,
+  isAapMultiOrgEnabled,
+} from '@ansible/backstage-rhaap-common/catalog';
 
 const PROVIDER_NAME = 'rhaap-user-provisioner';
 const BACKSTAGE_NAMESPACE_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
@@ -147,22 +152,19 @@ export class UserProvisionerProvider implements EntityProvider {
     this.baseUrl = options.config.getString('ansible.rhaap.baseUrl');
 
     // Collect all organizations across all configured catalog provider environments.
-    const providerConfigs = options.config.getOptionalConfig(
-      'catalog.providers.rhaap',
-    );
+    const providerConfigs = getResolvedAapProvidersConfig(options.config);
     const allOrgs = new Set<string>();
-    this.multiOrgEnabled =
-      providerConfigs
-        ?.keys()
-        .some(
-          key =>
-            providerConfigs
-              .getConfig(key)
-              .getOptionalBoolean('multiOrgEnabled') === true,
-        ) ?? false;
+    this.multiOrgEnabled = isAapMultiOrgEnabled(options.config);
     if (providerConfigs) {
-      for (const envKey of providerConfigs.keys()) {
+      const envKeys = providerConfigs.keys();
+      const hasIdentityPublisher = envKeys.some(key =>
+        envPublishesAapIdentity(providerConfigs.getConfig(key)),
+      );
+      for (const envKey of envKeys) {
         const envConfig = providerConfigs.getConfig(envKey);
+        if (hasIdentityPublisher && !envPublishesAapIdentity(envConfig)) {
+          continue;
+        }
         const orgs = resolveActiveOrganizations(envConfig);
         for (const org of orgs) {
           allOrgs.add(org.toLowerCase());

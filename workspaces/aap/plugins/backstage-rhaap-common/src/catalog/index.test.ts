@@ -6,6 +6,10 @@ import { ConfigReader } from '@backstage/config';
 
 import {
   assertCatalogModuleSliceAllowed,
+  CATALOG_PROVIDERS_AAP,
+  CATALOG_PROVIDERS_CONTENT,
+  CATALOG_PROVIDERS_RHAAP,
+  catalogProvidersConfigRootForSlice,
   createCatalogModule,
   createCollectionIdentifier,
   createCollectionKey,
@@ -14,11 +18,17 @@ import {
   generateCollectionEntityName,
   generateRepositoryEntityName,
   generateSourceId,
+  getCatalogProvidersConfigRoot,
   getDefaultHost,
+  getResolvedAapProvidersConfig,
+  getResolvedCatalogProvidersConfig,
+  isAapMultiOrgEnabled,
+  resolveCatalogProvidersConfig,
   pahCollectionParser,
   readAapApiEntityConfigs,
   repositoryParser,
   resetCatalogModuleSliceGuardForTests,
+  runWithCatalogProvidersConfigRoot,
   sanitizeEntityName,
   sanitizeHostName,
   sanitizeTagForBackstage,
@@ -78,6 +88,27 @@ describe('catalog barrel', () => {
     expect(() =>
       createCatalogModule({ moduleId: 'aap', slice: 'aap' }),
     ).not.toThrow();
+  });
+
+  it('re-exports per-slice catalog provider config helpers', () => {
+    expect(catalogProvidersConfigRootForSlice('aap')).toBe(
+      CATALOG_PROVIDERS_AAP,
+    );
+    expect(catalogProvidersConfigRootForSlice('content')).toBe(
+      CATALOG_PROVIDERS_CONTENT,
+    );
+    expect(getCatalogProvidersConfigRoot()).toBe(CATALOG_PROVIDERS_RHAAP);
+    expect(
+      runWithCatalogProvidersConfigRoot(CATALOG_PROVIDERS_AAP, () =>
+        getCatalogProvidersConfigRoot(),
+      ),
+    ).toBe(CATALOG_PROVIDERS_AAP);
+    expect(
+      getResolvedCatalogProvidersConfig(new ConfigReader({}))?.keys(),
+    ).toBeUndefined();
+    expect(typeof getResolvedAapProvidersConfig).toBe('function');
+    expect(typeof resolveCatalogProvidersConfig).toBe('function');
+    expect(isAapMultiOrgEnabled()).toBe(false);
   });
 
   it('re-exports collection naming helpers used by the content slice', () => {

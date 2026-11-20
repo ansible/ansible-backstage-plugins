@@ -17,6 +17,21 @@ export type {
   ContentEeEntityProvider,
   ContentPahCollectionProvider,
 } from './contentProviderContracts';
+export {
+  CATALOG_PROVIDERS_AAP,
+  CATALOG_PROVIDERS_CONTENT,
+  CATALOG_PROVIDERS_RHAAP,
+  catalogProvidersConfigRootForSlice,
+  getCatalogProvidersConfigRoot,
+  envPublishesAapIdentity,
+  getProviderScopedCatalogConfig,
+  getResolvedAapProvidersConfig,
+  getResolvedCatalogProvidersConfig,
+  isAapMultiOrgEnabled,
+  legacyRootPublishesAapIdentity,
+  resolveCatalogProvidersConfig,
+  runWithCatalogProvidersConfigRoot,
+} from './catalogProviderConfig';
 export { readAapApiEntityConfigs } from './providers/config';
 export type { AapConfig, PAHRepositoryConfig } from './providers/types';
 export {

@@ -108,7 +108,10 @@ describe('AAPClient', () => {
         if (path === 'catalog.providers.rhaap') {
           return mockCatalogRhaapConfig;
         }
-        return mockAnsibleConfig;
+        if (path === 'ansible') {
+          return mockConfig.getConfig('ansible');
+        }
+        return undefined;
       }),
       getOptionalString: jest.fn().mockImplementation((path: string) => {
         const paths: Record<string, string> = {
@@ -3421,6 +3424,12 @@ describe('AAPClient', () => {
         jest
           .spyOn(multiOrgClient as any, 'executeCatalogRequest')
           .mockResolvedValueOnce(mockJobTemplateResponse);
+        jest
+          .spyOn(multiOrgClient as any, 'executeGetRequest')
+          .mockResolvedValueOnce({
+            ok: true,
+            json: jest.fn().mockResolvedValue({ results: [] }),
+          });
 
         await multiOrgClient.syncJobTemplates(false, []);
         expect(

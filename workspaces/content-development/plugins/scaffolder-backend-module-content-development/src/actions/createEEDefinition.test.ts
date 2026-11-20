@@ -981,6 +981,91 @@ describe('createEEDefinition', () => {
     ]);
   });
 
+  it('builds galaxy servers from catalog.providers.content without a rhaap copy', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          content: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'validated' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.galaxy_servers).toEqual([
+      {
+        id: 'private_hub_validated',
+        url: 'https://pah.example.com/api/galaxy/content/validated/',
+        token_required: true,
+      },
+    ]);
+  });
+
+  it('prefers catalog.providers.content PAH repositories over leftover rhaap ones', async () => {
+    const pahConfig = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+        rhaap: { baseUrl: 'https://pah.example.com' },
+      },
+      catalog: {
+        providers: {
+          content: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'validated' }],
+                },
+              },
+            },
+          },
+          rhaap: {
+            default: {
+              sync: {
+                pahCollections: {
+                  repositories: [{ name: 'community' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(pahConfig);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(
+      eeConfig.galaxy_servers.map((server: { id: string }) => server.id),
+    ).toEqual(['private_hub_validated']);
+  });
+
   it('uses the same PAH repo normalizer for galaxy server IDs', async () => {
     const pahConfig = new ConfigReader({
       ansible: {
@@ -1510,6 +1595,50 @@ describe('createEEDefinition', () => {
       },
     });
   }
+
+  it('resolves SCM hosts from catalog.providers.content without a rhaap copy', async () => {
+    const scmCfg = new ConfigReader({
+      ansible: {
+        creatorService: { baseUrl: 'localhost', port: '8000' },
+        devSpaces: { baseUrl: 'https://devspaces.example.com' },
+      },
+      catalog: {
+        providers: {
+          content: {
+            default: {
+              sync: {
+                ansibleGitContents: {
+                  providers: {
+                    github: [{ name: 'github-public', host: 'github.com' }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const action = makeAction(scmCfg);
+    const ctx = makeCtx({
+      eeFileName: 'test-ee',
+      baseImage: 'img:latest',
+      publishToSCM: true,
+      collections: [
+        {
+          name: 'my.scm_collection',
+          source: 'Github / github-public / my-org / my-repo',
+          version: 'main',
+        },
+      ],
+    });
+
+    await action.handler(ctx);
+
+    const eeConfig = mockDownloadEEScaffold.mock.calls[0][3];
+    expect(eeConfig.collections[0].name).toContain(
+      '@github.com/my-org/my-repo',
+    );
+  });
 
   it('partitions SCM collections from non-SCM and transforms git URLs', async () => {
     const scmCfg = makeScmConfig({

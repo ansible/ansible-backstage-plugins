@@ -132,6 +132,65 @@ describe('UserProvisionerProvider', () => {
     });
   });
 
+  describe('configured organizations', () => {
+    it('ignores job-template-only environments when an identity publisher exists', async () => {
+      const identitySync = {
+        sync: {
+          orgsUsersTeams: {
+            schedule: { frequency: { minutes: 30 }, timeout: { minutes: 3 } },
+          },
+        },
+      };
+      const splitConfig = new ConfigReader({
+        ansible: {
+          rhaap: {
+            baseUrl: MOCK_BASE_URL,
+            token: 'test-token',
+            checkSSL: false,
+          },
+        },
+        catalog: {
+          providers: {
+            aap: {
+              identity: {
+                orgs: ['Finance'],
+                multiOrgEnabled: true,
+                ...identitySync,
+              },
+              jobs: {
+                orgs: ['Platform'],
+                multiOrgEnabled: true,
+                sync: {
+                  jobTemplates: {
+                    enabled: true,
+                    schedule: {
+                      frequency: { minutes: 30 },
+                      timeout: { minutes: 3 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      mockAnsibleService.getOrgsByUserId.mockResolvedValue([
+        { name: 'Finance', id: 2, groupName: 'finance' },
+      ]);
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
+      const splitProvider = new UserProvisionerProvider({
+        ansibleService: mockAnsibleService,
+        config: splitConfig,
+        logger: mockServices.logger.mock(),
+      });
+      await splitProvider.connect(mockConnection);
+      await splitProvider.createUser('jdoe', 42);
+      expect(mockAnsibleService.getOrgsByUserId).toHaveBeenCalledWith(42, [
+        'finance',
+      ]);
+    });
+  });
+
   describe('createUser', () => {
     it('throws NotFoundError when not connected to catalog', async () => {
       await expect(provider.createUser('jdoe', 42)).rejects.toThrow(
@@ -310,6 +369,38 @@ describe('UserProvisionerProvider', () => {
   });
 
   describe('multi-org config', () => {
+    it('names users from catalog.providers.aap without a legacy rhaap copy', async () => {
+      const config = new ConfigReader({
+        ansible: { rhaap: { baseUrl: MOCK_BASE_URL } },
+        catalog: {
+          providers: {
+            aap: { dev: { orgs: ['Default'], multiOrgEnabled: true } },
+          },
+        },
+      });
+      mockAnsibleService.getUserInfoById.mockResolvedValue(MOCK_USER);
+      mockAnsibleService.getOrgsByUserId.mockResolvedValue(MOCK_ORGS);
+      mockAnsibleService.getTeamsByUserId.mockResolvedValue([]);
+      const idProvisioner = new UserProvisionerProvider({
+        ansibleService: mockAnsibleService,
+        config,
+        logger: mockServices.logger.mock(),
+      });
+      await idProvisioner.connect(mockConnection);
+      await idProvisioner.createUser('jdoe', 42);
+      const entities =
+        mockConnection.applyMutation.mock.calls[0][0].type === 'delta'
+          ? (
+              mockConnection.applyMutation.mock.calls[0][0] as {
+                added: Array<{ entity: any }>;
+              }
+            ).added.map(item => item.entity)
+          : [];
+      const user = entities.find(item => item.kind === 'User');
+      expect(user.metadata.name).toBe('aap-user-42');
+      expect(user.spec.memberOf).toContain('group:aap-1/aap-org-1');
+    });
+
     it('keeps single-org flag-on user and admin identities aligned with auth', async () => {
       const config = new ConfigReader({
         ansible: { rhaap: { baseUrl: MOCK_BASE_URL } },
