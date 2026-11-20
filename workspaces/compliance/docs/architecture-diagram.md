@@ -1,10 +1,10 @@
 ---
-title: "AAP Compliance Dashboard — System Architecture"
-description: "System architecture diagram — components, data flow, auth model, and service decomposition"
+title: 'AAP Compliance Dashboard — System Architecture'
+description: 'System architecture diagram — components, data flow, auth model, and service decomposition'
 type: reference
 audience: [developer, architect]
-product: "AAP Compliance Dashboard"
-product_version: "2.6"
+product: 'AAP Compliance Dashboard'
+product_version: '2.6'
 status: current
 last_verified: 2026-07-09
 ---
@@ -39,7 +39,7 @@ Generated 2026-06-26 by architect review.
  |                    (@aap-compliance/plugin-compliance-backend)            |
  |                                                                          |
  |  plugin.ts -- createBackendPlugin()                                      |
- |    |  Reads config: dataSource (mock|live), authMode (dev|prod)          |
+ |    |  Reads config: enabled, retentionDays, ingest token TTL           |
  |    |  Runs Knex migrations (TS dev / JS dist-dynamic)                   |
  |    |  Sets up retention cleanup                                          |
  |    |                                                                     |
@@ -71,8 +71,8 @@ Generated 2026-06-26 by architect review.
  |  SERVICE LAYER                                                           |
  |  +--------------------------------------------------------------------+ |
  |  | ComplianceService.ts (1131 lines) -- Orchestrator                  | |
- |  |   - mock/live toggle, template resolution (3-level: explicit >     | |
- |  |     DB profile > name search), WJT-to-JT fallback                 | |
+ |  |   - template resolution (3-level: explicit > DB profile > name)    | |
+ |  |     search), WJT-to-JT fallback                                    | |
  |  |                                                                    | |
  |  | ControllerClient.ts (470 lines) -- HTTP client                     | |
  |  |   - undici, bearer auth, SSL agent, auto-pagination               | |
@@ -87,7 +87,7 @@ Generated 2026-06-26 by architect review.
  |  |                                                                    | |
  |  | RemediationPlanBuilder.ts (142 lines)                              | |
  |  | PlatformValidator.ts (60 lines)                                    | |
- |  | MockDataProvider.ts (617 lines) -- Demo mode                       | |
+ |  | PortalOperations adapters (scan/remediate/profile writes)           | |
  |  +--------------------------------------------------------------------+ |
  |                                                                          |
  |  DATABASE LAYER                                                          |
@@ -164,14 +164,15 @@ Generated 2026-06-26 by architect review.
 
 ## Profiles
 
-| Profile | Framework | Scanner | Certification |
-|---------|-----------|---------|---------------|
-| rhel9-stig | DISA STIG V2R8 | OpenSCAP | Certified (NIST SCAP 1.2) |
-| rhel9-cis-l1 | CIS L1 Server | OpenSCAP | Conformant |
-| rhel9-cis-l2 | CIS L2 Server | OpenSCAP | Conformant |
-| supply-chain | SUPPLY_CHAIN | Syft + Grype | Uncertified |
+| Profile      | Framework      | Scanner      | Certification             |
+| ------------ | -------------- | ------------ | ------------------------- |
+| rhel9-stig   | DISA STIG V2R8 | OpenSCAP     | Certified (NIST SCAP 1.2) |
+| rhel9-cis-l1 | CIS L1 Server  | OpenSCAP     | Conformant                |
+| rhel9-cis-l2 | CIS L2 Server  | OpenSCAP     | Conformant                |
+| supply-chain | SUPPLY_CHAIN   | Syft + Grype | Uncertified               |
 
 Each profile is a self-contained Ansible collection with:
+
 - `compliance-profile.yml` - identity + display config (ADR-026)
 - `playbooks/run_oscap.yml` or `run_scan.yml` - 2-play assessment
 - `playbooks/remediate.yml` - remediation playbook

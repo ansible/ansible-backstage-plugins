@@ -8,12 +8,6 @@ export interface Config {
       enabled?: boolean;
 
       /**
-       * Auth mode: 'production' for RBAC, 'development' for guest access.
-       * @visibility backend
-       */
-      authMode?: string;
-
-      /**
        * Days to retain scan findings before cleanup.
        * @visibility backend
        */

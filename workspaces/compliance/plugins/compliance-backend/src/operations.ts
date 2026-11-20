@@ -14,7 +14,7 @@
  *      whatever this function returns or throws.
  *   2. The route's development-mode fallback (see `routes/scans.ts`,
  *      `routes/remediation.ts`, `routes/profiles.ts`) — reached directly,
- *      because `ansible.compliance.authMode: development` carries no real
+ *      when tests omit `operations`/`httpAuth` — production always passes
  *      Backstage credentials for `operations.execute()` to authenticate
  *      (`requirePermission()` has the same no-op-when-unauthenticated
  *      bypass today; see `routes/permissions.ts`).
@@ -423,7 +423,7 @@ export async function handleProfileDelete(
 /**
  * Register compliance's four write operations with the host's
  * `PortalOperations` registry. Called unconditionally from `plugin.ts`
- * (independent of `ansible.compliance.authMode`) — registration has no
+ * — registration has no
  * security implication on its own; it is `operations.execute()`, reached
  * only from the production-mode branch of each legacy transport adapter,
  * that actually enforces permissions and emits audit events.

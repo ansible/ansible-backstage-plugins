@@ -44,12 +44,8 @@ export interface RouterDependencies {
    * AJV, and emits the SUCCESS/FAILURE audit event; this replaces the
    * route-level `requirePermission()` + manual validation + manual
    * `emitAuditEvent()` those four handlers used before. Like `httpAuth`/
-   * `permissions`, omitted in `development` auth mode — `execute()`
-   * requires an authenticated Backstage user, which the guest-auth dev
-   * shell does not provide — so those adapters fall back to calling the
-   * extracted handler function (`compliance-backend/src/operations.ts`)
-   * directly, with permission/audit skipped exactly as `requirePermission()`
-   * already does for every other route today.
+   * `permissions`. When omitted (unit tests), adapters fall back to calling
+   * the handler in `operations.ts` directly, same as `requirePermission()`.
    */
   operations?: PortalOperations;
   /**

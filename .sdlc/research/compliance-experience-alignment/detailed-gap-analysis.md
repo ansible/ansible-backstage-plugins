@@ -96,7 +96,7 @@ export function registerComplianceOperations(options: {
 ```
 
 `registerComplianceOperations()` is called unconditionally from `plugin.ts`'s `init()` — not
-gated on `authMode`, the same way `permissionsRegistry.addPermissions()` already was:
+always registered (authMode toggle removed; same as `permissionsRegistry.addPermissions()`):
 
 ```171:171:workspaces/compliance/plugins/compliance-backend/src/plugin.ts
 registerComplianceOperations({ operations, service, database: complianceDb, logger });
