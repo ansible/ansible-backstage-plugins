@@ -210,6 +210,81 @@ describe('catalog mutation boundaries', () => {
     expect(f.mutation.upsert).toHaveBeenCalledWith(entity);
   });
 
+  it('serializes writes submitted by payload getters behind the enclosing upsert', async () => {
+    const f = fixture();
+    const upsertEntered = deferred();
+    const releaseUpsert = deferred();
+    const removeEntered = deferred();
+    const releaseRemove = deferred();
+    let upsertFinished = false;
+    jest.mocked(f.mutation.upsert).mockImplementation(async () => {
+      upsertEntered.resolve();
+      await releaseUpsert.promise;
+      upsertFinished = true;
+    });
+    jest.mocked(f.mutation.remove).mockImplementation(async () => {
+      removeEntered.resolve();
+      await releaseRemove.promise;
+    });
+    const result = f.register().withEntityMutation(options, async mutation => {
+      let removal: Promise<void> | undefined;
+      const draft = structuredClone(entity);
+      Object.defineProperty(draft.metadata, 'annotations', {
+        enumerable: true,
+        get() {
+          removal = mutation.remove();
+          return {};
+        },
+      });
+      await mutation.upsert(draft);
+      await removal;
+    });
+    let settled = false;
+    result.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await upsertEntered.promise;
+    expect(f.mutation.remove).not.toHaveBeenCalled();
+    releaseUpsert.resolve();
+    await removeEntered.promise;
+    expect(upsertFinished).toBe(true);
+    expect(settled).toBe(false);
+    releaseRemove.resolve();
+    await result;
+    expect(f.mutation.upsert).toHaveBeenCalledTimes(1);
+    expect(f.mutation.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('settles reentrant queued writes when payload preparation throws', async () => {
+    const f = fixture();
+    const preparationError = new Error('Cannot read annotations');
+    const result = f.register().withEntityMutation(options, async mutation => {
+      let removal: Promise<void> | undefined;
+      const draft = structuredClone(entity);
+      Object.defineProperty(draft.metadata, 'annotations', {
+        enumerable: true,
+        get() {
+          removal = mutation.remove();
+          throw preparationError;
+        },
+      });
+      const write = mutation.upsert(draft);
+      const outcomes = await Promise.allSettled([write, removal]);
+      expect(outcomes).toEqual([
+        { status: 'rejected', reason: preparationError },
+        { status: 'rejected', reason: preparationError },
+      ]);
+    });
+    await expect(result).rejects.toThrow(preparationError);
+    expect(f.mutation.upsert).not.toHaveBeenCalled();
+    expect(f.mutation.remove).not.toHaveBeenCalled();
+  });
+
   it('does not expose the provider payload to caller mutations during provider awaits', async () => {
     const f = fixture();
     const entered = deferred();

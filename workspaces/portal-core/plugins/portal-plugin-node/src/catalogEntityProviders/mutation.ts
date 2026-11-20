@@ -127,9 +127,14 @@ export async function runCatalogEntityMutation<T>(
   };
   const write = (prepare: () => () => Promise<void>): Promise<void> => {
     const previous = previousWrite;
+    let resolvePrepared!: (execute: () => Promise<void>) => void;
+    let rejectPrepared!: (error: unknown) => void;
+    const prepared = new Promise<() => Promise<void>>((resolve, reject) => {
+      resolvePrepared = resolve;
+      rejectPrepared = reject;
+    });
     const task = (async () => {
-      assertActive();
-      const execute = prepare();
+      const execute = await prepared;
       await previous;
       assertReady();
       mutation.assertLockHeld();
@@ -144,6 +149,14 @@ export async function runCatalogEntityMutation<T>(
         error => ({ error }),
       ),
     );
+    // Reserve and observe this queue entry before cloning can invoke getters
+    // that submit another write. Preparation still captures the payload now.
+    try {
+      assertActive();
+      resolvePrepared(prepare());
+    } catch (error) {
+      rejectPrepared(error);
+    }
     return task;
   };
   const guarded: CatalogEntityMutation = {
