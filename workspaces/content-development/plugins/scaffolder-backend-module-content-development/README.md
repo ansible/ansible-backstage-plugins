@@ -4,4 +4,14 @@ This backend module provides Ansible content development and execution environme
 
 ## Required backend module
 
-The execution environment lifecycle adapter calls the `/ansible/ee` routes provided by `@ansible/backstage-plugin-catalog-backend-module-rhaap`. Enable that catalog backend module in the same backend deployment whenever this scaffolder module is enabled. Without it, execution environment registration and cleanup actions fail because their catalog routes are unavailable.
+The execution environment lifecycle adapter discovers its catalog provider through the generic provider registry in `@ansible/portal-plugin-node`. Load `@ansible/backstage-plugin-catalog-backend-module-content` in the same backend deployment; its default loader retains PAH and Git catalog registration and contributes the EE provider.
+
+Configure the provider ID in trusted backend configuration. Do not pass it through a scaffolder template:
+
+```yaml
+ansible:
+  ee:
+    catalogProviderId: content-management.execution-environments
+```
+
+The content-management provider owns EE entity validation, catalog connectivity, durable registration state, and mutation locking. This module keeps the permission-aware lifecycle adapter and passes the initiating caller's credentials through its locked mutations.

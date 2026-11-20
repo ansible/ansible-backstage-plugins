@@ -10,6 +10,7 @@ import { mockServices, startTestBackend } from '@backstage/backend-test-utils';
 import {
   catalogProcessingExtensionPoint,
   type EntityProvider,
+  type EntityProviderConnection,
 } from '@backstage/plugin-catalog-node';
 import { catalogModelExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
 import { authProvidersExtensionPoint } from '@backstage/plugin-auth-node';
@@ -39,13 +40,18 @@ import scaffolderLoader, {
 import provisionerLoader, {
   catalogModuleRhaapUserProvisioner,
 } from '@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner';
-import contentCatalogLoader from '@ansible/catalog-backend-module-content-development';
+import contentCatalogLoader from '@ansible/backstage-plugin-catalog-backend-module-content';
 import contentScaffolderLoader from '@ansible/plugin-scaffolder-backend-module-content-development';
+import {
+  portalCatalogEntityProvidersServiceRef,
+  type CatalogEntityProvidersService,
+} from '@ansible/portal-plugin-node';
 
 const config = {
   app: { baseUrl: 'http://localhost:3000' },
   backend: { baseUrl: 'http://localhost:7007' },
   ansible: {
+    ee: { catalogProviderId: 'content-management.execution-environments' },
     rhaap: {
       baseUrl: 'https://aap.example.com',
       token: 'test-token',
@@ -71,6 +77,7 @@ const config = {
 
 function setup(features: BackendFeature[]) {
   const providers: EntityProvider[] = [];
+  const providerRegistries = new Map<string, CatalogEntityProvidersService>();
   const addActions = jest.fn();
   const addAutocompleteProvider = jest.fn();
   const registerProvider = jest.fn();
@@ -102,7 +109,16 @@ function setup(features: BackendFeature[]) {
           addPlaceholderResolver: jest.fn(),
           setOnProcessingErrorHandler: jest.fn(),
           addEntityProvider: (...added) => {
-            providers.push(...added.flat());
+            const addedProviders = added.flat();
+            providers.push(...addedProviders);
+            for (const provider of addedProviders) {
+              if (provider.getProviderName() === 'EEEntityProvider') {
+                void provider.connect({
+                  applyMutation: jest.fn(),
+                  refresh: jest.fn(),
+                } as EntityProviderConnection);
+              }
+            }
           },
         });
         reg.registerExtensionPoint(catalogModelExtensionPoint, {
@@ -139,8 +155,21 @@ function setup(features: BackendFeature[]) {
       },
     }),
   ];
+  const providerRegistryProbe = createBackendModule({
+    pluginId: 'catalog',
+    moduleId: 'aap-service-registration-provider-registry-test',
+    register(reg) {
+      reg.registerInit({
+        deps: { registry: portalCatalogEntityProvidersServiceRef },
+        async init({ registry }) {
+          providerRegistries.set('catalog', registry);
+        },
+      });
+    },
+  });
   return {
     providers,
+    providerRegistries,
     addActions,
     addAutocompleteProvider,
     registerProvider,
@@ -157,6 +186,7 @@ function setup(features: BackendFeature[]) {
           }),
           ...features,
           ...probes,
+          providerRegistryProbe,
           mockServices.rootConfig.factory({ data: config }),
         ],
       }),
@@ -237,7 +267,13 @@ describe('explicit AAP backend installation', () => {
   });
 
   it('composes AAP and content-development backend modules together', async () => {
-    const { start, providers, addActions, addAutocompleteProvider } = setup([
+    const {
+      start,
+      providers,
+      providerRegistries,
+      addActions,
+      addAutocompleteProvider,
+    } = setup([
       aapBackend,
       ...loaders,
       contentCatalogLoader,
@@ -255,6 +291,12 @@ describe('explicit AAP backend installation', () => {
       expect(
         providerNames.filter(name => name === 'EEEntityProvider'),
       ).toHaveLength(1);
+      expect(
+        providerRegistries
+          .get('catalog')!
+          .get('content-management.execution-environments')
+          .isReady(),
+      ).toBe(true);
       const actionIds = addActions.mock.calls
         .flat()
         .map((action: { id: string }) => action.id);

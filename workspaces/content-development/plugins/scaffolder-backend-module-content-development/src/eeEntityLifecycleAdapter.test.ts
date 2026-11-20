@@ -4,6 +4,8 @@ import {
   eeEntityLifecycleServiceFactory,
 } from './eeEntityLifecycleAdapter';
 
+const providerId = 'content-management.execution-environments';
+
 describe('EEEntityLifecycleAdapter', () => {
   let registrationState: 'none' | 'pending' | 'registered' = 'none';
   const credentials = {} as any;
@@ -32,11 +34,34 @@ describe('EEEntityLifecycleAdapter', () => {
       return registrationState;
     },
   };
+  let activeEntityRef = '';
   const provider = {
     register: jest.fn(),
     unregister: jest.fn(),
-    withRegistrationLock: jest.fn(),
+    isReady: jest.fn(() => true),
+    withEntityMutation: jest.fn(),
   } as any;
+  const providers = { get: jest.fn(() => provider) } as any;
+  const mutation = {
+    assertLockHeld: jest.fn(),
+    get registrationState() {
+      return lockContext.registrationState;
+    },
+    upsert: jest.fn(async (entity: unknown) => {
+      await lockContext.beginRegistrationMutation();
+      await provider.register(entity);
+      await lockContext.completeRegistration();
+    }),
+    remove: jest.fn(async () => {
+      await lockContext.beginMutation();
+      await provider.unregister(activeEntityRef.split('/').at(-1));
+      await lockContext.clearRegistration();
+    }),
+    clearRegistration: jest.fn(async () => {
+      await lockContext.beginMutation();
+      await lockContext.clearRegistration();
+    }),
+  };
   const catalog = {
     getEntityByRef: jest.fn(),
     getLocationByEntity: jest.fn(),
@@ -48,9 +73,14 @@ describe('EEEntityLifecycleAdapter', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     registrationState = 'none';
-    provider.withRegistrationLock.mockImplementation(
-      (_entityRef: string, operation: (lock: typeof lockContext) => unknown) =>
-        operation(lockContext),
+    provider.withEntityMutation.mockImplementation(
+      (
+        { entityRef }: { entityRef: string },
+        operation: (context: typeof mutation) => unknown,
+      ) => {
+        activeEntityRef = entityRef;
+        return operation(mutation);
+      },
     );
   });
 
@@ -62,7 +92,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -91,7 +122,8 @@ describe('EEEntityLifecycleAdapter', () => {
       { result: AuthorizeResult.DENY },
     ]);
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -124,7 +156,8 @@ describe('EEEntityLifecycleAdapter', () => {
       .mockResolvedValueOnce([{ result: AuthorizeResult.ALLOW }])
       .mockResolvedValueOnce([{ result: AuthorizeResult.DENY }]);
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -163,7 +196,8 @@ describe('EEEntityLifecycleAdapter', () => {
     });
 
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -201,7 +235,8 @@ describe('EEEntityLifecycleAdapter', () => {
       { result: AuthorizeResult.DENY },
     ]);
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -229,7 +264,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -253,7 +289,8 @@ describe('EEEntityLifecycleAdapter', () => {
     });
 
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -292,7 +329,8 @@ describe('EEEntityLifecycleAdapter', () => {
       },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -324,7 +362,8 @@ describe('EEEntityLifecycleAdapter', () => {
       },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -350,7 +389,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -392,7 +432,8 @@ describe('EEEntityLifecycleAdapter', () => {
       .fn()
       .mockRejectedValue(new Error('catalog failed'));
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -406,7 +447,8 @@ describe('EEEntityLifecycleAdapter', () => {
 
   it('rejects cleanup for a malformed execution environment name', async () => {
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -416,7 +458,7 @@ describe('EEEntityLifecycleAdapter', () => {
     expect(() =>
       adapter.unregisterExecutionEnvironment('bad name!', credentials),
     ).toThrow('Invalid execution environment name.');
-    expect(provider.withRegistrationLock).not.toHaveBeenCalled();
+    expect(provider.withEntityMutation).not.toHaveBeenCalled();
   });
 
   it('reports noop when cleanup finds nothing visible and nothing tracked', async () => {
@@ -425,7 +467,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -447,7 +490,8 @@ describe('EEEntityLifecycleAdapter', () => {
       metadata: { name: 'my-ee' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -477,7 +521,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -511,7 +556,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -549,7 +595,8 @@ describe('EEEntityLifecycleAdapter', () => {
       principal: { type: 'service', subject: 'catalog' },
     });
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       {} as any,
       auth,
       permissions,
@@ -581,7 +628,8 @@ describe('EEEntityLifecycleAdapter', () => {
       .mockRejectedValue(new Error('already gone'));
     const logger = { debug: jest.fn() };
     const adapter = new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      providerId,
       logger as any,
       auth,
       permissions,
@@ -613,7 +661,8 @@ describe('eeEntityLifecycleServiceFactory', () => {
       auth: {} as any,
       permissions: {} as any,
       discovery: { getBaseUrl: jest.fn() } as any,
-      provider: {} as any,
+      config: { getString: () => providerId } as any,
+      providers: { get: jest.fn() } as any,
     });
 
     expect(instance).toBeInstanceOf(EEEntityLifecycleAdapter);

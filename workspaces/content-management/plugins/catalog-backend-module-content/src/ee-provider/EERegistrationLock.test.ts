@@ -4,6 +4,18 @@ import { createEERegistrationLock } from './EERegistrationLock';
 const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 describe('createEERegistrationLock', () => {
+  it('reports readiness only after its durable lock schema is initialized', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+
+    expect(lock.isReady()).toBe(false);
+    await lock.initialize();
+    expect(lock.isReady()).toBe(true);
+    await knex.destroy();
+  });
+
   it('treats existing lock rows as pending during the registration state migration', async () => {
     const knex = await testDatabases.init('SQLITE_3');
     await knex.schema.createTable('ee_registration_lock_leases', table => {

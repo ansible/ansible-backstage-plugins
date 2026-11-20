@@ -71,7 +71,7 @@ backend.add(
 );
 backend.add(import('@ansible/backstage-plugin-catalog-backend-module-apme'));
 backend.add(import('@ansible/plugin-scaffolder-backend-module-aap'));
-backend.add(import('@ansible/catalog-backend-module-content-development'));
+backend.add(import('@ansible/backstage-plugin-catalog-backend-module-content'));
 backend.add(
   import('@ansible/plugin-scaffolder-backend-module-content-development'),
 );
