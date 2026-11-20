@@ -8,7 +8,6 @@ describe('portal scaffolder route paths', () => {
       collections: '/self-service/collections',
       executionEnvironments: '/self-service/ee',
       gitRepositories: '/self-service/repositories',
-      history: '/self-service/create/tasks',
       catalogImport: '/catalog-import',
       selectedTemplate: '/create/templates/:namespace/:templateName',
       createTask: '/create/tasks/:taskId',
