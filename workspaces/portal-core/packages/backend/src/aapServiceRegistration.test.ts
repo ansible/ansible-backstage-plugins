@@ -255,8 +255,8 @@ describe('explicit AAP backend installation', () => {
       expect(
         providerNames.filter(name => name === 'EEEntityProvider'),
       ).toHaveLength(1);
-      const actionIds = addActions.mock
-        .calls.flat()
+      const actionIds = addActions.mock.calls
+        .flat()
         .map((action: { id: string }) => action.id);
       expect(actionIds).toEqual(
         expect.arrayContaining([
