@@ -65,6 +65,8 @@ writeFileSync(
 const {
   createPortalPlugin,
   PortalHealth,
+  PortalCatalogEntityProviders,
+  portalCatalogEntityProvidersServiceRef,
 } = require('@ansible/portal-plugin-node');
 const health = new PortalHealth();
 const sdk = createPortalPlugin({ pluginId: 'external-consumer', health });
@@ -73,8 +75,73 @@ sdk.pushHealthStatus({
   message: 'Packed consumer initialized',
 });
 assert.equal(health.snapshot()['external-consumer'].state, 'READY');
+
+// Exercise the new public API from archives, not a workspace source alias.
+// These serial test providers are not production lock implementations.
+const providers = new PortalCatalogEntityProviders();
+assert.equal(portalCatalogEntityProvidersServiceRef.scope, 'root');
+function addTestProvider(id) {
+  const entities = new Map();
+  const states = new Map();
+  providers.register({
+    id,
+    provider: {
+      isReady: () => true,
+      async withEntityMutation({ entityRef }, operation) {
+        let held = true;
+        const assertLockHeld = () => {
+          assert(held, 'Provider lock has ended');
+        };
+        try {
+          return await operation({
+            assertLockHeld,
+            get registrationState() {
+              return states.get(entityRef) ?? 'none';
+            },
+            async upsert(entity) {
+              assertLockHeld();
+              entities.set(entityRef, entity);
+              states.set(entityRef, 'registered');
+            },
+            async remove() {
+              assertLockHeld();
+              entities.delete(entityRef);
+              states.delete(entityRef);
+            },
+            async clearRegistration() {
+              assertLockHeld();
+              states.delete(entityRef);
+            },
+          });
+        } finally {
+          held = false;
+        }
+      },
+    },
+  });
+  return entities;
+}
+const first = addTestProvider('external.components');
+const second = addTestProvider('another.resources');
+for (const [id, kind] of [
+  ['external.components', 'Component'],
+  ['another.resources', 'Resource'],
+]) {
+  const entityRef = `${kind.toLowerCase()}:consumer/example`;
+  await providers.get(id).withEntityMutation({ entityRef }, async mutation => {
+    assert.equal(mutation.registrationState, 'none');
+    await mutation.upsert({
+      apiVersion: 'backstage.io/v1alpha1',
+      kind,
+      metadata: { namespace: 'consumer', name: 'example' },
+    });
+    assert.equal(mutation.registrationState, 'registered');
+  });
+}
+assert.deepEqual([...first.keys()], ['component:consumer/example']);
+assert.deepEqual([...second.keys()], ['resource:consumer/example']);
 assert.ok(require('@ansible/portal-health-backend').default);
 assert.ok(require('@ansible/portal-operations-backend').default);
 console.log(
-  'Packed frontend bundles and backend health smoke passed without workspace links.',
+  'Packed frontend bundles, backend health and catalog providers passed without workspace links.',
 );

@@ -326,6 +326,95 @@ backend.add(import('@ansible/portal-health-backend'));
 
 The frontend `PortalHealthStatus` component (from `@ansible/portal-extension-host`) polls this endpoint and renders the results. See that package's README for usage.
 
+## Catalog entity provider contributions
+
+Use `portalCatalogEntityProvidersServiceRef` to connect backend contributors
+through a shared contract without importing another feature workspace. The SDK
+contains the registry and interfaces. Contributors supply their own provider
+implementations and namespaced IDs; adding a provider needs no SDK changes.
+
+Inject the service into a backend module and register the provider during init:
+
+```ts
+reg.registerInit({
+  deps: { providers: portalCatalogEntityProvidersServiceRef },
+  async init({ providers }) {
+    providers.register({ id: 'my-plugin.resources', provider });
+  },
+});
+```
+
+Here `provider` implements the SDK's `CatalogEntityProvider` interface in the
+contributing plugin. It supplies `isReady()` and
+`withEntityMutation({ entityRef }, operation)`. It must acquire a durable lock
+for that entity, invoke and await `operation` exactly once while holding the
+lock, and release the lock in `finally`. The SDK does not implement database
+locks, connect providers to the catalog or make an in-memory lock safe across
+multiple backend replicas.
+
+The mutation handle exposes:
+
+- `assertLockHeld()`: throw synchronously when this entity’s lock or lease is no
+  longer valid. Invalidate the handle before releasing the lock or returning,
+  including in `finally`. `isReady()` indicates initialization, not lock ownership.
+
+- `registrationState`: `none`, `pending` or `registered`. Pending writes count
+  as replacements for authorization purposes, even before catalog processing
+  makes an entity visible.
+- `upsert(entity)`: persist pending state before the provider mutation and mark
+  it registered only after success. Preserve pending state if interrupted.
+- `remove()`: remove only this provider's registration and clear its state.
+- `clearRegistration()`: clear bookkeeping after an authorized catalog API
+  cleanup. This method must not delete catalog locations or another source's
+  entities.
+
+Consumers resolve the provider when handling an operation, not during backend
+initialization. Module initialization order is not a provider-readiness
+guarantee. Select the ID through trusted host configuration, rather than an
+unvalidated form parameter. A registered provider can remain unavailable until
+its catalog connection and lock are initialized. Readiness is checked for each
+mutation, including calls through a previously resolved handle.
+
+```ts
+const provider = providers.get(configuredProviderId);
+await provider.withEntityMutation({ entityRef }, async mutation => {
+  await authorizeMutation(credentials, entityRef, mutation.registrationState);
+  await mutation.upsert(entity);
+});
+```
+
+The consumer supplies `authorizeMutation` and preserves the initiating caller's
+Backstage credentials. It must check create permission, replacement/delete
+permission, organization scope and resource access as applicable before any
+write. This internal backend registry is **not** a REST endpoint, operation
+authorization dispatcher or permission grant. Continue to secure each caller's
+transport and effects. Provider IDs are discovery keys, not access controls.
+
+Use a full `kind:namespace/name` reference following Backstage’s default ASCII
+catalog naming rules, with each part limited to 63 characters. Mixed case is
+canonicalized. Extra separators, whitespace and Unicode names are rejected.
+The SDK snapshots each upsert payload when the write is admitted and rejects
+an upsert for another entity. Later changes to the caller’s object do not change
+the queued write. Mutation handles expire when their callback ends.
+All writes must be awaited. The SDK drains accepted writes before returning,
+serializes writes within a callback, propagates failures even if a provider
+swallows them, and rejects missing, duplicate or premature callbacks. These
+guards check `assertLockHeld()` before entering the consumer callback, reading
+state and executing queued writes. Providers must also recheck their lease after
+their own asynchronous waits, immediately before catalog or state effects. Use
+the storage system’s fencing mechanism when required to enforce lease ownership.
+Callback timing checks diagnose protocol violations, but cannot prove that a
+provider owns a database lock. These are trusted backend interfaces, not a
+sandbox for untrusted providers, and cannot repair an incorrect lock implementation.
+An error after a write does not roll it back; recover using the provider's
+persisted registration state. Do not blindly retry domain effects.
+
+The default service factory provides one registry per backend instance through
+Backstage dependency injection. A dynamic distribution using independently
+embedded SDK copies can install the explicit root services through
+`@ansible/portal-operations-backend/alpha`, alongside its existing host service
+composition. Provider implementations remain in their own dynamic bundles.
+
 ## Peer dependencies
 
 - `express` ^4
