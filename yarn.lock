@@ -318,7 +318,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap":
+"@ansible/backstage-plugin-catalog-backend-module-aap@workspace:^, @ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap":
   version: 0.0.0-use.local
   resolution: "@ansible/backstage-plugin-catalog-backend-module-aap@workspace:workspaces/aap/plugins/catalog-backend-module-aap"
   dependencies:
@@ -25275,6 +25275,7 @@ __metadata:
     "@ansible/aap-backend": "workspace:^"
     "@ansible/aap-node": "workspace:^"
     "@ansible/backstage-plugin-auth-backend-module-rhaap-provider": "workspace:^"
+    "@ansible/backstage-plugin-catalog-backend-module-aap": "workspace:^"
     "@ansible/backstage-plugin-catalog-backend-module-apme": "workspace:^"
     "@ansible/backstage-plugin-catalog-backend-module-content": "workspace:^"
     "@ansible/backstage-plugin-catalog-backend-module-rhaap": "workspace:^"

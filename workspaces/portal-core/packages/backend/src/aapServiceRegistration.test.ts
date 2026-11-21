@@ -20,6 +20,7 @@ import {
   scaffolderTemplatingExtensionPoint,
 } from '@backstage/plugin-scaffolder-node/alpha';
 import aapBackend from '@ansible/aap-backend';
+import { catalogModuleAap } from '@ansible/backstage-plugin-catalog-backend-module-aap';
 import {
   AAPClient,
   ansibleServiceRef,
@@ -275,7 +276,10 @@ describe('explicit AAP backend installation', () => {
       addAutocompleteProvider,
     } = setup([
       aapBackend,
-      ...loaders,
+      catalogModuleAap,
+      authLoader,
+      scaffolderLoader,
+      provisionerLoader,
       contentCatalogLoader,
       contentScaffolderLoader,
     ]);
