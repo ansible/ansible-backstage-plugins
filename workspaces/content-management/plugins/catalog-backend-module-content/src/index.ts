@@ -1,8 +1,9 @@
 import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
 
 import { catalogModuleContent } from './module';
+import { catalogModuleEEProvider } from './ee-provider/module';
 
-export { catalogModuleContent };
+export { catalogModuleContent, catalogModuleEEProvider };
 export { contentCatalogRegistration } from './contentCatalogRegistration';
 
 /**
@@ -13,6 +14,7 @@ export { contentCatalogRegistration } from './contentCatalogRegistration';
 const catalogContentFeatureLoader = createBackendFeatureLoader({
   loader: function* () {
     yield catalogModuleContent;
+    yield catalogModuleEEProvider;
   },
 });
 

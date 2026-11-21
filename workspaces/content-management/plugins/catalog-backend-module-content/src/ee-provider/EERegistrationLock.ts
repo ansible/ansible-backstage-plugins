@@ -12,7 +12,7 @@ const LOCK_WAIT_TIMEOUT_MS = 60_000;
 
 export type EERegistrationState = 'none' | 'pending' | 'registered';
 
-export type EERegistrationLock = <T>(
+export type EERegistrationLock = (<T>(
   entityRef: string,
   operation: (lock: {
     assertLockHeld: () => void;
@@ -22,27 +22,51 @@ export type EERegistrationLock = <T>(
     clearRegistration: () => Promise<void>;
     registrationState: EERegistrationState;
   }) => Promise<T>,
-) => Promise<T>;
+) => Promise<T>) & {
+  initialize: () => Promise<void>;
+  isReady: () => boolean;
+};
 
 export function createEERegistrationLock(
   database: DatabaseService,
 ): EERegistrationLock {
+  let knex: KnexClient | undefined;
   let schemaReady: Promise<void> | undefined;
 
-  return async (entityRef, operation) => {
-    const knex = await database.getClient();
+  const initialize = async () => {
     if (!schemaReady) {
-      schemaReady = ensureLockTable(knex);
+      schemaReady = (async () => {
+        const client = await database.getClient();
+        await ensureLockTable(client);
+        knex = client;
+      })();
     }
     try {
       await schemaReady;
     } catch (error) {
       schemaReady = undefined;
+      knex = undefined;
       throw error;
     }
+  };
+
+  const withLock = async <T>(
+    entityRef: string,
+    operation: (lock: {
+      assertLockHeld: () => void;
+      beginMutation: () => Promise<void>;
+      beginRegistrationMutation: () => Promise<void>;
+      completeRegistration: () => Promise<void>;
+      clearRegistration: () => Promise<void>;
+      registrationState: EERegistrationState;
+    }) => Promise<T>,
+  ): Promise<T> => {
+    await initialize();
+    if (!knex) throw new Error('EE registration lock is not initialized');
+    const client = knex;
 
     const owner = randomUUID();
-    const registrationState = await acquireLock(knex, entityRef, owner);
+    const registrationState = await acquireLock(client, entityRef, owner);
 
     let leaseLost: Error | undefined;
     let renewalInFlight: Promise<void> | undefined;
@@ -56,8 +80,8 @@ export function createEERegistrationLock(
       const mutationState = registrationPending
         ? { mutation_in_progress: true, registration_state: 'pending' }
         : { mutation_in_progress: true };
-      const updated = await knex(LOCK_TABLE)
-        .where({ entity_ref: entityRef, owner, mutation_in_progress: false })
+      const updated = await client(LOCK_TABLE)
+        .where({ entity_ref: entityRef, owner })
         .andWhere('lease_expires_at', '>', Date.now())
         .update(mutationState);
       if (Number(updated) !== 1) {
@@ -71,7 +95,7 @@ export function createEERegistrationLock(
       nextState: Exclude<EERegistrationState, 'pending'>,
     ) => {
       assertLockHeld();
-      const updated = await knex(LOCK_TABLE)
+      const updated = await client(LOCK_TABLE)
         .where({ entity_ref: entityRef, owner, mutation_in_progress: true })
         .andWhere('lease_expires_at', '>', Date.now())
         .update({ registration_state: nextState });
@@ -84,7 +108,7 @@ export function createEERegistrationLock(
     };
     const heartbeat = setInterval(() => {
       if (!renewalInFlight) {
-        renewalInFlight = renewLock(knex, entityRef, owner)
+        renewalInFlight = renewLock(client, entityRef, owner)
           .then(held => {
             if (!held) {
               leaseLost = new Error(
@@ -119,9 +143,14 @@ export function createEERegistrationLock(
     } finally {
       clearInterval(heartbeat);
       if (renewalInFlight !== undefined) await renewalInFlight;
-      await releaseLock(knex, entityRef, owner);
+      await releaseLock(client, entityRef, owner);
     }
   };
+
+  return Object.assign(withLock, {
+    initialize,
+    isReady: () => knex !== undefined,
+  });
 }
 
 async function ensureLockTable(knex: KnexClient): Promise<void> {

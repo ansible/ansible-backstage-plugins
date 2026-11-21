@@ -13,23 +13,26 @@ import { CatalogClient } from '@backstage/catalog-client';
 import { stringifyEntityRef } from '@backstage/catalog-model';
 import type {
   EEEntityLifecycleService,
-  EEEntityProviderService,
   EELifecycleCleanupResult,
 } from '@ansible/content-development-common';
+import { eeEntityLifecycleServiceRef } from '@ansible/content-development-common';
 import {
-  eeEntityLifecycleServiceRef,
-  eeEntityProviderServiceRef,
-} from '@ansible/content-development-common';
+  portalCatalogEntityProvidersServiceRef,
+  type CatalogEntityProvidersService,
+} from '@ansible/portal-plugin-node';
 import {
   coreServices,
   createServiceFactory,
 } from '@backstage/backend-plugin-api';
+import type { Config } from '@backstage/config';
 
 const EE_NAME = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
+const EE_PROVIDER_ID_CONFIG = 'ansible.ee.catalogProviderId';
 
 export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
   constructor(
-    private readonly provider: EEEntityProviderService,
+    private readonly providers: CatalogEntityProvidersService,
+    private readonly providerId: string,
     private readonly logger: LoggerService,
     private readonly auth: AuthService,
     private readonly permissions: PermissionsService,
@@ -41,7 +44,8 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
     credentials: BackstageCredentials,
   ): Promise<void> {
     const entityRef = stringifyEntityRef(entity);
-    await this.provider.withRegistrationLock(entityRef, async lock => {
+    const provider = this.providers.get(this.providerId);
+    await provider.withEntityMutation({ entityRef }, async mutation => {
       const [createDecision] = await this.permissions.authorize(
         [{ permission: catalogEntityCreatePermission }],
         { credentials },
@@ -58,7 +62,7 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
         existingForCaller ??
         (await this.getEntityWithServiceCredentials(entityRef));
       const isReplacement =
-        Boolean(existing) || lock.registrationState !== 'none';
+        Boolean(existing) || mutation.registrationState !== 'none';
       if (isReplacement) {
         const [deleteDecision] = await this.permissions.authorize(
           [
@@ -75,10 +79,8 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
           );
         }
       }
-      lock.assertLockHeld();
-      await lock.beginRegistrationMutation();
-      await this.provider.register(entity);
-      await lock.completeRegistration();
+      mutation.assertLockHeld();
+      await mutation.upsert(entity);
     });
   }
 
@@ -95,7 +97,8 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       namespace: 'default',
       name,
     });
-    return this.provider.withRegistrationLock(entityRef, async lock => {
+    const provider = this.providers.get(this.providerId);
+    return provider.withEntityMutation({ entityRef }, async mutation => {
       const catalogOpts = { token: await this.getCatalogToken(credentials) };
       const entity = await this.catalogClient.getEntityByRef(
         entityRef,
@@ -104,12 +107,12 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
       let hiddenEntity = entity;
       if (!entity) {
         hiddenEntity = await this.getEntityWithServiceCredentials(entityRef);
-        if (hiddenEntity && lock.registrationState === 'none') {
+        if (hiddenEntity && mutation.registrationState === 'none') {
           throw new Error(
             'Insufficient permissions to read existing execution environment.',
           );
         }
-        if (!hiddenEntity && lock.registrationState === 'none') {
+        if (!hiddenEntity && mutation.registrationState === 'none') {
           return { mode: 'noop' };
         }
       } else if (
@@ -130,15 +133,13 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
         ((entity ?? hiddenEntity)?.metadata?.annotations?.[
           'ansible.io/download-experience'
         ] === 'true' ||
-          (!entity && lock.registrationState !== 'none'))
+          (!entity && mutation.registrationState !== 'none'))
       ) {
         return { mode: 'provider' };
       }
-      lock.assertLockHeld();
-      await lock.beginMutation();
       if (!entity) {
-        await this.provider.unregister(name);
-        await lock.clearRegistration();
+        mutation.assertLockHeld();
+        await mutation.remove();
         return { mode: 'provider' };
       }
       const location = await this.catalogClient.getLocationByEntity(
@@ -162,24 +163,28 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
               'Refusing to remove shared catalog location with colocated entities',
             );
           }
+          mutation.assertLockHeld();
           await this.catalogClient.removeEntityByUid(
             entity.metadata.uid,
             catalogOpts,
           );
-          await lock.clearRegistration();
+          await mutation.clearRegistration();
           return {
             mode: 'entity-transient',
             warning:
               'Shared catalog location still exists; the entity may reappear until catalog-info.yaml is updated.',
           };
         }
+        mutation.assertLockHeld();
         await this.catalogClient.removeLocationById(location.id, catalogOpts);
-        await lock.clearRegistration();
+        await mutation.clearRegistration();
         return { mode: 'location' };
       }
-      await this.provider.unregister(name);
+      mutation.assertLockHeld();
+      await mutation.remove();
       if (entity.metadata?.uid) {
         try {
+          mutation.assertLockHeld();
           await this.catalogClient.removeEntityByUid(
             entity.metadata.uid,
             catalogOpts,
@@ -195,7 +200,6 @@ export class EEEntityLifecycleAdapter implements EEEntityLifecycleService {
           );
         }
       }
-      await lock.clearRegistration();
       return { mode: 'provider' };
     });
   }
@@ -224,11 +228,13 @@ export const eeEntityLifecycleServiceFactory = createServiceFactory({
     auth: coreServices.auth,
     permissions: coreServices.permissions,
     discovery: coreServices.discovery,
-    provider: eeEntityProviderServiceRef,
+    config: coreServices.rootConfig,
+    providers: portalCatalogEntityProvidersServiceRef,
   },
-  factory({ logger, auth, permissions, discovery, provider }) {
+  factory({ logger, auth, permissions, discovery, config, providers }) {
     return new EEEntityLifecycleAdapter(
-      provider,
+      providers,
+      getEEProviderId(config),
       logger,
       auth,
       permissions,
@@ -236,3 +242,11 @@ export const eeEntityLifecycleServiceFactory = createServiceFactory({
     );
   },
 });
+
+function getEEProviderId(config: Config): string {
+  const providerId = config.getString(EE_PROVIDER_ID_CONFIG).trim();
+  if (!providerId) {
+    throw new Error(`${EE_PROVIDER_ID_CONFIG} must not be empty`);
+  }
+  return providerId;
+}
