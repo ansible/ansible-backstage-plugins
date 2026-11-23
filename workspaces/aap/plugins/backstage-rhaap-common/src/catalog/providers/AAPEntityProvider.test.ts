@@ -472,6 +472,60 @@ describe('AAPEntityProvider', () => {
     );
   });
 
+  it('uses an injected task runner when the identity sync block is omitted', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          rhaap: {
+            production: { orgs: ['Default'] },
+          },
+        },
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: 'testtoken',
+          checkSSL: false,
+        },
+      },
+    });
+    const logger = mockServices.logger.mock();
+    const schedule = new PersistingTaskRunner();
+
+    const providers = AAPEntityProvider.fromConfig(config, mockAnsibleService, {
+      logger,
+      schedule,
+    });
+    expect(providers).toHaveLength(1);
+    expect(providers[0].getProviderName()).toEqual(
+      'AapEntityProvider:production',
+    );
+  });
+
+  it('skips identity sync when the sync block is omitted and no runner is supplied', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          rhaap: {
+            production: { orgs: ['Default'] },
+          },
+        },
+      },
+      ansible: {
+        rhaap: {
+          baseUrl: 'https://rhaap.test',
+          token: 'testtoken',
+          checkSSL: false,
+        },
+      },
+    });
+    const logger = mockServices.logger.mock();
+
+    expect(
+      AAPEntityProvider.fromConfig(config, mockAnsibleService, { logger }),
+    ).toEqual([]);
+  });
+
   describe('bulk/per-user membership reconciliation', () => {
     it('warns but does not convert a missing bulk team into org membership', async () => {
       const config = new ConfigReader(MOCK_CONFIG.data);

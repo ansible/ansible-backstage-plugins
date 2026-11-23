@@ -13,7 +13,10 @@ export function readAapApiEntityConfigs(
   syncEntity: string,
   options?: { allowMissingSchedule?: boolean },
 ): AapConfig[] {
-  const providerConfigs = getResolvedCatalogProvidersConfig(config);
+  const providerConfigs = getResolvedCatalogProvidersConfig(config, {
+    // PAH/Git content startup must not fail on unused AAP identity settings.
+    validateIdentity: syncEntity !== 'pahCollections',
+  });
   if (!providerConfigs) {
     return [];
   }
@@ -36,9 +39,11 @@ export function readAapApiEntityConfigs(
         if (!repositories?.length) return null;
         return readAapApiEntityConfig(id, config, catalogConfig, syncEntity);
       }
-      // Identity-only environments have no sync block. Skip the provider
-      // instead of failing startup on a missing schedule.
-      if (!catalogConfig.has(syncPath)) return null;
+      // Identity-only YAML has no sync block. Skip unless a caller-supplied
+      // task runner is standing in for the schedule (legacy fromConfig hosts).
+      if (!catalogConfig.has(syncPath) && !options?.allowMissingSchedule) {
+        return null;
+      }
       // Job templates are opt-in. A disabled block needs no schedule, and an
       // omitted schedule can still use the task runner passed to fromConfig.
       // Require a config schedule only when the block is explicitly enabled.

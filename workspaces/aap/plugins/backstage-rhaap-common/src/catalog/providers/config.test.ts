@@ -247,6 +247,67 @@ describe('readAapApiEntityConfigs', () => {
       ).toEqual([]);
     });
 
+    it('keeps a missing sync block when a caller-supplied runner is allowed', () => {
+      const config = new ConfigReader({
+        ...baseConfig,
+        catalog: {
+          providers: {
+            rhaap: {
+              production: { orgs: ['Default'] },
+            },
+          },
+        },
+      });
+
+      const identityConfigs = readAapApiEntityConfigs(
+        config,
+        'orgsUsersTeams',
+        { allowMissingSchedule: true },
+      );
+      expect(identityConfigs).toHaveLength(1);
+      expect(identityConfigs[0].id).toBe('production');
+      expect(identityConfigs[0].organizations).toEqual(['default']);
+      expect(identityConfigs[0].schedule).toBeUndefined();
+
+      const jobTemplateConfigs = readAapApiEntityConfigs(
+        config,
+        'jobTemplates',
+        { allowMissingSchedule: true },
+      );
+      expect(jobTemplateConfigs).toHaveLength(1);
+      expect(jobTemplateConfigs[0].id).toBe('production');
+    });
+
+    it('still skips an explicitly disabled sync block when a runner is allowed', () => {
+      const config = new ConfigReader({
+        ...baseConfig,
+        catalog: {
+          providers: {
+            rhaap: {
+              production: {
+                orgs: ['Default'],
+                sync: {
+                  orgsUsersTeams: { enabled: false },
+                  jobTemplates: { enabled: false },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(
+        readAapApiEntityConfigs(config, 'orgsUsersTeams', {
+          allowMissingSchedule: true,
+        }),
+      ).toEqual([]);
+      expect(
+        readAapApiEntityConfigs(config, 'jobTemplates', {
+          allowMissingSchedule: true,
+        }),
+      ).toEqual([]);
+    });
+
     it('names the missing schedule when a sync block is enabled without one', () => {
       const config = new ConfigReader({
         ...baseConfig,
@@ -266,6 +327,48 @@ describe('readAapApiEntityConfigs', () => {
           readAapApiEntityConfigs(config, 'jobTemplates'),
         ),
       ).toThrow('sync.jobTemplates.schedule');
+    });
+
+    it('skips PAH identity validation when unused AAP identity modes disagree', () => {
+      const schedule = {
+        frequency: { minutes: 30 },
+        timeout: { minutes: 3 },
+      };
+      const config = new ConfigReader({
+        ...baseConfig,
+        catalog: {
+          providers: {
+            aap: {
+              identity: {
+                multiOrgEnabled: true,
+                orgs: ['Platform'],
+                sync: { orgsUsersTeams: { schedule } },
+              },
+            },
+            rhaap: {
+              identity: {
+                multiOrgEnabled: false,
+                orgs: ['Default'],
+                sync: { orgsUsersTeams: { schedule } },
+              },
+            },
+            content: {
+              production: {
+                sync: { ansibleGitContents: { enabled: true } },
+              },
+            },
+          },
+        },
+      });
+
+      expect(() => readAapApiEntityConfigs(config, 'orgsUsersTeams')).toThrow(
+        'must use the same identity mode',
+      );
+      expect(
+        runWithCatalogProvidersConfigRoot(CATALOG_PROVIDERS_CONTENT, () =>
+          readAapApiEntityConfigs(config, 'pahCollections'),
+        ),
+      ).toEqual([]);
     });
 
     it('skips PAH reads when an environment has no PAH repositories', () => {

@@ -424,6 +424,63 @@ describe('AAPJobTemplateProvider', () => {
         'AAPJobTemplateProvider:development',
       );
     });
+
+    it('uses an injected task runner when the job-template sync block is omitted', () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: {
+              production: { orgs: ['Default'] },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      });
+      const logger = mockServices.logger.mock();
+      const schedule = new PersistingTaskRunner();
+
+      const providers = AAPJobTemplateProvider.fromConfig(
+        config,
+        mockAnsibleService,
+        { logger, schedule },
+      );
+      expect(providers).toHaveLength(1);
+      expect(providers[0].getProviderName()).toEqual(
+        'AAPJobTemplateProvider:production',
+      );
+    });
+
+    it('skips job templates when the sync block is omitted and no runner is supplied', () => {
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: {
+              production: { orgs: ['Default'] },
+            },
+          },
+        },
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://rhaap.test',
+            token: 'testtoken',
+            checkSSL: false,
+          },
+        },
+      });
+      const logger = mockServices.logger.mock();
+
+      expect(
+        AAPJobTemplateProvider.fromConfig(config, mockAnsibleService, {
+          logger,
+        }),
+      ).toEqual([]);
+    });
   });
 
   describe('getProviderName', () => {
