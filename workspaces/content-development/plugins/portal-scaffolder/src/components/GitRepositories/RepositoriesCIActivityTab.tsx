@@ -1,34 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Link, Paper, Typography } from '@material-ui/core';
-import { useTheme } from '@material-ui/core/styles';
-import Autocomplete from '@material-ui/lab/Autocomplete';
-import TextField from '@material-ui/core/TextField';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import CheckCircleOutline from '@material-ui/icons/CheckCircleOutline';
-import CancelOutlined from '@material-ui/icons/CancelOutlined';
-import NotInterestedOutlined from '@material-ui/icons/NotInterestedOutlined';
-import SyncOutlined from '@material-ui/icons/SyncOutlined';
-import ScheduleOutlined from '@material-ui/icons/ScheduleOutlined';
-import BlockOutlined from '@material-ui/icons/BlockOutlined';
-import HelpOutline from '@material-ui/icons/HelpOutline';
 import {
   useApi,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import {
-  catalogApiRef,
-  CatalogFilterLayout,
-} from '@backstage/plugin-catalog-react';
+import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
-import { Progress, Table, TableColumn } from '@backstage/core-components';
 import {
-  useCollectionsStyles,
-  useTableWrapperStyles,
-} from '../CollectionsCatalog/styles';
-import { formatTimeAgo } from '../CollectionsCatalog/utils';
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  SearchField,
+  Select,
+  Table,
+  Text,
+  useTable,
+} from '@backstage/ui';
 import { CIActivityRow, STATUS_LABELS } from './ciActivityUtils';
 import { ciActivityCache, CIActivityCacheState } from './ciActivityCache';
+import { buildCIActivityColumnConfig } from './ciActivityPresentation';
 
 export type { CIActivityRow };
 
@@ -37,13 +29,23 @@ export interface RepositoriesCIActivityTabProps {
   cachedEntities?: Entity[];
 }
 
+const ALL = 'all';
+const pageSizeOptions = [10, 20, 50] as const;
+
+function statusOptionLabel(value: string): string {
+  if (value === 'All') return 'All statuses';
+  const labeled = STATUS_LABELS[value as CIActivityRow['status']];
+  return labeled ?? value.replaceAll('_', ' ');
+}
+
+function triggerOptionLabel(value: string): string {
+  return value === 'All' ? 'All triggers' : value;
+}
+
 export const RepositoriesCIActivityTab = ({
   filterByEntity,
   cachedEntities,
 }: RepositoriesCIActivityTabProps = {}) => {
-  const theme = useTheme();
-  const classes = useCollectionsStyles();
-  const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
@@ -53,6 +55,15 @@ export const RepositoriesCIActivityTab = ({
   );
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [triggerFilter, setTriggerFilter] = useState<string>('All');
+  const [search, setSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(search.trim().toLowerCase());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,282 +132,156 @@ export const RepositoriesCIActivityTab = ({
     [rows, statusFilter, triggerFilter],
   );
 
+  const searchedRows = useMemo(() => {
+    if (!searchQuery) return filteredRows;
+    return filteredRows.filter(row => {
+      const haystack = [
+        row.project,
+        row.eventDisplay,
+        row.trigger,
+        row.status,
+        statusOptionLabel(row.status),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+  }, [filteredRows, searchQuery]);
+
+  const columns = useMemo(() => buildCIActivityColumnConfig(), []);
+
+  const { tableProps } = useTable({
+    mode: 'complete',
+    data: searchedRows,
+    paginationOptions: {
+      pageSize: 10,
+      pageSizeOptions: [...pageSizeOptions],
+    },
+  });
+
   if (loading) {
-    return <Progress />;
+    return <Text role="status">Loading CI activity...</Text>;
   }
 
   if (error) {
     return (
-      <Box className={classes.emptyStateContainer}>
-        <Box className={classes.emptyState}>
-          <Typography
-            variant="h4"
-            className={classes.emptyStateTitle}
-            style={{ fontSize: '1.75rem' }}
-          >
-            Unable to load CI activity
-          </Typography>
-          <Typography
-            variant="body1"
-            className={classes.emptyStateDescription}
-            style={{ fontSize: '1.125rem' }}
-          >
-            {error}
-          </Typography>
-        </Box>
-      </Box>
+      <Alert
+        status="danger"
+        title="Unable to load CI activity"
+        description={error}
+      />
     );
   }
 
   if (rows.length === 0 && !fetchingMore) {
     return (
-      <Box className={classes.emptyStateContainer}>
-        <Box className={classes.emptyState}>
-          <Typography
-            variant="h4"
-            className={classes.emptyStateTitle}
-            style={{ fontSize: '1.75rem' }}
-          >
-            No CI activity yet
-          </Typography>
-          <Typography
-            variant="body1"
-            className={classes.emptyStateDescription}
-            style={{ fontSize: '1.125rem' }}
-          >
-            {filterByEntity
-              ? 'CI activity for this repository will appear here after workflow or pipeline runs.'
-              : 'CI activity from your GitHub and GitLab repositories will appear here after workflow or pipeline runs. Configure GitHub OAuth and GitLab integration in Backstage to see data.'}
-          </Typography>
-        </Box>
-      </Box>
+      <Flex direction="column" gap="2" py="6">
+        <Text as="h3" variant="title-small" weight="bold">
+          No CI activity yet
+        </Text>
+        <Text color="secondary">
+          {filterByEntity
+            ? 'CI activity for this repository will appear here after workflow or pipeline runs.'
+            : 'CI activity from your GitHub and GitLab repositories will appear here after workflow or pipeline runs. Configure GitHub OAuth and GitLab integration in Backstage to see data.'}
+        </Text>
+      </Flex>
     );
   }
 
-  const getStatusIcon = (status: CIActivityRow['status']) => {
-    const iconProps = { style: { fontSize: 20 }, 'aria-hidden': true as const };
-    const grey = theme.palette.grey[600];
-    switch (status) {
-      case 'success':
-        return (
-          <CheckCircleOutline
-            {...iconProps}
-            style={{ ...iconProps.style, color: theme.palette.success.main }}
-          />
-        );
-      case 'failure':
-        return (
-          <CancelOutlined
-            {...iconProps}
-            style={{ ...iconProps.style, color: theme.palette.error.main }}
-          />
-        );
-      case 'cancelled':
-        return (
-          <NotInterestedOutlined
-            {...iconProps}
-            style={{ ...iconProps.style, color: grey }}
-          />
-        );
-      case 'in_progress':
-        return (
-          <SyncOutlined
-            {...iconProps}
-            className={tableWrapperClasses.statusIconSpinning}
-            style={{ ...iconProps.style, color: theme.palette.info.main }}
-          />
-        );
-      case 'queued':
-        return (
-          <ScheduleOutlined
-            {...iconProps}
-            style={{ ...iconProps.style, color: theme.palette.warning.main }}
-          />
-        );
-      case 'skipped':
-        return (
-          <BlockOutlined
-            {...iconProps}
-            style={{ ...iconProps.style, color: grey }}
-          />
-        );
-      default:
-        return (
-          <HelpOutline
-            {...iconProps}
-            style={{ ...iconProps.style, color: grey }}
-          />
-        );
-    }
-  };
-
-  const columns: TableColumn<CIActivityRow>[] = [
-    {
-      title: 'Status',
-      field: 'status',
-      width: '16%',
-      render: (row: CIActivityRow) => (
-        <Box className={tableWrapperClasses.statusCell}>
-          {getStatusIcon(row.status)}
-          <Typography variant="body2" color="textPrimary">
-            {STATUS_LABELS[row.status]}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      title: 'Project',
-      field: 'project',
-      width: '26%',
-      highlight: true,
-      render: (row: CIActivityRow) =>
-        row.projectUrl ? (
-          <Link
-            href={row.projectUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            color="primary"
-          >
-            {row.project}
-          </Link>
-        ) : (
-          row.project
-        ),
-    },
-    {
-      title: 'Event',
-      field: 'eventDisplay',
-      width: '22%',
-      render: (row: CIActivityRow) =>
-        row.runUrl ? (
-          <Link
-            href={row.runUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            color="primary"
-          >
-            {row.eventDisplay}
-          </Link>
-        ) : (
-          row.eventDisplay
-        ),
-    },
-    {
-      title: 'Trigger',
-      field: 'trigger',
-      width: '18%',
-    },
-    {
-      title: 'Time',
-      field: 'time',
-      width: '18%',
-      render: (row: CIActivityRow) => (
-        <Typography variant="body2">
-          {row.time ? formatTimeAgo(row.time) : '—'}
-        </Typography>
-      ),
-    },
-  ];
+  // Match Ran wireframe / RhdhCatalogTableLayout:
+  // left filter rail = Status + Trigger; search stays inside the results card above the table.
+  const hasActiveFilters =
+    statusFilter !== 'All' || triggerFilter !== 'All' || search.trim() !== '';
 
   return (
-    <div style={{ flexDirection: 'column', width: '100%' }}>
-      <CatalogFilterLayout>
-        <CatalogFilterLayout.Filters>
-          <Box className={tableWrapperClasses.filterGroup}>
-            <Typography
-              style={{ marginBottom: 8, fontWeight: 600, fontSize: '0.875rem' }}
-            >
-              Status
-            </Typography>
-            <Paper className={tableWrapperClasses.paper}>
-              <Autocomplete
-                options={statusOptions}
-                value={statusFilter}
-                onChange={(_event, newValue) =>
-                  setStatusFilter(newValue ?? 'All')
-                }
-                getOptionLabel={opt =>
-                  opt === 'All' ? 'All' : opt.replaceAll('_', ' ')
-                }
-                renderInput={params => (
-                  <TextField
-                    {...params}
-                    placeholder="All"
-                    variant="standard"
-                    size="small"
-                    InputProps={{
-                      ...params.InputProps,
-                      disableUnderline: true,
-                      style: { fontSize: '0.875rem' },
-                    }}
-                  />
-                )}
-                disableClearable={statusFilter === 'All'}
-                size="small"
-                fullWidth
+    <Flex
+      align="start"
+      direction={{ initial: 'column', md: 'row' }}
+      gap="4"
+      style={{ width: '100%' }}
+    >
+      <Flex
+        direction="column"
+        gap="4"
+        style={{ width: 260, flexShrink: 0 }}
+      >
+        <Select
+          label="Status"
+          options={statusOptions.map(opt => ({
+            id: opt === 'All' ? ALL : `status:${opt}`,
+            label: statusOptionLabel(opt),
+          }))}
+          selectedKey={
+            statusFilter === 'All' ? ALL : `status:${statusFilter}`
+          }
+          onSelectionChange={key => {
+            if (key === ALL) {
+              setStatusFilter('All');
+              return;
+            }
+            setStatusFilter(String(key).replace(/^status:/, ''));
+          }}
+        />
+        <Select
+          label="Trigger"
+          options={triggerOptions.map(opt => ({
+            id: opt === 'All' ? ALL : `trigger:${opt}`,
+            label: triggerOptionLabel(opt),
+          }))}
+          selectedKey={
+            triggerFilter === 'All' ? ALL : `trigger:${triggerFilter}`
+          }
+          onSelectionChange={key => {
+            if (key === ALL) {
+              setTriggerFilter('All');
+              return;
+            }
+            setTriggerFilter(String(key).replace(/^trigger:/, ''));
+          }}
+        />
+        {hasActiveFilters ? (
+          <Button
+            variant="secondary"
+            onPress={() => {
+              setStatusFilter('All');
+              setTriggerFilter('All');
+              setSearch('');
+            }}
+            style={{ alignSelf: 'flex-start' }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
+      </Flex>
+
+      <Flex direction="column" gap="4" style={{ flex: 1, minWidth: 0 }}>
+        <Card>
+          <CardBody>
+            <Flex direction="column" gap="4" style={{ minWidth: 0 }}>
+              <SearchField
+                aria-label="Search CI activity"
+                placeholder="Search CI activity..."
+                value={search}
+                onChange={setSearch}
               />
-            </Paper>
-          </Box>
-          <Box className={tableWrapperClasses.filterGroup}>
-            <Typography
-              style={{ marginBottom: 8, fontWeight: 600, fontSize: '0.875rem' }}
-            >
-              Trigger
-            </Typography>
-            <Paper className={tableWrapperClasses.paper}>
-              <Autocomplete
-                options={triggerOptions}
-                value={triggerFilter}
-                onChange={(_event, newValue) =>
-                  setTriggerFilter(newValue ?? 'All')
+              {fetchingMore ? (
+                <Text color="secondary" role="status">
+                  Loading more CI activity…
+                </Text>
+              ) : null}
+              <Table
+                {...tableProps}
+                columnConfig={columns}
+                emptyState={
+                  <Text role="status">
+                    No CI activity matches your filters.
+                  </Text>
                 }
-                getOptionLabel={opt => (opt === 'All' ? 'All' : opt)}
-                renderInput={params => (
-                  <TextField
-                    {...params}
-                    placeholder="All"
-                    variant="standard"
-                    size="small"
-                    InputProps={{
-                      ...params.InputProps,
-                      disableUnderline: true,
-                      style: { fontSize: '0.875rem' },
-                    }}
-                  />
-                )}
-                disableClearable={triggerFilter === 'All'}
-                size="small"
-                fullWidth
               />
-            </Paper>
-          </Box>
-        </CatalogFilterLayout.Filters>
-        <CatalogFilterLayout.Content>
-          <Box className={tableWrapperClasses.tableWrapper}>
-            <Table
-              title={
-                <>
-                  {`CI Activity (${filteredRows.length})`}
-                  {fetchingMore && (
-                    <CircularProgress
-                      size={16}
-                      style={{ marginLeft: 8, verticalAlign: 'middle' }}
-                    />
-                  )}
-                </>
-              }
-              options={{
-                search: true,
-                paging: true,
-                pageSize: 10,
-                pageSizeOptions: [10, 20, 50],
-              }}
-              columns={columns}
-              data={filteredRows}
-            />
-          </Box>
-        </CatalogFilterLayout.Content>
-      </CatalogFilterLayout>
-    </div>
+            </Flex>
+          </CardBody>
+        </Card>
+      </Flex>
+    </Flex>
   );
 };

@@ -2,13 +2,29 @@ import {
   useNativeEntityPage,
   NativeEntityActionMenu,
 } from '@ansible/portal-extension-host/alpha';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Box, Button, Typography, Tab, Tabs } from '@material-ui/core';
+import { Menu as MuiMenu, MenuItem as MuiMenuItem } from '@material-ui/core';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  Flex,
+  Header,
+  Menu,
+  MenuItem,
+  MenuTrigger,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  Text,
+} from '@backstage/ui';
 import { EmptyStateView } from '@ansible/portal-plugin-sdk';
 import SearchIcon from '@material-ui/icons/Search';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
-import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
 import { Entity } from '@backstage/catalog-model';
 import {
   catalogApiRef,
@@ -37,14 +53,13 @@ import {
 import {
   ExtensionTabContent,
   ExtensionCardContent,
-  ExtensionActionMenu,
+  ExtensionActionMenuItem,
 } from '../../extensions/ExtensionRenderer';
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
 import { RepositoryAboutCard } from './RepositoryAboutCard';
 import { RepositoryReadmeCard } from './RepositoryReadmeCard';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
-import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import { RepositoryCollectionsTab } from './RepositoryCollectionsTab';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
 import { buildRawReadmeFetchUrl } from './scmUtils';
@@ -52,6 +67,10 @@ import {
   fetchGitFileContentFromBackend,
   ScmIntegrationAuthError,
 } from '../common';
+
+const TAB_OVERVIEW = 'overview';
+const TAB_CI_ACTIVITY = 'ci-activity';
+const TAB_COLLECTIONS = 'collections';
 
 type ReadmeStateSetters = {
   setReadmeContent: (value: string) => void;
@@ -191,7 +210,6 @@ function startDirectReadmeFetch(
 }
 
 const RepositoryDetailsPageInner = () => {
-  const classes = useCollectionsStyles();
   const navigate = useNavigate();
   const { repositoryName } = useParams<{ repositoryName: string }>();
   const catalogApi = useApi(catalogApiRef);
@@ -204,19 +222,15 @@ const RepositoryDetailsPageInner = () => {
   const [loading, setLoading] = useState(true);
   const [readmeContent, setReadmeContent] = useState('');
   const [readmeLoading, setReadmeLoading] = useState(false);
-  const [tab, setTab] = useState(0);
+  const [selectedTabKey, setSelectedTabKey] = useState(TAB_OVERVIEW);
   const [searchParams, setSearchParams] = useSearchParams();
   const [scmIntegrationAuthError, setScmIntegrationAuthError] = useState(false);
-  const GIT_REPO_BUILT_IN_TABS = 3; // Overview, CI Activity, Collections
-  const selectNativeTab = useCallback(
-    (index: number) => setTab(GIT_REPO_BUILT_IN_TABS + index),
-    [],
-  );
-  const native = useNativeEntityPage(
-    entity,
-    CONTENT_TYPES.PLAYBOOK_REPOSITORY,
-    selectNativeTab,
-  );
+  const [legacyActionsAnchorEl, setLegacyActionsAnchorEl] =
+    useState<null | HTMLElement>(null);
+  const legacyActionsButtonRef = useRef<HTMLButtonElement>(null);
+
+  const catalogHref = `${rootLink()}/repositories/catalog`;
+
   const legacyExtensionTabs = useExtensionTabs(
     EXTENSION_POINTS.GIT_REPO_DETAIL_TABS,
     entity ?? undefined,
@@ -232,20 +246,39 @@ const RepositoryDetailsPageInner = () => {
     entity ?? undefined,
     CONTENT_TYPES.PLAYBOOK_REPOSITORY,
   );
+  const extensionTabsRef = useRef(legacyExtensionTabs);
+  const selectNativeTab = useCallback((index: number) => {
+    const entry = extensionTabsRef.current[index];
+    if (entry) setSelectedTabKey(entry.id);
+  }, []);
+  const native = useNativeEntityPage(
+    entity,
+    CONTENT_TYPES.PLAYBOOK_REPOSITORY,
+    selectNativeTab,
+  );
   const extensionTabs = native?.tabs ?? legacyExtensionTabs;
+  extensionTabsRef.current = extensionTabs;
   const hasNativeContributions = Boolean(native);
+
   useEffect(() => {
     if (!hasNativeContributions) return;
     const id = searchParams.get('tab');
     if (!id) return;
-    const index = extensionTabs.findIndex(item => item.id === id);
-    setTab(index >= 0 ? GIT_REPO_BUILT_IN_TABS + index : 0);
+    const match = extensionTabs.find(item => item.id === id);
+    setSelectedTabKey(match ? id : TAB_OVERVIEW);
   }, [searchParams, extensionTabs, hasNativeContributions]);
+
   const extensionCards = native?.cards ?? legacyExtensionCards;
   const extensionActions = native ? [] : legacyExtensionActions;
-  const [actionsAnchorEl, setActionsAnchorEl] = useState<null | HTMLElement>(
-    null,
-  );
+
+  const collectionsTabLabel = useMemo(() => {
+    const collectionCount =
+      (entity?.spec as { repository_collection_count?: number })
+        ?.repository_collection_count ?? 0;
+    return collectionCount > 0
+      ? `Collections (${collectionCount})`
+      : 'Collections';
+  }, [entity]);
 
   const fetchEntity = useCallback(() => {
     if (!repositoryName) return;
@@ -287,7 +320,6 @@ const RepositoryDetailsPageInner = () => {
       return () => {};
     }
 
-    // Wait until catalog row matches the URL; fetchEntity does not clear `entity` before the next response.
     if (repositoryName && entity.metadata?.name !== repositoryName) {
       return () => {};
     }
@@ -323,8 +355,8 @@ const RepositoryDetailsPageInner = () => {
   }, [entity, discoveryApi, fetchApi, repositoryName]);
 
   const handleNavigateToCatalog = useCallback(() => {
-    navigate(`${rootLink()}/repositories/catalog`);
-  }, [navigate, rootLink]);
+    navigate(catalogHref);
+  }, [navigate, catalogHref]);
 
   const handleViewSource = useCallback(() => {
     if (!entity) return;
@@ -334,9 +366,33 @@ const RepositoryDetailsPageInner = () => {
     }
   }, [entity]);
 
-  const hasSourceUrl = useCallback(() => {
-    return entity ? Boolean(getSourceUrl(entity)) : false;
-  }, [entity]);
+  const hasSourceUrl = Boolean(entity && getSourceUrl(entity));
+  const showLegacyActionsMenu =
+    !native && (hasSourceUrl || extensionActions.length > 0);
+  const legacyExtensionActionsInMenu = extensionActions.length > 0;
+
+  const handleTabChange = useCallback(
+    (key: string | number | null) => {
+      if (typeof key !== 'string') return;
+      setSelectedTabKey(key);
+      if (native) {
+        const params = new URLSearchParams(searchParams);
+        const isExtensionTab = extensionTabs.some(entry => entry.id === key);
+        if (isExtensionTab) {
+          params.set('tab', key);
+        } else {
+          params.delete('tab');
+        }
+        setSearchParams(params);
+      }
+    },
+    [extensionTabs, native, searchParams, setSearchParams],
+  );
+
+  const handleSubjectRemoved = useCallback(() => {
+    apiHolder.get(gitRepositoriesCatalogApiRef)?.invalidateCatalogCache();
+    navigate(`${catalogHref}?refresh=true`);
+  }, [apiHolder, catalogHref, navigate]);
 
   const displayName =
     (entity?.spec as { repository_name?: string })?.repository_name ??
@@ -344,209 +400,233 @@ const RepositoryDetailsPageInner = () => {
     repositoryName ??
     'Repository';
 
-  if (loading) {
+  // DEV ONLY — remove before merge. Makes “am I on the new L4 BUI Details?” obvious.
+  const showAap101659DevBanner = process.env.NODE_ENV === 'development';
+  const aap101659DevBanner = showAap101659DevBanner ? (
+    <Alert
+      status="warning"
+      title="AAP-101659 NEW — L4 BUI Details (branch aap-101659-git-repo-details-bui-l4)"
+      description="You are on the new implementation. Shell + Overview + CI Activity + Collections tab bodies = BUI. Violations/Dependencies stay extension slots. Extension/native action menus may still use MUI host widgets."
+    />
+  ) : null;
+
+  const pageShell = (children: ReactNode) => (
+    <Container>
+      <Flex direction="column" gap="3" p="4">
+        {aap101659DevBanner}
+        {children}
+      </Flex>
+    </Container>
+  );
+
+  const renderLegacyActionsMenu = () => {
+    if (!showLegacyActionsMenu) return null;
+    if (legacyExtensionActionsInMenu) {
+      // portal-extension-host renders MUI MenuItem nodes for contributed actions.
+      return (
+        <>
+          <Button
+            ref={legacyActionsButtonRef}
+            variant="primary"
+            onPress={() =>
+              setLegacyActionsAnchorEl(legacyActionsButtonRef.current)
+            }
+          >
+            Actions
+          </Button>
+          <MuiMenu
+            anchorEl={legacyActionsAnchorEl}
+            open={Boolean(legacyActionsAnchorEl)}
+            onClose={() => setLegacyActionsAnchorEl(null)}
+            keepMounted
+          >
+            {hasSourceUrl && (
+              <MuiMenuItem
+                onClick={() => {
+                  handleViewSource();
+                  setLegacyActionsAnchorEl(null);
+                }}
+              >
+                <OpenInNewIcon fontSize="small" style={{ marginRight: 8 }} />
+                View in source
+              </MuiMenuItem>
+            )}
+            {extensionActions.map(contribution => (
+              <ExtensionActionMenuItem
+                key={contribution.id}
+                contribution={contribution}
+                entity={entity as Entity}
+                onMenuClose={() => setLegacyActionsAnchorEl(null)}
+                onSuccess={result => {
+                  if (
+                    typeof result === 'object' &&
+                    result !== null &&
+                    'subjectRemoved' in result &&
+                    result.subjectRemoved === true
+                  ) {
+                    handleSubjectRemoved();
+                  }
+                }}
+              />
+            ))}
+          </MuiMenu>
+        </>
+      );
+    }
     return (
-      <Box className={classes.detailsContainer}>
-        <Typography>Loading...</Typography>
-      </Box>
+      <MenuTrigger>
+        <Button variant="primary">Actions</Button>
+        <Menu>
+          {hasSourceUrl && (
+            <MenuItem onAction={handleViewSource}>View in source</MenuItem>
+          )}
+        </Menu>
+      </MenuTrigger>
     );
+  };
+
+  const headerActions = (
+    <Flex align="center" gap="2">
+      {renderLegacyActionsMenu()}
+      {native && (
+        <NativeEntityActionMenu
+          contributions={native}
+          onSubjectRemoved={handleSubjectRemoved}
+        />
+      )}
+    </Flex>
+  );
+
+  if (loading) {
+    return pageShell(<Text role="status">Loading...</Text>);
   }
 
   if (!entity) {
-    return (
-      <Box className={classes.detailsContainer}>
+    return pageShell(
+      <>
         <RepositoryBreadcrumbs
           repositoryName={repositoryName ?? 'Unknown'}
           onNavigateToCatalog={handleNavigateToCatalog}
+          catalogHref={catalogHref}
         />
         <EmptyStateView
           title="Repository not found"
           description="The requested repository is not available in the catalog."
           icon={<SearchIcon fontSize="inherit" />}
         />
-      </Box>
+      </>,
     );
   }
 
   if (scmIntegrationAuthError) {
-    return (
-      <Box className={classes.detailsContainer}>
+    return pageShell(
+      <>
         <RepositoryBreadcrumbs
           repositoryName={displayName}
           onNavigateToCatalog={handleNavigateToCatalog}
+          catalogHref={catalogHref}
         />
         <ScmIntegrationAuthError resourceLabel="repository" />
-      </Box>
+      </>,
     );
   }
 
-  return (
-    <Box className={classes.detailsContainer}>
-      <RepositoryBreadcrumbs
-        repositoryName={displayName}
-        onNavigateToCatalog={handleNavigateToCatalog}
+  return pageShell(
+    <Flex direction="column" gap="4">
+      <Header
+        title={displayName}
+        description={entity.metadata?.description}
+        customActions={headerActions}
+        breadcrumbs={[
+          { label: 'Repositories', href: catalogHref },
+          { label: displayName, href: '#' },
+        ]}
       />
 
-      <Box className={classes.detailsHeader}>
-        <Box>
-          <Typography className={classes.detailsTitleText}>
-            {displayName}
-          </Typography>
-          {entity.metadata?.description && (
-            <Typography className={classes.detailsDescription}>
-              {entity.metadata.description}
-            </Typography>
-          )}
-        </Box>
-        {hasSourceUrl() && (
-          <Button
-            variant="outlined"
-            color="primary"
-            endIcon={<OpenInNewIcon />}
-            onClick={handleViewSource}
-            className={classes.syncButton}
-            style={{ whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 24 }}
+      <Tabs selectedKey={selectedTabKey} onSelectionChange={handleTabChange}>
+        <TabList aria-label="Repository details">
+          <Tab id={TAB_OVERVIEW}>Overview</Tab>
+          {extensionTabs.map(et => {
+            const Icon = et.icon;
+            return (
+              <Tab key={et.id} id={et.id}>
+                <Flex align="center" gap="1">
+                  {Icon ? <Icon fontSize="small" /> : null}
+                  {et.label}
+                </Flex>
+              </Tab>
+            );
+          })}
+          <Tab id={TAB_CI_ACTIVITY}>CI Activity</Tab>
+          <Tab id={TAB_COLLECTIONS}>{collectionsTabLabel}</Tab>
+        </TabList>
+
+        <TabPanel id={TAB_OVERVIEW}>
+          <Flex
+            align="start"
+            direction={{ initial: 'column', lg: 'row' }}
+            gap="4"
+            mt="4"
           >
-            View in source
-          </Button>
-        )}
-        {native && (
-          <NativeEntityActionMenu
-            contributions={native}
-            onSubjectRemoved={() => {
-              apiHolder
-                .get(gitRepositoriesCatalogApiRef)
-                ?.invalidateCatalogCache();
-              navigate(`${rootLink()}/repositories/catalog?refresh=true`);
-            }}
-          />
-        )}
-        {extensionActions.length > 0 && entity && (
-          <>
-            <Button
-              variant="outlined"
-              color="primary"
-              endIcon={<ArrowDropDownIcon />}
-              onClick={e => setActionsAnchorEl(e.currentTarget)}
-              className={classes.syncButton}
-              style={{ whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}
-            >
-              Actions
-            </Button>
-            <ExtensionActionMenu
-              anchorEl={actionsAnchorEl}
-              contributions={extensionActions}
-              entity={entity as Entity}
-              onClose={() => setActionsAnchorEl(null)}
-              onSuccess={result => {
-                if (
-                  typeof result === 'object' &&
-                  result !== null &&
-                  'subjectRemoved' in result &&
-                  result.subjectRemoved === true
-                ) {
-                  apiHolder
-                    .get(gitRepositoriesCatalogApiRef)
-                    ?.invalidateCatalogCache();
-                  navigate(`${rootLink()}/repositories/catalog?refresh=true`);
-                }
-              }}
-            />
-          </>
-        )}
-      </Box>
+            <Box grow={1} minWidth="0">
+              <Flex direction="column" gap="4">
+                <RepositoryReadmeCard
+                  readmeContent={readmeContent}
+                  isLoading={readmeLoading}
+                />
+                {extensionCards
+                  .filter(c => c.slot === 'overview-left')
+                  .map(c => (
+                    <ExtensionCardContent
+                      key={c.id}
+                      contribution={c}
+                      entity={entity as Entity}
+                    />
+                  ))}
+              </Flex>
+            </Box>
+            <Flex direction="column" gap="4" style={{ width: 340, flexShrink: 0 }}>
+              {extensionCards
+                .filter(c => c.slot !== 'overview-left')
+                .map(c => (
+                  <ExtensionCardContent
+                    key={c.id}
+                    contribution={c}
+                    entity={entity as Entity}
+                  />
+                ))}
+              <RepositoryAboutCard
+                entity={entity}
+                onViewSource={handleViewSource}
+                onNavigateToCollections={() => setSelectedTabKey(TAB_COLLECTIONS)}
+              />
+            </Flex>
+          </Flex>
+        </TabPanel>
 
-      <Tabs
-        value={tab}
-        onChange={(_, v) => {
-          setTab(v);
-          if (native) {
-            const params = new URLSearchParams(searchParams);
-            const entry = extensionTabs[v - GIT_REPO_BUILT_IN_TABS];
-            if (entry) params.set('tab', entry.id);
-            else params.delete('tab');
-            setSearchParams(params);
-          }
-        }}
-        className={classes.detailsTabs}
-      >
-        <Tab label="Overview" />
-        <Tab label="CI Activity" />
-        <Tab label="Collections" />
-        {extensionTabs.map(et => {
-          const Icon = et.icon;
-          return (
-            <Tab
-              key={et.id}
-              label={et.label}
-              icon={Icon ? <Icon fontSize="small" /> : undefined}
-            />
-          );
-        })}
+        {extensionTabs.map(et => (
+          <TabPanel key={et.id} id={et.id}>
+            <Box mt="4">
+              <ExtensionTabContent contribution={et} entity={entity} />
+            </Box>
+          </TabPanel>
+        ))}
+
+        <TabPanel id={TAB_CI_ACTIVITY}>
+          <Box mt="4">
+            <RepositoriesCIActivityTab filterByEntity={entity} />
+          </Box>
+        </TabPanel>
+
+        <TabPanel id={TAB_COLLECTIONS}>
+          <Box mt="4">
+            <EntityListProvider>
+              <RepositoryCollectionsTab repositoryEntity={entity} />
+            </EntityListProvider>
+          </Box>
+        </TabPanel>
       </Tabs>
-
-      {tab === 0 && (
-        <Box className={classes.detailsContent}>
-          <Box className={classes.detailsLeftColumn}>
-            <RepositoryReadmeCard
-              readmeContent={readmeContent}
-              isLoading={readmeLoading}
-            />
-            {extensionCards
-              .filter(c => c.slot === 'overview-left')
-              .map(c => (
-                <ExtensionCardContent
-                  key={c.id}
-                  contribution={c}
-                  entity={entity as Entity}
-                />
-              ))}
-          </Box>
-          <Box className={classes.detailsRightColumn}>
-            <RepositoryAboutCard
-              entity={entity}
-              onViewSource={handleViewSource}
-              onNavigateToCollections={() => setTab(2)}
-            />
-            {extensionCards
-              .filter(c => c.slot !== 'overview-left')
-              .map(c => (
-                <ExtensionCardContent
-                  key={c.id}
-                  contribution={c}
-                  entity={entity as Entity}
-                />
-              ))}
-          </Box>
-        </Box>
-      )}
-
-      {tab === 1 && (
-        <Box
-          className={classes.detailsContent}
-          style={{ width: '100%', flex: 1 }}
-        >
-          <RepositoriesCIActivityTab filterByEntity={entity} />
-        </Box>
-      )}
-
-      {tab === 2 && (
-        <Box
-          className={classes.detailsContent}
-          style={{ width: '100%', flex: 1 }}
-        >
-          <EntityListProvider>
-            <CollectionsListPage filterByRepositoryEntity={entity} />
-          </EntityListProvider>
-        </Box>
-      )}
-
-      {extensionTabs.map((et, i) =>
-        tab === GIT_REPO_BUILT_IN_TABS + i ? (
-          <ExtensionTabContent key={et.id} contribution={et} entity={entity} />
-        ) : null,
-      )}
-    </Box>
+    </Flex>,
   );
 };
 
