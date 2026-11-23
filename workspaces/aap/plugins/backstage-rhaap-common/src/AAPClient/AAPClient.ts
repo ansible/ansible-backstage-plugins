@@ -826,7 +826,10 @@ export class AAPClient implements IAAPService {
     if (options?.jobTags) {
       body.job_tags = options.jobTags;
     }
-    if (options?.inventoryId != null) {
+    if (
+      options?.inventoryId !== undefined &&
+      options.inventoryId !== null
+    ) {
       body.inventory = options.inventoryId;
     }
     return body;
@@ -990,12 +993,21 @@ export class AAPClient implements IAAPService {
     inventoryId: number,
     token: string,
   ): Promise<string[]> {
-    const response = await this.executeGetRequest(
-      `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`,
-      token,
-    );
-    const data = await response.json();
-    return (data.results ?? []).map((host: { name: string }) => host.name);
+    const hostnames: string[] = [];
+    let fullUrl: string | undefined;
+    const endPoint = `api/controller/v2/inventories/${inventoryId}/hosts/?page_size=200`;
+
+    for (;;) {
+      const response = await this.executeGetRequest(endPoint, token, fullUrl);
+      const data = await response.json();
+      hostnames.push(
+        ...(data.results ?? []).map((host: { name: string }) => host.name),
+      );
+      if (!data.next) {
+        return hostnames;
+      }
+      fullUrl = data.next;
+    }
   }
 
   public async getHostAnsibleFacts(

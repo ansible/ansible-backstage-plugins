@@ -5426,6 +5426,53 @@ describe('AAPClient', () => {
       );
     });
 
+    it('getInventoryHostnames follows next links across pages', async () => {
+      const firstPage = {
+        count: 3,
+        next: '/api/controller/v2/inventories/1/hosts/?page=2&page_size=200',
+        previous: null,
+        results: [
+          { id: 1, name: 'host-a' },
+          { id: 2, name: 'host-b' },
+        ],
+      };
+      const secondPage = {
+        count: 3,
+        next: null,
+        previous: '/api/controller/v2/inventories/1/hosts/?page=1&page_size=200',
+        results: [{ id: 3, name: 'host-c' }],
+      };
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(firstPage),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(secondPage),
+        });
+
+      const result = await client.getInventoryHostnames(1, 'test-token');
+
+      expect(result).toEqual(['host-a', 'host-b', 'host-c']);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining(
+          '/api/controller/v2/inventories/1/hosts/?page_size=200',
+        ),
+        expect.any(Object),
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining(
+          '/api/controller/v2/inventories/1/hosts/?page=2&page_size=200',
+        ),
+        expect.any(Object),
+      );
+    });
+
     it('getHostAnsibleFacts matches request/response fixtures', async () => {
       const request = loadFixture('getHostAnsibleFacts.request.json');
       const response = loadFixture('getHostAnsibleFacts.response.json');
