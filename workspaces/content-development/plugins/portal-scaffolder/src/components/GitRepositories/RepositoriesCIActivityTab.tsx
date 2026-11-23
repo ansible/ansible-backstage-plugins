@@ -188,22 +188,21 @@ export const RepositoriesCIActivityTab = ({
     );
   }
 
-  // Wireframe 01 (AAP-101671): horizontal Status + Trigger above search/table
-  // (not a left filter rail). Search stays above the table.
+  // Wireframe 01 (AAP-101671): left filter rail (Status + Trigger stacked),
+  // search + table on the right.
   const hasActiveFilters =
     statusFilter !== 'All' || triggerFilter !== 'All' || search.trim() !== '';
 
   return (
-    <Flex direction="column" gap="4" style={{ width: '100%' }}>
-      <Flex
-        align="end"
-        direction={{ initial: 'column', sm: 'row' }}
-        gap="3"
-        style={{ width: '100%', flexWrap: 'wrap' }}
-      >
+    <Flex
+      align="start"
+      direction={{ initial: 'column', md: 'row' }}
+      gap="4"
+      style={{ width: '100%' }}
+    >
+      <Flex direction="column" gap="4" style={{ width: 260, flexShrink: 0 }}>
         <Select
           label="Status"
-          name="ci-activity-status-filter"
           options={statusOptions.map(opt => ({
             id: opt === 'All' ? ALL : `status:${opt}`,
             label: statusOptionLabel(opt),
@@ -219,7 +218,6 @@ export const RepositoriesCIActivityTab = ({
         />
         <Select
           label="Trigger"
-          name="ci-activity-trigger-filter"
           options={triggerOptions.map(opt => ({
             id: opt === 'All' ? ALL : `trigger:${opt}`,
             label: triggerOptionLabel(opt),
@@ -243,36 +241,41 @@ export const RepositoriesCIActivityTab = ({
               setTriggerFilter('All');
               setSearch('');
             }}
+            style={{ alignSelf: 'flex-start' }}
           >
             Clear filters
           </Button>
         ) : null}
       </Flex>
 
-      <Card>
-        <CardBody>
-          <Flex direction="column" gap="4" style={{ minWidth: 0 }}>
-            <SearchField
-              aria-label="Search CI activity"
-              placeholder="Search CI activity..."
-              value={search}
-              onChange={setSearch}
-            />
-            {fetchingMore ? (
-              <Text color="secondary" role="status">
-                Loading more CI activity…
-              </Text>
-            ) : null}
-            <Table
-              {...tableProps}
-              columnConfig={columns}
-              emptyState={
-                <Text role="status">No CI activity matches your filters.</Text>
-              }
-            />
-          </Flex>
-        </CardBody>
-      </Card>
+      <Flex direction="column" gap="4" style={{ flex: 1, minWidth: 0 }}>
+        <Card>
+          <CardBody>
+            <Flex direction="column" gap="4" style={{ minWidth: 0 }}>
+              <SearchField
+                aria-label="Search CI activity"
+                placeholder="Search CI activity..."
+                value={search}
+                onChange={setSearch}
+              />
+              {fetchingMore ? (
+                <Text color="secondary" role="status">
+                  Loading more CI activity…
+                </Text>
+              ) : null}
+              <Table
+                {...tableProps}
+                columnConfig={columns}
+                emptyState={
+                  <Text role="status">
+                    No CI activity matches your filters.
+                  </Text>
+                }
+              />
+            </Flex>
+          </CardBody>
+        </Card>
+      </Flex>
     </Flex>
   );
 };
