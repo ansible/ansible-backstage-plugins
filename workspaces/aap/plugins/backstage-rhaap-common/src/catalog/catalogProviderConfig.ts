@@ -163,11 +163,11 @@ export function legacyRootPublishesAapIdentity(config: Config): boolean {
 export function assertNoConflictingAapIdentityMode(config: Config): void {
   const aap = config.getOptionalConfig(CATALOG_PROVIDERS_AAP);
   const rhaap = config.getOptionalConfig(CATALOG_PROVIDERS_RHAAP);
-  if (!aap || !rhaap) {
+  const aapEnvs = aap ? identityEnvEntries(aap) : [];
+  const rhaapEnvs = rhaap ? identityEnvEntries(rhaap) : [];
+  if (aapEnvs.length === 0 && rhaapEnvs.length === 0) {
     return;
   }
-  const aapEnvs = identityEnvEntries(aap);
-  const rhaapEnvs = identityEnvEntries(rhaap);
   const signInMode = signInMultiOrgEnabled(config);
   for (const [rootName, entries] of [
     ['aap', aapEnvs],

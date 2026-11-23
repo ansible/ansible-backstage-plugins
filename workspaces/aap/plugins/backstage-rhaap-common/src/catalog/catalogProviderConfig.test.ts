@@ -198,6 +198,30 @@ describe('catalogProviderConfig', () => {
     );
   });
 
+  it('rejects mixed identity modes when only the aap root is configured', () => {
+    const identitySync = {
+      sync: {
+        orgsUsersTeams: {
+          schedule: { frequency: { minutes: 30 }, timeout: { minutes: 3 } },
+        },
+      },
+    };
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          aap: {
+            development: { multiOrgEnabled: true, ...identitySync },
+            production: { multiOrgEnabled: false, ...identitySync },
+          },
+        },
+      },
+    });
+
+    expect(() => getResolvedAapProvidersConfig(config)).toThrow(
+      'catalog.providers.aap.production.multiOrgEnabled (false)',
+    );
+  });
+
   it('ignores disabled identity sync and job-template organization settings', () => {
     const config = new ConfigReader({
       catalog: {

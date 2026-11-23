@@ -84,6 +84,36 @@ describe('getCatalogConfig', () => {
 
     expect(getCatalogConfig(config).organizations).toEqual(['engineering']);
   });
+
+  it('keeps rhaap job-template filters when the aap root is empty', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          aap: {},
+          rhaap: {
+            development: {
+              orgs: ['Default'],
+              sync: {
+                jobTemplates: {
+                  enabled: true,
+                  surveyEnabled: true,
+                  labels: ['production'],
+                  excludeLabels: ['internal'],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config)).toEqual({
+      organizations: ['default'],
+      surveyEnabled: true,
+      jobTemplateLabels: ['production'],
+      jobTemplateExcludeLabels: ['internal'],
+    });
+  });
 });
 
 describe('getAnsibleConfig', () => {

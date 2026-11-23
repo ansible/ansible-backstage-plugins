@@ -30,7 +30,10 @@ function mockApmeEnabledConfig(enabled: boolean) {
           getOptionalString: jest.fn().mockReturnValue(undefined),
         };
       }
-      if (key === 'catalog.providers.rhaap') {
+      if (
+        key === 'catalog.providers.rhaap' ||
+        key === 'catalog.providers.content'
+      ) {
         return undefined;
       }
       return undefined;
@@ -168,6 +171,39 @@ function mockConfigWithRhaap(
       if (key === 'catalog.providers.rhaap') {
         return rhaap;
       }
+      if (key === 'catalog.providers.content') {
+        return undefined;
+      }
+      return undefined;
+    }),
+    getOptionalBoolean: jest.fn().mockReturnValue(undefined),
+  };
+}
+
+function mockConfigWithContent(
+  content: ReturnType<typeof mockRhaapConfig>,
+  rhaap?: ReturnType<typeof mockRhaapConfig>,
+  apmeEnabled = true,
+) {
+  return {
+    getOptionalConfig: jest.fn().mockImplementation((key: string) => {
+      if (key === 'ansible.apme') {
+        return {
+          getOptionalBoolean: jest
+            .fn()
+            .mockImplementation((k: string) =>
+              k === 'enabled' ? apmeEnabled : undefined,
+            ),
+          getString: jest.fn().mockReturnValue('http://localhost:8080'),
+          getOptionalString: jest.fn().mockReturnValue(undefined),
+        };
+      }
+      if (key === 'catalog.providers.content') {
+        return content;
+      }
+      if (key === 'catalog.providers.rhaap') {
+        return rhaap;
+      }
       return undefined;
     }),
     getOptionalBoolean: jest.fn().mockReturnValue(undefined),
@@ -255,5 +291,23 @@ describe('readApmeGitContentsSyncConfigs', () => {
     expect(
       readApmeGitContentsSyncConfigs(mockConfigWithRhaap(rhaap) as any),
     ).toEqual([]);
+  });
+
+  it('reads Git scan scope from catalog.providers.content and ignores leftover rhaap', () => {
+    const contentGit = mockGitContentsBlock({
+      orgs: [mockOrgConfig('content-org', { enabled: true })],
+    });
+    const leftoverGit = mockGitContentsBlock({
+      orgs: [mockOrgConfig('legacy-org', { enabled: true })],
+    });
+
+    const [block] = readApmeGitContentsSyncConfigs(
+      mockConfigWithContent(
+        mockRhaapConfig({ prod: contentGit }),
+        mockRhaapConfig({ prod: leftoverGit }),
+      ) as any,
+    );
+
+    expect(block.orgs.map(org => org.organization)).toEqual(['content-org']);
   });
 });

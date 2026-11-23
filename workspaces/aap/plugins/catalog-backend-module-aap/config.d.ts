@@ -14,9 +14,15 @@ export interface Config {
           multiOrgEnabled?: boolean;
           orgs?: string | string[];
           sync?: {
-            orgsUsersTeams?: {
-              schedule: SchedulerServiceTaskScheduleDefinitionConfig;
-            };
+            orgsUsersTeams?:
+              | {
+                  enabled: false;
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                }
+              | {
+                  enabled?: true;
+                  schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+                };
             jobTemplates?:
               | {
                   enabled: false;

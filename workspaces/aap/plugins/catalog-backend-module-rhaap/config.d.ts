@@ -24,9 +24,15 @@ export interface Config {
           multiOrgEnabled?: boolean;
           orgs?: string | string[];
           sync?: {
-            orgsUsersTeams?: {
-              schedule: SchedulerServiceTaskScheduleDefinitionConfig;
-            };
+            orgsUsersTeams?:
+              | {
+                  enabled: false;
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                }
+              | {
+                  enabled?: true;
+                  schedule: SchedulerServiceTaskScheduleDefinitionConfig;
+                };
             jobTemplates?: {
               enabled: boolean;
               labels?: Array<string>;
@@ -34,17 +40,29 @@ export interface Config {
               surveyEnabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
             };
-            pahCollections: {
-              enabled: boolean;
-              repositories: Array<{
-                /** Name of the PAH repository to sync collections from */
-                name: string;
-                /** Optional repository-specific schedule. Falls back to top-level schedule if not provided */
-                schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
-              }>;
-              /** Default schedule for all repositories that don't have their own schedule */
-              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
-            };
+            pahCollections?:
+              | {
+                  enabled: false;
+                  repositories?: Array<{
+                    /** Name of the PAH repository to sync collections from */
+                    name: string;
+                    /** Optional repository-specific schedule. Falls back to top-level schedule if not provided */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                  /** Default schedule for all repositories that don't have their own schedule */
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                }
+              | {
+                  enabled: true;
+                  repositories: Array<{
+                    /** Name of the PAH repository to sync collections from */
+                    name: string;
+                    /** Optional repository-specific schedule. Falls back to top-level schedule if not provided */
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                  /** Default schedule for all repositories that don't have their own schedule */
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                };
             ansibleGitContents?: {
               /** @default true */
               enabled?: boolean;

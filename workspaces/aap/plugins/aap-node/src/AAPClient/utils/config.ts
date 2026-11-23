@@ -9,10 +9,11 @@ const CATALOG_PROVIDERS_RHAAP = 'catalog.providers.rhaap';
 function resolveAapCatalogProvidersConfig(
   rootConfig: Config,
 ): Config | undefined {
-  return (
-    rootConfig.getOptionalConfig(CATALOG_PROVIDERS_AAP) ??
-    rootConfig.getOptionalConfig(CATALOG_PROVIDERS_RHAAP)
-  );
+  const aap = rootConfig.getOptionalConfig(CATALOG_PROVIDERS_AAP);
+  if (aap && aap.keys().length > 0) {
+    return aap;
+  }
+  return rootConfig.getOptionalConfig(CATALOG_PROVIDERS_RHAAP);
 }
 
 export function getAnsibleConfig(config: Config): AnsibleConfig {

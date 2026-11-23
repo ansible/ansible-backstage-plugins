@@ -14,14 +14,23 @@ export interface Config {
           multiOrgEnabled?: boolean;
           orgs?: string | string[];
           sync?: {
-            pahCollections?: {
-              enabled: boolean;
-              repositories: Array<{
-                name: string;
-                schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
-              }>;
-              schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
-            };
+            pahCollections?:
+              | {
+                  enabled: false;
+                  repositories?: Array<{
+                    name: string;
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                }
+              | {
+                  enabled: true;
+                  repositories: Array<{
+                    name: string;
+                    schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                  }>;
+                  schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
+                };
             ansibleGitContents?: {
               enabled?: boolean;
               schedule?: SchedulerServiceTaskScheduleDefinitionConfig;
