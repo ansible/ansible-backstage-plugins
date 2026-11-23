@@ -73,6 +73,7 @@
     "@ansible/aap-common": "workspace:^",
     "@ansible/aap-node": "workspace:^",
     "@ansible/content-development-common": "workspace:^",
+    "@ansible/portal-extension-common": "workspace:^",
     "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",
@@ -98,6 +99,7 @@
   },
   "devDependencies": {
     "@ansible/aap-backend": "workspace:^",
+    "@ansible/portal-extension-api": "workspace:^",
     "@backstage/backend-test-utils": "1.11.6",
     "@backstage/cli": "0.36.5",
     "@backstage/plugin-catalog-backend": "3.9.1",
@@ -124,6 +126,12 @@
   ],
   "configSchema": "config.d.ts",
   "peerDependencies": {
+    "@ansible/portal-extension-api": "workspace:^",
     "react": "*"
+  },
+  "peerDependenciesMeta": {
+    "@ansible/portal-extension-api": {
+      "optional": true
+    }
   }
 }

@@ -97,3 +97,11 @@ import {
 EXTENSION_POINTS.GIT_REPO_DETAIL_TABS; // 'rhaap.git-repository.detail.tabs'
 CONTENT_TYPES.PLAYBOOK_REPOSITORY; // 'playbook-repository'
 ```
+
+## Repository contracts
+
+Import `gitRepositoriesViewPermission` and `SCM_INTEGRATION_AUTH_FAILED_CODE`
+from this package. Their existing values remain `ansible.git-repositories.view`
+and `INTEGRATION_AUTH_FAILED`. The deprecated AAP permission and legacy-common
+exports forward to these definitions during migration. These contracts are safe
+for frontend and backend consumers and do not install or import a feature plugin.

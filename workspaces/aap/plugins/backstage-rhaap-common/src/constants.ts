@@ -1,6 +1,6 @@
 /**
  * AAP constants re-exported from @ansible/aap-common after package extraction.
- * SCM_INTEGRATION_AUTH_FAILED_CODE stays here (content/scaffolder boundary).
+ * SCM error contracts come from the browser-safe Portal SDK.
  */
 export {
   compareVersions,
@@ -9,4 +9,4 @@ export {
   getVerbosityLevels,
 } from '@ansible/aap-common';
 
-export const SCM_INTEGRATION_AUTH_FAILED_CODE = 'INTEGRATION_AUTH_FAILED';
+export { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';

@@ -13,7 +13,7 @@
     "build": "backstage-cli package build",
     "lint": "backstage-cli package lint",
     "test": "backstage-cli package test",
-    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/content-development-common --embed-package @ansible/aap-node --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/portal-plugin-node"
+    "export-dynamic": "yarn run -T rhdh-cli plugin export --embed-package @ansible/aap-common --embed-package @ansible/content-development-common --embed-package @ansible/aap-node --embed-package @ansible/automation-content-common --embed-package @ansible/content-model --embed-package @ansible/portal-plugin-node --embed-package @ansible/portal-extension-common"
   },
   "dependencies": {
     "@ansible/aap-common": "workspace:^",

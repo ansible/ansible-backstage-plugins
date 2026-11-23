@@ -1,3 +1,4 @@
+import { gitRepositoriesViewPermission } from '@ansible/portal-extension-common';
 import type { BasicPermission } from '@backstage/plugin-permission-common';
 
 import {
@@ -11,11 +12,8 @@ export {
   executionEnvironmentsBuildPermission,
 };
 
-export const gitRepositoriesViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.git-repositories.view',
-  attributes: {},
-};
+/** @deprecated Import from @ansible/portal-extension-common. */
+export { gitRepositoriesViewPermission };
 
 export const collectionsViewPermission: BasicPermission = {
   type: 'basic',

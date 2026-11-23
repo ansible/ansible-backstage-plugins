@@ -217,6 +217,7 @@ __metadata:
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-development-common": "workspace:^"
+    "@ansible/portal-extension-common": "workspace:^"
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/integration": "npm:^2.0.0"
     "@backstage/plugin-permission-common": "npm:^0.9.7"
@@ -458,6 +459,8 @@ __metadata:
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
     "@ansible/content-development-common": "workspace:^"
+    "@ansible/portal-extension-api": "workspace:^"
+    "@ansible/portal-extension-common": "workspace:^"
     "@ansible/portal-plugin-node": "workspace:^"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
@@ -496,7 +499,11 @@ __metadata:
     yaml: "npm:^2.0.0"
     zod: "npm:^3.25.76 || ^4.0.0"
   peerDependencies:
+    "@ansible/portal-extension-api": "workspace:^"
     react: "*"
+  peerDependenciesMeta:
+    "@ansible/portal-extension-api":
+      optional: true
   languageName: unknown
   linkType: soft
 
