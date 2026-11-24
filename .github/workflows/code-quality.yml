@@ -130,26 +130,52 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "${PR_NUMBER}" ]]; then
-            PR_NUMBER=$(gh api \
+          if [[ -z "${HEAD_BRANCH}" || -z "${HEAD_REPOSITORY}" ]]; then
+            echo "::error::Missing workflow_run head_branch/head_repository for SHA ${HEAD_SHA}"
+            exit 1
+          fi
+
+          HEAD_OWNER="${HEAD_REPOSITORY%%/*}"
+
+          pr_matches_run() {
+            local number="$1"
+            local data
+            data=$(gh api "repos/${REPO}/pulls/${number}")
+            local pr_head_sha pr_head_ref pr_head_repo
+            pr_head_sha=$(jq -r '.head.sha' <<< "${data}")
+            pr_head_ref=$(jq -r '.head.ref' <<< "${data}")
+            pr_head_repo=$(jq -r '.head.repo.full_name' <<< "${data}")
+            [[ "${pr_head_sha}" == "${HEAD_SHA}" &&
+               "${pr_head_ref}" == "${HEAD_BRANCH}" &&
+               "${pr_head_repo}" == "${HEAD_REPOSITORY}" ]]
+          }
+
+          if [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]] && ! pr_matches_run "${PR_NUMBER}"; then
+            PR_NUMBER=""
+          fi
+
+          # commits/{sha}/pulls[0] can be a different PR that shares the commit
+          # (for example a merged PR). Accept it only when it matches this run.
+          if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            CANDIDATE=$(gh api \
               -H "Accept: application/vnd.github+json" \
               "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
               --jq '.[0].number // empty')
+            if [[ "${CANDIDATE}" =~ ^[0-9]+$ ]] && pr_matches_run "${CANDIDATE}"; then
+              PR_NUMBER="${CANDIDATE}"
+            else
+              PR_NUMBER=""
+            fi
           fi
 
           # Fork PR head SHAs are often missing from the commits/{sha}/pulls API
           # and workflow_run.pull_requests. Resolve via trusted head owner:branch,
           # then require an exact head OID match (fail if 0 or >1).
           if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
-            if [[ -z "${HEAD_BRANCH}" || -z "${HEAD_REPOSITORY}" ]]; then
-              echo "::error::Missing workflow_run head_branch/head_repository for SHA ${HEAD_SHA}"
-              exit 1
-            fi
-            HEAD_OWNER="${HEAD_REPOSITORY%%/*}"
             MATCHES=$(gh api \
               -H "Accept: application/vnd.github+json" \
               "repos/${REPO}/pulls?state=open&head=${HEAD_OWNER}:${HEAD_BRANCH}" \
-              --jq "[.[] | select(.head.sha == \"${HEAD_SHA}\") | .number]")
+              --jq "[.[] | select(.head.sha == \"${HEAD_SHA}\" and .head.repo.full_name == \"${HEAD_REPOSITORY}\") | .number]")
             MATCH_COUNT=$(jq 'length' <<< "${MATCHES}")
             if [[ "${MATCH_COUNT}" -ne 1 ]]; then
               echo "::error::Expected exactly one open PR for ${HEAD_OWNER}:${HEAD_BRANCH}@${HEAD_SHA}, found ${MATCH_COUNT}: ${MATCHES}"
@@ -180,12 +206,16 @@ jobs:
 
           echo "Resolved PR #${PR_NUMBER} (${PR_HEAD} -> ${PR_BASE})"
 
-      - name: Checkout pull request branch
+      - name: Checkout pull request revision
         if: github.event_name == 'workflow_run'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          gh pr checkout "${PR_NUMBER}"
+          set -euo pipefail
+          git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+          git checkout --detach "${HEAD_SHA}"
+          test "$(git rev-parse HEAD)" = "${HEAD_SHA}"
 
       - name: SonarCloud Scan (Pull Request)
         if: github.event_name == 'workflow_run'
@@ -203,6 +233,7 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
             -Dsonar.pullrequest.key=${{ env.PR_NUMBER }}
             -Dsonar.pullrequest.branch=${{ env.PR_HEAD }}
@@ -225,5 +256,6 @@ jobs:
             -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.branch.name=${{ github.ref_name }}
             -Dsonar.qualitygate.wait=true
