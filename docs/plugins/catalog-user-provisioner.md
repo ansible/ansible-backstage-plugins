@@ -27,3 +27,8 @@ backend.add(
 Install with the [AAP shared library](backstage-rhaap-common.md) and
 [AAP authentication module](auth.md). User provisioning is separate from the
 periodic [AAP catalog synchronization](catalog.md).
+
+Explicitly install `@ansible/aap-backend` or provide a host implementation of
+`ansibleServiceRef`. The catalog loaders no longer register the AAP service factory.
+See [AAP service registration](backstage-rhaap-common.md#aap-service-registration)
+for native and RHDH installation requirements.

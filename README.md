@@ -156,7 +156,6 @@ Edit `.env` and fill in the required values:
 
 | Variable                    | Required             | Description                                                                        |
 | --------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
-| `BACKEND_SECRET`            | No                   | Auto-generated on each `yarn start` if left empty                                  |
 | `AUTH_SIGNING_KEY`          | No                   | Auto-generated on each `yarn start` if left empty                                  |
 | `GITHUB_INTEGRATION_TOKEN`  | Yes                  | GitHub PAT for SCM integration ([create here](https://github.com/settings/tokens)) |
 | `GITLAB_INTEGRATION_TOKEN`  | If using GitLab      | GitLab PAT for SCM integration                                                     |
@@ -169,7 +168,7 @@ Edit `.env` and fill in the required values:
 | `AAP_AUTH_CLIENT_SECRET`    | Yes                  | AAP OAuth client secret                                                            |
 | `AAP_API_TOKEN`             | Yes                  | AAP API token for catalog sync                                                     |
 
-**Note:** `BACKEND_SECRET` and `AUTH_SIGNING_KEY` are auto-generated if left empty. Set them explicitly if you need persistent sessions across restarts.
+**Note:** `AUTH_SIGNING_KEY` is auto-generated if left empty. Set it explicitly for stable configuration across restarts. Backend plugin-to-plugin authentication uses Backstage's built-in auth services without a shared secret. Configure `backend.auth.externalAccess` separately for external callers.
 
 #### 2. Create Local Configuration File (Optional)
 
@@ -194,7 +193,7 @@ yarn start
 This will:
 
 - Load environment variables from `.env` via `dotenv-cli`
-- Auto-generate `BACKEND_SECRET` and `AUTH_SIGNING_KEY` if not set
+- Auto-generate `AUTH_SIGNING_KEY` if not set
 - Start the backend on `http://localhost:7007`
 - Start the frontend on `http://localhost:3000`
 - Enable hot module reloading for development
@@ -273,7 +272,7 @@ ansible-backstage-plugins/
 
 ## Available Plugins
 
-The 19 packages below include installable plugins/modules and shared libraries.
+The packages below include installable plugins/modules and shared libraries.
 A library does not create a page or sidebar item merely by being installed.
 
 ### Portal core and SDK
@@ -286,6 +285,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/portal-operations-backend`](./docs/plugins/portal-operations-backend.md): authorized operations and host entitlement decisions.
 - [`@ansible/portal-plugin-node`](./docs/plugins/portal-plugin-node.md): backend services, audit, health, and organization helpers.
 - [`@ansible/portal-plugin-sdk`](./docs/plugins/portal-plugin-sdk.md): reusable frontend components, context, cache, notifications, and theme utilities.
+- [`@ansible/portal-rhdh`](./docs/plugins/portal-rhdh.md): optional native RHDH adapter for contributed profile-menu items, including AAP Sign out.
 
 ### AAP integration
 
@@ -294,7 +294,7 @@ A library does not create a page or sidebar item merely by being installed.
 - [`@ansible/backstage-rhaap-common`](./docs/plugins/backstage-rhaap-common.md): AAP/SCM clients, service contracts, types, and permissions.
 - [`@ansible/backstage-plugin-catalog-backend-module-rhaap`](./docs/plugins/catalog.md): AAP resource and content synchronization.
 - [`@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner`](./docs/plugins/catalog-user-provisioner.md): on-demand catalog user provisioning.
-- [`@ansible/plugin-scaffolder-backend-module-backstage-rhaap`](./docs/plugins/scaffolder.md): AAP scaffolder actions.
+- [Scaffolder backend modules](./docs/plugins/scaffolder.md): separate AAP and portal-scaffolder actions and autocomplete providers.
 
 ### Self-service
 
@@ -328,9 +328,10 @@ portal:
 `full` includes portal-scaffolder and APME; `scaffolder` omits APME; `core`
 omits both. AAP authentication, host services, Administration, and Settings
 remain available. Without a configured installed landing page, `/` shows the
-neutral Portal fallback. The header omits Create when the Templates adapter is
-absent. Existing content browsing pages still belong to portal-scaffolder;
-removing that contributor also removes those pages.
+neutral Portal fallback. The global header has no Create shortcut. Use the
+installed pages and their page-level actions to start workflows. Existing content
+browsing pages still belong to portal-scaffolder; removing that contributor also
+removes those pages.
 
 These presets are development/test conveniences, not production configuration,
 authorization policy, or a list of supported plugins. The explicit legacy
@@ -546,7 +547,7 @@ If you encounter issues:
 
 ### Plugin Documentation
 
-All 19 package references are linked in [Available Plugins](#available-plugins).
+Package references are linked in [Available Plugins](#available-plugins).
 The documentation site's Plugins tab groups them by Portal core/SDK, AAP,
 APME, and Self-service ownership.
 

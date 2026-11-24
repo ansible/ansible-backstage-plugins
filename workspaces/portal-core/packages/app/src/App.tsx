@@ -1,3 +1,4 @@
+import { AapProviderSettingsList } from '@ansible/aap-app-auth/settings';
 import { Navigate, Route } from 'react-router-dom';
 import { apiDocsPlugin, ApiExplorerPage } from '@backstage/plugin-api-docs';
 import {
@@ -50,16 +51,7 @@ import '@ansible/plugin-backstage-apme';
 import { DelayingComponentFieldExtension } from './components/scaffolder/customScaffolderExtensions';
 import {
   AAPTokenFieldExtension,
-  AAPResourcePickerExtension,
-  BaseImagePickerFieldExtension,
-  CollectionsPickerFieldExtension,
-  EEFileNamePickerFieldExtension,
-  FileUploadPickerFieldExtension,
-  PackagesPickerFieldExtension,
-  MCPServersPickerFieldExtension,
-  AdditionalBuildStepsPickerFieldExtension,
   SelfServicePage,
-  ScmSelectorFieldExtension,
 } from '@ansible/portal-scaffolder';
 import { RbacPage } from '@backstage-community/plugin-rbac';
 
@@ -115,19 +107,22 @@ const routes = (
         <ReportIssue />
       </TechDocsAddons>
     </Route>
-    <Route path="/create" element={<ScaffolderPage />}>
+    <Route
+      path="/create"
+      element={
+        <ScaffolderPage
+          contextMenu={{
+            actions: false,
+            editor: false,
+            tasks: true,
+            templatingExtensions: false,
+          }}
+        />
+      }
+    >
       <ScaffolderFieldExtensions>
         <DelayingComponentFieldExtension />
         <AAPTokenFieldExtension />
-        <AAPResourcePickerExtension />
-        <BaseImagePickerFieldExtension />
-        <CollectionsPickerFieldExtension />
-        <EEFileNamePickerFieldExtension />
-        <FileUploadPickerFieldExtension />
-        <PackagesPickerFieldExtension />
-        <MCPServersPickerFieldExtension />
-        <AdditionalBuildStepsPickerFieldExtension />
-        <ScmSelectorFieldExtension />
       </ScaffolderFieldExtensions>
     </Route>
     <Route path="/api-docs" element={<ApiExplorerPage />} />
@@ -143,7 +138,12 @@ const routes = (
       {searchPage}
     </Route>
     <Route path="/rbac" element={<RbacPage />} />
-    <Route path="/settings" element={<UserSettingsPage />} />
+    <Route
+      path="/settings"
+      element={
+        <UserSettingsPage providerSettings={<AapProviderSettingsList />} />
+      }
+    />
     <Route path="/catalog-graph" element={<CatalogGraphPage />} />
     <Route path="/ansible" element={<AnsiblePage />} />
     <Route path="/automation-content" element={<AutomationContentPage />} />
@@ -157,7 +157,7 @@ export default app.createRoot(
     <AlertDisplay />
     <OAuthRequestDialog />
     <AppRouter>
-      <GlobalHeader createPath="/self-service/catalog" />
+      <GlobalHeader />
       <Root>{routes}</Root>
     </AppRouter>
   </>,

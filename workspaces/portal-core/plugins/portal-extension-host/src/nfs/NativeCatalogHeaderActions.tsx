@@ -4,7 +4,6 @@ import { LinkButton } from '@backstage/core-components';
 import { parseEntityRef } from '@backstage/catalog-model';
 import { permissionApiRef } from '@backstage/plugin-permission-react';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { EXPERIENCE_IDS } from '@ansible/portal-extension-api';
 import {
   portalContributionsApiRef,
   type CatalogHeaderActionDescriptor,
@@ -39,9 +38,6 @@ export function NativeCatalogHeaderActions({
               !entry ||
               !capability ||
               !entry.appliesToContentTypes.includes(contentType) ||
-              !Object.values(EXPERIENCE_IDS).includes(
-                capability.experienceId as (typeof EXPERIENCE_IDS)[keyof typeof EXPERIENCE_IDS],
-              ) ||
               (action.enabledByConfig &&
                 config?.getOptionalBoolean(action.enabledByConfig) !== true) ||
               !entry.requiredPermission

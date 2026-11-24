@@ -1,7 +1,7 @@
 import { ConfigReader } from '@backstage/config';
 import { mockServices } from '@backstage/backend-test-utils';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
-import { IAAPService } from '@ansible/backstage-rhaap-common';
+import { IAAPService } from '@ansible/aap-node';
 import { UserProvisionerProvider } from './UserProvisionerProvider';
 
 // ─── Mock data ───────────────────────────────────────────────────────────────

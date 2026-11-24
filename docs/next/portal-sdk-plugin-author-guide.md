@@ -41,7 +41,7 @@ module-load registration are compatibility-only, not the native authoring API.
 Use host-owned attachments rather than imperative `moduleName` resolution.
 
 Manifests must use the actual Backstage plugin ID, owner-prefixed capability
-and entry-point IDs, a known `experienceId`, and canonical content types.
+and entry-point IDs, supported attachments, and canonical content types.
 Entry-point scope must not broaden capability scope. Although the shared type
 still contains `appliesTo`, native validators reject that manifest predicate;
 put executable predicates on frontend descriptors as `isApplicable` instead.
@@ -146,9 +146,16 @@ Choose a Blueprint by the interaction, then declare applicability. Do not create
 a Blueprint per plugin or content type. Host layout, permissions and lifecycle
 are not plugin-owned DOM hooks.
 
-The implemented manifest requires a known `experienceId`; this differs from the
-proposed advisory `recommendedExperienceId` model. Do not invent experiences or
-assume installing a plugin creates one.
+Capabilities do not declare an experience ID or a placement recommendation.
+Declare supported entry points and content applicability. The host owns the
+page layout, navigation and placement of eligible contributions. Installing a
+plugin does not create a host experience.
+
+When migrating an existing contributor, remove `experienceId` and imports of
+`EXPERIENCE_IDS`, `ExperienceId` and `ExperienceDefinition`. Existing serialized
+manifests with the obsolete field are tolerated, but it has no effect. This does
+not guarantee source compatibility with the removed exports. Rebuild the host
+and contributors against the updated SDK together.
 
 ## Repository structure
 
@@ -207,17 +214,18 @@ contributor responsible for installing the provider.
 
 ## Supported native interaction contracts
 
-| Blueprint                      | Current purpose                 | Attachment or integration                                              |
-| ------------------------------ | ------------------------------- | ---------------------------------------------------------------------- |
-| `EntityDetailTabBlueprint`     | Durable entity facet            | `entity.detail.tabs`                                                   |
-| `EntityOverviewCardBlueprint`  | Compact entity summary          | `entity.overview.main` or `entity.overview.secondary`                  |
-| `EntityActionBlueprint`        | Operation on the current entity | `entity.actions`                                                       |
-| `CatalogItemActionBlueprint`   | Operation from a catalog item   | `catalog.item.actions`                                                 |
-| `CatalogTabBlueprint`          | Additional catalog view         | `catalog.tabs`                                                         |
-| `CatalogTableColumnBlueprint`  | Comparable catalog value        | `catalog.table.columns`                                                |
-| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry    | `catalog.header.actions` with registered workflow                      |
-| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping       | Namespaced workflow ID and template reference                          |
-| `ScaffolderFieldBlueprint`     | Typed custom template input     | `scaffolder.fields` via shared provider and optional templates adapter |
+| Blueprint                      | Current purpose                      | Attachment or integration                                              |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------- |
+| `EntityDetailTabBlueprint`     | Durable entity facet                 | `entity.detail.tabs`                                                   |
+| `EntityOverviewCardBlueprint`  | Compact entity summary               | `entity.overview.main` or `entity.overview.secondary`                  |
+| `EntityActionBlueprint`        | Operation on the current entity      | `entity.actions`                                                       |
+| `CatalogItemActionBlueprint`   | Operation from a catalog item        | `catalog.item.actions`                                                 |
+| `CatalogTabBlueprint`          | Additional catalog view              | `catalog.tabs`                                                         |
+| `CatalogTableColumnBlueprint`  | Comparable catalog value             | `catalog.table.columns`                                                |
+| `CatalogHeaderActionBlueprint` | Catalog-level workflow entry         | `catalog.header.actions` with registered workflow                      |
+| `ScaffolderWorkflowBlueprint`  | Workflow/template mapping            | Namespaced workflow ID and template reference                          |
+| `ScaffolderFieldBlueprint`     | Typed custom template input          | `scaffolder.fields` via shared provider and optional templates adapter |
+| `AppProfileMenuItemBlueprint`  | Profile navigation or lazy UI action | `appProfileMenuItems` via shared provider; source header consumer      |
 
 For exact descriptor fields, use the exported types and the
 [NFS composition guide](portal-sdk-nfs-composition.md). A union member in common
@@ -228,16 +236,42 @@ scaffolder templates, not arbitrary routes.
 
 ### Field declarations and optional templates adapters
 
-Declare native fields through `ScaffolderFieldBlueprint` using the existing
-`ScaffolderFieldDescriptor` and `defineScaffolderField` contracts. The Blueprint
-attaches metadata to Portal's shared contribution provider, not to a
-portal-scaffolder page. The provider validates ownership, manifests, version
+Contribute any custom picker through the generic field API; the picker does not
+need to belong to `portal-scaffolder` or be an EE-specific field. Add a
+`scaffolder-field` entry point to your plugin manifest, then pair its Portal
+declaration with a native Scaffolder field blueprint:
+
+```tsx
+import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension-api/alpha';
+
+const teamPickerFields = createPortalScaffolderFieldBlueprints('team-picker', {
+  manifest: myPluginManifest,
+  capabilityId: 'my-plugin.scaffolder-fields',
+  entryPointId: 'my-plugin.team-picker',
+  attachment: 'scaffolder.fields',
+  fieldName: 'TeamPicker',
+  loader: async () => {
+    const { TeamPicker } = await import('./TeamPicker');
+    return { name: 'TeamPicker', component: TeamPicker };
+  },
+});
+
+// Include both definitions in the contributing plugin's extensions.
+const extensions = [...teamPickerFields];
+```
+
+The template's `ui:field` name must match `fieldName`. Declare supported
+content types and any required permission in the manifest entry point. The
+Blueprint attaches metadata to Portal's shared contribution provider, not to a
+`portal-scaffolder` page. The provider validates ownership, manifests, version
 compatibility, and duplicate IDs/names without loading the widget.
 
 An installed templates host uses `createPortalScaffolderPage` and
 `NativeScaffolderFields` from `@ansible/portal-extension-host/alpha` to consume
-accepted declarations and apply runtime gates before loading widgets. Field
-names, value/UI schemas, component props, and validation functions are unchanged.
+accepted declarations and apply runtime gates before loading widgets. The same
+field declaration can be consumed by the existing Portal wizard and native
+Scaffolder through the paired blueprints. Field names, value/UI schemas,
+component props, and validation functions are unchanged.
 Without a templates consumer, declarations remain inspectable but unused and
 widget loaders do not run. Declaring a field does not install a templates page
 or make its workflow available.
@@ -249,13 +283,104 @@ remove old templates-page attachment overrides, and follow the
 No imperative module resolution, global registration fallback, or npm publication
 is required.
 
+## Declaring a profile menu item
+
+Use `AppProfileMenuItemBlueprint` for a profile-menu row. No change to
+`portal-rhdh` is needed for each contributor. The source header and optional RHDH
+adapter render the same validated declarations; plugins do not import platform
+header code or provide their own menu DOM.
+
+### Prerequisites
+
+- The Portal contribution provider and a profile-menu consumer are installed.
+- Your plugin has an agreed ID and any permission is defined in shared contracts
+  and registered by its backend.
+- Navigation targets are enabled pages owned by your plugin. A UI action has
+  the APIs or app-root UI integration it needs; the SDK does not install a dialog
+  service merely because an action is declared.
+
+### Procedure
+
+1. Add a navigation declaration to your native plugin's extensions. This example
+   assumes your plugin already registers `page:content-authoring/editor` through
+   `PageBlueprint`:
+
+   ```ts
+   import { AppProfileMenuItemBlueprint } from '@ansible/portal-extension-api/alpha';
+   import { authoringViewPermission } from './permissions';
+
+   const profileLink = AppProfileMenuItemBlueprint.make({
+     name: 'authoring',
+     params: {
+       type: 'navigation',
+       title: 'Content authoring',
+       targetPage: 'page:content-authoring/editor',
+       authorization: {
+         type: 'permission',
+         requirement: authoringViewPermission,
+       },
+       order: 100,
+     },
+   });
+   ```
+
+2. For a UI interaction instead, declare a lazy handler. For example, display a
+   notification without accessing backend data:
+
+   ```ts
+   const profileAction = AppProfileMenuItemBlueprint.make({
+     name: 'authoring-help',
+     params: {
+       type: 'action',
+       title: 'Authoring help',
+       authorization: { type: 'authenticated' },
+       order: 200,
+       enabledByConfig: 'ansible.content-authoring.enabled',
+       loadAction: async () => {
+         const { alertApiRef } = await import('@backstage/core-plugin-api');
+         return ({ apis }) => {
+           const alerts = apis.get(alertApiRef);
+           if (!alerts) throw new Error('Notification API is unavailable');
+           alerts.post({
+             message: 'Open Content authoring to create content.',
+           });
+         };
+       },
+     },
+   });
+   ```
+
+   Include both declarations in your `content-authoring` plugin's `extensions`
+   array alongside the editor page. A declared
+   config gate must be frontend-visible in your plugin schema. Only UI code
+   belongs in the handler; use registered operations for backend mutations and
+   retain resource authorization in backend handlers. Hooks cannot run inside
+   this callback: use the supplied API holder to access your plugin's UI service
+   when opening a dialog.
+
+### Verification
+
+Verify the owned navigation path, including page-path overrides, and confirm
+action code does not load until clicked. Test missing identity, permission
+denial/errors, disabled configuration/extensions, invalid destinations, action
+load/rejection, and a healthy sibling item. A pending action prevents repeated
+clicks; failure reports a recoverable host error. `order` applies within the
+Portal profile block, not unrelated platform entries.
+
+`authorization.type: 'authenticated'` is for signed-in UI interactions, not a
+backend permission grant. The host always requires a resolved user identity.
+No arbitrary external navigation URL or unauthenticated action is supported.
+AAP logout is one opt-in contribution owned by the AAP auth module; its special
+session handling does not belong in the generic adapter.
+
 ## Declaring a native tab
 
 ### Prerequisites
 
 - A host app with the Portal contribution provider installed.
 - Compatible Portal packages and the branch's platform dependency set. The
-  current frontend declarations use `@backstage/frontend-plugin-api` 0.17.1.
+  current frontend declarations use `@backstage/frontend-plugin-api` 0.18.0
+  on the Backstage 1.54.9 baseline.
 - An entity detail page supplying canonical content type and entity context.
 - An agreed plugin ID, host experience, and configuration key.
 
@@ -277,7 +402,6 @@ is required.
        {
          id: 'quality-insights.subject',
          ownerPlugin: 'quality-insights',
-         experienceId: 'content-quality-assessment',
          displayName: 'Subject details',
          description: 'Show the selected repository identity.',
          appliesToContentTypes: ['playbook-repository'],
@@ -443,6 +567,33 @@ Backend context supplies `organizationId` for a single membership or
 `organizationIds` for multiple memberships. There is no organization selector
 in this SDK flow. For display, `usePortalContext` reads authenticated
 `GET /api/portal-operations/context`; its result is not backend authority.
+
+## Contributing a backend catalog entity provider
+
+Feature workspaces integrate through shared SDK contracts rather than direct
+dependencies on another feature workspace. The backend SDK exports
+`CatalogEntityProvider`, `CatalogEntityMutation` and
+`portalCatalogEntityProvidersServiceRef` for generic catalog provider discovery.
+Contributors own their provider implementations, registration IDs, validation,
+durable mutation locks and catalog connectivity. Consumers retain their own
+permission-aware adapters and authorize the initiating caller inside the locked
+mutation callback. No domain-specific provider is installed by the SDK.
+
+Resolve providers while handling work, after backend initialization. Registration
+does not establish readiness. The registry fails for unknown IDs, unavailable
+providers and writes to a different entity reference. Mutation handles expire
+after their callback. Providers supply a synchronous `assertLockHeld()` guard,
+invalidate it before releasing their lock, and recheck it after internal awaits
+immediately before effects. The SDK checks it at callback admission and before
+state reads and queued writes. Accepted entity payloads are copied before any
+queue wait. Registration state includes interrupted, pending writes
+so replacement authorization does not rely solely on catalog visibility.
+
+See the [backend SDK provider contract](https://github.com/ansible/ansible-backstage-plugins/blob/main/workspaces/portal-core/plugins/portal-plugin-node/README.md#catalog-entity-provider-contributions)
+for provider obligations, host service wiring and consumer examples. These are
+internal backend interfaces, not an alternative to operation authorization,
+organization checks or authenticated transport. An existing feature must be
+explicitly migrated and validated before it uses this contract.
 
 ## Configuration and packaging responsibilities
 

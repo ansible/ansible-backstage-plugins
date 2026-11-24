@@ -7,8 +7,12 @@ import {
   configApiRef,
   discoveryApiRef,
   fetchApiRef,
+  type ApiFactory,
+  type ConfigApi,
+  type DiscoveryApi,
+  type FetchApi,
 } from '@backstage/core-plugin-api';
-import { apmeApiRef, ApmeApiClient } from './ApmeApi';
+import { apmeApiRef, ApmeApiClient, type ApmeApi } from './ApmeApi';
 
 /**
  * Registers plugin.apme.api.
@@ -16,7 +20,15 @@ import { apmeApiRef, ApmeApiClient } from './ApmeApi';
  * pluginConfig (see app-config.janus-idp.yaml for the snippet to copy).
  * Do not also list on createPlugin({ apis }) — that duplicates the factory in dynamic mode.
  */
-export const apmeApiFactory = createApiFactory({
+export const apmeApiFactory: ApiFactory<
+  ApmeApi,
+  ApmeApi,
+  {
+    discoveryApi: DiscoveryApi;
+    fetchApi: FetchApi;
+    configApi: ConfigApi;
+  }
+> = createApiFactory({
   api: apmeApiRef,
   deps: {
     discoveryApi: discoveryApiRef,

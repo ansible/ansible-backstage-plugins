@@ -1,35 +1,34 @@
 import {
   createServiceFactory,
-  createServiceRef,
   coreServices,
 } from '@backstage/backend-plugin-api';
 
-import { AAPClient, IAAPService } from '../AAPClient/AAPClient';
+import { ansibleServiceRef, AAPClient } from '@ansible/aap-node';
+
+export { ansibleServiceRef } from '@ansible/aap-node';
 
 /**
- * A reference to the ansible service.
+ * Transitional factory that wires `AAPClient` to `ansibleServiceRef`.
+ *
+ * Keeps the legacy factory API independent of the installable backend package.
+ *
+ * @deprecated Explicitly install `@ansible/aap-backend` instead. Do not register
+ * both factories for the same service.
  *
  * @public
  */
-export const ansibleServiceRef = createServiceRef<IAAPService>({
-  id: 'rhaap.client.service',
-  scope: 'plugin',
-  defaultFactory: (service: any) =>
-    Promise.resolve(
-      createServiceFactory({
-        service,
-        deps: {
-          rootConfig: coreServices.rootConfig,
-          logger: coreServices.logger,
-        },
-        /** Create the shared AAP client from backend configuration and logging dependencies. */
-        factory({ rootConfig, logger }) {
-          logger.info('Creating a new AAP client');
-          return new AAPClient({
-            rootConfig: rootConfig,
-            logger: logger,
-          });
-        },
-      }),
-    ),
+export const ansibleServiceFactory = createServiceFactory({
+  service: ansibleServiceRef,
+  deps: {
+    rootConfig: coreServices.rootConfig,
+    logger: coreServices.logger,
+  },
+  /** Create the shared AAP client from backend configuration and logging dependencies. */
+  factory({ rootConfig, logger }) {
+    logger.info('Creating a new AAP client');
+    return new AAPClient({
+      rootConfig: rootConfig,
+      logger: logger,
+    });
+  },
 });

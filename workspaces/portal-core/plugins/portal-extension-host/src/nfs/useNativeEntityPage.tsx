@@ -11,7 +11,6 @@ import {
   type EntityContributionContext,
   type PortalContributionsApi,
 } from '@ansible/portal-extension-api/alpha';
-import { DEFAULT_EXPERIENCES } from './PortalEntityTabs';
 import {
   useEligibleContributions,
   resolveEntityContribution,
@@ -65,19 +64,16 @@ export function useNativeEntityPage(
   const tabs = useEligibleContributions(
     entity ? declarations.tabs : EMPTY.tabs,
     context,
-    DEFAULT_EXPERIENCES,
     checkEntitlement,
   );
   const cards = useEligibleContributions(
     entity ? declarations.cards : EMPTY.cards,
     context,
-    DEFAULT_EXPERIENCES,
     checkEntitlement,
   );
   const actions = useEligibleContributions(
     entity ? declarations.actions : EMPTY.actions,
     context,
-    DEFAULT_EXPERIENCES,
     checkEntitlement,
   );
   const [resultsRevision, setResultsRevision] = useState(0);

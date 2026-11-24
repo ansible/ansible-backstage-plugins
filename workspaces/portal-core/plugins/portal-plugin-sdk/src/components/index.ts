@@ -1,5 +1,7 @@
 export * from './EmptyState';
+export * from './EmptyStateView';
 export * from './EntityLinkButton';
+export * from './PageHeader';
 export * from './PageHeaderSection';
 export * from './ScmIntegrationAuthError';
 export * from './SkeletonLoader';

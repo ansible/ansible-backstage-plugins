@@ -1,0 +1,22 @@
+dynamicPlugins:
+  frontend:
+    ansible.portal-scaffolder:
+      scaffolderFieldExtensions:
+        - importName: AAPTokenFieldExtension
+      dynamicRoutes:
+        - importName: LandingPage
+          path: /
+        - importName: SelfServicePage
+          path: /self-service
+        - importName: EEPage
+          path: /self-service/ee
+      menuItems:
+        execution-environments:
+          title: Execution Environments
+          icon: extension
+          to: /self-service/ee
+      mountPoints:
+        - mountPoint: application/listener
+          importName: AppThemeFixer
+        - mountPoint: application/listener
+          importName: LocationListener

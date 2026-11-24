@@ -1,3 +1,4 @@
+import { createAapSettingsModule } from '@ansible/aap-app-auth/settings';
 import { createApp } from '@backstage/frontend-defaults';
 import {
   createFrontendModule,
@@ -12,7 +13,7 @@ import portalPlugin from '@ansible/portal-core/alpha';
 import portalNavigation from '@ansible/portal-core/app-nav';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import catalogImportPlugin from '@backstage/plugin-catalog-import/alpha';
-import scaffolderPlugin from '@backstage/plugin-scaffolder/alpha';
+import { createPortalScaffolderPlugin } from '@ansible/portal-extension-host/alpha';
 import rbacPlugin from '@backstage-community/plugin-rbac/alpha';
 import userSettingsPlugin from '@backstage/plugin-user-settings/alpha';
 import searchPlugin from '@backstage/plugin-search/alpha';
@@ -20,6 +21,7 @@ import { baseApis } from './baseApis';
 import { providers } from './identityProviders';
 import { optionalContributorLoader } from './composition';
 import { NativeGlobalHeader } from './components/GlobalHeader/NativeGlobalHeader';
+import { createAapProfileModule } from '@ansible/aap-app-auth';
 
 /** Additive NFS app: no legacy APME entry point or registration side effects. */
 export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
@@ -40,11 +42,13 @@ export const portalNfsFeatures: (FrontendFeature | FrontendFeatureLoader)[] = [
   }),
   catalogPlugin,
   catalogImportPlugin,
-  scaffolderPlugin,
+  createPortalScaffolderPlugin(),
   rbacPlugin,
   userSettingsPlugin,
+  createAapSettingsModule(),
   searchPlugin,
   portalPlugin,
+  createAapProfileModule({ logoutDisabled: false }),
   portalNavigation,
   createFrontendModule({
     pluginId: 'app',

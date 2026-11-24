@@ -6,13 +6,31 @@ Frontend extension API for Automation Portal. Provides the `ContributionRegistry
 
 The `./alpha` entry point exports `EntityDetailTabBlueprint`,
 `EntityOverviewCardBlueprint`, `EntityActionBlueprint`,
-`CatalogItemActionBlueprint`, and `ScaffolderFieldBlueprint`.
+`CatalogItemActionBlueprint`, `ScaffolderFieldBlueprint`, and
+`createPortalScaffolderFieldBlueprints`.
 Entity, catalog, and scaffolder-field descriptors attach to the host-owned
 `api:portal/contributions` provider, consumed through `portalContributionsApiRef`.
 Validated field declarations are exposed as `scaffolderFields`; declaring a field
 does not require portal-scaffolder or load its widget implementation. An installed
-templates adapter consumes the declarations when needed. Native declarations do
-not register with the singleton.
+templates adapter consumes the declarations when needed. For native Scaffolder
+forms, contributors should spread `createPortalScaffolderFieldBlueprints(name,
+params)` into their plugin extensions. It pairs the Portal descriptor with a
+static `FormFieldBlueprint` registered through Backstage's
+`api:scaffolder/form-fields` extension point. The native field adapter preserves
+the legacy value/UI schemas and validates config and permission eligibility at
+render and submission time. The Portal collector remains the compatibility
+path for the current custom wizard; constructing a `FormField` at runtime does
+not register it with the native Scaffolder.
+
+`AppProfileMenuItemBlueprint` declares profile rows in `appProfileMenuItems`.
+Use `type: 'navigation'` with an owned `targetPage`, or `type: 'action'` with
+`loadAction` returning a UI handler. Declare `authorization` explicitly as
+`{ type: 'authenticated' }` or `{ type: 'permission', requirement }`. Optional
+`order` and `enabledByConfig` control presentation. The host binds identity,
+checks eligibility before loading, and supplies `{ apis }` to a deliberately
+activated UI handler. Backend effects still require registered operations.
+See the [profile authoring example](../../../../docs/next/portal-sdk-plugin-author-guide.md#declaring-a-profile-menu-item).
+
 See the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md)
 for provider installation, applicability, deployment, and remaining work.
 
@@ -79,11 +97,11 @@ function MyHostComponent() {
 }
 ```
 
-| Hook                                | Returns                                         |
-| ----------------------------------- | ----------------------------------------------- |
-| `useExtensionTabs(experienceId)`    | `TabContribution[]` for the given experience    |
-| `useExtensionCards(experienceId)`   | `CardContribution[]` for the given experience   |
-| `useExtensionActions(experienceId)` | `ActionContribution[]` for the given experience |
+| Hook                                  | Returns                                              |
+| ------------------------------------- | ---------------------------------------------------- |
+| `useExtensionTabs(extensionPoint)`    | `TabContribution[]` for the given extension point    |
+| `useExtensionCards(extensionPoint)`   | `CardContribution[]` for the given extension point   |
+| `useExtensionActions(extensionPoint)` | `ActionContribution[]` for the given extension point |
 
 ### `ContributionRegistry`
 
@@ -116,7 +134,6 @@ import type {
   WorkflowLaunch,
   OperationLaunch,
   EXTENSION_POINTS,
-  EXPERIENCE_IDS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
 ```
@@ -126,15 +143,10 @@ All types from `@ansible/portal-extension-common` are re-exported here — no ne
 ## Extension point constants
 
 ```ts
-import {
-  EXTENSION_POINTS,
-  EXPERIENCE_IDS,
-  CONTENT_TYPES,
-} from '@ansible/portal-extension-api';
+import { EXTENSION_POINTS, CONTENT_TYPES } from '@ansible/portal-extension-api';
 
-EXTENSION_POINTS.GIT_REPO_DETAIL_TAB; // 'git-repo-detail.tab'
-EXPERIENCE_IDS.GIT_REPO_DETAIL; // 'git-repo-detail'
-CONTENT_TYPES.GIT_REPOSITORY; // 'git-repository'
+EXTENSION_POINTS.GIT_REPO_DETAIL_TABS; // 'rhaap.git-repository.detail.tabs'
+CONTENT_TYPES.PLAYBOOK_REPOSITORY; // 'playbook-repository'
 ```
 
 ## Contribution types
@@ -174,19 +186,16 @@ interface ActionContext {
 
 ## Manifest validation
 
-The host's `DynamicExtensionDiscovery` component validates every registered manifest at startup and logs the result. Validation checks:
+`validateManifest` checks the manifest API version and each capability's minimum host version. Native collectors also validate descriptor ownership, supported attachments and content applicability. `DynamicExtensionDiscovery` is a legacy diagnostic subscriber that logs validation results, not an activation gate for independently registered pages.
 
-- Required fields are present and non-empty
-- All `experienceId` values reference known experiences
-- All `surface` values reference known extension points
-- `launch.type` matches the slot/workflow/operation model
+Capabilities do not declare an experience ID or a placement recommendation. The host owns layout and placement. Legacy registry hooks take extension-point IDs, not experience IDs.
 
 To validate a manifest in tests or CI:
 
 ```ts
 import { validateManifest } from '@ansible/portal-extension-host';
 
-const result = validateManifest(myManifest);
+const result = validateManifest(myManifest, '0.1.0');
 if (!result.valid) {
   console.error(result.errors);
 }

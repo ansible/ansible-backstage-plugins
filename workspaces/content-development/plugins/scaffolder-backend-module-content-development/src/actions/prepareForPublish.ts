@@ -1,0 +1,213 @@
+import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+import type { Config } from '@backstage/config';
+import { ScmClientFactory } from '@ansible/portal-plugin-node';
+import { randomBytes } from 'node:crypto';
+
+interface CheckRepositoryExistsInput {
+  sourceControlProvider: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  createNewRepository: boolean;
+  eeFileName: string;
+  contextDirName: string;
+  token?: string;
+}
+
+function buildScmUrls(
+  scmProvider: 'github' | 'gitlab',
+  host: string,
+  owner: string,
+  repo: string,
+  contextDir: string,
+  branch: string,
+): { catalogInfoUrl: string; fullRepoUrl: string } {
+  const blobSegment = scmProvider === 'gitlab' ? '/-/blob' : '/blob';
+  const ref = encodeURIComponent(branch);
+  return {
+    catalogInfoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/catalog-info.yaml`,
+    fullRepoUrl: `https://${host}/${owner}/${repo}${blobSegment}/${ref}/${contextDir}/`,
+  };
+}
+
+export function prepareForPublishAction(options: { rootConfig: Config }) {
+  const { rootConfig } = options;
+
+  return createTemplateAction({
+    id: 'ansible:prepare:publish',
+    description: 'Check if a repository exists',
+    schema: {
+      input: {
+        sourceControlProvider: z =>
+          z.string({ description: 'SCM provider (e.g. GitHub, GitLab)' }),
+        repositoryOwner: z => z.string(),
+        repositoryName: z => z.string(),
+        eeFileName: z => z.string(),
+        createNewRepository: z => z.boolean().optional(),
+        contextDirName: z => z.string(),
+        token: z =>
+          z
+            .string()
+            .optional()
+            .describe(
+              'Optional OAuth token for SCM authentication. If not provided, the integration token from app-config will be used.',
+            ),
+      },
+      output: {
+        createNewRepo: z => z.boolean().optional(),
+        generatedRepoUrl: z => z.string().optional(),
+        normalizedRepoUrl: z => z.string().optional(),
+        generatedTitle: z => z.string().optional(),
+        generatedDescription: z => z.string().optional(),
+        generatedBranchName: z => z.string().optional(),
+        generatedCatalogInfoUrl: z => z.string().optional(),
+        generatedFullRepoUrl: z => z.string().optional(),
+        gitlabProjectId: z => z.number().optional(),
+        githubEeBuildWorkflowExists: z => z.boolean().optional(),
+      },
+    },
+    async handler(ctx) {
+      const { input, logger } = ctx;
+      const values = input as unknown as CheckRepositoryExistsInput;
+      const sourceControlProvider = values.sourceControlProvider;
+      const repositoryOwner = values.repositoryOwner;
+      const repositoryName = values.repositoryName;
+      const createNewRepository = values.createNewRepository;
+      const eeFileName = values.eeFileName;
+      const contextDirName = values.contextDirName;
+      const token = values.token;
+      let createNewRepo = false;
+
+      try {
+        const ownerPart = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+        const repositoryNamePart = /^(?=.*[A-Za-z0-9])[A-Za-z0-9._-]+$/;
+        if (
+          !repositoryOwner.split('/').every(part => ownerPart.test(part)) ||
+          !repositoryNamePart.test(repositoryName)
+        ) {
+          throw new Error('Invalid repository owner or name');
+        }
+
+        const scmClientFactory = new ScmClientFactory({
+          rootConfig,
+          logger,
+        });
+
+        const scmProvider = sourceControlProvider.toLowerCase() as
+          | 'github'
+          | 'gitlab';
+        const scmClient = await scmClientFactory.createClient({
+          scmProvider,
+          organization: repositoryOwner,
+          token,
+        });
+
+        const exists = await scmClient.repositoryExists(
+          repositoryOwner,
+          repositoryName,
+        );
+
+        logger.info(
+          `${sourceControlProvider} repository existence check completed: ${exists}`,
+        );
+
+        const repositoryInfo = exists
+          ? await scmClient.getRepositoryInfo(repositoryOwner, repositoryName)
+          : undefined;
+        const defaultBranch = repositoryInfo?.defaultBranch || 'main';
+
+        if (!exists) {
+          if (!createNewRepository) {
+            throw new Error(
+              `${sourceControlProvider} Repository ${repositoryOwner}/${repositoryName} does not exist and creating a new repository was not enabled.`,
+            );
+          }
+          logger.info(
+            `A new ${sourceControlProvider} repository will be created.`,
+          );
+          createNewRepo = true;
+        }
+
+        ctx.output('createNewRepo', createNewRepo);
+
+        if (scmProvider === 'github' && repositoryInfo) {
+          let workflowExists = false;
+          try {
+            await scmClient.getFileContent(
+              repositoryInfo,
+              defaultBranch,
+              '.github/workflows/ee-build.yml',
+            );
+            workflowExists = true;
+          } catch {
+            logger.debug(
+              'Could not confirm ee-build.yml on the GitHub default branch',
+            );
+          }
+          ctx.output('githubEeBuildWorkflowExists', workflowExists);
+        }
+
+        if (scmProvider === 'gitlab' && !createNewRepo) {
+          const numericProjectId = await scmClient.getProjectId(
+            repositoryOwner,
+            repositoryName,
+          );
+          if (numericProjectId === undefined) {
+            logger.warn('Could not resolve GitLab numeric project ID');
+          } else {
+            logger.info('Resolved GitLab numeric project ID');
+            ctx.output('gitlabProjectId', numericProjectId);
+          }
+        }
+
+        const host = scmClient.getHost();
+        const query = new URLSearchParams({
+          repo: repositoryName,
+          owner: repositoryOwner,
+        });
+        const generatedRepoUrl = `${host}?${query.toString()}`;
+        logger.info('Generated repository URL for publishing');
+        ctx.output('generatedRepoUrl', generatedRepoUrl);
+
+        const normalizedRepoUrl = `${host}/${repositoryOwner}/${repositoryName}`;
+        logger.info('Normalized repository URL for publishing');
+        ctx.output('normalizedRepoUrl', normalizedRepoUrl);
+
+        if (!createNewRepo) {
+          const branchName = `${eeFileName.toLowerCase()}-${randomBytes(
+            2,
+          ).toString('hex')}`;
+          const prType =
+            scmProvider === 'gitlab' ? 'Merge Request' : 'Pull Request';
+
+          ctx.output(
+            'generatedTitle',
+            `[AAP] Adds/updates files for Execution Environment ${eeFileName}`,
+          );
+          ctx.output(
+            'generatedDescription',
+            `This ${prType} adds Execution Environment files generated from Ansible Portal.`,
+          );
+          ctx.output('generatedBranchName', branchName);
+        }
+
+        const { catalogInfoUrl, fullRepoUrl } = buildScmUrls(
+          scmProvider,
+          host,
+          repositoryOwner,
+          repositoryName,
+          contextDirName,
+          defaultBranch,
+        );
+        logger.info('Generated repository contents URL');
+        ctx.output('generatedCatalogInfoUrl', catalogInfoUrl);
+        if (createNewRepo) {
+          ctx.output('generatedFullRepoUrl', fullRepoUrl);
+        }
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(message);
+      }
+    },
+  });
+}

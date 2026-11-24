@@ -17,7 +17,6 @@ import {
   type CatalogTableColumnDescriptor,
 } from '@ansible/portal-extension-api/alpha';
 import { ErrorBoundary } from '../ErrorBoundary';
-import { DEFAULT_EXPERIENCES } from './PortalEntityTabs';
 import {
   resolveEntityContribution,
   useEligibleContributions,
@@ -59,12 +58,7 @@ function CatalogCell({
       )?.allowed === true,
     [entitlements],
   );
-  const eligible = useEligibleContributions(
-    declarations,
-    context,
-    DEFAULT_EXPERIENCES,
-    check,
-  );
+  const eligible = useEligibleContributions(declarations, context, check);
   const Cell = useMemo(
     () =>
       lazy(async () => {
@@ -104,9 +98,6 @@ export function useNativeCatalogColumns(contentType: string) {
           if (
             !entry?.appliesToContentTypes.includes(contentType) ||
             !capability ||
-            !(DEFAULT_EXPERIENCES as readonly string[]).includes(
-              capability.experienceId,
-            ) ||
             (column.enabledByConfig &&
               config?.getOptionalBoolean(column.enabledByConfig) !== true)
           )

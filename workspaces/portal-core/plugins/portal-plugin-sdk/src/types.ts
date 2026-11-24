@@ -56,6 +56,7 @@ export interface SyncDialogProps {
   showNotification: (options: ShowNotificationOptions) => void;
 }
 
+/** @deprecated Use EmptyStateViewProps for presentation and keep catalog policy in the consumer. */
 export interface EmptyStateProps {
   onSyncClick?: () => void;
   hasConfiguredSources?: boolean | null;

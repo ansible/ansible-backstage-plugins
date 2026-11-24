@@ -1,5 +1,15 @@
 /** NFS adapters only. Importing this entry point never registers a plugin. */
 export {
+  AppProfileMenuItemBlueprint,
+  appProfileMenuItemDataRef,
+} from './nfs/AppProfileMenuItemBlueprint';
+export type {
+  AppProfileMenuAction,
+  AppProfileMenuItemParams,
+  AppProfileMenuItemDescriptor,
+  ResolvedAppProfileMenuItem,
+} from './nfs/AppProfileMenuItemBlueprint';
+export {
   CatalogTableColumnBlueprint,
   catalogTableColumnDataRef,
 } from './nfs/CatalogTableColumnBlueprint';
@@ -31,6 +41,7 @@ export {
   ScaffolderFieldBlueprint,
   scaffolderFieldDataRef,
   defineScaffolderField,
+  createPortalScaffolderFieldBlueprints,
 } from './nfs/ScaffolderFieldBlueprint';
 export type { ScaffolderFieldDescriptor } from './nfs/ScaffolderFieldBlueprint';
 export {

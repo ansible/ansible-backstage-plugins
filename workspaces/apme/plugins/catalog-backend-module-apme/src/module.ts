@@ -45,8 +45,7 @@ import {
   ApmeClient,
   apmeQualityScanPermission,
 } from '@ansible/backstage-apme-common';
-import * as catalogNode from '@backstage/plugin-catalog-node';
-import { catalogProcessingExtensionPoint as alphaCatalogProcessing } from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 
 import {
   ANSIBLE_SETTINGS_CAPABILITIES,
@@ -63,11 +62,6 @@ import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';
 import { registerPortalGalaxyServersSync } from './portalGalaxyServersSync';
 import { ApmeLearnedDepsEntityProvider } from './providers/ApmeLearnedDepsEntityProvider';
-
-// Backstage 1.48 promoted this contract; keep the local and RHDH baselines compatible.
-const catalogProcessingExtensionPoint: typeof alphaCatalogProcessing =
-  Reflect.get(catalogNode, 'catalogProcessingExtensionPoint') ??
-  alphaCatalogProcessing;
 
 function isAnsibleSettingsCapability(
   ref: string,

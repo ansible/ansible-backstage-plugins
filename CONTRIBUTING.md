@@ -95,11 +95,14 @@ cp app-config.yaml app-config.local.yaml
 
 Update the following fields in `app-config.local.yaml`:
 
-- `backend.auth.keys.secret`: A secure random string (generate with `openssl rand -base64 32`)
 - `auth.environment`: Set to 'development'
 - `aap.baseUrl`: Your Ansible Automation Platform instance URL (if available)
 - `aap.token`: Your AAP API token (if available)
 - `aap.checkSSL`: Set to `false` for development, `true` for production
+
+Backend plugin-to-plugin authentication uses Backstage's built-in auth services
+without a shared secret. Configure `backend.auth.externalAccess` only when
+external callers need access. See [service-to-service authentication](https://backstage.io/docs/auth/service-to-service-auth/).
 
 4. **Start the Development Server**
 

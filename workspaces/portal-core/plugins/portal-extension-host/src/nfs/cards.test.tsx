@@ -57,7 +57,6 @@ function descriptor(
         {
           id: 'scanner.quality',
           ownerPlugin: 'scanner',
-          experienceId: 'content-quality-assessment',
           displayName: 'Quality',
           description: 'Quality',
           minimumHostApiVersion: '0.1.0',
@@ -117,7 +116,6 @@ describe('native overview cards', () => {
       contentType?: string;
       enabled?: boolean;
       deny?: boolean;
-      experiences?: string[];
       missingResolver?: boolean;
       missingResults?: boolean;
       extraCards?: EntityOverviewCardDescriptor[];
@@ -152,7 +150,6 @@ describe('native overview cards', () => {
               actions={actions}
               cards={cards}
               context={current}
-              availableExperiences={options.experiences}
               checkEntitlement={options.missingResolver ? undefined : check}
             />
           </>,
@@ -226,7 +223,6 @@ describe('native overview cards', () => {
     { contentType: CONTENT_TYPES.COLLECTION },
     { enabled: false },
     { deny: true },
-    { experiences: [] },
     { missingResolver: true },
   ])('filters before calling a loader: %j', async options => {
     const card = descriptor();

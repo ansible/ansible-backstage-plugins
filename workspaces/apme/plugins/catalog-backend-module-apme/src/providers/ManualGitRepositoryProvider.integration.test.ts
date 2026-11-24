@@ -1,7 +1,7 @@
 import { startTestBackend } from '@backstage/backend-test-utils';
 import { createBackendModule } from '@backstage/backend-plugin-api';
 import catalogPlugin from '@backstage/plugin-catalog-backend';
-import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node/alpha';
+import { catalogProcessingExtensionPoint } from '@backstage/plugin-catalog-node';
 import type { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import type { Entity } from '@backstage/catalog-model';
 import request from 'supertest';

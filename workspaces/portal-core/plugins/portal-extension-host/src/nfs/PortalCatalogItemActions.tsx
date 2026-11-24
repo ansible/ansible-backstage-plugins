@@ -7,7 +7,6 @@ import {
   useEligibleContributions,
   type EntitlementCheck,
 } from './useEligibleContributions';
-import { DEFAULT_EXPERIENCES } from './PortalEntityTabs';
 import { PortalOperationAction } from './PortalEntityActions';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { ContributionWrapper } from '../ContributionWrapper';
@@ -19,23 +18,16 @@ export function PortalCatalogItemActions({
   actions,
   context,
   checkEntitlement,
-  availableExperiences = DEFAULT_EXPERIENCES,
   presentation,
   onSubjectRemoved,
 }: Readonly<{
   actions: readonly CatalogItemActionDescriptor[];
   context: EntityContributionContext;
   checkEntitlement?: EntitlementCheck;
-  availableExperiences?: readonly string[];
   presentation?: 'button' | 'menu-item';
   onSubjectRemoved?: () => void;
 }>) {
-  const eligible = useEligibleContributions(
-    actions,
-    context,
-    availableExperiences,
-    checkEntitlement,
-  );
+  const eligible = useEligibleContributions(actions, context, checkEntitlement);
   return (
     <fieldset
       style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}

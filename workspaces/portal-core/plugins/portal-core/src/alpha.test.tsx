@@ -63,7 +63,7 @@ it('shows the host fallback without portal-scaffolder installed', async () => {
     initialRouteEntries: ['/'],
   });
   expect(await screen.findByText('Welcome to Automation Portal')).toBeTruthy();
-  const icon = screen.getByRole('img', { name: 'Automation Portal' });
+  const icon = screen.getByRole('img', { name: 'Ansible' });
   expect(icon.getAttribute('src')).toBeTruthy();
   expect(icon.getAttribute('width')).toBe('48');
   expect(icon.getAttribute('height')).toBe('48');

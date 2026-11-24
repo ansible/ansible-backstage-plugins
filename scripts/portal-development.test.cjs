@@ -240,6 +240,7 @@ for (const name of [
   '@ansible/portal-core',
   '@ansible/portal-scaffolder',
   '@ansible/plugin-backstage-apme',
+  '@ansible/plugin-backstage-rhaap',
   '@ansible/aap-app-auth',
 ]) {
   test(`rejects rediscovery of bundled ${name} even in core profile`, t => {

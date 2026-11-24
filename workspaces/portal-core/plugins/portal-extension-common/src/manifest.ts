@@ -4,7 +4,7 @@
  * These types are serialisable — no React, no Node. They describe what a
  * plugin publishes and what the host validates before activating it.
  *
- * Source of truth: §6.3 of the Content Experience Architecture document.
+ * This is the shared public contract for Portal contributors and hosts.
  */
 
 import type { Entity } from '@backstage/catalog-model';
@@ -42,26 +42,6 @@ export type PermissionRequirement =
  */
 export type ContentPredicate = (entity: Entity) => boolean;
 
-// ── Experience ────────────────────────────────────────────────────────────────
-
-/**
- * A host-owned UX region. Plugins contribute capabilities *into* an experience;
- * they do not create experiences. An `experienceId` that does not match a known
- * `ExperienceDefinition` is rejected at registration.
- *
- * `portal-extension-host` declares the initial set:
- * - `'content-quality-assessment'`
- * - `'content-authoring'`
- * - `'content-migration'`
- */
-export interface ExperienceDefinition {
-  id: string;
-  displayName: string;
-  description: string;
-  /** Named layout zones inside this experience that capabilities may target. */
-  slots: string[];
-}
-
 // ── Entry point shape ─────────────────────────────────────────────────────────
 
 /**
@@ -71,12 +51,12 @@ export interface ExperienceDefinition {
  * - `entity-action` — an action in an entity's actions / kebab menu
  * - `catalog-item-action` — a button or action on a catalog list row or card
  * - `overview-slot` — a card in the entity overview section
- * - `page-tab` — a standalone full-page tab within an experience
+ * - `page-tab` — a standalone full-page tab within a host page
  * - `table-column` — a column added to a catalog table view
  * - `menu-item` — a top-level or sidebar navigation item
  * - `overlay` — a panel or drawer overlaying the current page
  * - `settings-section` — a section within the portal settings page
- * - `route` — a standalone routable page inside the experience
+ * - `route` — a standalone routable page
  * - `scaffolder-field` — a custom scaffolder template form field
  * - `workflow` — a host-owned guided walkthrough or multi-step flow
  */
@@ -100,7 +80,8 @@ export type ContributionKind =
  * - `catalog-item` — a row or card on a catalog listing
  * - `entity-page` — a catalog entity detail page
  * - `definition` — an authored definition (e.g. `execution-environment.yml`)
- * - `experience-slot` — an always-on contribution inside the experience layout
+ * - `experience-slot` — a host layout contribution outside an entity page.
+ *   This surface name does not require an experience identifier.
  */
 export type EntrySurface =
   | 'catalog-item'
@@ -143,21 +124,19 @@ export interface CapabilityEntryPoint {
 // ── Capability ────────────────────────────────────────────────────────────────
 
 /**
- * What a plugin contributes into an experience.
+ * What a plugin contributes to supported host surfaces.
  *
- * A plugin can have multiple capabilities, each targeting a different experience
- * or content type. One capability can offer different affordances on different
+ * A plugin can have multiple capabilities, each supporting different interactions
+ * or content types. One capability can offer different affordances on different
  * content subjects via its `entryPoints`.
  *
- * `experienceId` must match an `ExperienceDefinition` the host has declared.
- * Unknown values are rejected at registration — not silently ignored.
+ * The host owns presentation and placement. Capabilities declare supported
+ * entry points without assigning themselves to a host UX grouping.
  */
 export interface CapabilityContribution {
   id: string;
   /** Plugin ID that owns this capability. Set automatically by the host on load. */
   ownerPlugin: string;
-  /** Host-owned experience this capability contributes to. */
-  experienceId: string;
   displayName: string;
   description: string;
   /**
@@ -181,7 +160,7 @@ export interface CapabilityContribution {
    * applicable". Optional — prefer `appliesToContentTypes` for type-level gates.
    */
   appliesTo?: ContentPredicate;
-  /** Display order within the experience. Lower = higher precedence. */
+  /** Display order within the host surface. Lower = higher precedence. */
   order?: number;
   /**
    * Minimum host contract `apiVersion` required to activate this capability.

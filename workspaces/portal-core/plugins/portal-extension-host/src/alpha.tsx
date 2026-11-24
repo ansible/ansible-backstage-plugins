@@ -1,4 +1,5 @@
 export { createPortalEntityPage } from './nfs/createPortalEntityPage';
+export { useNativeAppProfileMenuItems } from './nfs/useNativeAppProfileMenuItems';
 export { NativeCatalogHeaderActions } from './nfs/NativeCatalogHeaderActions';
 export { useNativeCatalogTabs } from './nfs/useNativeCatalogTabs';
 export { createPortalContributionProvider } from './nfs/createPortalContributionProvider';
@@ -13,3 +14,4 @@ export { PortalEntityTabs } from './nfs/PortalEntityTabs';
 export { PortalEntitySurface } from './nfs/PortalEntityActions';
 export type { EntitlementCheck } from './nfs/PortalEntityTabs';
 export { useNativeCatalogColumns } from './nfs/useNativeCatalogColumns';
+export { createPortalScaffolderPlugin } from './nfs/createPortalScaffolderPlugin';

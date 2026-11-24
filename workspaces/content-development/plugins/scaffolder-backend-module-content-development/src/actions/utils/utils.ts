@@ -1,0 +1,63 @@
+/*
+Utility functions for the scaffolder backend module.
+*/
+
+export function convertUploadToDataUrl(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    if (typeof o.data === 'string') {
+      return o.data;
+    }
+    if (typeof o.content === 'string') {
+      return o.content;
+    }
+  }
+  return '';
+}
+
+export function parseUploadedFileContent(dataUrl: string): string {
+  // Start parsing of uploaded file content
+  let decodedContent = '';
+
+  if (typeof dataUrl === 'string' && dataUrl.includes('base64,')) {
+    const delimiter = dataUrl.indexOf(';base64,');
+    if (
+      !dataUrl.startsWith('data:') ||
+      delimiter === -1 ||
+      dataUrl.includes('\n') ||
+      dataUrl.includes('\r')
+    ) {
+      throw new Error('Invalid data URL format for the file uploaded');
+    }
+    const base64Data = dataUrl.slice(delimiter + ';base64,'.length);
+    const unpaddedBase64 = base64Data.replace(/={1,2}$/, '');
+    const paddingLength = base64Data.length - unpaddedBase64.length;
+    const hasValidBase64Characters = /^[A-Za-z0-9+/]*$/.test(unpaddedBase64);
+    const hasValidBase64Length =
+      unpaddedBase64.length % 4 !== 1 &&
+      (paddingLength === 0 ||
+        (paddingLength <= 2 &&
+          base64Data.length % 4 === 0 &&
+          unpaddedBase64.length % 4 === 4 - paddingLength));
+    if (
+      base64Data.length > 0 &&
+      (!hasValidBase64Characters || !hasValidBase64Length)
+    ) {
+      throw new Error('Invalid base64 data in uploaded file');
+    }
+    try {
+      decodedContent = Buffer.from(base64Data, 'base64')
+        .toString('utf-8')
+        .trim();
+    } catch (error: any) {
+      throw new Error(`Failed to parse data URL: ${error.message}`);
+    }
+  }
+  return decodedContent;
+}

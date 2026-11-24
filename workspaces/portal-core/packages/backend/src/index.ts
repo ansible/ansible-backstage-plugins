@@ -11,6 +11,7 @@ import { rhaapOrganizationServiceFactory } from './rhaapOrganizationResolver';
 
 const backend = createBackend();
 backend.add(rhaapOrganizationServiceFactory);
+backend.add(import('@ansible/aap-backend'));
 
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
@@ -69,8 +70,10 @@ backend.add(
   ),
 );
 backend.add(import('@ansible/backstage-plugin-catalog-backend-module-apme'));
+backend.add(import('@ansible/plugin-scaffolder-backend-module-aap'));
+backend.add(import('@ansible/catalog-backend-module-content-development'));
 backend.add(
-  import('@ansible/plugin-scaffolder-backend-module-backstage-rhaap'),
+  import('@ansible/plugin-scaffolder-backend-module-content-development'),
 );
 
 // Automation content — OCI registry content provider and content API

@@ -6,6 +6,7 @@ import type { CatalogItemActionDescriptor } from './CatalogItemActionBlueprint';
 import type { CatalogTabDescriptor } from './CatalogTabBlueprint';
 import type { CatalogTableColumnDescriptor } from './CatalogTableColumnBlueprint';
 import type { ScaffolderFieldDescriptor } from './ScaffolderFieldBlueprint';
+import type { AppProfileMenuItemDescriptor } from './AppProfileMenuItemBlueprint';
 import type {
   CatalogHeaderActionDescriptor,
   ScaffolderWorkflowDescriptor,
@@ -13,6 +14,7 @@ import type {
 
 /** Immutable NFS inputs, scoped to one app's API holder, not a registration singleton. */
 export interface PortalContributionsApi {
+  readonly appProfileMenuItems?: readonly AppProfileMenuItemDescriptor[];
   readonly tabs: readonly EntityDetailTabDescriptor[];
   readonly actions: readonly EntityActionDescriptor[];
   readonly cards: readonly EntityOverviewCardDescriptor[];

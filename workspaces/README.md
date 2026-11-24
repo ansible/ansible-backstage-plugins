@@ -9,10 +9,10 @@ workspaces/
 │   ├── packages/app/           Native development app and legacy fallback
 │   ├── packages/backend/       Development backend composition
 │   └── plugins/                Contracts, host, SDKs, operations, health
-├── portal-scaffolder/plugins/  Portal scaffolder and current content pages
+├── content-development/plugins/  Portal scaffolder and current content pages
 ├── aap/plugins/                AAP clients, auth, catalog, provisioning, actions
 ├── apme/plugins/               Third-party contribution example and backend modules
-└── content/plugins/            Automation content over OCI registries (PoC)
+└── content-management/plugins/ Automation content over OCI registries (PoC)
 ```
 
 ## Workspace relationships
@@ -28,7 +28,7 @@ flowchart TB
     SDK["Frontend and backend toolkits<br/>plugin-sdk, plugin-node"]
     Services["Backend services<br/>operations-backend, health-backend"]
   end
-  Self["Self-service workspace<br/>portal-scaffolder and host surfaces"]
+  Self["Content-development workspace<br/>scaffolder actions and authoring surfaces"]
   APME["APME workspace<br/>Frontend, shared domain library,<br/>catalog and scaffolder backend modules"]
   AAP["AAP workspace<br/>Clients, permissions, authentication,<br/>catalog providers and scaffolder actions"]
 
@@ -58,6 +58,9 @@ domain rules.
 - `portal-core`: installs app-scoped contribution/operation/entitlement APIs;
   its navigation module adapts discovered pages to configured navigation.
 - `portal-plugin-sdk`: reusable frontend components and utilities.
+- `portal-rhdh`: optional adapter to RHDH's public header Blueprint for
+  contributed profile-menu items. It has no AAP dependency;
+  AAP auth owns its opt-in Sign out contribution. Generic SDK contracts do not import it.
 - `portal-plugin-node`: injected backend services and helpers for operations,
   identity/context, audit, organization and health.
 - `portal-operations-backend`: authenticated operation transport and
@@ -68,11 +71,17 @@ Native composition does not depend on a shared mutable
 `ContributionRegistry`, module-load registration, or a `portal-core` MF
 singleton. Library packages are not standalone page plugins.
 
-### Self-service
+### Content development
 
-`@ansible/portal-scaffolder` owns templates, tasks, authoring and picker
-integration. It also currently hosts collection, repository and execution-
-environment browsing/detail pages pending content extraction.
+- `@ansible/portal-scaffolder` owns templates, tasks, authoring and picker
+  integration. It also hosts collection, repository and execution-environment
+  browsing/detail pages.
+- `@ansible/content-development-common` owns creator SCM clients and EE
+  lifecycle service contracts.
+- `@ansible/plugin-scaffolder-backend-module-content-development` owns
+  creator actions, EE lifecycle coordination and collection autocomplete.
+- `@ansible/catalog-backend-module-content-development` owns the EE catalog
+  provider and its root-scoped provider service.
 
 ### APME
 
@@ -94,7 +103,7 @@ catalog module, authentication provider, user-provisioning module and scaffolder
 module. Backend code uses AAP clients/services; frontend surfaces communicate
 through platform APIs rather than directly contacting AAP.
 
-### Content
+### Content management
 
 - `automation-content`: `@ansible/plugin-automation-content` frontend mounted
   at `/automation-content`; a drill-down content browser (execution
@@ -111,7 +120,8 @@ through platform APIs rather than directly contacting AAP.
   adapter.
 
 Proof-of-concept status: interfaces, config shape, API routes and entity shape
-still move without notice. See `content/README.md` and `content/docs/adrs/`.
+still move without notice. See `content-management/README.md` and
+`content-management/docs/adrs/`.
 
 ## Current boundaries
 

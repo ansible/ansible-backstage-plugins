@@ -5,6 +5,16 @@
  * @packageDocumentation
  */
 
-export { authModuleRhaapProvider as default } from './module';
+import { createBackendFeatureLoader } from '@backstage/backend-plugin-api';
+import { authModuleRhaapProvider } from './module';
+
 export { aapAuthAuthenticator } from './authenticator';
 export { AAPAuthSignInResolvers } from './resolvers';
+export { authModuleRhaapProvider };
+
+/** Load the auth module; explicitly install @ansible/aap-backend for the AAP service. */
+export default createBackendFeatureLoader({
+  loader: function* () {
+    yield authModuleRhaapProvider;
+  },
+});

@@ -6,7 +6,7 @@ import SyncIcon from '@material-ui/icons/Sync';
 import { makeStyles } from '@material-ui/core/styles';
 
 import type { SyncProgressEntry } from '../../types';
-import { formatRelativeTime } from '../../utils';
+import { formatTimeAgo } from '../../utils';
 import { useSharedStyles } from '../../styles';
 
 const useStyles = makeStyles(theme => ({
@@ -189,10 +189,7 @@ export const SyncProgressPopover = ({ entries }: SyncProgressPopoverProps) => {
               className={`${classes.statusLabel} ${getStatusClass(entry.outcome, classes)}`}
             >
               {entry.outcome === 'success' && entry.lastSyncTime
-                ? formatRelativeTime(entry.lastSyncTime).replace(
-                    /^Synced /i,
-                    '',
-                  )
+                ? formatTimeAgo(entry.lastSyncTime)
                 : OUTCOME_LABEL[entry.outcome]}
             </Typography>
           </Box>

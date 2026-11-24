@@ -1,0 +1,91 @@
+import { lazy, Suspense } from 'react';
+import { Progress } from '@backstage/core-components';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { RequirePermission } from '@backstage/plugin-permission-react';
+import {
+  templatesViewPermission,
+  executionEnvironmentsViewPermission,
+} from '@ansible/aap-common/permissions';
+import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
+import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
+import { NativeScaffolderFields } from '@ansible/portal-extension-host/alpha';
+import { CreateTask } from './CreateTask/CreateTask';
+import { formExtraFields } from './CreateTask/formExtraFields';
+import { TemplatesRoutesPage } from './Home';
+import { HistoryRoutesPage } from './TaskList';
+import { CatalogImport } from './CatalogImport';
+import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
+import { EENotificationBoundary } from './ExecutionEnvironments/EENotificationBoundary';
+import { eeTemplateCatalogPath } from '../routes';
+
+const EEDetailsPage = lazy(() =>
+  import('./ExecutionEnvironments/catalog/EEDetailsPage').then(module => ({
+    default: module.EEDetailsPage,
+  })),
+);
+
+const reservedLegacyFieldNames = formExtraFields.map(field => field.name);
+
+function LegacyEEDefinitionsRedirect(): JSX.Element {
+  const { search, hash } = useLocation();
+  return (
+    <Navigate
+      to={{ pathname: '/content/ee/definitions', search, hash }}
+      replace
+    />
+  );
+}
+
+/** Render the native scaffolder with host-provided fields, APIs and notification boundaries. */
+export function NativeScaffolderPage({
+  declarations,
+}: Readonly<{
+  declarations: readonly ScaffolderFieldDescriptor[];
+}>) {
+  return (
+    <Routes>
+      <Route
+        path="ee/create"
+        element={<Navigate to={eeTemplateCatalogPath} replace />}
+      />
+      <Route path="ee/*" element={<LegacyEEDefinitionsRedirect />} />
+      <Route
+        path="catalog/:templateName"
+        element={
+          <RequirePermission permission={executionEnvironmentsViewPermission}>
+            <EENotificationBoundary>
+              <Suspense fallback={<Progress />}>
+                <EEDetailsPage />
+              </Suspense>
+            </EENotificationBoundary>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="catalog-import"
+        element={
+          <RequirePermission permission={catalogEntityCreatePermission}>
+            <RequireSuperuser>
+              <CatalogImport />
+            </RequireSuperuser>
+          </RequirePermission>
+        }
+      />
+      <Route
+        path="create/templates/:namespace/:templateName"
+        element={
+          <RequirePermission permission={templatesViewPermission}>
+            <NativeScaffolderFields
+              declarations={declarations}
+              reservedNames={reservedLegacyFieldNames}
+            >
+              {fields => <CreateTask nativeFields={fields} />}
+            </NativeScaffolderFields>
+          </RequirePermission>
+        }
+      />
+      <Route path="create/tasks/*" element={<HistoryRoutesPage />} />
+      <Route path="*" element={<TemplatesRoutesPage />} />
+    </Routes>
+  );
+}

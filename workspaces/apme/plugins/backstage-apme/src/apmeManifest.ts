@@ -6,7 +6,7 @@ import {
   apmeRepositoryRegisterPermission,
   apmeScanningEntitlement,
 } from '@ansible/backstage-apme-common/operations';
-import { EXPERIENCE_IDS, CONTENT_TYPES } from '@ansible/portal-extension-api';
+import { CONTENT_TYPES } from '@ansible/portal-extension-api';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
 
 /**
@@ -45,7 +45,6 @@ export const apmeManifest: PluginManifest = {
     {
       id: 'apme.quality-assessment',
       ownerPlugin: 'apme',
-      experienceId: EXPERIENCE_IDS.CONTENT_QUALITY,
       displayName: 'Repository Quality Assessment',
       description:
         'Content quality scanning, violation review, and activity history for playbook repositories. ' +
@@ -154,7 +153,6 @@ export const apmeManifest: PluginManifest = {
     {
       id: 'apme.quality-settings',
       ownerPlugin: 'apme',
-      experienceId: EXPERIENCE_IDS.CONTENT_QUALITY,
       displayName: 'Repository Quality Settings',
       description:
         'Quality rule configuration and AI provider settings for APME scanning. ' +
@@ -186,7 +184,6 @@ export const apmeManifest: PluginManifest = {
     {
       id: 'apme.repository-lifecycle',
       ownerPlugin: 'apme',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Repository Lifecycle',
       description:
         'Register new repositories with the Portal for APME quality scanning, ' +
@@ -253,7 +250,6 @@ export const apmeManifest: PluginManifest = {
     {
       id: 'apme.dependencies',
       ownerPlugin: 'apme',
-      experienceId: EXPERIENCE_IDS.CONTENT_AUTHORING,
       displayName: 'Repository Dependencies',
       description:
         'Dependency analysis for playbook repositories — shows resolved ' +

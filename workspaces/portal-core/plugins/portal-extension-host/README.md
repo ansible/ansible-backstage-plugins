@@ -18,10 +18,20 @@ optional templates-page adapter that reads its validated `scaffolderFields`
 snapshot. `NativeScaffolderFields` applies configuration, experience, permission,
 and reserved-name checks before loading widgets, preserving their value/UI
 schemas and asynchronous validators. Without a templates consumer, declarations
-remain inspectable and widget loaders do not run. The collector does not import
-the optional portal-scaffolder implementation. See
+remain inspectable and widget loaders do not run. Native Scaffolder form fields
+are registered by contributors with paired `FormFieldBlueprint`s from the
+Portal API. The collector does not import the optional portal-scaffolder
+implementation. See
 the [NFS composition guide](../../../../docs/next/portal-sdk-nfs-composition.md).
 The registry/discovery examples below are legacy migration APIs.
+
+`useNativeAppProfileMenuItems()` resolves validated navigation and UI-action
+declarations. Every item requires a resolved user identity and, when declared,
+an allowed permission. Owned-page, configuration, and native enablement checks
+apply before code loading. Action handlers load only on activation and receive
+the app API holder. The host rechecks eligibility on activation and ignores
+obsolete resolutions or code loaded after the consumer unmounts. Source and
+RHDH renderers share these decisions; neither maintains a contributor-specific list.
 
 ## Purpose
 
@@ -139,16 +149,16 @@ function ActionsMenu({ entity }) {
 
 ### `ExperienceTabContent` / `ExperienceCardSlot`
 
-High-level rendering for complete experience tab bars and card grids:
+Legacy registry rendering for tab bars and card grids, selected by extension-point ID:
 
 ```tsx
 import { ExperienceTabContent, ExperienceCardSlot } from '@ansible/portal-extension-host';
 
-// Renders all registered tabs for an experience
-<ExperienceTabContent experienceId="git-repo-detail" entity={entity} />
+// Renders tabs registered for this extension point
+<ExperienceTabContent extensionPoint="rhaap.git-repository.detail.tabs" activeTabIndex={activeTabIndex} entity={entity} />
 
-// Renders all registered cards for an experience
-<ExperienceCardSlot experienceId="git-repo-detail" entity={entity} />
+// Renders cards registered for this extension point
+<ExperienceCardSlot extensionPoint="rhaap.git-repository.detail.cards" entity={entity} />
 ```
 
 ### `DynamicExtensionDiscovery`
