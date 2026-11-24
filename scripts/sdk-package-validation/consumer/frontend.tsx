@@ -4,13 +4,7 @@ import {
 } from '@backstage/frontend-plugin-api';
 import { AppProfileMenuItemBlueprint } from '@ansible/portal-extension-api/alpha';
 import { portalOperationsApiRef } from '@ansible/portal-extension-api';
-import { gitRepositoriesExtensionsApiRef } from '@ansible/portal-extension-api/gitRepositoriesExtensions';
-import { gitRepositoriesCatalogApiRef } from '@ansible/portal-extension-api/gitRepositoriesCatalog';
 import type { PluginManifest } from '@ansible/portal-extension-common';
-import {
-  gitRepositoriesViewPermission,
-  SCM_INTEGRATION_AUTH_FAILED_CODE,
-} from '@ansible/portal-extension-common';
 import { EmptyStateView, PageHeader } from '@ansible/portal-plugin-sdk';
 
 export const manifest: PluginManifest = {
@@ -21,12 +15,6 @@ export const manifest: PluginManifest = {
   entitlements: [],
 };
 export const operationsApi = portalOperationsApiRef;
-export const repositoryContracts = {
-  extensions: gitRepositoriesExtensionsApiRef,
-  catalog: gitRepositoriesCatalogApiRef,
-  permission: gitRepositoriesViewPermission,
-  scmError: SCM_INTEGRATION_AUTH_FAILED_CODE,
-};
 export const contributor = createFrontendPlugin({
   pluginId: 'external-consumer',
   extensions: [

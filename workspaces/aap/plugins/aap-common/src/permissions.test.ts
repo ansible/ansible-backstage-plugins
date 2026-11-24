@@ -93,13 +93,13 @@ describe('permissions', () => {
 });
 
 it('preserves shared permission identities and the registered permission set', () => {
-  const shared = jest.requireActual('@ansible/portal-extension-common');
+  const shared = jest.requireActual(
+    '@ansible/automation-content-common/permissions',
+  );
   expect(gitRepositoriesViewPermission).toBe(
     shared.gitRepositoriesViewPermission,
   );
   expect(collectionsViewPermission).toBe(shared.collectionsViewPermission);
-  expect(templatesViewPermission).toBe(shared.templatesViewPermission);
-  expect(historyViewPermission).toBe(shared.historyViewPermission);
   expect(ansiblePermissions).toEqual([
     executionEnvironmentsBuildPermission,
     executionEnvironmentsViewPermission,

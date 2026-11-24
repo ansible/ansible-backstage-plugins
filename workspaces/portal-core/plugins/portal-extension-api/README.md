@@ -214,22 +214,3 @@ Add to `dynamic-plugins.yaml`:
 ```
 
 See `docs/next/portal-sdk-rhdh-dynamic-plugin.md` for the full configuration guide.
-
-## Git Repositories contracts
-
-The `./gitRepositoriesExtensions` subpath owns the existing optional page/detail
-UI contracts, `gitRepositoriesExtensionsApiRef`, default implementation and API
-factory. The `./gitRepositoriesCatalog` subpath owns the cache invalidation API
-reference, no-op default and factory. Their IDs and default behavior are unchanged.
-
-```ts
-import { gitRepositoriesExtensionsApiRef } from '@ansible/portal-extension-api/gitRepositoriesExtensions';
-import { gitRepositoriesCatalogApiRef } from '@ansible/portal-extension-api/gitRepositoriesCatalog';
-```
-
-These are frontend-only entry points. Backend plugins use the node SDK instead.
-Legacy `backstage-rhaap-common` subpaths temporarily forward to the same objects
-while consumers migrate. Frontend consumers of those deprecated subpaths must
-provide this SDK; it is an optional peer of the legacy package, not a frontend
-runtime dependency imposed on backend artifacts. Use the shared singleton SDK
-configuration described above for independently loaded frontend plugins.

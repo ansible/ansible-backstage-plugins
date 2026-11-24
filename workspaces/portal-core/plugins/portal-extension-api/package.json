@@ -13,9 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./alpha": "./src/alpha.ts",
-    "./package.json": "./package.json",
-    "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
-    "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts"
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public",
@@ -63,18 +61,5 @@
   },
   "files": [
     "dist"
-  ],
-  "typesVersions": {
-    "*": {
-      "alpha": [
-        "src/alpha.ts"
-      ],
-      "gitRepositoriesExtensions": [
-        "src/gitRepositoriesExtensions.ts"
-      ],
-      "gitRepositoriesCatalog": [
-        "src/gitRepositoriesCatalog.ts"
-      ]
-    }
-  }
+  ]
 }

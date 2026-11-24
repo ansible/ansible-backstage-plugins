@@ -45,7 +45,9 @@
     "./permissions": "./src/permissions.ts",
     "./eeRepository": "./src/eeRepository.ts",
     "./package.json": "./package.json",
-    "./testing-tls": "./src/testing/tlsCertificates.ts"
+    "./testing-tls": "./src/testing/tlsCertificates.ts",
+    "./scm": "./src/scm.ts",
+    "./versions": "./src/versions.ts"
   },
   "typesVersions": {
     "*": {
@@ -57,6 +59,12 @@
       ],
       "testing-tls": [
         "src/testing/tlsCertificates.ts"
+      ],
+      "scm": [
+        "src/scm.ts"
+      ],
+      "versions": [
+        "src/versions.ts"
       ]
     }
   }

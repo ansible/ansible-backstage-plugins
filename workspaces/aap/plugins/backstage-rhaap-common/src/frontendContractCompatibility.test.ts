@@ -1,13 +1,11 @@
 import * as legacyExtensions from './gitRepositoriesExtensions';
-import * as sdkExtensions from '@ansible/portal-extension-api/gitRepositoriesExtensions';
+import * as sdkExtensions from '@ansible/portal-scaffolder-react/gitRepositoriesExtensions';
 import * as legacyCatalog from './gitRepositoriesCatalog';
-import * as sdkCatalog from '@ansible/portal-extension-api/gitRepositoriesCatalog';
+import * as sdkCatalog from '@ansible/portal-scaffolder-react/gitRepositoriesCatalog';
 import { SCM_INTEGRATION_AUTH_FAILED_CODE as legacyScmCode } from './constants';
 import { gitRepositoriesViewPermission as legacyPermission } from './permissions';
-import {
-  SCM_INTEGRATION_AUTH_FAILED_CODE,
-  gitRepositoriesViewPermission,
-} from '@ansible/portal-extension-common';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/automation-content-common/scm';
+import { gitRepositoriesViewPermission } from '@ansible/automation-content-common/permissions';
 
 it('forwards frontend API objects without creating another reference or default', () => {
   expect(legacyExtensions.gitRepositoriesExtensionsApiRef).toBe(
