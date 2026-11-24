@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-rhaap-common/devSpaces';
+import { buildDevSpacesUrlFromRepoUrl } from '@ansible/backstage-apme-common/devSpaces';
 
 export type ResolveDefaultBranchDevSpacesUrlOptions = {
   devSpacesBaseUrl?: string;

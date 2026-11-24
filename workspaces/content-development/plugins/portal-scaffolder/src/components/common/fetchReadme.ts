@@ -1,5 +1,5 @@
 import { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';
 
 export interface FetchReadmeParams {
   scmProvider: string;

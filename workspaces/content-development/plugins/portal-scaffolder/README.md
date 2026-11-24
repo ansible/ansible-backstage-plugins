@@ -117,3 +117,14 @@ dynamicPlugins:
           to: extensions
           icon: pluginsInfoIcon
 ```
+
+## Shared repository contracts
+
+Repository cache invalidation uses
+`@ansible/portal-extension-api/gitRepositoriesCatalog`. SCM authentication errors
+use `SCM_INTEGRATION_AUTH_FAILED_CODE` from `@ansible/portal-extension-common`.
+The API ID, no-op fallback, cache behavior and `INTEGRATION_AUTH_FAILED` value
+are unchanged. The plugin no longer imports or directly depends on
+`@ansible/backstage-rhaap-common`; no backend plugin is embedded or registered by
+these frontend imports. AAP authentication and other existing permissions are
+unchanged by this migration.

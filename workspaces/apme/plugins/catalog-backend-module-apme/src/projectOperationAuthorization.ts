@@ -25,7 +25,7 @@ import {
   apmeScanningEntitlement,
 } from '@ansible/backstage-apme-common/operations';
 import type { ManualGitRepositoryProvider } from './providers/ManualGitRepositoryProvider';
-import { normalizeRepoUrl } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { normalizeRepoUrl } from '@ansible/backstage-apme-common/normalizeRepoUrl';
 
 export type ProjectOperationAuthorizer = (
   projectId: string,

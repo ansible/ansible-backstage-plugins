@@ -18,7 +18,7 @@ import {
 } from '@ansible/portal-extension-api/alpha';
 import { apmeApiFactory } from './api/apmeApiFactory';
 import { apmeManifest } from './apmeManifest';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-apme-common/catalogEntity';
 import { apmeRepositoryDeregisterOperation } from '@ansible/backstage-apme-common/operations';
 import { isManuallyRegisteredRepository } from './hooks/useDeregisterRepository';
 import AssessmentIcon from '@material-ui/icons/Assessment';

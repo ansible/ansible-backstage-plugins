@@ -33,7 +33,7 @@ import {
 import {
   ansibleSettingsEditPermission,
   ansibleSettingsViewPermission,
-} from '@ansible/backstage-rhaap-common/permissions';
+} from '@ansible/backstage-apme-common/permissions';
 import { ansibleCoreVersionOptions } from '@ansible/backstage-apme-common/ansibleCoreVersionOptions';
 import { DEFAULT_APME_TARGET_ANSIBLE_CORE_VERSION } from '@ansible/backstage-apme-common/scanTargetDefaults';
 import { apmeApiRef } from '../../api';

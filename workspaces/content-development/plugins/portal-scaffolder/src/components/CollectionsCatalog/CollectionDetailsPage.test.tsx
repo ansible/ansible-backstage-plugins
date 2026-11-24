@@ -9,7 +9,7 @@ import {
   identityApiRef,
 } from '@backstage/core-plugin-api';
 import { Entity } from '@backstage/catalog-model';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
 
 jest.mock('@backstage/plugin-permission-react', () => ({

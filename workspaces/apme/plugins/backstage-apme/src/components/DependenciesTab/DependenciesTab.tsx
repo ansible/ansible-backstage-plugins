@@ -24,7 +24,7 @@ import {
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
 import RefreshIcon from '@material-ui/icons/Refresh';
-import type { GitRepositoryDetailTabContext } from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
+import type { GitRepositoryDetailTabContext } from '@ansible/portal-extension-api/gitRepositoriesExtensions';
 import { useApmeProjectContext } from '../../hooks/useApmeProjectContext';
 import { ApmeUnavailable } from '../ApmeUnavailable';
 import {

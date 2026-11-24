@@ -18,7 +18,7 @@ import { buildRulesById } from '../utils/gatewayRules';
 import {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+} from '@ansible/backstage-apme-common/catalogEntity';
 import { projectHasActiveOperation } from '@ansible/backstage-apme-common/operationStatus';
 import { apmeApiRef } from '../api';
 import { ensureRepoBranchForScan } from '../utils/ensureRepoBranchForScan';

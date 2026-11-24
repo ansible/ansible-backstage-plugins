@@ -12,7 +12,7 @@ import {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
   projectLookupKey,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+} from '@ansible/backstage-apme-common/catalogEntity';
 import type { Project } from '@ansible/backstage-apme-common/types';
 import {
   inlineTextColorForSeverity,

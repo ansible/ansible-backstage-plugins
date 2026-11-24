@@ -3,7 +3,7 @@ import {
   PermissionsService,
 } from '@backstage/backend-plugin-api';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { ansibleSettingsEditPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { ansibleSettingsEditPermission } from '@ansible/backstage-apme-common/permissions';
 
 export function createRequireSettingsManageMiddleware(deps: {
   httpAuth: HttpAuthService;

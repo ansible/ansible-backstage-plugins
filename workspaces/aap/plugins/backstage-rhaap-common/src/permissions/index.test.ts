@@ -6,9 +6,6 @@ import {
   templatesViewPermission,
   historyViewPermission,
   ansiblePermissions,
-  ansibleSettingsEditPermission,
-  ANSIBLE_SETTINGS_CAPABILITIES,
-  RESOURCE_TYPE_ANSIBLE_SETTINGS,
 } from './index';
 
 describe('permissions', () => {
@@ -52,19 +49,6 @@ describe('permissions', () => {
     });
   });
 
-  it('exports ansibleSettingsEditPermission as a resource permission', () => {
-    expect(ansibleSettingsEditPermission).toEqual({
-      type: 'resource',
-      name: 'ansible.settings.edit',
-      resourceType: RESOURCE_TYPE_ANSIBLE_SETTINGS,
-      attributes: {},
-    });
-  });
-
-  it('exports ANSIBLE_SETTINGS_CAPABILITIES for resource refs', () => {
-    expect(ANSIBLE_SETTINGS_CAPABILITIES).toEqual(['apme']);
-  });
-
   it('ansiblePermissions contains all view permissions and the EE build permission', () => {
     expect(ansiblePermissions).toHaveLength(6);
     expect(executionEnvironmentsBuildPermission).toEqual({
@@ -78,7 +62,6 @@ describe('permissions', () => {
     expect(ansiblePermissions).toContain(collectionsViewPermission);
     expect(ansiblePermissions).toContain(templatesViewPermission);
     expect(ansiblePermissions).toContain(historyViewPermission);
-    expect(ansiblePermissions).not.toContain(ansibleSettingsEditPermission);
   });
 
   it('each permission in ansiblePermissions has type basic and a non-empty name', () => {
