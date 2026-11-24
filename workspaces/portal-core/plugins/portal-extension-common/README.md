@@ -105,3 +105,15 @@ from this package. Their existing values remain `ansible.git-repositories.view`
 and `INTEGRATION_AUTH_FAILED`. The deprecated AAP permission and legacy-common
 exports forward to these definitions during migration. These contracts are safe
 for frontend and backend consumers and do not install or import a feature plugin.
+
+## Content catalog migration contracts
+
+The shared `collectionsViewPermission`, `templatesViewPermission` and
+`historyViewPermission` keep their existing `ansible.*.view` IDs and basic
+permission shape. AAP re-exports the same objects during the migration.
+`compareVersions` keeps its existing release, prerelease and build-metadata
+comparison behavior; content consumers can use it without an AAP dependency.
+
+The PAH collection data shape lives in the existing `@ansible/content-model`
+domain contract package. This preparation does not change the PAH endpoint,
+credentials, provider wiring or Controller service method count.

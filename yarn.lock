@@ -217,6 +217,7 @@ __metadata:
   dependencies:
     "@ansible/automation-content-common": "workspace:^"
     "@ansible/content-development-common": "workspace:^"
+    "@ansible/content-model": "workspace:^"
     "@ansible/portal-extension-common": "workspace:^"
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/integration": "npm:^2.0.0"

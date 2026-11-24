@@ -91,3 +91,21 @@ describe('permissions', () => {
     });
   });
 });
+
+it('preserves shared permission identities and the registered permission set', () => {
+  const shared = jest.requireActual('@ansible/portal-extension-common');
+  expect(gitRepositoriesViewPermission).toBe(
+    shared.gitRepositoriesViewPermission,
+  );
+  expect(collectionsViewPermission).toBe(shared.collectionsViewPermission);
+  expect(templatesViewPermission).toBe(shared.templatesViewPermission);
+  expect(historyViewPermission).toBe(shared.historyViewPermission);
+  expect(ansiblePermissions).toEqual([
+    executionEnvironmentsBuildPermission,
+    executionEnvironmentsViewPermission,
+    gitRepositoriesViewPermission,
+    collectionsViewPermission,
+    templatesViewPermission,
+    historyViewPermission,
+  ]);
+});

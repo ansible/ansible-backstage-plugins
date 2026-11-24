@@ -10,3 +10,5 @@
  */
 export * from './contentObject';
 export * from './contentManifest';
+
+export type { Collection, CollectionLinks } from './collection';
