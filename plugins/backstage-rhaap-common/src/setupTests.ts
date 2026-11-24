@@ -44,3 +44,9 @@ Object.defineProperty(globalThis.self, 'ReadableStream', {
 Object.defineProperty(globalThis.self, 'WritableStream', {
   value: WritableStream,
 });
+
+// undici 7+ web fetch stack expects MessagePort (missing in Jest/jsdom).
+if (typeof globalThis.MessagePort === 'undefined') {
+  globalThis.MessagePort =
+    class MessagePort {} as unknown as typeof MessagePort;
+}
