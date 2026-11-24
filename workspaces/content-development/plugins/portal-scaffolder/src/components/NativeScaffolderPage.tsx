@@ -36,16 +36,6 @@ function LegacyEEDefinitionsRedirect(): JSX.Element {
   );
 }
 
-function LegacyEEDefinitionsRedirect(): JSX.Element {
-  const { search, hash } = useLocation();
-  return (
-    <Navigate
-      to={{ pathname: '/content/ee/definitions', search, hash }}
-      replace
-    />
-  );
-}
-
 /** Render the native scaffolder with host-provided fields, APIs and notification boundaries. */
 export function NativeScaffolderPage({
   declarations,
