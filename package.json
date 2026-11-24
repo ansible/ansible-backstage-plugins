@@ -107,7 +107,7 @@
     "webpack-dev-server": "^5.2.5",
     "launch-editor": "^2.14.1",
     "linkify-it": "^5.0.1",
-    "markdown-it": "^14.2.0",
+    "markdown-it": "^14.3.2",
     "typeorm": "^0.3.29",
     "underscore": "^1.13.8",
     "urllib": "^4.9.1",
