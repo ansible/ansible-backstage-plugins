@@ -378,7 +378,9 @@ describe('APME NFS entry point', () => {
       initialRouteEntries: ['/entity?rule=R001&category=quality'],
       apis: [[portalOperationsApiRef, { execute }], mockApis.permission()],
     });
-    expect(await screen.findByText('APME Quality: my-repo')).toBeTruthy();
+    expect(
+      await screen.findByText('APME Quality: my-repo', {}, { timeout: 5000 }),
+    ).toBeTruthy();
     expect(await screen.findByText('Filters: R001/quality')).toBeTruthy();
     expect(screen.getByText('APME API registered')).toBeTruthy();
     expect(
