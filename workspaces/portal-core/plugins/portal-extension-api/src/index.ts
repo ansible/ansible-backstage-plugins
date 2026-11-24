@@ -27,7 +27,6 @@ export type {
 // ── Manifest-level types (capability + entry point model) ──────────────────────
 // Shared public contract for Portal contributors and hosts.
 export type {
-  ExperienceDefinition,
   PermissionRequirement,
   ContentPredicate,
   ContributionKind,
@@ -41,16 +40,8 @@ export type {
 } from './manifest';
 
 // ── Extension point IDs and content type IDs ────────────────────────────────
-export {
-  CONTENT_TYPES,
-  EXPERIENCE_IDS,
-  EXTENSION_POINTS,
-} from './extensionPoints';
-export type {
-  ContentTypeId,
-  ExperienceId,
-  ExtensionPointId,
-} from './extensionPoints';
+export { EXTENSION_POINTS, CONTENT_TYPES } from './extensionPoints';
+export type { ExtensionPointId, ContentTypeId } from './extensionPoints';
 
 // ── Registry singleton + type ─────────────────────────────────────────────────
 export { contributionRegistry } from './registry';

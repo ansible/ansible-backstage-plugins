@@ -1,5 +1,4 @@
 import type { PluginManifest } from '@ansible/portal-extension-api';
-import { EXPERIENCE_IDS } from '@ansible/portal-extension-api';
 import {
   complianceScanLaunchOperation,
   complianceRemediationLaunchOperation,
@@ -21,11 +20,8 @@ export const COMPLIANCE_API_VERSION = '0.1.0';
  * Compliance plugin manifest — declares every capability this plugin
  * contributes to the Automation Portal.
  *
- * Compliance is a host-owned experience in its own right
- * (`EXPERIENCE_IDS.COMPLIANCE`), not a Content Quality
- * capability or a new content type. Its subjects are AAP inventories and
- * hosts, not catalog content types, so every capability below uses
- * `appliesToContentTypes: '*'`.
+ * Compliance subjects are AAP inventories and hosts, not catalog content
+ * types, so every capability below uses `appliesToContentTypes: '*'`.
  *
  * The four capabilities map onto the six tabs `ComplianceRouter` already
  * renders (`CORE_TABS`): Overview, New Scan, and Results fold into
@@ -53,7 +49,6 @@ export const complianceManifest: PluginManifest = {
     {
       id: 'compliance.scan-and-assess',
       ownerPlugin: 'compliance',
-      experienceId: EXPERIENCE_IDS.COMPLIANCE,
       displayName: 'Compliance Scanning & Assessment',
       description:
         'Launch compliance scans against AAP inventories and review scan ' +
@@ -158,7 +153,6 @@ export const complianceManifest: PluginManifest = {
     {
       id: 'compliance.remediation',
       ownerPlugin: 'compliance',
-      experienceId: EXPERIENCE_IDS.COMPLIANCE,
       displayName: 'Compliance Remediation',
       description:
         'Launch selective remediation jobs for findings surfaced by a ' +
@@ -209,7 +203,6 @@ export const complianceManifest: PluginManifest = {
     {
       id: 'compliance.inventory-management',
       ownerPlugin: 'compliance',
-      experienceId: EXPERIENCE_IDS.COMPLIANCE,
       displayName: 'Compliance Inventory Management',
       description:
         'Browse AAP inventories available for compliance scanning and ' +
@@ -240,7 +233,6 @@ export const complianceManifest: PluginManifest = {
     {
       id: 'compliance.settings',
       ownerPlugin: 'compliance',
-      experienceId: EXPERIENCE_IDS.COMPLIANCE,
       displayName: 'Compliance Settings',
       description:
         'Manage compliance profiles, their data-retention policy, and ' +

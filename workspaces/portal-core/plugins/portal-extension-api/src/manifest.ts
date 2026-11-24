@@ -6,7 +6,6 @@
  * types with a backend plugin that cannot depend on React.
  */
 export type {
-  ExperienceDefinition,
   PermissionRequirement,
   ContentPredicate,
   ContributionKind,

@@ -17,9 +17,8 @@ import { rootRouteRef } from './routes';
  * `registerManifest()` publishes `complianceManifest` to the host's
  * `ContributionRegistry`. The host's `DynamicExtensionDiscovery` (mounted
  * once in `portal-extension-host`) subscribes to this registry and
- * validates every registered manifest against its known experiences
- * (`EXPERIENCE_IDS`, including `'compliance'`) and host API
- * version, logging the result. This is a module-level side effect, so it
+ * validates every registered manifest against the host API version and
+ * logs the result. This is a module-level side effect, so it
  * fires as soon as this NFS entry point loads — same mechanism APME's
  * `plugin.ts` uses (`registerManifest(apmeManifest)`), just invoked from
  * the NFS entry rather than the legacy one, since compliance has no legacy
