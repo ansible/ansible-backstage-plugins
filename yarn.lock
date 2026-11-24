@@ -35,7 +35,7 @@ __metadata:
     msw: "npm:2.4.9"
     passport-oauth2: "npm:^1.8.0"
     supertest: "npm:6.3.4"
-    undici: "npm:^6.26.0"
+    undici: "npm:^6.29.1"
   languageName: unknown
   linkType: soft
 
@@ -66,7 +66,7 @@ __metadata:
     express: "npm:^5.1.0"
     express-promise-router: "npm:^4.1.1"
     supertest: "npm:^7.1.1"
-    undici: "npm:^6.26.0"
+    undici: "npm:^6.29.1"
     yaml: "npm:^2.4.5"
     zod: "npm:^3.23.8"
   languageName: unknown
@@ -92,7 +92,7 @@ __metadata:
     "@types/lodash.uniqby": "npm:^4"
     cross-fetch: "npm:^4.1.0"
     lodash.uniqby: "npm:^4.7.0"
-    undici: "npm:^6.26.0"
+    undici: "npm:^6.29.1"
     web-streams-polyfill: "npm:^4.1.0"
     yaml: "npm:^2.0.0"
   languageName: unknown
@@ -224,7 +224,7 @@ __metadata:
     node-fetch: "npm:^2.6.7"
     semver: "npm:^7.7.3"
     supertest: "npm:^7.1.4"
-    undici: "npm:^6.26.0"
+    undici: "npm:^6.29.1"
     yaml: "npm:^2.0.0"
     zod: "npm:^3.25.76"
   peerDependencies:
