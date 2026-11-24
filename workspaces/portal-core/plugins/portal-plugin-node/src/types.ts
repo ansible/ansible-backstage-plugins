@@ -104,3 +104,8 @@ declare global {
     }
   }
 }
+
+// This file otherwise has only `export interface` and `export type` declarations.
+// rollup-plugin-dts then treats it as a global script and turns `declare global`
+// into an exported binding named `global`, which the SDK package build rejects.
+export {};
