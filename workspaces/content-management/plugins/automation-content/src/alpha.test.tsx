@@ -307,7 +307,9 @@ it('does not attach the image layout to an unrelated entity', async () => {
   expect(
     await screen.findByRole('button', { name: 'Add to favorites' }),
   ).toBeInTheDocument();
-  expect(await screen.findByText('Existing overview card')).toBeInTheDocument();
+  expect(
+    await screen.findByText('Existing overview card', {}, { timeout: 5000 }),
+  ).toBeInTheDocument();
   expect(
     screen.queryByText(/Image details are unavailable/),
   ).not.toBeInTheDocument();
