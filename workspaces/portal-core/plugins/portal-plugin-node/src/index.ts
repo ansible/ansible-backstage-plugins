@@ -67,3 +67,7 @@ export * from './ScmClient';
 
 // Generic catalog provider discovery and mutation contracts.
 export * from './catalogEntityProviders';
+
+// Shared catalog authorization and read-only contributor status.
+export * from './catalog/authorization';
+export * from './catalogStatus';

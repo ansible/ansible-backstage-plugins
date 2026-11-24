@@ -8,6 +8,7 @@ import type {
   PortalOperations,
   PortalEntitlements,
   CatalogEntityProvidersService,
+  CatalogStatusSourcesService,
 } from '@ansible/portal-plugin-node';
 import loader from './alpha';
 
@@ -18,6 +19,7 @@ describe('dynamic root service ownership', () => {
       operations: PortalOperations;
       entitlements: PortalEntitlements;
       providers: CatalogEntityProvidersService;
+      statuses: CatalogStatusSourcesService;
     }> = [];
     const contributor = (pluginId: string) =>
       createBackendPlugin({
@@ -35,6 +37,10 @@ describe('dynamic root service ownership', () => {
               }),
               entitlements: createServiceRef<PortalEntitlements>({
                 id: 'portal.entitlements',
+                scope: 'root',
+              }),
+              statuses: createServiceRef<CatalogStatusSourcesService>({
+                id: 'portal.catalog-status-sources',
                 scope: 'root',
               }),
               providers: createServiceRef<CatalogEntityProvidersService>({
@@ -57,6 +63,18 @@ describe('dynamic root service ownership', () => {
       expect(instances[0].operations).toBe(instances[1].operations);
       expect(instances[0].entitlements).toBe(instances[1].entitlements);
       expect(instances[0].providers).toBe(instances[1].providers);
+      expect(instances[0].statuses).toBe(instances[1].statuses);
+      instances[0].statuses.register({
+        id: 'example.sync',
+        source: {
+          isReady: () => true,
+          getStatus: () => ({ syncInProgress: false, providers: [] }),
+        },
+      });
+      expect(instances[1].statuses.get('example.sync').getStatus()).toEqual({
+        syncInProgress: false,
+        providers: [],
+      });
       instances[0].providers.register({
         id: 'example.resources',
         provider: {
