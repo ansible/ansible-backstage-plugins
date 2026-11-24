@@ -24,7 +24,7 @@ import {
   type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoryCatalogColumnDefinition,
   type GitRepositoryCatalogRowMenuContext,
-} from '@ansible/portal-extension-api/gitRepositoriesExtensions';
+} from '@ansible/portal-scaffolder-react/gitRepositoriesExtensions';
 import { normalizeRepoUrlFromEntity } from '@ansible/backstage-apme-common/catalogEntity';
 import { ansibleSettingsViewPermission } from '@ansible/backstage-apme-common/permissions';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';

@@ -8,7 +8,7 @@ Use `./devSpaces` for repository, branch and remediation links, and
 resource permissions scoped to `ansible-settings` and capability `apme`.
 
 These entry points are browser/backend safe. Frontend extension and cache APIs
-come from `portal-extension-api`; backend SCM clients/token resolution come from
+come from the dedicated `portal-scaffolder-react` subpaths; backend SCM clients/token resolution come from
 `portal-plugin-node`. No APME package imports or embeds `backstage-rhaap-common`.
 The retired legacy config-reading Dev Spaces helper had no repository callers;
 the content scaffolder's independent helper remains unchanged.

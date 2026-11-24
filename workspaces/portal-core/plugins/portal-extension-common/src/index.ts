@@ -44,13 +44,3 @@ export type {
 
 export { CONTENT_TYPES, EXTENSION_POINTS } from './extensionPoints';
 export type { ContentTypeId, ExtensionPointId } from './extensionPoints';
-
-export { SCM_INTEGRATION_AUTH_FAILED_CODE } from './scm';
-export {
-  gitRepositoriesViewPermission,
-  collectionsViewPermission,
-  templatesViewPermission,
-  historyViewPermission,
-} from './permissions';
-
-export { compareVersions } from './versions';

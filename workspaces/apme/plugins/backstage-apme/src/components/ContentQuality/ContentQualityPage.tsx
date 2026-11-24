@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { gitRepositoriesViewPermission } from '@ansible/portal-extension-common';
+import { gitRepositoriesViewPermission } from '@ansible/automation-content-common/permissions';
 import { useApmeEnabled } from '../../hooks/useApmeEnabled';
 
 /** Compatibility entry into the host's existing contributed catalog tab. */

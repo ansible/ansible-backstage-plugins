@@ -24,7 +24,7 @@ import { eeBuildApiRef } from '../../../apis';
 import { NotificationProvider, notificationStore } from '../../notifications';
 import { ThemeProvider, createMuiTheme } from '@material-ui/core/styles';
 import { MemoryRouter } from 'react-router-dom';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/automation-content-common/scm';
 
 // Component under test (named export)
 import { EEDetailsPage } from './EEDetailsPage';

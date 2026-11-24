@@ -154,8 +154,8 @@ owner/SDK packages instead:
 - Settings permissions: `@ansible/backstage-apme-common/permissions`; their
   backend resource rules now live in APME's catalog module.
 - Git Repositories extension/cache APIs: the corresponding
-  `@ansible/portal-extension-api` subpaths.
-- Shared repository-view permission: `@ansible/portal-extension-common`.
+  `@ansible/portal-scaffolder-react` subpaths.
+- Shared repository-view permission: `@ansible/automation-content-common/permissions`.
 - SCM clients and token resolution: `@ansible/portal-plugin-node`.
 
 The old `catalogEntity`, `devSpaces` and `permissionRules` entry points and the

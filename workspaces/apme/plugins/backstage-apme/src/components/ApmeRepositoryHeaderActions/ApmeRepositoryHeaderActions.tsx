@@ -11,7 +11,7 @@ import CodeIcon from '@material-ui/icons/Code';
 import DeleteOutlineIcon from '@material-ui/icons/DeleteOutline';
 import { configApiRef, useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
-import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/portal-extension-api/gitRepositoriesExtensions';
+import type { GitRepositoryDetailHeaderMenuContext } from '@ansible/portal-scaffolder-react/gitRepositoriesExtensions';
 import {
   defaultBranchFromEntity,
   normalizeRepoUrlFromEntity,

@@ -20,3 +20,15 @@ export const executionEnvironmentsBuildPermission: BasicPermission = {
   name: 'ansible.execution-environments.build',
   attributes: { action: 'update' },
 };
+
+export const gitRepositoriesViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.git-repositories.view',
+  attributes: {},
+};
+
+export const collectionsViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.collections.view',
+  attributes: {},
+};

@@ -1,2 +1,2 @@
-/** @deprecated Import this frontend contract from @ansible/portal-extension-api/gitRepositoriesCatalog. */
-export * from '@ansible/portal-extension-api/gitRepositoriesCatalog';
+/** @deprecated Import the content-owned frontend contract from @ansible/portal-scaffolder-react/gitRepositoriesCatalog. */
+export * from '@ansible/portal-scaffolder-react/gitRepositoriesCatalog';

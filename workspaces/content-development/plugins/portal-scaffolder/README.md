@@ -121,8 +121,8 @@ dynamicPlugins:
 ## Shared repository contracts
 
 Repository cache invalidation uses
-`@ansible/portal-extension-api/gitRepositoriesCatalog`. SCM authentication errors
-use `SCM_INTEGRATION_AUTH_FAILED_CODE` from `@ansible/portal-extension-common`.
+`@ansible/portal-scaffolder-react/gitRepositoriesCatalog`. SCM authentication errors
+use `SCM_INTEGRATION_AUTH_FAILED_CODE` from `@ansible/automation-content-common/scm`.
 The API ID, no-op fallback, cache behavior and `INTEGRATION_AUTH_FAILED` value
 are unchanged. The plugin no longer imports or directly depends on
 `@ansible/backstage-rhaap-common`; no backend plugin is embedded or registered by

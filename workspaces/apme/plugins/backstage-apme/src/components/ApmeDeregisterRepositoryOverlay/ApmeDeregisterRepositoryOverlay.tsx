@@ -8,7 +8,7 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { GitRepositoryDetailTabContext } from '@ansible/portal-extension-api/gitRepositoriesExtensions';
+import type { GitRepositoryDetailTabContext } from '@ansible/portal-scaffolder-react/gitRepositoriesExtensions';
 import { DeregisterRepositoryDialog } from '../DeregisterRepositoryDialog';
 import { deregisterRepositoryDialogStore } from './deregisterRepositoryDialogStore';
 

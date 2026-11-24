@@ -7,7 +7,7 @@ import { screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { TestApiProvider, renderInTestApp } from '@backstage/test-utils';
 import { Entity } from '@backstage/catalog-model';
-import { gitRepositoriesCatalogApiRef } from '@ansible/portal-extension-api/gitRepositoriesCatalog';
+import { gitRepositoriesCatalogApiRef } from '@ansible/portal-scaffolder-react/gitRepositoriesCatalog';
 import { ApmeDeregisterRepositoryOverlay } from './ApmeDeregisterRepositoryOverlay';
 import { deregisterRepositoryDialogStore } from './deregisterRepositoryDialogStore';
 
