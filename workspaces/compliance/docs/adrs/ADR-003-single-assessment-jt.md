@@ -1,11 +1,12 @@
 ---
-title: "ADR-003: Single Assessment JT with 2 Plays (Not 2-Node Workflow)"
-description: "The original assessment architecture used a 2-node workflow: Node 1 (`compliance-gather-facts`) ran the scan on targets,"
+title: 'ADR-003: Single Assessment JT with 2 Plays (Not 2-Node Workflow)'
+description: 'The original assessment architecture used a 2-node workflow: Node 1 (`compliance-gather-facts`) ran the scan on targets,'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-003: Single Assessment JT with 2 Plays (Not 2-Node Workflow)
 
 **Status:** Accepted

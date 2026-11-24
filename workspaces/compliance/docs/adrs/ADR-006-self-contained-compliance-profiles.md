@@ -1,11 +1,12 @@
 ---
-title: "ADR-006: Self-Contained Compliance Profiles"
-description: "When adding a new compliance profile (e"
+title: 'ADR-006: Self-Contained Compliance Profiles'
+description: 'When adding a new compliance profile (e'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-006: Self-Contained Compliance Profiles
 
 **Status:** Accepted

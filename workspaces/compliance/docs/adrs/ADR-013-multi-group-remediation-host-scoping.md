@@ -1,16 +1,17 @@
 ---
-title: "ADR-013: Multi-Group Remediation with Per-Host Scoping"
-description: "When a user selects multiple rules for remediation and those rules fail on different subsets of hosts, the original impl"
+title: 'ADR-013: Multi-Group Remediation with Per-Host Scoping'
+description: 'When a user selects multiple rules for remediation and those rules fail on different subsets of hosts, the original impl'
 type: adr
 status: accepted
 date: 2026-05-31
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-013: Multi-Group Remediation with Per-Host Scoping
 
-**Status:** Accepted  
-**Date:** 2026-05-31  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-05-31
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -21,6 +22,7 @@ When a user selects multiple rules for remediation and those rules fail on diffe
 **Launch one JT per host-group.** The `buildRemediationPlan()` function groups rules by their sorted failed-host set. Rules that fail on the same hosts share a group. Each group is launched as a separate JT with its own `limit` and `job_tags`.
 
 Example: Rule A fails on hosts 1-6, Rule B fails on hosts 1-12.
+
 - Group 1: `job_tags=B`, `limit=1,2,...,12` (12 hosts)
 - Group 2: `job_tags=A`, `limit=1,2,...,6` (6 hosts)
 
@@ -29,6 +31,7 @@ The frontend polls **all job IDs** returned in `LaunchRemediationResponse.allJob
 ## Controller Requirements
 
 Remediate JTs must have:
+
 - `become_enabled: true` — CaC playbooks assume root
 - `ask_limit_on_launch: true` — without this, Controller silently ignores the `limit` parameter
 - `ask_tags_on_launch: true` — for rule-level scoping

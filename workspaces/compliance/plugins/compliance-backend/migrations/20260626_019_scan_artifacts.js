@@ -1,6 +1,6 @@
-"use strict";
+'use strict';
 
-Object.defineProperty(exports, "__esModule", { value: true });
+Object.defineProperty(exports, '__esModule', { value: true });
 exports.up = up;
 exports.down = down;
 

@@ -1,22 +1,24 @@
 ---
-title: "ADR-036: Stable Profile Identity via Slug"
-description: "Migration 021 added `UNIQUE(framework)` to prevent duplicate profiles on disconnect→re-add cycles"
+title: 'ADR-036: Stable Profile Identity via Slug'
+description: 'Migration 021 added `UNIQUE(framework)` to prevent duplicate profiles on disconnect→re-add cycles'
 type: adr
 status: accepted
 date: 2026-06-30
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-036: Stable Profile Identity via Slug
 
-**Status:** Accepted (Implemented 2026-06-30)  
-**Date:** 2026-06-30  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (Implemented 2026-06-30)
+**Date:** 2026-06-30
+**Deciders:** Massimo Ferrari
 
 ## Context
 
 Migration 021 added `UNIQUE(framework)` to prevent duplicate profiles on disconnect→re-add cycles. This broke CIS L1 and CIS L2 because both share `framework: 'CIS'`. Migration 022 widened to `UNIQUE(framework, display_name)` as a hotfix, but display names are fragile user-typed strings — a different spelling on re-add creates a new profile, orphaning historical data.
 
 Three scenarios need a proper identity model:
+
 1. Disconnect→reconnect same profile — seamlessly pick up existing scans
 2. Profile version upgrade (V1→V2) — old scans stay version-pinned
 3. Custom profile replacing OOB — separate by default
@@ -24,6 +26,7 @@ Three scenarios need a proper identity model:
 ### Competitive Research
 
 Industry consensus (Qualys, Tenable, CIS-CAT, DISA):
+
 - Scans are version-pinned — no platform migrates results to a new benchmark version
 - V1 and V2 coexist — user decides when to stop scanning the old version
 - DISA STIG Viewer is the only tool with a transfer mechanism (VulnID-based)
@@ -36,11 +39,12 @@ Industry consensus (Qualys, Tenable, CIS-CAT, DISA):
 Add `profile_slug VARCHAR(128) UNIQUE` to `compliance_profile_registry`. The slug is the reconnect key — two profiles with the same `framework` but different slugs are independent.
 
 **Tier 1 profiles** declare slug in `compliance-profile.yml`:
+
 ```yaml
 profile:
-  slug: "rhel9-cis-l1"
-  name: "CIS Benchmark RHEL 9 Level 1 - Server"
-  framework: "CIS"
+  slug: 'rhel9-cis-l1'
+  name: 'CIS Benchmark RHEL 9 Level 1 - Server'
+  framework: 'CIS'
 ```
 
 **Tier 2 / Settings form**: Slug is an explicit field, auto-derived from display name as fallback. When disconnected profiles exist with the same framework, the form shows a reconnect picker.
@@ -50,6 +54,7 @@ Slugs: `rhel9-stig`, `rhel9-cis-l1`, `rhel9-cis-l2`, `supply-chain`.
 ### §2 — Version-pinned scans
 
 Add `profile_version VARCHAR(64)` to `compliance_scans`. Populated at scan creation from the profile's current `version` field. This enables:
+
 - Trend chart version boundary markers
 - Audit queries filtered by assessment version
 - Version upgrades without corrupting historical comparisons

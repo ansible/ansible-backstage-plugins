@@ -1,18 +1,19 @@
 ---
-title: "ADR-037: OCI Artifact Push Pattern and PAH Integration"
-description: "ADR-032 established the two-layer export system — CFF-derived client-side exports and OCI artifact passthrough via PAH"
+title: 'ADR-037: OCI Artifact Push Pattern and PAH Integration'
+description: 'ADR-032 established the two-layer export system — CFF-derived client-side exports and OCI artifact passthrough via PAH'
 type: adr
 status: accepted
 date: 2026-06-30
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 amends: ADR-032
 ---
+
 # ADR-037: OCI Artifact Push Pattern and PAH Integration
 
-**Status:** Accepted  
-**Date:** 2026-06-30  
-**Deciders:** Massimo Ferrari  
-**Amends:** ADR-032  
+**Status:** Accepted
+**Date:** 2026-06-30
+**Deciders:** Massimo Ferrari
+**Amends:** ADR-032
 
 ## Context
 
@@ -47,28 +48,28 @@ Artifact registration in the plugin DB must only happen for successfully pushed 
   register: _push_results
   no_log: true
   failed_when: false
-  loop: "{{ artifact_files }}"
+  loop: '{{ artifact_files }}'
   loop_control:
     index_var: _idx
 
 - name: Report push failures
   ansible.builtin.debug:
-    msg: "Push failed for {{ item.item | basename }} (rc={{ item.rc }})"
-  loop: "{{ _push_results.results | default([]) }}"
+    msg: 'Push failed for {{ item.item | basename }} (rc={{ item.rc }})'
+  loop: '{{ _push_results.results | default([]) }}'
   when: item.rc | default(0) != 0
 
 - name: Register artifacts in plugin
   ansible.builtin.uri:
-    url: "{{ backstage_api_url }}/api/compliance/scans/{{ scan_id }}/artifacts"
+    url: '{{ backstage_api_url }}/api/compliance/scans/{{ scan_id }}/artifacts'
     method: POST
     body_format: json
     body:
-      artifactKey: "{{ artifact_key }}"
-      ociReference: "{{ oci_ref }}"
-      artifactName: "{{ artifact_name }}"
-      mimeType: "{{ mime_type }}"
-      ingestToken: "{{ ingest_token }}"
-  loop: "{{ artifact_files }}"
+      artifactKey: '{{ artifact_key }}'
+      ociReference: '{{ oci_ref }}'
+      artifactName: '{{ artifact_name }}'
+      mimeType: '{{ mime_type }}'
+      ingestToken: '{{ ingest_token }}'
+  loop: '{{ artifact_files }}'
   loop_control:
     index_var: _idx
   when: _push_results.results[_idx].rc | default(1) == 0
@@ -83,6 +84,7 @@ The backend artifact list and download endpoints use Portal's `httpAuth.credenti
 ### 4. Error surfacing over silent fallbacks
 
 Frontend components must surface artifact errors to the user via `alertApi`, not silently fall back to empty state. The ExportButton now shows:
+
 - "Failed to load export artifacts: ..." on fetch errors
 - "Failed to download {filename}: ..." on download errors
 
@@ -97,6 +99,7 @@ All compliance artifacts use the repository pattern:
 ```
 
 Where:
+
 - `pah_registry`: PAH hostname (e.g., `aap-netrunner.demoredhat.com`)
 - `scan_id`: UUID from the compliance scan record
 - `artifact_tag`: Artifact key (e.g., `sbom-nm-prod01`)

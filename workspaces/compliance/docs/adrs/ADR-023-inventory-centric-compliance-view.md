@@ -6,17 +6,19 @@ status: accepted
 date: 2026-06-09
 product: "AAP Compliance Dashboard"
 ---
+
 # ADR-023: Inventory-Centric Compliance View
 
-**Status:** Accepted (design validated via mockup 2026-06-11)  
-**Date:** 2026-06-09 (updated 2026-06-11)  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (design validated via mockup 2026-06-11)
+**Date:** 2026-06-09 (updated 2026-06-11)
+**Deciders:** Massimo Ferrari
 
 ## Context
 
 The plugin's navigation is profile-centric: everything flows from "which compliance standard are you checking?" (Overview → Profiles → Scan → Results → Remediations → Settings). Operational users think inventory-first: "what's the compliance status of this set of hosts?" There is no way to see per-host compliance state within an inventory, identify outlier machines, or understand which hosts deviate from the group norm.
 
 Current inventory representation:
+
 - Dashboard `InventoryPostureView` shows per-inventory gauges grouped by profile
 - Scan history groups by `(profile × inventory)` (ADR-016)
 - Inventory is a parameter, not an entity — no dedicated view or tab
@@ -24,6 +26,7 @@ Current inventory representation:
 ### Competitive Research (2026-06-11)
 
 Research across 6 platforms (Red Hat Insights, Puppet Comply, CIS-CAT Pro, Qualys VMDR, Tenable.io, Chef Automate) found:
+
 - **All platforms use tables** as the primary per-host display, with summary charts above
 - **Puppet Comply** has a "5 least compliant nodes" widget for outlier surfacing
 - **CIS-CAT Pro** fires "Low Score Alert" when results fall below threshold
@@ -37,6 +40,7 @@ The UX research identified **dot strip plots** as the optimal visualization for 
 ### §1 — Inventories Tab + Drill-Down (replaces original "drill-down only" decision)
 
 Add an "Inventories" tab (position: after Remediations, before Settings) with two views:
+
 1. **Inventories list**: table of all inventories with compliance summary
 2. **Inventory detail**: `/compliance/inventories/:inventoryId` drill-down page
 
@@ -50,11 +54,11 @@ The inventory detail page is fundamentally a **host-centric compliance view**, n
 
 **Three-level zoom visualization:**
 
-| Hosts | View | Interaction |
-|-------|------|-------------|
-| 200+ | **Strip plot** — one dot per host on a 0–100% compliance axis, clusters auto-detected with labeled regions | Click dot → host side drawer. Click cluster label → zoom into cluster. |
-| 50–200 | **Zoomed strip** — same strip on a subset, re-clustered recursively. If cluster can't split further, goes to chips. | Same interactions. Breadcrumb trail for zoom navigation. |
-| ≤50 | **Chip matrix** — individual host chips sorted: red outliers → yellow (CAT I findings) → green (compliant) | Click chip → host side drawer. |
+| Hosts  | View                                                                                                                | Interaction                                                            |
+| ------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 200+   | **Strip plot** — one dot per host on a 0–100% compliance axis, clusters auto-detected with labeled regions          | Click dot → host side drawer. Click cluster label → zoom into cluster. |
+| 50–200 | **Zoomed strip** — same strip on a subset, re-clustered recursively. If cluster can't split further, goes to chips. | Same interactions. Breadcrumb trail for zoom navigation.               |
+| ≤50    | **Chip matrix** — individual host chips sorted: red outliers → yellow (CAT I findings) → green (compliant)          | Click chip → host side drawer.                                         |
 
 **Cluster detection**: hosts sorted by compliance %, grouped when gaps exceed 5 percentage points. Outlier clusters identified as groups <15% the size of the main cluster.
 
@@ -64,19 +68,20 @@ The inventory detail page is fundamentally a **host-centric compliance view**, n
 
 ### §3 — Inventories List Table
 
-| Column | Source | Interaction |
-|--------|--------|-------------|
-| Inventory name | Controller API | Click → inventory detail |
-| Host count | Controller API (`total_hosts`) | — |
-| Scanned Against | Profile chips from `DashboardStats.byInventory[].profileScores` | — |
-| Baseline | Pinned baseline profile name, or "—" | — |
-| Compliance | Per-profile compliance score (worst highlighted) | — |
+| Column          | Source                                                          | Interaction              |
+| --------------- | --------------------------------------------------------------- | ------------------------ |
+| Inventory name  | Controller API                                                  | Click → inventory detail |
+| Host count      | Controller API (`total_hosts`)                                  | —                        |
+| Scanned Against | Profile chips from `DashboardStats.byInventory[].profileScores` | —                        |
+| Baseline        | Pinned baseline profile name, or "—"                            | —                        |
+| Compliance      | Per-profile compliance score (worst highlighted)                | —                        |
 
 No new API call — data from existing `DashboardStats.byInventory[]`.
 
 ### §4 — Host Detail Side Drawer
 
 MUI `Drawer` anchor="right" (420px). Content:
+
 - Header: hostname, OS (from Controller host facts)
 - Score cards: compliance %, failing rules count
 - Severity chips: CAT I/II/III with exact colors from `FindingRow` (CAT I: `#C9190B`, CAT II: `#F0AB00`, CAT III: `#0066CC`)
@@ -89,12 +94,14 @@ Visually consistent with scan results — same fonts, chip styles, severity colo
 ### §5 — No New Data Storage
 
 Per-host compliance scores computed from existing `compliance_findings` table:
+
 ```sql
 SELECT host, COUNT(CASE WHEN status='pass' THEN 1 END) as pass_count, ...
 FROM compliance_findings WHERE scan_id = ? GROUP BY host
 ```
 
 One new backend endpoint: `GET /inventory/:inventoryId/host-posture?profileId=X`
+
 - Resolves authoritative scan via existing `getAuthoritativeScan()`
 - Aggregates per-host pass/fail/severity from existing findings
 - Enriches with OS facts from Controller via existing `getInventoryHostFacts()`

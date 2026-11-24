@@ -37,7 +37,11 @@ function noContentResponse() {
   } as unknown as Response;
 }
 
-function errorResponse(status: number, statusText: string, body = 'error details') {
+function errorResponse(
+  status: number,
+  statusText: string,
+  body = 'error details',
+) {
   return {
     ok: false,
     status,
@@ -69,7 +73,10 @@ function getCallOpts(
   index = 0,
 ): RequestInit & { headers: Record<string, string>; body?: string } {
   const call = fetchApi.fetch.mock.calls[index];
-  return call[1] as RequestInit & { headers: Record<string, string>; body?: string };
+  return call[1] as RequestInit & {
+    headers: Record<string, string>;
+    body?: string;
+  };
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────
@@ -120,8 +127,12 @@ describe('ComplianceBackendClient', () => {
 
     it('throws with status, statusText, and body on non-ok', async () => {
       const { client, fetchApi } = createClient();
-      fetchApi.fetch.mockResolvedValue(errorResponse(500, 'Internal Server Error', 'db down'));
-      await expect(client.getProfiles()).rejects.toThrow('500 Internal Server Error: db down');
+      fetchApi.fetch.mockResolvedValue(
+        errorResponse(500, 'Internal Server Error', 'db down'),
+      );
+      await expect(client.getProfiles()).rejects.toThrow(
+        '500 Internal Server Error: db down',
+      );
     });
   });
 
@@ -131,7 +142,9 @@ describe('ComplianceBackendClient', () => {
     it('passes x-aap-token when aapAuthApi is available', async () => {
       const aapAuth = createMockAapAuth('my-token');
       const { client, fetchApi } = createClient({ aapAuth });
-      fetchApi.fetch.mockResolvedValue(okResponse({ scanId: 's1', workflowJobId: 1, status: 'pending' }));
+      fetchApi.fetch.mockResolvedValue(
+        okResponse({ scanId: 's1', workflowJobId: 1, status: 'pending' }),
+      );
       await client.launchScan({ profileId: 'p1', inventoryId: 1 } as any);
       const opts = getCallOpts(fetchApi);
       expect(opts.headers['x-aap-token']).toBe('my-token');
@@ -149,7 +162,9 @@ describe('ComplianceBackendClient', () => {
       const aapAuth = createMockAapAuth();
       aapAuth.getAccessToken.mockRejectedValue(new Error('auth unavailable'));
       const { client, fetchApi } = createClient({ aapAuth });
-      fetchApi.fetch.mockResolvedValue(okResponse({ scanId: 's1', workflowJobId: 1, status: 'pending' }));
+      fetchApi.fetch.mockResolvedValue(
+        okResponse({ scanId: 's1', workflowJobId: 1, status: 'pending' }),
+      );
       await client.launchScan({ profileId: 'p1', inventoryId: 1 } as any);
       const opts = getCallOpts(fetchApi);
       expect(opts.headers['x-aap-token']).toBeUndefined();
@@ -159,23 +174,44 @@ describe('ComplianceBackendClient', () => {
   // ── Simple GET methods ─────────────────────────────────────────────
 
   describe('simple GET methods', () => {
-    const cases: Array<[string, (c: ComplianceBackendClient) => Promise<unknown>, string]> = [
+    const cases: Array<
+      [string, (c: ComplianceBackendClient) => Promise<unknown>, string]
+    > = [
       ['getHealth', c => c.getHealth(), '/health'],
       ['getProfiles', c => c.getProfiles(), '/profiles'],
       ['getScans', c => c.getScans(), '/scans'],
       ['getInventories', c => c.getInventories(), '/inventories'],
       ['getDashboardStats', c => c.getDashboardStats(), '/dashboard'],
-      ['getRegisteredProfiles', c => c.getRegisteredProfiles(), '/compliance-profiles'],
-      ['getControllerJobTemplates', c => c.getControllerJobTemplates(), '/controller/job-templates'],
-      ['getControllerWorkflowTemplates', c => c.getControllerWorkflowTemplates(), '/controller/workflow-job-templates'],
-      ['getControllerExecutionEnvironments', c => c.getControllerExecutionEnvironments(), '/controller/execution-environments'],
+      [
+        'getRegisteredProfiles',
+        c => c.getRegisteredProfiles(),
+        '/compliance-profiles',
+      ],
+      [
+        'getControllerJobTemplates',
+        c => c.getControllerJobTemplates(),
+        '/controller/job-templates',
+      ],
+      [
+        'getControllerWorkflowTemplates',
+        c => c.getControllerWorkflowTemplates(),
+        '/controller/workflow-job-templates',
+      ],
+      [
+        'getControllerExecutionEnvironments',
+        c => c.getControllerExecutionEnvironments(),
+        '/controller/execution-environments',
+      ],
     ];
 
     it.each(cases)('%s calls correct endpoint', async (_name, fn, path) => {
       const { client, fetchApi } = createClient();
       fetchApi.fetch.mockResolvedValue(okResponse({}));
       await fn(client);
-      expect(fetchApi.fetch).toHaveBeenCalledWith(`${BASE_URL}${path}`, expect.anything());
+      expect(fetchApi.fetch).toHaveBeenCalledWith(
+        `${BASE_URL}${path}`,
+        expect.anything(),
+      );
     });
   });
 
@@ -196,7 +232,10 @@ describe('ComplianceBackendClient', () => {
       const { client, fetchApi } = createClient();
       fetchApi.fetch.mockResolvedValue(okResponse([]));
       await client.getWorkflowTemplates();
-      expect(fetchApi.fetch).toHaveBeenCalledWith(`${BASE_URL}/workflow-templates`, expect.anything());
+      expect(fetchApi.fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/workflow-templates`,
+        expect.anything(),
+      );
     });
 
     it('getFindings builds query params from scanId and profileId', async () => {
@@ -212,7 +251,10 @@ describe('ComplianceBackendClient', () => {
       const { client, fetchApi } = createClient();
       fetchApi.fetch.mockResolvedValue(okResponse([]));
       await client.getFindings();
-      expect(fetchApi.fetch).toHaveBeenCalledWith(`${BASE_URL}/findings`, expect.anything());
+      expect(fetchApi.fetch).toHaveBeenCalledWith(
+        `${BASE_URL}/findings`,
+        expect.anything(),
+      );
     });
 
     it('getRemediationProfiles appends status filter', async () => {
@@ -333,28 +375,36 @@ describe('ComplianceBackendClient', () => {
       const { client, fetchApi } = createClient({ aapAuth });
       fetchApi.fetch.mockResolvedValue(okResponse({ scanId: 's1' }));
       await client.launchScan({ profileId: 'p1', inventoryId: 1 } as any);
-      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe('user-aap-token');
+      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe(
+        'user-aap-token',
+      );
     });
 
     it('launchRemediation passes x-aap-token', async () => {
       const { client, fetchApi } = createClient({ aapAuth });
       fetchApi.fetch.mockResolvedValue(okResponse({ remediationId: 'r1' }));
       await client.launchRemediation({ profileId: 'p1' } as any);
-      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe('user-aap-token');
+      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe(
+        'user-aap-token',
+      );
     });
 
     it('saveRegisteredProfile passes x-aap-token', async () => {
       const { client, fetchApi } = createClient({ aapAuth });
       fetchApi.fetch.mockResolvedValue(okResponse({ id: 'p1' }));
       await client.saveRegisteredProfile({ displayName: 'test' } as any);
-      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe('user-aap-token');
+      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe(
+        'user-aap-token',
+      );
     });
 
     it('deleteRegisteredProfile passes x-aap-token', async () => {
       const { client, fetchApi } = createClient({ aapAuth });
       fetchApi.fetch.mockResolvedValue(noContentResponse());
       await client.deleteRegisteredProfile('p1');
-      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe('user-aap-token');
+      expect(getCallOpts(fetchApi).headers['x-aap-token']).toBe(
+        'user-aap-token',
+      );
     });
   });
 
@@ -398,7 +448,9 @@ describe('ComplianceBackendClient', () => {
 
     it('updateRemediationProfileStatus sends PATCH with status', async () => {
       const { client, fetchApi } = createClient();
-      fetchApi.fetch.mockResolvedValue(okResponse({ id: 'rp-1', status: 'archived' }));
+      fetchApi.fetch.mockResolvedValue(
+        okResponse({ id: 'rp-1', status: 'archived' }),
+      );
       await client.updateRemediationProfileStatus('rp-1', 'archived' as any);
       const opts = getCallOpts(fetchApi);
       expect(opts.method).toBe('PATCH');
@@ -418,7 +470,11 @@ describe('ComplianceBackendClient', () => {
     it('pinBaselineTarget sends POST', async () => {
       const { client, fetchApi } = createClient();
       fetchApi.fetch.mockResolvedValue(okResponse({ id: 'bt-1' }));
-      await client.pinBaselineTarget({ remediationProfileId: 'rp-1', complianceProfileId: 'cp-1', inventoryId: 1 });
+      await client.pinBaselineTarget({
+        remediationProfileId: 'rp-1',
+        complianceProfileId: 'cp-1',
+        inventoryId: 1,
+      });
       expect(getCallOpts(fetchApi).method).toBe('POST');
     });
 
@@ -435,7 +491,9 @@ describe('ComplianceBackendClient', () => {
     it('updateRemediationExecution sends PATCH', async () => {
       const { client, fetchApi } = createClient();
       fetchApi.fetch.mockResolvedValue(okResponse({ id: 'exec-1' }));
-      await client.updateRemediationExecution('exec-1', { status: 'succeeded' } as any);
+      await client.updateRemediationExecution('exec-1', {
+        status: 'succeeded',
+      } as any);
       expect(getCallOpts(fetchApi).method).toBe('PATCH');
     });
 

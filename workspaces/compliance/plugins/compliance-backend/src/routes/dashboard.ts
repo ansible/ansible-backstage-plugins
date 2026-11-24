@@ -15,7 +15,9 @@ export function registerDashboardRoutes(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logger.error(`Failed to get dashboard stats: ${msg}`);
-      res.status(500).json({ error: 'Failed to retrieve dashboard statistics' });
+      res
+        .status(500)
+        .json({ error: 'Failed to retrieve dashboard statistics' });
     }
   });
 
@@ -34,14 +36,20 @@ export function registerDashboardRoutes(
 
   router.get('/posture', async (req, res) => {
     const profileId = req.query.profileId as string | undefined;
-    const inventoryId = parseInventoryId(req.query.inventoryId as string | undefined);
+    const inventoryId = parseInventoryId(
+      req.query.inventoryId as string | undefined,
+    );
     if (req.query.inventoryId && inventoryId === undefined) {
       res.status(400).json({ error: 'inventoryId must be a positive integer' });
       return;
     }
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
     try {
-      const history = await service.getPostureHistory(profileId, days, inventoryId);
+      const history = await service.getPostureHistory(
+        profileId,
+        days,
+        inventoryId,
+      );
       res.json(history);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -51,14 +59,19 @@ export function registerDashboardRoutes(
   });
 
   router.get('/posture/events', async (req, res) => {
-    const inventoryId = parseInventoryId(req.query.inventoryId as string | undefined);
+    const inventoryId = parseInventoryId(
+      req.query.inventoryId as string | undefined,
+    );
     if (req.query.inventoryId && inventoryId === undefined) {
       res.status(400).json({ error: 'inventoryId must be a positive integer' });
       return;
     }
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 90));
     try {
-      const events = await service.getRemediationEventsForTrend(days, inventoryId);
+      const events = await service.getRemediationEventsForTrend(
+        days,
+        inventoryId,
+      );
       res.json(events);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

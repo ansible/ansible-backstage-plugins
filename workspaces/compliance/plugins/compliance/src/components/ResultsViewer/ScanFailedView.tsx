@@ -28,10 +28,16 @@ export const ScanFailedView = ({
   return (
     <>
       <Breadcrumbs>
-        <Typography color="primary" style={{ cursor: 'pointer' }} onClick={() => navigate('/compliance')}>
+        <Typography
+          color="primary"
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/compliance')}
+        >
           Compliance
         </Typography>
-        <Typography>{isVerification ? 'Verification Failed' : 'Scan Failed'}</Typography>
+        <Typography>
+          {isVerification ? 'Verification Failed' : 'Scan Failed'}
+        </Typography>
       </Breadcrumbs>
 
       <Box mt={2} />
@@ -49,7 +55,13 @@ export const ScanFailedView = ({
 
       <InfoCard title="Scan Failed">
         <Box p={3} textAlign="center">
-          <ErrorIcon style={{ fontSize: 64, color: STATUS_COLORS.error, marginBottom: 16 }} />
+          <ErrorIcon
+            style={{
+              fontSize: 64,
+              color: STATUS_COLORS.error,
+              marginBottom: 16,
+            }}
+          />
           <Typography variant="h6" color="textSecondary" gutterBottom>
             The compliance scan did not complete successfully
           </Typography>
@@ -58,23 +70,46 @@ export const ScanFailedView = ({
               <Typography variant="body2" color="textSecondary" paragraph>
                 The Controller reported the following error:
               </Typography>
-              <Paper variant="outlined" style={{ maxHeight: 300, overflow: 'auto', padding: 16, marginTop: 16, marginBottom: 16, textAlign: 'left' }}>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+              <Paper
+                variant="outlined"
+                style={{
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  padding: 16,
+                  marginTop: 16,
+                  marginBottom: 16,
+                  textAlign: 'left',
+                }}
+              >
+                <pre
+                  style={{
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                  }}
+                >
                   {scanFailed}
                 </pre>
               </Paper>
             </>
           ) : (
             <Typography variant="body2" color="textSecondary" paragraph>
-              The workflow ended with status: <strong>{scanFailed}</strong>. This is typically caused by unreachable
-              hosts, missing credentials, or misconfigured inventory. Check the AAP Controller job log for details.
+              The workflow ended with status: <strong>{scanFailed}</strong>.
+              This is typically caused by unreachable hosts, missing
+              credentials, or misconfigured inventory. Check the AAP Controller
+              job log for details.
             </Typography>
           )}
           <Box display="flex" justifyContent="center" style={{ gap: 8 }}>
             <Button variant="outlined" onClick={() => navigate('/compliance')}>
               Back to Overview
             </Button>
-            <Button variant="contained" color="primary" onClick={() => navigate('/compliance/scan')}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate('/compliance/scan')}
+            >
               Try Again
             </Button>
           </Box>

@@ -1,11 +1,12 @@
 ---
-title: "ADR-009: CaC Remediation via Direct JT with job_tags"
-description: "The compliance plugin needs to execute selective remediation -- applying only specific STIG rules to specific hosts with"
+title: 'ADR-009: CaC Remediation via Direct JT with job_tags'
+description: 'The compliance plugin needs to execute selective remediation -- applying only specific STIG rules to specific hosts with'
 type: adr
 status: accepted
 date: 2026-04-23
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-009: CaC Remediation via Direct JT with job_tags
 
 **Status:** Accepted
@@ -32,6 +33,7 @@ Remediation is launched as a **separate, standalone job template** -- never comb
 The remediation JT must have `ask_tags_on_launch: true`, `ask_variables_on_launch: true`, and `ask_inventory_on_launch: true`.
 
 The gap between assess and remediate is the **decision point** where intelligence lives:
+
 - **Human-supervised:** User reviews findings in the portal, builds a remediation, launches it
 - **EDA-automated:** EDA rulebook evaluates findings and conditionally launches remediation based on policy
 - **Future autonomous:** AI agent evaluates findings and decides remediation scope

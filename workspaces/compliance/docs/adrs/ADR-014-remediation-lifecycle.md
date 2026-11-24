@@ -1,17 +1,18 @@
 ---
-title: "ADR-014: Remediation Lifecycle Architecture"
-description: "Remediations are stateless"
+title: 'ADR-014: Remediation Lifecycle Architecture'
+description: 'Remediations are stateless'
 type: adr
 status: accepted
 date: 2026-05-31
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-014: Remediation Lifecycle Architecture
 
-**Status:** Accepted  
-**Date:** 2026-05-31  
-**Accepted:** 2026-06-10 (Phase 1 merged, deployed, stable for 9 days)  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-05-31
+**Accepted:** 2026-06-10 (Phase 1 merged, deployed, stable for 9 days)
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -81,22 +82,23 @@ Auto-save creates/updates a profile with `status='draft'`. Explicit "Save" trans
 - **Service restart races:** One playbook restarts a service while another is mid-configuration
 - **Idempotency breaks:** Ansible modules check state then act; concurrent changes between check and act violate assumptions
 
-**Controller gap:** `allow_simultaneous=False` (default) prevents the *same* Job Template from running twice, but provides **no mutex across different Job Templates targeting the same inventory**. A STIG remediation and a CIS remediation on the same hosts will run in parallel. The plugin must enforce the guard at the application level.
+**Controller gap:** `allow_simultaneous=False` (default) prevents the _same_ Job Template from running twice, but provides **no mutex across different Job Templates targeting the same inventory**. A STIG remediation and a CIS remediation on the same hosts will run in parallel. The plugin must enforce the guard at the application level.
 
 **Industry precedent:**
 
-| Platform | Mechanism | Behavior on conflict |
-|----------|-----------|---------------------|
-| Chef Infra | `flock()` on `chef-client-running.pid` | Block & wait (configurable: `run_lock_timeout=0` for immediate reject) |
-| Puppet | PID lockfile `agent_catalog_run.lock` | Hard reject, error surfaced in PE console |
-| AWX Controller | `allow_simultaneous` flag per JT | Queue (same JT only; no cross-JT guard) |
-| **This plugin** | Query `compliance_remediation_executions` | **Hard reject** (Puppet pattern) |
+| Platform        | Mechanism                                 | Behavior on conflict                                                   |
+| --------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| Chef Infra      | `flock()` on `chef-client-running.pid`    | Block & wait (configurable: `run_lock_timeout=0` for immediate reject) |
+| Puppet          | PID lockfile `agent_catalog_run.lock`     | Hard reject, error surfaced in PE console                              |
+| AWX Controller  | `allow_simultaneous` flag per JT          | Queue (same JT only; no cross-JT guard)                                |
+| **This plugin** | Query `compliance_remediation_executions` | **Hard reject** (Puppet pattern)                                       |
 
 **Implementation:** Use a partial unique index on `(inventory_id) WHERE status IN ('pending', 'running')` to enforce the mutex at the database level. The launch flow wraps the guard check and execution record creation in a single transaction: INSERT the execution with `status='pending'`, relying on the partial unique index to reject concurrent launches (UNIQUE constraint violation → HTTP 409). This eliminates the TOCTOU race inherent in a SELECT-then-INSERT pattern. The HTTP 409 response names the running remediation profile and its launch time. The UI disables the launch button and shows which remediation is in progress.
 
 **Stale record recovery:** If the backend crashes or the user closes the browser mid-remediation, execution records can be left in `running` state indefinitely, permanently blocking that inventory. On `GET /remediation-profiles` (list page load), the backend checks for executions in `running` state with `started_at` older than 30 minutes. For each stale record, it queries Controller for the actual job status and updates accordingly. If the Controller job is terminal, the execution is marked `failed` with `error: 'recovered from stale state'`. This piggybacks on existing traffic rather than requiring a background job.
 
 **Scope:**
+
 - Same profile + same inventory + running → **blocked**
 - Different profile + same inventory + running → **blocked** (cross-JT gap)
 - Same profile + different inventory → **allowed** (no conflict)
@@ -115,11 +117,11 @@ Without this, customers who can't reach 100% of a standard have two bad options:
 
 **Industry patterns:**
 
-| Pattern | Platforms | Mechanism |
-|---------|-----------|-----------|
+| Pattern                    | Platforms                      | Mechanism                                                                                                   |
+| -------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | **Shrink the denominator** | Insights, Qualys, Drata, Vanta | Excluded rules removed from total. Single score against in-scope rules only. No reference to full standard. |
-| **Separate bucket** | Chef Automate | Waived controls are a 4th status. Excluded from pass/fail %. Visible but separate. |
-| **Dual score** | Puppet Comply | Two scores side-by-side: "with exceptions" and "without exceptions". Only platform with native dual-layer. |
+| **Separate bucket**        | Chef Automate                  | Waived controls are a 4th status. Excluded from pass/fail %. Visible but separate.                          |
+| **Dual score**             | Puppet Comply                  | Two scores side-by-side: "with exceptions" and "without exceptions". Only platform with native dual-layer.  |
 
 Our approach achieves the same practical effect as Drata/Vanta's "out of scope" pattern — rules outside the golden standard are acknowledged rather than counted as failures — but through AAP's natural execution model rather than a compliance-specific exception mechanism. The remediation profile already captures which rules to enforce and why; pinning it as the golden standard simply enables the dashboard to report against that curated set alongside the full standard.
 
@@ -158,10 +160,10 @@ Our approach achieves the same practical effect as Drata/Vanta's "out of scope" 
 
 **Decision:** All local data defaults to indefinite retention. A new Settings > Data Management section provides configurable retention with two groups to avoid cascade conflicts:
 
-| Retention Group | Tables | Cascade behavior |
-|----------------|--------|-----------------|
-| **Assessment data** | `compliance_scans` → `compliance_findings` + `compliance_posture_snapshots` | Purging a scan deletes its findings and snapshots |
-| **Remediation data** | `compliance_remediation_executions` | Independent. Graceful degradation when `verification_scan_id` references purged assessment data |
+| Retention Group      | Tables                                                                      | Cascade behavior                                                                                |
+| -------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| **Assessment data**  | `compliance_scans` → `compliance_findings` + `compliance_posture_snapshots` | Purging a scan deletes its findings and snapshots                                               |
+| **Remediation data** | `compliance_remediation_executions`                                         | Independent. Graceful degradation when `verification_scan_id` references purged assessment data |
 
 Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 year.
 
@@ -170,6 +172,7 @@ Options per group: Indefinite (default), 30 days, 60 days, 90 days, 6 months, 1 
 **Why indefinite by default:** Our model stores metadata + pointers, not full execution payloads. At ~555 KB/year for executions and ~115 MB/year for findings, storage costs are negligible for SQLite. Controller retains all job history, task events, and logs regardless. Platforms in the same architectural camp (Insights, Qualys, Drata, Vanta) keep records indefinitely because audit trails are the value proposition.
 
 **Contextual help:** The Data Management section includes a help popover (MUI `IconButton` + `Popover`, matching the downstream `HelpButton` pattern from ansible-hub-ui) explaining:
+
 1. This manages the plugin's local database only
 2. Automation Controller remains the source of truth for all execution details, logs, and job history
 3. Assessment data includes scan results, per-host findings, and posture snapshots — purging a scan removes its associated data

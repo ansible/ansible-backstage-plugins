@@ -1,8 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  Typography,
-  makeStyles,
-} from '@material-ui/core';
+import { Typography, makeStyles } from '@material-ui/core';
 import TrendingUpIcon from '@material-ui/icons/TrendingUp';
 import {
   ResponsiveContainer,
@@ -16,7 +13,12 @@ import {
   Legend,
 } from 'recharts';
 import type { ComplianceApi } from '../../api';
-import type { ComplianceProfile, DashboardStats, PostureSnapshot, RemediationEvent } from '@ansible/compliance-common/types';
+import type {
+  ComplianceProfile,
+  DashboardStats,
+  PostureSnapshot,
+  RemediationEvent,
+} from '@ansible/compliance-common/types';
 import type { FilterOption } from '../ResultsViewer/FilterGroup';
 import {
   detectEvents,
@@ -74,7 +76,7 @@ const useStyles = makeStyles(theme => ({
   },
 }));
 
-const CustomDot: React.FC<any> = (props) => {
+const CustomDot: React.FC<any> = props => {
   const { cx, cy, payload } = props;
   if (!cx || !cy) return null;
 
@@ -116,20 +118,28 @@ interface CustomTooltipProps {
   classes: ReturnType<typeof useStyles>;
 }
 
-function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) {
+function CustomTooltipContent({
+  active,
+  payload,
+  classes,
+}: CustomTooltipProps) {
   if (!active || !payload?.[0]) return null;
   const point = payload[0].payload;
-  const dateStr = typeof point.timestamp === 'number' && isFinite(point.timestamp)
-    ? formatTrendDateFull(point.timestamp)
-    : 'Unknown date';
-  const deltaStr = typeof point.delta === 'number' && isFinite(point.delta)
-    ? point.delta.toFixed(1)
-    : '0.0';
+  const dateStr =
+    typeof point.timestamp === 'number' && isFinite(point.timestamp)
+      ? formatTrendDateFull(point.timestamp)
+      : 'Unknown date';
+  const deltaStr =
+    typeof point.delta === 'number' && isFinite(point.delta)
+      ? point.delta.toFixed(1)
+      : '0.0';
   return (
     <div className={classes.tooltipBox}>
       <div className={classes.tooltipLabel}>{dateStr}</div>
       {point.workflowJobId && (
-        <div style={{ fontSize: '0.75rem', color: STATUS_COLORS.neutral }}>Scan #{point.workflowJobId}</div>
+        <div style={{ fontSize: '0.75rem', color: STATUS_COLORS.neutral }}>
+          Scan #{point.workflowJobId}
+        </div>
       )}
       <div>Compliance: {point.compliancePct ?? 0}%</div>
       <div>
@@ -137,7 +147,8 @@ function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) 
       </div>
       {point.eventType === 'regression' && (
         <div className={classes.regressionLabel}>
-          Regression: {Number(deltaStr) > 0 ? '+' : ''}{deltaStr}pp
+          Regression: {Number(deltaStr) > 0 ? '+' : ''}
+          {deltaStr}pp
         </div>
       )}
       {point.eventType === 'improvement' && (
@@ -149,14 +160,21 @@ function CustomTooltipContent({ active, payload, classes }: CustomTooltipProps) 
   );
 }
 
-function computeYDomain(data: Array<Record<string, any>>, seriesIds?: string[]): [number, number] {
+function computeYDomain(
+  data: Array<Record<string, any>>,
+  seriesIds?: string[],
+): [number, number] {
   let values: number[];
   if (seriesIds) {
     values = data.flatMap(row =>
-      seriesIds.map(sid => (row as any)[sid]).filter((v): v is number => v !== undefined),
+      seriesIds
+        .map(sid => (row as any)[sid])
+        .filter((v): v is number => v !== undefined),
     );
   } else {
-    values = data.map(d => d.compliancePct!).filter((v): v is number => v !== undefined);
+    values = data
+      .map(d => d.compliancePct!)
+      .filter((v): v is number => v !== undefined);
   }
   if (values.length === 0) return [0, 100];
   const min = Math.max(0, Math.floor(Math.min(...values) / 5) * 5 - 5);
@@ -174,27 +192,39 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 }) => {
   const classes = useStyles();
 
-  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(new Set());
-  const [selectedInventories, setSelectedInventories] = useState<Set<string>>(new Set());
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [remediationEvents, setRemediationEvents] = useState<RemediationEvent[]>(
-    initialRemediationEvents ?? [],
+  const [selectedProfiles, setSelectedProfiles] = useState<Set<string>>(
+    new Set(),
   );
+  const [selectedInventories, setSelectedInventories] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [remediationEvents, setRemediationEvents] = useState<
+    RemediationEvent[]
+  >(initialRemediationEvents ?? []);
 
   React.useEffect(() => {
     if (!initialRemediationEvents) {
-      api.getRemediationEventsForTrend(90).then(setRemediationEvents).catch(() => {});
+      api
+        .getRemediationEventsForTrend(90)
+        .then(setRemediationEvents)
+        .catch(() => {});
     }
   }, [api, initialRemediationEvents]);
 
   const profileMap = useMemo(() => {
-    const map = new Map(stats.frameworkScores.map(fw => [fw.profileId, fw.name]));
+    const map = new Map(
+      stats.frameworkScores.map(fw => [fw.profileId, fw.name]),
+    );
     const allProfileMap = new Map(allProfiles?.map(p => [p.id, p]) ?? []);
     for (const snap of initialData) {
       if (!map.has(snap.profileId)) {
         const profile = allProfileMap.get(snap.profileId);
         if (profile) {
-          const suffix = profile.connectionStatus === 'disconnected' ? ' (disconnected)' : '';
+          const suffix =
+            profile.connectionStatus === 'disconnected'
+              ? ' (disconnected)'
+              : '';
           map.set(snap.profileId, `${profile.displayName}${suffix}`);
         }
       }
@@ -204,7 +234,9 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 
   const inventoryMap = useMemo(() => {
     const map = new Map<string, string>();
-    stats.byInventory.forEach(inv => map.set(String(inv.inventoryId), inv.inventoryName));
+    stats.byInventory.forEach(inv =>
+      map.set(String(inv.inventoryId), inv.inventoryName),
+    );
     return map;
   }, [stats.byInventory]);
 
@@ -228,11 +260,12 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   }, [stats.frameworkScores, profileMap]);
 
   const inventoryFilterOptions: FilterOption[] = useMemo(
-    () => stats.byInventory.map(inv => ({
-      key: String(inv.inventoryId),
-      label: inv.inventoryName,
-      color: STATUS_COLORS.info,
-    })),
+    () =>
+      stats.byInventory.map(inv => ({
+        key: String(inv.inventoryId),
+        label: inv.inventoryName,
+        color: STATUS_COLORS.info,
+      })),
     [stats.byInventory],
   );
 
@@ -270,7 +303,9 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
     }
     if (selectedInventories.size > 0) {
       filtered = filtered.filter(
-        s => s.inventoryId !== undefined && selectedInventories.has(String(s.inventoryId)),
+        s =>
+          s.inventoryId !== undefined &&
+          selectedInventories.has(String(s.inventoryId)),
       );
     }
     return filtered;
@@ -284,20 +319,27 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   }, [selectedProfiles, selectedInventories, profileMap]);
 
   const filteredRemediationEvents = useMemo(() => {
-    if (selectedProfiles.size === 0 && selectedInventories.size === 0) return remediationEvents;
+    if (selectedProfiles.size === 0 && selectedInventories.size === 0)
+      return remediationEvents;
     let filtered = remediationEvents;
     if (selectedInventories.size > 0) {
-      filtered = filtered.filter(
-        evt => selectedInventories.has(String(evt.inventoryId)),
+      filtered = filtered.filter(evt =>
+        selectedInventories.has(String(evt.inventoryId)),
       );
     }
     if (isSingleLine && selectedProfiles.size > 0) {
-      filtered = filtered.filter(
-        evt => filteredData.some(s => s.inventoryId === evt.inventoryId),
+      filtered = filtered.filter(evt =>
+        filteredData.some(s => s.inventoryId === evt.inventoryId),
       );
     }
     return filtered;
-  }, [remediationEvents, selectedProfiles, selectedInventories, isSingleLine, filteredData]);
+  }, [
+    remediationEvents,
+    selectedProfiles,
+    selectedInventories,
+    isSingleLine,
+    filteredData,
+  ]);
 
   const seriesMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -306,21 +348,30 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
         const key = `${snap.profileId}:${snap.inventoryId ?? 0}`;
         if (!map.has(key)) {
           const pName = profileMap.get(snap.profileId) ?? snap.profileId;
-          const iName = inventoryMap.get(String(snap.inventoryId)) ?? `Inventory ${snap.inventoryId}`;
+          const iName =
+            inventoryMap.get(String(snap.inventoryId)) ??
+            `Inventory ${snap.inventoryId}`;
           map.set(key, `${pName} — ${iName}`);
         }
       }
     } else {
-      const activeProfiles = selectedProfiles.size > 0
-        ? [...selectedProfiles]
-        : [...profileMap.keys()];
+      const activeProfiles =
+        selectedProfiles.size > 0
+          ? [...selectedProfiles]
+          : [...profileMap.keys()];
       activeProfiles.forEach(pid => {
         const name = profileMap.get(pid);
         if (name) map.set(pid, name);
       });
     }
     return map;
-  }, [filteredData, groupByInventory, selectedProfiles, profileMap, inventoryMap]);
+  }, [
+    filteredData,
+    groupByInventory,
+    selectedProfiles,
+    profileMap,
+    inventoryMap,
+  ]);
 
   const disconnectedProfileIds = useMemo(() => {
     const ids = new Set<string>();
@@ -341,8 +392,19 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 
   const multiSeries = useMemo(() => {
     if (isSingleLine) return null;
-    return buildFilteredSeries(filteredData, seriesMap, groupByInventory, stoppedSeriesIds);
-  }, [isSingleLine, filteredData, seriesMap, groupByInventory, stoppedSeriesIds]);
+    return buildFilteredSeries(
+      filteredData,
+      seriesMap,
+      groupByInventory,
+      stoppedSeriesIds,
+    );
+  }, [
+    isSingleLine,
+    filteredData,
+    seriesMap,
+    groupByInventory,
+    stoppedSeriesIds,
+  ]);
 
   const singleLineData = useMemo(() => {
     if (!isSingleLine) return [];
@@ -379,9 +441,12 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
 
       {!hasData ? (
         <div className={classes.empty}>
-          <TrendingUpIcon style={{ fontSize: 48, opacity: 0.3, marginBottom: 8 }} />
+          <TrendingUpIcon
+            style={{ fontSize: 48, opacity: 0.3, marginBottom: 8 }}
+          />
           <Typography variant="body2">
-            {filteredData.length === 0 && (selectedProfiles.size > 0 || selectedInventories.size > 0)
+            {filteredData.length === 0 &&
+            (selectedProfiles.size > 0 || selectedInventories.size > 0)
               ? 'No data matches the selected filters'
               : 'Run more scans to see compliance trends'}
           </Typography>
@@ -407,60 +472,71 @@ export const PostureTrendChart: React.FC<PostureTrendChartProps> = ({
   );
 };
 
-const MultiLineChart = React.memo(({
-  data,
-  seriesIds,
-  seriesMap,
-}: {
-  data: MultiProfileRow[];
-  seriesIds: string[];
-  seriesMap: Map<string, string>;
-}) => {
-  const [min, max] = React.useMemo(() => computeYDomain(data, seriesIds), [data, seriesIds]);
-  return (
-    <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 40 }}>
-        <CartesianGrid strokeDasharray="4 3" stroke={TREND_COLORS.grid} />
-        <XAxis
-          dataKey="timestamp"
-          type="number"
-          domain={['dataMin', 'dataMax']}
-          tickFormatter={formatTrendDate}
-          stroke={TREND_COLORS.axis}
-          fontSize={11}
-          fontFamily='"Red Hat Text", sans-serif'
-        />
-        <YAxis
-          domain={[min, max]}
-          allowDataOverflow
-          tickFormatter={(v: number) => `${v}%`}
-          stroke={TREND_COLORS.axis}
-          fontSize={11}
-          fontFamily='"Red Hat Text", sans-serif'
-        />
-        <RechartsTooltip
-          labelFormatter={(ts: number) => formatTrendDateFull(ts)}
-          formatter={(value: number, name: string) => [`${value}%`, seriesMap.get(name) ?? name]}
-        />
-        <Legend
-          formatter={(value: string) => seriesMap.get(value) ?? value}
-          iconType="plainline"
-        />
-        {seriesIds.map((sid, i) => (
-          <Line
-            key={sid}
-            type="monotone"
-            dataKey={sid}
-            stroke={PROFILE_PALETTE[i % PROFILE_PALETTE.length]}
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
+const MultiLineChart = React.memo(
+  ({
+    data,
+    seriesIds,
+    seriesMap,
+  }: {
+    data: MultiProfileRow[];
+    seriesIds: string[];
+    seriesMap: Map<string, string>;
+  }) => {
+    const [min, max] = React.useMemo(
+      () => computeYDomain(data, seriesIds),
+      [data, seriesIds],
+    );
+    return (
+      <ResponsiveContainer width="100%" height={240}>
+        <LineChart
+          data={data}
+          margin={{ top: 8, right: 16, bottom: 8, left: 40 }}
+        >
+          <CartesianGrid strokeDasharray="4 3" stroke={TREND_COLORS.grid} />
+          <XAxis
+            dataKey="timestamp"
+            type="number"
+            domain={['dataMin', 'dataMax']}
+            tickFormatter={formatTrendDate}
+            stroke={TREND_COLORS.axis}
+            fontSize={11}
+            fontFamily='"Red Hat Text", sans-serif'
           />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  );
-});
+          <YAxis
+            domain={[min, max]}
+            allowDataOverflow
+            tickFormatter={(v: number) => `${v}%`}
+            stroke={TREND_COLORS.axis}
+            fontSize={11}
+            fontFamily='"Red Hat Text", sans-serif'
+          />
+          <RechartsTooltip
+            labelFormatter={(ts: number) => formatTrendDateFull(ts)}
+            formatter={(value: number, name: string) => [
+              `${value}%`,
+              seriesMap.get(name) ?? name,
+            ]}
+          />
+          <Legend
+            formatter={(value: string) => seriesMap.get(value) ?? value}
+            iconType="plainline"
+          />
+          {seriesIds.map((sid, i) => (
+            <Line
+              key={sid}
+              type="monotone"
+              dataKey={sid}
+              stroke={PROFILE_PALETTE[i % PROFILE_PALETTE.length]}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  },
+);
 MultiLineChart.displayName = 'MultiLineChart';
 
 function SingleLineChart({
@@ -475,13 +551,17 @@ function SingleLineChart({
   classes: any;
 }) {
   const [min, max] = computeYDomain(data);
-  const chartDomain = data.length >= 2
-    ? [data[0].timestamp, data[data.length - 1].timestamp]
-    : ['dataMin', 'dataMax'];
+  const chartDomain =
+    data.length >= 2
+      ? [data[0].timestamp, data[data.length - 1].timestamp]
+      : ['dataMin', 'dataMax'];
 
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 40 }}>
+      <LineChart
+        data={data}
+        margin={{ top: 8, right: 16, bottom: 8, left: 40 }}
+      >
         <CartesianGrid strokeDasharray="4 3" stroke={TREND_COLORS.grid} />
         <XAxis
           dataKey="timestamp"

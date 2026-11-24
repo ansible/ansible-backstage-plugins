@@ -1,11 +1,12 @@
 ---
-title: "ADR-011: Profile-Driven Platform Guards"
-description: "The compliance plugin currently has no mechanism to prevent launching a scan against incompatible hosts"
+title: 'ADR-011: Profile-Driven Platform Guards'
+description: 'The compliance plugin currently has no mechanism to prevent launching a scan against incompatible hosts'
 type: adr
 status: accepted
 date: 2026-05-27
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-011: Profile-Driven Platform Guards
 
 **Status:** Accepted
@@ -19,6 +20,7 @@ The compliance plugin currently has no mechanism to prevent launching a scan aga
 The naive fix is hardcoding `when: ansible_os_family == 'RedHat'` in the oscap playbook, but this breaks when adding Windows STIG, Cisco IOS STIG, or external scanners (Tenable, Qualys, Insights) — each with different platform requirements.
 
 Options considered:
+
 1. **Hardcoded OS checks per playbook** — simple but doesn't scale to multiple profiles/scanners. Rejected.
 2. **Profile-driven platform declarations** — each compliance profile declares supported platforms; the plugin validates inventory before launch. Accepted.
 3. **Post-scan filtering** — run against everything, filter results after. Rejected: wastes resources, confuses users with false failures.
@@ -32,12 +34,13 @@ Each compliance profile declares its platform requirements in a structured `plat
 ```yaml
 platform:
   # OS-based profiles (RHEL STIG, Windows STIG)
-  os_family: ["RedHat"]           # ansible_os_family values
-  os_version: ["9"]               # major version
-  
+  os_family: ['RedHat'] # ansible_os_family values
+  os_version: ['9'] # major version
+
+
   # Network device profiles (Cisco IOS STIG)
   # device_type: ["cisco_ios", "cisco_nxos"]
-  
+
   # External scanners (Tenable, Qualys, Insights)
   # scanner_validates: true       # skip host-side checks
 ```

@@ -94,11 +94,7 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
           {/* Content discovery (execution environments, collections) from the
               configured OCI registries — /automation-content */}
           <AutomationContentSidebarItem />
-          <SidebarItem
-            icon={SecurityIcon}
-            to="/compliance"
-            text="Compliance"
-          />
+          <SidebarItem icon={SecurityIcon} to="/compliance" text="Compliance" />
           <SidebarItem icon={HomeIcon} to="/create" text="Self-service" />
           <SidebarItem
             icon={HistoryIcon}

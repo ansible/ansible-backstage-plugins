@@ -1,18 +1,19 @@
 ---
-title: "ADR-021: P3 Hardening Sprint — Router Decomposition, Security, and UX"
-description: "ADR-017 identified a B+ production readiness grade with 8 HIGH and 13 MEDIUM findings"
+title: 'ADR-021: P3 Hardening Sprint — Router Decomposition, Security, and UX'
+description: 'ADR-017 identified a B+ production readiness grade with 8 HIGH and 13 MEDIUM findings'
 type: adr
 status: accepted
 date: 2026-04-23
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-021: P3 Hardening Sprint — Router Decomposition, Security, and UX
 
-| Field | Value |
-|-------|-------|
-| Status | Accepted |
-| Date | 2026-06-08 |
-| Deciders | Architecture review |
+| Field       | Value                                        |
+| ----------- | -------------------------------------------- |
+| Status      | Accepted                                     |
+| Date        | 2026-06-08                                   |
+| Deciders    | Architecture review                          |
 | Informed by | ADR-017 (Architect Review Hardening Backlog) |
 
 ## Context
@@ -25,20 +26,20 @@ ADR-017 identified a B+ production readiness grade with 8 HIGH and 13 MEDIUM fin
 
 The monolithic 1,599-line `router.ts` was the primary maintenance risk. Split into 12 focused modules under `src/routes/`:
 
-| Module | Responsibility | Routes |
-|--------|---------------|--------|
-| `types.ts` | `RouterDependencies`, `SharedState`, `ScanResolution` interfaces | — |
-| `validation.ts` | Input validation predicates | — |
-| `permissions.ts` | `getUserAapToken`, `requirePermission`, `extractUserIdentity` | — |
-| `helpers.ts` | `resolveScanId`, `savePostureFromFindings`, `fetchLiveFindings` | — |
-| `health.ts` | Health check, settings, cleanup | 3 |
-| `scans.ts` | Scan history, launch, stats, N/A, backfill | 11 |
-| `findings.ts` | Get findings, previous findings, ingest | 3 |
-| `remediation.ts` | Launch, executions, profiles, reconciliation | 10 |
-| `baseline.ts` | Baseline targets and scores | 4 |
-| `dashboard.ts` | Dashboard stats, posture history | 3 |
-| `controller.ts` | Controller proxy (status, events, nodes, resource lookups) | 9 |
-| `profiles.ts` | Compliance profile CRUD | 4 |
+| Module           | Responsibility                                                   | Routes |
+| ---------------- | ---------------------------------------------------------------- | ------ |
+| `types.ts`       | `RouterDependencies`, `SharedState`, `ScanResolution` interfaces | —      |
+| `validation.ts`  | Input validation predicates                                      | —      |
+| `permissions.ts` | `getUserAapToken`, `requirePermission`, `extractUserIdentity`    | —      |
+| `helpers.ts`     | `resolveScanId`, `savePostureFromFindings`, `fetchLiveFindings`  | —      |
+| `health.ts`      | Health check, settings, cleanup                                  | 3      |
+| `scans.ts`       | Scan history, launch, stats, N/A, backfill                       | 11     |
+| `findings.ts`    | Get findings, previous findings, ingest                          | 3      |
+| `remediation.ts` | Launch, executions, profiles, reconciliation                     | 10     |
+| `baseline.ts`    | Baseline targets and scores                                      | 4      |
+| `dashboard.ts`   | Dashboard stats, posture history                                 | 3      |
+| `controller.ts`  | Controller proxy (status, events, nodes, resource lookups)       | 9      |
+| `profiles.ts`    | Compliance profile CRUD                                          | 4      |
 
 **Key constraint**: Route registration order must be preserved — `/scans/authoritative`, `/scans/stats`, and `/scans/:scanId/findings/na` must register before `/scans/:scanId` to prevent wildcard capture.
 

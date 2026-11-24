@@ -8,7 +8,12 @@
  */
 
 export type FindingSeverity = 'CAT_I' | 'CAT_II' | 'CAT_III';
-export type FindingStatus = 'pass' | 'fail' | 'error' | 'notapplicable' | 'notchecked';
+export type FindingStatus =
+  | 'pass'
+  | 'fail'
+  | 'error'
+  | 'notapplicable'
+  | 'notchecked';
 export type DisruptionLevel = 'low' | 'medium' | 'high';
 export type AapImpact = 'safe' | 'caution' | 'breaks-connectivity';
 

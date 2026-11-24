@@ -1,11 +1,12 @@
 ---
-title: "ADR-005: Slim Findings for Controller Event Storage"
-description: "The backend parses compliance findings from Controller job events (`runner_on_ok` or `runner_item_on_ok` events containi"
+title: 'ADR-005: Slim Findings for Controller Event Storage'
+description: 'The backend parses compliance findings from Controller job events (`runner_on_ok` or `runner_item_on_ok` events containi'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-005: Slim Findings for Controller Event Storage
 
 **Status:** Accepted

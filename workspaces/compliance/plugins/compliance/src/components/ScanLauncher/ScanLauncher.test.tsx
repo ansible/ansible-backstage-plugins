@@ -47,7 +47,9 @@ describe('ScanLauncher', () => {
     await waitFor(() => {
       expect(screen.getByText('DISA STIG for RHEL 9')).toBeInTheDocument();
     });
-    expect(screen.getByText('CIS Benchmark RHEL 9 — Level 1')).toBeInTheDocument();
+    expect(
+      screen.getByText('CIS Benchmark RHEL 9 — Level 1'),
+    ).toBeInTheDocument();
     expect(screen.getByText('PCI-DSS v4.0 for RHEL 9')).toBeInTheDocument();
   });
 
@@ -87,7 +89,9 @@ describe('ScanLauncher', () => {
     fireEvent.click(screen.getByText('DISA STIG for RHEL 9'));
     fireEvent.click(screen.getByText('Next'));
     await waitFor(() => {
-      expect(screen.getByText('Select target hosts to scan')).toBeInTheDocument();
+      expect(
+        screen.getByText('Select target hosts to scan'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -115,7 +119,9 @@ describe('ScanLauncher', () => {
     fireEvent.click(screen.getByText('DISA STIG for RHEL 9'));
     fireEvent.click(screen.getByText('Next'));
     await waitFor(() => {
-      expect(screen.getByText('Select target hosts to scan')).toBeInTheDocument();
+      expect(
+        screen.getByText('Select target hosts to scan'),
+      ).toBeInTheDocument();
     });
 
     // We can't easily select from MUI Select in jsdom, so skip to step 3

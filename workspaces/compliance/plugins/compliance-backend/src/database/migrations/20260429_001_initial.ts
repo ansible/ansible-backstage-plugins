@@ -21,10 +21,7 @@ export async function up(knex: Knex): Promise<void> {
     table.string('scanner').notNullable().defaultTo('oscap');
     table.string('scan_type').notNullable().defaultTo('assessment');
     table.integer('workflow_job_id').nullable();
-    table
-      .string('status')
-      .notNullable()
-      .defaultTo('pending');
+    table.string('status').notNullable().defaultTo('pending');
     table.timestamp('started_at').notNullable().defaultTo(knex.fn.now());
     table.timestamp('completed_at').nullable();
 
@@ -36,7 +33,12 @@ export async function up(knex: Knex): Promise<void> {
   // ─── compliance_findings ──────────────────────────────────────────
   await knex.schema.createTable('compliance_findings', table => {
     table.string('id').primary();
-    table.string('scan_id').notNullable().references('id').inTable('compliance_scans').onDelete('CASCADE');
+    table
+      .string('scan_id')
+      .notNullable()
+      .references('id')
+      .inTable('compliance_scans')
+      .onDelete('CASCADE');
     table.string('rule_id').notNullable();
     table.string('stig_id').notNullable();
     table.string('host').notNullable();

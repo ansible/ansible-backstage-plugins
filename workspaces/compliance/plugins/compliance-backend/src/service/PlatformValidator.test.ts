@@ -8,7 +8,11 @@ describe('PlatformValidator', () => {
   it('matches RHEL 9 host against RHEL spec', () => {
     const spec: PlatformSpec = { os_family: ['RedHat'], os_version: ['9'] };
     const hosts: HostFacts[] = [
-      { hostname: 'rhel01', ansible_os_family: 'RedHat', ansible_distribution_major_version: '9' },
+      {
+        hostname: 'rhel01',
+        ansible_os_family: 'RedHat',
+        ansible_distribution_major_version: '9',
+      },
     ];
 
     const result = validatePlatform(spec, hosts);
@@ -22,7 +26,11 @@ describe('PlatformValidator', () => {
   it('rejects Windows host against RHEL spec', () => {
     const spec: PlatformSpec = { os_family: ['RedHat'], os_version: ['9'] };
     const hosts: HostFacts[] = [
-      { hostname: 'win01', ansible_os_family: 'Windows', ansible_distribution_major_version: '2022' },
+      {
+        hostname: 'win01',
+        ansible_os_family: 'Windows',
+        ansible_distribution_major_version: '2022',
+      },
     ];
 
     const result = validatePlatform(spec, hosts);
@@ -57,7 +65,11 @@ describe('PlatformValidator', () => {
       scanner_validates: true,
     };
     const hosts: HostFacts[] = [
-      { hostname: 'win01', ansible_os_family: 'Windows', ansible_distribution_major_version: '2022' },
+      {
+        hostname: 'win01',
+        ansible_os_family: 'Windows',
+        ansible_distribution_major_version: '2022',
+      },
     ];
 
     const result = validatePlatform(spec, hosts);
@@ -69,10 +81,7 @@ describe('PlatformValidator', () => {
   // ─── Empty / null spec ─────────────────────────────────────────────
 
   it('treats null spec as permissive (all hosts match)', () => {
-    const hosts: HostFacts[] = [
-      { hostname: 'any01' },
-      { hostname: 'any02' },
-    ];
+    const hosts: HostFacts[] = [{ hostname: 'any01' }, { hostname: 'any02' }];
 
     const result = validatePlatform(null, hosts);
     expect(result.valid).toBe(true);
@@ -130,9 +139,7 @@ describe('PlatformValidator', () => {
 
   it('accepts host with no facts (facts not gathered yet)', () => {
     const spec: PlatformSpec = { os_family: ['RedHat'] };
-    const hosts: HostFacts[] = [
-      { hostname: 'unknown01' },
-    ];
+    const hosts: HostFacts[] = [{ hostname: 'unknown01' }];
 
     const result = validatePlatform(spec, hosts);
     expect(result.valid).toBe(true);

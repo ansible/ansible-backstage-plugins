@@ -1,16 +1,17 @@
 ---
-title: "ADR-032: Pluggable Export Formats and OCI Artifact Storage"
-description: "The compliance dashboard exports scan results in three hardcoded formats: CSV, JSON, and CKL (STIG Viewer)"
+title: 'ADR-032: Pluggable Export Formats and OCI Artifact Storage'
+description: 'The compliance dashboard exports scan results in three hardcoded formats: CSV, JSON, and CKL (STIG Viewer)'
 type: adr
 status: accepted
 date: 2026-06-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-032: Pluggable Export Formats and OCI Artifact Storage
 
-**Status:** Accepted  
-**Date:** 2026-06-26  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-26
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -39,14 +40,14 @@ Profiles declare their export formats in `compliance-profile.yml`. The ExportBut
 display:
   export_formats:
     - key: csv
-      label: "Export as CSV"
+      label: 'Export as CSV'
       type: cff_derived
     - key: sbom-cyclonedx
-      label: "Export SBOMs (CycloneDX)"
+      label: 'Export SBOMs (CycloneDX)'
       type: artifact
-      artifact_key: "sbom-*"
-      mime_type: "application/vnd.cyclonedx+json"
-      file_extension: ".cdx.json"
+      artifact_key: 'sbom-*'
+      mime_type: 'application/vnd.cyclonedx+json'
+      file_extension: '.cdx.json'
 ```
 
 ### Storage architecture

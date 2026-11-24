@@ -1,24 +1,25 @@
 ---
-title: "ADR-016: Lifecycle Visualization and Scan History Grouping"
-description: "Phase 1 of the remediation lifecycle (ADR-014) introduced execution history tracking"
+title: 'ADR-016: Lifecycle Visualization and Scan History Grouping'
+description: 'Phase 1 of the remediation lifecycle (ADR-014) introduced execution history tracking'
 type: adr
 status: accepted
 date: 2026-06-01
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-016: Lifecycle Visualization and Scan History Grouping
 
-**Status:** Accepted — All Layers Implemented  
-**Date:** 2026-06-01  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted — All Layers Implemented
+**Date:** 2026-06-01
+**Deciders:** Massimo Ferrari
 
 ### Implementation Status
 
-| Layer | Status | Shipped | Key Commits |
-|-------|--------|---------|-------------|
-| Layer 1 — Grouped scan history + diff reports | Implemented | 2026-06-02 | `b3c1fda` (merged to main) |
-| Layer 2 — Finding-level state tracking | Implemented | 2026-06-03 | `claude/finding-level-states` branch |
-| Layer 3 — Explicit chain view | Implemented | 2026-06-08 | `1da6ad2` (merged to main in `85da00b`) |
+| Layer                                         | Status      | Shipped    | Key Commits                             |
+| --------------------------------------------- | ----------- | ---------- | --------------------------------------- |
+| Layer 1 — Grouped scan history + diff reports | Implemented | 2026-06-02 | `b3c1fda` (merged to main)              |
+| Layer 2 — Finding-level state tracking        | Implemented | 2026-06-03 | `claude/finding-level-states` branch    |
+| Layer 3 — Explicit chain view                 | Implemented | 2026-06-08 | `1da6ad2` (merged to main in `85da00b`) |
 
 ## Context
 
@@ -28,11 +29,11 @@ Phase 1 of the remediation lifecycle (ADR-014) introduced execution history trac
 
 Deep research across 8 platforms yielded a key finding: **no platform provides an explicit, linked scan-remediate-verify chain visualization.** Instead, three implicit patterns exist:
 
-| Pattern | Platforms | Mechanism |
-|---------|-----------|-----------|
-| **State machine** | Tenable (New/Active/Fixed/Resurfaced), Qualys (Open/Resolved/Closed) | Successive scan results auto-transition finding states. Verification is implicit — if a finding changes from Fail to Pass, it's "Fixed." |
-| **Before/after diff report** | CIS-CAT Pro (Difference Report) | User manually selects two assessments of the same target/benchmark and sees what changed. Not linked to remediation actions. |
-| **Embedded lifecycle** | Chef Compliance Phase, Puppet corrective changes | Remediation + verification happen in the same execution run. No cross-run chain. |
+| Pattern                      | Platforms                                                            | Mechanism                                                                                                                                |
+| ---------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **State machine**            | Tenable (New/Active/Fixed/Resurfaced), Qualys (Open/Resolved/Closed) | Successive scan results auto-transition finding states. Verification is implicit — if a finding changes from Fail to Pass, it's "Fixed." |
+| **Before/after diff report** | CIS-CAT Pro (Difference Report)                                      | User manually selects two assessments of the same target/benchmark and sees what changed. Not linked to remediation actions.             |
+| **Embedded lifecycle**       | Chef Compliance Phase, Puppet corrective changes                     | Remediation + verification happen in the same execution run. No cross-run chain.                                                         |
 
 CIS-CAT Pro groups assessments by `(target system × benchmark × profile)` chronologically, with drill-down from monthly averages to individual timestamps. The Difference Report compares a selected result to either the immediate previous result or any arbitrary result, highlighting rules that changed status.
 
@@ -81,6 +82,7 @@ This means we can simplify Phase 2: instead of building special verification sca
 The scan history page changes from a flat chronological list to:
 
 **Primary view: Grouped by (profile × inventory)**
+
 ```
 CIS Benchmark RHEL 9 Level 1 × compliance-rhel9-inventory
 ├── Scan #3417  01/06 21:14  257 findings  97 failing  ← latest (authoritative)
@@ -90,12 +92,13 @@ CIS Benchmark RHEL 9 Level 1 × compliance-rhel9-inventory
 │   └── [Compare with #3417: 2 rules fixed]
 └── [Launch New Scan]
 
-DISA STIG × compliance-rhel9-inventory  
+DISA STIG × compliance-rhel9-inventory
 ├── Scan #3404  01/06 20:19  435 findings  263 failing  ← latest
 └── [Launch New Scan]
 ```
 
 **Features:**
+
 - Each group shows the compliance profile name and inventory name
 - Latest scan is highlighted as authoritative
 - Remediation executions appear inline between the scans they sit between chronologically
@@ -114,12 +117,12 @@ This connects the "what happened" (remediation) with the "what changed" (scan co
 
 ## Implementation Phases
 
-| Phase | Scope | Effort |
-|-------|-------|--------|
+| Phase                         | Scope                                                                                       | Effort   |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | -------- |
 | **P2a: Grouped scan history** | Group by (profile × inventory), inline executions, cross-profile filtering, collapse/expand | 2-3 days |
-| **P2a: Difference report** | Select two scans in a group, show rules that changed status | 1-2 days |
-| **P2b: Finding-level states** | Track New/Active/Fixed/Resurfaced per finding across scans, store state transitions | 2-3 days |
-| **P3: Chain view** | Explicit timeline using informing_scan_id + verification_scan_id, "Verified" badge | 1-2 days |
+| **P2a: Difference report**    | Select two scans in a group, show rules that changed status                                 | 1-2 days |
+| **P2b: Finding-level states** | Track New/Active/Fixed/Resurfaced per finding across scans, store state transitions         | 2-3 days |
+| **P3: Chain view**            | Explicit timeline using informing_scan_id + verification_scan_id, "Verified" badge          | 1-2 days |
 
 ## Consequences
 

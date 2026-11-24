@@ -1,16 +1,17 @@
 ---
-title: "ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping"
-description: "Three interrelated design questions arose during Phase 1 testing of the remediation lifecycle (ADR-014):"
+title: 'ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping'
+description: 'Three interrelated design questions arose during Phase 1 testing of the remediation lifecycle (ADR-014):'
 type: adr
 status: accepted
 date: 2026-06-01
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-015: Authoritative Scan, Mandatory Scan-Before-Remediation, and Host Scoping
 
-**Status:** Accepted (Implemented 2026-06-02, updated 2026-06-11)  
-**Date:** 2026-06-01  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (Implemented 2026-06-02, updated 2026-06-11)
+**Date:** 2026-06-01
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -27,19 +28,22 @@ Three interrelated design questions arose during Phase 1 testing of the remediat
 Deep research across 8 platforms (Red Hat Insights, Rapid7 InsightVM, Qualys VMDR, Chef InSpec/Automate, Puppet Comply, Drata, Vanta, CIS-CAT Pro) plus the XCCDF/SCAP standard yielded three high-confidence findings:
 
 **Finding 1: No platform supports portable remediation plan reuse across host groups.**
+
 - Insights ties plans to scanned-and-impacted systems only ("Only impacted systems can be selected and included in a remediation plan")
 - InsightVM locks scope in static projects; dynamic projects destructively remove solutions on scope change
 - Qualys auto-generates tickets from scan-policy matches rather than offering portable templates
 - The closest mechanism is Insights' "Add to existing playbook" which appends newly-scanned hosts, but this is additive, not template-based
-- *All platforms require a fresh scan to validate remediation — none support blind application*
+- _All platforms require a fresh scan to validate remediation — none support blind application_
 
 **Finding 2: Per-host rule applicability is determined at scan time, not plan time.**
+
 - OpenSCAP uses CPE platform checks embedded in XCCDF rules to mark rules as `notapplicable`
 - Chef InSpec uses `only_applicable_if` (N/A) and `only_if` with impact override
 - Puppet Comply auto-assigns N/A when benchmark and platform are mismatched
 - XCCDF tailoring files operate uniformly across all hosts in a policy — different host groups need separate policies, not per-host logic within a policy
 
 **Finding 3: Compliance scoring universally adjusts the denominator by excluding non-applicable rules.**
+
 - Puppet Comply excludes 5 non-scoring statuses (N/A, Manual, Not Checked, Not Selected, Informational) from pass/fail denominator
 - Puppet provides dual scores: "exception score" (excludes temporarily-excepted rules) and "adjusted compliance score" (ignores exceptions)
 - Chef InSpec's `--enhanced-outcomes` separates N/A into its own category
@@ -58,6 +62,7 @@ A compliance scan must exist for the target `(compliance_profile, inventory)` be
 ### 2. Authoritative scan = latest completed oscap scan per (compliance_profile × inventory)
 
 When multiple scans exist for the same `(compliance_profile, inventory)` pair, the **most recent completed oscap scan** is the authoritative source for:
+
 - Host targeting (which hosts failed which rules)
 - Before/after comparison (verification scan delta)
 - Dashboard posture scoring
@@ -67,8 +72,9 @@ Remediation scans (`scanner='remediation'`) are never authoritative. Only `scann
 **Rationale:** This matches the existing dashboard posture logic (latest scan per profile × inventory) and aligns with how Insights, Qualys, and InsightVM determine the current state. Using the latest scan ensures remediation targets the current reality, not a stale snapshot.
 
 **Implementation:** The remediation launch flow resolves the authoritative scan via:
+
 ```sql
-SELECT * FROM compliance_scans 
+SELECT * FROM compliance_scans
 WHERE profile_id = ? AND inventory_id = ? AND scanner = 'oscap' AND status = 'completed'
 ORDER BY completed_at DESC LIMIT 1
 ```

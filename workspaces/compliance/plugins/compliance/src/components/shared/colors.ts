@@ -17,24 +17,40 @@ export const STATUS_COLORS = {
 } as const;
 
 export const EXECUTION_COLORS = {
-  pending:   { bg: STATUS_COLORS.warning, fg: '#fff' },
-  running:   { bg: STATUS_COLORS.info, fg: '#fff' },
+  pending: { bg: STATUS_COLORS.warning, fg: '#fff' },
+  running: { bg: STATUS_COLORS.info, fg: '#fff' },
   succeeded: { bg: STATUS_COLORS.success, fg: '#fff' },
-  failed:    { bg: STATUS_COLORS.error, fg: '#fff' },
+  failed: { bg: STATUS_COLORS.error, fg: '#fff' },
   cancelled: { bg: STATUS_COLORS.neutral, fg: '#fff' },
 } as const;
 
 export const PROFILE_STATUS_COLORS = {
-  draft:    { bg: STATUS_COLORS.warning, fg: '#fff' },
-  saved:    { bg: STATUS_COLORS.success, fg: '#fff' },
+  draft: { bg: STATUS_COLORS.warning, fg: '#fff' },
+  saved: { bg: STATUS_COLORS.success, fg: '#fff' },
   archived: { bg: STATUS_COLORS.neutral, fg: '#fff' },
 } as const;
 
 export const FINDING_STATE_COLORS = {
-  new:        { color: STATUS_COLORS.info, bgColor: 'transparent', variant: 'outlined' as const },
-  active:     { color: STATUS_COLORS.neutral, bgColor: 'transparent', variant: 'outlined' as const },
-  fixed:      { color: '#fff', bgColor: STATUS_COLORS.success, variant: 'default' as const },
-  resurfaced: { color: STATUS_COLORS.error, bgColor: 'transparent', variant: 'outlined' as const },
+  new: {
+    color: STATUS_COLORS.info,
+    bgColor: 'transparent',
+    variant: 'outlined' as const,
+  },
+  active: {
+    color: STATUS_COLORS.neutral,
+    bgColor: 'transparent',
+    variant: 'outlined' as const,
+  },
+  fixed: {
+    color: '#fff',
+    bgColor: STATUS_COLORS.success,
+    variant: 'default' as const,
+  },
+  resurfaced: {
+    color: STATUS_COLORS.error,
+    bgColor: 'transparent',
+    variant: 'outlined' as const,
+  },
 } as const;
 
 export const THRESHOLDS = {

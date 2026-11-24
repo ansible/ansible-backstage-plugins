@@ -1,15 +1,16 @@
 ---
-title: "ADR-017: Architect Review — Hardening Backlog"
-description: "Post-MVP architect review of the compliance plugin codebase"
+title: 'ADR-017: Architect Review — Hardening Backlog'
+description: 'Post-MVP architect review of the compliance plugin codebase'
 type: adr
 status: accepted
 date: 2026-06-03
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-017: Architect Review — Hardening Backlog
 
-**Status:** Accepted  
-**Date:** 2026-06-03  
+**Status:** Accepted
+**Date:** 2026-06-03
 **Review scope:** Full codebase at commit `fea903b` (main), backend v0.13.3, frontend v0.10.5
 
 ## Context
@@ -34,12 +35,14 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 ## HIGH Severity Findings
 
 ### H1: SQL Interpolation Risk in Migration 011 Backfill
+
 - **File:** `migrations/20260601_011_remediation_lifecycle.ts:63-109`
 - **Issue:** Backfill INSERT uses values from old scan records without parameterization
 - **Risk:** Low (migration runs once, data is internal), but pattern should not be copied
 - **Fix:** Use Knex query builder for the INSERT
 
 ### H2: No Rate Limiting on `/findings/ingest`
+
 - **File:** `router.ts:754`
 - **Issue:** Direct POST endpoint accepts up to 50MB, no rate limit
 - **Risk:** Low in current deployment (internal network, Portal auth required)
@@ -47,24 +50,28 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - **Backlog priority:** P3 (pre-production)
 
 ### H3: No Size Validation on Evidence Field
+
 - **File:** `router.ts:776-783`
 - **Issue:** Evidence field from findings not size-limited
 - **Risk:** Low (ingest requires valid token, data comes from OpenSCAP)
 - **Fix:** Add 10KB limit on evidence field at ingest
 
 ### H4: Unsafe `Number()` Coercion in Route Handlers
+
 - **File:** `router.ts:276, 342, 390`
 - **Issue:** `Number()` returns NaN for invalid input, passes to DB query
 - **Fix:** Replace with `parseInt(value, 10)` + `Number.isNaN()` check
 - **Backlog priority:** P2 (quick fix)
 
 ### H5: Concurrent Execution Guard — Silent Collision
+
 - **File:** `ComplianceDatabase.ts:717-760`
 - **Issue:** UNIQUE constraint collision returns `null` without logging
 - **Fix:** Add `logger.warn()` on collision for observability
 - **Backlog priority:** P2 (quick fix)
 
 ### H6: No Timeout on Controller API Calls
+
 - **File:** `ControllerClient.ts` (all fetch calls)
 - **Issue:** No abort signal / timeout on outbound HTTP
 - **Risk:** Hung requests if Controller is slow
@@ -72,6 +79,7 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - **Backlog priority:** P2
 
 ### H7: Ingest Token Not Deleted After Use
+
 - **File:** `router.ts:796-838`
 - **Issue:** Token validated but never invalidated after successful ingest
 - **Risk:** Low (tokens are per-scan, scan transitions to completed)
@@ -79,6 +87,7 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - **Backlog priority:** P3
 
 ### H8: Missing Index on `compliance_findings.finding_state`
+
 - **File:** Migration gap
 - **Issue:** `finding_state` used in WHERE clause filters, no index
 - **Fix:** Add index in migration 014
@@ -87,11 +96,13 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 ## MEDIUM Severity Findings
 
 ### M1: Inconsistent Error Response Format
+
 - **Issue:** Some routes return `{ error: string }`, others `{ error: { name, message, detail } }`
 - **Fix:** Standardize on structured `{ error: { code, message, details? } }`
 - **Backlog priority:** P3
 
 ### M2: No Pagination on `/findings` Endpoint
+
 - **File:** `router.ts:632`
 - **Issue:** Returns all findings for a scan without limit
 - **Risk:** Low at current scale (~200 rules), risk grows with multi-host scans
@@ -99,61 +110,72 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - **Backlog priority:** P3
 
 ### M3: `staleScanThrottle` Map Never Cleared
+
 - **File:** `router.ts:169`
 - **Issue:** Map grows unbounded; entries not removed when scans complete
 - **Fix:** Clear entry when scan reaches terminal state
 - **Backlog priority:** P2
 
 ### M4: `parseInProgress` Set — No Timeout Guard
+
 - **File:** `router.ts:173`
 - **Issue:** If parsing fails before `finally` block, scan ID stays in set forever
 - **Fix:** Add 5-minute timeout cleanup as safety net
 - **Backlog priority:** P2
 
 ### M5: `recentRemediations` Cleanup Interval Never Cleared
+
 - **File:** `router.ts:151-156`
 - **Issue:** `setInterval` runs forever, not cleaned up on router disposal
 - **Fix:** Return cleanup function from `createRouter`
 - **Backlog priority:** P3
 
 ### M6: Nullable Returns Without Null Checks
+
 - **Issue:** `getScanById` returns `T | null` but callers sometimes assume non-null
 - **Fix:** Add explicit null checks or non-null assertions with comments
 - **Backlog priority:** P3
 
 ### M7: No Validation on `extra_vars` JSON
+
 - **Issue:** Job template extra_vars accepted without schema validation
 - **Fix:** Add JSON.parse try/catch + known-field validation
 - **Backlog priority:** P4
 
 ### M8: Migration 010 Missing Index Drops in `down()`
+
 - **File:** `migrations/20260530_010_posture_inventory_scan.ts`
 - **Issue:** `down()` drops columns but not their indexes first
 - **Fix:** Add explicit `table.dropIndex()` calls before column drops
 - **Backlog priority:** P4
 
 ### M9: No Content-Type Validation on Ingest
+
 - **File:** `router.ts:755`
 - **Fix:** Check `Content-Type: application/json` header
 - **Backlog priority:** P4
 
 ### M10: Frontend API Client Swallows Errors
+
 - **File:** `ComplianceBackendClient.ts:170-172, 254-258`
 - **Issue:** Catch blocks return `null` without logging
 - **Fix:** Add `console.error()` for debugging
 - **Backlog priority:** P3
 
 ### M11: Rule Metadata Upsert Failure is Silent
+
 - **File:** `router.ts:810-816`
 - **Issue:** Upsert errors logged as warning, not surfaced to user
 - **Fix:** Return partial success indicator
 - **Backlog priority:** P4
 
 ### M12: Missing Index on `compliance_scans.inventory_id`
+
 - **Fix:** Add index in migration 014 (bundle with H8)
 - **Backlog priority:** P2
 
 ### M13: Timestamp Type Inconsistency
+
 - **Issue:** Some migrations use `timestamp()`, others `string()` for date columns
 - **Risk:** Low (SQLite treats both as text), would matter for PostgreSQL
 - **Fix:** Standardize on string ISO8601 when adding PostgreSQL support
@@ -162,6 +184,7 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 ## Recommended Fix Bundles
 
 ### Bundle 1: Quick Hardening (1-2 hours)
+
 - H4: parseInt + NaN check (3 locations)
 - H5: Add collision logging
 - H8 + M12: Migration 014 with two indexes
@@ -169,6 +192,7 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - M4: Add timeout guard on parseInProgress
 
 ### Bundle 2: Security Hardening (pre-production)
+
 - H2: Rate limiting on ingest
 - H3: Evidence field size limit
 - H6: Controller API timeouts
@@ -176,6 +200,7 @@ Post-MVP architect review of the compliance plugin codebase. The plugin is deplo
 - M9: Content-Type validation
 
 ### Bundle 3: Code Quality (tech debt sprint)
+
 - M1: Standardize error format
 - M2: Pagination on /findings
 - M5: Interval cleanup

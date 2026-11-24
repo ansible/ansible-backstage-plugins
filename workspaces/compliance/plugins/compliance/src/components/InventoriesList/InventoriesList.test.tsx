@@ -49,7 +49,13 @@ function makeStatsWithBaseline(): DashboardStats {
         inventoryId: 2,
         inventoryName: 'staging-servers',
         profileScores: [
-          { profileId: 'rhel9-cis-l1', name: 'CIS Benchmark L1', rate: 92, passCount: 174, failCount: 15 },
+          {
+            profileId: 'rhel9-cis-l1',
+            name: 'CIS Benchmark L1',
+            rate: 92,
+            passCount: 174,
+            failCount: 15,
+          },
         ],
       },
     ],
@@ -58,7 +64,9 @@ function makeStatsWithBaseline(): DashboardStats {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-function renderInventoriesList(mockApi: ReturnType<typeof createMockComplianceApi>) {
+function renderInventoriesList(
+  mockApi: ReturnType<typeof createMockComplianceApi>,
+) {
   return renderInTestApp(
     <TestApiProvider apis={[[complianceApiRef, mockApi]]}>
       <InventoriesList />
@@ -80,7 +88,9 @@ describe('InventoriesList', () => {
     mockApi.getDashboardStats.mockResolvedValue(makeStats({ byInventory: [] }));
     await renderInventoriesList(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('No inventories with scan data')).toBeInTheDocument();
+      expect(
+        screen.getByText('No inventories with scan data'),
+      ).toBeInTheDocument();
     });
     expect(screen.getByText(/Run a compliance scan/)).toBeInTheDocument();
   });
@@ -103,9 +113,11 @@ describe('InventoriesList', () => {
   });
 
   it('shows singular "inventory" for single item', async () => {
-    mockApi.getDashboardStats.mockResolvedValue(makeStats({
-      byInventory: [MOCK_DASHBOARD_STATS.byInventory[0]],
-    }));
+    mockApi.getDashboardStats.mockResolvedValue(
+      makeStats({
+        byInventory: [MOCK_DASHBOARD_STATS.byInventory[0]],
+      }),
+    );
     await renderInventoriesList(mockApi);
     await waitFor(() => {
       expect(screen.getByText('1 inventory')).toBeInTheDocument();
@@ -169,14 +181,18 @@ describe('InventoriesList', () => {
       expect(screen.getByText('prod-servers')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText('prod-servers'));
-    expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/compliance/inventories/1'));
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.stringContaining('/compliance/inventories/1'),
+    );
   });
 
   it('handles API error gracefully (renders empty)', async () => {
     mockApi.getDashboardStats.mockRejectedValue(new Error('API error'));
     await renderInventoriesList(mockApi);
     await waitFor(() => {
-      expect(screen.getByText('No inventories with scan data')).toBeInTheDocument();
+      expect(
+        screen.getByText('No inventories with scan data'),
+      ).toBeInTheDocument();
     });
   });
 

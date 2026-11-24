@@ -1,11 +1,12 @@
 ---
-title: "ADR-008: OpenSCAP Agentless Pattern (Install/Scan/Remove)"
-description: "OpenSCAP requires the `openscap-scanner` binary and the SCAP Security Guide datastream (`ssg-rhel9-ds"
+title: 'ADR-008: OpenSCAP Agentless Pattern (Install/Scan/Remove)'
+description: 'OpenSCAP requires the `openscap-scanner` binary and the SCAP Security Guide datastream (`ssg-rhel9-ds'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-008: OpenSCAP Agentless Pattern (Install/Scan/Remove)
 
 **Status:** Accepted

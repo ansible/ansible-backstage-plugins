@@ -1,16 +1,17 @@
 ---
-title: "ADR-030: Per-Host Normalization for All Scanner Profiles"
-description: "The compliance dashboard uses a two-play architecture (ADR-003): Play 1 collects scan data from target hosts, Play 2 nor"
+title: 'ADR-030: Per-Host Normalization for All Scanner Profiles'
+description: 'The compliance dashboard uses a two-play architecture (ADR-003): Play 1 collects scan data from target hosts, Play 2 nor'
 type: adr
 status: accepted
 date: 2026-06-25
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-030: Per-Host Normalization for All Scanner Profiles
 
-**Status:** Accepted  
-**Date:** 2026-06-25  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-25
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -22,9 +23,9 @@ The XCCDF profiles (STIG, CIS L1, CIS L2) normalize one host's results per loop 
 - name: Evaluate compliance for each host
   security.compliance_rhel9_stig.normalize_xccdf:
     results_files:
-      - "{{ item.path }}"
-    output_file: "{{ fetch_dest_dir }}/findings-{{ _host_label }}.json"
-  loop: "{{ _result_files.files }}"
+      - '{{ item.path }}'
+    output_file: '{{ fetch_dest_dir }}/findings-{{ _host_label }}.json'
+  loop: '{{ _result_files.files }}'
 ```
 
 The supply chain profile originally passed all Grype result files to the normalizer in a single call:
@@ -32,8 +33,8 @@ The supply chain profile originally passed all Grype result files to the normali
 ```yaml
 - name: Normalize Grype results to CFF
   security.compliance_supply_chain.normalize_cyclonedx:
-    grype_files: "{{ _grype_file_list }}"    # ALL files at once
-    output_file: "{{ output_file }}"
+    grype_files: '{{ _grype_file_list }}' # ALL files at once
+    output_file: '{{ output_file }}'
 ```
 
 On 2026-06-25, a supply chain scan across 15 hosts (Job 3987) caused the execution node to run out of memory during the single-call normalization step. The Controller instance rebooted. The job was marked as failed with: "Task was marked as running at system start up. The system must have not shut down properly."
@@ -50,31 +51,31 @@ All normalizer playbooks MUST loop per-host, processing one result file per iter
 # 1. Find result files (per-host filenames from Play 1 fetch)
 - name: Find all result files
   ansible.builtin.find:
-    paths: "{{ results_dir }}"
-    patterns: "<scanner>-*.json"  # or *.xml for XCCDF
+    paths: '{{ results_dir }}'
+    patterns: '<scanner>-*.json' # or *.xml for XCCDF
   register: _result_files
 
 # 2. Normalize one host at a time
 - name: Normalize results to CFF (per-host)
   <namespace>.<collection>.normalize_<format>:
     <input_param>:
-      - "{{ item.path }}"              # Single file
-    output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
-  loop: "{{ _result_files.files }}"
+      - '{{ item.path }}' # Single file
+    output_file: '{{ results_dir }}/findings-{{ _hostname }}.json'
+  loop: '{{ _result_files.files }}'
 
 # 3. Find composed POST body files (ADR-033)
 - name: Find per-host POST body files
   ansible.builtin.find:
-    paths: "{{ results_dir }}"
-    patterns: "*.post.json"
+    paths: '{{ results_dir }}'
+    patterns: '*.post.json'
   register: _post_body_files
 
 # 4. Stream POST bodies to API — no findings in Ansible variable space
 - name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
-    url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+    url: '{{ backstage_api_url }}/api/compliance/findings/ingest'
     method: POST
-    src: "{{ item.path }}"
+    src: '{{ item.path }}'
     headers:
       Content-Type: application/json
     status_code: [201]

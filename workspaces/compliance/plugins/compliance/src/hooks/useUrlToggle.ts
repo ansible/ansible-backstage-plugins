@@ -14,7 +14,9 @@ export function useUrlToggle<T extends string = string>(
   try {
     const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
     if (raw !== null) storedValue = raw as T;
-  } catch { /* SSR or private browsing */ }
+  } catch {
+    /* SSR or private browsing */
+  }
 
   const value = urlValue ?? storedValue ?? defaultValue;
 
@@ -26,17 +28,22 @@ export function useUrlToggle<T extends string = string>(
         } else {
           localStorage.setItem(`${STORAGE_PREFIX}${key}`, next);
         }
-      } catch { /* private browsing */ }
+      } catch {
+        /* private browsing */
+      }
 
-      setSearchParams(prev => {
-        const params = new URLSearchParams(prev);
-        if (next === defaultValue || next === '') {
-          params.delete(key);
-        } else {
-          params.set(key, next);
-        }
-        return params;
-      }, { replace: true });
+      setSearchParams(
+        prev => {
+          const params = new URLSearchParams(prev);
+          if (next === defaultValue || next === '') {
+            params.delete(key);
+          } else {
+            params.set(key, next);
+          }
+          return params;
+        },
+        { replace: true },
+      );
     },
     [key, defaultValue, setSearchParams],
   );

@@ -1,11 +1,12 @@
 ---
-title: "ADR-001: Scanner Orchestrator Architecture (CFF as Contract)"
-description: "The compliance plugin needs to support multiple scanner backends (OpenSCAP, PowerSTIG, Qualys, Tenable, Insights, CIS-CA"
+title: 'ADR-001: Scanner Orchestrator Architecture (CFF as Contract)'
+description: 'The compliance plugin needs to support multiple scanner backends (OpenSCAP, PowerSTIG, Qualys, Tenable, Insights, CIS-CA'
 type: adr
 status: accepted
 date: 2026-04-23
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-001: Scanner Orchestrator Architecture (CFF as Contract)
 
 **Status:** Accepted
@@ -24,11 +25,11 @@ The compliance dashboard is a **scanner orchestrator, not a scanner**. Our value
 
 Three scanner tiers:
 
-| Tier | Model | What We Ship | What the Customer Provides |
-|------|-------|-------------|---------------------------|
-| **Tier 1** | Fully shippable | Scanner, content, normalizer, remediation, pipeline, EE | Nothing |
-| **Tier 2** | BYOS | Adapter, normalizer, remediation, pipeline | Scanner deployment, credentials, licenses |
-| **Tier 3** | Hybrid | Multi-domain adapters + per-platform normalizers | Same as Tier 2 |
+| Tier       | Model           | What We Ship                                            | What the Customer Provides                |
+| ---------- | --------------- | ------------------------------------------------------- | ----------------------------------------- |
+| **Tier 1** | Fully shippable | Scanner, content, normalizer, remediation, pipeline, EE | Nothing                                   |
+| **Tier 2** | BYOS            | Adapter, normalizer, remediation, pipeline              | Scanner deployment, credentials, licenses |
+| **Tier 3** | Hybrid          | Multi-domain adapters + per-platform normalizers        | Same as Tier 2                            |
 
 Every scanner normalizer must produce CFF v1.0.0 JSON. The CFF is the single integration surface between the Ansible collection layer and the dashboard plugin layer.
 

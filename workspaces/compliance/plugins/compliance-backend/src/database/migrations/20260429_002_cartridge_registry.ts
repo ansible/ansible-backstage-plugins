@@ -16,12 +16,12 @@ export async function up(knex: Knex): Promise<void> {
     table.string('display_name').notNullable();
     table.text('description').defaultTo('');
     table.string('framework').notNullable(); // e.g., 'DISA_STIG', 'CIS', 'PCI_DSS'
-    table.string('version').defaultTo('');    // e.g., 'V2R8'
-    table.string('platform').defaultTo('');   // e.g., 'RHEL 9'
+    table.string('version').defaultTo(''); // e.g., 'V2R8'
+    table.string('platform').defaultTo(''); // e.g., 'RHEL 9'
     table.integer('workflow_template_id').nullable(); // Controller workflow JT ID
-    table.integer('ee_id').nullable();               // Controller EE ID
+    table.integer('ee_id').nullable(); // Controller EE ID
     table.text('remediation_playbook_path').defaultTo(''); // path inside EE
-    table.string('scan_tags').defaultTo('');  // comma-separated tags
+    table.string('scan_tags').defaultTo(''); // comma-separated tags
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
 

@@ -57,7 +57,8 @@ export class RemediationPlanBuilder {
       // Determine target hosts based on scope (default: failed_only).
       // Check the selection-level scope field first, then fall back to
       // the legacy parameters.scope for backward compatibility.
-      const scope = sel.scope ?? (sel.parameters?.scope as string) ?? 'failed_only';
+      const scope =
+        sel.scope ?? (sel.parameters?.scope as string) ?? 'failed_only';
       let targetHosts: string[];
 
       if (scope === 'standardize_all') {
@@ -87,11 +88,14 @@ export class RemediationPlanBuilder {
     }
 
     // Group rules by their sorted host set (same hosts => same group)
-    const groupMap = new Map<string, {
-      ruleIds: string[];
-      hosts: string[];
-      mergedExtraVars: Record<string, unknown>;
-    }>();
+    const groupMap = new Map<
+      string,
+      {
+        ruleIds: string[];
+        hosts: string[];
+        mergedExtraVars: Record<string, unknown>;
+      }
+    >();
 
     for (const entry of ruleHostSets) {
       const hostKey = entry.hosts.join(',');
@@ -125,7 +129,9 @@ export class RemediationPlanBuilder {
     }
 
     // Sort groups: largest first for efficiency visibility
-    groups.sort((a, b) => b.ruleCount - a.ruleCount || b.hostCount - a.hostCount);
+    groups.sort(
+      (a, b) => b.ruleCount - a.ruleCount || b.hostCount - a.hostCount,
+    );
 
     const plan: RemediationPlan = {
       groups,

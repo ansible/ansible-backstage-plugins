@@ -1,16 +1,17 @@
 ---
-title: "ADR-019: ComplianceService Decomposition"
-description: "`ComplianceService"
+title: 'ADR-019: ComplianceService Decomposition'
+description: '`ComplianceService'
 type: adr
 status: accepted
 date: 2026-06-06
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-019: ComplianceService Decomposition
 
-**Status:** Accepted (implemented 2026-06-06)  
-**Date:** 2026-06-06  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (implemented 2026-06-06)
+**Date:** 2026-06-06
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -42,7 +43,8 @@ Extract three focused modules from `ComplianceService`:
 ### 1. FindingsParser (`service/FindingsParser.ts`)
 
 **Responsibilities:**
-- `mapRawFinding()` -- map a single raw finding (Controller event or Direct POST payload) to `StoredFinding` format. Handles severity mapping (lowercase to CAT_*), evidence extraction, actual/expected value parsing.
+
+- `mapRawFinding()` -- map a single raw finding (Controller event or Direct POST payload) to `StoredFinding` format. Handles severity mapping (lowercase to CAT\_\*), evidence extraction, actual/expected value parsing.
 - `parseJobEvents()` -- parse job events from the normalize job into `StoredFinding` rows. Supports Track B (normalize_xccdf facts) and legacy Track A (compliance_evaluate, deprecated).
 - `groupFindingsByRule()` -- group `StoredFinding[]` by rule_id, deduplicating hosts via `seenHosts` Set. Returns a Map suitable for multi-host building.
 - `buildMultiHostFindings()` -- enrich grouped findings with DB metadata (`RuleMetadataRecord`) for title, description, fix_text, check_text, disruption, and AAP impact. The DB metadata table is the **sole** source of enrichment -- YAML fallback has been removed.
@@ -50,6 +52,7 @@ Extract three focused modules from `ComplianceService`:
 - `aggregateFindings()` / `aggregateFindingsWithMetadata()` -- public API combining grouping + enrichment.
 
 **Key change -- YAML fallback removal:** Prior to this refactor, `buildMultiHostFindings` had a fallback path that loaded rule metadata from a YAML file (`profiles/*/rules/*.yml`) when the DB metadata table had no entry. This fallback:
+
 - Was unreliable in dist-dynamic packaging (path resolution broke)
 - Created a hidden dependency on content that should be self-contained in the collection (ADR-006)
 - Masked upsert failures (ADR-017 M11) by silently falling back to YAML
@@ -59,6 +62,7 @@ The DB is now the sole runtime cache. The `upsertRuleMetadata` call during inges
 ### 2. RemediationPlanBuilder (`service/RemediationPlanBuilder.ts`)
 
 **Responsibilities:**
+
 - `buildRemediationPlan()` -- build an optimized remediation plan from user selections and findings. Groups rules by their target host set so that rules targeting the same hosts are batched into a single Ansible run. Supports `failed_only` and `standardize_all` scoping per selection.
 
 **Pure computation:** Takes `RemediationSelection[]` + `MultiHostFinding[]`, returns `RemediationPlan`. No DB access, no side effects. Easily unit-testable.
@@ -66,6 +70,7 @@ The DB is now the sole runtime cache. The `upsertRuleMetadata` call during inges
 ### 3. DashboardAggregator (`service/DashboardAggregator.ts`)
 
 **Responsibilities:**
+
 - `getDashboardStats()` -- compute dashboard statistics: hosts scanned, critical findings, pending remediation, active profiles, framework scores with contributing scans, inventory posture, baseline enrichment (ADR-014 section 7), and deltas vs previous scan set.
 - `getPostureHistory()` -- retrieve posture snapshots over time.
 - `getBaselineScoresForProfile()` -- compute baseline pass rates for all inventories pinned to a remediation profile.
@@ -75,6 +80,7 @@ The DB is now the sole runtime cache. The `upsertRuleMetadata` call during inges
 ### ComplianceService (retained)
 
 Retains orchestration responsibilities:
+
 - Scan lifecycle (launch, poll, status transitions)
 - Remediation launch (concurrent execution guard, Controller job dispatch)
 - Controller API coordination via `ControllerClient`

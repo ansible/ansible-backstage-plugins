@@ -1,16 +1,17 @@
 ---
-title: "ADR-020: Shared Normalizer Module via module_utils Pattern"
-description: "The `normalize_xccdf` Ansible module is the core of the scan normalization pipeline (ADR-004)"
+title: 'ADR-020: Shared Normalizer Module via module_utils Pattern'
+description: 'The `normalize_xccdf` Ansible module is the core of the scan normalization pipeline (ADR-004)'
 type: adr
 status: accepted
 date: 2026-06-06
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-020: Shared Normalizer Module via module_utils Pattern
 
-**Status:** Accepted (implemented 2026-06-06, updated 2026-06-16)  
-**Date:** 2026-06-06  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (implemented 2026-06-06, updated 2026-06-16)
+**Date:** 2026-06-06
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -18,9 +19,9 @@ The `normalize_xccdf` Ansible module is the core of the scan normalization pipel
 
 Three compliance profile collections ship this module:
 
-| Collection | Path |
-|-----------|------|
-| `security.compliance_rhel9_stig` | `profiles/rhel9-stig/ansible_collections/.../plugins/modules/normalize_xccdf.py` |
+| Collection                         | Path                                                                               |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `security.compliance_rhel9_stig`   | `profiles/rhel9-stig/ansible_collections/.../plugins/modules/normalize_xccdf.py`   |
 | `security.compliance_rhel9_cis_l1` | `profiles/rhel9-cis-l1/ansible_collections/.../plugins/modules/normalize_xccdf.py` |
 | `security.compliance_rhel9_cis_l2` | `profiles/rhel9-cis-l2/ansible_collections/.../plugins/modules/normalize_xccdf.py` |
 

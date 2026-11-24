@@ -20,7 +20,9 @@ import type {
 } from '@ansible/compliance-common/types';
 
 const mockUseParams = jest.fn().mockReturnValue({ jobId: '99' });
-const mockUseSearchParams = jest.fn().mockReturnValue([new URLSearchParams(), jest.fn()]);
+const mockUseSearchParams = jest
+  .fn()
+  .mockReturnValue([new URLSearchParams(), jest.fn()]);
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -41,15 +43,22 @@ describe('computeProgress', () => {
   });
 
   it('returns 100 when all nodes are successful', () => {
-    expect(computeProgress([{ status: 'successful' }, { status: 'successful' }])).toBe(100);
+    expect(
+      computeProgress([{ status: 'successful' }, { status: 'successful' }]),
+    ).toBe(100);
   });
 
   it('returns 50% for one successful and one pending', () => {
-    expect(computeProgress([{ status: 'successful' }, { status: 'pending' }])).toBe(50);
+    expect(
+      computeProgress([{ status: 'successful' }, { status: 'pending' }]),
+    ).toBe(50);
   });
 
   it('counts running/waiting nodes at 50% weight', () => {
-    const result = computeProgress([{ status: 'running' }, { status: 'waiting' }]);
+    const result = computeProgress([
+      { status: 'running' },
+      { status: 'waiting' },
+    ]);
     expect(result).toBe(50);
   });
 
@@ -60,12 +69,13 @@ describe('computeProgress', () => {
 });
 
 describe('extractTasksFromEvents', () => {
-  const makeEvent = (task: string, event: string, host = 'web-01'): JobEvent => ({
-    id: Math.random(),
-    event,
-    host_name: host,
-    event_data: { task, host },
-  } as unknown as JobEvent);
+  const makeEvent = (task: string, event: string, host = 'web-01'): JobEvent =>
+    ({
+      id: Math.random(),
+      event,
+      host_name: host,
+      event_data: { task, host },
+    }) as unknown as JobEvent;
 
   it('extracts tasks from runner_on_ok events', () => {
     const events = [makeEvent('Install SSH config', 'runner_on_ok')];
@@ -112,7 +122,14 @@ describe('extractTasksFromEvents', () => {
   });
 
   it('skips events with no task name', () => {
-    const events = [{ id: 1, event: 'runner_on_ok', host_name: 'h1', event_data: {} } as unknown as JobEvent];
+    const events = [
+      {
+        id: 1,
+        event: 'runner_on_ok',
+        host_name: 'h1',
+        event_data: {},
+      } as unknown as JobEvent,
+    ];
     const tasks = extractTasksFromEvents(events, []);
     expect(tasks).toHaveLength(0);
   });
@@ -128,7 +145,9 @@ describe('extractTasksFromEvents', () => {
   });
 
   it('matches task to ruleId via word-overlap', () => {
-    const events = [makeEvent('sshd set idle timeout interval', 'runner_on_ok')];
+    const events = [
+      makeEvent('sshd set idle timeout interval', 'runner_on_ok'),
+    ];
     const tasks = extractTasksFromEvents(events, ['sshd_set_idle_timeout']);
     expect(tasks[0].ruleId).toBe('sshd_set_idle_timeout');
   });
@@ -172,12 +191,29 @@ describe('groupTasksByRule', () => {
 
   it('creates pre-requisite group for tasks before first anchor', () => {
     const tasks = [
-      { name: 'Gathering Facts', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
-      { name: 'Set SSH Client Alive Interval', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
+      {
+        name: 'Gathering Facts',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
+      {
+        name: 'Set SSH Client Alive Interval',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
     ];
-    const selections: RemediationSelection[] = [{ ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} }];
+    const selections: RemediationSelection[] = [
+      { ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} },
+    ];
     const findingsMap = new Map([
-      ['sshd_set_idle_timeout', makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval')],
+      [
+        'sshd_set_idle_timeout',
+        makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval'),
+      ],
     ]);
     const { groups } = groupTasksByRule(tasks, selections, findingsMap);
     expect(groups[0].ruleId).toBe('pre-requisite');
@@ -186,12 +222,29 @@ describe('groupTasksByRule', () => {
 
   it('groups tasks by rule using title prefix matching', () => {
     const tasks = [
-      { name: 'Set SSH Client Alive Interval - config', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
-      { name: 'Set SSH Client Alive Interval - restart', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
+      {
+        name: 'Set SSH Client Alive Interval - config',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
+      {
+        name: 'Set SSH Client Alive Interval - restart',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
     ];
-    const selections: RemediationSelection[] = [{ ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} }];
+    const selections: RemediationSelection[] = [
+      { ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} },
+    ];
     const findingsMap = new Map([
-      ['sshd_set_idle_timeout', makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval')],
+      [
+        'sshd_set_idle_timeout',
+        makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval'),
+      ],
     ]);
     const { groups } = groupTasksByRule(tasks, selections, findingsMap);
     const ruleGroup = groups.find(g => g.ruleId === 'sshd_set_idle_timeout');
@@ -200,16 +253,34 @@ describe('groupTasksByRule', () => {
 
   it('builds groups in selection order', () => {
     const tasks = [
-      { name: 'Set SSH Client Alive Interval', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
-      { name: 'Set Password Minimum Length', stigId: '', ruleId: '', status: 'completed' as const, hosts: [] },
+      {
+        name: 'Set SSH Client Alive Interval',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
+      {
+        name: 'Set Password Minimum Length',
+        stigId: '',
+        ruleId: '',
+        status: 'completed' as const,
+        hosts: [],
+      },
     ];
     const selections: RemediationSelection[] = [
       { ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} },
       { ruleId: 'accounts_password_minlen', enabled: true, parameters: {} },
     ];
     const findingsMap = new Map([
-      ['sshd_set_idle_timeout', makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval')],
-      ['accounts_password_minlen', makeFinding('accounts_password_minlen', 'Set Password Minimum Length')],
+      [
+        'sshd_set_idle_timeout',
+        makeFinding('sshd_set_idle_timeout', 'Set SSH Client Alive Interval'),
+      ],
+      [
+        'accounts_password_minlen',
+        makeFinding('accounts_password_minlen', 'Set Password Minimum Length'),
+      ],
     ]);
     const { groups } = groupTasksByRule(tasks, selections, findingsMap);
     expect(groups[0].ruleId).toBe('sshd_set_idle_timeout');
@@ -219,23 +290,40 @@ describe('groupTasksByRule', () => {
 
 describe('computeRuleProgress', () => {
   it('returns 0 for group with no tasks when job not complete', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleProgress(group, false)).toBe(0);
   });
 
   it('returns 100 for group with no tasks when job complete and not failed', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleProgress(group, true, false)).toBe(100);
   });
 
   it('returns 0 for group with no tasks when job complete but failed', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleProgress(group, true, true)).toBe(0);
   });
 
   it('returns percentage of completed/failed tasks', () => {
     const group: RuleGroup = {
-      ruleId: 'r1', stigId: '', title: 'T',
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
       tasks: [
         { name: 't1', stigId: '', ruleId: '', status: 'completed', hosts: [] },
         { name: 't2', stigId: '', ruleId: '', status: 'pending', hosts: [] },
@@ -247,23 +335,40 @@ describe('computeRuleProgress', () => {
 
 describe('computeRuleStatus', () => {
   it('returns pending when no tasks and job not complete', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleStatus(group, false)).toBe('pending');
   });
 
   it('returns completed when job complete and no tasks and not failed', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleStatus(group, true)).toBe('completed');
   });
 
   it('returns failed when job complete, no tasks, but job failed', () => {
-    const group: RuleGroup = { ruleId: 'r1', stigId: '', title: 'T', tasks: [] };
+    const group: RuleGroup = {
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
+      tasks: [],
+    };
     expect(computeRuleStatus(group, true, true)).toBe('failed');
   });
 
   it('returns failed when any task failed', () => {
     const group: RuleGroup = {
-      ruleId: 'r1', stigId: '', title: 'T',
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
       tasks: [
         { name: 't1', stigId: '', ruleId: '', status: 'completed', hosts: [] },
         { name: 't2', stigId: '', ruleId: '', status: 'failed', hosts: [] },
@@ -274,7 +379,9 @@ describe('computeRuleStatus', () => {
 
   it('returns completed when all tasks completed', () => {
     const group: RuleGroup = {
-      ruleId: 'r1', stigId: '', title: 'T',
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
       tasks: [
         { name: 't1', stigId: '', ruleId: '', status: 'completed', hosts: [] },
         { name: 't2', stigId: '', ruleId: '', status: 'completed', hosts: [] },
@@ -285,7 +392,9 @@ describe('computeRuleStatus', () => {
 
   it('returns running when some tasks running', () => {
     const group: RuleGroup = {
-      ruleId: 'r1', stigId: '', title: 'T',
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
       tasks: [
         { name: 't1', stigId: '', ruleId: '', status: 'running', hosts: [] },
         { name: 't2', stigId: '', ruleId: '', status: 'pending', hosts: [] },
@@ -296,7 +405,9 @@ describe('computeRuleStatus', () => {
 
   it('returns running when some tasks completed and some pending', () => {
     const group: RuleGroup = {
-      ruleId: 'r1', stigId: '', title: 'T',
+      ruleId: 'r1',
+      stigId: '',
+      title: 'T',
       tasks: [
         { name: 't1', stigId: '', ruleId: '', status: 'completed', hosts: [] },
         { name: 't2', stigId: '', ruleId: '', status: 'pending', hosts: [] },
@@ -356,7 +467,15 @@ describe('RemediationExecution (view mode)', () => {
         planSummary: {
           totalRules: 2,
           totalHosts: 3,
-          groups: [{ tags: ['rule_a', 'rule_b'], limit: '', extraVars: {}, hostCount: 3, ruleCount: 2 }],
+          groups: [
+            {
+              tags: ['rule_a', 'rule_b'],
+              limit: '',
+              extraVars: {},
+              hostCount: 3,
+              ruleCount: 2,
+            },
+          ],
         },
       }),
     ]);
@@ -384,8 +503,13 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-ok', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'successful', finished: '2026-06-01T00:10:00Z',
-      failed: false, elapsed: 600, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'successful',
+      finished: '2026-06-01T00:10:00Z',
+      failed: false,
+      elapsed: 600,
+      name: 'remediate',
+      job_tags: '',
     } as any);
 
     await renderView();
@@ -399,8 +523,13 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-fail', status: 'failed', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'failed', finished: '2026-06-01T00:10:00Z',
-      failed: true, elapsed: 60, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'failed',
+      finished: '2026-06-01T00:10:00Z',
+      failed: true,
+      elapsed: 60,
+      name: 'remediate',
+      job_tags: '',
       result_traceback: 'Host unreachable',
     } as any);
 
@@ -415,8 +544,13 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-ok', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'successful', finished: '2026-06-01T00:10:00Z',
-      failed: false, elapsed: 600, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'successful',
+      finished: '2026-06-01T00:10:00Z',
+      failed: false,
+      elapsed: 600,
+      name: 'remediate',
+      job_tags: '',
     } as any);
 
     await renderView();
@@ -430,8 +564,13 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-ok', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'successful', finished: '2026-06-01T00:10:00Z',
-      failed: false, elapsed: 600, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'successful',
+      finished: '2026-06-01T00:10:00Z',
+      failed: false,
+      elapsed: 600,
+      name: 'remediate',
+      job_tags: '',
     } as any);
 
     await renderView();
@@ -445,8 +584,13 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-fail', status: 'failed', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'failed', finished: '2026-06-01T00:10:00Z',
-      failed: true, elapsed: 60, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'failed',
+      finished: '2026-06-01T00:10:00Z',
+      failed: true,
+      elapsed: 60,
+      name: 'remediate',
+      job_tags: '',
     } as any);
 
     await renderView();
@@ -460,11 +604,21 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-run', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'running', finished: null,
-      failed: false, elapsed: 30, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'running',
+      finished: null,
+      failed: false,
+      elapsed: 30,
+      name: 'remediate',
+      job_tags: '',
     } as any);
     mockApi.getJobEvents.mockResolvedValue([
-      { id: 1, event: 'runner_on_ok', host_name: 'web-01', event_data: { task: 'Set SSH timeout', host: 'web-01' } },
+      {
+        id: 1,
+        event: 'runner_on_ok',
+        host_name: 'web-01',
+        event_data: { task: 'Set SSH timeout', host: 'web-01' },
+      },
     ] as any);
 
     await renderView();
@@ -478,10 +632,17 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-fail', status: 'failed', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'failed', finished: '2026-06-01T00:10:00Z',
-      failed: true, elapsed: 60, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'failed',
+      finished: '2026-06-01T00:10:00Z',
+      failed: true,
+      elapsed: 60,
+      name: 'remediate',
+      job_tags: '',
     } as any);
-    mockApi.getRemediationErrorDetails.mockResolvedValue('Host web-01 unreachable: Connection timed out');
+    mockApi.getRemediationErrorDetails.mockResolvedValue(
+      'Host web-01 unreachable: Connection timed out',
+    );
 
     await renderView();
     await waitFor(() => {
@@ -495,11 +656,21 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: execId, planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'successful', finished: '2026-06-01T00:10:00Z',
-      failed: false, elapsed: 600, name: 'remediate', job_tags: '',
+      id: 99,
+      status: 'successful',
+      finished: '2026-06-01T00:10:00Z',
+      failed: false,
+      elapsed: 600,
+      name: 'remediate',
+      job_tags: '',
     } as any);
     mockApi.getJobEvents.mockResolvedValue([
-      { id: 1, event: 'runner_on_ok', host_name: 'web-01', event_data: { task: 'Fix SSH', host: 'web-01' } },
+      {
+        id: 1,
+        event: 'runner_on_ok',
+        host_name: 'web-01',
+        event_data: { task: 'Fix SSH', host: 'web-01' },
+      },
     ] as any);
 
     await renderView();
@@ -516,8 +687,12 @@ describe('RemediationExecution (view mode)', () => {
       makeExecution({ id: 'exec-legacy', planSummary: null }),
     ]);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 99, status: 'successful', finished: '2026-06-01T00:10:00Z',
-      failed: false, elapsed: 600, name: 'remediate',
+      id: 99,
+      status: 'successful',
+      finished: '2026-06-01T00:10:00Z',
+      failed: false,
+      elapsed: 600,
+      name: 'remediate',
       job_tags: 'sshd_set_idle_timeout,accounts_password_minlen',
     } as any);
 
@@ -558,7 +733,9 @@ describe('RemediationExecution (launch mode)', () => {
       creationScanId: 'scan-1',
       targetInventory: 'prod',
       status: 'saved',
-      selections: [{ ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} }],
+      selections: [
+        { ruleId: 'sshd_set_idle_timeout', enabled: true, parameters: {} },
+      ],
       createdAt: '',
       updatedAt: '',
     });
@@ -570,8 +747,13 @@ describe('RemediationExecution (launch mode)', () => {
       executionId: 'exec-new',
     } as any);
     mockApi.getJobStatus.mockResolvedValue({
-      id: 200, status: 'running', finished: null,
-      failed: false, elapsed: 5, name: 'remediate', job_tags: 'sshd_set_idle_timeout',
+      id: 200,
+      status: 'running',
+      finished: null,
+      failed: false,
+      elapsed: 5,
+      name: 'remediate',
+      job_tags: 'sshd_set_idle_timeout',
     } as any);
 
     await renderLaunch();

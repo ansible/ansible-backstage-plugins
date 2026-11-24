@@ -1,5 +1,5 @@
 ---
-title: "ADR-038: Windows Server Compliance Profile Architecture"
+title: 'ADR-038: Windows Server Compliance Profile Architecture'
 status: Accepted
 date: 2026-07-13
 deciders: Massimo Ferrari
@@ -31,13 +31,13 @@ GitLab MR #1 proposes adding Windows Server compliance support via `security.com
 
 ### Scanners evaluated
 
-| Scanner | STIG | CIS | Certification | Open Source | Can Embed in EE |
-|---------|------|-----|---------------|-------------|-----------------|
-| DISA SCC | Full (247 rules) | No | SCAP 1.3 Validated | Free (not OSS) | No (legal) |
-| CIS-CAT Pro | No | Full | CIS official | No (paid) | No (licensed) |
-| OpenSCAP | Broken on Windows | N/A | SCAP 1.2 (Linux only) | Yes | N/A |
-| PowerSTIG | 83% (206/247) | No | Not validated | Yes | Yes |
-| infra.windows_ops | 88% (248/283) | Yes (210 rules) | Not validated | Yes (GPL-3.0) | Yes |
+| Scanner           | STIG              | CIS             | Certification         | Open Source    | Can Embed in EE |
+| ----------------- | ----------------- | --------------- | --------------------- | -------------- | --------------- |
+| DISA SCC          | Full (247 rules)  | No              | SCAP 1.3 Validated    | Free (not OSS) | No (legal)      |
+| CIS-CAT Pro       | No                | Full            | CIS official          | No (paid)      | No (licensed)   |
+| OpenSCAP          | Broken on Windows | N/A             | SCAP 1.2 (Linux only) | Yes            | N/A             |
+| PowerSTIG         | 83% (206/247)     | No              | Not validated         | Yes            | Yes             |
+| infra.windows_ops | 88% (248/283)     | Yes (210 rules) | Not validated         | Yes (GPL-3.0)  | Yes             |
 
 ## Decisions
 
@@ -45,11 +45,11 @@ GitLab MR #1 proposes adding Windows Server compliance support via `security.com
 
 **Each Windows compliance framework gets its own profile** with its own EE, install.yml, and compliance-profile.yml. This mirrors the RHEL pattern (rhel9-stig, rhel9-cis-l1, rhel9-cis-l2 are separate profiles).
 
-| Profile Slug | Framework | Scanner | EE Contents |
-|-------------|-----------|---------|-------------|
-| `windows-server-stig` | DISA_STIG | DISA SCC (ephemeral) | SCAP benchmarks + download role + pywinrm |
-| `windows-server-cis-l1` | CIS | infra.windows_ops | Collection + pywinrm |
-| `windows-server-cis-l2` | CIS | infra.windows_ops | Collection + pywinrm |
+| Profile Slug            | Framework | Scanner              | EE Contents                               |
+| ----------------------- | --------- | -------------------- | ----------------------------------------- |
+| `windows-server-stig`   | DISA_STIG | DISA SCC (ephemeral) | SCAP benchmarks + download role + pywinrm |
+| `windows-server-cis-l1` | CIS       | infra.windows_ops    | Collection + pywinrm                      |
+| `windows-server-cis-l2` | CIS       | infra.windows_ops    | Collection + pywinrm                      |
 
 **Rationale:** Different scanners require different EE dependencies. SCC is a Windows executable downloaded at runtime; `infra.windows_ops` is an Ansible collection embedded in the EE. Mixing them in one profile creates confusion about certification status and bloats the EE.
 
@@ -98,8 +98,8 @@ The certification status is declared honestly in `compliance-profile.yml`:
 
 ```yaml
 certification:
-  status: "uncertified"
-  authority: "N/A"
+  status: 'uncertified'
+  authority: 'N/A'
   disclaimer: >
     infra.windows_ops provides community-maintained CIS Benchmark content.
     Not CIS-certified. For certified assessments, use CIS-CAT Pro with a
@@ -118,22 +118,23 @@ CIS-CAT Pro can be supported as a Tier 2 scanner option in the future for custom
 ```yaml
 display:
   tabs:
-    - key: "hipaa"
-      label: "HIPAA"
-      icon: "policy"
-      crosswalk_framework: "hipaa"
-      source_framework: "STIG"
+    - key: 'hipaa'
+      label: 'HIPAA'
+      icon: 'policy'
+      crosswalk_framework: 'hipaa'
+      source_framework: 'STIG'
       layout:
         - widget: crosswalk_summary
-          title: "HIPAA Security Rule — Technical Safeguards"
+          title: 'HIPAA Security Rule — Technical Safeguards'
           show_gaps: true
         - widget: crosswalk_controls_table
-          title: "Control Status"
+          title: 'Control Status'
 ```
 
 **Data flow:** The crosswalk computation happens client-side in the dashboard. It's a join between scan findings (already in the DB) and the control mapping definition (stored in the profile's displayConfig). No second scan, no backend API changes, no separate normalizer.
 
 **New widget types required:**
+
 - `crosswalk_summary` — shows overall control coverage (pass/fail/partial/gap/unmapped counts)
 - `crosswalk_controls_table` — per-control detail with mapped rule statuses
 
@@ -146,6 +147,7 @@ This extends ADR-027 (Dynamic Tab System) with two new Tier 1 widget types.
 Each Windows profile gets its own EE definition following the established pattern (ADR-031):
 
 **STIG profile EE** (lightweight — scanner downloaded at runtime):
+
 ```yaml
 version: 3
 images:
@@ -173,6 +175,7 @@ additional_build_steps:
 ```
 
 **CIS profile EE** (heavier — scanner collection embedded):
+
 ```yaml
 version: 3
 images:

@@ -1,16 +1,17 @@
 ---
-title: "ADR-029: CycloneDX Normalizer Pattern"
-description: "The existing normalizer pattern (ADR-020) parses XCCDF XML from OpenSCAP scans and converts to the Common Findings Forma"
+title: 'ADR-029: CycloneDX Normalizer Pattern'
+description: 'The existing normalizer pattern (ADR-020) parses XCCDF XML from OpenSCAP scans and converts to the Common Findings Forma'
 type: adr
 status: accepted
 date: 2026-06-25
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-029: CycloneDX Normalizer Pattern
 
-**Status:** Accepted  
-**Date:** 2026-06-25  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-25
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -29,6 +30,7 @@ Supply chain vulnerability scanning introduces a fundamentally different data mo
 5. **Severity mapping is different.** XCCDF uses CAT_I/II/III (DISA taxonomy). CycloneDX uses CVSS scores (0.0-10.0) and severity enums (Critical, High, Medium, Low, Negligible). Mapping rules differ from XCCDF's fixed severity assignments.
 
 Attempting to reuse `normalize_common.py` (designed for XCCDF) would require:
+
 - Parsing CycloneDX JSON instead of XCCDF XML (incompatible data structures)
 - Mapping CVE metadata (purl, CVSS, fix state, affected versions) to CFF fields designed for STIG rules
 - Generating `dnf update` remediation text instead of extracting CaC Ansible tasks
@@ -44,24 +46,25 @@ The supply chain compliance profile ships its own normalizer (`normalize_cyclone
 
 CFF was designed for XCCDF (rule-based compliance scanning). Grype produces vulnerability disclosures (CVE-based). The mapping:
 
-| CycloneDX field | CFF field | Notes |
-|----------------|-----------|-------|
-| `vulnerability.id` (e.g., CVE-2024-1234) | `rule_id` | CVE ID becomes the rule identifier |
-| `component.name` (e.g., openssl) | `stig_id` | Repurposed: package name instead of STIG ID |
-| `vulnerability.ratings[0].severity` | `category` | Critical/High → CAT_I, Medium → CAT_II, Low/Negligible → CAT_III |
-| `relatedVulnerability.id` + `vulnerability.description` | `description` | CVE description + affected versions |
-| Always `fail` | `status` | A Grype match = vulnerability exists = failure |
-| Generated per package type | `fix_text` | rpm → `dnf update openssl`, deb → `apt upgrade openssl`, pip → `pip install --upgrade openssl` |
-| Package metadata (purl, CVSS, fix state) | `evidence` | JSON blob with fixedVersion, installedVersion, cvss_score, cvss_vector, fixState (fixed, wont-fix, not-fixed, unknown) |
-| "Supply Chain" | `scanner` | Hard-coded |
-| Derived from CVSS | `disruption` | Critical/High → high, Medium → medium, Low → low |
-| Always "medium" | `aap_impact` | Default — package updates rarely require job refactoring |
+| CycloneDX field                                         | CFF field     | Notes                                                                                                                  |
+| ------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `vulnerability.id` (e.g., CVE-2024-1234)                | `rule_id`     | CVE ID becomes the rule identifier                                                                                     |
+| `component.name` (e.g., openssl)                        | `stig_id`     | Repurposed: package name instead of STIG ID                                                                            |
+| `vulnerability.ratings[0].severity`                     | `category`    | Critical/High → CAT_I, Medium → CAT_II, Low/Negligible → CAT_III                                                       |
+| `relatedVulnerability.id` + `vulnerability.description` | `description` | CVE description + affected versions                                                                                    |
+| Always `fail`                                           | `status`      | A Grype match = vulnerability exists = failure                                                                         |
+| Generated per package type                              | `fix_text`    | rpm → `dnf update openssl`, deb → `apt upgrade openssl`, pip → `pip install --upgrade openssl`                         |
+| Package metadata (purl, CVSS, fix state)                | `evidence`    | JSON blob with fixedVersion, installedVersion, cvss_score, cvss_vector, fixState (fixed, wont-fix, not-fixed, unknown) |
+| "Supply Chain"                                          | `scanner`     | Hard-coded                                                                                                             |
+| Derived from CVSS                                       | `disruption`  | Critical/High → high, Medium → medium, Low → low                                                                       |
+| Always "medium"                                         | `aap_impact`  | Default — package updates rarely require job refactoring                                                               |
 
 ### 2. No shared normalizer code
 
 `normalize_cyclonedx.py` is self-contained in the supply chain collection under `profiles/supply-chain/.../plugins/modules/`. It does NOT import from `profiles/_shared/normalize_common.py`. The `sync_shared_modules.py` script should NOT sync to the supply chain profile.
 
 Rationale:
+
 - XCCDF and CycloneDX have incompatible data models. Shared code would require extensive conditional logic (`if input_format == 'xccdf': ... elif input_format == 'cyclonedx': ...`), obscuring the parsing logic.
 - Severity mapping differs (fixed CAT assignments vs CVSS-based thresholds).
 - Remediation generation differs (CaC Ansible tasks vs package manager commands).
@@ -86,6 +89,7 @@ The `evidence` field (free-form JSON blob) captures Grype-specific metadata:
 ```
 
 This enables drill-down UX to show:
+
 - Which version is installed vs which version fixes the CVE
 - CVSS score + vector (for severity justification)
 - Fix state (vendor patched it vs wont-fix vs unknown)
@@ -95,18 +99,19 @@ This enables drill-down UX to show:
 
 The normalizer generates package manager commands based on `package_type`:
 
-| Package type | Remediation command |
-|-------------|-------------------|
+| Package type            | Remediation command                              |
+| ----------------------- | ------------------------------------------------ |
 | rpm (RPM-based distros) | `dnf update <package>` or `yum update <package>` |
-| deb (Debian/Ubuntu) | `apt-get update && apt-get upgrade <package>` |
-| apk (Alpine) | `apk upgrade <package>` |
-| python (pip) | `pip install --upgrade <package>` |
-| npm | `npm update <package>` |
-| gem (RubyGems) | `gem update <package>` |
-| go-module | Manual upgrade (no generic command) |
-| java-archive | Manual upgrade (no generic command) |
+| deb (Debian/Ubuntu)     | `apt-get update && apt-get upgrade <package>`    |
+| apk (Alpine)            | `apk upgrade <package>`                          |
+| python (pip)            | `pip install --upgrade <package>`                |
+| npm                     | `npm update <package>`                           |
+| gem (RubyGems)          | `gem update <package>`                           |
+| go-module               | Manual upgrade (no generic command)              |
+| java-archive            | Manual upgrade (no generic command)              |
 
 If `fix_state` is `wont-fix` or `unknown`, the remediation text includes a warning:
+
 ```
 No fix available from the vendor for CVE-2024-1234 in package openssl.
 Consider: (1) Upgrade to a newer major version, (2) Apply vendor-specific workarounds,
@@ -119,20 +124,20 @@ This follows the InsightVM pattern (remediation instructions generated per findi
 
 All CFF fields are populated to satisfy the schema contract:
 
-| CFF field | Supply chain value |
-|-----------|-------------------|
-| `rule_id` | CVE-2024-1234 |
-| `stig_id` | openssl (repurposed) |
-| `category` | CAT_I/II/III (CVSS-derived) |
-| `description` | CVE description + affected versions |
-| `status` | fail (always) |
-| `fix_text` | dnf update openssl |
-| `check_text` | Check installed version: rpm -q openssl |
-| `evidence` | JSON with purl, CVSS, fix state |
-| `scanner` | Supply Chain |
-| `disruption` | high/medium/low (CVSS-derived) |
-| `aap_impact` | medium (default) |
-| `parameters` | {} (not applicable) |
+| CFF field     | Supply chain value                      |
+| ------------- | --------------------------------------- |
+| `rule_id`     | CVE-2024-1234                           |
+| `stig_id`     | openssl (repurposed)                    |
+| `category`    | CAT_I/II/III (CVSS-derived)             |
+| `description` | CVE description + affected versions     |
+| `status`      | fail (always)                           |
+| `fix_text`    | dnf update openssl                      |
+| `check_text`  | Check installed version: rpm -q openssl |
+| `evidence`    | JSON with purl, CVSS, fix state         |
+| `scanner`     | Supply Chain                            |
+| `disruption`  | high/medium/low (CVSS-derived)          |
+| `aap_impact`  | medium (default)                        |
+| `parameters`  | {} (not applicable)                     |
 
 This ensures the dashboard can render supply chain findings using the same UI components as XCCDF findings (ResultsTable, FindingDetailDialog, RemediationPlanPreview).
 
@@ -191,6 +196,7 @@ This reuses the ADR-007 ingest pattern (per-scan security token, direct HTTP POS
 ## Implementation Notes
 
 Key files:
+
 - **Normalizer:** `profiles/supply-chain/.../plugins/modules/normalize_cyclonedx.py` (~400 lines)
 - **Tests:** `profiles/supply-chain/.../tests/unit/plugins/modules/test_normalize_cyclonedx.py` (23 tests)
 - **Assessment playbook:** `profiles/supply-chain/.../playbooks/run_scan.yml` (two-play pattern: Syft on targets, Grype on localhost)

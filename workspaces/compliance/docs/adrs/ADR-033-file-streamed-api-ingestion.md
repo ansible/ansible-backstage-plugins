@@ -1,16 +1,17 @@
 ---
-title: "ADR-033: File-Streamed API Ingestion"
-description: "ADR-030 mandates per-host normalization to prevent OOM during the normalize step"
+title: 'ADR-033: File-Streamed API Ingestion'
+description: 'ADR-030 mandates per-host normalization to prevent OOM during the normalize step'
 type: adr
 status: accepted
 date: 2026-06-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-033: File-Streamed API Ingestion
 
-**Status:** Accepted  
-**Date:** 2026-06-26  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-26
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -83,9 +84,9 @@ No `findings` list in the return value. This prevents Ansible from accumulating 
 ```yaml
 - name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
-    url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+    url: '{{ backstage_api_url }}/api/compliance/findings/ingest'
     method: POST
-    src: "{{ item.path }}"
+    src: '{{ item.path }}'
     headers:
       Content-Type: application/json
     status_code: [201]
@@ -115,13 +116,13 @@ Complete per-host normalize-and-POST flow:
 - name: Normalize results to CFF (per-host)
   <namespace>.<collection>.normalize_<format>:
     <input_param>:
-      - "{{ item.path }}"
-    output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
+      - '{{ item.path }}'
+    output_file: '{{ results_dir }}/findings-{{ _hostname }}.json'
     compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
     scan_id: "{{ scan_id | default('') }}"
     ingest_token: "{{ ingest_token | default('') }}"
-    finalize: "{{ ansible_loop.last | default(false) }}"
-  loop: "{{ _result_files.files }}"
+    finalize: '{{ ansible_loop.last | default(false) }}'
+  loop: '{{ _result_files.files }}'
   loop_control:
     extended: true
   register: _normalized
@@ -134,15 +135,15 @@ Complete per-host normalize-and-POST flow:
 # Find and POST composed body files
 - name: Find per-host POST body files
   ansible.builtin.find:
-    paths: "{{ results_dir }}"
-    patterns: "*.post.json"
+    paths: '{{ results_dir }}'
+    patterns: '*.post.json'
   register: _post_body_files
 
 - name: POST findings per-host to Portal compliance API
   ansible.builtin.uri:
-    url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+    url: '{{ backstage_api_url }}/api/compliance/findings/ingest'
     method: POST
-    src: "{{ item.path }}"
+    src: '{{ item.path }}'
     headers:
       Content-Type: application/json
     status_code: [201]

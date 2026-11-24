@@ -6,11 +6,12 @@ status: accepted
 date: 2026-05-31
 product: "AAP Compliance Dashboard"
 ---
+
 # ADR-012: Dashboard UX — Competitive Alignment
 
-**Status:** Accepted  
-**Date:** 2026-05-31  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-05-31
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -30,14 +31,14 @@ The analysis also identified a gap in our stat cards: competitors (specifically 
 
 ## Competitive Evidence
 
-| Product | Homepage KPIs | Trend on Cards? |
-|---------|--------------|----------------|
-| Drata | Framework readiness %, failing tests + % change vs 7 days | YES — only one |
-| Vanta | Evidence/control completion %, issues report | LIMITED |
-| CIS-CAT | Homepage IS a trend graph | N/A |
-| Chef Automate | Node pass/fail/skip counts + severity bar | No — separate chart |
-| Qualys PC | KPI tiles + bar charts, optional trend toggle | Configurable |
-| Puppet Comply | Dual compliance scores, clickable tiles | Separate chart |
+| Product       | Homepage KPIs                                             | Trend on Cards?     |
+| ------------- | --------------------------------------------------------- | ------------------- |
+| Drata         | Framework readiness %, failing tests + % change vs 7 days | YES — only one      |
+| Vanta         | Evidence/control completion %, issues report              | LIMITED             |
+| CIS-CAT       | Homepage IS a trend graph                                 | N/A                 |
+| Chef Automate | Node pass/fail/skip counts + severity bar                 | No — separate chart |
+| Qualys PC     | KPI tiles + bar charts, optional trend toggle             | Configurable        |
+| Puppet Comply | Dual compliance scores, clickable tiles                   | Separate chart      |
 
 ## Consequences
 

@@ -21,7 +21,9 @@ export async function up(knex: Knex): Promise<void> {
       .whereIn('profile_id', removeIds)
       .update({ profile_id: keep.id });
 
-    const hasRemediationProfiles = await knex.schema.hasTable('compliance_remediation_profiles');
+    const hasRemediationProfiles = await knex.schema.hasTable(
+      'compliance_remediation_profiles',
+    );
     if (hasRemediationProfiles) {
       await knex('compliance_remediation_profiles')
         .whereIn('profile_id', removeIds)
@@ -29,7 +31,9 @@ export async function up(knex: Knex): Promise<void> {
     }
 
     if (!keep.rule_count) {
-      const donor = rows.find((r: { rule_count: number | null }) => r.rule_count);
+      const donor = rows.find(
+        (r: { rule_count: number | null }) => r.rule_count,
+      );
       if (donor) {
         await knex('compliance_profile_registry')
           .where('id', keep.id)
@@ -37,9 +41,7 @@ export async function up(knex: Knex): Promise<void> {
       }
     }
 
-    await knex('compliance_profile_registry')
-      .whereIn('id', removeIds)
-      .delete();
+    await knex('compliance_profile_registry').whereIn('id', removeIds).delete();
   }
 
   await knex.schema.alterTable('compliance_profile_registry', table => {

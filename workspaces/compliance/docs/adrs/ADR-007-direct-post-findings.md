@@ -1,11 +1,12 @@
 ---
-title: "ADR-007: Direct POST Findings from Playbook to Plugin API"
-description: "The current approach parses compliance findings from Controller job events (`runner_on_ok` / `runner_item_on_ok` events)"
+title: 'ADR-007: Direct POST Findings from Playbook to Plugin API'
+description: 'The current approach parses compliance findings from Controller job events (`runner_on_ok` / `runner_item_on_ok` events)'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-007: Direct POST Findings from Playbook to Plugin API
 
 **Status:** Accepted (implemented in PRs #17, #19)
@@ -29,17 +30,20 @@ The PM and architect both recommend decoupling the data channel from Controller'
 Have the playbook POST findings directly to the plugin's REST API, bypassing Controller events entirely.
 
 Implementation (PRs #17, #19):
+
 1. Added `/api/compliance/findings/ingest` endpoint accepting CFF JSON + scanId
 2. Added `uri` task in the normalize play to POST findings to the Portal backend URL (passed as `backstage_api_url` extra_var)
 3. `scan_id` passed as extra_var so playbook knows which scan to associate findings with
 4. Event parsing retained as fallback when `backstage_api_url` is not set
 
 Security (PR #19 -- see also ADR-010):
+
 - Per-scan ingest token generated at scan launch, passed as `ingest_token` extra_var
 - Token is single-use and scoped to the scan_id
 - Endpoint validates token before accepting findings
 
 Hardening (PR #19):
+
 - Scan lifecycle fix: scans marked failed on launch error (no orphaned "running" scans)
 - Variable ordering fix for extra_vars passed to Controller
 - Jinja `default([])` hardening in normalize play to prevent undefined variable errors

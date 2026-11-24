@@ -1,16 +1,17 @@
 ---
-title: "ADR-028: Profile Lifecycle — Connect/Disconnect"
-description: "Compliance profiles may need to be decommissioned without losing historical scan data"
+title: 'ADR-028: Profile Lifecycle — Connect/Disconnect'
+description: 'Compliance profiles may need to be decommissioned without losing historical scan data'
 type: adr
 status: accepted
 date: 2026-06-25
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-028: Profile Lifecycle — Connect/Disconnect
 
-**Status:** Accepted  
-**Date:** 2026-06-25  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-25
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -28,13 +29,13 @@ The current implementation provides `DELETE /compliance-profiles/:id`, which per
 
 Industry comparison:
 
-| Platform | Decommission mechanism | Data retention |
-|----------|----------------------|----------------|
-| Qualys | Disable policy (retains scans) | Indefinite |
-| Rapid7 InsightVM | Archive policy (retains scan history) | Indefinite |
-| Tenable | Deactivate scan (retains results) | 1-5 years configurable |
-| Red Hat Insights | Disable system (retains check-in history) | Indefinite |
-| **This plugin** | DELETE only → destroys data | N/A |
+| Platform         | Decommission mechanism                    | Data retention         |
+| ---------------- | ----------------------------------------- | ---------------------- |
+| Qualys           | Disable policy (retains scans)            | Indefinite             |
+| Rapid7 InsightVM | Archive policy (retains scan history)     | Indefinite             |
+| Tenable          | Deactivate scan (retains results)         | 1-5 years configurable |
+| Red Hat Insights | Disable system (retains check-in history) | Indefinite             |
+| **This plugin**  | DELETE only → destroys data               | N/A                    |
 
 ## Decision
 
@@ -48,6 +49,7 @@ Two states, persisted in a new `connection_status` column:
 - **`disconnected`:** Profile is decommissioned. Hidden from Settings tab, scans cannot be launched, but all historical data (findings, scans, snapshots, executions) is retained and queryable via drill-down.
 
 Three lifecycle timestamps track transitions:
+
 - `connected_at`: When the profile was created or last reconnected.
 - `disconnected_at`: When the profile was disconnected.
 - `disconnected_by`: User who initiated disconnection (for audit trail).
@@ -57,6 +59,7 @@ Three lifecycle timestamps track transitions:
 `POST /compliance-profiles/disconnect`
 
 Request body:
+
 ```json
 {
   "id": 123,
@@ -65,6 +68,7 @@ Request body:
 ```
 
 Behavior:
+
 - Sets `connection_status = 'disconnected'`
 - Records `disconnected_at = NOW()` and `disconnected_by = current_user`
 - Appends the reason to a version history log (optional field)
@@ -77,6 +81,7 @@ The profile remains in the database. All foreign key relationships (`compliance_
 `POST /compliance-profiles/connect`
 
 Request body:
+
 ```json
 {
   "framework_name": "DISA STIG",
@@ -89,6 +94,7 @@ Request body:
 ```
 
 Behavior:
+
 1. Check for an existing disconnected profile with the same `framework_name`.
 2. If found, **reconnect** it:
    - Update all profile fields (description, JT names, EE name, etc.)
@@ -98,6 +104,7 @@ Behavior:
 3. If not found, **create** a new profile with `connection_status = 'connected'` (standard profile creation flow).
 
 This enables smooth framework version upgrades:
+
 ```bash
 # Disconnect V2R8
 ansible-playbook uninstall.yml -e compliance_profile_id=123
@@ -113,6 +120,7 @@ The version transition is traceable via `version_history`, and all historical V2
 `POST /compliance-profiles/disconnect-by-framework`
 
 Request body:
+
 ```json
 {
   "framework_name": "DISA STIG",
@@ -121,6 +129,7 @@ Request body:
 ```
 
 Behavior:
+
 - Finds the connected profile with `framework_name = "DISA STIG"` (case-insensitive)
 - Disconnects it (same as `/disconnect` by ID)
 - If no connected profile exists, returns 404 (idempotent — uninstall.yml can run repeatedly)
@@ -134,6 +143,7 @@ Used by `uninstall.yml` playbooks to avoid hardcoding profile IDs.
 ### 6. Database schema (migration 018)
 
 New columns on `compliance_profiles`:
+
 ```sql
 ALTER TABLE compliance_profiles ADD COLUMN connection_status TEXT NOT NULL DEFAULT 'connected';
 ALTER TABLE compliance_profiles ADD COLUMN connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
@@ -144,6 +154,7 @@ ALTER TABLE compliance_profiles ADD COLUMN version_history TEXT;  -- JSON array,
 ```
 
 Index for lookups:
+
 ```sql
 CREATE INDEX idx_profiles_connection_status ON compliance_profiles(connection_status);
 CREATE INDEX idx_profiles_framework_name ON compliance_profiles(framework_name);
@@ -152,18 +163,19 @@ CREATE INDEX idx_profiles_framework_name ON compliance_profiles(framework_name);
 ### 7. Install/uninstall playbook updates
 
 Every `install.yml` now uses the connect endpoint:
+
 ```yaml
 - name: Connect compliance profile
   uri:
-    url: "{{ backstage_api_url }}/api/compliance/profiles/connect"
+    url: '{{ backstage_api_url }}/api/compliance/profiles/connect'
     method: POST
     body:
-      framework_name: "{{ framework_name }}"
-      framework_version: "{{ framework_version }}"
-      description: "{{ description }}"
-      assessment_job_template: "{{ assessment_jt_name }}"
-      remediation_job_template: "{{ remediation_jt_name }}"
-      execution_environment: "{{ ee_name }}"
+      framework_name: '{{ framework_name }}'
+      framework_version: '{{ framework_version }}'
+      description: '{{ description }}'
+      assessment_job_template: '{{ assessment_jt_name }}'
+      remediation_job_template: '{{ remediation_jt_name }}'
+      execution_environment: '{{ ee_name }}'
     body_format: json
   register: connect_result
 ```
@@ -171,16 +183,17 @@ Every `install.yml` now uses the connect endpoint:
 This is idempotent — re-running install.yml reconnects an existing profile if it was previously disconnected, or creates a new one if it's the first install.
 
 Every `uninstall.yml` uses the disconnect-by-framework endpoint:
+
 ```yaml
 - name: Disconnect compliance profile
   uri:
-    url: "{{ backstage_api_url }}/api/compliance/profiles/disconnect-by-framework"
+    url: '{{ backstage_api_url }}/api/compliance/profiles/disconnect-by-framework'
     method: POST
     body:
-      framework_name: "{{ framework_name }}"
-      reason: "Uninstalled via automation"
+      framework_name: '{{ framework_name }}'
+      reason: 'Uninstalled via automation'
     body_format: json
-  ignore_errors: true  # 404 if already disconnected is acceptable
+  ignore_errors: true # 404 if already disconnected is acceptable
 ```
 
 This never deletes data — only marks the profile as inactive.
@@ -188,6 +201,7 @@ This never deletes data — only marks the profile as inactive.
 ### 8. Version history capping
 
 The `version_history` JSON array is capped at 50 entries (FIFO). Each entry:
+
 ```json
 {
   "version": "V2R9",
@@ -229,6 +243,7 @@ This prevents unbounded growth while retaining sufficient audit trail for framew
 ## Implementation Notes
 
 Key files:
+
 - **Database layer:** `ComplianceDatabase.ts` — new methods `connectProfile()`, `disconnectProfile()`, `disconnectProfileByFramework()`, `getConnectedProfiles()`, `getDisconnectedProfiles()`
 - **API routes:** `plugins/compliance-backend/src/api/routes/profiles.ts` — new endpoints POST `/connect`, POST `/disconnect`, POST `/disconnect-by-framework`
 - **Migration:** `plugins/compliance-backend/migrations/018-add-profile-lifecycle-columns.ts`

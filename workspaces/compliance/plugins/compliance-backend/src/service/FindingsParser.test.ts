@@ -28,7 +28,9 @@ function createMockDatabase(
   } as unknown as jest.Mocked<ComplianceDatabase>;
 }
 
-function makeStoredFinding(overrides: Partial<StoredFinding> = {}): StoredFinding {
+function makeStoredFinding(
+  overrides: Partial<StoredFinding> = {},
+): StoredFinding {
   return {
     id: 'f-1',
     scanId: 'scan-1',
@@ -50,7 +52,13 @@ function makeStoredFinding(overrides: Partial<StoredFinding> = {}): StoredFindin
 describe('buildRuleMetadataRecords', () => {
   it('builds metadata records from raw findings', () => {
     const raw = [
-      { rule_id: 'r1', stig_id: 'V-001', title: 'Rule 1', severity: 'high', fix_text: '- name: fix\n  test: yes' },
+      {
+        rule_id: 'r1',
+        stig_id: 'V-001',
+        title: 'Rule 1',
+        severity: 'high',
+        fix_text: '- name: fix\n  test: yes',
+      },
       { rule_id: 'r2', stig_id: 'V-002', title: 'Rule 2', severity: 'medium' },
     ];
     const records = buildRuleMetadataRecords(raw);
@@ -156,7 +164,11 @@ describe('FindingsParser.mapRawFinding', () => {
 
   it('JSON-stringifies object evidence', () => {
     const result = parser.mapRawFindingPublic(
-      { rule_id: 'r1', status: 'fail', evidence: { actual: 900, expected: 600 } } as any,
+      {
+        rule_id: 'r1',
+        status: 'fail',
+        evidence: { actual: 900, expected: 600 },
+      } as any,
       'host-1',
       'scan-1',
     );
@@ -174,7 +186,12 @@ describe('FindingsParser.mapRawFinding', () => {
 
   it('uses explicit actual_value and expected_value fields', () => {
     const result = parser.mapRawFindingPublic(
-      { rule_id: 'r1', status: 'fail', actual_value: '0', expected_value: '600' } as any,
+      {
+        rule_id: 'r1',
+        status: 'fail',
+        actual_value: '0',
+        expected_value: '600',
+      } as any,
       'host-1',
       'scan-1',
     );
@@ -184,7 +201,11 @@ describe('FindingsParser.mapRawFinding', () => {
 
   it('extracts actual/expected from object evidence when fields are missing', () => {
     const result = parser.mapRawFindingPublic(
-      { rule_id: 'r1', status: 'fail', evidence: { actual: '0', expected: '600' } } as any,
+      {
+        rule_id: 'r1',
+        status: 'fail',
+        evidence: { actual: '0', expected: '600' },
+      } as any,
       'host-1',
       'scan-1',
     );
@@ -266,7 +287,11 @@ describe('FindingsParser.groupFindingsByRule', () => {
 
   it('maps unknown status to error', () => {
     const findings = [
-      makeStoredFinding({ ruleId: 'r1', host: 'host-1', status: 'notchecked' as any }),
+      makeStoredFinding({
+        ruleId: 'r1',
+        host: 'host-1',
+        status: 'notchecked' as any,
+      }),
     ];
     const grouped = parser.groupFindingsByRule(findings);
     expect(grouped.get('r1')?.hosts[0].status).toBe('error');
@@ -275,7 +300,11 @@ describe('FindingsParser.groupFindingsByRule', () => {
   it('preserves findingState on hosts', () => {
     const findings = [
       makeStoredFinding({ ruleId: 'r1', host: 'host-1', findingState: 'new' }),
-      makeStoredFinding({ ruleId: 'r1', host: 'host-2', findingState: 'fixed' }),
+      makeStoredFinding({
+        ruleId: 'r1',
+        host: 'host-2',
+        findingState: 'fixed',
+      }),
     ];
     const grouped = parser.groupFindingsByRule(findings);
     const hosts = grouped.get('r1')?.hosts ?? [];
@@ -322,11 +351,20 @@ describe('FindingsParser.buildMultiHostFindings', () => {
       makeStoredFinding({ ruleId: 'r1', host: 'h1', findingState: 'new' }),
       makeStoredFinding({ ruleId: 'r1', host: 'h2', findingState: 'active' }),
       makeStoredFinding({ ruleId: 'r1', host: 'h3', findingState: 'fixed' }),
-      makeStoredFinding({ ruleId: 'r1', host: 'h4', findingState: 'resurfaced' }),
+      makeStoredFinding({
+        ruleId: 'r1',
+        host: 'h4',
+        findingState: 'resurfaced',
+      }),
     ];
     const byRule = parser.groupFindingsByRule(findings);
     const multi = parser.buildMultiHostFindings(byRule, new Map());
-    expect(multi[0].stateSummary).toEqual({ new: 1, active: 1, fixed: 1, resurfaced: 1 });
+    expect(multi[0].stateSummary).toEqual({
+      new: 1,
+      active: 1,
+      fixed: 1,
+      resurfaced: 1,
+    });
   });
 
   it('enriches with DB metadata when available', () => {
@@ -334,20 +372,23 @@ describe('FindingsParser.buildMultiHostFindings', () => {
       makeStoredFinding({ ruleId: 'r1', host: 'h1', severity: 'CAT_I' }),
     ];
     const dbMeta = new Map<string, RuleMetadataRecord>([
-      ['r1', {
-        ruleId: 'r1',
-        stigId: 'V-999',
-        title: 'DB Title',
-        description: 'DB Description',
-        checkText: 'DB Check',
-        fixText: '- name: fix\n  test: yes',
-        category: 'Network',
-        disruption: 'high' as const,
-        aapImpact: 'caution' as const,
-        aapImpactReason: 'May disrupt SSH',
-        scanner: 'openscap',
-        updatedAt: '2026-01-01T00:00:00Z',
-      }],
+      [
+        'r1',
+        {
+          ruleId: 'r1',
+          stigId: 'V-999',
+          title: 'DB Title',
+          description: 'DB Description',
+          checkText: 'DB Check',
+          fixText: '- name: fix\n  test: yes',
+          category: 'Network',
+          disruption: 'high' as const,
+          aapImpact: 'caution' as const,
+          aapImpactReason: 'May disrupt SSH',
+          scanner: 'openscap',
+          updatedAt: '2026-01-01T00:00:00Z',
+        },
+      ],
     ]);
     const byRule = parser.groupFindingsByRule(findings);
     const multi = parser.buildMultiHostFindings(byRule, dbMeta);
@@ -362,12 +403,23 @@ describe('FindingsParser.buildMultiHostFindings', () => {
   it('detects automationAvailable from fixText YAML pattern', () => {
     const findings = [makeStoredFinding({ ruleId: 'r1', host: 'h1' })];
     const dbMeta = new Map<string, RuleMetadataRecord>([
-      ['r1', {
-        ruleId: 'r1', stigId: '', title: 'R1', description: '', checkText: '',
-        fixText: 'Just a text description, no YAML',
-        category: '', disruption: 'low' as const, aapImpact: 'safe' as const,
-        aapImpactReason: '', scanner: 'openscap', updatedAt: '',
-      }],
+      [
+        'r1',
+        {
+          ruleId: 'r1',
+          stigId: '',
+          title: 'R1',
+          description: '',
+          checkText: '',
+          fixText: 'Just a text description, no YAML',
+          category: '',
+          disruption: 'low' as const,
+          aapImpact: 'safe' as const,
+          aapImpactReason: '',
+          scanner: 'openscap',
+          updatedAt: '',
+        },
+      ],
     ]);
     const byRule = parser.groupFindingsByRule(findings);
     const multi = parser.buildMultiHostFindings(byRule, dbMeta);
@@ -376,7 +428,12 @@ describe('FindingsParser.buildMultiHostFindings', () => {
 
   it('falls back to finding data when no DB metadata', () => {
     const findings = [
-      makeStoredFinding({ ruleId: 'r1', host: 'h1', stigId: 'V-100', severity: 'CAT_I' }),
+      makeStoredFinding({
+        ruleId: 'r1',
+        host: 'h1',
+        stigId: 'V-100',
+        severity: 'CAT_I',
+      }),
     ];
     const byRule = parser.groupFindingsByRule(findings);
     const multi = parser.buildMultiHostFindings(byRule, new Map());
@@ -433,12 +490,23 @@ describe('FindingsParser.aggregateFindingsWithMetadata', () => {
     const db = createMockDatabase({
       getRuleMetadataBulk: jest.fn().mockResolvedValue(
         new Map([
-          ['r1', {
-            ruleId: 'r1', stigId: 'V-100', title: 'Enriched Title',
-            description: '', checkText: '', fixText: '', category: '',
-            disruption: 'low', aapImpact: 'safe', aapImpactReason: '',
-            scanner: 'openscap', updatedAt: '',
-          }],
+          [
+            'r1',
+            {
+              ruleId: 'r1',
+              stigId: 'V-100',
+              title: 'Enriched Title',
+              description: '',
+              checkText: '',
+              fixText: '',
+              category: '',
+              disruption: 'low',
+              aapImpact: 'safe',
+              aapImpactReason: '',
+              scanner: 'openscap',
+              updatedAt: '',
+            },
+          ],
         ]),
       ),
     });
@@ -485,9 +553,7 @@ describe('FindingsParser.parseJobEvents', () => {
       event_data: {
         host: 'web-01',
         res: {
-          findings: [
-            { rule_id: 'r1', status: 'fail', severity: 'high' },
-          ],
+          findings: [{ rule_id: 'r1', status: 'fail', severity: 'high' }],
         },
       },
       ...overrides,
@@ -504,34 +570,40 @@ describe('FindingsParser.parseJobEvents', () => {
   });
 
   it('parses findings from res.ansible_facts.findings', () => {
-    const events = [makeEvent({
-      event_data: {
-        host: 'web-01',
-        res: {
-          ansible_facts: {
-            findings: [{ rule_id: 'r2', status: 'pass', severity: 'low' }],
+    const events = [
+      makeEvent({
+        event_data: {
+          host: 'web-01',
+          res: {
+            ansible_facts: {
+              findings: [{ rule_id: 'r2', status: 'pass', severity: 'low' }],
+            },
           },
         },
-      },
-    } as any)];
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-2');
     expect(results).toHaveLength(1);
     expect(results[0].ruleId).toBe('r2');
   });
 
   it('parses findings from res.ansible_facts.compliance_results.findings', () => {
-    const events = [makeEvent({
-      event_data: {
-        host: 'db-01',
-        res: {
-          ansible_facts: {
-            compliance_results: {
-              findings: [{ rule_id: 'r3', status: 'fail', severity: 'medium' }],
+    const events = [
+      makeEvent({
+        event_data: {
+          host: 'db-01',
+          res: {
+            ansible_facts: {
+              compliance_results: {
+                findings: [
+                  { rule_id: 'r3', status: 'fail', severity: 'medium' },
+                ],
+              },
             },
           },
         },
-      },
-    } as any)];
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-3');
     expect(results).toHaveLength(1);
     expect(results[0].ruleId).toBe('r3');
@@ -539,30 +611,38 @@ describe('FindingsParser.parseJobEvents', () => {
   });
 
   it('skips events with no res field', () => {
-    const events = [makeEvent({
-      event_data: { host: 'web-01' },
-    } as any)];
+    const events = [
+      makeEvent({
+        event_data: { host: 'web-01' },
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-1');
     expect(results).toHaveLength(0);
   });
 
   it('skips events with no findings', () => {
-    const events = [makeEvent({
-      event_data: { host: 'web-01', res: { changed: false } },
-    } as any)];
+    const events = [
+      makeEvent({
+        event_data: { host: 'web-01', res: { changed: false } },
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-1');
     expect(results).toHaveLength(0);
   });
 
   it('uses raw.host if available (Track A per-host)', () => {
-    const events = [makeEvent({
-      event_data: {
-        host: 'localhost',
-        res: {
-          findings: [{ rule_id: 'r1', status: 'fail', host: 'actual-host-01' }],
+    const events = [
+      makeEvent({
+        event_data: {
+          host: 'localhost',
+          res: {
+            findings: [
+              { rule_id: 'r1', status: 'fail', host: 'actual-host-01' },
+            ],
+          },
         },
-      },
-    } as any)];
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-1');
     expect(results[0].host).toBe('actual-host-01');
   });
@@ -584,9 +664,7 @@ describe('FindingsParser.parseJobEvents', () => {
         event_data: {
           host: 'h2',
           res: {
-            findings: [
-              { rule_id: 'r1', status: 'fail', severity: 'low' },
-            ],
+            findings: [{ rule_id: 'r1', status: 'fail', severity: 'low' }],
           },
         },
       } as any),
@@ -596,14 +674,16 @@ describe('FindingsParser.parseJobEvents', () => {
   });
 
   it('falls back to host_name when event_data.host is missing', () => {
-    const events = [makeEvent({
-      host_name: 'from-host-name',
-      event_data: {
-        res: {
-          findings: [{ rule_id: 'r1', status: 'pass' }],
+    const events = [
+      makeEvent({
+        host_name: 'from-host-name',
+        event_data: {
+          res: {
+            findings: [{ rule_id: 'r1', status: 'pass' }],
+          },
         },
-      },
-    } as any)];
+      } as any),
+    ];
     const results = parser.parseJobEvents(events, 'scan-1');
     expect(results[0].host).toBe('from-host-name');
   });

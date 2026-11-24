@@ -16,11 +16,11 @@ concept and adapted to the Portal SDK and monorepo conventions.
 
 ## Plugins
 
-| Directory                     | Package                              | Role             |
-| ------------------------------ | ------------------------------------- | ---------------- |
-| `plugins/compliance`           | `@ansible/plugin-compliance`          | Frontend plugin  |
-| `plugins/compliance-backend`   | `@ansible/plugin-compliance-backend`  | Backend plugin   |
-| `plugins/compliance-common`    | `@ansible/compliance-common`          | Common library   |
+| Directory                    | Package                              | Role            |
+| ---------------------------- | ------------------------------------ | --------------- |
+| `plugins/compliance`         | `@ansible/plugin-compliance`         | Frontend plugin |
+| `plugins/compliance-backend` | `@ansible/plugin-compliance-backend` | Backend plugin  |
+| `plugins/compliance-common`  | `@ansible/compliance-common`         | Common library  |
 
 The backend package is registered in the development backend at
 `workspaces/portal-core/packages/backend/src/index.ts`.

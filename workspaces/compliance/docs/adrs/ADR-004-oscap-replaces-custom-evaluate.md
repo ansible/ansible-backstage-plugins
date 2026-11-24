@@ -1,11 +1,12 @@
 ---
-title: "ADR-004: OpenSCAP Replaces Custom Evaluate Module"
-description: "The original scanning pipeline used two custom Ansible modules:"
+title: 'ADR-004: OpenSCAP Replaces Custom Evaluate Module'
+description: 'The original scanning pipeline used two custom Ansible modules:'
 type: adr
 status: accepted
 date: 2026-05-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-004: OpenSCAP Replaces Custom Evaluate Module
 
 **Status:** Accepted

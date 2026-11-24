@@ -10,11 +10,14 @@ function slugify(name: string): string {
 
 export async function up(knex: Knex): Promise<void> {
   await knex.raw('PRAGMA foreign_keys = OFF').catch(() => {});
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.string('profile_slug', 128).nullable();
   });
 
-  const profiles = await knex('compliance_profile_registry').select('id', 'display_name');
+  const profiles = await knex('compliance_profile_registry').select(
+    'id',
+    'display_name',
+  );
   const usedSlugs = new Set<string>();
   for (const p of profiles) {
     const slug = slugify(p.display_name as string);
@@ -30,31 +33,31 @@ export async function up(knex: Knex): Promise<void> {
       .update({ profile_slug: candidate });
   }
 
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.string('profile_slug', 128).notNullable().alter();
     table.unique(['profile_slug']);
   });
 
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.dropUnique(['framework', 'display_name']);
   });
 
-  await knex.schema.alterTable('compliance_scans', (table) => {
+  await knex.schema.alterTable('compliance_scans', table => {
     table.string('profile_version', 64).nullable();
   });
   await knex.raw('PRAGMA foreign_keys = ON').catch(() => {});
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.alterTable('compliance_scans', (table) => {
+  await knex.schema.alterTable('compliance_scans', table => {
     table.dropColumn('profile_version');
   });
 
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.unique(['framework', 'display_name']);
   });
 
-  await knex.schema.alterTable('compliance_profile_registry', (table) => {
+  await knex.schema.alterTable('compliance_profile_registry', table => {
     table.dropUnique(['profile_slug']);
     table.dropColumn('profile_slug');
   });

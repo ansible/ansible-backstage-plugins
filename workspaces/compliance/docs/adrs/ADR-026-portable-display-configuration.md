@@ -6,6 +6,7 @@ status: accepted
 date: 2026-06-25
 product: "AAP Compliance Dashboard"
 ---
+
 # ADR-026: Portable Display Configuration
 
 **Status:** Accepted

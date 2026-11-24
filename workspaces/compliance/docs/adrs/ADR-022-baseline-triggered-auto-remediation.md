@@ -1,16 +1,17 @@
 ---
-title: "ADR-022: Baseline-Triggered Auto-Remediation"
+title: 'ADR-022: Baseline-Triggered Auto-Remediation'
 description: "The compliance plugin's remediation lifecycle (ADR-014) is human-in-the-loop by design: a user scans, reviews findings, "
 type: adr
 status: proposed
 date: 2026-06-09
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-022: Baseline-Triggered Auto-Remediation
 
-**Status:** Proposed (design phase)  
-**Date:** 2026-06-09  
-**Deciders:** Massimo Ferrari  
+**Status:** Proposed (design phase)
+**Date:** 2026-06-09
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -28,6 +29,7 @@ User testing on 2026-06-09 surfaced a clear demand for closed-loop automation: w
 ### Competitive Landscape
 
 No competitor offers closed-loop scan → remediate → verify:
+
 - **Puppet Comply/Enforce:** Convergence model (drift correction), but no structured verification scan
 - **Chef InSpec + Automate:** Detect-correct-detect possible, but manual wiring
 - **Red Hat Insights:** Auto-remediation via playbooks, but no structured post-remediation verification
@@ -38,6 +40,7 @@ No competitor offers closed-loop scan → remediate → verify:
 ### §1 — Remove "Evaluate Only" Toggle
 
 The `ScanLauncher` "Evaluate Only" toggle is misleading and must be removed. Replace with:
+
 - **Default scan mode:** Assessment only (current behavior, no toggle needed)
 - **Auto-remediate checkbox:** Visible only when a baseline is pinned for the selected profile+inventory. Checked = full pipeline; unchecked = assessment only.
 
@@ -58,6 +61,7 @@ Each phase creates its own record (scan, execution, verification scan). The exec
 Auto-remediation requires explicit opt-in per baseline target. Add `auto_remediate BOOLEAN DEFAULT FALSE` to `compliance_baseline_targets`. The pin dialog gains a checkbox: "Automatically remediate when scanning this inventory."
 
 Auto-remediation is **only** available when:
+
 - A baseline is pinned for the `(compliance_profile_id, inventory_id)` pair
 - The pinned remediation profile has `status = 'saved'`
 - `auto_remediate = true` on the baseline target
@@ -66,14 +70,14 @@ Auto-remediation is **only** available when:
 
 Auto-remediation without human review is the most dangerous operation in the plugin. Required guardrails:
 
-| Guardrail | Mechanism |
-|-----------|-----------|
-| **Baseline-only** | Only pinned remediation profiles can be auto-applied (curated, reviewed rule set) |
-| **Disruption gate** | Skip rules with `disruption = 'high'` in auto mode (configurable) |
-| **Rate limiting** | Max 1 auto-remediation per inventory per 24h (prevents runaway loops) |
-| **Dry-run default** | First auto-remediation for a new baseline target runs in dry-run mode (log-only) |
-| **Circuit breaker** | If post-remediation pass rate drops below pre-remediation pass rate, halt and alert |
-| **Audit trail** | `trigger_source = 'auto-baseline'` on execution records + "Auto-Remediated" label in UI |
+| Guardrail           | Mechanism                                                                               |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| **Baseline-only**   | Only pinned remediation profiles can be auto-applied (curated, reviewed rule set)       |
+| **Disruption gate** | Skip rules with `disruption = 'high'` in auto mode (configurable)                       |
+| **Rate limiting**   | Max 1 auto-remediation per inventory per 24h (prevents runaway loops)                   |
+| **Dry-run default** | First auto-remediation for a new baseline target runs in dry-run mode (log-only)        |
+| **Circuit breaker** | If post-remediation pass rate drops below pre-remediation pass rate, halt and alert     |
+| **Audit trail**     | `trigger_source = 'auto-baseline'` on execution records + "Auto-Remediated" label in UI |
 
 ### §5 — UI Indicators
 
@@ -85,6 +89,7 @@ Auto-remediation without human review is the most dangerous operation in the plu
 ### §6 — EDA Integration Path (Future)
 
 The natural evolution is to replace the backend polling loop with an EDA rulebook activation:
+
 - Event source: Controller job completion webhook
 - Condition: `event.status == 'successful' AND baseline_pinned(event.inventory_id, event.profile_id)`
 - Action: Launch remediation JT + verification scan

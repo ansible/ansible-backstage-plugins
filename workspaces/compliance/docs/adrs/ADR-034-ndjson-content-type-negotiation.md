@@ -1,16 +1,17 @@
 ---
-title: "ADR-034: NDJSON Content-Type Negotiation"
-description: "Supply chain scans produce 40,000+ findings per host (CVE matches against every installed package)"
+title: 'ADR-034: NDJSON Content-Type Negotiation'
+description: 'Supply chain scans produce 40,000+ findings per host (CVE matches against every installed package)'
 type: adr
 status: accepted
 date: 2026-06-26
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-034: NDJSON Content-Type Negotiation
 
-**Status:** Accepted  
-**Date:** 2026-06-26  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-26
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -128,14 +129,14 @@ All profiles now use the same NDJSON playbook pattern:
 - name: Normalize results to CFF (per-host)
   <namespace>.<collection>.normalize_<format>:
     <input_param>:
-      - "{{ item.path }}"
-    output_file: "{{ results_dir }}/findings-{{ _hostname }}.json"
+      - '{{ item.path }}'
+    output_file: '{{ results_dir }}/findings-{{ _hostname }}.json'
     compose_post_body: "{{ (backstage_api_url | default('')) | length > 0 }}"
     scan_id: "{{ scan_id | default('') }}"
     ingest_token: "{{ ingest_token | default('') }}"
-    finalize: "{{ ansible_loop.last | default(false) }}"
+    finalize: '{{ ansible_loop.last | default(false) }}'
     post_body_format: ndjson
-  loop: "{{ _result_files.files }}"
+  loop: '{{ _result_files.files }}'
   loop_control:
     extended: true
   register: _normalized
@@ -148,15 +149,15 @@ All profiles now use the same NDJSON playbook pattern:
 # Find and POST composed NDJSON body files
 - name: Find per-host POST body files
   ansible.builtin.find:
-    paths: "{{ results_dir }}"
-    patterns: "*.ndjson"
+    paths: '{{ results_dir }}'
+    patterns: '*.ndjson'
   register: _post_body_files
 
 - name: POST findings per-host to Portal compliance API (NDJSON)
   ansible.builtin.uri:
-    url: "{{ backstage_api_url }}/api/compliance/findings/ingest"
+    url: '{{ backstage_api_url }}/api/compliance/findings/ingest'
     method: POST
-    src: "{{ item.path }}"
+    src: '{{ item.path }}'
     headers:
       Content-Type: application/x-ndjson
     status_code: [201]
@@ -169,7 +170,7 @@ All profiles now use the same NDJSON playbook pattern:
 
 - name: Assert at least one POST succeeded
   ansible.builtin.fail:
-    msg: "All NDJSON POSTs failed -- check backstage_api_url and ingest_token"
+    msg: 'All NDJSON POSTs failed -- check backstage_api_url and ingest_token'
   when: _post_results.results | selectattr('status', 'defined') | selectattr('status', 'equalto', 201) | list | length == 0
 ```
 

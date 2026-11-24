@@ -1,11 +1,12 @@
 ---
-title: "ADR-010: Per-Scan Ingest Token for Findings Submission Security"
+title: 'ADR-010: Per-Scan Ingest Token for Findings Submission Security'
 description: "ADR-007 introduces direct POST of findings from the playbook to the plugin's `/findings/ingest` endpoint"
 type: adr
 status: accepted
 date: 2026-05-27
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-010: Per-Scan Ingest Token for Findings Submission Security
 
 **Status:** Accepted (implemented in PR #19)
@@ -17,6 +18,7 @@ product: "AAP Compliance Dashboard"
 ADR-007 introduces direct POST of findings from the playbook to the plugin's `/findings/ingest` endpoint. This creates a new auth surface: any entity with network access to the Backstage backend could submit fabricated findings if the endpoint is unprotected.
 
 Options considered:
+
 1. **No auth** -- rely on network segmentation only. Rejected: insufficient for shared clusters.
 2. **Static API key** -- single shared secret. Rejected: key rotation burden, no per-scan scoping.
 3. **Per-scan ingest token** -- backend generates a unique token at scan launch, passes it as extra_var, validates on ingest. Accepted.

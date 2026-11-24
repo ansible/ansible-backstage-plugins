@@ -1,27 +1,28 @@
 ---
-title: "ADR-031: Private Automation Hub for Execution Environment Images"
-description: "Compliance profile Execution Environments (EEs) are OCI container images built via GitHub Actions (`"
+title: 'ADR-031: Private Automation Hub for Execution Environment Images'
+description: 'Compliance profile Execution Environments (EEs) are OCI container images built via GitHub Actions (`'
 type: adr
 status: accepted
 date: 2026-06-25
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-031: Private Automation Hub for Execution Environment Images
 
-**Status:** Accepted  
-**Date:** 2026-06-25  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted
+**Date:** 2026-06-25
+**Deciders:** Massimo Ferrari
 
 ## Context
 
 Compliance profile Execution Environments (EEs) are OCI container images built via GitHub Actions (`.github/workflows/build-ee.yml`). Each profile has its own EE containing scanner-specific tools:
 
-| Profile | EE Contents | Controller EE ID |
-|---------|------------|-----------------|
-| STIG RHEL 9 | scap-security-guide, openscap-scanner | 8 |
-| CIS L1 RHEL 9 | scap-security-guide, openscap-scanner | 10 |
-| CIS L2 RHEL 9 | scap-security-guide, openscap-scanner | 11 |
-| Supply Chain | Syft 1.20.0, Grype 0.90.0 (pre-cached CVE DB) | 16 |
+| Profile       | EE Contents                                   | Controller EE ID |
+| ------------- | --------------------------------------------- | ---------------- |
+| STIG RHEL 9   | scap-security-guide, openscap-scanner         | 8                |
+| CIS L1 RHEL 9 | scap-security-guide, openscap-scanner         | 10               |
+| CIS L2 RHEL 9 | scap-security-guide, openscap-scanner         | 11               |
+| Supply Chain  | Syft 1.20.0, Grype 0.90.0 (pre-cached CVE DB) | 16               |
 
 Previously, EE images were pushed to GitHub Container Registry (GHCR) at `ghcr.io/cross-logic/compliance-*:latest`. This required:
 

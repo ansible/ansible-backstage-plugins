@@ -1,16 +1,17 @@
 ---
-title: "ADR-018: Findings Deduplication via Unique Constraint"
-description: "Duplicate findings rows were observed in the `compliance_findings` table under several scenarios:"
+title: 'ADR-018: Findings Deduplication via Unique Constraint'
+description: 'Duplicate findings rows were observed in the `compliance_findings` table under several scenarios:'
 type: adr
 status: accepted
 date: 2026-06-06
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-018: Findings Deduplication via Unique Constraint
 
-**Status:** Accepted (implemented 2026-06-06)  
-**Date:** 2026-06-06  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (implemented 2026-06-06)
+**Date:** 2026-06-06
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -46,6 +47,7 @@ Enforce uniqueness at the database level with a UNIQUE constraint on `compliance
 ### Merge strategy
 
 On conflict, the later-arriving row wins for all mutable columns. This is correct because:
+
 - A retry sends the same data (idempotent merge).
 - The event fallback path produces the same data as Direct POST (same normalizer output).
 - If data differs (e.g., a re-scan of the same host within the same scan_id, which should not happen), the latest status is the most accurate.

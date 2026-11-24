@@ -1,16 +1,17 @@
 ---
-title: "ADR-024: Compliance Score Trend Chart Redesign"
-description: "The original compliance score trend chart was a hand-rolled SVG component (160 lines inline in `ComplianceDashboard"
+title: 'ADR-024: Compliance Score Trend Chart Redesign'
+description: 'The original compliance score trend chart was a hand-rolled SVG component (160 lines inline in `ComplianceDashboard'
 type: adr
 status: accepted
 date: 2026-06-11
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-024: Compliance Score Trend Chart Redesign
 
-**Status:** Accepted (Implemented 2026-06-11)  
-**Date:** 2026-06-11  
-**Deciders:** Massimo Ferrari  
+**Status:** Accepted (Implemented 2026-06-11)
+**Date:** 2026-06-11
+**Deciders:** Massimo Ferrari
 
 ## Context
 
@@ -19,6 +20,7 @@ The original compliance score trend chart was a hand-rolled SVG component (160 l
 ### Competitive Research (2026-06-11)
 
 Research across 11 platforms (Drata, Vanta, Qualys, Tenable, Wiz, Datadog, Grafana, SonarQube, Snyk, CIS-CAT Pro, Puppet Comply) found:
+
 - **Every platform** scopes trends per-standard with a selector, not a single blended line
 - **CIS-CAT Pro**: each selected benchmark gets its own line on the graph
 - **Datadog/Grafana**: event annotations (vertical lines) mark deployments/incidents on the timeline
@@ -40,6 +42,7 @@ Use Recharts library for the trend chart. Provides custom dots, reference lines,
 **Filter controls**: Two `MultiFilterGroup` chip groups (Profiles, Inventories) with expandable child chips. Active filter pills row shows selected items with dismiss buttons (X) and a "Clear all" chip. Follows the same chip pattern as the ResultsViewer findings filter.
 
 **Supported combinations**:
+
 - Multiple profiles, no inventory filter → one line per selected profile
 - One profile, no inventory filter → single-line with regression/improvement event markers
 - One or more profiles + one or more inventories → one line per profile×inventory combination, with composite labels (e.g., "DISA STIG — Production")
@@ -72,6 +75,7 @@ Compare consecutive `PostureSnapshot` points to detect regressions/improvements.
 ## Implementation Notes (2026-06-11, updated 2026-06-17)
 
 Fully implemented and merged:
+
 - `PostureTrendChart.tsx` — Recharts component with chip-based multi-select filters
 - `TrendFilterBar.tsx` — filter bar with `MultiFilterGroup` components and active filter pills
 - `MultiFilterGroup.tsx` — reusable multi-select chip filter in `shared/` (extends `FilterOption` from `FilterGroup`)

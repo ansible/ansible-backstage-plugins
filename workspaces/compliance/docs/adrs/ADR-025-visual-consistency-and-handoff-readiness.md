@@ -1,15 +1,16 @@
 ---
-title: "ADR-025: Visual Consistency and Handoff Readiness"
-description: "An architect review compared our compliance plugin against the downstream `ansible-backstage-plugins` reference implemen"
+title: 'ADR-025: Visual Consistency and Handoff Readiness'
+description: 'An architect review compared our compliance plugin against the downstream `ansible-backstage-plugins` reference implemen'
 type: adr
 status: accepted
 date: 2026-04-23
-product: "AAP Compliance Dashboard"
+product: 'AAP Compliance Dashboard'
 ---
+
 # ADR-025: Visual Consistency and Handoff Readiness
 
-**Status**: Accepted  
-**Date**: 2026-06-11  
+**Status**: Accepted
+**Date**: 2026-06-11
 **Author**: Claude (Architect review)
 
 ## Context
