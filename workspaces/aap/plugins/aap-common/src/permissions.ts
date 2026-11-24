@@ -1,13 +1,10 @@
-import {
-  gitRepositoriesViewPermission,
-  collectionsViewPermission,
-  templatesViewPermission,
-  historyViewPermission,
-} from '@ansible/portal-extension-common';
+import type { BasicPermission } from '@backstage/plugin-permission-common';
 
 import {
   executionEnvironmentsViewPermission,
   executionEnvironmentsBuildPermission,
+  gitRepositoriesViewPermission,
+  collectionsViewPermission,
 } from '@ansible/automation-content-common/permissions';
 
 /** @deprecated Import from @ansible/automation-content-common/permissions. */
@@ -16,17 +13,20 @@ export {
   executionEnvironmentsBuildPermission,
 };
 
-/** @deprecated Import from @ansible/portal-extension-common. */
-export { gitRepositoriesViewPermission };
+/** @deprecated Import content permissions from @ansible/automation-content-common/permissions. */
+export { gitRepositoriesViewPermission, collectionsViewPermission };
 
-/** @deprecated Import from @ansible/portal-extension-common. */
-export { collectionsViewPermission };
+export const templatesViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.templates.view',
+  attributes: {},
+};
 
-/** @deprecated Import from @ansible/portal-extension-common. */
-export { templatesViewPermission };
-
-/** @deprecated Import from @ansible/portal-extension-common. */
-export { historyViewPermission };
+export const historyViewPermission: BasicPermission = {
+  type: 'basic',
+  name: 'ansible.history.view',
+  attributes: {},
+};
 
 export const ansiblePermissions = [
   executionEnvironmentsBuildPermission,

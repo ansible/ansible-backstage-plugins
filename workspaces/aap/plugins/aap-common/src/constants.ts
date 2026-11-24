@@ -1,5 +1,5 @@
-/** @deprecated Import the shared version helper from @ansible/portal-extension-common. */
-export { compareVersions } from '@ansible/portal-extension-common';
+/** @deprecated Import the shared version helper from @ansible/automation-content-common/versions. */
+export { compareVersions } from '@ansible/automation-content-common/versions';
 
 export const TERMINAL_JOB_STATUSES = new Set([
   'successful',
