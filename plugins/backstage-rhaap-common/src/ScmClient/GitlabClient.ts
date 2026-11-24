@@ -83,7 +83,7 @@ export class GitlabClient extends BaseScmClient {
     };
     const response = this.checkSSL
       ? await fetch(url, opts)
-      : await undiciFetch(url, opts);
+      : await undiciFetch(url, opts as Parameters<typeof undiciFetch>[1]);
     const text = await response.text();
     let data: T | undefined;
     try {
