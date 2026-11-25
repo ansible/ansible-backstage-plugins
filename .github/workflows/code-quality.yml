@@ -11,6 +11,9 @@ on:
     types:
       - completed
 
+# Deny the default GITHUB_TOKEN scope; jobs request what they need below.
+permissions: {}
+
 # workflow_run has no github.event.pull_request.number and github.ref is the
 # default branch, so the old group collapsed every PR scan onto main.
 concurrency:
@@ -131,24 +134,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ ! "${HEAD_SHA}" =~ ^[0-9a-fA-F]{40,64}$ ]]; then
+            echo "::error::Invalid workflow_run head SHA"
+            exit 1
+          fi
+
           if [[ -z "${HEAD_BRANCH}" || -z "${HEAD_REPOSITORY}" ]]; then
-            echo "::error::Missing workflow_run head_branch/head_repository for SHA ${HEAD_SHA}"
+            echo "::error::Missing workflow_run head_branch/head_repository"
             exit 1
           fi
 
           HEAD_OWNER="${HEAD_REPOSITORY%%/*}"
 
+          # Fork branch names can include jq metacharacters. Bind them with --arg
+          # instead of interpolating into the filter source.
+          matching_pr_numbers() {
+            jq -c --arg sha "${HEAD_SHA}" --arg branch "${HEAD_BRANCH}" --arg repo "${HEAD_REPOSITORY}" \
+              '[.[] | select(.head.sha == $sha and .head.ref == $branch and .head.repo.full_name == $repo) | .number]'
+          }
+
           pr_matches_run() {
             local number="$1"
-            local data
-            data=$(gh api "repos/${REPO}/pulls/${number}")
-            local pr_head_sha pr_head_ref pr_head_repo
-            pr_head_sha=$(jq -r '.head.sha' <<< "${data}")
-            pr_head_ref=$(jq -r '.head.ref' <<< "${data}")
-            pr_head_repo=$(jq -r '.head.repo.full_name' <<< "${data}")
-            [[ "${pr_head_sha}" == "${HEAD_SHA}" &&
-               "${pr_head_ref}" == "${HEAD_BRANCH}" &&
-               "${pr_head_repo}" == "${HEAD_REPOSITORY}" ]]
+            gh api "repos/${REPO}/pulls/${number}" \
+              | jq -e --arg sha "${HEAD_SHA}" --arg branch "${HEAD_BRANCH}" --arg repo "${HEAD_REPOSITORY}" \
+                '(.head.sha == $sha) and (.head.ref == $branch) and (.head.repo.full_name == $repo)' \
+              >/dev/null
           }
 
           if [[ "${PR_NUMBER}" =~ ^[0-9]+$ ]] && ! pr_matches_run "${PR_NUMBER}"; then
@@ -161,7 +171,7 @@ jobs:
             MATCHING=$(gh api \
               -H "Accept: application/vnd.github+json" \
               "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-              --jq "[.[] | select(.head.sha == \"${HEAD_SHA}\" and .head.ref == \"${HEAD_BRANCH}\" and .head.repo.full_name == \"${HEAD_REPOSITORY}\") | .number]")
+              | matching_pr_numbers)
             MATCH_COUNT=$(jq 'length' <<< "${MATCHING}")
             if [[ "${MATCH_COUNT}" -eq 1 ]]; then
               PR_NUMBER=$(jq -r '.[0]' <<< "${MATCHING}")
@@ -176,11 +186,13 @@ jobs:
           if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
             MATCHES=$(gh api \
               -H "Accept: application/vnd.github+json" \
-              "repos/${REPO}/pulls?state=open&head=${HEAD_OWNER}:${HEAD_BRANCH}" \
-              --jq "[.[] | select(.head.sha == \"${HEAD_SHA}\" and .head.repo.full_name == \"${HEAD_REPOSITORY}\") | .number]")
+              "repos/${REPO}/pulls" \
+              -f state=open \
+              -f "head=${HEAD_OWNER}:${HEAD_BRANCH}" \
+              | matching_pr_numbers)
             MATCH_COUNT=$(jq 'length' <<< "${MATCHES}")
             if [[ "${MATCH_COUNT}" -ne 1 ]]; then
-              echo "::error::Expected exactly one open PR for ${HEAD_OWNER}:${HEAD_BRANCH}@${HEAD_SHA}, found ${MATCH_COUNT}: ${MATCHES}"
+              echo "::error::Expected exactly one open PR for this workflow_run head, found ${MATCH_COUNT}"
               exit 1
             fi
             PR_NUMBER=$(jq -r '.[0]' <<< "${MATCHES}")
