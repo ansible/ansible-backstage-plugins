@@ -184,7 +184,9 @@ jobs:
           # and workflow_run.pull_requests. Resolve via trusted head owner:branch,
           # then require an exact head OID match (fail if 0 or >1).
           if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
-            MATCHES=$(gh api \
+            # -f selects POST unless the method is explicit, which would hit
+            # create-PR instead of listing open PRs.
+            MATCHES=$(gh api --method GET \
               -H "Accept: application/vnd.github+json" \
               "repos/${REPO}/pulls" \
               -f state=open \
