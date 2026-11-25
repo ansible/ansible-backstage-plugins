@@ -1270,6 +1270,8 @@ The record for Appendix A, in full:
   Backstage's page and `templateFilter` is the input it lacks;
   `portal-scaffolder` in this repository owns the page to be deleted, not the
   gap.
+- **Custom kind:** Platform-gap custom (the template list exists because
+  `templateFilter` is missing from the stock page).
 - **Reversal cost:** medium. The page has a route and a nav item, so removing it
   leaves bookmarks that 404.
 
@@ -1287,8 +1289,8 @@ A reviewer needs four answers, and the record supplies them in this order:
 - If this ships and the product moves, what does it cost to take back out?
 - Who owned navigation and continuity, and is that in the record?
 
-A record that cannot answer those three is not ready to merge, and the answer is
-more analysis rather than more code.
+A record that cannot answer these is not ready to merge, and the answer is more
+analysis rather than more code.
 
 ## Appendix A — Create execution environment
 
@@ -1427,9 +1429,9 @@ must not be folded into one "custom UI" story.
 
 ## Appendix B — APME quality workflow
 
-The other end of the range. Where Appendix A stops at L3 with nothing of ours to
-carry, this one carries a region of bespoke UI — and the interesting part is
-that most of its surface was never justified by a missing shape.
+The other end of the range. This one carries a region of bespoke UI — and the
+interesting part is that most of its surface was never justified by a missing
+shape.
 
 For the execution environment template form fields — base image selection and
 the rest — see `A.4`. They are not this appendix's subject, and the two records
@@ -1977,12 +1979,13 @@ The first is that RHDH could do it at all only because RHDH is the app: it owns
 override there replaces RHDH's declaration rather than adding to it.
 
 The second is the cost nobody prices. RHDH declares the page with
-`PageBlueprint.make`, not with `catalogPage.makeWithOverrides`. The `filters`
-input belongs to `catalogPage`, not to `PageBlueprint`, so the replacement page
-has no such input — which is why `CustomCatalogFilters` is passed as a prop. The
-stock filter extensions in `alpha/filters.tsx` no longer attach to anything, and
-neither does any third-party filter contribution aimed at `page:catalog`. A
-re-declaration does not copy a page's extension points; it deletes them.
+`PageBlueprint.make`, not with `CatalogPageBlueprint.makeWithOverrides`. The
+`filters` input belongs to `catalogPage`, not to `PageBlueprint`, so the
+replacement page has no such input — which is why `CustomCatalogFilters` is
+passed as a prop. The stock filter extensions in `alpha/filters.tsx` no longer
+attach to anything, and neither does any third-party filter contribution aimed at
+`page:catalog`. A re-declaration does not copy a page's extension points; it
+deletes them.
 
 The asymmetry is worth stating in one line, because it explains why the list
 pages are where the pressure lands. The entity detail page takes contributions
@@ -2094,6 +2097,8 @@ the upstream issue.
   behind them; moving off them again breaks URLs rather than code.
 - **Gap:** slot — `tableColumns` and `tableActions` inputs on `page:catalog`,
   and the loader-less restructure for tabs.
+- **Custom kind:** Platform-gap custom (the shared list component exists because
+  `page:catalog` lacks column and action inputs).
 - **Filing stream:** Backstage upstream, with RHDH as the consumer that should
   delete its fork.
 - **Upstream issue:** `backstage/backstage#33438` for columns and actions, and
