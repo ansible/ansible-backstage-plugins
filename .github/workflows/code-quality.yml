@@ -206,6 +206,21 @@ jobs:
 
           echo "Resolved PR #${PR_NUMBER} (${PR_HEAD} -> ${PR_BASE})"
 
+      # Copy allowlisted settings from the trusted base checkout before replacing
+      # the working tree with fork code. Scanner bootstrap keys (javaExePath, etc.)
+      # are excluded so they cannot run with SONAR_TOKEN / GITHUB_TOKEN.
+      - name: Stage trusted Sonar settings
+        if: github.event_name == 'workflow_run'
+        run: |
+          set -euo pipefail
+          TRUSTED_SETTINGS="${RUNNER_TEMP}/sonar-trusted.properties"
+          : > "${TRUSTED_SETTINGS}"
+          if [[ -f sonar-project.properties ]]; then
+            grep -E '^(sonar\.(projectKey|organization|host\.url|projectName|sources|tests|test\.inclusions|test\.exclusions|exclusions|coverage\.exclusions|javascript\.lcov\.reportPaths|sourceEncoding|typescript\.tsconfigPath|qualitygate\.|cpd\.exclusions|issue\.ignore\.multicriteria))' \
+              sonar-project.properties > "${TRUSTED_SETTINGS}" || true
+          fi
+          echo "SONAR_TRUSTED_SETTINGS=${TRUSTED_SETTINGS}" >> "${GITHUB_ENV}"
+
       - name: Checkout pull request revision
         if: github.event_name == 'workflow_run'
         env:
@@ -216,6 +231,7 @@ jobs:
           git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
           git checkout --detach "${HEAD_SHA}"
           test "$(git rev-parse HEAD)" = "${HEAD_SHA}"
+          rm -f sonar-project.properties .sonarcloud.properties sonar-project.json
 
       - name: SonarCloud Scan (Pull Request)
         if: github.event_name == 'workflow_run'
@@ -225,6 +241,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
+            -Dproject.settings=${{ env.SONAR_TRUSTED_SETTINGS }}
             -Dsonar.organization=${{ env.REPO_OWNER }}
             -Dsonar.projectKey=${{ env.REPO_OWNER }}_${{ env.REPO_NAME }}
             -Dsonar.projectName='ansible-backstage-plugins'
