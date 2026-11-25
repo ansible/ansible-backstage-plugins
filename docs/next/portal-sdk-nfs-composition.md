@@ -305,8 +305,7 @@ its adapter explicitly, including its legacy Settings page.
 
 ### Landing behavior
 
-The Portal host owns `/`. With no `portal.landingPage` override, it opens
-`/self-service` only if that NFS page is mounted. If no destination is available,
+The Portal host owns `/`. With no `portal.landingPage` override, it opens `/create` (previously `/self-service`) only if that NFS page is mounted. If no destination is available,
 Portal displays a neutral welcome message inside the existing app shell instead
 of redirecting to a missing page. This fallback is not a separate content catalog
 or a new homepage design.
@@ -347,7 +346,7 @@ Templates behavior; omit `portal.landingPage` in the minimal configuration.
    normal permission checks still apply. With an unavailable destination, verify
    the neutral fallback rather than a missing-page redirect.
 
-Migration: existing deployments with Templates at `/self-service` need no new
+Migration: existing deployments with Templates at `/create` (previously `/self-service`) need no new
 setting. If NFS configuration moves that page, set `portal.landingPage` to its
 effective path. Deployments without portal-scaffolder may select another
 installed page or leave the host fallback. This does not remove portal-scaffolder

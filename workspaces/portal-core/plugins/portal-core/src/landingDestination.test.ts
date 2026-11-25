@@ -29,7 +29,7 @@ function treeWithPage(
         : {
             getData: (ref: unknown) =>
               ref === coreExtensionData.routePath
-                ? (options.path ?? '/self-service')
+                ? (options.path ?? '/create')
                 : undefined,
           },
   } as unknown as AppNode;
@@ -76,12 +76,12 @@ describe('landing path validation', () => {
 });
 
 describe('installed landing destinations', () => {
-  it('defaults to the installed self-service page', () => {
-    expect(resolveLandingDestination(treeWithPage())).toBe('/self-service');
+  it('defaults to the installed /create page', () => {
+    expect(resolveLandingDestination(treeWithPage())).toBe('/create');
   });
   it('requires an exact installed route rather than a parent route prefix', () => {
     expect(
-      resolveLandingDestination(treeWithPage(), '/self-service/unknown'),
+      resolveLandingDestination(treeWithPage(), '/create/unknown'),
     ).toBeUndefined();
   });
   it.each([

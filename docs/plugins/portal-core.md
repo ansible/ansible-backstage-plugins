@@ -23,7 +23,7 @@ Items may be direct links or expandable groups; selection does not grant access.
 
 ## Landing destination
 
-No landing configuration is required. By default, `/` opens `/self-service`
+No landing configuration is required. By default, `/` opens `/create`
 only when that page is mounted. Without it, Portal displays a welcome message
 directing users to available sidebar destinations or their administrator.
 
