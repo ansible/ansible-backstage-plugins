@@ -16,7 +16,7 @@ const templates = createFrontendPlugin({
   extensions: [
     PageBlueprint.make({
       params: {
-        path: '/self-service',
+        path: '/create',
         loader: async () => <div>Templates landing</div>,
       },
     }),

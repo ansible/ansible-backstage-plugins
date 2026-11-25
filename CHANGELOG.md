@@ -105,7 +105,7 @@ where versioned packages apply.
 
 1. **Frontend SDK consumers:** `usePortalContext` requires authenticated access to the host context endpoint. Handle `loading`, `error`, an optional `organizationId`, and multiple `organizationIds`; do not pass browser context as backend authorization authority.
 
-1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect. With no `portal.landingPage` override, `/` opens Templates only when `/self-service` is installed; otherwise it displays the host fallback. Set an exact installed page path to override this behavior, including when NFS configuration moves the Templates page. This does not complete content extraction or optional deployment composition.
+1. **Experimental NFS callers:** replace links to the removed duplicate `/portal/*` UI with the corresponding `/self-service/*` pages. Removed routes do not silently redirect. With no `portal.landingPage` override, `/` opens Templates only when `/create` is installed; otherwise it displays the host fallback. Until Templates mounts at `/create`, set `portal.landingPage` to the installed path (often `/self-service`). If NFS configuration moves the Templates page, set the override to its effective path. This does not complete content extraction or optional deployment composition.
 
 1. **Custom callers** of catalog sync GET endpoints: update URLs as listed above.
 1. **Template authors:** ensure `rhaap:launch-job-template` (and other `rhaap:*` actions that require `token`) use **`secrets.aapToken`** (or your chosen secret key) in the template YAML, not `parameters.token`, if you relied on values carrying the token.

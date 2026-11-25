@@ -23,9 +23,11 @@ Items may be direct links or expandable groups; selection does not grant access.
 
 ## Landing destination
 
-No landing configuration is required. By default, `/` opens `/self-service`
-only when that page is mounted. Without it, Portal displays a welcome message
-directing users to available sidebar destinations or their administrator.
+When Templates is mounted at `/create`, no landing configuration is required;
+`/` opens it by default. Until Templates mounts at `/create`, set
+`portal.landingPage` to its installed path (often `/self-service`). Without a
+matching destination, Portal displays a welcome message directing users to
+available sidebar destinations or their administrator.
 
 To select another installed page, configure its exact path:
 

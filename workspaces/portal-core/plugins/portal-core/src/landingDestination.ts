@@ -14,7 +14,7 @@ export function isLandingPath(path: string): boolean {
 /** Inspect mounted page metadata without loading a contributor's page component. */
 export function resolveLandingDestination(
   appTree: AppTreeApi,
-  destination = '/self-service',
+  destination = '/create',
 ): string | undefined {
   if (!isLandingPath(destination)) return undefined;
 
