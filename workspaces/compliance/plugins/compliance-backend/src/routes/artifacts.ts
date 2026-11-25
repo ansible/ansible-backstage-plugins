@@ -3,8 +3,6 @@ import type { RouterDependencies } from './types';
 import { isValidScanId } from './validation';
 import { resolveScanId } from './helpers';
 import type { HttpAuthService } from '@backstage/backend-plugin-api';
-import { requirePermission } from './permissions';
-import { findingsIngestPermission } from '@ansible/compliance-common';
 
 const TERMINAL_SCAN_STATUSES = new Set(['completed', 'failed']);
 
@@ -35,23 +33,12 @@ export function registerArtifactRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, database, httpAuth, permissions, state } = deps;
+  const { logger, database, httpAuth, state } = deps;
 
   router.post(
     '/scans/:scanId/artifacts',
     express.json({ limit: '1kb' }),
     async (req, res) => {
-      if (
-        !(await requirePermission(
-          req,
-          res,
-          httpAuth,
-          permissions,
-          findingsIngestPermission,
-        ))
-      )
-        return;
-
       const { scanId } = req.params;
       if (!isValidScanId(scanId)) {
         res.status(400).json({ error: 'Invalid scanId' });

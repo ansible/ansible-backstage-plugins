@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { InfoCard, Breadcrumbs } from '@backstage/core-components';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { Typography, Button, Box, Paper } from '@material-ui/core';
 import ErrorIcon from '@material-ui/icons/Error';
 import { ScanProgress } from '../ScanProgress';
@@ -24,6 +26,9 @@ export const ScanFailedView = ({
 }: ScanFailedViewProps) => {
   const navigate = useNavigate();
   const isVerification = scanType === 'verification';
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
 
   return (
     <>
@@ -105,13 +110,15 @@ export const ScanFailedView = ({
             <Button variant="outlined" onClick={() => navigate('/compliance')}>
               Back to Overview
             </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => navigate('/compliance/scan')}
-            >
-              Try Again
-            </Button>
+            {canLaunchScan && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate('/compliance/scan')}
+              >
+                Try Again
+              </Button>
+            )}
           </Box>
         </Box>
       </InfoCard>

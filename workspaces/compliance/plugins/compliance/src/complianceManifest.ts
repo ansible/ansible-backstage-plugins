@@ -4,8 +4,7 @@ import {
   complianceRemediationLaunchOperation,
   complianceProfileSaveOperation,
   complianceProfileDeleteOperation,
-  scanLaunchPermission,
-  profileManagePermission,
+  scanReadPermission,
 } from '@ansible/compliance-common';
 
 /**
@@ -62,6 +61,7 @@ export const complianceManifest: PluginManifest = {
           appliesToContentTypes: ['*'],
           label: 'Overview',
           order: 10,
+          requiredPermission: scanReadPermission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.overview',
@@ -87,7 +87,7 @@ export const complianceManifest: PluginManifest = {
           appliesToContentTypes: ['*'],
           label: 'Results',
           order: 30,
-          requiredPermission: scanLaunchPermission,
+          requiredPermission: scanReadPermission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.results',
@@ -139,6 +139,7 @@ export const complianceManifest: PluginManifest = {
             'Per-profile dashboard tab composed from the Tier 1 widget ' +
             "vocabulary declared in a profile's compliance-profile.yml.",
           order: 40,
+          requiredPermission: scanReadPermission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.profile-tab',
@@ -166,7 +167,6 @@ export const complianceManifest: PluginManifest = {
           appliesToContentTypes: ['*'],
           label: 'Remediations',
           order: 10,
-          requiredPermission: complianceRemediationLaunchOperation.permission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.remediations',
@@ -216,6 +216,7 @@ export const complianceManifest: PluginManifest = {
           appliesToContentTypes: ['*'],
           label: 'Inventories',
           order: 10,
+          requiredPermission: scanReadPermission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.inventories',
@@ -246,7 +247,7 @@ export const complianceManifest: PluginManifest = {
           appliesToContentTypes: ['*'],
           label: 'Settings',
           order: 10,
-          requiredPermission: profileManagePermission,
+          requiredPermission: scanReadPermission,
           launches: {
             type: 'slot',
             targetSlot: 'compliance.settings',

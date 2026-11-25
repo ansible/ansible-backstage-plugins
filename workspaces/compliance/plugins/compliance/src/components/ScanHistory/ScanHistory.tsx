@@ -11,6 +11,8 @@ import {
   StatusRunning,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import {
   Typography,
   Button,
@@ -247,6 +249,9 @@ export const ScanHistory = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const [scans, setScans] = useState<ComplianceScan[]>([]);
   const [executions, setExecutions] = useState<RemediationExecution[]>([]);
   const [scanStats, setScanStats] = useState<
@@ -608,14 +613,16 @@ export const ScanHistory = () => {
               </IconButton>
             </Tooltip>
           </div>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<PlayCircleFilledIcon />}
-            onClick={() => navigate('/compliance/scan')}
-          >
-            New Scan
-          </Button>
+          {canLaunchScan && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PlayCircleFilledIcon />}
+              onClick={() => navigate('/compliance/scan')}
+            >
+              New Scan
+            </Button>
+          )}
         </Box>
       </div>
 
@@ -749,13 +756,15 @@ export const ScanHistory = () => {
                 evaluates your infrastructure against a compliance profile and
                 produces per-host findings.
               </Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => navigate('/compliance/scan')}
-              >
-                Launch a Scan
-              </Button>
+              {canLaunchScan && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => navigate('/compliance/scan')}
+                >
+                  Launch a Scan
+                </Button>
+              )}
             </div>
           );
         }
@@ -820,7 +829,9 @@ export const ScanHistory = () => {
                             const jobId = scan.workflowJobId ?? scan.id;
                             if (scan.scanner === 'remediation') {
                               navigate(
-                                `/compliance/remediation-result/${scan.workflowJobId ?? scan.id}`,
+                                `/compliance/remediation-result/${
+                                  scan.workflowJobId ?? scan.id
+                                }`,
                               );
                             } else {
                               navigate(`/compliance/results/${jobId}`);
@@ -1066,7 +1077,9 @@ export const ScanHistory = () => {
                     <Typography variant="caption" color="textSecondary">
                       {scanCount} scan{scanCount !== 1 ? 's' : ''}
                       {execCount > 0 &&
-                        `, ${execCount} remediation${execCount !== 1 ? 's' : ''}`}
+                        `, ${execCount} remediation${
+                          execCount !== 1 ? 's' : ''
+                        }`}
                     </Typography>
                   </div>
                 </div>
@@ -1323,10 +1336,14 @@ export const ScanHistory = () => {
                               <Typography variant="body2">
                                 {execution.rulesApplied !== null &&
                                 execution.rulesApplied !== undefined
-                                  ? `${execution.rulesApplied} rules · ${execution.hostsTargeted ?? 0} hosts`
+                                  ? `${execution.rulesApplied} rules · ${
+                                      execution.hostsTargeted ?? 0
+                                    } hosts`
                                   : 'Details unavailable'}
                                 {execution.elapsedSeconds
-                                  ? ` · ${Math.round(execution.elapsedSeconds)}s`
+                                  ? ` · ${Math.round(
+                                      execution.elapsedSeconds,
+                                    )}s`
                                   : ''}
                               </Typography>
                             </TableCell>

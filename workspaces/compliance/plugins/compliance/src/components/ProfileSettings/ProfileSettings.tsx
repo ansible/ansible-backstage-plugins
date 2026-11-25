@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { InfoCard, Breadcrumbs, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import {
   Typography,
   Button,
@@ -68,7 +68,7 @@ interface ExecutionEnvironment {
   image: string;
 }
 
-const DataRetentionSettings = () => {
+const DataRetentionSettings = ({ readOnly }: { readOnly: boolean }) => {
   const api = useApi(complianceApiRef);
   const [retentionDays, setRetentionDays] = useState(90);
   const [saving, setSaving] = useState(false);
@@ -131,18 +131,23 @@ const DataRetentionSettings = () => {
           onChange={e => setRetentionDays(Number(e.target.value))}
           inputProps={{ min: 7, max: 365 }}
           style={{ width: 200 }}
+          disabled={readOnly}
         />
-        <Button variant="outlined" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
-        </Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={handleCleanup}
-          disabled={cleaning}
-        >
-          {cleaning ? 'Cleaning...' : 'Run Cleanup Now'}
-        </Button>
+        {!readOnly && (
+          <>
+            <Button variant="outlined" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleCleanup}
+              disabled={cleaning}
+            >
+              {cleaning ? 'Cleaning...' : 'Run Cleanup Now'}
+            </Button>
+          </>
+        )}
       </Box>
       {cleanupResult && (
         <Typography
@@ -162,9 +167,10 @@ export const ProfileSettings = () => {
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
 
-  const { allowed: isAdmin, loading: permissionLoading } = usePermission({
-    permission: catalogEntityCreatePermission,
-  });
+  const { allowed: canManageSettings, loading: permissionLoading } =
+    usePermission({
+      permission: scanLaunchPermission,
+    });
 
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,30 +286,6 @@ export const ProfileSettings = () => {
     return <Progress />;
   }
 
-  if (!isAdmin) {
-    return (
-      <>
-        <Breadcrumbs>
-          <Typography
-            color="primary"
-            style={{ cursor: 'pointer' }}
-            onClick={() => navigate('/compliance')}
-          >
-            Compliance
-          </Typography>
-          <Typography>Settings</Typography>
-        </Breadcrumbs>
-        <Box mt={3} />
-        <InfoCard title="Access Denied">
-          <Typography variant="body1">
-            You do not have permission to manage compliance profiles. Contact
-            your administrator if you need access.
-          </Typography>
-        </InfoCard>
-      </>
-    );
-  }
-
   return (
     <>
       <Breadcrumbs>
@@ -326,14 +308,16 @@ export const ProfileSettings = () => {
             automation controller workflow job template and execution
             environment.
           </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleOpenDialog}
-          >
-            Add Profile
-          </Button>
+          {canManageSettings && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenDialog}
+            >
+              Add Profile
+            </Button>
+          )}
         </div>
 
         {profiles.filter(p => p.connectionStatus !== 'disconnected').length ===
@@ -354,14 +338,16 @@ export const ProfileSettings = () => {
               to a workflow job template and execution environment so you can
               scan and remediate from the portal.
             </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleOpenDialog}
-            >
-              Add Compliance Profile
-            </Button>
+            {canManageSettings && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={handleOpenDialog}
+              >
+                Add Compliance Profile
+              </Button>
+            )}
           </div>
         ) : (
           <TableContainer component={Paper} variant="outlined">
@@ -376,7 +362,7 @@ export const ProfileSettings = () => {
                   <TableCell>Scan Job Template</TableCell>
                   <TableCell>Remediate Job Template</TableCell>
                   <TableCell>Execution Environment</TableCell>
-                  <TableCell>Actions</TableCell>
+                  {canManageSettings && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -425,22 +411,24 @@ export const ProfileSettings = () => {
                         {c.remediateJtId ? `ID ${c.remediateJtId}` : 'Auto'}
                       </TableCell>
                       <TableCell>{c.eeId ? `ID ${c.eeId}` : '--'}</TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditClick(c)}
-                          aria-label="edit compliance profile"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteClick(c)}
-                          aria-label="delete compliance profile"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
+                      {canManageSettings && (
+                        <TableCell>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditClick(c)}
+                            aria-label="edit compliance profile"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteClick(c)}
+                            aria-label="delete compliance profile"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
               </TableBody>
@@ -460,7 +448,7 @@ export const ProfileSettings = () => {
 
       <Box mt={4} />
       <InfoCard title="Data Management">
-        <DataRetentionSettings />
+        <DataRetentionSettings readOnly={!canManageSettings} />
       </InfoCard>
 
       <Dialog

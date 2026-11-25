@@ -10,8 +10,18 @@ import type {
 } from '@ansible/compliance-common/types';
 
 let mockPermissionAllowed = true;
+let mockCanLaunchScan = true;
+let mockCanRemediate = true;
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: mockPermissionAllowed, loading: false }),
+  usePermission: ({ permission }: { permission: { name: string } }) => ({
+    allowed:
+      permission.name === 'compliance.scan.launch'
+        ? mockCanLaunchScan
+        : permission.name === 'compliance.remediate.launch'
+          ? mockCanRemediate
+          : mockPermissionAllowed,
+    loading: false,
+  }),
 }));
 
 const SAVED_PROFILE: RemediationProfile = {
@@ -197,6 +207,8 @@ function renderWithApi(
 describe('RemediationsList', () => {
   beforeEach(() => {
     mockPermissionAllowed = true;
+    mockCanLaunchScan = true;
+    mockCanRemediate = true;
     mockAlertApi.post.mockClear();
   });
 
@@ -369,6 +381,34 @@ describe('RemediationsList', () => {
         }),
       );
     });
+  });
+
+  it('shows saved remediations without launch actions when no compliance permissions are granted', async () => {
+    mockCanLaunchScan = false;
+    mockCanRemediate = false;
+    mockPermissionAllowed = false;
+    const mockApi = createMockApi({
+      getRemediationProfiles: jest.fn().mockResolvedValue([SAVED_PROFILE]),
+    });
+    await renderWithApi(mockApi);
+    await waitFor(() => {
+      expect(screen.getByText('STIG SSH Hardening')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Launch remediation' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('New Scan')).not.toBeInTheDocument();
+    expect(screen.queryByText('Launch a Scan')).not.toBeInTheDocument();
+  });
+
+  it('shows the empty remediations tab without a scan launch action', async () => {
+    mockCanLaunchScan = false;
+    await renderWithApi();
+    await waitFor(() => {
+      expect(screen.getByText('Remediations')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Launch a Scan')).not.toBeInTheDocument();
+    expect(screen.queryByText('New Scan')).not.toBeInTheDocument();
   });
 
   it('hides archive and disables delete for non-admin users', async () => {

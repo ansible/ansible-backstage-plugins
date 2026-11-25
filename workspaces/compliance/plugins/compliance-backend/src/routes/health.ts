@@ -1,7 +1,7 @@
 import type express from 'express';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import type { RouterDependencies } from './types';
 import { requirePermission } from './permissions';
-import { profileManagePermission } from '@ansible/compliance-common';
 
 export function registerHealthRoutes(
   router: express.Router,
@@ -23,7 +23,7 @@ export function registerHealthRoutes(
         res,
         httpAuth,
         permissions,
-        profileManagePermission,
+        scanLaunchPermission,
       ))
     )
       return;
@@ -42,7 +42,7 @@ export function registerHealthRoutes(
         res,
         httpAuth,
         permissions,
-        profileManagePermission,
+        scanLaunchPermission,
       ))
     )
       return;

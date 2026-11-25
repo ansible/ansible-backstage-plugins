@@ -21,6 +21,8 @@ import SecurityIcon from '@material-ui/icons/Security';
 import VerifiedUserIcon from '@material-ui/icons/VerifiedUser';
 import PolicyIcon from '@material-ui/icons/Policy';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { complianceApiRef } from '../../api';
 import type { ComplianceProfile } from '@ansible/compliance-common/types';
 import { SEVERITY_COLORS, STATUS_COLORS } from '../shared/colors';
@@ -174,6 +176,9 @@ export const ProfileBrowser = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const { profileId } = useParams<{ profileId?: string }>();
 
   const [profiles, setProfiles] = useState<DisplayProfile[]>([]);
@@ -353,19 +358,21 @@ export const ProfileBrowser = () => {
 
             <Box mt={2} />
 
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              size="large"
-              onClick={() =>
-                navigate(
-                  `/compliance/scan?profile=${selectedProfile?.id ?? ''}`,
-                )
-              }
-            >
-              Scan with this Profile
-            </Button>
+            {canLaunchScan && (
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                size="large"
+                onClick={() =>
+                  navigate(
+                    `/compliance/scan?profile=${selectedProfile?.id ?? ''}`,
+                  )
+                }
+              >
+                Scan with this Profile
+              </Button>
+            )}
 
             {selectedProfile.fromRegistry && (
               <Box mt={1}>
@@ -491,16 +498,18 @@ export const ProfileBrowser = () => {
                   >
                     View Details
                   </Button>
-                  <Button
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                    onClick={() =>
-                      navigate(`/compliance/scan?profile=${profile.id}`)
-                    }
-                  >
-                    Launch Scan
-                  </Button>
+                  {canLaunchScan && (
+                    <Button
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      onClick={() =>
+                        navigate(`/compliance/scan?profile=${profile.id}`)
+                      }
+                    >
+                      Launch Scan
+                    </Button>
+                  )}
                 </CardActions>
               </Card>
             </Grid>

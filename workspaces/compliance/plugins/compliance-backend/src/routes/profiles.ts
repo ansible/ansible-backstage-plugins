@@ -2,9 +2,9 @@ import type express from 'express';
 import type { RouterDependencies } from './types';
 import type { SaveProfileRequest } from '@ansible/compliance-common';
 import {
-  profileManagePermission,
   complianceProfileSaveOperation,
   complianceProfileDeleteOperation,
+  scanLaunchPermission,
 } from '@ansible/compliance-common';
 import { resolvePortalContext } from '@ansible/portal-plugin-node';
 import { requirePermission } from './permissions';
@@ -214,7 +214,7 @@ export function registerProfileRoutes(
         res,
         httpAuth,
         permissions,
-        profileManagePermission,
+        scanLaunchPermission,
       ))
     )
       return;
@@ -252,7 +252,7 @@ export function registerProfileRoutes(
         res,
         httpAuth,
         permissions,
-        profileManagePermission,
+        scanLaunchPermission,
       ))
     )
       return;

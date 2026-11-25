@@ -53,6 +53,7 @@
   },
   "devDependencies": {
     "@backstage/cli": "^0.36.0",
+    "ajv": "^8.17.1",
     "typescript": "~5.8.0"
   },
   "scripts": {

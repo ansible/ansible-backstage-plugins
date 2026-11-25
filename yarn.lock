@@ -521,6 +521,7 @@ __metadata:
   dependencies:
     "@backstage/cli": "npm:^0.36.0"
     "@backstage/plugin-permission-common": "npm:^0.9.8"
+    ajv: "npm:^8.17.1"
     typescript: "npm:~5.8.0"
   languageName: unknown
   linkType: soft

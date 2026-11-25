@@ -4,18 +4,20 @@
  * Per the Content Experience Architecture (§9.2), a plugin's only sanctioned
  * way to cause a server-side effect is a registered `OperationDescriptor` —
  * not a bare REST route. These descriptors declare input/output JSON Schema,
- * the permission that gates them, an audit category, and idempotency, so the
- * host (and any future MCP surface) can reason about them generically.
+ * an optional permission, an audit category, and idempotency, so the host
+ * (and any future MCP surface) can reason about them generically.
  *
- * Modeled on `@ansible/backstage-apme-common`'s `operations.ts`. Reuses the
- * existing `compliance.*` permissions from `./permissions` rather than
- * minting new ones. These descriptors are registered with the host's
- * `PortalOperations` service in `compliance-backend/src/operations.ts`'s
- * `registerComplianceOperations()` — the registered handler is what enforces
- * the permission, validates `inputSchema`/`outputSchema` via AJV, and emits
- * the audit event; `compliance-backend/src/routes/*.ts`'s POST/DELETE
- * handlers for these four operations are now thin legacy transport adapters
- * that call `operations.execute()` rather than reimplementing any of this.
+ * Modeled on `@ansible/backstage-apme-common`'s `operations.ts`. Scan launch,
+ * profile save, and profile delete require `compliance.scan.launch`.
+ * Remediation launch requires `compliance.remediate.launch`.
+ * `compliance.scan.read` is not used on any of these writes.
+ * These descriptors are registered with the host's `PortalOperations`
+ * service in `compliance-backend/src/operations.ts`'s
+ * `registerComplianceOperations()` — the registered handler validates
+ * `inputSchema`/`outputSchema` via AJV and emits the audit event;
+ * `compliance-backend/src/routes/*.ts`'s POST/DELETE handlers for these
+ * four operations are thin legacy transport adapters that call
+ * `operations.execute()`.
  *
  * `organizationScope: 'shared'` on every descriptor reflects compliance's
  * single-tenant-per-deployment data model (see `.sdlc/research/
@@ -42,11 +44,7 @@
  * does not cover. See `workspaces/compliance/README.md` for the ingest
  * security model.
  */
-import {
-  scanLaunchPermission,
-  remediateLaunchPermission,
-  profileManagePermission,
-} from './permissions';
+import { scanLaunchPermission, remediateLaunchPermission } from './permissions';
 
 // ── Scan launch ────────────────────────────────────────────────────────────
 
@@ -174,7 +172,7 @@ export const complianceProfileSaveOperation = {
   id: 'compliance.profile.save',
   version: '1.0.0',
   description: 'Create or update a compliance profile.',
-  permission: profileManagePermission,
+  permission: scanLaunchPermission,
   inputSchema: {
     type: 'object',
     required: ['displayName', 'framework'],
@@ -186,9 +184,11 @@ export const complianceProfileSaveOperation = {
       framework: { type: 'string', minLength: 1 },
       version: { type: 'string' },
       platform: { type: 'string' },
-      workflowTemplateId: { type: 'integer', minimum: 1 },
-      remediateJtId: { type: 'integer' },
-      eeId: { type: 'string' },
+      // The Settings form sends null when a template or execution environment
+      // is unset. eeId is an AAP id, stored as an integer.
+      workflowTemplateId: { type: ['integer', 'null'], minimum: 1 },
+      remediateJtId: { type: ['integer', 'null'] },
+      eeId: { type: ['integer', 'null'] },
     },
   },
   exposure: { rest: true },
@@ -204,7 +204,7 @@ export const complianceProfileDeleteOperation = {
   id: 'compliance.profile.delete',
   version: '1.0.0',
   description: 'Permanently delete a compliance profile.',
-  permission: profileManagePermission,
+  permission: scanLaunchPermission,
   inputSchema: {
     type: 'object',
     required: ['id'],

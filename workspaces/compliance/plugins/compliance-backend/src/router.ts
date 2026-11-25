@@ -11,9 +11,11 @@ import type {
   PortalOperations,
 } from '@ansible/portal-plugin-node';
 
+import { scanReadPermission } from '@ansible/compliance-common';
 import { ComplianceService } from './service/ComplianceService';
 import { ComplianceDatabase } from './database/ComplianceDatabase';
 import type { SharedState, RouterDependencies } from './routes/types';
+import { requireAuthenticated, requirePermission } from './routes/permissions';
 
 import {
   registerHealthRoutes,
@@ -54,6 +56,22 @@ export interface RouterOptions {
    */
   userInfo?: UserInfoService;
   organizations?: ActiveOrganizationResolver;
+}
+
+/** Reads used to render the Remediations tab, including execution history. */
+function isRemediationView(path: string): boolean {
+  return (
+    path === '/remediation-profiles' ||
+    path.startsWith('/remediation-profiles/') ||
+    path === '/remediation-executions' ||
+    path.startsWith('/remediation-executions/') ||
+    path.startsWith('/chain/') ||
+    path === '/remediation-error-details' ||
+    path === '/compliance-profiles' ||
+    path.startsWith('/compliance-profiles/') ||
+    path === '/inventories' ||
+    path === '/baseline-targets'
+  );
 }
 
 export async function createRouter(
@@ -100,6 +118,35 @@ export async function createRouter(
     userInfo,
     organizations,
   };
+
+  // compliance.scan.read is read-only. GETs require it, except health and
+  // the remediations view. Any signed-in user can read remediations and
+  // the profile, inventory, and baseline names that view displays.
+  // Launching a scan still requires compliance.scan.launch. Launching a
+  // remediation still requires compliance.remediate.launch.
+  router.use(async (req, res, next) => {
+    if (req.method !== 'GET' || req.path === '/health') {
+      next();
+      return;
+    }
+    if (isRemediationView(req.path)) {
+      if (await requireAuthenticated(req, res, httpAuth)) {
+        next();
+      }
+      return;
+    }
+    if (
+      await requirePermission(
+        req,
+        res,
+        httpAuth,
+        permissions,
+        scanReadPermission,
+      )
+    ) {
+      next();
+    }
+  });
 
   registerHealthRoutes(router, deps);
   registerScanRoutes(router, deps);

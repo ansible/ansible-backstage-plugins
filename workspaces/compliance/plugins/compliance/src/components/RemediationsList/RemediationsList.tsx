@@ -6,6 +6,10 @@ import { useApi, alertApiRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import {
+  remediateLaunchPermission,
+  scanLaunchPermission,
+} from '@ansible/compliance-common';
+import {
   Typography,
   Button,
   Box,
@@ -267,6 +271,7 @@ function ExecutionHistoryRow({
 function RowActions({
   remediation: r,
   isAdmin,
+  canLaunchRemediation,
   canDelete,
   canArchive,
   baselineTargets,
@@ -278,6 +283,7 @@ function RowActions({
 }: {
   remediation: RemediationProfile;
   isAdmin: boolean;
+  canLaunchRemediation: boolean;
   canDelete: boolean;
   canArchive: boolean;
   baselineTargets: BaselineTarget[];
@@ -299,25 +305,28 @@ function RowActions({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <Tooltip
-        title={
-          r.status === 'archived'
-            ? 'Archived — restore to launch'
-            : r.status === 'draft'
-              ? 'Save the profile before launching'
-              : 'Launch remediation'
-        }
-      >
-        <span>
-          <IconButton
-            size="small"
-            disabled={r.status === 'archived' || r.status === 'draft'}
-            onClick={onLaunch}
-          >
-            <PlayArrowIcon fontSize="small" />
-          </IconButton>
-        </span>
-      </Tooltip>
+      {canLaunchRemediation && (
+        <Tooltip
+          title={
+            r.status === 'archived'
+              ? 'Archived — restore to launch'
+              : r.status === 'draft'
+                ? 'Save the profile before launching'
+                : 'Launch remediation'
+          }
+        >
+          <span>
+            <IconButton
+              size="small"
+              disabled={r.status === 'archived' || r.status === 'draft'}
+              onClick={onLaunch}
+              aria-label="Launch remediation"
+            >
+              <PlayArrowIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
       <IconButton
         size="small"
         onClick={e => setAnchorEl(e.currentTarget)}
@@ -459,6 +468,12 @@ export const RemediationsList = () => {
 
   const { allowed: isAdmin } = usePermission({
     permission: catalogEntityCreatePermission,
+  });
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
+  const { allowed: canLaunchRemediation } = usePermission({
+    permission: remediateLaunchPermission,
   });
 
   const loadProfiles = useCallback(async () => {
@@ -635,14 +650,16 @@ export const RemediationsList = () => {
           Saved remediation profiles capture your rule selections. Launch them
           against any inventory.
         </Typography>
-        <Button
-          variant="outlined"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/compliance/scan')}
-        >
-          New Scan
-        </Button>
+        {canLaunchScan && (
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/compliance/scan')}
+          >
+            New Scan
+          </Button>
+        )}
       </div>
 
       <div className={classes.filterRow}>
@@ -720,7 +737,7 @@ export const RemediationsList = () => {
             Run a compliance scan, review the findings, then save your rule
             selections as a remediation profile.
           </Typography>
-          {statusFilter === 'active' && (
+          {statusFilter === 'active' && canLaunchScan && (
             <Button
               variant="contained"
               color="primary"
@@ -836,7 +853,10 @@ export const RemediationsList = () => {
                           />
                           {latestExec && (
                             <Chip
-                              label={`${latestExec.status} · ${inventoryNames.get(latestExec.inventoryId) || `#${latestExec.inventoryId}`}`}
+                              label={`${latestExec.status} · ${
+                                inventoryNames.get(latestExec.inventoryId) ||
+                                `#${latestExec.inventoryId}`
+                              }`}
                               size="small"
                               className={classes.statusChip}
                               style={{
@@ -889,6 +909,7 @@ export const RemediationsList = () => {
                         <RowActions
                           remediation={r}
                           isAdmin={isAdmin}
+                          canLaunchRemediation={canLaunchRemediation}
                           canDelete={canDelete}
                           canArchive={canArchive}
                           baselineTargets={baselineTargets}
@@ -1094,43 +1115,47 @@ export const RemediationsList = () => {
                   No completed assessment scan found for this inventory.
                 </Typography>
               </Box>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  if (launchTarget?.complianceProfileId)
-                    params.set('profile', launchTarget.complianceProfileId);
-                  if (launchInventoryId)
-                    params.set('inventory', launchInventoryId);
-                  setLaunchTarget(null);
-                  navigate(`/compliance/scan?${params.toString()}`);
-                }}
-              >
-                Run a Scan First
-              </Button>
+              {canLaunchScan && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    const params = new URLSearchParams();
+                    if (launchTarget?.complianceProfileId)
+                      params.set('profile', launchTarget.complianceProfileId);
+                    if (launchInventoryId)
+                      params.set('inventory', launchInventoryId);
+                    setLaunchTarget(null);
+                    navigate(`/compliance/scan?${params.toString()}`);
+                  }}
+                >
+                  Run a Scan First
+                </Button>
+              )}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLaunchTarget(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            disabled={!launchScanCheck || launchScanChecking}
-            startIcon={<PlayArrowIcon />}
-            onClick={() => {
-              if (!launchTarget || !launchScanCheck) return;
-              const params = new URLSearchParams();
-              params.set('profileId', launchTarget.id);
-              params.set('inventoryId', launchInventoryId);
-              params.set('scanId', launchScanCheck.scan.id);
-              setLaunchTarget(null);
-              navigate(`/compliance/execute/launch?${params.toString()}`);
-            }}
-          >
-            Launch Remediation
-          </Button>
+          {canLaunchRemediation && (
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={!launchScanCheck || launchScanChecking}
+              startIcon={<PlayArrowIcon />}
+              onClick={() => {
+                if (!launchTarget || !launchScanCheck) return;
+                const params = new URLSearchParams();
+                params.set('profileId', launchTarget.id);
+                params.set('inventoryId', launchInventoryId);
+                params.set('scanId', launchScanCheck.scan.id);
+                setLaunchTarget(null);
+                navigate(`/compliance/execute/launch?${params.toString()}`);
+              }}
+            >
+              Launch Remediation
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

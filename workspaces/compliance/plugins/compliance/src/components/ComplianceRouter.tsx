@@ -13,14 +13,14 @@ import {
   HeaderTabs,
   Content,
   ErrorPanel,
+  InfoCard,
+  Breadcrumbs,
+  Progress,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
-
-const DynamicTabRefreshContext = createContext<(() => void) | undefined>(
-  undefined,
-);
-export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
-import { Box, Button, Chip, makeStyles } from '@material-ui/core';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
+import { Box, Button, Chip, makeStyles, Typography } from '@material-ui/core';
 import { ComplianceDashboard } from './ComplianceDashboard';
 import { ProfileBrowser } from './ProfileBrowser';
 import { ScanLauncher } from './ScanLauncher';
@@ -38,6 +38,11 @@ import { DynamicProfileTab } from './DynamicProfileTab';
 import { complianceApiRef } from '../api';
 import { useComplianceEnabled } from '../hooks/useComplianceEnabled';
 import type { ComplianceProfile } from '@ansible/compliance-common/types';
+
+const DynamicTabRefreshContext = createContext<(() => void) | undefined>(
+  undefined,
+);
+export const useDynamicTabRefresh = () => useContext(DynamicTabRefreshContext);
 
 /**
  * Error boundary for the Compliance tab.
@@ -101,6 +106,76 @@ const coreTabRouteMap: Record<string, string> = {
   settings: 'settings',
 };
 
+/** New Scan is a launch action, so read-only users do not get the tab. */
+export function visibleCoreTabs(canLaunchScan: boolean) {
+  return canLaunchScan ? CORE_TABS : CORE_TABS.filter(tab => tab.id !== 'scan');
+}
+
+/** Map the current URL onto a tab id. Indexes are derived from the visible list. */
+export function complianceTabIdFromPath(
+  pathname: string,
+  dynamicTabs: Array<{ id: string; profileId: string }>,
+): string {
+  const path = pathname.replace(/^\/compliance\/?/, '');
+  if (path.startsWith('scan')) return 'scan';
+  if (
+    path.startsWith('results') ||
+    path.startsWith('chain/') ||
+    path.startsWith('remediation/') ||
+    path.startsWith('execute') ||
+    path.startsWith('remediation-result')
+  ) {
+    return 'results';
+  }
+  if (path === 'remediations' || path.startsWith('remediation-edit/')) {
+    return 'remediations';
+  }
+  if (path.startsWith('inventories')) return 'inventories';
+  const dynamic = dynamicTabs.find(tab =>
+    path.startsWith(`profile-tab/${tab.profileId}`),
+  );
+  if (dynamic) return dynamic.id;
+  if (path.startsWith('settings')) return 'settings';
+  return 'overview';
+}
+
+export const NewScanRoute = () => {
+  const navigate = useNavigate();
+  const { allowed, loading } = usePermission({
+    permission: scanLaunchPermission,
+  });
+
+  if (loading) {
+    return <Progress />;
+  }
+
+  if (!allowed) {
+    return (
+      <>
+        <Breadcrumbs>
+          <Typography
+            color="primary"
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/compliance')}
+          >
+            Compliance
+          </Typography>
+          <Typography>New Scan</Typography>
+        </Breadcrumbs>
+        <Box mt={3} />
+        <InfoCard title="Access Denied">
+          <Typography variant="body1">
+            You do not have permission to launch scans. Contact your
+            administrator if you need access.
+          </Typography>
+        </InfoCard>
+      </>
+    );
+  }
+
+  return <ScanLauncher />;
+};
+
 interface DynamicTabEntry {
   id: string;
   label: string;
@@ -118,6 +193,10 @@ const ComplianceRouterInner = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan, loading: launchPermissionLoading } =
+    usePermission({
+      permission: scanLaunchPermission,
+    });
 
   const [dynamicTabs, setDynamicTabs] = useState<DynamicTabEntry[]>([]);
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
@@ -150,39 +229,20 @@ const ComplianceRouterInner = () => {
   }, [api, tabRefreshKey]);
 
   const allTabs = useMemo(() => {
-    const settingsIdx = CORE_TABS.findIndex(t => t.id === 'settings');
-    const before = CORE_TABS.slice(0, settingsIdx);
-    const settings = CORE_TABS.slice(settingsIdx);
+    const coreTabs = visibleCoreTabs(canLaunchScan && !launchPermissionLoading);
+    const settingsIdx = coreTabs.findIndex(tab => tab.id === 'settings');
+    const before = coreTabs.slice(0, settingsIdx);
+    const settings = coreTabs.slice(settingsIdx);
     const dynamic = dynamicTabs.map(dt => ({ id: dt.id, label: dt.label }));
     return [...before, ...dynamic, ...settings];
-  }, [dynamicTabs]);
+  }, [canLaunchScan, launchPermissionLoading, dynamicTabs]);
 
-  const getSelectedTab = (): number => {
-    const path = location.pathname.replace(/^\/compliance\/?/, '');
-    if (path.startsWith('scan')) return 1;
-    if (
-      path.startsWith('results') ||
-      path.startsWith('chain/') ||
-      path.startsWith('remediation/') ||
-      path.startsWith('execute') ||
-      path.startsWith('remediation-result')
-    )
-      return 2;
-    if (path === 'remediations' || path.startsWith('remediation-edit/'))
-      return 3;
-    if (path.startsWith('inventories')) return 4;
-
-    for (let i = 0; i < dynamicTabs.length; i++) {
-      if (path.startsWith(`profile-tab/${dynamicTabs[i].profile.id}`)) {
-        return 5 + i;
-      }
-    }
-
-    if (path.startsWith('settings')) return 5 + dynamicTabs.length;
-    return 0;
-  };
-
-  const selectedTab = getSelectedTab();
+  const selectedTabId = complianceTabIdFromPath(
+    location.pathname,
+    dynamicTabs.map(tab => ({ id: tab.id, profileId: tab.profile.id })),
+  );
+  const selectedIndex = allTabs.findIndex(tab => tab.id === selectedTabId);
+  const selectedTab = selectedIndex === -1 ? 0 : selectedIndex;
 
   const handleTabChange = (index: number) => {
     const tab = allTabs[index];
@@ -223,7 +283,7 @@ const ComplianceRouterInner = () => {
               <Route path="/" element={<ComplianceDashboard />} />
               <Route path="/profiles/all" element={<ProfileBrowser />} />
               <Route path="/profiles/:profileId" element={<ProfileBrowser />} />
-              <Route path="/scan" element={<ScanLauncher />} />
+              <Route path="/scan" element={<NewScanRoute />} />
               <Route path="/results" element={<ScanHistory />} />
               <Route path="/results/:jobId" element={<ResultsViewer />} />
               <Route path="/chain/:executionId" element={<ChainView />} />

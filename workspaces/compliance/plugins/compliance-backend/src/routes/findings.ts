@@ -3,9 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { createInterface } from 'readline';
 import type { RouterDependencies } from './types';
 import type { IngestFinding, ComplianceScan } from '@ansible/compliance-common';
-import { findingsIngestPermission } from '@ansible/compliance-common';
 import type { LoggerService } from '@backstage/backend-plugin-api';
-import { getUserAapToken, requirePermission } from './permissions';
+import { getUserAapToken } from './permissions';
 import { isValidScanId, isValidProfileId } from './validation';
 import { buildRuleMetadataRecords } from '../service/ComplianceService';
 import {
@@ -27,7 +26,7 @@ export function registerFindingsRoutes(
   router: express.Router,
   deps: RouterDependencies,
 ): void {
-  const { logger, service, database, state, httpAuth, permissions } = deps;
+  const { logger, service, database, state } = deps;
 
   router.get('/findings', async (req, res) => {
     const scanId = req.query.scanId as string | undefined;
@@ -203,14 +202,7 @@ export function registerFindingsRoutes(
   const jsonParser = express.json({ limit: '200mb' });
 
   router.post('/findings/ingest', ingestLimiter, (req, res) => {
-    const ingestDeps: IngestDeps = {
-      logger,
-      service,
-      database,
-      state,
-      httpAuth,
-      permissions,
-    };
+    const ingestDeps: IngestDeps = { logger, service, database, state };
     const ct = req.headers['content-type'] || '';
     if (ct.includes('ndjson')) {
       handleNdjsonIngest(req, res, ingestDeps);
@@ -291,7 +283,7 @@ async function finalizeIngest(
 
 type IngestDeps = Pick<
   RouterDependencies,
-  'logger' | 'service' | 'database' | 'state' | 'httpAuth' | 'permissions'
+  'logger' | 'service' | 'database' | 'state'
 >;
 
 /**
@@ -307,18 +299,7 @@ async function handleJsonIngest(
   res: express.Response,
   deps: IngestDeps,
 ): Promise<void> {
-  const { logger, service, database, state, httpAuth, permissions } = deps;
-
-  if (
-    !(await requirePermission(
-      req,
-      res,
-      httpAuth,
-      permissions,
-      findingsIngestPermission,
-    ))
-  )
-    return;
+  const { logger, service, database, state } = deps;
 
   const body = req.body;
   const scanId = body.scanId as string | undefined;
@@ -424,20 +405,7 @@ async function handleNdjsonIngest(
   res: express.Response,
   deps: IngestDeps,
 ): Promise<void> {
-  const { logger, service, database, state, httpAuth, permissions } = deps;
-
-  // AuthZ check happens before we start streaming the body — it only
-  // inspects credentials (headers), not the request body.
-  if (
-    !(await requirePermission(
-      req,
-      res,
-      httpAuth,
-      permissions,
-      findingsIngestPermission,
-    ))
-  )
-    return;
+  const { logger, service, database, state } = deps;
 
   const BATCH_SIZE = 500;
   const MAX_LINE_SIZE = 100 * 1024;

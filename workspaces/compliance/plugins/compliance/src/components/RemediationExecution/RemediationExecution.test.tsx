@@ -1,4 +1,6 @@
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { screen, waitFor } from '@testing-library/react';
 import {
   RemediationExecution,
@@ -32,7 +34,7 @@ jest.mock('react-router-dom', () => ({
 }));
 
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true, loading: false }),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
 }));
 
 // ─── Utility function tests ─────────────────────────────────────────
@@ -757,6 +759,9 @@ describe('RemediationExecution (launch mode)', () => {
     } as any);
 
     await renderLaunch();
+    expect(usePermission).toHaveBeenCalledWith({
+      permission: scanLaunchPermission,
+    });
     await waitFor(() => {
       expect(mockApi.launchRemediation).toHaveBeenCalled();
     });

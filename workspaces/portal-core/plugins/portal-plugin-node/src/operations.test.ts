@@ -64,6 +64,24 @@ describe('PortalOperations', () => {
       expect.objectContaining({ outcome: 'SUCCESS', organizationId: 'acme' }),
     );
   });
+  it('runs an operation that does not declare a permission', async () => {
+    const openHandler = jest.fn().mockResolvedValue({ ok: true });
+    registry.register({
+      pluginId: 'test',
+      descriptor: {
+        id: 'test.profile.save',
+        version: '1.0.0',
+        exposure: { rest: true },
+      },
+      handler: openHandler,
+    });
+    permissions.authorize.mockClear();
+    await expect(
+      registry.execute('test.profile.save', request, context, permissions),
+    ).resolves.toEqual({ ok: true });
+    expect(openHandler).toHaveBeenCalled();
+    expect(permissions.authorize).not.toHaveBeenCalled();
+  });
   it('does not execute a denied operation', async () => {
     permissions.authorize.mockResolvedValue([{ result: AuthorizeResult.DENY }]);
     await expect(

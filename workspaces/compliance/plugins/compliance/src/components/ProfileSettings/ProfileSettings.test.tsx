@@ -2,12 +2,13 @@ import React from 'react';
 import '@testing-library/jest-dom';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { ProfileSettings } from './ProfileSettings';
 
-// Mock permission module — default to admin allowed
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true, loading: false }),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
   RequirePermission: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -154,26 +155,58 @@ describe('ProfileSettings', () => {
     });
   });
 
-  it('shows "Access Denied" when user is not admin', async () => {
-    // Override the permission mock to deny access
-    const permissionMock = jest.requireMock(
-      '@backstage/plugin-permission-react',
-    );
-    permissionMock.usePermission = () => ({ allowed: false, loading: false });
-
-    await renderWithApi();
-
-    await waitFor(() => {
-      expect(screen.getByText('Access Denied')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          'You do not have permission to manage compliance profiles. Contact your administrator if you need access.',
-        ),
-      ).toBeInTheDocument();
+  it('shows settings without edit actions when compliance.scan.launch is denied', async () => {
+    jest.mocked(usePermission).mockReturnValue({
+      allowed: false,
+      loading: false,
     });
 
-    // Restore the default
-    permissionMock.usePermission = () => ({ allowed: true, loading: false });
+    const mockApi = createMockApi({
+      getRegisteredProfiles: jest.fn().mockResolvedValue([
+        {
+          id: 'cart-1',
+          displayName: 'STIG for RHEL 9',
+          description: 'DISA STIG',
+          framework: 'DISA_STIG',
+          version: 'V2R8',
+          platform: 'RHEL 9',
+          workflowTemplateId: 42,
+          remediateJtId: null,
+          eeId: null,
+          connectionStatus: 'connected',
+          createdAt: '2025-01-01',
+          updatedAt: '2025-01-01',
+        },
+      ]),
+      getHealth: jest.fn().mockResolvedValue({
+        status: 'ok',
+        retentionDays: 30,
+      }),
+    });
+
+    await renderWithApi(mockApi);
+
+    await waitFor(() => {
+      expect(screen.getByText('STIG for RHEL 9')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('30')).toBeDisabled();
+    });
+    expect(screen.queryByText('Add Profile')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('edit compliance profile'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('delete compliance profile'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(screen.queryByText('Run Cleanup Now')).not.toBeInTheDocument();
+    expect(usePermission).toHaveBeenCalledWith({
+      permission: scanLaunchPermission,
+    });
+
+    jest.mocked(usePermission).mockReturnValue({
+      allowed: true,
+      loading: false,
+    });
   });
 
   it('shows edit button for each profile row', async () => {

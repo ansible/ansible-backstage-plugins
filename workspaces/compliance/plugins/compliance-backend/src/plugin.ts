@@ -7,18 +7,18 @@
  *   - REST router at /api/compliance/*
  *
  * Auth model:
- *   - Backstage layer: httpAuth + permissions service gate every mutating
- *     endpoint behind a specific compliance permission (see
- *     `@ansible/compliance-common`'s `permissions.ts`), checked via
- *     `requirePermission()`. Read-only endpoints are open to all
- *     authenticated users.
+ *   - Backstage layer: `compliance.scan.read` gates GET routes other than
+ *     the remediations view, which any signed-in user can read.
+ *     `compliance.scan.launch` gates scan launch and profile/settings
+ *     writes. `compliance.remediate.launch` gates remediation writes.
+ *     A caller who holds only `compliance.scan.read` cannot launch a
+ *     scan or change profiles or settings.
  *   - Ingest layer: `/findings/ingest` and the scan-artifact registration
  *     route are called by an AAP Controller job rather than an interactive
  *     user. They authenticate via a Backstage `backend.auth.externalAccess`
- *     static token (AuthN), are gated by the `compliance.findings.ingest`
- *     permission (AuthZ), and are further scoped by a per-scan ingest
- *     token with a TTL and scan-state guard (ADR-010). See the compliance
- *     workspace README for the full design.
+ *     static token (AuthN) and are scoped by a per-scan ingest token with
+ *     a TTL and scan-state guard (ADR-010). See the compliance workspace
+ *     README for the full design.
  *   - AAP layer: per-user AAP OAuth2 tokens are passed through to
  *     Controller API calls via x-aap-token header. AAP RBAC decides
  *     what inventories/JTs/credentials the user can access.

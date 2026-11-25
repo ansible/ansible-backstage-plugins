@@ -51,7 +51,7 @@ Generate a unique, single-use ingest token per scan. The token is:
 ## Update (compliance workspace port, `ansible-backstage-plugins`)
 
 When this prototype was integrated into the `ansible-backstage-plugins`
-monorepo as `workspaces/compliance/`, this token became the third of three
+monorepo as `workspaces/compliance/`, this token became the second of two
 defense-in-depth layers protecting `/findings/ingest` and scan-artifact
 registration, rather than the only one:
 
@@ -59,10 +59,7 @@ registration, rather than the only one:
    `backend.auth.externalAccess` static token (stored as an AAP Controller
    Credential, not a plaintext `extra_var`), instead of the route being
    `allow: 'unauthenticated'`.
-2. **AuthZ** -- the caller must additionally hold the
-   `compliance.findings.ingest` permission, checked via the standard
-   Backstage permissions framework.
-3. **Scoping (this ADR)** -- the per-scan ingest token, now hardened with:
+2. **Scoping (this ADR)** -- the per-scan ingest token, now hardened with:
    - a configurable TTL (`ansible.compliance.ingestTokenTtlMinutes`,
      default 60 minutes) -- addresses the "negative" above about the
      token's lifetime being otherwise unbounded;

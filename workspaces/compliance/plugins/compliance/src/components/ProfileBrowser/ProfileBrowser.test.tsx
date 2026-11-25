@@ -4,6 +4,10 @@ import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { ProfileBrowser } from './ProfileBrowser';
 
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useParams: () => ({ profileId: 'all' }),

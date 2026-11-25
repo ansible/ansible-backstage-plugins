@@ -27,7 +27,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import WarningIcon from '@material-ui/icons/Warning';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
-import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { complianceApiRef } from '../../api';
 import { STATUS_COLORS } from '../shared/colors';
 
@@ -89,11 +89,8 @@ export const ScanLauncher = () => {
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
 
-  // Permission check: reuse catalogEntityCreatePermission following
-  // the upstream Ansible Portal pattern (Home.tsx, TemplateActions.tsx).
-  // When RBAC is not configured, this defaults to allowed.
   const { allowed: canLaunchScan } = usePermission({
-    permission: catalogEntityCreatePermission,
+    permission: scanLaunchPermission,
   });
 
   const [searchParams] = useSearchParams();

@@ -1,8 +1,15 @@
 import '@testing-library/jest-dom';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { complianceApiRef } from '../../api/complianceApiRef';
 import { ScanHistory } from './ScanHistory';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
+
+const mockedUsePermission = usePermission as jest.Mock;
 
 function createMockApi(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
@@ -82,6 +89,10 @@ function renderWithApi(
 }
 
 describe('ScanHistory', () => {
+  beforeEach(() => {
+    mockedUsePermission.mockReturnValue({ allowed: true, loading: false });
+  });
+
   it('renders the "Scan History" title', async () => {
     await renderWithApi();
 
@@ -105,6 +116,18 @@ describe('ScanHistory', () => {
     await waitFor(() => {
       expect(screen.getByText('New Scan')).toBeInTheDocument();
     });
+  });
+
+  it('shows scan history without launch actions when scan.launch is denied', async () => {
+    mockedUsePermission.mockReturnValue({ allowed: false, loading: false });
+    await renderWithApi();
+
+    await waitFor(() => {
+      expect(screen.getByText('Scan History')).toBeInTheDocument();
+      expect(screen.getByText('No scans yet')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('New Scan')).not.toBeInTheDocument();
+    expect(screen.queryByText('Launch a Scan')).not.toBeInTheDocument();
   });
 
   it('shows grouped scan entries when data exists', async () => {

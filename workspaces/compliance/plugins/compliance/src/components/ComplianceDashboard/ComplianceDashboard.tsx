@@ -8,6 +8,8 @@ import {
   StatusWarning,
 } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import {
   Card,
   CardContent,
@@ -158,6 +160,9 @@ export const ComplianceDashboard = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [postureHistory, setPostureHistory] = useState<PostureSnapshot[]>([]);
   const [profiles, setProfiles] = useState<ComplianceProfile[]>([]);
@@ -342,14 +347,16 @@ export const ComplianceDashboard = () => {
                     </div>
                   </CardActionArea>
                 </Card>
-                <Card variant="outlined">
-                  <CardActionArea onClick={() => navigate('scan')}>
-                    <div className={classes.quickAction}>
-                      <PlayCircleFilledIcon className={classes.actionIcon} />
-                      <Typography variant="subtitle2">New Scan</Typography>
-                    </div>
-                  </CardActionArea>
-                </Card>
+                {canLaunchScan && (
+                  <Card variant="outlined">
+                    <CardActionArea onClick={() => navigate('scan')}>
+                      <div className={classes.quickAction}>
+                        <PlayCircleFilledIcon className={classes.actionIcon} />
+                        <Typography variant="subtitle2">New Scan</Typography>
+                      </div>
+                    </CardActionArea>
+                  </Card>
+                )}
               </Box>
             </div>
           </InfoCard>
@@ -429,8 +436,14 @@ export const ComplianceDashboard = () => {
                 const showBaseline = postureMode === 'baseline' && fw.baseline;
                 const gaugeValue = showBaseline ? fw.baseline!.rate : fw.rate;
                 const gaugeSubtitle = showBaseline
-                  ? `${Math.round(fw.baseline!.ruleCount / fw.baseline!.inventoryCount)} rules · ${fw.baseline!.inventoryCount} of ${fw.contributingScans.length} inv.`
-                  : `${fw.passCount}/${fw.passCount + fw.failCount} rules passing`;
+                  ? `${Math.round(
+                      fw.baseline!.ruleCount / fw.baseline!.inventoryCount,
+                    )} rules · ${fw.baseline!.inventoryCount} of ${
+                      fw.contributingScans.length
+                    } inv.`
+                  : `${fw.passCount}/${
+                      fw.passCount + fw.failCount
+                    } rules passing`;
                 return (
                   <div className={classes.gaugeItem} key={fw.profileId}>
                     <ComplianceGauge
@@ -699,20 +712,22 @@ export const ComplianceDashboard = () => {
         <div className={classes.row}>
           <div className={classes.actionsColumn}>
             <InfoCard title="Quick Actions">
-              <Card variant="outlined">
-                <CardActionArea onClick={() => navigate('scan')}>
-                  <div className={classes.quickAction}>
-                    <PlayCircleFilledIcon className={classes.actionIcon} />
-                    <div>
-                      <Typography variant="subtitle1">New Scan</Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        Scan infrastructure against a compliance profile
-                      </Typography>
+              {canLaunchScan && (
+                <Card variant="outlined">
+                  <CardActionArea onClick={() => navigate('scan')}>
+                    <div className={classes.quickAction}>
+                      <PlayCircleFilledIcon className={classes.actionIcon} />
+                      <div>
+                        <Typography variant="subtitle1">New Scan</Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          Scan infrastructure against a compliance profile
+                        </Typography>
+                      </div>
                     </div>
-                  </div>
-                </CardActionArea>
-              </Card>
-              <Box mt={1} />
+                  </CardActionArea>
+                </Card>
+              )}
+              {canLaunchScan && <Box mt={1} />}
               <Card variant="outlined">
                 <CardActionArea onClick={() => navigate('remediations')}>
                   <div className={classes.quickAction}>
@@ -940,18 +955,24 @@ export const ComplianceDashboard = () => {
                     >
                       <Typography variant="caption" color="textSecondary">
                         {fw.lastScan
-                          ? `Last scan: ${new Date(fw.lastScan).toLocaleDateString()}`
+                          ? `Last scan: ${new Date(
+                              fw.lastScan,
+                            ).toLocaleDateString()}`
                           : 'No scans yet'}
                       </Typography>
-                      <Chip
-                        icon={<AssessmentIcon style={{ fontSize: 14 }} />}
-                        label="Scan"
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        clickable
-                        onClick={() => navigate(`scan?profile=${fw.profileId}`)}
-                      />
+                      {canLaunchScan && (
+                        <Chip
+                          icon={<AssessmentIcon style={{ fontSize: 14 }} />}
+                          label="Scan"
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          clickable
+                          onClick={() =>
+                            navigate(`scan?profile=${fw.profileId}`)
+                          }
+                        />
+                      )}
                     </Box>
                   </CardContent>
                 </Card>

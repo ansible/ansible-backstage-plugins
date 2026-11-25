@@ -69,12 +69,9 @@ export type {
 export { FRAMEWORK_OPTIONS } from './types';
 
 export {
-  findingsIngestPermission,
   scanLaunchPermission,
   scanReadPermission,
   remediateLaunchPermission,
-  profileManagePermission,
-  findingsExportPermission,
   compliancePermissions,
 } from './permissions';
 

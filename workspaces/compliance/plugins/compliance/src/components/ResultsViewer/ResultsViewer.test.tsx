@@ -1,6 +1,10 @@
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import { ResultsViewer } from './ResultsViewer';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
 import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
 import type { ComplianceApi } from '../../api';

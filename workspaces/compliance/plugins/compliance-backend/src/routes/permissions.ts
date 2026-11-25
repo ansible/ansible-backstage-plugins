@@ -15,12 +15,40 @@ export function getUserAapToken(req: express.Request): string | undefined {
 }
 
 /**
+ * Require a signed-in user without a named permission.
+ *
+ * Remediation reads use this. Launching a scan still requires
+ * `compliance.scan.launch`, and launching a remediation still requires
+ * `compliance.remediate.launch`.
+ *
+ * When `httpAuth` is omitted (unit tests only), this allows the request.
+ */
+export async function requireAuthenticated(
+  req: express.Request,
+  res: express.Response,
+  httpAuth: HttpAuthService | undefined,
+): Promise<boolean> {
+  if (!httpAuth) {
+    return true;
+  }
+
+  try {
+    // Express Request (express-promise-router) vs Backstage's `credentials` param use incompatible Express generics; runtime value is valid.
+    // @ts-expect-error Avoid double assertion flagged by Sonar; types do not overlap per TS.
+    await httpAuth.credentials(req, { allow: ['user'] });
+    return true;
+  } catch {
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+}
+
+/**
  * Enforce a specific compliance permission on a route.
  *
  * `permission` must be one of the constants exported from
  * `@ansible/compliance-common`'s `permissions.ts` (e.g.
- * `scanLaunchPermission`, `remediateLaunchPermission`,
- * `profileManagePermission`, `findingsIngestPermission`). Callers must
+ * `scanLaunchPermission`, `remediateLaunchPermission`). Callers must
  * always pass the permission that matches the action being performed —
  * there is no implicit default, so every mutating route is explicit about
  * what it requires.

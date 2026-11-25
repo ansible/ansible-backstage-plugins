@@ -1,6 +1,13 @@
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { screen, waitFor } from '@testing-library/react';
 import { ComplianceDashboard } from './ComplianceDashboard';
+
+jest.mock('@backstage/plugin-permission-react', () => ({
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
+}));
+
+const mockedUsePermission = usePermission as jest.Mock;
 import { complianceApiRef } from '../../api';
 import {
   createMockComplianceApi,
@@ -13,6 +20,7 @@ describe('ComplianceDashboard', () => {
 
   beforeEach(() => {
     mockApi = createMockComplianceApi();
+    mockedUsePermission.mockReturnValue({ allowed: true, loading: false });
   });
 
   const renderDashboard = () =>
@@ -55,6 +63,15 @@ describe('ComplianceDashboard', () => {
       expect(screen.getByText('New Scan')).toBeInTheDocument();
     });
     expect(screen.getByText('Browse Profiles')).toBeInTheDocument();
+  });
+
+  it('hides New Scan without compliance.scan.launch', async () => {
+    mockedUsePermission.mockReturnValue({ allowed: false, loading: false });
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.getByText('Compliance Posture')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('New Scan')).not.toBeInTheDocument();
   });
 
   it('displays recent activity from mock data', async () => {

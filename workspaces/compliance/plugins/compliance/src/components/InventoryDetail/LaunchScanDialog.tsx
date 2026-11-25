@@ -19,6 +19,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import WarningIcon from '@material-ui/icons/Warning';
 import StorageIcon from '@material-ui/icons/Storage';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { complianceApiRef } from '../../api';
 import { STATUS_COLORS } from '../shared/colors';
 
@@ -69,6 +71,9 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const [profileId, setProfileId] = useState(initialProfileId);
   const [checking, setChecking] = useState(false);
   const [lastScan, setLastScan] = useState<{
@@ -215,7 +220,12 @@ export const LaunchScanDialog: React.FC<LaunchScanDialogProps> = ({
           variant="contained"
           color="primary"
           onClick={handleLaunch}
-          disabled={!profileId || launching}
+          disabled={!profileId || launching || !canLaunchScan}
+          title={
+            !canLaunchScan
+              ? 'You do not have permission to launch scans'
+              : undefined
+          }
           startIcon={launching ? <CircularProgress size={16} /> : undefined}
         >
           {launching ? 'Launching...' : 'Launch Scan'}

@@ -41,6 +41,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import RefreshIcon from '@material-ui/icons/Refresh';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { complianceApiRef } from '../../api';
 import { formatElapsed } from '../shared/formatTime';
 import { STATUS_COLORS } from '../shared/colors';
@@ -635,6 +637,9 @@ export const RemediationExecution = ({
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const { jobId } = useParams<{ jobId: string }>();
   const [searchParams] = useSearchParams();
   const isViewMode = viewMode ?? false;
@@ -1410,7 +1415,7 @@ export const RemediationExecution = ({
                       <Button
                         variant="contained"
                         color="primary"
-                        disabled={verificationLaunching}
+                        disabled={verificationLaunching || !canLaunchScan}
                         onClick={launchVerificationScan}
                       >
                         {verificationLaunching
@@ -1482,7 +1487,7 @@ export const RemediationExecution = ({
                 <Button
                   variant="outlined"
                   startIcon={<RefreshIcon />}
-                  disabled={verificationLaunching}
+                  disabled={verificationLaunching || !canLaunchScan}
                   onClick={launchVerificationScan}
                 >
                   {verificationLaunching

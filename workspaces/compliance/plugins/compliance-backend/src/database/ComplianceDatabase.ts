@@ -432,8 +432,7 @@ export class ComplianceDatabase {
   // Per-scan ingest tokens scope the findings-ingest and scan-artifact
   // registration endpoints to the specific scan they were issued for.
   // They are a defense-in-depth layer underneath Backstage AuthN
-  // (externalAccess static token) and AuthZ (compliance.findings.ingest
-  // permission) — see workspaces/compliance/README.md.
+  // (externalAccess static token) — see workspaces/compliance/README.md.
 
   async storeIngestToken(scanId: string, token: string): Promise<void> {
     await this.db('compliance_scans').where('id', scanId).update({

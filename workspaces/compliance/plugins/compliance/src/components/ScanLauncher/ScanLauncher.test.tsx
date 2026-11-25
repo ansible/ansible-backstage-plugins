@@ -1,13 +1,14 @@
 import { renderInTestApp, TestApiProvider } from '@backstage/test-utils';
+import { usePermission } from '@backstage/plugin-permission-react';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { ScanLauncher } from './ScanLauncher';
 import { complianceApiRef } from '../../api';
 import { createMockComplianceApi } from '../../__testutils__/mockComplianceApi';
 import type { ComplianceApi } from '../../api';
 
-// Mock usePermission to allow scan actions
 jest.mock('@backstage/plugin-permission-react', () => ({
-  usePermission: () => ({ allowed: true, loading: false }),
+  usePermission: jest.fn(() => ({ allowed: true, loading: false })),
 }));
 
 describe('ScanLauncher', () => {
@@ -30,6 +31,9 @@ describe('ScanLauncher', () => {
     await renderLauncher();
     await waitFor(() => {
       expect(screen.getByText('New Scan')).toBeInTheDocument();
+    });
+    expect(usePermission).toHaveBeenCalledWith({
+      permission: scanLaunchPermission,
     });
   });
 

@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { InfoCard, Breadcrumbs, Progress } from '@backstage/core-components';
 import { useApi } from '@backstage/core-plugin-api';
+import { usePermission } from '@backstage/plugin-permission-react';
+import { scanLaunchPermission } from '@ansible/compliance-common';
 import { ScanProgress } from '../ScanProgress';
 import {
   Typography,
@@ -139,6 +141,9 @@ export const ResultsViewer = () => {
   const classes = useStyles();
   const navigate = useNavigate();
   const api = useApi(complianceApiRef);
+  const { allowed: canLaunchScan } = usePermission({
+    permission: scanLaunchPermission,
+  });
   const { jobId } = useParams<{ jobId: string }>();
   const [searchParams] = useSearchParams();
 
@@ -910,13 +915,15 @@ export const ResultsViewer = () => {
               Launch a compliance scan to see findings and per-host results
               here.
             </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => navigate('/compliance/scan')}
-            >
-              Launch a Scan
-            </Button>
+            {canLaunchScan && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate('/compliance/scan')}
+              >
+                Launch a Scan
+              </Button>
+            )}
           </div>
         </InfoCard>
       </>
@@ -1049,7 +1056,9 @@ export const ResultsViewer = () => {
               clickable
               onClick={() =>
                 navigate(
-                  `/compliance/remediation-edit/${baseline.baselineProfile!.id}`,
+                  `/compliance/remediation-edit/${
+                    baseline.baselineProfile!.id
+                  }`,
                 )
               }
               style={{ cursor: 'pointer' }}
@@ -1358,7 +1367,9 @@ export const ResultsViewer = () => {
                   onClick={() => {
                     setOverflowAnchor(null);
                     const filter = meta.scanComplianceProfileId
-                      ? `?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`
+                      ? `?complianceProfileId=${encodeURIComponent(
+                          meta.scanComplianceProfileId,
+                        )}`
                       : '';
                     navigate(`/compliance/remediations${filter}`);
                   }}
@@ -1372,7 +1383,9 @@ export const ResultsViewer = () => {
                 onClick={() => {
                   setOverflowAnchor(null);
                   const filter = meta.scanComplianceProfileId
-                    ? `?complianceProfileId=${encodeURIComponent(meta.scanComplianceProfileId)}`
+                    ? `?complianceProfileId=${encodeURIComponent(
+                        meta.scanComplianceProfileId,
+                      )}`
                     : '';
                   navigate(`/compliance/remediations${filter}`);
                 }}
@@ -1649,21 +1662,23 @@ export const ResultsViewer = () => {
                   No completed assessment scan found for this inventory.
                 </Typography>
               </Box>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => {
-                  baseline.setBaselineLaunchOpen(false);
-                  const params = new URLSearchParams();
-                  if (meta.scanComplianceProfileId)
-                    params.set('profile', meta.scanComplianceProfileId);
-                  if (meta.scanInventoryId)
-                    params.set('inventory', String(meta.scanInventoryId));
-                  navigate(`/compliance/scan?${params.toString()}`);
-                }}
-              >
-                Run a Scan First
-              </Button>
+              {canLaunchScan && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    baseline.setBaselineLaunchOpen(false);
+                    const params = new URLSearchParams();
+                    if (meta.scanComplianceProfileId)
+                      params.set('profile', meta.scanComplianceProfileId);
+                    if (meta.scanInventoryId)
+                      params.set('inventory', String(meta.scanInventoryId));
+                    navigate(`/compliance/scan?${params.toString()}`);
+                  }}
+                >
+                  Run a Scan First
+                </Button>
+              )}
             </Box>
           )}
         </DialogContent>

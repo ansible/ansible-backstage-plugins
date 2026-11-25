@@ -49,10 +49,7 @@ layered:
 1. **AuthN** — the Controller job authenticates as a Backstage service
    caller using a `backend.auth.externalAccess` static token, stored as an
    AAP Controller Credential (not a plaintext `extra_var`).
-2. **AuthZ** — the caller must hold the `compliance.findings.ingest`
-   permission (RBAC), checked via the standard Backstage permissions
-   framework.
-3. **Scoping** — a per-scan ingest token (ADR-010) further restricts the
+2. **Scoping** — a per-scan ingest token (ADR-010) further restricts the
    caller to the specific scan it was issued for, with a TTL, a
    scan-state guard, and invalidation on finalize.
 
