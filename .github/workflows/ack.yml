@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   ack:
+    name: ack / ack
     runs-on: ubuntu-24.04
     steps:
       - name: Verify pull request label
