@@ -11,8 +11,10 @@ on:
     types:
       - completed
 
+# workflow_run has no github.event.pull_request.number and github.ref is the
+# default branch, so the old group collapsed every PR scan onto main.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.event_name == 'workflow_run' && format('{0}-workflow_run-{1}', github.workflow, github.event.workflow_run.pull_requests[0].number || (github.event.workflow_run.head_branch && format('{0}:{1}', github.event.workflow_run.head_repository.full_name, github.event.workflow_run.head_branch)) || github.event.workflow_run.id) || format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
 jobs:
@@ -35,8 +37,8 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      # Trusted base-repo checkout first; fork PR sources are fetched via gh pr checkout
-      # after PR metadata is resolved (ansible-creator / team-devtools finalize pattern).
+      # Trusted base-repo checkout first; fork PR sources are fetched from
+      # refs/pull/<n>/head after PR metadata is resolved.
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -57,29 +59,28 @@ jobs:
       - name: Get coverage workflow run ID
         if: github.event_name == 'workflow_run' || github.event_name == 'push'
         id: get-run-id
-        run: |
-          if [ "${{ github.event_name }}" = 'push' ]; then
-            WORKFLOW_FILE=push.yml
-            WORKFLOW_EVENT=push
-          else
-            WORKFLOW_FILE=pr.yml
-            WORKFLOW_EVENT=pull_request
-          fi
-          HEAD_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          RUNS_URL="/repos/${{ github.repository }}/actions/workflows/${WORKFLOW_FILE}/runs"
-          QUERY="head_sha=${HEAD_SHA}&event=${WORKFLOW_EVENT}&per_page=1"
-          RUN_ID=$(gh api \
-            -H "Accept: application/vnd.github+json" \
-            "${RUNS_URL}?${QUERY}" \
-            --jq '.workflow_runs[0].id')
-          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = 'null' ]; then
-            echo "No ${WORKFLOW_FILE} run found for this commit" >&2
-            exit 1
-          fi
-          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
-          echo "Found coverage workflow run ID: $RUN_ID"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = 'workflow_run' ]; then
+            RUN_ID="${WORKFLOW_RUN_ID}"
+          else
+            RUNS_URL="/repos/${{ github.repository }}/actions/workflows/push.yml/runs"
+            RUN_ID=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "${RUNS_URL}?head_sha=${HEAD_SHA}&event=push&per_page=1" \
+              --jq '.workflow_runs[0].id')
+          fi
+          if [ -z "${RUN_ID}" ] || [ "${RUN_ID}" = 'null' ]; then
+            echo "No coverage workflow run found for this commit" >&2
+            exit 1
+          fi
+          echo "run_id=${RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "Found coverage workflow run ID: ${RUN_ID}"
 
       - name: Download coverage artifacts
         if: github.event_name == 'workflow_run' || github.event_name == 'push'
@@ -154,15 +155,16 @@ jobs:
             PR_NUMBER=""
           fi
 
-          # commits/{sha}/pulls[0] can be a different PR that shares the commit
-          # (for example a merged PR). Accept it only when it matches this run.
+          # commits/{sha}/pulls can include other PRs that share the commit.
+          # Accept a candidate only when exactly one PR matches this run.
           if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
-            CANDIDATE=$(gh api \
+            MATCHING=$(gh api \
               -H "Accept: application/vnd.github+json" \
               "repos/${REPO}/commits/${HEAD_SHA}/pulls" \
-              --jq '.[0].number // empty')
-            if [[ "${CANDIDATE}" =~ ^[0-9]+$ ]] && pr_matches_run "${CANDIDATE}"; then
-              PR_NUMBER="${CANDIDATE}"
+              --jq "[.[] | select(.head.sha == \"${HEAD_SHA}\" and .head.ref == \"${HEAD_BRANCH}\" and .head.repo.full_name == \"${HEAD_REPOSITORY}\") | .number]")
+            MATCH_COUNT=$(jq 'length' <<< "${MATCHING}")
+            if [[ "${MATCH_COUNT}" -eq 1 ]]; then
+              PR_NUMBER=$(jq -r '.[0]' <<< "${MATCHING}")
             else
               PR_NUMBER=""
             fi
