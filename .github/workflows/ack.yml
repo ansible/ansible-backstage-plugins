@@ -8,7 +8,7 @@ concurrency:
 
 on:
   pull_request:
-    types: [opened, labeled, unlabeled, synchronize]
+    types: [opened, edited, labeled, unlabeled, synchronize]
 
 permissions:
   contents: read
