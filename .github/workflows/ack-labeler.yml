@@ -1,0 +1,82 @@
+---
+name: ack labeler
+
+on:
+  workflow_run:
+    workflows: [ack]
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  label:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Resolve pull request and apply label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          head_owner=${HEAD_REPOSITORY%%/*}
+          candidates=$(gh api "/repos/${GITHUB_REPOSITORY}/pulls" \
+            --method GET \
+            -f state=open \
+            -f per_page=100 \
+            -f head="${head_owner}:${HEAD_BRANCH}")
+          matches=$(jq \
+            --arg repo "$HEAD_REPOSITORY" \
+            --arg branch "$HEAD_BRANCH" \
+            --arg sha "$HEAD_SHA" '
+              [.[] | select(
+                .head.repo.full_name == $repo and
+                .head.ref == $branch and
+                .head.sha == $sha
+              )]
+            ' <<<"$candidates")
+          match_count=$(jq 'length' <<<"$matches")
+
+          if [[ "$match_count" -ne 1 ]]; then
+            echo "::warning::Expected one matching pull request, found $match_count"
+            exit 0
+          fi
+
+          pr_number=$(jq -r '.[0].number' <<<"$matches")
+          pr_title=$(jq -r '.[0].title' <<<"$matches")
+          pr_body=$(jq -r '.[0].body // ""' <<<"$matches")
+          label=$(jq -nr \
+            --arg title "$pr_title" \
+            --arg body "$pr_body" '
+              if (($title | test("^(?:\\[[^\\]]+\\]\\s*)*[a-z]+(\\([^)]+\\))?!:"; "i")) or
+                  ($body | test("(?im)^BREAKING CHANGE: "))) then "breaking"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*feat(\\([^)]+\\))?:"; "i")) then "feat"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*fix(\\([^)]+\\))?:"; "i")) then "fix"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*(chore|build|ci|test|style)(\\([^)]+\\))?:"; "i")) or
+                   ($title | test("(?:\\[[^\\]]+\\]\\s*)*pre-commit autoupdate"; "i")) then "chore"
+              else ""
+              end
+            ')
+
+          if [[ -z "$label" ]]; then
+            echo "No conventional-commit label matches pull request #$pr_number"
+            exit 0
+          fi
+
+          if jq -e --arg label "$label" \
+            '.[0].labels | any(.name == $label)' <<<"$matches" >/dev/null; then
+            echo "Pull request #$pr_number already has label: $label"
+            exit 0
+          fi
+
+          label_payload=$(jq -n --arg label "$label" '{labels: [$label]}')
+          gh api "/repos/${GITHUB_REPOSITORY}/issues/${pr_number}/labels" \
+            --method POST \
+            --input - <<<"$label_payload"
+          echo "Applied label to pull request #$pr_number: $label"
