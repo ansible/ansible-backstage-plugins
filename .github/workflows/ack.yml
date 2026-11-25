@@ -3,14 +3,50 @@
 name: ack
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 on:
-  pull_request_target:
-    types: [opened, labeled, unlabeled, synchronize]
+  pull_request:
+    types: [opened, edited, labeled, unlabeled, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   ack:
-    uses: ansible/team-devtools/.github/workflows/ack.yml@main
-    secrets: inherit
+    name: ack / ack
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify pull request label
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          existing_label=$(jq -r '
+            map(select(. == "breaking" or . == "chore" or . == "feat" or . == "fix"))
+            | first // empty
+          ' <<<"$PR_LABELS")
+          inferred_label=$(jq -nr \
+            --arg title "$PR_TITLE" \
+            --arg body "$PR_BODY" '
+              if (($title | test("^(?:\\[[^\\]]+\\]\\s*)*[a-z]+(\\([^)]+\\))?!:"; "i")) or
+                  ($body | test("(?im)^BREAKING CHANGE: "))) then "breaking"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*feat(\\([^)]+\\))?:"; "i")) then "feat"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*fix(\\([^)]+\\))?:"; "i")) then "fix"
+              elif ($title | test("^(?:\\[[^\\]]+\\]\\s*)*(chore|build|ci|test|style)(\\([^)]+\\))?:"; "i")) or
+                   ($title | test("(?:\\[[^\\]]+\\]\\s*)*pre-commit autoupdate"; "i")) then "chore"
+              else ""
+              end
+            ')
+
+          if [[ -z "$existing_label" && -z "$inferred_label" ]]; then
+            echo "::error::Pull request requires at least one of: breaking, chore, feat, fix"
+            exit 1
+          fi
+
+          echo "Required label check passed: ${existing_label:-$inferred_label}"
