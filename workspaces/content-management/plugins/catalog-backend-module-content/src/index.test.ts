@@ -1,6 +1,6 @@
 import { catalogModuleContent } from './module';
-import { catalogModuleEEProvider } from './ee-provider/module';
 import catalogContentFeatureLoader, {
+  catalogModuleEEProvider,
   contentCatalogRegistration,
 } from './index';
 
