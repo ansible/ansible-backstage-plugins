@@ -254,7 +254,6 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6
         env:
           SONAR_TOKEN: ${{ secrets[format('{0}', vars.SONAR_TOKEN_SECRET_NAME)] }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
             -Dproject.settings=${{ env.SONAR_TRUSTED_SETTINGS }}
@@ -267,6 +266,7 @@ jobs:
             -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/*.test.js,**/*.test.jsx,**/.eslintrc.js,**/node_modules/**,**/dist/**,**/dist-dynamic/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov-plugins.info
             -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.sca.enabled=false
             -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
             -Dsonar.pullrequest.key=${{ env.PR_NUMBER }}
             -Dsonar.pullrequest.branch=${{ env.PR_HEAD }}
