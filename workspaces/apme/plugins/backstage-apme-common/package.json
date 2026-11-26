@@ -30,7 +30,6 @@
     "./registerOrResolveApmeProject": "./src/registerOrResolveApmeProject.ts",
     "./apmeChatModel": "./src/apmeChatModel.ts",
     "./package.json": "./package.json",
-    "./devSpaces": "./src/devSpaces.ts",
     "./permissions": "./src/permissions.ts"
   },
   "typesVersions": {
@@ -82,9 +81,6 @@
       ],
       "apmeChatModel": [
         "src/apmeChatModel.ts"
-      ],
-      "devSpaces": [
-        "src/devSpaces.ts"
       ],
       "permissions": [
         "src/permissions.ts"

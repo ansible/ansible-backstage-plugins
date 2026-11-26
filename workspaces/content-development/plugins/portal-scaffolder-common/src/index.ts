@@ -7,3 +7,15 @@ export type {
   EEBuildResult,
   UserJobTemplate,
 } from './types';
+
+export {
+  joinDevSpacesFactoryUrl,
+  generateDevSpacesUrl,
+  parseScmRepoUrl,
+  buildDevSpacesUrlFromRepoUrl,
+  buildDevSpacesRemediationUrl,
+} from './devSpaces';
+export type {
+  ScmRepoParts,
+  BuildDevSpacesRemediationUrlOptions,
+} from './devSpaces';
