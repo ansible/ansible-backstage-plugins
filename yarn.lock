@@ -630,6 +630,7 @@ __metadata:
     "@ansible/backstage-apme-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"
+    "@ansible/portal-scaffolder-react": "workspace:^"
     "@apme/ui-workflow": "https://github.com/ansible/apme/releases/download/v2026.9.3/apme-ui-workflow-2026.9.3.tgz"
     "@backstage/catalog-model": "npm:1.10.2"
     "@backstage/cli": "npm:0.36.5"
