@@ -21,6 +21,7 @@ export const templatesRouteRef = createRouteRef({
   id: 'self-service/templates',
 });
 
+/** Retained for dynamic-plugin manifest compatibility. */
 export const historyRouteRef = createRouteRef({
   id: 'self-service/history',
 });

@@ -18,10 +18,8 @@ import {
   rootRouteRef,
   collectionsRouteRef,
   gitRepositoriesRouteRef,
-  historyRouteRef,
 } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
-import HistoryIcon from '@material-ui/icons/History';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import {
@@ -165,7 +163,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     root: convertLegacyRouteRef(rootRouteRef),
     collections: convertLegacyRouteRef(collectionsRouteRef),
     repositories: convertLegacyRouteRef(gitRepositoriesRouteRef),
-    history: convertLegacyRouteRef(historyRouteRef),
   },
   extensions: [
     aapUserTokenFormDecorator,
@@ -238,20 +235,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
           './components/NativeScaffolderPage'
         );
         return compatWrapper(<NativeScaffolderPage declarations={fields} />);
-      },
-    }),
-    PageBlueprint.make({
-      name: 'history',
-      params: {
-        path: portalScaffolderRoutePaths.history,
-        title: 'History',
-        icon: <HistoryIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(historyRouteRef),
-        loader: async () => {
-          const { HistoryRoutesPage } = await import('./components/TaskList');
-          return compatWrapper(<HistoryRoutesPage />);
-        },
       },
     }),
   ],

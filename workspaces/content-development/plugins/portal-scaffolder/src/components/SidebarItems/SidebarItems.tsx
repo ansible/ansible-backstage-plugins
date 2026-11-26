@@ -6,13 +6,11 @@ import BuildIcon from '@material-ui/icons/Build';
 import HomeIcon from '@material-ui/icons/Home';
 import ExtensionIcon from '@material-ui/icons/Extension';
 import GitHubIcon from '@material-ui/icons/GitHub';
-import HistoryIcon from '@material-ui/icons/History';
 import {
   executionEnvironmentsViewPermission,
   collectionsViewPermission,
   gitRepositoriesViewPermission,
   templatesViewPermission,
-  historyViewPermission,
 } from '@ansible/aap-common/permissions';
 
 import { rootRouteRef } from '../../routes';
@@ -98,15 +96,10 @@ export const TemplatesSidebarItem = () => {
   );
 };
 
-export const HistorySidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
-
-  return (
-    <PermissionGatedSidebarItem
-      permission={historyViewPermission}
-      icon={HistoryIcon}
-      to={`${rootLink()}/create/tasks`}
-      text="History"
-    />
-  );
-};
+/**
+ * Compatibility component for existing dynamic-plugin manifests.
+ * History navigation has been removed, so this intentionally renders nothing.
+ *
+ * Keep until all host manifests migrate away from this component.
+ */
+export const HistorySidebarItem = () => null;

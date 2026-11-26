@@ -12,7 +12,6 @@ import {
   collectionsViewPermission,
   gitRepositoriesViewPermission,
   templatesViewPermission,
-  historyViewPermission,
 } from '@ansible/aap-common/permissions';
 
 import { HomeComponent } from '../Home';
@@ -20,9 +19,7 @@ import { JobTemplatesProvider } from '../Home/JobTemplatesProvider';
 import { CatalogImport } from '../CatalogImport';
 import { RequireSuperuser } from '../CatalogImport/RequireSuperuser';
 import { CreateTask } from '../CreateTask';
-import { RunTask } from '../RunTask';
 import { FeedbackFooter } from '../feedback/FeedbackFooter';
-import { TaskList } from '../TaskList';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { EETabs } from '../ExecutionEnvironments';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
@@ -105,22 +102,6 @@ const RouteViewContent = () => {
             element={
               <RequirePermission permission={templatesViewPermission}>
                 <CreateTask />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="tasks"
-            element={
-              <RequirePermission permission={historyViewPermission}>
-                <TaskList />
-              </RequirePermission>
-            }
-          />
-          <Route
-            path="tasks/:taskId"
-            element={
-              <RequirePermission permission={historyViewPermission}>
-                <RunTask />
               </RequirePermission>
             }
           />
