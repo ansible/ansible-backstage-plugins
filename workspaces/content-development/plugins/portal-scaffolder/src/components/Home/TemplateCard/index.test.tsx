@@ -51,7 +51,7 @@ const makeTemplate = (
       owner: 'team-a',
       ...specOverrides,
     },
-  } as unknown as TemplateEntityV1beta3);
+  }) as unknown as TemplateEntityV1beta3;
 
 describe('WizardCard', () => {
   beforeEach(() => {
