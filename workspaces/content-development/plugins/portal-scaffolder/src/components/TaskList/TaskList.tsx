@@ -388,9 +388,15 @@ const HistoryRoutesContent = () => {
   return (
     <>
       <Routes>
-        <Route index element={<TaskList />} />
         <Route path=":taskId" element={<RunTask />} />
-        <Route path="*" element={<Navigate to="." replace />} />
+        <Route
+          index
+          element={<Navigate to="/self-service/catalog" replace />}
+        />
+        <Route
+          path="*"
+          element={<Navigate to="/self-service/catalog" replace />}
+        />
       </Routes>
       <NotificationStack
         notifications={notifications}
@@ -401,8 +407,11 @@ const HistoryRoutesContent = () => {
 };
 
 /**
- * Standalone route wrapper used by the dynamic plugin mount at /self-service/create/tasks
- * so detail URLs like /self-service/create/tasks/:taskId resolve correctly.
+ * Compatibility route wrapper for dynamic-plugin manifests that still mount
+ * HistoryPage at /self-service/create/tasks. It keeps task details available
+ * without restoring the History list.
+ *
+ * Keep until all host manifests migrate away from HistoryPage.
  */
 export const HistoryRoutesPage = () => {
   return (

@@ -163,9 +163,6 @@ jest.mock('./components/Home', () => ({
     <div data-testid="templates-content">Portal templates</div>
   ),
 }));
-jest.mock('./components/TaskList', () => ({
-  HistoryRoutesPage: () => <div>Portal task history</div>,
-}));
 jest.mock('./components/CollectionsCatalog', () => ({
   CollectionsRoutesPage: () => <div>Native collections section</div>,
 }));
@@ -243,15 +240,15 @@ it('provides distinct native sidebar icons for the existing self-service section
     apis: [mockApis.permission()],
   });
   await screen.findByTestId('templates-content', {}, { timeout: 10000 });
-  const paths = ['Templates', 'History', 'Collections', 'Git repositories'].map(
-    name =>
-      screen
-        .getByRole('link', { name })
-        .querySelector('svg path')
-        ?.getAttribute('d'),
+  const paths = ['Templates', 'Collections', 'Git repositories'].map(name =>
+    screen
+      .getByRole('link', { name })
+      .querySelector('svg path')
+      ?.getAttribute('d'),
   );
   expect(paths.every(Boolean)).toBe(true);
-  expect(new Set(paths).size).toBe(4);
+  expect(new Set(paths).size).toBe(3);
+  expect(screen.queryByRole('link', { name: 'History' })).toBeNull();
   expect(
     screen.queryByRole('link', { name: 'Execution Environments' }),
   ).toBeNull();
@@ -412,7 +409,6 @@ it('discovers native fields on the real Portal wizard route and keeps the existi
       secrets: { SCM_TOKEN: 'test-secret' },
     }),
   );
-  expect(await screen.findByText('Portal task history')).toBeInTheDocument();
   expect(contributionRegistry.getScaffolderFields()).toEqual([]);
 });
 
@@ -422,8 +418,6 @@ it.each([
   ['/self-service/repositories/catalog', 'Native repositories section'],
   ['/self-service/repositories/example', 'Native repositories section'],
   ['/self-service/repositories/ci-activity', 'Native repositories section'],
-  ['/self-service/create/tasks', 'Portal task history'],
-  ['/self-service/create/tasks/example-task', 'Portal task history'],
   ['/self-service/catalog', 'Portal templates'],
   ['/self-service/catalog/default/example', 'Portal templates'],
   ['/self-service/catalog-import', 'Native catalog import'],

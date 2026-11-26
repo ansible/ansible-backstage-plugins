@@ -25,7 +25,6 @@ import {
   useSidebarOpenState,
   Link,
 } from '@backstage/core-components';
-import HistoryIcon from '@material-ui/icons/History';
 import MenuIcon from '@material-ui/icons/Menu';
 import CodeIcon from '@material-ui/icons/Code';
 import SearchIcon from '@material-ui/icons/Search';
@@ -96,11 +95,6 @@ export const Root = ({ children }: PropsWithChildren<{}>) => (
           <AutomationContentSidebarItem />
           <SidebarItem icon={SecurityIcon} to="/compliance" text="Compliance" />
           <SidebarItem icon={HomeIcon} to="/create" text="Self-service" />
-          <SidebarItem
-            icon={HistoryIcon}
-            to="/self-service/create/tasks"
-            text="History"
-          />
           <SidebarItem
             icon={MenuIcon}
             to="/self-service/ee"

@@ -9,8 +9,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
  * - The standard /create endpoint shows ALL templates without AAP permission filtering
  * - The /self-service/catalog endpoint properly filters templates based on user's AAP permissions
  *
- * By redirecting /create and /create/* paths, we ensure users can only see
- * templates they have access to in Ansible Automation Platform.
+ * Redirecting template browsing paths ensures users can only see templates
+ * they have access to in Ansible Automation Platform. Native task details stay
+ * on the Backstage scaffolder route after launch.
  */
 export const LocationListener = () => {
   const { pathname } = useLocation();
@@ -44,23 +45,14 @@ export const LocationListener = () => {
       return undefined;
     }
 
-    // Redirect /create/tasks to self-service tasks list
-    if (pathname === '/create/tasks') {
-      navigate('/self-service/create/tasks', { replace: true });
-      return undefined;
-    }
-
-    // Redirect /create/tasks/:taskId to self-service task details
-    // Match paths like /create/tasks/abc123
-    const taskMatch = /^\/create\/tasks\/([^/]+)$/.exec(pathname);
-    if (taskMatch) {
-      const [, taskId] = taskMatch;
-      navigate(`/self-service/create/tasks/${taskId}`, { replace: true });
-      return undefined;
-    }
-
     // Catch-all for any other /create/* paths - redirect to self-service catalog
-    if (pathname.startsWith('/create/') || pathname.startsWith('/create?')) {
+    // Native task details are owned by the Backstage scaffolder and must remain
+    // at /create/tasks/:taskId after a template is launched.
+    const isNativeTaskDetailsRoute = /^\/create\/tasks\/[^/]+$/.test(pathname);
+    if (
+      (pathname.startsWith('/create/') || pathname.startsWith('/create?')) &&
+      !isNativeTaskDetailsRoute
+    ) {
       navigate('/self-service/catalog', { replace: true });
       return undefined;
     }
