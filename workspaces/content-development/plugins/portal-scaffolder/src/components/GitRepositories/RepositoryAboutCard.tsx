@@ -59,7 +59,9 @@ export const RepositoryAboutCard = ({
     ? entity.metadata.tags
     : [];
 
-  const collectionsLabel = `${collectionCount} collection${collectionCount === 1 ? '' : 's'}`;
+  const collectionsLabel = `${collectionCount} collection${
+    collectionCount === 1 ? '' : 's'
+  }`;
   let containsCollectionsPart: ReactNode = null;
   if (collectionCount > 0) {
     containsCollectionsPart = onNavigateToCollections ? (

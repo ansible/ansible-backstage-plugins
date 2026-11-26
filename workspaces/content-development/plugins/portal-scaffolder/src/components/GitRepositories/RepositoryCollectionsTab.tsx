@@ -34,7 +34,11 @@ import StarBorder from '@material-ui/icons/StarBorder';
 import { CollectionsEmptyState } from '../common';
 import { CollectionsTypeFilter } from '../CollectionsCatalog/CollectionsListPage';
 import { usePaginatedCollections } from '../CollectionsCatalog/usePaginatedCollections';
-import { buildSourceString, formatTimeAgo, getSourceUrl } from '../CollectionsCatalog/utils';
+import {
+  buildSourceString,
+  formatTimeAgo,
+  getSourceUrl,
+} from '../CollectionsCatalog/utils';
 import { rootRouteRef } from '../../routes';
 import type { SyncStatusMap } from '../common';
 
@@ -131,7 +135,11 @@ function buildCollectionColumns(
       cell: row =>
         row.sourceUrl ? (
           <Cell>
-            <Link href={row.sourceUrl} target="_blank" rel="noopener noreferrer">
+            <Link
+              href={row.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {row.sourceLabel}
             </Link>
           </Cell>
@@ -237,17 +245,19 @@ export const RepositoryCollectionsTab = ({
 
   const columns = useMemo(
     () =>
-      buildCollectionColumns(
-        isStarredEntity,
-        toggleStarredEntity,
-        path => navigate(path),
+      buildCollectionColumns(isStarredEntity, toggleStarredEntity, path =>
+        navigate(path),
       ),
     [isStarredEntity, toggleStarredEntity, navigate],
   );
 
   if (error) {
     return (
-      <Alert status="danger" title="Unable to load collections" description={error} />
+      <Alert
+        status="danger"
+        title="Unable to load collections"
+        description={error}
+      />
     );
   }
 

@@ -66,7 +66,7 @@ jest.mock('@backstage/core-components', () => {
                   >
                     {col.render
                       ? col.render(entity)
-                      : (entity.metadata?.title ?? entity.metadata?.name)}
+                      : entity.metadata?.title ?? entity.metadata?.name}
                   </td>
                 ))}
               </tr>
@@ -144,7 +144,9 @@ const createMockEntity = (
       'ansible.io/scm-host':
         provider === 'github' ? 'github.com' : 'gitlab.com',
       'ansible.io/discovery-source-id': `${provider}:test-org`,
-      'backstage.io/source-location': `url:https://${provider === 'github' ? 'github.com' : 'gitlab.com'}/test-org/${name}`,
+      'backstage.io/source-location': `url:https://${
+        provider === 'github' ? 'github.com' : 'gitlab.com'
+      }/test-org/${name}`,
     },
   },
   spec: {

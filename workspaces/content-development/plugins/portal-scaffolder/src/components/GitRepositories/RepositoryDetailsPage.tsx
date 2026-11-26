@@ -585,7 +585,11 @@ const RepositoryDetailsPageInner = () => {
                   ))}
               </Flex>
             </Box>
-            <Flex direction="column" gap="4" style={{ width: 340, flexShrink: 0 }}>
+            <Flex
+              direction="column"
+              gap="4"
+              style={{ width: 340, flexShrink: 0 }}
+            >
               {extensionCards
                 .filter(c => c.slot !== 'overview-left')
                 .map(c => (
@@ -598,7 +602,9 @@ const RepositoryDetailsPageInner = () => {
               <RepositoryAboutCard
                 entity={entity}
                 onViewSource={handleViewSource}
-                onNavigateToCollections={() => setSelectedTabKey(TAB_COLLECTIONS)}
+                onNavigateToCollections={() =>
+                  setSelectedTabKey(TAB_COLLECTIONS)
+                }
               />
             </Flex>
           </Flex>
