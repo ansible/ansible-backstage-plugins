@@ -64,3 +64,6 @@ export type {
 
 // Shared server-side SCM clients.
 export * from './ScmClient';
+
+// Generic catalog provider discovery and mutation contracts.
+export * from './catalogEntityProviders';

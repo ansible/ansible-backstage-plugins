@@ -35,7 +35,7 @@
     "@ansible/automation-content-common": "workspace:^",
     "@ansible/content-model": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
-    "@backstage/catalog-model": "1.10.0",
+    "@backstage/catalog-model": "1.10.2",
     "@backstage/core-components": "0.18.13",
     "@backstage/core-plugin-api": "1.12.9",
     "@backstage/frontend-plugin-api": "0.18.0",

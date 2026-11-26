@@ -568,6 +568,33 @@ Backend context supplies `organizationId` for a single membership or
 in this SDK flow. For display, `usePortalContext` reads authenticated
 `GET /api/portal-operations/context`; its result is not backend authority.
 
+## Contributing a backend catalog entity provider
+
+Feature workspaces integrate through shared SDK contracts rather than direct
+dependencies on another feature workspace. The backend SDK exports
+`CatalogEntityProvider`, `CatalogEntityMutation` and
+`portalCatalogEntityProvidersServiceRef` for generic catalog provider discovery.
+Contributors own their provider implementations, registration IDs, validation,
+durable mutation locks and catalog connectivity. Consumers retain their own
+permission-aware adapters and authorize the initiating caller inside the locked
+mutation callback. No domain-specific provider is installed by the SDK.
+
+Resolve providers while handling work, after backend initialization. Registration
+does not establish readiness. The registry fails for unknown IDs, unavailable
+providers and writes to a different entity reference. Mutation handles expire
+after their callback. Providers supply a synchronous `assertLockHeld()` guard,
+invalidate it before releasing their lock, and recheck it after internal awaits
+immediately before effects. The SDK checks it at callback admission and before
+state reads and queued writes. Accepted entity payloads are copied before any
+queue wait. Registration state includes interrupted, pending writes
+so replacement authorization does not rely solely on catalog visibility.
+
+See the [backend SDK provider contract](https://github.com/ansible/ansible-backstage-plugins/blob/main/workspaces/portal-core/plugins/portal-plugin-node/README.md#catalog-entity-provider-contributions)
+for provider obligations, host service wiring and consumer examples. These are
+internal backend interfaces, not an alternative to operation authorization,
+organization checks or authenticated transport. An existing feature must be
+explicitly migrated and validated before it uses this contract.
+
 ## Configuration and packaging responsibilities
 
 Separate package installation, native extension configuration, capability

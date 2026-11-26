@@ -7,6 +7,7 @@ import type {
   PortalHealth,
   PortalOperations,
   PortalEntitlements,
+  CatalogEntityProvidersService,
 } from '@ansible/portal-plugin-node';
 import loader from './alpha';
 
@@ -16,6 +17,7 @@ describe('dynamic root service ownership', () => {
       health: PortalHealth;
       operations: PortalOperations;
       entitlements: PortalEntitlements;
+      providers: CatalogEntityProvidersService;
     }> = [];
     const contributor = (pluginId: string) =>
       createBackendPlugin({
@@ -35,6 +37,10 @@ describe('dynamic root service ownership', () => {
                 id: 'portal.entitlements',
                 scope: 'root',
               }),
+              providers: createServiceRef<CatalogEntityProvidersService>({
+                id: 'portal.catalog-entity-providers',
+                scope: 'root',
+              }),
             },
             async init(services) {
               instances.push(services);
@@ -50,6 +56,19 @@ describe('dynamic root service ownership', () => {
       expect(instances[0].health).toBe(instances[1].health);
       expect(instances[0].operations).toBe(instances[1].operations);
       expect(instances[0].entitlements).toBe(instances[1].entitlements);
+      expect(instances[0].providers).toBe(instances[1].providers);
+      instances[0].providers.register({
+        id: 'example.resources',
+        provider: {
+          isReady: () => false,
+          async withEntityMutation() {
+            throw new Error('Not connected');
+          },
+        },
+      });
+      expect(instances[1].providers.get('example.resources').isReady()).toBe(
+        false,
+      );
       instances[0].health
         .forPlugin('apme')
         .push({ state: 'READY', message: 'Ready' });

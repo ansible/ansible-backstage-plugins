@@ -13,7 +13,7 @@
   "dependencies": {
     "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-plugin-api": "1.10.0",
-    "@backstage/catalog-model": "1.10.0",
+    "@backstage/catalog-model": "1.10.2",
     "@backstage/config": "1.3.8",
     "@backstage/plugin-catalog-node": "2.2.4"
   },
