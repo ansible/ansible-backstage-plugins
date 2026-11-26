@@ -149,7 +149,7 @@ describe('RepositoryAboutCard', () => {
     expect(mockOnViewSource).toHaveBeenCalledTimes(1);
   });
 
-  it('renders collections as link when onNavigateToCollections is provided', () => {
+  it('renders collections as button when onNavigateToCollections is provided', () => {
     const entity = createMockEntity();
     renderWithTheme(
       <RepositoryAboutCard
@@ -158,9 +158,10 @@ describe('RepositoryAboutCard', () => {
       />,
     );
 
-    const collectionsLink = screen.getByText('3 collections');
-    fireEvent.click(collectionsLink);
-
+    const collectionsButton = screen.getByRole('button', {
+      name: '3 collections',
+    });
+    fireEvent.click(collectionsButton);
     expect(mockOnNavigateToCollections).toHaveBeenCalledTimes(1);
   });
 

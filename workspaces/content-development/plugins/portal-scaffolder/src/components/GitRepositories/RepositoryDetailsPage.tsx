@@ -7,7 +7,6 @@ import type { ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Menu as MuiMenu, MenuItem as MuiMenuItem } from '@material-ui/core';
 import {
-  Alert,
   Box,
   Button,
   Container,
@@ -400,20 +399,9 @@ const RepositoryDetailsPageInner = () => {
     repositoryName ??
     'Repository';
 
-  // DEV ONLY — remove before merge. Makes “am I on the new L4 BUI Details?” obvious.
-  const showAap101659DevBanner = process.env.NODE_ENV === 'development';
-  const aap101659DevBanner = showAap101659DevBanner ? (
-    <Alert
-      status="warning"
-      title="AAP-101659 NEW — L4 BUI Details (branch aap-101659-git-repo-details-bui-l4)"
-      description="You are on the new implementation. Shell + Overview + CI Activity + Collections tab bodies = BUI. Violations/Dependencies stay extension slots. Extension/native action menus may still use MUI host widgets."
-    />
-  ) : null;
-
   const pageShell = (children: ReactNode) => (
     <Container>
       <Flex direction="column" gap="3" p="4">
-        {aap101659DevBanner}
         {children}
       </Flex>
     </Container>
@@ -487,6 +475,13 @@ const RepositoryDetailsPageInner = () => {
 
   const headerActions = (
     <Flex align="center" gap="2">
+      {/* Keep View in source available even when native actions replace the legacy menu. */}
+      {native && hasSourceUrl ? (
+        <Button variant="secondary" onPress={handleViewSource}>
+          <OpenInNewIcon fontSize="small" style={{ marginRight: 8 }} />
+          View in source
+        </Button>
+      ) : null}
       {renderLegacyActionsMenu()}
       {native && (
         <NativeEntityActionMenu

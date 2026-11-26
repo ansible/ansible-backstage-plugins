@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import {
+  Button,
   Card,
   CardBody,
   CardHeader,
@@ -65,15 +66,9 @@ export const RepositoryAboutCard = ({
   let containsCollectionsPart: ReactNode = null;
   if (collectionCount > 0) {
     containsCollectionsPart = onNavigateToCollections ? (
-      <Link
-        href="#"
-        onClick={event => {
-          event.preventDefault();
-          onNavigateToCollections();
-        }}
-      >
+      <Button variant="tertiary" onPress={onNavigateToCollections}>
         {collectionsLabel}
-      </Link>
+      </Button>
     ) : (
       <Text>{collectionsLabel}</Text>
     );

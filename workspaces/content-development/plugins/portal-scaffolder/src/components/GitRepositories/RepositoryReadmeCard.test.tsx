@@ -21,10 +21,12 @@ describe('RepositoryReadmeCard', () => {
     expect(screen.getByText('README')).toBeInTheDocument();
   });
 
-  it('renders loading spinner when isLoading is true', () => {
+  it('renders loading status when isLoading is true', () => {
     renderWithTheme(<RepositoryReadmeCard readmeContent="" isLoading />);
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading README' }),
+    ).toBeInTheDocument();
   });
 
   it('renders markdown content when provided', () => {
@@ -46,10 +48,12 @@ describe('RepositoryReadmeCard', () => {
     expect(screen.getByText('Readme Not Available')).toBeInTheDocument();
   });
 
-  it('does not render loading spinner when isLoading is false', () => {
+  it('does not render loading status when isLoading is false', () => {
     renderWithTheme(<RepositoryReadmeCard readmeContent="test" />);
 
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: 'Loading README' }),
+    ).not.toBeInTheDocument();
   });
 
   it('renders markdown content with code blocks', () => {
@@ -62,7 +66,9 @@ describe('RepositoryReadmeCard', () => {
   it('defaults isLoading to false', () => {
     renderWithTheme(<RepositoryReadmeCard readmeContent="content" />);
 
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: 'Loading README' }),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId('markdown-content')).toBeInTheDocument();
   });
 });

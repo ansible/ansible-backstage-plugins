@@ -20,7 +20,13 @@ export const RepositoryReadmeCard = ({
   const renderContent = () => {
     if (isLoading) {
       return (
-        <Flex direction="column" gap="2" p="4">
+        <Flex
+          direction="column"
+          gap="2"
+          p="4"
+          role="status"
+          aria-label="Loading README"
+        >
           <Skeleton />
           <Skeleton />
           <Skeleton />

@@ -66,7 +66,7 @@ jest.mock('@backstage/core-components', () => {
                   >
                     {col.render
                       ? col.render(entity)
-                      : entity.metadata?.title ?? entity.metadata?.name}
+                      : (entity.metadata?.title ?? entity.metadata?.name)}
                   </td>
                 ))}
               </tr>

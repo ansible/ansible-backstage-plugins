@@ -301,7 +301,7 @@ const RepositoriesTableInner = ({
       id: 'lastActivity',
       render: (entity: Entity) => {
         const entry = lastActivityMap[stringifyEntityRef(entity)];
-        const text = lastActivityLoading ? '—' : entry?.text ?? 'N/A';
+        const text = lastActivityLoading ? '—' : (entry?.text ?? 'N/A');
         const url = entry?.url;
         return (
           <Typography variant="body2" color="textSecondary" component="span">

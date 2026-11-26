@@ -86,7 +86,7 @@ export const RepositoriesCIActivityTab = ({
           if (cancelled) return undefined;
           const items = Array.isArray(response)
             ? response
-            : response?.items ?? [];
+            : (response?.items ?? []);
           return ciActivityCache.startLoading(items, discoveryApi, fetchApi);
         })
         .catch(e => {
@@ -150,9 +150,13 @@ export const RepositoriesCIActivityTab = ({
 
   const columns = useMemo(() => buildCIActivityColumnConfig(), []);
 
+  // Pass search/filter into useTable so offset resets when they change
+  // (pre-filtering alone does not reset pagination in @backstage/ui 0.17.1).
+  const tableQueryKey = `${statusFilter}::${triggerFilter}::${searchQuery}`;
   const { tableProps } = useTable({
     mode: 'complete',
     data: searchedRows,
+    search: tableQueryKey,
     paginationOptions: {
       pageSize: 10,
       pageSizeOptions: [...pageSizeOptions],
