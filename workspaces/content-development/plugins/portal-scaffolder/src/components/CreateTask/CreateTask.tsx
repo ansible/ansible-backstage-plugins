@@ -106,9 +106,7 @@ export const CreateTask = ({
 
       // Redirect to the task details page
       navigate(
-        `${rootLink()}/create/tasks/${task.taskId}${
-          nativeFields ? location.search : ''
-        }`,
+        `/create/tasks/${task.taskId}${nativeFields ? location.search : ''}`,
       );
     } catch (err) {
       console.error('Error during final submit:', err); // eslint-disable-line no-console

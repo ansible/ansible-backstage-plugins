@@ -14,6 +14,12 @@ import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
 import { rootRouteRef } from '../../routes';
 
+jest.mock('./StepForm', () => ({
+  StepForm: ({ submitFunction }: { submitFunction: (data: {}) => void }) => (
+    <button onClick={() => submitFunction({})}>Launch template</button>
+  ),
+}));
+
 // Mock the module
 const mockNavigate = jest.fn();
 const mockLocation = { state: null, pathname: '', search: '', hash: '' };
@@ -98,6 +104,34 @@ describe('Create task', () => {
         'Use this template to create actual wizard use case templates',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('launches a template to the native task details route', async () => {
+    (require('react-router-dom').useParams as jest.Mock).mockReturnValue({
+      namespace: 'default',
+      templateName: 'generic-seed',
+    });
+    Object.assign(mockLocation, { search: '?portalFrontend=nfs' });
+    mockScaffolderApi.scaffold = jest
+      .fn()
+      .mockResolvedValue({ taskId: 'task-123' }) as any;
+    mockCatalogApi.getEntityByRef.mockResolvedValue(null);
+
+    await render(<CreateTask nativeFields={[]} />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Launch template' }),
+    );
+
+    await waitFor(() => {
+      expect(mockScaffolderApi.scaffold).toHaveBeenCalledWith({
+        templateRef: 'template:default/generic-seed',
+        values: {},
+        secrets: undefined,
+      });
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/create/tasks/task-123?portalFrontend=nfs',
+      );
+    });
   });
 
   it('should handle initialFormData from location state', async () => {

@@ -107,9 +107,10 @@ export const TemplatesPage = selfServicePlugin.provide(
 );
 
 /**
- * History page component for mounting at /self-service/create/tasks
- * Contains routing for the History (task list and task detail) section.
+ * Compatibility page for dynamic-plugin manifests that still reference
+ * HistoryPage. It renders task details only; the History list was removed.
  *
+ * Keep until all host manifests migrate away from HistoryPage.
  * @public
  */
 export const HistoryPage = selfServicePlugin.provide(
@@ -205,9 +206,10 @@ export const TemplatesSidebarItem = selfServicePlugin.provide(
 );
 
 /**
- * A sidebar item that checks History permissions before rendering.
- * Returns null if the user doesn't have permission, hiding the sidebar entry.
+ * Compatibility extension for dynamic-plugin manifests that still reference
+ * HistorySidebarItem. The component intentionally renders nothing.
  *
+ * Keep until all host manifests migrate away from HistorySidebarItem.
  * @public
  */
 export const HistorySidebarItem = selfServicePlugin.provide(
