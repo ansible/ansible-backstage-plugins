@@ -4,11 +4,11 @@ export {
   type CreateCatalogModuleOptions,
 } from './registerModule';
 export { createRouter } from './router';
-export type { CatalogModuleSlice } from './sliceGuard';
+export type { CatalogModuleSlice } from '@ansible/portal-plugin-node';
 export {
   assertCatalogModuleSliceAllowed,
   resetCatalogModuleSliceGuardForTests,
-} from './sliceGuard';
+} from '@ansible/portal-plugin-node';
 export type {
   ContentCatalogRegistration,
   ContentCatalogProviderInitContext,

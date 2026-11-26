@@ -35,7 +35,7 @@ import type {
 import {
   assertCatalogModuleSliceAllowed,
   type CatalogModuleSlice,
-} from './sliceGuard';
+} from '@ansible/portal-plugin-node';
 import { createEERegistrationLock } from './EERegistrationLock';
 
 function includesAap(slice: CatalogModuleSlice): boolean {
