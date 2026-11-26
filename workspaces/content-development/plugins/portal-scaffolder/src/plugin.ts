@@ -10,6 +10,7 @@ import {
   collectionsRouteRef,
   gitRepositoriesRouteRef,
   templatesRouteRef,
+  historyRouteRef,
 } from './routes';
 import { AAPApis, EEBuildApis } from './apis';
 
@@ -22,6 +23,7 @@ export const selfServicePlugin = createPlugin({
     collections: collectionsRouteRef,
     gitRepositories: gitRepositoriesRouteRef,
     templates: templatesRouteRef,
+    history: historyRouteRef,
   },
 });
 
@@ -105,6 +107,22 @@ export const TemplatesPage = selfServicePlugin.provide(
 );
 
 /**
+ * Compatibility page for dynamic-plugin manifests that still reference
+ * HistoryPage. It renders task details only; the History list was removed.
+ *
+ * Keep until all host manifests migrate away from HistoryPage.
+ * @public
+ */
+export const HistoryPage = selfServicePlugin.provide(
+  createRoutableExtension({
+    name: 'HistoryPage',
+    component: () =>
+      import('./components/TaskList').then(m => m.HistoryRoutesPage),
+    mountPoint: historyRouteRef,
+  }),
+);
+
+/**
  * A sidebar item that checks EE Builder permissions before rendering.
  * Returns null if the user doesn't have permission, hiding the sidebar entry.
  *
@@ -183,6 +201,23 @@ export const TemplatesSidebarItem = selfServicePlugin.provide(
     component: {
       lazy: () =>
         import('./components/SidebarItems').then(m => m.TemplatesSidebarItem),
+    },
+  }),
+);
+
+/**
+ * Compatibility extension for dynamic-plugin manifests that still reference
+ * HistorySidebarItem. The component intentionally renders nothing.
+ *
+ * Keep until all host manifests migrate away from HistorySidebarItem.
+ * @public
+ */
+export const HistorySidebarItem = selfServicePlugin.provide(
+  createComponentExtension({
+    name: 'HistorySidebarItem',
+    component: {
+      lazy: () =>
+        import('./components/SidebarItems').then(m => m.HistorySidebarItem),
     },
   }),
 );

@@ -95,3 +95,11 @@ export const TemplatesSidebarItem = () => {
     />
   );
 };
+
+/**
+ * Compatibility component for existing dynamic-plugin manifests.
+ * History navigation has been removed, so this intentionally renders nothing.
+ *
+ * Keep until all host manifests migrate away from this component.
+ */
+export const HistorySidebarItem = () => null;

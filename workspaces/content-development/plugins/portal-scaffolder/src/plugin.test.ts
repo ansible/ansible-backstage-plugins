@@ -11,6 +11,7 @@ const mockEeRouteRef = { id: 'ee-route-ref' };
 const mockCollectionsRouteRef = { id: 'collections-route-ref' };
 const mockGitRepositoriesRouteRef = { id: 'git-repositories-route-ref' };
 const mockTemplatesRouteRef = { id: 'templates-route-ref' };
+const mockHistoryRouteRef = { id: 'history-route-ref' };
 
 // Mocks for local files (applied before module import)
 jest.mock('./apis', () => ({
@@ -23,6 +24,7 @@ jest.mock('./routes', () => ({
   collectionsRouteRef: mockCollectionsRouteRef,
   gitRepositoriesRouteRef: mockGitRepositoriesRouteRef,
   templatesRouteRef: mockTemplatesRouteRef,
+  historyRouteRef: mockHistoryRouteRef,
 }));
 
 describe('self-service plugin module', () => {
@@ -40,6 +42,8 @@ describe('self-service plugin module', () => {
   let GitRepositoriesPage: any;
   let GitRepositoriesSidebarItem: any;
   let TemplatesSidebarItem: any;
+  let HistoryPage: any;
+  let HistorySidebarItem: any;
 
   beforeEach(() => {
     jest.resetModules();
@@ -77,6 +81,8 @@ describe('self-service plugin module', () => {
       GitRepositoriesPage = mod.GitRepositoriesPage;
       GitRepositoriesSidebarItem = mod.GitRepositoriesSidebarItem;
       TemplatesSidebarItem = mod.TemplatesSidebarItem;
+      HistoryPage = mod.HistoryPage;
+      HistorySidebarItem = mod.HistorySidebarItem;
     });
   });
   afterEach(() => {
@@ -106,10 +112,11 @@ describe('self-service plugin module', () => {
       mockGitRepositoriesRouteRef,
     );
     expect(callArg.routes).toHaveProperty('templates', mockTemplatesRouteRef);
+    expect(callArg.routes).toHaveProperty('history', mockHistoryRouteRef);
   });
 
   it('exports SelfServicePage as the value returned by createRoutableExtension', () => {
-    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(5);
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
     const created = createRoutableExtensionMock.mock.results[0].value;
     expect(SelfServicePage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[0][0];
@@ -118,7 +125,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports EEPage as the value returned by createRoutableExtension', () => {
-    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(5);
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
     const created = createRoutableExtensionMock.mock.results[1].value;
     expect(EEPage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[1][0];
@@ -127,7 +134,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports CollectionsPage as the value returned by createRoutableExtension', () => {
-    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(5);
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
     const created = createRoutableExtensionMock.mock.results[2].value;
     expect(CollectionsPage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[2][0];
@@ -136,7 +143,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports TemplatesPage as the value returned by createRoutableExtension', () => {
-    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(5);
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
     const created = createRoutableExtensionMock.mock.results[3].value;
     expect(TemplatesPage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[3][0];
@@ -145,7 +152,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports GitRepositoriesPage as the value returned by createRoutableExtension', () => {
-    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(5);
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
     const created = createRoutableExtensionMock.mock.results[4].value;
     expect(GitRepositoriesPage).toBe(created);
     const calledWith = createRoutableExtensionMock.mock.calls[4][0];
@@ -156,8 +163,17 @@ describe('self-service plugin module', () => {
     );
   });
 
+  it('retains HistoryPage as a compatibility export', () => {
+    expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
+    const created = createRoutableExtensionMock.mock.results[5].value;
+    expect(HistoryPage).toBe(created);
+    const calledWith = createRoutableExtensionMock.mock.calls[5][0];
+    expect(calledWith).toHaveProperty('name', 'HistoryPage');
+    expect(calledWith).toHaveProperty('mountPoint', mockHistoryRouteRef);
+  });
+
   it('exports LocationListener as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[0].value;
     expect(LocationListener).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[0][0];
@@ -167,7 +183,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports EEBuilderSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[2].value;
     expect(EEBuilderSidebarItem).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[2][0];
@@ -182,7 +198,7 @@ describe('self-service plugin module', () => {
       AppThemeFixer: MockAppThemeFixerComponent,
     }));
 
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[1].value;
     expect(AppThemeFixer).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[1][0];
@@ -194,7 +210,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports CollectionsSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[3].value;
     expect(CollectionsSidebarItem).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[3][0];
@@ -204,7 +220,7 @@ describe('self-service plugin module', () => {
   });
 
   it('exports GitRepositoriesSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[4].value;
     expect(GitRepositoriesSidebarItem).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[4][0];
@@ -214,12 +230,21 @@ describe('self-service plugin module', () => {
   });
 
   it('exports TemplatesSidebarItem as the value returned by createComponentExtension', () => {
-    expect(createComponentExtensionMock).toHaveBeenCalledTimes(6);
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
     const created = createComponentExtensionMock.mock.results[5].value;
     expect(TemplatesSidebarItem).toBe(created);
     const calledWith = createComponentExtensionMock.mock.calls[5][0];
     expect(calledWith).toHaveProperty('name', 'TemplatesSidebarItem');
     expect(calledWith.component).toHaveProperty('lazy');
     expect(typeof calledWith.component.lazy).toBe('function');
+  });
+
+  it('retains HistorySidebarItem as a compatibility export', () => {
+    expect(createComponentExtensionMock).toHaveBeenCalledTimes(7);
+    const created = createComponentExtensionMock.mock.results[6].value;
+    expect(HistorySidebarItem).toBe(created);
+    const calledWith = createComponentExtensionMock.mock.calls[6][0];
+    expect(calledWith).toHaveProperty('name', 'HistorySidebarItem');
+    expect(calledWith.component).toHaveProperty('lazy');
   });
 });
