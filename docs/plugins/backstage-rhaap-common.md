@@ -173,3 +173,18 @@ repository keys, API IDs and URL/token behavior are preserved.
 - [AAP scaffolder module](scaffolder.md): resource creation and job launch actions.
 
 For provider-specific connection configuration, use the related module's guide.
+
+## Dev Spaces helper migration
+
+Repository, branch, and pull-request link builders previously provided by the
+legacy `./devSpaces` subpath now come from the content-development shared library
+`@ansible/portal-scaffolder-common`. Import `buildDevSpacesUrlFromRepoUrl` or
+`buildDevSpacesRemediationUrl` from that package root. APME's frontend supplies
+its configured base URL and retains its own link-visibility and branch-selection
+decisions. It declares and embeds the shared library in its dynamic artifact.
+
+The URL builders and their tests move unchanged; this does not create a Dev
+Spaces workspace or change catalog providers. The unused legacy config-reading
+helper is not part of the new exports. The content scaffolder's separate
+configuration helper remains unchanged. Rebuild consumers with the matching
+shared-library revision; no package version change is included.
