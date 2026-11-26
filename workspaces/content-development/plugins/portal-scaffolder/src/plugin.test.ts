@@ -153,9 +153,14 @@ describe('self-service plugin module', () => {
 
   it('exports GitRepositoriesPage as the value returned by createRoutableExtension', () => {
     expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
-    const created = createRoutableExtensionMock.mock.results[4].value;
+    const extensionIndex = createRoutableExtensionMock.mock.calls.findIndex(
+      ([options]) => options.name === 'GitRepositoriesPage',
+    );
+    const created =
+      createRoutableExtensionMock.mock.results[extensionIndex].value;
     expect(GitRepositoriesPage).toBe(created);
-    const calledWith = createRoutableExtensionMock.mock.calls[4][0];
+    const calledWith =
+      createRoutableExtensionMock.mock.calls[extensionIndex][0];
     expect(calledWith).toHaveProperty('name', 'GitRepositoriesPage');
     expect(calledWith).toHaveProperty(
       'mountPoint',
@@ -165,9 +170,14 @@ describe('self-service plugin module', () => {
 
   it('retains HistoryPage as a compatibility export', () => {
     expect(createRoutableExtensionMock).toHaveBeenCalledTimes(6);
-    const created = createRoutableExtensionMock.mock.results[5].value;
+    const extensionIndex = createRoutableExtensionMock.mock.calls.findIndex(
+      ([options]) => options.name === 'HistoryPage',
+    );
+    const created =
+      createRoutableExtensionMock.mock.results[extensionIndex].value;
     expect(HistoryPage).toBe(created);
-    const calledWith = createRoutableExtensionMock.mock.calls[5][0];
+    const calledWith =
+      createRoutableExtensionMock.mock.calls[extensionIndex][0];
     expect(calledWith).toHaveProperty('name', 'HistoryPage');
     expect(calledWith).toHaveProperty('mountPoint', mockHistoryRouteRef);
   });
