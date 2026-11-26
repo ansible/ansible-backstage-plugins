@@ -4,6 +4,12 @@ export const REPO_TOOLTIP =
 export const REPO_DESCRIPTION =
   'Browse Git repositories from your connected Ansible content sources. Sync to discover repositories that contain Ansible collections.';
 
+/** Fleet CI Activity tab chrome (wireframe 01 / prototype P1). */
+export const CI_ACTIVITY_TITLE = 'CI Activity';
+
+export const CI_ACTIVITY_DESCRIPTION =
+  'Recent continuous-integration activity for connected Git repositories.';
+
 export const COLUMN_SOURCE_TOOLTIP =
   'The SCM provider and link to the repository (e.g. GitHub, GitLab).';
 

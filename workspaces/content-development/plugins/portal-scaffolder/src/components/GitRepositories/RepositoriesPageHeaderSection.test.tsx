@@ -44,6 +44,23 @@ describe('RepositoriesPageHeaderSection', () => {
     expect(screen.getByText('Git Repositories')).toBeInTheDocument();
   });
 
+  it('renders overridden CI Activity title and description', () => {
+    renderWithTheme(
+      <RepositoriesPageHeaderSection
+        onSyncClick={mockOnSyncClick}
+        title="CI Activity"
+        description="Recent continuous-integration activity for connected Git repositories."
+      />,
+    );
+
+    expect(screen.getByText('CI Activity')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Recent continuous-integration activity for connected Git repositories.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('renders description', () => {
     renderWithTheme(
       <RepositoriesPageHeaderSection onSyncClick={mockOnSyncClick} />,

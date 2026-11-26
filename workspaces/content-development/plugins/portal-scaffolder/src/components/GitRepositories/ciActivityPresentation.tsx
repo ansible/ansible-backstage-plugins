@@ -1,11 +1,12 @@
 import type { ReactElement, CSSProperties } from 'react';
 import CheckCircleOutline from '@material-ui/icons/CheckCircleOutline';
 import CancelOutlined from '@material-ui/icons/CancelOutlined';
-import NotInterestedOutlined from '@material-ui/icons/NotInterestedOutlined';
+import RemoveOutlined from '@material-ui/icons/RemoveOutlined';
 import SyncOutlined from '@material-ui/icons/SyncOutlined';
 import ScheduleOutlined from '@material-ui/icons/ScheduleOutlined';
 import BlockOutlined from '@material-ui/icons/BlockOutlined';
 import HelpOutline from '@material-ui/icons/HelpOutline';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import {
   Cell,
   CellText,
@@ -27,6 +28,11 @@ const STATUS_ICON_COLOR: Record<CIActivityRow['status'], string> = {
   queued: '#F0AB00',
   skipped: '#6A6E73',
   unknown: '#6A6E73',
+};
+
+const EXTERNAL_LINK_ICON_STYLE: CSSProperties = {
+  fontSize: 16,
+  flexShrink: 0,
 };
 
 export function ciActivityStatusColor(
@@ -57,7 +63,8 @@ function statusIcon(status: CIActivityRow['status']): ReactElement {
     case 'failure':
       return <CancelOutlined style={style} aria-hidden />;
     case 'cancelled':
-      return <NotInterestedOutlined style={style} aria-hidden />;
+      // Wireframe / prototype: minus-style mark for cancelled runs.
+      return <RemoveOutlined style={style} aria-hidden />;
     case 'in_progress':
       return <SyncOutlined style={style} aria-hidden />;
     case 'queued':
@@ -84,6 +91,37 @@ function renderCIActivityStatus(
   );
 }
 
+/**
+ * Project / Event cells: primary link + external-open icon (prototype
+ * `CiActivityExternalLink` / wireframe 01 affordance). `standalone` keeps
+ * underline on hover so the cell reads as a link without looking underlined
+ * at rest.
+ */
+function renderCIActivityExternalLink(
+  label: string,
+  href: string,
+): ReactElement {
+  return (
+    <Cell>
+      <Link
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        color="primary"
+        standalone
+        title={label}
+      >
+        <Flex align="center" gap="1" style={{ minWidth: 0 }}>
+          <Text variant="body-medium" truncate title={label}>
+            {label}
+          </Text>
+          <OpenInNewIcon style={EXTERNAL_LINK_ICON_STYLE} aria-hidden />
+        </Flex>
+      </Link>
+    </Cell>
+  );
+}
+
 export function buildCIActivityColumnConfig(): ColumnConfig<CIActivityRow>[] {
   return [
     {
@@ -97,11 +135,7 @@ export function buildCIActivityColumnConfig(): ColumnConfig<CIActivityRow>[] {
       isRowHeader: true,
       cell: row =>
         row.projectUrl ? (
-          <Cell>
-            <Link href={row.projectUrl} target="_blank" rel="noopener noreferrer">
-              {row.project}
-            </Link>
-          </Cell>
+          renderCIActivityExternalLink(row.project, row.projectUrl)
         ) : (
           <CellText title={row.project} />
         ),
@@ -111,11 +145,7 @@ export function buildCIActivityColumnConfig(): ColumnConfig<CIActivityRow>[] {
       label: 'Event',
       cell: row =>
         row.runUrl ? (
-          <Cell>
-            <Link href={row.runUrl} target="_blank" rel="noopener noreferrer">
-              {row.eventDisplay}
-            </Link>
-          </Cell>
+          renderCIActivityExternalLink(row.eventDisplay, row.runUrl)
         ) : (
           <CellText title={row.eventDisplay} />
         ),

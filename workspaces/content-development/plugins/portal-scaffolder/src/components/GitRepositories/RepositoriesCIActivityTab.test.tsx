@@ -1143,7 +1143,8 @@ describe('ciActivityPresentation column cell functions', () => {
     const link = container.querySelector('a');
     expect(link).not.toBeNull();
     expect(link!.getAttribute('href')).toBe('https://github.com/org/my-repo');
-    expect(link!.textContent).toBe('my-repo');
+    expect(link!.textContent).toContain('my-repo');
+    expect(link!.querySelector('svg')).not.toBeNull();
   });
 
   it('project column renders plain text when projectUrl is missing', async () => {
@@ -1167,7 +1168,8 @@ describe('ciActivityPresentation column cell functions', () => {
     );
     const link = container.querySelector('a');
     expect(link).not.toBeNull();
-    expect(link!.textContent).toBe('CI Build #42');
+    expect(link!.textContent).toContain('CI Build #42');
+    expect(link!.querySelector('svg')).not.toBeNull();
   });
 
   it('event column renders plain text when runUrl is missing', async () => {
@@ -1203,18 +1205,14 @@ describe('ciActivityPresentation column cell functions', () => {
   it('status column renders icon and label for success', async () => {
     const cols = presentationColumns();
     const statusCol = cols.find(c => c.id === 'status')!;
-    const { container } = render(
-      statusCol.cell!({ status: 'success' } as any),
-    );
+    const { container } = render(statusCol.cell!({ status: 'success' } as any));
     expect(container.textContent).toContain('Success');
   });
 
   it('status column renders icon and label for failure', async () => {
     const cols = presentationColumns();
     const statusCol = cols.find(c => c.id === 'status')!;
-    const { container } = render(
-      statusCol.cell!({ status: 'failure' } as any),
-    );
+    const { container } = render(statusCol.cell!({ status: 'failure' } as any));
     expect(container.textContent).toContain('Failure');
   });
 

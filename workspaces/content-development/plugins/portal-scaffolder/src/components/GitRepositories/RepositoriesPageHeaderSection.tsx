@@ -11,6 +11,10 @@ interface RepositoriesPageHeaderSectionProps {
   syncProgress?: SyncProgressEntry[];
   /** Extra action buttons rendered in the header alongside the sync button. */
   actions?: ReactNode;
+  /** Override page title (e.g. CI Activity tab chrome). */
+  title?: string;
+  /** Override page description under the title. */
+  description?: string;
 }
 
 export const RepositoriesPageHeaderSection = ({
@@ -20,11 +24,13 @@ export const RepositoriesPageHeaderSection = ({
   syncInProgress = false,
   syncProgress,
   actions,
+  title = 'Git Repositories',
+  description = REPO_DESCRIPTION,
 }: RepositoriesPageHeaderSectionProps) => (
   <CatalogSyncHeader
-    title="Git Repositories"
+    title={title}
     tooltip={REPO_TOOLTIP}
-    description={REPO_DESCRIPTION}
+    description={description}
     onSyncClick={onSyncClick}
     syncDisabled={syncDisabled}
     syncDisabledReason={syncDisabledReason}
