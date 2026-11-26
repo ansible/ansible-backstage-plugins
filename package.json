@@ -138,7 +138,8 @@
     "compression": "^1.8.2",
     "@backstage/backend-defaults@npm:^0.16.0": "0.16.1",
     "@backstage/backend-defaults@npm:0.17.2": "0.17.8",
-    "@backstage/backend-defaults@npm:^0.17.1": "0.17.8"
+    "@backstage/backend-defaults@npm:^0.17.1": "0.17.8",
+    "@graphql-tools/utils": "12.0.4"
   },
   "prettier": "@spotify/prettier-config",
   "lint-staged": {
