@@ -47,9 +47,6 @@ portal:
       - id: templates
         path: /create
         title: Self-service
-      - id: history
-        path: /self-service/create/tasks
-        title: History
       - id: execution-environments
         page: page:automation-content/ee
         title: Execution Environments

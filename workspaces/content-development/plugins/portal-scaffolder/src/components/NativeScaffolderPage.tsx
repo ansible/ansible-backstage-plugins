@@ -12,7 +12,6 @@ import { NativeScaffolderFields } from '@ansible/portal-extension-host/alpha';
 import { CreateTask } from './CreateTask/CreateTask';
 import { formExtraFields } from './CreateTask/formExtraFields';
 import { TemplatesRoutesPage } from './Home';
-import { HistoryRoutesPage } from './TaskList';
 import { CatalogImport } from './CatalogImport';
 import { RequireSuperuser } from './CatalogImport/RequireSuperuser';
 import { EENotificationBoundary } from './ExecutionEnvironments/EENotificationBoundary';
@@ -84,7 +83,6 @@ export function NativeScaffolderPage({
           </RequirePermission>
         }
       />
-      <Route path="create/tasks/*" element={<HistoryRoutesPage />} />
       <Route path="*" element={<TemplatesRoutesPage />} />
     </Routes>
   );

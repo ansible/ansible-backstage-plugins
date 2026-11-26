@@ -39,25 +39,20 @@ describe('LocationListener', () => {
     );
   });
 
-  it('redirects /create/tasks and /create/tasks/:taskId correctly', () => {
+  it('redirects the removed task list route to the catalog', () => {
     (useLocation as jest.Mock).mockReturnValue({ pathname: '/create/tasks' });
     render(<LocationListener />);
-    expect(mockNavigate).toHaveBeenCalledWith('/self-service/create/tasks', {
+    expect(mockNavigate).toHaveBeenCalledWith('/self-service/catalog', {
       replace: true,
     });
+  });
 
-    mockNavigate.mockClear();
-    cleanup();
-
-    // Test with actual task ID, not literal :taskId
+  it('leaves native task detail routes to the Backstage scaffolder', () => {
     (useLocation as jest.Mock).mockReturnValue({
       pathname: '/create/tasks/abc123-task-id',
     });
     render(<LocationListener />);
-    expect(mockNavigate).toHaveBeenCalledWith(
-      '/self-service/create/tasks/abc123-task-id',
-      { replace: true },
-    );
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('redirects any unknown /create/* paths to /self-service/catalog', () => {

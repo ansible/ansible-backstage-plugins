@@ -27,7 +27,6 @@ describe('Portal navigation selection', () => {
   it('keeps the requested primary order and Administration above Settings at the bottom', () => {
     const paths = [
       '/self-service',
-      '/self-service/create/tasks',
       '/self-service/ee',
       '/self-service/collections',
       '/self-service/repositories',
@@ -36,8 +35,8 @@ describe('Portal navigation selection', () => {
     ];
     const items = paths.map(item);
     expect(partitionNavigationItems(items, ['/rbac', '/settings'])).toEqual({
-      primary: items.slice(0, 5),
-      bottom: items.slice(5),
+      primary: items.slice(0, 4),
+      bottom: items.slice(4),
     });
     expect(partitionNavigationItems(items, ['/missing']).primary).toEqual(
       items,
