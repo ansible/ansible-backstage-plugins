@@ -4,7 +4,8 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  */
 
-jest.mock('@ansible/backstage-rhaap-common', () => ({
+jest.mock('@ansible/portal-plugin-node', () => ({
+  ...jest.requireActual('@ansible/portal-plugin-node'),
   ScmClientFactory: jest.fn(),
   resolveGithubToken: jest.fn(),
 }));
@@ -13,7 +14,7 @@ import { ConfigReader } from '@backstage/config';
 import {
   ScmClientFactory,
   resolveGithubToken,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/portal-plugin-node';
 import { resolveIntegrationScmToken } from './resolveIntegrationScmToken';
 
 const MockScmClientFactory = ScmClientFactory as jest.MockedClass<

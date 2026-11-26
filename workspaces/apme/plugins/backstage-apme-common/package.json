@@ -29,7 +29,9 @@
     "./config": "./src/config.ts",
     "./registerOrResolveApmeProject": "./src/registerOrResolveApmeProject.ts",
     "./apmeChatModel": "./src/apmeChatModel.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./devSpaces": "./src/devSpaces.ts",
+    "./permissions": "./src/permissions.ts"
   },
   "typesVersions": {
     "*": {
@@ -80,6 +82,12 @@
       ],
       "apmeChatModel": [
         "src/apmeChatModel.ts"
+      ],
+      "devSpaces": [
+        "src/devSpaces.ts"
+      ],
+      "permissions": [
+        "src/permissions.ts"
       ]
     }
   },
@@ -95,7 +103,6 @@
     "postpack": "backstage-cli package postpack"
   },
   "dependencies": {
-    "@ansible/backstage-rhaap-common": "workspace:^",
     "@backstage/backend-plugin-api": "1.10.0",
     "@backstage/catalog-model": "1.10.2",
     "@backstage/config": "1.3.8",

@@ -3,8 +3,8 @@ import {
   settingsPermissionRules,
   ansibleSettingsResourceRef,
   type AnsibleSettingsResource,
-} from './rules';
-import { RESOURCE_TYPE_ANSIBLE_SETTINGS } from './index';
+} from './permissionRules';
+import { RESOURCE_TYPE_ANSIBLE_SETTINGS } from '@ansible/backstage-apme-common/permissions';
 
 describe('settings permission rules', () => {
   it('registers ansibleSettingsResourceRef for catalog plugin', () => {

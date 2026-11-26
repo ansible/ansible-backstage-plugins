@@ -191,6 +191,6 @@ export const selfServiceManifest: PluginManifest = {
   ],
 
   // portal-scaffolder does not declare entitlements. Access is controlled via
-  // the Backstage permissions registered in `backstage-rhaap-common/permissions.ts`.
+  // the existing permissions declared by their owning common/SDK packages.
   entitlements: [],
 };

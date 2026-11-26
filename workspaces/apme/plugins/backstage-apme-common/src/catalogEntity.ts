@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-// Canonical source is backstage-rhaap-common; re-exported for APME-internal consumers.
+// Repository identity is owned locally; keep the existing public subpath.
 export {
   normalizeRepoUrlFromEntity,
   defaultBranchFromEntity,
   scmOrganizationFromEntity,
   projectLookupKey,
   projectLookupKeyFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+} from './repositoryIdentity';

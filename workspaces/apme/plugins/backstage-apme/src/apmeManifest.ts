@@ -7,7 +7,7 @@ import {
   apmeScanningEntitlement,
 } from '@ansible/backstage-apme-common/operations';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
-import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-apme-common/permissions';
 
 /**
  * The host contract version APME was built against.

@@ -3,7 +3,7 @@ import type { AuthService, LoggerService } from '@backstage/backend-plugin-api';
 import type { CatalogClient } from '@backstage/catalog-client';
 import { stringifyEntityRef, type Entity } from '@backstage/catalog-model';
 import { ConflictError, InputError, NotAllowedError } from '@backstage/errors';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import { ScmClientFactory } from '@ansible/portal-plugin-node';
 import {
   apmeRepositoryRegisterOperation,
   type RegisterRepositoryInput,

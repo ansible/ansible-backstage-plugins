@@ -3,12 +3,15 @@ import type { CatalogClient } from '@backstage/catalog-client';
 import type { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { ConfigReader } from '@backstage/config';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
-import { PortalOperations } from '@ansible/portal-plugin-node';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
+import {
+  PortalOperations,
+  ScmClientFactory,
+} from '@ansible/portal-plugin-node';
 import { registerRepositoryOperation } from './registerOperation';
 import { ManualGitRepositoryProvider } from '../providers/ManualGitRepositoryProvider';
 
-jest.mock('@ansible/backstage-rhaap-common', () => ({
+jest.mock('@ansible/portal-plugin-node', () => ({
+  ...jest.requireActual('@ansible/portal-plugin-node'),
   ScmClientFactory: jest.fn(),
 }));
 

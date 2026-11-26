@@ -8,7 +8,7 @@ import {
 } from '@backstage/core-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { Entity } from '@backstage/catalog-model';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/automation-content-common/scm';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 
 const mockNavigate = jest.fn();

@@ -52,11 +52,11 @@ import {
   ansibleSettingsEditPermission,
   ansibleSettingsViewPermission,
   type AnsibleSettingsCapability,
-} from '@ansible/backstage-rhaap-common/permissions';
+} from '@ansible/backstage-apme-common/permissions';
 import {
   ansibleSettingsResourceRef,
   settingsPermissionRules,
-} from '@ansible/backstage-rhaap-common/permissionRules';
+} from './permissionRules';
 import { createRouter } from './router';
 import { registerApmeCatalogSyncTasks } from './apmeCatalogSyncScheduler';
 import { ApmePortalSettingsStore } from './apmePortalSettingsStore';

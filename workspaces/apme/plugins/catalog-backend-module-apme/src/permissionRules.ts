@@ -6,7 +6,7 @@ import { z } from 'zod/v3';
 import {
   RESOURCE_TYPE_ANSIBLE_SETTINGS,
   type AnsibleSettingsCapability,
-} from './index';
+} from '@ansible/backstage-apme-common/permissions';
 
 export type AnsibleSettingsResource = {
   capability: AnsibleSettingsCapability;

@@ -34,7 +34,7 @@ import '@patternfly/react-core/dist/styles/base.css';
 import { AI_MODEL_STORAGE_KEY } from '@apme/ui-workflow';
 import type { ApmePortalSettings } from '@ansible/backstage-apme-common/types';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-apme-common/permissions';
 import { apmeApiRef } from '../../api';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';
 import { ApmeAiProvidersSection } from '../ApmeQualitySettingsTab/ApmeAiProvidersSection';

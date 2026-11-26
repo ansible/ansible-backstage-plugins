@@ -16,11 +16,8 @@
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
     "./permissions": "./src/permissions/index.ts",
-    "./permissionRules": "./src/permissions/rules.ts",
     "./gitRepositoriesExtensions": "./src/gitRepositoriesExtensions.ts",
     "./gitRepositoriesCatalog": "./src/gitRepositoriesCatalog.ts",
-    "./devSpaces": "./src/devSpaces.ts",
-    "./catalogEntity": "./src/catalogEntity.ts",
     "./catalog": "./src/catalog/index.ts",
     "./catalogMock": "./src/catalog/mock/mockIAAPService.ts",
     "./package.json": "./package.json"
@@ -33,20 +30,11 @@
       "permissions": [
         "src/permissions/index.ts"
       ],
-      "permissionRules": [
-        "src/permissions/rules.ts"
-      ],
       "gitRepositoriesExtensions": [
         "src/gitRepositoriesExtensions.ts"
       ],
       "gitRepositoriesCatalog": [
         "src/gitRepositoriesCatalog.ts"
-      ],
-      "devSpaces": [
-        "src/devSpaces.ts"
-      ],
-      "catalogEntity": [
-        "src/catalogEntity.ts"
       ],
       "catalog": [
         "src/catalog/index.ts"

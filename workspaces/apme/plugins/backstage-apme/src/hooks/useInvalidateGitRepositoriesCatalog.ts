@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useApiHolder } from '@backstage/core-plugin-api';
-import { gitRepositoriesCatalogApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesCatalog';
+import { gitRepositoriesCatalogApiRef } from '@ansible/portal-scaffolder-react/gitRepositoriesCatalog';
 
 /** Invalidate self-service Git Repositories catalog cache when host is loaded. */
 export function useInvalidateGitRepositoriesCatalog(): () => void {
