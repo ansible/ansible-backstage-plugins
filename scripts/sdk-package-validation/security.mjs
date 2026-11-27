@@ -400,40 +400,57 @@ export async function collectSecurityEvidence(
   } catch (error) {
     scaError = error;
   }
-  record(
-    'scan-status.json',
-    {
-      commit,
-      ref,
-      sast: sastError ? 'failed' : 'passed',
-      sca: scaError ? 'failed' : 'passed',
-    },
-    false,
-  );
-  if (sastError || scaError)
+  const scanStatus = {
+    commit,
+    ref,
+    sast: sastError ? 'failed' : 'passed',
+    sca: scaError ? 'failed' : 'passed',
+  };
+  if (sastError || scaError) {
+    record('scan-status.json', scanStatus, false);
     throw new Error(
       [sastError?.message, scaError?.message].filter(Boolean).join('; '),
     );
-  writeFileSync(
-    join(folder, 'report.json'),
-    `${JSON.stringify(
+  }
+  const receipt = join(folder, 'report.json');
+  try {
+    writeFileSync(
+      receipt,
+      `${JSON.stringify(
+        {
+          commit,
+          ref,
+          policy: securityPolicy,
+          scope,
+          packages: report.packages,
+          auditExitCode,
+          files: files.map(name => ({
+            name,
+            sha256: digest(join(folder, name)),
+          })),
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    verifySecurityEvidence(directory, report, ref, { auditExceptions });
+  } catch (error) {
+    rmSync(receipt, { force: true });
+    // A rejected combined receipt cannot certify either release gate.
+    record(
+      'scan-status.json',
       {
         commit,
         ref,
-        policy: securityPolicy,
-        scope,
-        packages: report.packages,
-        auditExitCode,
-        files: files.map(name => ({
-          name,
-          sha256: digest(join(folder, name)),
-        })),
+        sast: 'failed',
+        sca: 'failed',
+        receipt: 'failed',
       },
-      null,
-      2,
-    )}\n`,
-  );
-  verifySecurityEvidence(directory, report, ref, { auditExceptions });
+      false,
+    );
+    throw error;
+  }
+  record('scan-status.json', scanStatus, false);
 }
 
 if (

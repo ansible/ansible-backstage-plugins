@@ -367,6 +367,34 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
         verifyEvidence(folder, report, ref, { auditExceptions: changedPolicy }),
       /assessment mismatch/,
     );
+    const receipt = join(folder, 'security/report.json');
+    const beforeExpiry = Date.now();
+    const afterExpiry = Date.parse(
+      `${exceptions.exceptions[0].expiresOn}T00:00:00Z`,
+    );
+    // Move the clock only after collection writes the receipt, before its recheck.
+    const clock = t.mock.method(Date, 'now', () =>
+      existsSync(receipt) ? afterExpiry : beforeExpiry,
+    );
+    try {
+      await assert.rejects(
+        collectEvidence(folder, sha, 'test-read-token', ref, {
+          auditExceptions: exceptions,
+        }),
+        /expired/,
+      );
+    } finally {
+      clock.mock.restore();
+    }
+    assert.equal(existsSync(receipt), false);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(folder, 'security/scan-status.json'))),
+      { commit: sha, ref, sast: 'failed', sca: 'failed', receipt: 'failed' },
+    );
+    assert.equal(
+      readFileSync(join(folder, 'security/yarn-audit.ndjson'), 'utf8').trim(),
+      readFileSync(join(folder, 'consumer/audit-findings.json'), 'utf8'),
+    );
     writeFileSync(join(folder, 'consumer/audit-diagnostics'), '');
     await assert.rejects(
       collectEvidence(folder, sha, 'test-read-token', ref, {
