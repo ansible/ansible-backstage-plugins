@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { securityPolicy } from './security-scope.mjs';
+import { emptyAuditExceptions } from './audit-exceptions.mjs';
 import {
   existsSync,
   mkdirSync,
@@ -17,9 +18,26 @@ import {
   selectCodeqlAnalyses,
   verifyAudit,
   verifyCodeql,
-  collectSecurityEvidence,
-  verifySecurityEvidence,
+  collectSecurityEvidence as collectEvidence,
+  verifySecurityEvidence as verifyEvidence,
 } from './security.mjs';
+
+// These synthetic releases have their own graph and no reviewed exceptions.
+const collectSecurityEvidence = (
+  directory,
+  commit,
+  token,
+  sourceRef,
+  options,
+) =>
+  collectEvidence(directory, commit, token, sourceRef, {
+    ...options,
+    auditExceptions: emptyAuditExceptions(),
+  });
+const verifySecurityEvidence = (directory, report, sourceRef) =>
+  verifyEvidence(directory, report, sourceRef, {
+    auditExceptions: emptyAuditExceptions(),
+  });
 
 const finding = (
   level = 'warning',
@@ -216,6 +234,8 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
     assert.equal(process.env.GH_TOKEN, '');
     assert.equal(process.env.YARN_ENABLE_SCRIPTS, 'false');
     if (fs.existsSync('audit-fails')) { console.log('{}'); process.exitCode = 1; }
+    if (fs.existsSync('audit-findings.json')) { console.log(fs.readFileSync('audit-findings.json', 'utf8')); process.exitCode = 1; }
+    if (fs.existsSync('audit-diagnostics')) { console.error('partial registry failure'); }
   `,
       { mode: 0o755 },
     );
@@ -283,6 +303,108 @@ for (const ref of ['refs/heads/main', 'refs/heads/release-2.1']) {
       /Security source branch mismatch/,
     );
     assert(evidence.files.some(file => file.name === 'consumer.yarn.lock'));
+    const exceptions = {
+      schemaVersion: 1,
+      consumerLockSha256: createHash('sha256')
+        .update('consumer lock')
+        .digest('hex'),
+      exceptions: [
+        {
+          advisory: 'GHSA-x7hr-w5r2-h6wg',
+          package: 'prismjs',
+          versions: ['1.27.0'],
+          severity: 'moderate',
+          disposition: 'risk-accepted',
+          owner: '@ansible/automation-portal-engineers',
+          createdOn: new Date().toISOString().slice(0, 10),
+          expiresOn: new Date(Date.now() + 7 * 86400000)
+            .toISOString()
+            .slice(0, 10),
+          rationale:
+            'An explicit preview risk decision for this synthetic release, retained for publisher verification.',
+          evidence: ['https://github.com/wooorm/refractor/pull/82'],
+        },
+      ],
+    };
+    writeFileSync(
+      join(folder, 'consumer/audit-findings.json'),
+      JSON.stringify({
+        value: 'prismjs',
+        children: {
+          ID: 1105770,
+          Issue: 'DOM clobbering',
+          URL: 'https://github.com/advisories/GHSA-x7hr-w5r2-h6wg',
+          Severity: 'moderate',
+          'Vulnerable Versions': '<1.30.0',
+          'Tree Versions': ['1.27.0'],
+          Dependents: ['refractor@npm:3.6.0'],
+        },
+      }),
+    );
+    await collectEvidence(folder, sha, 'test-read-token', ref, {
+      auditExceptions: exceptions,
+    });
+    verifyEvidence(folder, report, ref, { auditExceptions: exceptions });
+    assert.equal(
+      JSON.parse(readFileSync(join(folder, 'security/report.json')))
+        .auditExitCode,
+      1,
+    );
+    assert.equal(
+      JSON.parse(
+        readFileSync(join(folder, 'security/dependency-audit.summary.json')),
+      ).acceptedFindings,
+      1,
+    );
+    assert.throws(
+      () => verifySecurityEvidence(folder, report, ref),
+      /findings block/,
+    );
+    const changedPolicy = structuredClone(exceptions);
+    changedPolicy.exceptions[0].rationale += ' A different decision.';
+    assert.throws(
+      () =>
+        verifyEvidence(folder, report, ref, { auditExceptions: changedPolicy }),
+      /assessment mismatch/,
+    );
+    const receipt = join(folder, 'security/report.json');
+    const beforeExpiry = Date.now();
+    const afterExpiry = Date.parse(
+      `${exceptions.exceptions[0].expiresOn}T00:00:00Z`,
+    );
+    // Move the clock only after collection writes the receipt, before its recheck.
+    const clock = t.mock.method(Date, 'now', () =>
+      existsSync(receipt) ? afterExpiry : beforeExpiry,
+    );
+    try {
+      await assert.rejects(
+        collectEvidence(folder, sha, 'test-read-token', ref, {
+          auditExceptions: exceptions,
+        }),
+        /expired/,
+      );
+    } finally {
+      clock.mock.restore();
+    }
+    assert.equal(existsSync(receipt), false);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(folder, 'security/scan-status.json'))),
+      { commit: sha, ref, sast: 'failed', sca: 'failed', receipt: 'failed' },
+    );
+    assert.equal(
+      readFileSync(join(folder, 'security/yarn-audit.ndjson'), 'utf8').trim(),
+      readFileSync(join(folder, 'consumer/audit-findings.json'), 'utf8'),
+    );
+    writeFileSync(join(folder, 'consumer/audit-diagnostics'), '');
+    await assert.rejects(
+      collectEvidence(folder, sha, 'test-read-token', ref, {
+        auditExceptions: exceptions,
+      }),
+      /scan completeness/,
+    );
+    assert.equal(existsSync(join(folder, 'security/report.json')), false);
+    rmSync(join(folder, 'consumer/audit-diagnostics'));
+    rmSync(join(folder, 'consumer/audit-findings.json'));
     outsideFindings = true;
     await collectSecurityEvidence(folder, sha, 'test-read-token', ref);
     verifySecurityEvidence(folder, report, ref);

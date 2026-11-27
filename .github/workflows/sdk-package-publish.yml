@@ -7,6 +7,11 @@ on:
         description: 'Reviewed release version, for example 0.1.0-alpha.0'
         required: true
         type: string
+      prepare_bootstrap:
+        description: 'Prepare approved signed artifacts for interactive first publication, without publishing to npm'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -159,5 +164,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Publish exact archives through npm OIDC
+        if: ${{ !inputs.prepare_bootstrap }}
         working-directory: ${{ runner.temp }}
         run: node "$GITHUB_WORKSPACE/scripts/sdk-package-validation/publish.mjs" --publish

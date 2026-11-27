@@ -75,3 +75,25 @@ test('signed evidence must be uploaded successfully before any registry write', 
   assert.doesNotMatch(workflow.slice(publish), /if: always/);
   assert.match(workflow.slice(upload, publish), /if-no-files-found: error/);
 });
+
+test('bootstrap preparation retains review, scans and attestations while skipping publication', () => {
+  assert.match(
+    workflow,
+    /prepare_bootstrap:\n\s+description:.*\n\s+required: false\n\s+type: boolean\n\s+default: false/,
+  );
+  const publisher = workflow.split('\n  publish:\n')[1];
+  assert.match(publisher, /environment: npm-preview/);
+  const publishStep = publisher.split(
+    '- name: Publish exact archives through npm OIDC',
+  )[1];
+  assert.match(publishStep, /if: \$\{\{ !inputs.prepare_bootstrap \}\}/);
+  assert.match(publishStep, /publish\.mjs" --publish/);
+  const protectedSteps = publisher.slice(
+    0,
+    publisher.indexOf('- name: Publish exact archives through npm OIDC'),
+  );
+  assert.match(protectedSteps, /Revalidate approved archive bytes/);
+  assert.match(protectedSteps, /Sign archive, SBOM and report provenance/);
+  assert.match(protectedSteps, /Upload signed release evidence/);
+  assert.doesNotMatch(protectedSteps, /prepare_bootstrap/);
+});

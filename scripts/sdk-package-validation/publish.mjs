@@ -134,6 +134,8 @@ if (execute) {
     );
   }
   for (const manifest of ordered) {
+    // Approval and registry preflight can cross an exception's expiry time.
+    verifySecurityEvidence(directory, report, ref);
     const archive = verifyArchiveDigest(
       directory,
       report.packages.find(p => p.name === manifest.name),

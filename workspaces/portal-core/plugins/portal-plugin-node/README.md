@@ -1,5 +1,13 @@
 # @ansible/portal-plugin-node
 
+## Developer preview
+
+This preview is intended for plugin integration testing. It carries temporary
+accepted findings in upstream dependencies and is not a production-readiness
+certification. Review the [release limitations and exception policy](https://github.com/ansible/ansible-backstage-plugins/blob/main/scripts/sdk-package-validation/PUBLISHING.md#reviewing-dependency-exceptions)
+and the [current dependency decisions](https://github.com/ansible/ansible-backstage-plugins/blob/main/scripts/sdk-package-validation/audit-exceptions.json)
+for affected versions, usage restrictions and expiry before using it in a host.
+
 Server-side SDK for Ansible portal backend plugins. Provides identity middleware, push-based health reporting, structured audit logging, and org-keyed database helpers.
 
 ## When to use this package
