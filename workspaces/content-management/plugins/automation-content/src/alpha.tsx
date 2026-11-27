@@ -40,6 +40,30 @@ function eraseScaffolderFieldTypes<TValue, TUiOptions>(
   return field as unknown as FieldExtensionOptions<any, any>;
 }
 
+export const loadScmSelectorField = async (): Promise<
+  FieldExtensionOptions<any, any>
+> => {
+  const { ScmSelectorExtension } = await import(
+    './components/Scaffolder/ScmSelector/ScmSelectorExtension'
+  );
+  const { validateScmSelector } = await import(
+    './components/Scaffolder/ScmSelector/validation'
+  );
+  return eraseScaffolderFieldTypes({
+    name: 'ScmSelector',
+    component: ScmSelectorExtension,
+    validation: (value, validation, context) => {
+      const options = context.uiSchema?.['ui:options'] as
+        | { requestUserCredentials?: unknown }
+        | undefined;
+      validateScmSelector(
+        value,
+        Boolean(options?.requestUserCredentials),
+      ).forEach(error => validation.addError(error));
+    },
+  });
+};
+
 function isEERepository(entity: Entity): boolean {
   return (
     entity.kind.toLowerCase() === 'component' &&
@@ -150,27 +174,7 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
       entryPointId: scmSelectorEntryId,
       attachment: 'scaffolder.fields',
       fieldName: 'ScmSelector',
-      loader: async () => {
-        const { ScmSelectorExtension } = await import(
-          './components/Scaffolder/ScmSelector/ScmSelectorExtension'
-        );
-        const { validateScmSelector } = await import(
-          './components/Scaffolder/ScmSelector/validation'
-        );
-        return eraseScaffolderFieldTypes({
-          name: 'ScmSelector',
-          component: ScmSelectorExtension,
-          validation: (value, validation, context) => {
-            const options = context.uiSchema?.['ui:options'] as
-              | { requestUserCredentials?: unknown }
-              | undefined;
-            validateScmSelector(
-              value,
-              Boolean(options?.requestUserCredentials),
-            ).forEach(error => validation.addError(error));
-          },
-        });
-      },
+      loader: loadScmSelectorField,
     }),
     eeHeaderLayout,
     eeOverviewLayout,

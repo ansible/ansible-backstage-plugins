@@ -8,6 +8,8 @@ export {
   useFieldValidation,
 } from './hooks/FieldValidationContext';
 export type {
+  ProviderConfig,
+  ProviderType,
   ScmSelectorData,
   ScmSelectorOptions,
 } from './components/ScmSelector/types';

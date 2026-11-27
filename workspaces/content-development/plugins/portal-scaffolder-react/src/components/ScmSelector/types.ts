@@ -1,6 +1,6 @@
-type ProviderType = 'github' | 'gitlab';
+export type ProviderType = 'github' | 'gitlab';
 
-interface ProviderConfig {
+export interface ProviderConfig {
   label: string;
   provider: ProviderType;
   host?: string;

@@ -29,6 +29,8 @@ import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
 import { useFieldValidation } from '@ansible/portal-scaffolder-react';
 import type {
+  ProviderConfig,
+  ProviderType,
   ScmSelectorData,
   ScmSelectorOptions,
 } from '@ansible/portal-scaffolder-react';

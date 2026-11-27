@@ -19,8 +19,14 @@ import { scmAuthApiRef } from '@backstage/integration-react';
 import { NativeScaffolderFields } from '@ansible/portal-extension-host/alpha';
 import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
+import { loadScmSelectorField } from '@ansible/plugin-automation-content/alpha';
 import { scaffolderFieldLoaders } from '../../alpha';
 import { StepForm } from './StepForm';
+
+const nativeFieldLoaders = {
+  ...scaffolderFieldLoaders,
+  ScmSelector: loadScmSelectorField,
+};
 
 // Keep host widgets out of this test; exercise the real field loader, StepForm and RJSF.
 jest.mock('./formExtraFields', () => ({ formExtraFields: [] }));
@@ -175,11 +181,11 @@ function makeFieldSchema(
 }
 
 async function getNativeValidationErrors(
-  fieldName: keyof typeof scaffolderFieldLoaders,
+  fieldName: keyof typeof nativeFieldLoaders,
   schema: Record<string, any>,
   formData: Record<string, any>,
 ) {
-  const field = await scaffolderFieldLoaders[fieldName]();
+  const field = await nativeFieldLoaders[fieldName]();
   if (!field.validation) {
     throw new Error(`${String(fieldName)} is missing its native validator`);
   }
@@ -196,12 +202,12 @@ async function getNativeValidationErrors(
 }
 
 async function renderNativePickerWizard(
-  fieldName: keyof typeof scaffolderFieldLoaders,
+  fieldName: keyof typeof nativeFieldLoaders,
   schema: Record<string, any>,
   value: unknown,
 ) {
   const submit = jest.fn().mockResolvedValue(undefined);
-  const field = await scaffolderFieldLoaders[fieldName]();
+  const field = await nativeFieldLoaders[fieldName]();
   jest.spyOn(global, 'fetch').mockImplementation(async input => {
     const url = String(input);
     if (url.endsWith('/user')) {
@@ -257,7 +263,7 @@ async function renderNativePickerWizard(
 async function renderStockNativeFilenameWizard(value: string) {
   const submit = jest.fn().mockResolvedValue(undefined);
   const fieldName = 'EEFileNamePicker' as const;
-  const field = await scaffolderFieldLoaders[fieldName]();
+  const field = await nativeFieldLoaders[fieldName]();
 
   await renderInTestApp(
     <TestApiProvider
@@ -322,7 +328,7 @@ async function renderStockNativeScmWizard(
 ) {
   const submit = jest.fn().mockResolvedValue(undefined);
   const fieldName = 'ScmSelector' as const;
-  const field = await scaffolderFieldLoaders[fieldName]();
+  const field = await nativeFieldLoaders[fieldName]();
   const getCredentials = authSucceeds
     ? jest.fn().mockReturnValue(credentials)
     : jest.fn().mockRejectedValue(new Error('OAuth failed'));
