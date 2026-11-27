@@ -12,6 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { test } from 'node:test';
+import { emptyAuditExceptions, verifyAudit } from './audit-exceptions.mjs';
 import {
   createSecurityScope,
   scopeDigest,
@@ -44,9 +45,11 @@ function releaseFixture(t, ref = 'refs/heads/main') {
     'sbom.mjs',
     'security.mjs',
     'security-scope.mjs',
+    'audit-exceptions.mjs',
   ]) {
     copyFileSync(new URL(name, import.meta.url), join(scripts, name));
   }
+  json(join(scripts, 'audit-exceptions.json'), emptyAuditExceptions());
   writeFileSync(join(root, 'LICENSE'), 'test license');
   const directory = join(root, 'release');
   mkdirSync(join(directory, 'artifacts'), { recursive: true });
@@ -162,6 +165,13 @@ function releaseFixture(t, ref = 'refs/heads/main') {
     JSON.stringify({ type: 'info', data: 'No audit suggestions' }),
   );
   securityFiles.push('consumer.yarn.lock', 'yarn-audit.ndjson');
+  json(
+    join(security, 'dependency-audit.summary.json'),
+    verifyAudit(readFileSync(join(security, 'yarn-audit.ndjson'), 'utf8'), 0, {
+      lockSha256: digest(join(security, 'consumer.yarn.lock')),
+    }),
+  );
+  securityFiles.push('dependency-audit.summary.json');
   json(join(security, 'report.json'), {
     commit: sha,
     ref,
@@ -182,12 +192,14 @@ function releaseFixture(t, ref = 'refs/heads/main') {
     String.raw`
     import assert from 'node:assert/strict';
     import { appendFileSync } from 'node:fs';
+    if (process.env.TEST_CLOCK_BEFORE) Date.now = () => Date.parse(process.env.TEST_CLOCK_BEFORE);
     globalThis.fetch = async url => {
       assert(url.startsWith('https://registry.npmjs.org/'));
       const name = decodeURIComponent(new URL(url).pathname.slice(1));
       appendFileSync(process.env.PUBLISH_EVENTS, JSON.stringify({ kind: 'precheck', name, url }) + '\n');
       const failing = name === '@ansible/example';
       const exists = failing && process.env.REGISTRY_CASE === 'existing';
+      if (failing && process.env.TEST_CLOCK_AFTER_PREFLIGHT) Date.now = () => Date.parse(process.env.TEST_CLOCK_AFTER_PREFLIGHT);
       return new Response(JSON.stringify({ versions: exists ? { [process.env.SDK_RELEASE_VERSION]: {} } : {} }), {
         status: failing && process.env.REGISTRY_CASE === 'missing' ? 404 : 200,
       });
@@ -344,6 +356,76 @@ test('checks the entire registry set before publishing exact archives in depende
       ],
     })),
   ]);
+});
+
+test('publisher rechecks accepted findings and expiry after registry preflight', t => {
+  const { directory, run } = releaseFixture(t);
+  const scripts = join(directory, '../scripts/sdk-package-validation');
+  const security = join(directory, 'security');
+  const now = Date.parse('2026-11-27T12:00:00Z');
+  const exceptions = {
+    schemaVersion: 1,
+    consumerLockSha256: digest(join(security, 'consumer.yarn.lock')),
+    exceptions: [
+      {
+        advisory: 'GHSA-x7hr-w5r2-h6wg',
+        package: 'prismjs',
+        versions: ['1.27.0'],
+        severity: 'moderate',
+        disposition: 'risk-accepted',
+        owner: '@ansible/automation-portal-engineers',
+        createdOn: '2026-11-27',
+        expiresOn: '2026-12-27',
+        rationale:
+          'A reviewed test-only preview decision for this synthetic dependency graph.',
+        evidence: ['https://github.com/wooorm/refractor/pull/82'],
+      },
+    ],
+  };
+  const audit = JSON.stringify({
+    value: 'prismjs',
+    children: {
+      ID: 1105770,
+      Issue: 'DOM clobbering',
+      URL: 'https://github.com/advisories/GHSA-x7hr-w5r2-h6wg',
+      Severity: 'moderate',
+      'Vulnerable Versions': '<1.30.0',
+      'Tree Versions': ['1.27.0'],
+      Dependents: ['refractor@npm:3.6.0'],
+    },
+  });
+  json(join(scripts, 'audit-exceptions.json'), exceptions);
+  writeFileSync(join(security, 'yarn-audit.ndjson'), audit);
+  json(
+    join(security, 'dependency-audit.summary.json'),
+    verifyAudit(audit, 1, {
+      exceptions,
+      lockSha256: exceptions.consumerLockSha256,
+      now,
+    }),
+  );
+  const evidence = JSON.parse(readFileSync(join(security, 'report.json')));
+  evidence.auditExitCode = 1;
+  for (const file of evidence.files)
+    file.sha256 = digest(join(security, file.name));
+  json(join(security, 'report.json'), evidence);
+  const env = { ...oidc, TEST_CLOCK_BEFORE: '2026-11-27T12:00:00Z' };
+  const accepted = run(['--publish'], env);
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.equal(
+    accepted.events.filter(event => event.kind === 'publish').length,
+    2,
+  );
+  const expired = run(['--publish'], {
+    ...env,
+    TEST_CLOCK_AFTER_PREFLIGHT: '2026-12-27T00:00:00Z',
+  });
+  assert.notEqual(expired.status, 0);
+  assert.match(expired.stderr, /expired/);
+  assert.deepEqual(
+    expired.events.map(event => event.kind),
+    ['precheck', 'precheck'],
+  );
 });
 
 for (const scenario of ['missing', 'existing']) {
