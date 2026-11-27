@@ -574,26 +574,36 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ansible/plugin-automation-content@workspace:workspaces/content-management/plugins/automation-content"
   dependencies:
+    "@ansible/aap-app-auth": "workspace:^"
+    "@ansible/aap-common": "workspace:^"
     "@ansible/automation-content-common": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
     "@ansible/content-model": "workspace:^"
     "@ansible/portal-extension-api": "workspace:^"
     "@ansible/portal-extension-host": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
+    "@ansible/portal-scaffolder-react": "workspace:^"
     "@backstage/catalog-model": "npm:1.10.2"
     "@backstage/cli": "npm:0.36.5"
     "@backstage/core-components": "npm:0.18.13"
     "@backstage/core-plugin-api": "npm:1.12.9"
     "@backstage/frontend-plugin-api": "npm:0.18.0"
     "@backstage/frontend-test-utils": "npm:0.6.3"
+    "@backstage/integration-react": "npm:1.2.21"
     "@backstage/plugin-catalog": "npm:2.0.8"
     "@backstage/plugin-catalog-react": "npm:3.2.2"
     "@backstage/plugin-permission-common": "npm:0.9.10"
     "@backstage/plugin-permission-react": "npm:0.5.4"
+    "@backstage/plugin-scaffolder": "npm:1.38.2"
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
+    "@backstage/test-utils": "npm:1.7.21"
     "@backstage/theme": "npm:0.7.3"
     "@backstage/ui": "npm:0.17.1"
     "@emotion/react": "npm:^11.10.5"
     "@emotion/styled": "npm:^11.10.5"
+    "@material-ui/core": "npm:^4.12.4"
+    "@material-ui/icons": "npm:^4.11.3"
+    "@material-ui/lab": "npm:^4.0.0-alpha.61"
     "@mui/icons-material": "npm:5.18.0"
     "@mui/material": "npm:5.18.0"
     "@red-hat-developer-hub/cli": "npm:1.10.8"
@@ -602,6 +612,7 @@ __metadata:
     "@testing-library/react": "npm:^16.0.0"
     "@testing-library/user-event": "npm:^14.6.1"
     "@types/react": "npm:^18"
+    clsx: "npm:^2.1.1"
     react: "npm:^18.3.1"
     react-dom: "npm:^18.3.1"
     react-router-dom: "npm:^6.30.5"
@@ -1035,7 +1046,6 @@ __metadata:
     "@backstage/catalog-model": "npm:1.10.2"
     "@backstage/cli": "npm:0.36.5"
     "@backstage/core-plugin-api": "npm:1.12.9"
-    "@backstage/integration-react": "npm:1.2.21"
     "@backstage/plugin-catalog-react": "npm:3.2.2"
     "@backstage/plugin-scaffolder-react": "npm:2.0.3"
     "@backstage/test-utils": "npm:1.7.21"
@@ -1052,7 +1062,6 @@ __metadata:
     typescript: "npm:~5.8.0"
   peerDependencies:
     "@backstage/core-plugin-api": ^1.12.9
-    "@backstage/integration-react": ^1.2.21
     "@backstage/plugin-catalog-react": ^3.2.2
     "@backstage/plugin-scaffolder-react": ^2.0.3
     "@material-ui/core": ^4.9.13
@@ -1072,6 +1081,7 @@ __metadata:
     "@ansible/aap-app-auth": "workspace:^"
     "@ansible/aap-common": "workspace:^"
     "@ansible/backstage-rhaap-common": "workspace:^"
+    "@ansible/plugin-automation-content": "workspace:^"
     "@ansible/portal-plugin-sdk": "workspace:^"
     "@ansible/portal-scaffolder-common": "workspace:^"
     "@ansible/portal-scaffolder-react": "workspace:^"

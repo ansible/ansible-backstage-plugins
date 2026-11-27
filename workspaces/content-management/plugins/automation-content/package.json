@@ -32,8 +32,8 @@
     "dist-scalprum"
   ],
   "dependencies": {
-    "@ansible/aap-common": "workspace:^",
     "@ansible/aap-app-auth": "workspace:^",
+    "@ansible/aap-common": "workspace:^",
     "@ansible/automation-content-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
     "@ansible/content-model": "workspace:^",
@@ -51,16 +51,16 @@
     "@backstage/plugin-scaffolder-react": "2.0.3",
     "@backstage/theme": "0.7.3",
     "@backstage/ui": "0.17.1",
+    "@emotion/react": "^11.10.5",
+    "@emotion/styled": "^11.10.5",
     "@material-ui/core": "^4.12.4",
     "@material-ui/icons": "^4.11.3",
     "@material-ui/lab": "^4.0.0-alpha.61",
-    "@emotion/react": "^11.10.5",
-    "@emotion/styled": "^11.10.5",
     "@mui/icons-material": "5.18.0",
     "@mui/material": "5.18.0",
     "@remixicon/react": ">=4.6.0 <4.9.0",
-    "react-use": "^17.2.4",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "react-use": "^17.2.4"
   },
   "peerDependencies": {
     "@ansible/portal-extension-api": "workspace:^",
@@ -74,8 +74,8 @@
     "@ansible/portal-extension-host": "workspace:^",
     "@backstage/cli": "0.36.5",
     "@backstage/frontend-test-utils": "0.6.3",
-    "@backstage/test-utils": "1.7.21",
     "@backstage/plugin-catalog": "2.0.8",
+    "@backstage/test-utils": "1.7.21",
     "@red-hat-developer-hub/cli": "1.10.8",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.0.0",
