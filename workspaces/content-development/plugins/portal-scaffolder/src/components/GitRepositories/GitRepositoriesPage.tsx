@@ -61,6 +61,7 @@ import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { RepositoryDetailsPage } from './RepositoryDetailsPage';
 import { gitReposCache } from './gitReposCache';
+import { CI_ACTIVITY_DESCRIPTION, CI_ACTIVITY_TITLE } from './constants';
 
 const useStyles = makeStyles(theme => ({
   tabsSection: {
@@ -286,10 +287,14 @@ export const GitRepositoriesPage = () => {
       ? GIT_REPO_BUILT_IN_TABS + activeExtTabIndex
       : selectedTab;
 
+  const isCiActivityTab = activeExtTabIndex === null && selectedTab === 1;
+
   return (
     <Page themeId="app">
       <Content>
         <RepositoriesPageHeaderSection
+          title={isCiActivityTab ? CI_ACTIVITY_TITLE : undefined}
+          description={isCiActivityTab ? CI_ACTIVITY_DESCRIPTION : undefined}
           onSyncClick={handleSyncClick}
           syncDisabled={syncDisabled}
           syncDisabledReason={syncDisabledReason}

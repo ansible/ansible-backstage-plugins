@@ -1,8 +1,12 @@
-import { Box, Card, Typography, CircularProgress } from '@material-ui/core';
-import DescriptionOutlinedIcon from '@material-ui/icons/DescriptionOutlined';
 import { MarkdownContent } from '@backstage/core-components';
-
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Flex,
+  Skeleton,
+  Text,
+} from '@backstage/ui';
 
 export interface RepositoryReadmeCardProps {
   readmeContent: string;
@@ -13,14 +17,20 @@ export const RepositoryReadmeCard = ({
   readmeContent,
   isLoading = false,
 }: RepositoryReadmeCardProps) => {
-  const classes = useCollectionsStyles();
-
   const renderContent = () => {
     if (isLoading) {
       return (
-        <Box className={classes.readmeLoading}>
-          <CircularProgress size={32} />
-        </Box>
+        <Flex
+          direction="column"
+          gap="2"
+          p="4"
+          role="status"
+          aria-label="Loading README"
+        >
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
+        </Flex>
       );
     }
 
@@ -29,22 +39,18 @@ export const RepositoryReadmeCard = ({
     }
 
     return (
-      <Box className={classes.readmeEmpty}>
-        <Typography variant="body2" color="textSecondary">
-          Readme Not Available
-        </Typography>
-      </Box>
+      <Flex justify="center" p="6">
+        <Text color="secondary">Readme Not Available</Text>
+      </Flex>
     );
   };
 
   return (
-    <Card className={classes.readmeCard} variant="outlined">
-      <Box className={classes.readmeCardHeader}>
-        <DescriptionOutlinedIcon style={{ fontSize: '1.25rem' }} />
-        <Typography className={classes.readmeCardTitle}>README</Typography>
-      </Box>
-
-      <Box className={classes.readmeCardContent}>{renderContent()}</Box>
+    <Card>
+      <CardHeader>
+        <Text variant="title-medium">README</Text>
+      </CardHeader>
+      <CardBody style={{ padding: 0 }}>{renderContent()}</CardBody>
     </Card>
   );
 };

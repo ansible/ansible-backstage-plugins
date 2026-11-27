@@ -1,15 +1,17 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Link,
-  Button,
-} from '@material-ui/core';
-import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import type { ReactNode } from 'react';
 import { Entity } from '@backstage/catalog-model';
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Flex,
+  Link,
+  Tag,
+  TagGroup,
+  Text,
+} from '@backstage/ui';
 
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl, buildSourceString } from '../CollectionsCatalog/utils';
 
 export interface RepositoryAboutCardProps {
@@ -18,13 +20,23 @@ export interface RepositoryAboutCardProps {
   onNavigateToCollections?: () => void;
 }
 
+const AboutField = ({
+  label,
+  children,
+}: Readonly<{ label: string; children: ReactNode }>) => (
+  <Flex direction="column" gap="1">
+    <Text variant="body-small" weight="bold" color="secondary">
+      {label}
+    </Text>
+    {children}
+  </Flex>
+);
+
 export const RepositoryAboutCard = ({
   entity,
   onViewSource,
   onNavigateToCollections,
 }: RepositoryAboutCardProps) => {
-  const classes = useCollectionsStyles();
-
   const description =
     entity.metadata?.description ||
     'Git repository discovered from Ansible content sources.';
@@ -48,111 +60,81 @@ export const RepositoryAboutCard = ({
     ? entity.metadata.tags
     : [];
 
-  const collectionsLabel = `${collectionCount} collection${collectionCount === 1 ? '' : 's'}`;
-  const containsCollectionsPart =
-    collectionCount > 0
-      ? (() => {
-          if (onNavigateToCollections) {
-            return (
-              <Link
-                component="button"
-                type="button"
-                variant="body1"
-                className={classes.aboutSourceLink}
-                onClick={onNavigateToCollections}
-                style={{ cursor: 'pointer' }}
-              >
-                {collectionsLabel}
-              </Link>
-            );
-          }
-          return <span>{collectionsLabel}</span>;
-        })()
-      : null;
+  const collectionsLabel = `${collectionCount} collection${
+    collectionCount === 1 ? '' : 's'
+  }`;
+  let containsCollectionsPart: ReactNode = null;
+  if (collectionCount > 0) {
+    containsCollectionsPart = onNavigateToCollections ? (
+      <Button variant="tertiary" onPress={onNavigateToCollections}>
+        {collectionsLabel}
+      </Button>
+    ) : (
+      <Text>{collectionsLabel}</Text>
+    );
+  }
 
   return (
-    <Card className={classes.aboutCard} variant="outlined">
-      <CardContent className={classes.aboutCardContent}>
-        <Box className={classes.aboutCardHeader}>
-          <Typography className={classes.aboutCardTitle}>About</Typography>
-        </Box>
+    <Card>
+      <CardHeader>
+        <Text variant="title-medium">About</Text>
+      </CardHeader>
+      <CardBody>
+        <Flex direction="column" gap="4">
+          <AboutField label="Description">
+            <Text>{description}</Text>
+          </AboutField>
 
-        <Box>
-          <Typography className={classes.aboutCardLabel}>
-            Description
-          </Typography>
-          <Typography className={classes.aboutCardValue}>
-            {description}
-          </Typography>
-        </Box>
-
-        <Box className={classes.aboutCardSection}>
-          <Typography className={classes.aboutCardLabel}>Source</Typography>
-          {sourceUrl ? (
-            <Link
-              href={sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={classes.aboutSourceLink}
-              onClick={e => {
-                e.preventDefault();
-                onViewSource?.();
-              }}
-            >
-              <span>{sourceString}</span>
-              <OpenInNewIcon className={classes.aboutSourceIcon} />
-            </Link>
-          ) : (
-            <Typography className={classes.aboutCardValue}>
-              {sourceString || 'Unknown'}
-            </Typography>
-          )}
-        </Box>
-
-        <Box className={classes.aboutCardSection}>
-          <Typography className={classes.aboutCardLabel}>
-            Default branch
-          </Typography>
-          <Typography className={classes.aboutCardValue}>
-            {defaultBranch}
-          </Typography>
-        </Box>
-
-        <Box className={classes.aboutCardSection}>
-          <Typography className={classes.aboutCardLabel}>Contains</Typography>
-          <Typography className={classes.aboutCardValue} component="span">
-            {collectionCount > 0 || eeCount > 0 ? (
-              <>
-                {containsCollectionsPart}
-                {collectionCount > 0 && eeCount > 0 && ', '}
-                {eeCount > 0 &&
-                  `${eeCount} EE definition${eeCount === 1 ? '' : 's'}`}
-              </>
+          <AboutField label="Source">
+            {sourceUrl ? (
+              <Link
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={event => {
+                  event.preventDefault();
+                  onViewSource?.();
+                }}
+              >
+                {sourceString}
+              </Link>
             ) : (
-              '—'
+              <Text>{sourceString || 'Unknown'}</Text>
             )}
-          </Typography>
-        </Box>
+          </AboutField>
 
-        {tags.length > 0 && (
-          <Box className={classes.aboutCardSection}>
-            <Typography className={classes.aboutCardLabel}>Tags</Typography>
-            <Box className={classes.aboutCardTagsContainer}>
-              {tags.map((tag: string) => (
-                <Button
-                  key={tag}
-                  variant="outlined"
-                  size="small"
-                  className={classes.aboutCardTag}
-                  disabled
-                >
-                  {tag}
-                </Button>
-              ))}
-            </Box>
-          </Box>
-        )}
-      </CardContent>
+          <AboutField label="Default branch">
+            <Text>{defaultBranch}</Text>
+          </AboutField>
+
+          <AboutField label="Contains">
+            <Text>
+              {collectionCount > 0 || eeCount > 0 ? (
+                <>
+                  {containsCollectionsPart}
+                  {collectionCount > 0 && eeCount > 0 && ', '}
+                  {eeCount > 0 &&
+                    `${eeCount} EE definition${eeCount === 1 ? '' : 's'}`}
+                </>
+              ) : (
+                '—'
+              )}
+            </Text>
+          </AboutField>
+
+          {tags.length > 0 && (
+            <AboutField label="Tags">
+              <TagGroup aria-label="Repository tags">
+                {tags.map(tag => (
+                  <Tag key={tag} id={tag} isDisabled>
+                    {tag}
+                  </Tag>
+                ))}
+              </TagGroup>
+            </AboutField>
+          )}
+        </Flex>
+      </CardBody>
     </Card>
   );
 };

@@ -21,51 +21,99 @@ let capturedColumns: Array<{
   render?: (row: any) => any;
 }> = [];
 
-jest.mock('@backstage/core-components', () => {
-  const actual = jest.requireActual('@backstage/core-components');
+jest.mock('@backstage/ui', () => {
+  const actual = jest.requireActual('@backstage/ui');
   return {
     ...actual,
-    Progress: () => <div data-testid="progress">Loading...</div>,
-    Table: ({
-      title,
-      data,
-      columns,
+    SearchField: ({
+      placeholder,
+      value,
+      onChange,
+      'aria-label': ariaLabel,
     }: {
-      title: React.ReactNode;
-      data: unknown[];
-      columns: Array<{
-        title: string;
-        field: string;
-        render?: (row: any) => any;
+      placeholder?: string;
+      value?: string;
+      onChange?: (value: string) => void;
+      'aria-label'?: string;
+    }) => (
+      <input
+        aria-label={ariaLabel}
+        placeholder={placeholder}
+        value={value}
+        onChange={event => onChange?.(event.target.value)}
+      />
+    ),
+    Select: ({ label }: { label?: string }) => (
+      <div data-testid={`select-${label}`}>{label}</div>
+    ),
+    Card: ({ children }: { children?: React.ReactNode }) => (
+      <div data-testid="ci-activity-card">{children}</div>
+    ),
+    Alert: ({
+      title,
+      description,
+    }: {
+      title?: string;
+      description?: string;
+    }) => (
+      <div role="alert">
+        <div>{title}</div>
+        <div>{description}</div>
+      </div>
+    ),
+    useTable: ({ data }: { data?: any[] }) => ({
+      tableProps: {
+        data,
+        pagination: {
+          type: 'page',
+          pageSize: 10,
+          pageSizeOptions: [10, 20, 50],
+          offset: 0,
+          totalCount: data?.length ?? 0,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          onNextPage: jest.fn(),
+          onPreviousPage: jest.fn(),
+          onPageSizeChange: jest.fn(),
+        },
+      },
+    }),
+    Table: ({
+      columnConfig,
+      data,
+    }: {
+      columnConfig?: Array<{
+        id: string;
+        label: string;
+        cell?: (row: any) => React.ReactNode;
       }>;
+      data?: any[];
     }) => {
-      capturedColumns = columns;
+      capturedColumns = (columnConfig ?? []).map(col => ({
+        title: col.label,
+        field: col.id,
+        render: col.cell,
+      }));
+      const rows = data ?? [];
       return (
         <div data-testid="table">
-          <div data-testid="table-title">{title}</div>
+          <div data-testid="table-title">CI Activity ({rows.length})</div>
           <table>
             <thead>
               <tr>
-                {columns.map(col => (
+                {capturedColumns.map(col => (
                   <th key={col.field}>{col.title}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {(
-                data as Array<{
-                  id: string;
-                  status: string;
-                  project: string;
-                  eventDisplay: string;
-                  trigger: string;
-                }>
-              ).map(row => (
+              {rows.map(row => (
                 <tr key={row.id} data-testid={`table-row-${row.id}`}>
-                  <td>{row.status}</td>
-                  <td>{row.project}</td>
-                  <td>{row.eventDisplay}</td>
-                  <td>{row.trigger}</td>
+                  {capturedColumns.map(col => (
+                    <td key={col.field}>
+                      {col.render ? col.render(row) : (row as any)[col.field]}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -73,36 +121,17 @@ jest.mock('@backstage/core-components', () => {
         </div>
       );
     },
-  };
-});
-
-jest.mock('@backstage/plugin-catalog-react', () => {
-  const actual = jest.requireActual('@backstage/plugin-catalog-react');
-  const CatalogFilterLayout = ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div data-testid="catalog-filter-layout">{children}</div>;
-  CatalogFilterLayout.Filters = ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div data-testid="catalog-filters">{children}</div>;
-  CatalogFilterLayout.Content = ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div data-testid="catalog-content">{children}</div>;
-  return {
-    ...actual,
-    CatalogFilterLayout,
-    catalogApiRef: actual.catalogApiRef,
-    starredEntitiesApiRef: actual.starredEntitiesApiRef,
-    MockStarredEntitiesApi: actual.MockStarredEntitiesApi,
+    Cell: ({ children }: { children?: React.ReactNode }) => (
+      <div data-testid="bui-cell">{children}</div>
+    ),
+    CellText: ({ title }: { title?: string }) => (
+      <span data-testid="bui-cell-text">{title}</span>
+    ),
   };
 });
 
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
+import { buildCIActivityColumnConfig } from './ciActivityPresentation';
 import { ciActivityCache } from './ciActivityCache';
 import {
   parseGitHubRuns,
@@ -253,7 +282,7 @@ describe('RepositoriesCIActivityTab', () => {
 
     renderTab();
 
-    expect(screen.getByTestId('progress')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading CI activity');
   });
 
   it('renders CI activity table with GitHub workflow runs', async () => {
@@ -367,8 +396,10 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('success')).toBeInTheDocument();
+      expect(screen.getByTestId('table')).toBeInTheDocument();
     });
+
+    expect(screen.getByTestId('table')).toHaveTextContent('Success');
   });
 
   it('renders table title with count', async () => {
@@ -478,7 +509,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('failure')).toBeInTheDocument();
+      expect(screen.getByText('Failure')).toBeInTheDocument();
     });
   });
 
@@ -499,7 +530,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('in_progress')).toBeInTheDocument();
+      expect(screen.getByText('In Progress')).toBeInTheDocument();
     });
   });
 
@@ -586,8 +617,8 @@ describe('RepositoriesCIActivityTab', () => {
       expect(screen.getByTestId('table')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('success')).toBeInTheDocument();
-    expect(screen.getByText('failure')).toBeInTheDocument();
+    expect(screen.getByText('Success')).toBeInTheDocument();
+    expect(screen.getByText('Failure')).toBeInTheDocument();
   });
 
   it('sorts trigger options alphabetically', async () => {
@@ -641,7 +672,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('cancelled')).toBeInTheDocument();
+      expect(screen.getByText('Cancelled')).toBeInTheDocument();
     });
   });
 
@@ -662,7 +693,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('queued')).toBeInTheDocument();
+      expect(screen.getByText('Queued')).toBeInTheDocument();
     });
   });
 
@@ -683,7 +714,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('skipped')).toBeInTheDocument();
+      expect(screen.getByText('Skipped')).toBeInTheDocument();
     });
   });
 
@@ -704,7 +735,7 @@ describe('RepositoriesCIActivityTab', () => {
     renderTab();
 
     await waitFor(() => {
-      expect(screen.getByText('unknown')).toBeInTheDocument();
+      expect(screen.getByText('Unknown')).toBeInTheDocument();
     });
   });
 
@@ -834,7 +865,7 @@ describe('RepositoriesCIActivityTab', () => {
       expect(screen.getByTestId('table')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('success')).toBeInTheDocument();
+    expect(screen.getByTestId('table')).toHaveTextContent('Success');
   });
 
   it('handles status filter selection', async () => {
@@ -1088,199 +1119,105 @@ describe('ciActivityUtils', () => {
   });
 });
 
-describe('RepositoriesCIActivityTab column render functions', () => {
+describe('ciActivityPresentation column cell functions', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    ciActivityCache.clear();
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
-    capturedColumns = [];
-
-    mockCatalogApi.getEntities.mockResolvedValue({
-      items: [createGitHubEntity('github-repo')],
-    });
-    mockBatchResponse({
-      [entityRef('github-repo')]: {
-        status: 200,
-        data: {
-          workflow_runs: [
-            {
-              id: 123,
-              run_number: 42,
-              name: 'CI Build',
-              status: 'completed',
-              conclusion: 'success',
-              event: 'push',
-              created_at: '2024-06-15T11:00:00Z',
-              html_url:
-                'https://github.com/test-org/github-repo/actions/runs/123',
-            },
-          ],
-        },
-      },
-    });
   });
 
   afterEach(() => {
     jest.useRealTimers();
   });
 
-  const renderAndCapture = async () => {
-    render(
-      <TestApiProvider
-        apis={[
-          [catalogApiRef, mockCatalogApi],
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-          [identityApiRef, mockIdentityApi],
-          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
-          [permissionApiRef, mockApis.permission()],
-        ]}
-      >
-        <MemoryRouter>
-          <ThemeProvider theme={theme}>
-            <RepositoriesCIActivityTab />
-          </ThemeProvider>
-        </MemoryRouter>
-      </TestApiProvider>,
-    );
-    await waitFor(() => {
-      expect(capturedColumns.length).toBeGreaterThan(0);
-    });
-    return capturedColumns;
-  };
+  const presentationColumns = () => buildCIActivityColumnConfig();
 
   it('project column renders link when projectUrl exists', async () => {
-    const cols = await renderAndCapture();
-    const projectCol = cols.find(c => c.field === 'project')!;
+    const cols = presentationColumns();
+    const projectCol = cols.find(c => c.id === 'project')!;
     const { container } = render(
-      <ThemeProvider theme={theme}>
-        {projectCol.render!({
-          project: 'my-repo',
-          projectUrl: 'https://github.com/org/my-repo',
-        })}
-      </ThemeProvider>,
+      projectCol.cell!({
+        project: 'my-repo',
+        projectUrl: 'https://github.com/org/my-repo',
+      } as any),
     );
     const link = container.querySelector('a');
     expect(link).not.toBeNull();
     expect(link!.getAttribute('href')).toBe('https://github.com/org/my-repo');
-    expect(link!.textContent).toBe('my-repo');
+    expect(link!.textContent).toContain('my-repo');
+    expect(link!.querySelector('svg')).not.toBeNull();
   });
 
   it('project column renders plain text when projectUrl is missing', async () => {
-    const cols = await renderAndCapture();
-    const projectCol = cols.find(c => c.field === 'project')!;
+    const cols = presentationColumns();
+    const projectCol = cols.find(c => c.id === 'project')!;
     const { container } = render(
-      projectCol.render!({ project: 'plain-repo', projectUrl: undefined }),
+      projectCol.cell!({ project: 'plain-repo', projectUrl: undefined } as any),
     );
     expect(container.textContent).toBe('plain-repo');
     expect(container.querySelector('a')).toBeNull();
   });
 
   it('event column renders link when runUrl exists', async () => {
-    const cols = await renderAndCapture();
-    const eventCol = cols.find(c => c.field === 'eventDisplay')!;
+    const cols = presentationColumns();
+    const eventCol = cols.find(c => c.id === 'eventDisplay')!;
     const { container } = render(
-      <ThemeProvider theme={theme}>
-        {eventCol.render!({
-          eventDisplay: 'CI Build #42',
-          runUrl: 'https://github.com/org/repo/actions/runs/123',
-        })}
-      </ThemeProvider>,
+      eventCol.cell!({
+        eventDisplay: 'CI Build #42',
+        runUrl: 'https://github.com/org/repo/actions/runs/123',
+      } as any),
     );
     const link = container.querySelector('a');
     expect(link).not.toBeNull();
-    expect(link!.textContent).toBe('CI Build #42');
+    expect(link!.textContent).toContain('CI Build #42');
+    expect(link!.querySelector('svg')).not.toBeNull();
   });
 
   it('event column renders plain text when runUrl is missing', async () => {
-    const cols = await renderAndCapture();
-    const eventCol = cols.find(c => c.field === 'eventDisplay')!;
+    const cols = presentationColumns();
+    const eventCol = cols.find(c => c.id === 'eventDisplay')!;
     const { container } = render(
-      eventCol.render!({ eventDisplay: 'Pipeline #456', runUrl: undefined }),
+      eventCol.cell!({
+        eventDisplay: 'Pipeline #456',
+        runUrl: undefined,
+      } as any),
     );
     expect(container.textContent).toBe('Pipeline #456');
     expect(container.querySelector('a')).toBeNull();
   });
 
   it('time column renders formatted time when time exists', async () => {
-    const cols = await renderAndCapture();
-    const timeCol = cols.find(c => c.field === 'time')!;
+    const cols = presentationColumns();
+    const timeCol = cols.find(c => c.id === 'time')!;
     const { container } = render(
-      timeCol.render!({ time: '2024-06-15T11:00:00Z' }),
+      timeCol.cell!({ time: '2024-06-15T11:00:00Z' } as any),
     );
     expect(container.textContent).not.toBe('—');
     expect(container.textContent!.length).toBeGreaterThan(0);
   });
 
   it('time column renders dash when time is null', async () => {
-    const cols = await renderAndCapture();
-    const timeCol = cols.find(c => c.field === 'time')!;
-    const { container } = render(timeCol.render!({ time: null }));
+    const cols = presentationColumns();
+    const timeCol = cols.find(c => c.id === 'time')!;
+    const { container } = render(timeCol.cell!({ time: null } as any));
     expect(container.textContent).toBe('—');
   });
 
   it('status column renders icon and label for success', async () => {
-    const cols = await renderAndCapture();
-    const statusCol = cols.find(c => c.field === 'status')!;
-    const { container } = render(
-      <ThemeProvider theme={theme}>
-        {statusCol.render!({ status: 'success' })}
-      </ThemeProvider>,
-    );
+    const cols = presentationColumns();
+    const statusCol = cols.find(c => c.id === 'status')!;
+    const { container } = render(statusCol.cell!({ status: 'success' } as any));
     expect(container.textContent).toContain('Success');
   });
 
   it('status column renders icon and label for failure', async () => {
-    const cols = await renderAndCapture();
-    const statusCol = cols.find(c => c.field === 'status')!;
-    const { container } = render(
-      <ThemeProvider theme={theme}>
-        {statusCol.render!({ status: 'failure' })}
-      </ThemeProvider>,
-    );
+    const cols = presentationColumns();
+    const statusCol = cols.find(c => c.id === 'status')!;
+    const { container } = render(statusCol.cell!({ status: 'failure' } as any));
     expect(container.textContent).toContain('Failure');
   });
 
-  it('table title includes fetchingMore spinner', async () => {
-    ciActivityCache.startLoading(
-      [createGitHubEntity('github-repo')],
-      mockDiscoveryApi,
-      mockFetchApi,
-    );
-    await waitFor(() =>
-      expect(ciActivityCache.getState()?.loading).toBe(false),
-    );
-
-    render(
-      <TestApiProvider
-        apis={[
-          [catalogApiRef, mockCatalogApi],
-          [discoveryApiRef, mockDiscoveryApi],
-          [fetchApiRef, mockFetchApi],
-          [identityApiRef, mockIdentityApi],
-          [starredEntitiesApiRef, new MockStarredEntitiesApi()],
-          [permissionApiRef, mockApis.permission()],
-        ]}
-      >
-        <MemoryRouter>
-          <ThemeProvider theme={theme}>
-            <RepositoriesCIActivityTab />
-          </ThemeProvider>
-        </MemoryRouter>
-      </TestApiProvider>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByTestId('table-title')).toBeInTheDocument();
-    });
-
-    expect(screen.getByTestId('table-title').textContent).toContain(
-      'CI Activity',
-    );
-  });
-
   it('handles getEntities rejecting with non-Error value', async () => {
+    jest.useRealTimers();
     mockCatalogApi.getEntities.mockRejectedValue('string-error');
 
     render(
@@ -1309,9 +1246,12 @@ describe('RepositoriesCIActivityTab column render functions', () => {
     });
 
     expect(screen.getByText('Failed to load entities')).toBeInTheDocument();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
   });
 
   it('handles getEntities returning raw array format', async () => {
+    jest.useRealTimers();
     mockCatalogApi.getEntities.mockResolvedValue([
       createGitHubEntity('raw-array-repo'),
     ]);
@@ -1358,5 +1298,7 @@ describe('RepositoriesCIActivityTab column render functions', () => {
     });
 
     expect(screen.getByText('Build #1')).toBeInTheDocument();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-06-15T12:00:00Z'));
   });
 });

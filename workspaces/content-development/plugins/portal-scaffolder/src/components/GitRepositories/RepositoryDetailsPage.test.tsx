@@ -97,14 +97,14 @@ jest.mock('./RepositoriesCIActivityTab', () => ({
   ),
 }));
 
-jest.mock('../CollectionsCatalog/CollectionsListPage', () => ({
-  CollectionsListPage: ({
-    filterByRepositoryEntity,
+jest.mock('./RepositoryCollectionsTab', () => ({
+  RepositoryCollectionsTab: ({
+    repositoryEntity,
   }: {
-    filterByRepositoryEntity?: Entity;
+    repositoryEntity?: Entity;
   }) => (
     <div data-testid="collections-list">
-      Collections for {filterByRepositoryEntity?.metadata?.name ?? 'unknown'}
+      Collections for {repositoryEntity?.metadata?.name ?? 'unknown'}
     </div>
   ),
 }));
@@ -176,7 +176,7 @@ describe('RepositoryDetailsPage', () => {
     });
 
     expect(screen.getByText('CI Activity')).toBeInTheDocument();
-    expect(screen.getByText('Collections')).toBeInTheDocument();
+    expect(screen.getByText(/Collections/)).toBeInTheDocument();
   });
 
   it('renders Overview tab by default', async () => {
@@ -207,24 +207,30 @@ describe('RepositoryDetailsPage', () => {
     await renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Collections')).toBeInTheDocument();
+      expect(screen.getByText(/Collections/)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Collections'));
+    fireEvent.click(screen.getByText(/Collections/));
 
     await waitFor(() => {
       expect(screen.getByTestId('collections-list')).toBeInTheDocument();
     });
   });
 
-  it('renders View in source button when source URL exists', async () => {
+  it('renders View in source inside Actions menu when source URL exists', async () => {
     await renderPage();
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /^Actions$/i }),
       ).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Actions$/i }));
+
+    expect(
+      screen.getByRole('menuitem', { name: /View in source/i }),
+    ).toBeInTheDocument();
   });
 
   it('navigates to catalog when breadcrumb is clicked', async () => {
@@ -238,6 +244,7 @@ describe('RepositoryDetailsPage', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith(
       '/self-service/repositories/catalog',
+      undefined,
     );
   });
 
@@ -602,11 +609,12 @@ describe('RepositoryDetailsPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /View in source/i }),
+        screen.getByRole('button', { name: /^Actions$/i }),
       ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /View in source/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Actions$/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /View in source/i }));
 
     expect(mockOpen).toHaveBeenCalledWith(
       'https://github.com/test-org/test-repo',
@@ -616,7 +624,7 @@ describe('RepositoryDetailsPage', () => {
     mockOpen.mockRestore();
   });
 
-  it('does not render View in source button when no source URL', async () => {
+  it('does not render Actions menu when no source URL and no extension actions', async () => {
     const entityNoSource: Entity = {
       apiVersion: 'backstage.io/v1alpha1',
       kind: 'Component',
@@ -641,7 +649,7 @@ describe('RepositoryDetailsPage', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: /View in source/i }),
+      screen.queryByRole('button', { name: /^Actions$/i }),
     ).not.toBeInTheDocument();
   });
 

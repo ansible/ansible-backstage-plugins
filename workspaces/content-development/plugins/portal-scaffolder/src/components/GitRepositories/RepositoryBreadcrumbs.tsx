@@ -1,33 +1,33 @@
-import { Breadcrumbs, Typography } from '@material-ui/core';
-import NavigateNextIcon from '@material-ui/icons/NavigateNext';
-
-import { useCollectionsStyles } from '../CollectionsCatalog/styles';
+import { Flex, Link, Text } from '@backstage/ui';
 
 export interface RepositoryBreadcrumbsProps {
   repositoryName: string;
   onNavigateToCatalog: () => void;
+  catalogHref?: string;
 }
 
 export const RepositoryBreadcrumbs = ({
   repositoryName,
   onNavigateToCatalog,
+  catalogHref = '#',
 }: RepositoryBreadcrumbsProps) => {
-  const classes = useCollectionsStyles();
-
   return (
-    <Breadcrumbs
-      separator={<NavigateNextIcon fontSize="small" />}
-      className={classes.breadcrumbs}
-    >
-      <Typography
-        className={classes.breadcrumbLink}
-        onClick={onNavigateToCatalog}
-      >
-        Repositories
-      </Typography>
-      <Typography className={classes.breadcrumbCurrent}>
-        {repositoryName}
-      </Typography>
-    </Breadcrumbs>
+    <nav aria-label="Breadcrumb">
+      <Flex align="center" gap="1" mb="2">
+        <Link
+          href={catalogHref}
+          onClick={event => {
+            event.preventDefault();
+            onNavigateToCatalog();
+          }}
+        >
+          Repositories
+        </Link>
+        <Text color="secondary" aria-hidden>
+          /
+        </Text>
+        <Text weight="bold">{repositoryName}</Text>
+      </Flex>
+    </nav>
   );
 };
