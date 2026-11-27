@@ -36,6 +36,7 @@
     "@ansible/aap-app-auth": "workspace:^",
     "@ansible/aap-common": "workspace:^",
     "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/plugin-automation-content": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
     "@ansible/portal-scaffolder-common": "workspace:^",
     "@ansible/portal-scaffolder-react": "workspace:^",

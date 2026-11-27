@@ -27,37 +27,11 @@ import { makeStyles } from '@material-ui/core/styles';
 import { Alert } from '@material-ui/lab';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ErrorIcon from '@material-ui/icons/Error';
-import { useFieldValidation } from '../../hooks/FieldValidationContext';
-
-type ProviderType = 'github' | 'gitlab';
-
-interface ProviderConfig {
-  label: string;
-  provider: ProviderType;
-  host?: string;
-  apiBaseUrl?: string;
-}
-
-export interface ScmSelectorOptions {
-  providers?: ProviderConfig[];
-  requestUserCredentials?: {
-    secretsKey: string;
-    additionalScopes?: {
-      github?: string[];
-      gitlab?: string[];
-    };
-  };
-}
-
-export interface ScmSelectorData {
-  provider: string;
-  providerLabel: string;
-  org: string;
-  repoName: string;
-  repoExists: boolean;
-  /** Present only while a restored selection is waiting for credentials. */
-  authenticationPending?: true;
-}
+import { useFieldValidation } from '@ansible/portal-scaffolder-react';
+import type {
+  ScmSelectorData,
+  ScmSelectorOptions,
+} from '@ansible/portal-scaffolder-react';
 
 interface OrgItem {
   id: string;

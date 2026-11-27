@@ -15,6 +15,11 @@ export const rootRouteRef = createRouteRef({
   id: 'automation-content',
 });
 
+/** Legacy Self Service paths retained while portal-scaffolder is retired in stages. */
+export const selfServiceRootPath = '/self-service';
+export const collectionsPagePath = `${selfServiceRootPath}/collections`;
+export const gitRepositoriesPagePath = `${selfServiceRootPath}/repositories`;
+
 export const eeRouteRef = createNativeRouteRef();
 
 export const templatesRouteRef = createExternalRouteRef({

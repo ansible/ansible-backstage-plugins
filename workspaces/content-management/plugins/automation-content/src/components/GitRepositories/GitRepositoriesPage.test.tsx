@@ -28,13 +28,20 @@ const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
   startTracking: mockStartTracking,
 });
 
-jest.mock('../../hooks', () => ({
+jest.mock('@ansible/portal-plugin-sdk', () => ({
+  ...jest.requireActual('@ansible/portal-plugin-sdk'),
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,
     error: null,
   }),
   useSyncStatusPolling: () => mockUseSyncStatusPolling(),
+  useNotifications: () => ({
+    notifications: [],
+    showNotification: jest.fn(),
+    removeNotification: jest.fn(),
+    clearAll: jest.fn(),
+  }),
 }));
 
 jest.mock('@backstage/core-plugin-api', () => ({
@@ -44,16 +51,6 @@ jest.mock('@backstage/core-plugin-api', () => ({
 
 jest.mock('../../routes', () => ({
   rootRouteRef: { id: 'root-route-ref' },
-}));
-
-jest.mock('../notifications', () => ({
-  ...jest.requireActual('../notifications'),
-  useNotifications: () => ({
-    notifications: [],
-    showNotification: jest.fn(),
-    removeNotification: jest.fn(),
-    clearAll: jest.fn(),
-  }),
 }));
 
 jest.mock('../common', () => ({

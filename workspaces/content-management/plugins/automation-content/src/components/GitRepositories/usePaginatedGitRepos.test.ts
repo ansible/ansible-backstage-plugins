@@ -20,8 +20,8 @@ jest.mock('./scmUtils', () => ({
     entity.metadata?.annotations?.['ansible.io/scm-host'] || '',
 }));
 
-jest.mock('../common/cache', () => {
-  const actual = jest.requireActual('../common/cache');
+jest.mock('@ansible/portal-plugin-sdk', () => {
+  const actual = jest.requireActual('@ansible/portal-plugin-sdk');
   return {
     ...actual,
     useCacheSubscription: () => ({

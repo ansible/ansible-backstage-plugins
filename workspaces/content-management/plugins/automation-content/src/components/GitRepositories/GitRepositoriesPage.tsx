@@ -34,7 +34,6 @@ import { gitRepositoriesViewPermission } from '@ansible/aap-common/permissions';
 import {
   useApi,
   useApiHolder,
-  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
@@ -44,18 +43,21 @@ import {
   EXTENSION_POINTS,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
-import { fetchContentSyncStatus } from '@ansible/portal-plugin-sdk';
-import { useSyncStatusPolling } from '../../hooks';
+import {
+  fetchContentSyncStatus,
+  syncPollingService,
+  useSyncStatusPolling,
+} from '@ansible/portal-plugin-sdk';
 import { SyncDialog } from '../common';
 import type { SyncStatusMap, StartedSyncInfo } from '../common';
 import {
   NotificationProvider,
   NotificationStack,
   useNotifications,
-} from '../notifications';
-import { ExtensionTabContent } from '../../extensions/ExtensionRenderer';
+} from '@ansible/portal-plugin-sdk';
+import { ExtensionTabContent } from '@ansible/portal-extension-host';
 
-import { rootRouteRef } from '../../routes';
+import { selfServiceRootPath } from '../../routes';
 import { RepositoriesPageHeaderSection } from './RepositoriesPageHeaderSection';
 import { RepositoriesTable } from './RepositoriesTable';
 import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
@@ -109,7 +111,14 @@ export const GitRepositoriesPage = () => {
   const navigate = useNavigate();
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = selfServiceRootPath;
+  useEffect(
+    () =>
+      syncPollingService.addInvalidator(() =>
+        gitReposCache.invalidateFetchedData(),
+      ),
+    [],
+  );
   const { isSyncInProgress, syncProgress, startTracking } =
     useSyncStatusPolling();
 
@@ -148,7 +157,7 @@ export const GitRepositoriesPage = () => {
         const params = new URLSearchParams(filters);
         if (entryPointId) params.set('tab', entryPointId);
         const query = params.toString();
-        return `${rootLink()}/repositories/${encodeURIComponent(name)}${
+        return `${rootLink}/repositories/${encodeURIComponent(name)}${
           query ? `?${query}` : ''
         }`;
       },
@@ -243,7 +252,7 @@ export const GitRepositoriesPage = () => {
         setActiveExtTabIndex(null);
         const tab = tabs[index];
         if (tab) {
-          navigate(`${rootLink()}/repositories/${tab.path}`);
+          navigate(`${rootLink}/repositories/${tab.path}`);
         }
       } else if (nativeContributions) {
         const id = extensionTabs[index - GIT_REPO_BUILT_IN_TABS]?.id;

@@ -1,5 +1,8 @@
 import { Entity } from '@backstage/catalog-model';
-import { PaginatedEntityCache, BaseCacheState } from '../common/cache';
+import {
+  PaginatedEntityCache,
+  BaseCacheState,
+} from '@ansible/portal-plugin-sdk';
 import { getRepoHost, getRepoHostName } from './scmUtils';
 
 export interface GitReposCacheState extends BaseCacheState {

@@ -16,7 +16,6 @@ import {
 } from '@backstage/plugin-catalog-react';
 import {
   useApi,
-  useRouteRef,
   discoveryApiRef,
   fetchApiRef,
   type DiscoveryApi,
@@ -38,7 +37,7 @@ import {
   ExtensionTabContent,
   ExtensionCardContent,
   ExtensionActionMenu,
-} from '../../extensions/ExtensionRenderer';
+} from '@ansible/portal-extension-host';
 import { RepositoryBreadcrumbs } from './RepositoryBreadcrumbs';
 import { RepositoryAboutCard } from './RepositoryAboutCard';
 import { RepositoryReadmeCard } from './RepositoryReadmeCard';
@@ -46,7 +45,7 @@ import { RepositoriesCIActivityTab } from './RepositoriesCIActivityTab';
 import { CollectionsListPage } from '../CollectionsCatalog/CollectionsListPage';
 import { useCollectionsStyles } from '../CollectionsCatalog/styles';
 import { getSourceUrl } from '../CollectionsCatalog/utils';
-import { rootRouteRef } from '../../routes';
+import { selfServiceRootPath } from '../../routes';
 import { buildRawReadmeFetchUrl } from './scmUtils';
 import {
   fetchGitFileContentFromBackend,
@@ -197,7 +196,7 @@ const RepositoryDetailsPageInner = () => {
   const catalogApi = useApi(catalogApiRef);
   const discoveryApi = useApi<DiscoveryApi>(discoveryApiRef);
   const fetchApi = useApi<FetchApi>(fetchApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = selfServiceRootPath;
   const apiHolder = useApiHolder();
 
   const [entity, setEntity] = useState<Entity | null>(null);
@@ -323,7 +322,7 @@ const RepositoryDetailsPageInner = () => {
   }, [entity, discoveryApi, fetchApi, repositoryName]);
 
   const handleNavigateToCatalog = useCallback(() => {
-    navigate(`${rootLink()}/repositories/catalog`);
+    navigate(`${rootLink}/repositories/catalog`);
   }, [navigate, rootLink]);
 
   const handleViewSource = useCallback(() => {
@@ -417,7 +416,7 @@ const RepositoryDetailsPageInner = () => {
               apiHolder
                 .get(gitRepositoriesCatalogApiRef)
                 ?.invalidateCatalogCache();
-              navigate(`${rootLink()}/repositories/catalog?refresh=true`);
+              navigate(`${rootLink}/repositories/catalog?refresh=true`);
             }}
           />
         )}
@@ -448,7 +447,7 @@ const RepositoryDetailsPageInner = () => {
                   apiHolder
                     .get(gitRepositoriesCatalogApiRef)
                     ?.invalidateCatalogCache();
-                  navigate(`${rootLink()}/repositories/catalog?refresh=true`);
+                  navigate(`${rootLink}/repositories/catalog?refresh=true`);
                 }
               }}
             />

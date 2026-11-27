@@ -83,7 +83,7 @@ export const CollectionsPage = selfServicePlugin.provide(
   createRoutableExtension({
     name: 'CollectionsPage',
     component: () =>
-      import('./components/CollectionsCatalog').then(
+      import('@ansible/plugin-automation-content').then(
         m => m.CollectionsRoutesPage,
       ),
     mountPoint: collectionsRouteRef,
@@ -164,7 +164,7 @@ export const GitRepositoriesPage = selfServicePlugin.provide(
   createRoutableExtension({
     name: 'GitRepositoriesPage',
     component: () =>
-      import('./components/GitRepositories').then(
+      import('@ansible/plugin-automation-content').then(
         m => m.GitRepositoriesRoutesPage,
       ),
     mountPoint: gitRepositoriesRouteRef,

@@ -108,7 +108,7 @@ jest.mock('@backstage/plugin-catalog-react', () => {
   };
 });
 
-jest.mock('../../hooks', () => ({
+jest.mock('@ansible/portal-plugin-sdk', () => ({
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,

@@ -1,7 +1,10 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { Entity } from '@backstage/catalog-model';
 import { CatalogApi } from '@backstage/plugin-catalog-react';
-import { useCacheSubscription, usePagination } from '../common/cache';
+import {
+  useCacheSubscription,
+  usePagination,
+} from '@ansible/portal-plugin-sdk';
 import { PAGE_SIZE } from './constants';
 import { gitReposCache, GitReposCacheState } from './gitReposCache';
 import { getRepoHost } from './scmUtils';

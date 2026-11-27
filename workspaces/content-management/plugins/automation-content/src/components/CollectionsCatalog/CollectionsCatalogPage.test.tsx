@@ -27,7 +27,8 @@ const mockUseSyncStatusPolling = jest.fn().mockReturnValue({
 // NotificationProvider-wrapped child). Mock the notification module at the top
 // level so it's hoisted and applies to ALL tests in this file.
 const mockShowNotification = jest.fn();
-jest.mock('../notifications', () => ({
+jest.mock('@ansible/portal-plugin-sdk', () => ({
+  ...jest.requireActual('@ansible/portal-plugin-sdk'),
   NotificationProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -55,9 +56,6 @@ jest.mock('../notifications', () => ({
     removeNotification: jest.fn(),
     clearAll: jest.fn(),
   }),
-}));
-
-jest.mock('../../hooks', () => ({
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,

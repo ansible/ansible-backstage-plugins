@@ -163,12 +163,6 @@ jest.mock('./components/Home', () => ({
     <div data-testid="templates-content">Portal templates</div>
   ),
 }));
-jest.mock('./components/CollectionsCatalog', () => ({
-  CollectionsRoutesPage: () => <div>Native collections section</div>,
-}));
-jest.mock('./components/GitRepositories', () => ({
-  GitRepositoriesRoutesPage: () => <div>Native repositories section</div>,
-}));
 const mockValidation = jest.fn();
 jest.mock('./components/CreateTask/StepForm', () => ({
   StepForm: ({ nativeFields, submitFunction }: any) => (
@@ -285,12 +279,10 @@ it('loads contributed custom picker fields through Backstage formFieldsApiRef', 
   expect(contributedNames).toEqual(
     [
       'AAPResourcePicker',
-      'CollectionsPicker',
       'BaseImagePicker',
       'FileUploadPicker',
       'PackagesPicker',
       'MCPServersPicker',
-      'ScmSelector',
       'AdditionalBuildStepsPicker',
       'EEFileNamePicker',
       'EETagsPicker',

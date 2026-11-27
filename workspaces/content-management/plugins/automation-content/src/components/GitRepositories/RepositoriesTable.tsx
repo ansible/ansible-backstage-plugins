@@ -29,7 +29,7 @@ import {
   useEntityList,
   useStarredEntities,
 } from '@backstage/plugin-catalog-react';
-import { useApi, useRouteRef } from '@backstage/core-plugin-api';
+import { useApi } from '@backstage/core-plugin-api';
 import { Progress, Table, TableColumn } from '@backstage/core-components';
 
 import HelpOutlineIcon from '@material-ui/icons/HelpOutline';
@@ -47,7 +47,7 @@ import {
   COLUMN_LAST_SYNC_TOOLTIP,
   PAGE_SIZE,
 } from './constants';
-import { rootRouteRef } from '../../routes';
+import { selfServiceRootPath } from '../../routes';
 import { useLatestCIActivity } from './useLatestCIActivity';
 import { usePaginatedGitRepos } from './usePaginatedGitRepos';
 import { CONTENT_TYPES } from '@ansible/portal-extension-api';
@@ -101,7 +101,7 @@ const RepositoriesTableInner = ({
   const classes = useCollectionsStyles();
   const tableWrapperClasses = useTableWrapperStyles();
   const catalogApi = useApi(catalogApiRef);
-  const rootLink = useRouteRef(rootRouteRef);
+  const rootLink = () => selfServiceRootPath;
   const { isStarredEntity, toggleStarredEntity } = useStarredEntities();
   const { filters } = useEntityList();
   const nativeColumns = useNativeCatalogColumns(

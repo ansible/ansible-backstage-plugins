@@ -23,12 +23,13 @@ import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { EETabs } from '../ExecutionEnvironments';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
-import { CollectionsCatalogPage } from '../CollectionsCatalog';
-import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
-import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
-import { GitRepositoriesPage } from '../GitRepositories';
-import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
-import { gitReposCache } from '../GitRepositories/gitReposCache';
+import {
+  CollectionsCatalogPage,
+  CollectionDetailsPage,
+  GitRepositoriesPage,
+  RepositoryDetailsPage,
+  automationContentManifest,
+} from '@ansible/plugin-automation-content';
 import {
   NotificationProvider,
   NotificationStack,
@@ -48,22 +49,6 @@ const RouteViewContent = () => {
   useEffect(() => {
     syncPollingService.initialize(discoveryApi, fetchApi);
   }, [discoveryApi, fetchApi]);
-
-  // Register page-specific cache invalidators. These live here (rather than
-  // inside syncPollingService) so the service has no direct dependency on
-  // domain-specific cache modules.
-  useEffect(() => {
-    const unsubCollections = syncPollingService.addInvalidator(() =>
-      invalidateCollections(),
-    );
-    const unsubRepos = syncPollingService.addInvalidator(() =>
-      gitReposCache.invalidateFetchedData(),
-    );
-    return () => {
-      unsubCollections();
-      unsubRepos();
-    };
-  }, []);
 
   return (
     <>
@@ -175,7 +160,9 @@ const RouteViewContent = () => {
 export const RouteView = () => {
   return (
     <NotificationProvider>
-      <DynamicExtensionDiscovery manifests={[selfServiceManifest]} />
+      <DynamicExtensionDiscovery
+        manifests={[selfServiceManifest, automationContentManifest]}
+      />
       <RouteViewContent />
     </NotificationProvider>
   );

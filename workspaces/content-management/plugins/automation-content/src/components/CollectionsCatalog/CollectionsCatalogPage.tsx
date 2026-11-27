@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Page, Content } from '@backstage/core-components';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
@@ -8,14 +8,19 @@ import { PageHeaderSection } from './PageHeaderSection';
 import { CollectionDetailsPage } from './CollectionDetailsPage';
 import { SyncDialog, StartedSyncInfo } from '../common';
 import { CollectionsContent } from './CollectionsListPage';
-import { useSyncStatusPolling } from '../../hooks';
+import {
+  syncPollingService,
+  useSyncStatusPolling,
+} from '@ansible/portal-plugin-sdk';
 import {
   NotificationProvider,
   NotificationStack,
   useNotifications,
-} from '../notifications';
+} from '@ansible/portal-plugin-sdk';
+import { invalidateCollections } from './collectionsInvalidation';
 
 export const CollectionsCatalogPage = () => {
+  useEffect(() => syncPollingService.addInvalidator(invalidateCollections), []);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const { showNotification } = useNotifications();
   const [hasConfiguredSources, setHasConfiguredSources] = useState<

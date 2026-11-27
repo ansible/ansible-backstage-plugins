@@ -25,7 +25,7 @@ jest.mock('@ansible/aap-common/permissions', () => ({
   },
 }));
 
-jest.mock('../../hooks', () => ({
+jest.mock('@ansible/portal-plugin-sdk', () => ({
   useIsSuperuser: () => ({
     isSuperuser: true,
     loading: false,

@@ -21,15 +21,24 @@ import {
   createPortalScaffolderFieldBlueprints,
   EntityDetailTabBlueprint,
 } from '@ansible/portal-extension-api/alpha';
+import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import { automationContentApiFactory } from './api';
 import {
   automationContentManifest,
+  collectionsPickerEntryId,
   eeCapabilityId,
   eeDetailsEntryId,
   eeVersionFieldEntryId,
+  scmSelectorEntryId,
 } from './manifest';
 
 import { eeRouteRef, templatesRouteRef } from './routes';
+
+function eraseScaffolderFieldTypes<TValue, TUiOptions>(
+  field: FieldExtensionOptions<TValue, TUiOptions>,
+): FieldExtensionOptions<any, any> {
+  return field as unknown as FieldExtensionOptions<any, any>;
+}
 
 function isEERepository(entity: Entity): boolean {
   return (
@@ -117,6 +126,50 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
           name: 'EEImageVersionPicker',
           component: EEImageVersionPicker,
         };
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('collections-picker', {
+      manifest: automationContentManifest,
+      capabilityId: 'automation-content.scaffolder-fields',
+      entryPointId: collectionsPickerEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'CollectionsPicker',
+      loader: async () => {
+        const { CollectionsPickerExtension } = await import(
+          './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
+        );
+        return eraseScaffolderFieldTypes({
+          name: 'CollectionsPicker',
+          component: CollectionsPickerExtension,
+        });
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('scm-selector', {
+      manifest: automationContentManifest,
+      capabilityId: 'automation-content.scaffolder-fields',
+      entryPointId: scmSelectorEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'ScmSelector',
+      loader: async () => {
+        const { ScmSelectorExtension } = await import(
+          './components/Scaffolder/ScmSelector/ScmSelectorExtension'
+        );
+        const { validateScmSelector } = await import(
+          './components/Scaffolder/ScmSelector/validation'
+        );
+        return eraseScaffolderFieldTypes({
+          name: 'ScmSelector',
+          component: ScmSelectorExtension,
+          validation: (value, validation, context) => {
+            const options = context.uiSchema?.['ui:options'] as
+              | { requestUserCredentials?: unknown }
+              | undefined;
+            validateScmSelector(
+              value,
+              Boolean(options?.requestUserCredentials),
+            ).forEach(error => validation.addError(error));
+          },
+        });
       },
     }),
     eeHeaderLayout,

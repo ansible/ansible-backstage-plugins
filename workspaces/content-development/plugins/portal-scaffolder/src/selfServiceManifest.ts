@@ -12,12 +12,10 @@ export const SELF_SERVICE_API_VERSION = '0.1.0';
 /** Stable SDK entry points for custom fields supplied by portal-scaffolder. */
 const scaffolderFieldDefinitions = [
   ['AAPResourcePicker', 'aap-resource-picker', 'AAP resource picker'],
-  ['CollectionsPicker', 'collections-picker', 'Collections picker'],
   ['BaseImagePicker', 'base-image-picker', 'Base image picker'],
   ['FileUploadPicker', 'file-upload-picker', 'File upload picker'],
   ['PackagesPicker', 'packages-picker', 'Packages picker'],
   ['MCPServersPicker', 'mcp-servers-picker', 'MCP servers picker'],
-  ['ScmSelector', 'scm-selector', 'Source control selector'],
   [
     'AdditionalBuildStepsPicker',
     'additional-build-steps-picker',
@@ -51,9 +49,8 @@ export const scaffolderFieldEntries = scaffolderFieldDefinitions.map(
  * contributor to prove the manifest pipeline before ANSTRAT-1758 and community
  * plugins depend on it.
  *
- * Phase 6 note: When the content pages (CollectionsCatalog, GitRepositories)
- * move to the content workspace, they will be removed from this manifest and
- * replaced by separate manifests in their new packages.
+ * Collection and repository capabilities are owned by automation-content;
+ * their legacy `/self-service` routes remain mounted by portal-scaffolder.
  */
 export const selfServiceManifest: PluginManifest = {
   id: 'portal-scaffolder',
@@ -61,59 +58,6 @@ export const selfServiceManifest: PluginManifest = {
   apiVersion: SELF_SERVICE_API_VERSION,
 
   capabilities: [
-    // ── Collection detail ─────────────────────────────────────────────────
-    {
-      id: 'portal-scaffolder.collection-detail',
-      ownerPlugin: 'portal-scaffolder',
-      displayName: 'Collection Detail',
-      description:
-        'Built-in collection detail view providing a README, about card, and resource list.',
-      appliesToContentTypes: [CONTENT_TYPES.COLLECTION],
-      entryPoints: [
-        {
-          id: 'portal-scaffolder.collection-detail.overview-tab',
-          kind: 'entity-tab',
-          surface: 'entity-page',
-          appliesToContentTypes: [CONTENT_TYPES.COLLECTION],
-          label: 'Overview',
-          // 'slot' launch: the host mounts CollectionDetailsPageInner into the
-          // named slot. In Phase 4 this is still rendered directly by the page
-          // component; full slot-based activation is a Phase 6+ refactor.
-          launches: { type: 'slot', targetSlot: 'collection-detail-main' },
-        },
-      ],
-      minimumHostApiVersion: '0.1.0',
-    },
-
-    // ── Repository detail ─────────────────────────────────────────────────
-    {
-      id: 'portal-scaffolder.repository-detail',
-      ownerPlugin: 'portal-scaffolder',
-      displayName: 'Repository Detail',
-      description:
-        'Built-in repository detail view with a README, about card, and CI activity tab.',
-      appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-      entryPoints: [
-        {
-          id: 'portal-scaffolder.repository-detail.overview-tab',
-          kind: 'entity-tab',
-          surface: 'entity-page',
-          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-          label: 'Overview',
-          launches: { type: 'slot', targetSlot: 'repository-detail-main' },
-        },
-        {
-          id: 'portal-scaffolder.repository-detail.ci-activity-tab',
-          kind: 'entity-tab',
-          surface: 'entity-page',
-          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-          label: 'CI Activity',
-          launches: { type: 'slot', targetSlot: 'repository-detail-ci' },
-        },
-      ],
-      minimumHostApiVersion: '0.1.0',
-    },
-
     // ── EE definition detail ──────────────────────────────────────────────
     {
       id: 'portal-scaffolder.ee-definition-detail',
@@ -132,35 +76,6 @@ export const selfServiceManifest: PluginManifest = {
           ],
           label: 'Overview',
           launches: { type: 'slot', targetSlot: 'ee-definition-detail-main' },
-        },
-      ],
-      minimumHostApiVersion: '0.1.0',
-    },
-
-    // ── Repository list ───────────────────────────────────────────────────
-    {
-      id: 'portal-scaffolder.repository-list',
-      ownerPlugin: 'portal-scaffolder',
-      displayName: 'Repository List',
-      description:
-        'Built-in repository list with a catalog table view and CI activity view.',
-      appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-      entryPoints: [
-        {
-          id: 'portal-scaffolder.repository-list.catalog-tab',
-          kind: 'page-tab',
-          surface: 'experience-slot',
-          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-          label: 'Catalog',
-          launches: { type: 'slot', targetSlot: 'repository-list-catalog' },
-        },
-        {
-          id: 'portal-scaffolder.repository-list.ci-activity-tab',
-          kind: 'page-tab',
-          surface: 'experience-slot',
-          appliesToContentTypes: [CONTENT_TYPES.PLAYBOOK_REPOSITORY],
-          label: 'CI Activity',
-          launches: { type: 'slot', targetSlot: 'repository-list-ci' },
         },
       ],
       minimumHostApiVersion: '0.1.0',
