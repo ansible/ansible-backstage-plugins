@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { ConfigReader } from '@backstage/config';
+import { runWithCatalogProvidersConfigRoot } from '@ansible/backstage-rhaap-common/catalog';
 import { readAnsibleGitContentsConfigs, getDefaultHost } from '../config';
 
 describe('config', () => {
@@ -9,6 +10,7 @@ describe('config', () => {
   beforeAll(() => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterAll(() => {
@@ -16,6 +18,188 @@ describe('config', () => {
   });
 
   describe('readAnsibleGitContentsConfigs', () => {
+    it('reads content sources when AAP identity modes disagree', () => {
+      const schedule = {
+        frequency: { minutes: 30 },
+        timeout: { minutes: 3 },
+      };
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            aap: {
+              dev: {
+                multiOrgEnabled: true,
+                sync: { orgsUsersTeams: { schedule } },
+              },
+            },
+            rhaap: {
+              dev: {
+                multiOrgEnabled: false,
+                sync: { orgsUsersTeams: { schedule } },
+              },
+            },
+            content: {
+              dev: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule: {
+                      frequency: { minutes: 30 },
+                      timeout: { minutes: 3 },
+                    },
+                    providers: {
+                      github: [{ name: 'internal', orgs: [{ name: 'acme' }] }],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const sources = runWithCatalogProvidersConfigRoot(
+        'catalog.providers.content',
+        () => readAnsibleGitContentsConfigs(config),
+      );
+      expect(sources.map(source => source.organization)).toEqual(['acme']);
+    });
+
+    it('warns when a content root is present alongside legacy rhaap Git sources', () => {
+      const schedule = {
+        frequency: { minutes: 30 },
+        timeout: { minutes: 3 },
+      };
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            content: {
+              dev: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule,
+                    providers: {
+                      github: [{ name: 'internal', orgs: [{ name: 'acme' }] }],
+                    },
+                  },
+                },
+              },
+            },
+            rhaap: {
+              production: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule,
+                    providers: {
+                      github: [
+                        { name: 'legacy', orgs: [{ name: 'legacy-org' }] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const sources = runWithCatalogProvidersConfigRoot(
+        'catalog.providers.content',
+        () => readAnsibleGitContentsConfigs(config),
+      );
+      expect(sources.map(source => source.organization)).toEqual(['acme']);
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Git sources under catalog.providers.rhaap.sync.ansibleGitContents are ignored',
+        ),
+      );
+    });
+
+    it('does not warn when content root is absent and rhaap Git sources are loaded via fallback', () => {
+      (console.warn as jest.Mock).mockClear();
+      const schedule = {
+        frequency: { minutes: 30 },
+        timeout: { minutes: 3 },
+      };
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            rhaap: {
+              production: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule,
+                    providers: {
+                      github: [
+                        { name: 'legacy', orgs: [{ name: 'legacy-org' }] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const sources = runWithCatalogProvidersConfigRoot(
+        'catalog.providers.content',
+        () => readAnsibleGitContentsConfigs(config),
+      );
+      expect(sources.map(source => source.organization)).toEqual([
+        'legacy-org',
+      ]);
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+
+    it('does not warn that rhaap Git sources are ignored when the all slice loads them', () => {
+      (console.warn as jest.Mock).mockClear();
+      const schedule = {
+        frequency: { minutes: 30 },
+        timeout: { minutes: 3 },
+      };
+      const config = new ConfigReader({
+        catalog: {
+          providers: {
+            content: {
+              dev: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule,
+                    providers: {
+                      github: [{ name: 'internal', orgs: [{ name: 'acme' }] }],
+                    },
+                  },
+                },
+              },
+            },
+            rhaap: {
+              production: {
+                sync: {
+                  ansibleGitContents: {
+                    schedule,
+                    providers: {
+                      github: [
+                        { name: 'legacy', orgs: [{ name: 'legacy-org' }] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const sources = runWithCatalogProvidersConfigRoot(
+        'catalog.providers.rhaap',
+        () => readAnsibleGitContentsConfigs(config),
+      );
+      expect(sources.map(source => source.organization)).toEqual([
+        'legacy-org',
+      ]);
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+
     it('should return empty array when no rhaap config exists', () => {
       const config = new ConfigReader({});
       const result = readAnsibleGitContentsConfigs(config);

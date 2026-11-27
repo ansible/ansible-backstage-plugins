@@ -4,16 +4,21 @@ import * as ts from 'typescript';
 
 const plugins = path.resolve(__dirname, '../..');
 const legacy = '@ansible/backstage-rhaap-common';
-// The merged catalog split retains this temporary catalog-specific surface.
+// Catalog slices plus identity consumers that must share provider-root resolution.
 const temporaryCatalogConsumers = new Set([
   'catalog-backend-module-rhaap',
   'catalog-backend-module-aap',
+  'catalog-backend-module-rhaap-user-provisioner',
+  'auth-backend-module-rhaap-provider',
 ]);
 const temporaryCatalogExports = new Set([
   'createCatalogModule',
   'createRouter',
   'CatalogModuleSlice',
   'resetCatalogModuleSliceGuardForTests',
+  'envPublishesAapIdentity',
+  'getResolvedAapProvidersConfig',
+  'isAapMultiOrgEnabled',
 ]);
 const ignored = new Set([
   'node_modules',

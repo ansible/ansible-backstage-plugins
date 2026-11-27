@@ -65,8 +65,20 @@ export function isPortalManagedGalaxyServerName(name: string): boolean {
 }
 
 /**
+ * Content-first, whole-root selector matching catalog content reads.
+ * `catalog.providers.content` wins when present; otherwise legacy rhaap.
+ */
+function resolveContentProviderConfigs(config: Config): Config | undefined {
+  return (
+    config.getOptionalConfig('catalog.providers.content') ??
+    config.getOptionalConfig('catalog.providers.rhaap')
+  );
+}
+
+/**
  * Builds desired galaxy-server specs from
- * `catalog.providers.rhaap.<env>.sync.pahCollections` plus AAP credentials.
+ * `catalog.providers.content.<env>.sync.pahCollections` (legacy
+ * `catalog.providers.rhaap` fallback) plus AAP credentials.
  */
 export function buildPortalPahGalaxyServers(
   config: Config,
@@ -83,7 +95,7 @@ export function buildPortalPahGalaxyServers(
   }
 
   const token = config.getOptionalString('ansible.rhaap.token')?.trim();
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = resolveContentProviderConfigs(config);
   if (!providerConfigs) {
     return [];
   }

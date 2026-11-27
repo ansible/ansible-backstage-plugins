@@ -51,7 +51,9 @@ export class AAPJobTemplateProvider implements EntityProvider {
     },
   ): AAPJobTemplateProvider[] {
     const { logger } = options;
-    const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
+    const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity, {
+      allowMissingSchedule: Boolean(options.schedule),
+    });
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
       const taskRunner = resolveTaskRunner(
@@ -168,6 +170,7 @@ export class AAPJobTemplateProvider implements EntityProvider {
           this.surveyEnabled,
           this.jobTemplateLabels,
           this.jobTemplateExcludeLabels,
+          this.orgs,
         );
         this.logger.info(
           `[${AAPJobTemplateProvider.pluginLogName}]: Fetched ${aapJobTemplates.length} job templates.`,

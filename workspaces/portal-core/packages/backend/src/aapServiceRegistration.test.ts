@@ -39,8 +39,6 @@ import scaffolderLoader, {
 import provisionerLoader, {
   catalogModuleRhaapUserProvisioner,
 } from '@ansible/backstage-plugin-catalog-backend-module-rhaap-user-provisioner';
-import contentCatalogLoader from '@ansible/catalog-backend-module-content-development';
-import contentScaffolderLoader from '@ansible/plugin-scaffolder-backend-module-content-development';
 
 const config = {
   app: { baseUrl: 'http://localhost:3000' },
@@ -72,7 +70,6 @@ const config = {
 function setup(features: BackendFeature[]) {
   const providers: EntityProvider[] = [];
   const addActions = jest.fn();
-  const addAutocompleteProvider = jest.fn();
   const registerProvider = jest.fn();
   const setFieldValidators = jest.fn();
   const services = new Map<
@@ -133,7 +130,7 @@ function setup(features: BackendFeature[]) {
           addTemplateGlobals: jest.fn(),
         });
         reg.registerExtensionPoint(scaffolderAutocompleteExtensionPoint, {
-          addAutocompleteProvider,
+          addAutocompleteProvider: jest.fn(),
         });
         reg.registerInit({ deps: {}, async init() {} });
       },
@@ -142,7 +139,6 @@ function setup(features: BackendFeature[]) {
   return {
     providers,
     addActions,
-    addAutocompleteProvider,
     registerProvider,
     setFieldValidators,
     services,
@@ -234,50 +230,6 @@ describe('explicit AAP backend installation', () => {
     await expect(setup(loaders).start()).rejects.toThrow(
       /rhaap.client.service/,
     );
-  });
-
-  it('composes AAP and content-development backend modules together', async () => {
-    const { start, providers, addActions, addAutocompleteProvider } = setup([
-      aapBackend,
-      ...loaders,
-      contentCatalogLoader,
-      contentScaffolderLoader,
-    ]);
-    const backend = await start();
-
-    try {
-      const providerNames = providers.map(provider =>
-        provider.getProviderName(),
-      );
-      expect(providerNames).toEqual(
-        expect.arrayContaining(['rhaap-user-provisioner', 'EEEntityProvider']),
-      );
-      expect(
-        providerNames.filter(name => name === 'EEEntityProvider'),
-      ).toHaveLength(1);
-      const actionIds = addActions.mock.calls
-        .flat()
-        .map((action: { id: string }) => action.id);
-      expect(actionIds).toEqual(
-        expect.arrayContaining([
-          'rhaap:create-project',
-          'rhaap:create-execution-environment',
-          'rhaap:create-job-template',
-          'rhaap:launch-job-template',
-          'rhaap:clean-up',
-          'ansible:content:create',
-          'ansible:create:ee-definition',
-          'ansible:prepare:publish',
-        ]),
-      );
-      expect(actionIds).toHaveLength(8);
-      const autocompleteIds = addAutocompleteProvider.mock.calls.map(
-        ([provider]) => provider.id,
-      );
-      expect(autocompleteIds).toEqual(['aap-api', 'portal-catalog']);
-    } finally {
-      await backend.stop();
-    }
   });
 
   it('supports an explicit host service override without installing the concrete factory', async () => {

@@ -411,7 +411,7 @@ catalog:
       development:
         sync:
           orgsUsersTeams: { schedule: { ... } }
-          jobTemplates: { schedule: { ... } }
+          jobTemplates: { enabled: true, schedule: { ... } }
           pahCollections: { ... }
           ansibleGitContents: { ... }
 
@@ -422,7 +422,7 @@ catalog:
       development:
         sync:
           orgsUsersTeams: { schedule: { ... } }
-          jobTemplates: { schedule: { ... } }
+          jobTemplates: { enabled: true, schedule: { ... } }
     content:
       development:
         sync:

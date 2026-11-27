@@ -1099,7 +1099,10 @@ export class AAPClient implements IAAPService {
     return result;
   }
 
-  public async getOrganizations(userAndTeamDetails?: boolean): Promise<
+  public async getOrganizations(
+    userAndTeamDetails?: boolean,
+    organizations: readonly string[] = this.catalogConfig.organizations,
+  ): Promise<
     Array<{
       organization: Organization;
       teams: Team[];
@@ -1111,15 +1114,12 @@ export class AAPClient implements IAAPService {
       const token = this.ansibleConfig.rhaap?.token ?? null;
       let urlSearchParams = new URLSearchParams();
       urlSearchParams.set('page_size', '200');
-      if (this.catalogConfig.organizations.length === 1) {
-        urlSearchParams.set(
-          'name__iexact',
-          this.catalogConfig.organizations.toString(),
-        );
+      if (organizations.length === 1) {
+        urlSearchParams.set('name__iexact', organizations.toString());
       }
       // Adds support for multiple orgs with OR operator
-      else if (this.catalogConfig.organizations.length > 1) {
-        this.catalogConfig.organizations.forEach(orgName => {
+      else if (organizations.length > 1) {
+        organizations.forEach(orgName => {
           urlSearchParams.append('or__name__iexact', orgName);
         });
       }
@@ -1129,7 +1129,7 @@ export class AAPClient implements IAAPService {
       );
 
       const missingOrganizations = findMissingConfiguredOrganizations(
-        this.catalogConfig.organizations,
+        organizations,
         (rawOrgs as Array<{ name?: string }>).map(org => org.name ?? ''),
       );
       for (const orgName of missingOrganizations) {
@@ -1353,6 +1353,7 @@ export class AAPClient implements IAAPService {
     surveyEnabled: boolean | undefined,
     jobTemplateLabels: string[],
     jobTemplateExcludeLabels: string[] = [],
+    organizations: readonly string[] = this.catalogConfig.organizations,
   ): Promise<
     {
       job: IJobTemplate;
@@ -1363,15 +1364,15 @@ export class AAPClient implements IAAPService {
     const endPoint = '/api/controller/v2/job_templates/';
     const urlSearchParams = new URLSearchParams();
     urlSearchParams.set('page_size', '100');
-    if (this.catalogConfig.organizations.length === 1) {
+    if (organizations.length === 1) {
       urlSearchParams.set(
         'organization__name__iexact',
-        this.catalogConfig.organizations.toString(),
+        organizations.toString(),
       );
     }
     // Adds support for multiple orgs with OR operator
-    else if (this.catalogConfig.organizations.length > 1) {
-      this.catalogConfig.organizations.forEach(orgName => {
+    else if (organizations.length > 1) {
+      organizations.forEach(orgName => {
         urlSearchParams.append(`or__organization__name__iexact`, orgName);
       });
     }

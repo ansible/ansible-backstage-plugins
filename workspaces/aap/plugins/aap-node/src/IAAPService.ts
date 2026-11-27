@@ -163,7 +163,10 @@ export interface IAAPService {
 
   fetchProfile(token: string): Promise<PassportProfile>;
 
-  getOrganizations(userAndTeamDetails?: boolean): Promise<
+  getOrganizations(
+    userAndTeamDetails?: boolean,
+    organizations?: readonly string[],
+  ): Promise<
     Array<{
       organization: Organization;
       teams: Team[];
@@ -189,6 +192,7 @@ export interface IAAPService {
     surveyEnabled: boolean | undefined,
     jobTemplateLabels: string[],
     jobTemplateExcludeLabels?: string[],
+    organizations?: readonly string[],
   ): Promise<
     {
       job: IJobTemplate;

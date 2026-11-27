@@ -50,7 +50,8 @@ const PAH_SOURCE_PREFIX = 'Private Automation Hub';
  *   build entity reference links.
  * @param options.eeLifecycle - Root-scoped EE lifecycle service.
  * @param options.config - Backstage {@link Config} containing `ansible.*` and
- *   `catalog.providers.rhaap.*` settings.
+ *   `catalog.providers.content.*` settings, with legacy
+ *   `catalog.providers.rhaap.*` fallback.
  * @returns A Backstage scaffolder `TemplateAction`.
  */
 export function createEEDefinitionAction(options: {
@@ -780,9 +781,10 @@ function parseTextRequirementsFile(decodedContent: string): string[] {
  * EE config payload.
  *
  * Iterates over every environment defined under
- * `catalog.providers.rhaap.<envId>.sync.pahCollections.repositories` and
- * produces one server entry per unique repository name. Environments where
- * `pahCollections.enabled` is explicitly `false` are skipped.
+ * `catalog.providers.content.<envId>.sync.pahCollections.repositories`,
+ * falling back to legacy `catalog.providers.rhaap` when the content root is
+ * unset, and produces one server entry per unique repository name.
+ * Environments where `pahCollections.enabled` is explicitly `false` are skipped.
  *
  * @param logger - Logger instance for diagnostic messages.
  * @param config - Backstage configuration root.
@@ -804,7 +806,7 @@ function buildGalaxyServersFromConfig(
     base = base.slice(0, -1);
   }
 
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = resolveContentProviderConfigs(config);
   if (!providerConfigs) {
     return [];
   }
@@ -851,9 +853,9 @@ function buildGalaxyServersFromConfig(
  * configuration.
  *
  * Iterates over every environment defined under
- * `catalog.providers.rhaap.<envId>.sync.ansibleGitContents.providers.<provider>`
- * and returns the `host` for the first entry whose `name` matches
- * `canonicalName`.
+ * `catalog.providers.content.<envId>.sync.ansibleGitContents.providers.<provider>`,
+ * falling back to legacy `catalog.providers.rhaap`, and returns the `host`
+ * for the first entry whose `name` matches `canonicalName`.
  *
  * @param config - Backstage configuration root.
  * @param provider - Lowercased SCM provider key (e.g. `"github"`, `"gitlab"`).
@@ -866,10 +868,10 @@ function lookupScmHostFromConfig(
   provider: string,
   canonicalName: string,
 ): string {
-  const providerConfigs = config.getOptionalConfig('catalog.providers.rhaap');
+  const providerConfigs = resolveContentProviderConfigs(config);
   if (!providerConfigs) {
     throw new Error(
-      `[ansible:create:ee-definition] Cannot resolve SCM host: no catalog.providers.rhaap config found (provider="${provider}", canonicalName="${canonicalName}")`,
+      `[ansible:create:ee-definition] Cannot resolve SCM host: no catalog.providers.content or catalog.providers.rhaap config found (provider="${provider}", canonicalName="${canonicalName}")`,
     );
   }
 
@@ -890,7 +892,19 @@ function lookupScmHostFromConfig(
   }
 
   throw new Error(
-    `[ansible:create:ee-definition] Cannot resolve SCM host: canonical name "${canonicalName}" not found under any catalog.providers.rhaap.*.sync.ansibleGitContents.providers.${provider}`,
+    `[ansible:create:ee-definition] Cannot resolve SCM host: canonical name "${canonicalName}" not found under any catalog.providers.content.*.sync.ansibleGitContents.providers.${provider} (legacy fallback: catalog.providers.rhaap)`,
+  );
+}
+
+/**
+ * Content-first, whole-root selector for EE helpers. Works outside catalog
+ * slice AsyncLocalStorage: `catalog.providers.content` wins when present,
+ * otherwise legacy `catalog.providers.rhaap`.
+ */
+function resolveContentProviderConfigs(config: Config): Config | undefined {
+  return (
+    config.getOptionalConfig('catalog.providers.content') ??
+    config.getOptionalConfig('catalog.providers.rhaap')
   );
 }
 

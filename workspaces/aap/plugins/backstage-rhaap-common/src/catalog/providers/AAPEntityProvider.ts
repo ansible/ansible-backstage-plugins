@@ -61,7 +61,9 @@ export class AAPEntityProvider implements EntityProvider {
     },
   ): AAPEntityProvider[] {
     const { logger } = options;
-    const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity);
+    const providerConfigs = readAapApiEntityConfigs(config, this.syncEntity, {
+      allowMissingSchedule: Boolean(options.schedule),
+    });
     logger.info(`Init AAP entity provider from config.`);
     return providerConfigs.map(providerConfig => {
       const taskRunner = resolveTaskRunner(
@@ -175,8 +177,10 @@ export class AAPEntityProvider implements EntityProvider {
 
       let error = false;
       try {
-        const allOrgsDetails =
-          await this.ansibleServiceRef.getOrganizations(true);
+        const allOrgsDetails = await this.ansibleServiceRef.getOrganizations(
+          true,
+          this.orgs,
+        );
         this.logger.info(
           `[${AAPEntityProvider.pluginLogName}]: Fetched ${allOrgsDetails.length} organizations from AAP.`,
         );

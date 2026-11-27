@@ -104,15 +104,17 @@ export function readApmeGitContentsSyncConfigs(
     return [];
   }
 
-  const rhaapProviders = config.getOptionalConfig('catalog.providers.rhaap');
-  if (!rhaapProviders) {
+  const providerConfigs =
+    config.getOptionalConfig('catalog.providers.content') ??
+    config.getOptionalConfig('catalog.providers.rhaap');
+  if (!providerConfigs) {
     return [];
   }
 
   const blocks: ApmeGitContentsSyncConfig[] = [];
 
-  for (const env of rhaapProviders.keys()) {
-    const gitContents = rhaapProviders
+  for (const env of providerConfigs.keys()) {
+    const gitContents = providerConfigs
       .getConfig(env)
       .getOptionalConfig('sync.ansibleGitContents');
     if (!gitContents || gitContents.getOptionalBoolean('enabled') === false) {

@@ -289,6 +289,7 @@ __metadata:
     "@ansible/aap-backend": "workspace:^"
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-defaults": "npm:0.17.8"
     "@backstage/backend-dynamic-feature-service": "npm:0.8.6"
     "@backstage/backend-plugin-api": "npm:1.10.0"
@@ -397,6 +398,7 @@ __metadata:
   dependencies:
     "@ansible/aap-common": "workspace:^"
     "@ansible/aap-node": "workspace:^"
+    "@ansible/backstage-rhaap-common": "workspace:^"
     "@backstage/backend-plugin-api": "npm:1.10.0"
     "@backstage/backend-test-utils": "npm:1.11.6"
     "@backstage/catalog-model": "npm:1.10.2"

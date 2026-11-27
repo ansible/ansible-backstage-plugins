@@ -1,4 +1,10 @@
-import { findMissingConfiguredOrganizations } from './config';
+import { ConfigReader } from '@backstage/config';
+
+import {
+  findMissingConfiguredOrganizations,
+  getAnsibleConfig,
+  getCatalogConfig,
+} from './config';
 
 describe('findMissingConfiguredOrganizations', () => {
   it('returns empty when all configured orgs exist in AAP', () => {
@@ -30,5 +36,88 @@ describe('findMissingConfiguredOrganizations', () => {
       'Default',
       'Ops',
     ]);
+  });
+});
+
+describe('getCatalogConfig', () => {
+  it('reads organizations from catalog.providers.aap without a legacy rhaap copy', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          aap: {
+            development: {
+              multiOrgEnabled: true,
+              orgs: ['Engineering', 'Finance'],
+            },
+          },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config).organizations).toEqual([
+      'engineering',
+      'finance',
+    ]);
+  });
+
+  it('prefers catalog.providers.aap when both roots are present', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          aap: { dev: { orgs: ['Platform'] } },
+          rhaap: { dev: { orgs: ['Engineering'] } },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config).organizations).toEqual(['platform']);
+  });
+
+  it('falls back to catalog.providers.rhaap when aap is unset', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          rhaap: { dev: { orgs: ['Engineering'] } },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config).organizations).toEqual(['engineering']);
+  });
+
+  it('keeps rhaap job-template filters when the aap root is empty', () => {
+    const config = new ConfigReader({
+      catalog: {
+        providers: {
+          aap: {},
+          rhaap: {
+            development: {
+              orgs: ['Default'],
+              sync: {
+                jobTemplates: {
+                  enabled: true,
+                  surveyEnabled: true,
+                  labels: ['production'],
+                  excludeLabels: ['internal'],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(getCatalogConfig(config)).toEqual({
+      organizations: ['default'],
+      surveyEnabled: true,
+      jobTemplateLabels: ['production'],
+      jobTemplateExcludeLabels: ['internal'],
+    });
+  });
+});
+
+describe('getAnsibleConfig', () => {
+  it('starts when the ansible block is omitted', () => {
+    expect(getAnsibleConfig(new ConfigReader({})).rhaap?.checkSSL).toBe(true);
   });
 });

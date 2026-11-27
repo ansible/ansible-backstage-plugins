@@ -103,6 +103,45 @@ describe('portalGalaxyServers', () => {
       ]);
     });
 
+    it('reads PAH repositories from catalog.providers.content and ignores leftover rhaap', () => {
+      const config = new ConfigReader({
+        ansible: {
+          rhaap: {
+            baseUrl: 'https://aap.example.com',
+            token: 'secret-token',
+          },
+        },
+        catalog: {
+          providers: {
+            content: {
+              production: {
+                sync: {
+                  pahCollections: {
+                    enabled: true,
+                    repositories: [{ name: 'platform-pah' }],
+                  },
+                },
+              },
+            },
+            rhaap: {
+              production: {
+                sync: {
+                  pahCollections: {
+                    enabled: true,
+                    repositories: [{ name: 'legacy-pah' }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      expect(
+        buildPortalPahGalaxyServers(config).map(server => server.name),
+      ).toEqual(['portal_hub_platform_pah']);
+    });
+
     it('skips environments with pahCollections.enabled false', () => {
       const config = new ConfigReader({
         ansible: {
