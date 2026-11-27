@@ -74,8 +74,8 @@ This branch organizes plugins into workspaces by ownership: `aap`, `apme`, `port
 | `workspaces/aap/plugins/catalog-backend-module-rhaap`                                  | `@ansible/backstage-plugin-catalog-backend-module-rhaap`        | Entity providers that sync AAP resources into catalog           | Backend module  |
 | `workspaces/aap/plugins/scaffolder-backend-module-aap`                                 | `@ansible/plugin-scaffolder-backend-module-aap`                 | AAP scaffolder actions, filters, and Controller autocomplete    | Backend module  |
 | `workspaces/content-development/plugins/scaffolder-backend-module-content-development` | `@ansible/plugin-scaffolder-backend-module-content-development` | Creator actions, EE lifecycle, and content autocomplete         | Backend module  |
-| `workspaces/content-development/plugins/catalog-backend-module-content-development`    | `@ansible/catalog-backend-module-content-development`           | EE catalog provider and lifecycle provider service              | Backend module  |
-| `workspaces/content-development/plugins/content-development-common`                    | `@ansible/content-development-common`                           | Creator SCM client and EE lifecycle contracts                   | Common library  |
+| `workspaces/content-management/plugins/catalog-backend-module-content`                 | `@ansible/backstage-plugin-catalog-backend-module-content`      | PAH, Git, and EE catalog providers                              | Backend module  |
+| `workspaces/content-development/plugins/content-development-common`                    | `@ansible/content-development-common`                           | Creator SCM client and Scaffolder-facing EE lifecycle service   | Common library  |
 | `workspaces/aap/plugins/auth-backend-module-rhaap-provider`                            | `@ansible/backstage-plugin-auth-backend-module-rhaap-provider`  | AAP OAuth authentication                                        | Backend module  |
 | `workspaces/portal-core/plugins/portal-core`                                           | `@ansible/portal-core`                                          | Native frontend host and configurable navigation                | Frontend plugin |
 | `workspaces/portal-core/plugins/portal-plugin-sdk`                                     | `@ansible/portal-plugin-sdk`                                    | Reusable frontend components, context, and utilities            | Frontend SDK    |
@@ -90,9 +90,12 @@ The `ansibleServiceRef` (in `backstage-rhaap-common/src/AAPService/`) is a Backs
 backstage-rhaap-common (shared: AAPClient, types, permissions)
     ├── catalog-backend-module-rhaap (uses ansibleServiceRef)
     ├── scaffolder-backend-module-aap (uses ansibleServiceRef)
-    ├── catalog-backend-module-content-development (EE catalog provider)
     └── scaffolder-backend-module-content-development (creator and EE lifecycle actions)
     └── auth-backend-module-rhaap-provider (uses AAPClient directly)
+
+portal-plugin-node (generic backend SDK contracts)
+    ├── catalog-backend-module-content (PAH, Git, and EE catalog providers)
+    └── scaffolder-backend-module-content-development (resolves EE provider by host config)
 
 Frontend plugins (backstage-rhaap, self-service) communicate with backend
 via Backstage proxy/API routes, not directly with AAP.
@@ -104,7 +107,7 @@ Backend modules follow the Backstage `createBackendModule` pattern and are regis
 
 ### Catalog Entity Providers
 
-The AAP catalog module (`catalog-backend-module-rhaap`) registers AAP and SCM-backed providers in `module.ts`; the content-development catalog module registers the EE provider:
+The AAP catalog module (`catalog-backend-module-rhaap`) registers AAP providers; the content-management catalog module registers PAH, Git, and EE providers:
 
 - **AAPEntityProvider** — syncs AAP organizations, teams, users
 - **AAPJobTemplateProvider** — syncs job templates as catalog entities

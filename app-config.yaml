@@ -274,6 +274,8 @@ automationContent:
     enabled: true
 
 ansible:
+  ee:
+    catalogProviderId: content-management.execution-environments
   devSpaces:
     baseUrl: https://devspaces.apps.ansible-rhdh.testing.ansible.com/
   automationHub:

@@ -9,7 +9,9 @@ The former monolithic scaffolder backend module is replaced by two backend modul
 
 This cutover removes `@ansible/plugin-scaffolder-backend-module-backstage-rhaap` and does not retain a compatibility shim. Update backend wiring to load the AAP and content-development modules above.
 
-The EE registration route `POST /ansible/ee` and cleanup route `DELETE /ansible/ee/:name` are removed, with no HTTP replacements. Existing callers must stop invoking them. EE definition creation should use the `ansible:create:ee-definition` Scaffolder action; that action uses the in-process lifecycle service for catalog registration and cleanup.
+The EE registration route `POST /ansible/ee` and cleanup route `DELETE /ansible/ee/:name` remain removed, with no HTTP replacements. EE definition creation uses the `ansible:create:ee-definition` Scaffolder action. Its permission-aware lifecycle adapter discovers the EE provider through the generic `portal-plugin-node` catalog provider registry; the provider implementation remains in the content-management catalog module.
+
+Load `@ansible/backstage-plugin-catalog-backend-module-content` to retain PAH/Git catalog registration and contribute the EE provider. Configure the trusted provider ID as `ansible.ee.catalogProviderId`; the default deployment uses `content-management.execution-environments`.
 
 ## EE build authorization (F-03)
 

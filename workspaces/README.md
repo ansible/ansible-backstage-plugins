@@ -76,12 +76,13 @@ singleton. Library packages are not standalone page plugins.
 - `@ansible/portal-scaffolder` owns templates, tasks, authoring and picker
   integration. It also hosts collection, repository and execution-environment
   browsing/detail pages.
-- `@ansible/content-development-common` owns creator SCM clients and EE
-  lifecycle service contracts.
+- `@ansible/content-development-common` owns creator SCM clients and the
+  Scaffolder-facing EE lifecycle service contract.
 - `@ansible/plugin-scaffolder-backend-module-content-development` owns
   creator actions, EE lifecycle coordination and collection autocomplete.
-- `@ansible/catalog-backend-module-content-development` owns the EE catalog
-  provider and its root-scoped provider service.
+- `@ansible/backstage-plugin-catalog-backend-module-content` owns PAH, Git, and
+  EE catalog providers. EE lifecycle coordination resolves its provider through
+  the generic catalog-provider registry in `@ansible/portal-plugin-node`.
 
 ### APME
 

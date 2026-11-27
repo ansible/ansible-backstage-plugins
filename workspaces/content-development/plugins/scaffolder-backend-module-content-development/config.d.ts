@@ -14,6 +14,14 @@ export interface Config {
       /** @visibility backend */
       port?: string;
     };
+    /** @visibility backend */
+    ee?: {
+      /**
+       * Trusted ID of the catalog provider that owns EE entity mutations.
+       * @visibility backend
+       */
+      catalogProviderId?: string;
+    };
     /**
      * Transitional read dependency; AAP owns these settings.
      * @visibility backend

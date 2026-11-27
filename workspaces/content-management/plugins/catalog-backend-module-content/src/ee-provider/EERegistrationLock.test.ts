@@ -4,6 +4,18 @@ import { createEERegistrationLock } from './EERegistrationLock';
 const testDatabases = TestDatabases.create({ ids: ['SQLITE_3'] });
 
 describe('createEERegistrationLock', () => {
+  it('reports readiness only after its durable lock schema is initialized', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+
+    expect(lock.isReady()).toBe(false);
+    await lock.initialize();
+    expect(lock.isReady()).toBe(true);
+    await knex.destroy();
+  });
+
   it('treats existing lock rows as pending during the registration state migration', async () => {
     const knex = await testDatabases.init('SQLITE_3');
     await knex.schema.createTable('ee_registration_lock_leases', table => {
@@ -57,6 +69,35 @@ describe('createEERegistrationLock', () => {
     await lockB('component:default/ee', async lock => {
       expect(lock.registrationState).toBe('none');
     });
+    await knex.destroy();
+  });
+
+  it('allows successive writes by the same lease owner in one callback', async () => {
+    const knex = await testDatabases.init('SQLITE_3');
+    await knex.schema.createTable('ee_test_mutations', table => {
+      table.string('mutation_id').primary();
+    });
+    const lock = createEERegistrationLock({
+      getClient: async () => knex,
+    } as any);
+
+    await lock('component:default/ee', async lockContext => {
+      await lockContext.beginRegistrationMutation();
+      await knex('ee_test_mutations').insert({ mutation_id: 'first' });
+      await lockContext.completeRegistration();
+
+      await lockContext.beginMutation();
+      await knex('ee_test_mutations').insert({ mutation_id: 'second' });
+      await lockContext.clearRegistration();
+    });
+
+    await expect(knex('ee_test_mutations')).resolves.toHaveLength(2);
+    await expect(
+      lock(
+        'component:default/ee',
+        async lockContext => lockContext.registrationState,
+      ),
+    ).resolves.toBe('none');
     await knex.destroy();
   });
 

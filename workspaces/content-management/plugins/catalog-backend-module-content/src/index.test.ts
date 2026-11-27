@@ -1,5 +1,6 @@
 import { catalogModuleContent } from './module';
 import catalogContentFeatureLoader, {
+  catalogModuleEEProvider,
   contentCatalogRegistration,
 } from './index';
 
@@ -9,14 +10,14 @@ type BackendFeatureLoader = {
 };
 
 describe('catalog content feature loader', () => {
-  it('yields the content catalog module without the AAP service factory', async () => {
+  it('yields the content catalog module and EE provider without the AAP service factory', async () => {
     const loader =
       catalogContentFeatureLoader as unknown as BackendFeatureLoader;
 
     expect(loader.featureType).toBe('loader');
 
     const features = await loader.loader({});
-    expect(features).toEqual([catalogModuleContent]);
+    expect(features).toEqual([catalogModuleContent, catalogModuleEEProvider]);
   });
 
   it('re-exports contentCatalogRegistration', () => {
