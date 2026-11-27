@@ -47,9 +47,18 @@ test('public diagnostics are sanitized and reruns retain distinct evidence', () 
     diagnostics,
     /name: sdk-security-diagnostics-\$\{\{ github.run_attempt \}\}/,
   );
-  assert.match(
-    diagnostics,
-    /path: \$\{\{ runner.temp \}\}\/sdk-release\/security\/scan-status.json\n/,
+  assert.deepEqual(
+    [
+      ...diagnostics.matchAll(
+        /\$\{\{ runner.temp \}\}\/sdk-release\/security\/(\S+)/g,
+      ),
+    ].map(match => match[1]),
+    [
+      'scan-status.json',
+      'consumer.yarn.lock',
+      'yarn-audit.ndjson',
+      'dependency-audit.summary.json',
+    ],
   );
   assert.match(
     workflow,
