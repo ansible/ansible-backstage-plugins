@@ -124,12 +124,12 @@ describe('WizardCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders owner name', () => {
+  it('does not render owner footer even when spec.owner is present', () => {
     renderWithTheme(<WizardCard template={makeTemplate()} />);
-    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(screen.queryByText('team-a')).not.toBeInTheDocument();
   });
 
-  it('renders the resolved organization display name as non-clickable text', () => {
+  it('does not render the resolved organization owner footer', () => {
     const ownerRef = 'group:aap-83/aap-org-83';
     const organization = {
       apiVersion: 'backstage.io/v1alpha1',
@@ -154,24 +154,21 @@ describe('WizardCard', () => {
       </TestApiProvider>,
     );
 
-    const owner = screen.getByText('Org: Engineering');
-    expect(owner.closest('a, button, [role="link"]')).toBeNull();
+    expect(screen.queryByText('Org: Engineering')).not.toBeInTheDocument();
     expect(screen.queryByText(ownerRef)).not.toBeInTheDocument();
-    fireEvent.click(owner);
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('omits the owner when none is specified', () => {
     const { container } = renderWithTheme(
       <WizardCard template={makeTemplate({}, { owner: undefined })} />,
     );
-    expect(container.querySelector('.owner')).toBeEmptyDOMElement();
+    expect(container.querySelector('.owner')).not.toBeInTheDocument();
   });
 
   it('renders correctly with dark theme', () => {
     const darkTheme = createTheme({ palette: { type: 'dark' } });
     renderWithTheme(<WizardCard template={makeTemplate()} />, darkTheme);
-    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(screen.queryByText('team-a')).not.toBeInTheDocument();
   });
 
   it('navigates to template details when title is clicked', () => {

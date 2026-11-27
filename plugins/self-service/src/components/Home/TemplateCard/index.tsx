@@ -1,6 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { parseEntityRef } from '@backstage/catalog-model';
-import PersonIcon from '@material-ui/icons/Person';
 import { TemplateEntityV1beta3 } from '@backstage/plugin-scaffolder-common';
 import {
   Button,
@@ -12,12 +10,8 @@ import {
   Divider,
   Link,
   Typography,
-  useTheme,
 } from '@material-ui/core';
-import {
-  EntityDisplayName,
-  FavoriteEntity,
-} from '@backstage/plugin-catalog-react';
+import { FavoriteEntity } from '@backstage/plugin-catalog-react';
 import { useRouteRef } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
 import { taskCreatePermission } from '@backstage/plugin-scaffolder-common/alpha';
@@ -26,7 +20,6 @@ import { rootRouteRef } from '../../../routes';
 export function WizardCard({
   template,
 }: Readonly<{ template: TemplateEntityV1beta3 }>) {
-  const theme = useTheme();
   const navigate = useNavigate();
   const rootLink = useRouteRef(rootRouteRef);
   const namespace = template?.metadata?.namespace ?? 'default';
@@ -95,41 +88,9 @@ export function WizardCard({
         style={{
           marginLeft: 1,
           marginRight: 1,
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
         }}
       >
-        <div className="owner">
-          {template?.spec?.owner && (
-            <div>
-              <PersonIcon
-                fontSize="small"
-                style={{ position: 'relative', top: 4 }}
-              />
-              <Typography
-                component="span"
-                style={{
-                  color:
-                    theme.palette.type === 'light'
-                      ? '#181818'
-                      : 'rgba(255, 255, 255, 0.70)',
-                  fontSize: '14px',
-                  fontWeight: '400',
-                  lineHeight: '24px',
-                  marginBottom: '16px',
-                }}
-              >
-                <EntityDisplayName
-                  entityRef={parseEntityRef(template.spec.owner, {
-                    defaultKind: 'Group',
-                  })}
-                  defaultKind="Group"
-                  hideIcon
-                  disableTooltip
-                />
-              </Typography>
-            </div>
-          )}
-        </div>
         {canCreateTask ? (
           <Button
             size="small"
