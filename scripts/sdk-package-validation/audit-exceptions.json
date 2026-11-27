@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "consumerLockSha256": "81eb33288144a175971f26d24cbe794bfaf6138daec1270a1979340962421a3b",
+  "consumerLockSha256": "87926651881b1226c51808f421a53c85cea3fd0a7ad91fecacf404b53faef00e",
   "exceptions": [
     {
       "advisory": "GHSA-7mx3-vvmw-hjmv",

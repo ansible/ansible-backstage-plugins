@@ -213,7 +213,7 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 
 1. Merge the reviewed release metadata and complete the prerequisites above.
 2. Open **Actions → Publish SDK preview → Run workflow**. Select the reviewed `main` or `release-*` branch and enter
-   the exact reviewed version, such as `0.1.0-alpha.0`. Keep `prepare_bootstrap`
+   the exact reviewed version, such as `0.1.0-alpha.1`. Keep `prepare_bootstrap`
    disabled for an OIDC publication. Enable it only for the reviewed artifact-only
    first-publication procedure above. The version input validates the
    committed version. It does not rewrite manifests or remove private guards.
@@ -237,6 +237,12 @@ See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/) and
 Artifact names include the build or publish attempt number so reruns preserve
 earlier evidence. The publish job downloads the exact artifact ID produced by
 its successful build, including when only a failed publish job is rerun.
+
+The initial `0.1.0-alpha.0` publication is an integration preview tagged with both
+`next` and `latest`. Subsequent preview publications through this workflow update
+`next` and leave `latest` unchanged. Use an exact version when reproducing an
+integration rather than relying on either moving tag. A package version already
+published during bootstrap cannot be reused to test OIDC publication.
 
 ## Verification
 
