@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { RequirePermission } from '@backstage/plugin-permission-react';
-import { executionEnvironmentsViewPermission } from '@ansible/aap-common/permissions';
+import { executionEnvironmentsViewPermission } from '@ansible/portal-extension-common';
 import { EENotificationBoundary } from './EENotificationBoundary';
 import { EntityCatalogContent } from './catalog/CatalogContent';
 

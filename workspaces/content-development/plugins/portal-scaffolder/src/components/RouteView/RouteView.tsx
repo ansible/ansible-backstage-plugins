@@ -9,10 +9,8 @@ import {
 } from '@backstage/core-plugin-api';
 import {
   executionEnvironmentsViewPermission,
-  collectionsViewPermission,
-  gitRepositoriesViewPermission,
   templatesViewPermission,
-} from '@ansible/aap-common/permissions';
+} from '@ansible/portal-extension-common';
 
 import { HomeComponent } from '../Home';
 import { JobTemplatesProvider } from '../Home/JobTemplatesProvider';
@@ -23,12 +21,6 @@ import { FeedbackFooter } from '../feedback/FeedbackFooter';
 import { CatalogItemsDetails } from '../CatalogItemDetails';
 import { EETabs } from '../ExecutionEnvironments';
 import { EEDetailsPage } from '../ExecutionEnvironments/catalog/EEDetailsPage';
-import { CollectionsCatalogPage } from '../CollectionsCatalog';
-import { CollectionDetailsPage } from '../CollectionsCatalog/CollectionDetailsPage';
-import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
-import { GitRepositoriesPage } from '../GitRepositories';
-import { RepositoryDetailsPage } from '../GitRepositories/RepositoryDetailsPage';
-import { gitReposCache } from '../GitRepositories/gitReposCache';
 import {
   NotificationProvider,
   NotificationStack,
@@ -48,22 +40,6 @@ const RouteViewContent = () => {
   useEffect(() => {
     syncPollingService.initialize(discoveryApi, fetchApi);
   }, [discoveryApi, fetchApi]);
-
-  // Register page-specific cache invalidators. These live here (rather than
-  // inside syncPollingService) so the service has no direct dependency on
-  // domain-specific cache modules.
-  useEffect(() => {
-    const unsubCollections = syncPollingService.addInvalidator(() =>
-      invalidateCollections(),
-    );
-    const unsubRepos = syncPollingService.addInvalidator(() =>
-      gitReposCache.invalidateFetchedData(),
-    );
-    return () => {
-      unsubCollections();
-      unsubRepos();
-    };
-  }, []);
 
   return (
     <>
@@ -127,35 +103,6 @@ const RouteViewContent = () => {
             </RequirePermission>
           }
         />
-        <Route
-          path="collections"
-          element={
-            <RequirePermission permission={collectionsViewPermission}>
-              <CollectionsCatalogPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="collections/:collectionName"
-          element={
-            <RequirePermission permission={collectionsViewPermission}>
-              <CollectionDetailsPage />
-            </RequirePermission>
-          }
-        />
-        <Route
-          path="repositories"
-          element={
-            <RequirePermission permission={gitRepositoriesViewPermission}>
-              <Outlet />
-            </RequirePermission>
-          }
-        >
-          <Route index element={<Navigate to="catalog" replace />} />
-          <Route path="catalog" element={<GitRepositoriesPage />} />
-          <Route path="ci-activity" element={<GitRepositoriesPage />} />
-          <Route path=":repositoryName" element={<RepositoryDetailsPage />} />
-        </Route>
         {/* Default redirects */}
         <Route
           path="/catalog/*"

@@ -8,15 +8,14 @@ own field registration and host integration.
 
 All exports are available from `@ansible/portal-scaffolder-react`.
 
-| Component                             | Existing field name          | Value             | Purpose                                                                   |
-| ------------------------------------- | ---------------------------- | ----------------- | ------------------------------------------------------------------------- |
-| `FileUploadPickerExtension`           | `FileUploadPicker`           | `string`          | Paste text or upload a text file.                                         |
-| `EEFileNamePickerExtension`           | `EEFileNamePicker`           | `string`          | Enter an execution environment filename and check existing catalog names. |
-| `EETagsPickerExtension`               | `EETagsPicker`               | `string[]`        | Add, edit, and remove execution environment tags.                         |
-| `ScmSelectorExtension`                | `ScmSelector`                | `ScmSelectorData` | Select an SCM provider, organization, and repository.                     |
-| `AdditionalBuildStepsPickerExtension` | `AdditionalBuildStepsPicker` | `BuildStep[]`     | Edit additional execution environment build steps and their commands.     |
-| `PackagesPickerExtension`             | `PackagesPicker`             | `string[]`        | Add and remove packages, including comma-separated input.                 |
-| `MCPServersPickerExtension`           | `MCPServersPicker`           | `string[]`        | Select MCP servers from the field schema's enum values.                   |
+| Component                             | Existing field name          | Value         | Purpose                                                                   |
+| ------------------------------------- | ---------------------------- | ------------- | ------------------------------------------------------------------------- |
+| `FileUploadPickerExtension`           | `FileUploadPicker`           | `string`      | Paste text or upload a text file.                                         |
+| `EEFileNamePickerExtension`           | `EEFileNamePicker`           | `string`      | Enter an execution environment filename and check existing catalog names. |
+| `EETagsPickerExtension`               | `EETagsPicker`               | `string[]`    | Add, edit, and remove execution environment tags.                         |
+| `AdditionalBuildStepsPickerExtension` | `AdditionalBuildStepsPicker` | `BuildStep[]` | Edit additional execution environment build steps and their commands.     |
+| `PackagesPickerExtension`             | `PackagesPicker`             | `string[]`    | Add and remove packages, including comma-separated input.                 |
+| `MCPServersPickerExtension`           | `MCPServersPicker`           | `string[]`    | Select MCP servers from the field schema's enum values.                   |
 
 The components accept Backstage `FieldExtensionComponentProps`, retaining the
 existing schema, `uiSchema`, value, and validation behavior.
@@ -25,7 +24,6 @@ existing schema, `uiSchema`, value, and validation behavior.
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `FieldValidationProvider` | Shares field error and submit-attempt state within a form.                                                                               |
 | `useFieldValidation`      | Reads and updates that shared validation state.                                                                                          |
-| `ScmSelectorData` (type)  | SCM field value: `provider`, `providerLabel`, `org`, `repoName`, and `repoExists`.                                                       |
 | `BuildStep` (type)        | Build step value: `stepType` and `commands`.                                                                                             |
 | `parseMarkdownLinks`      | Renders markdown-style links as Material-UI links; shared by `PackagesPicker` and the `BaseImagePicker` retained in `portal-scaffolder`. |
 
@@ -57,8 +55,8 @@ not register a plugin or field.
 
 ### Shared validation
 
-`EEFileNamePickerExtension`, `EETagsPickerExtension`, and `ScmSelectorExtension`
-use `FieldValidationProvider`. Wrap the active form and its submit controls in
+`EEFileNamePickerExtension` and `EETagsPickerExtension` use
+`FieldValidationProvider`. Wrap the active form and its submit controls in
 the same provider. Consumers of `useFieldValidation` must use the provider from
 this package so fields and submit controls share one context.
 
@@ -72,11 +70,6 @@ for shared validation to affect submission.
 
 - `EEFileNamePickerExtension` needs a Backstage API context providing
   `catalogApiRef` from `@backstage/plugin-catalog-react`.
-- `ScmSelectorExtension` needs `scmAuthApiRef` from
-  `@backstage/integration-react` and the scaffolder `SecretsContextProvider`.
-  Its existing `ui:options.requestUserCredentials.secretsKey` controls where
-  credentials are stored in the scaffolder secrets channel. Credentials are
-  not part of `ScmSelectorData`.
 - Hosts provide the usual React and Material-UI theme context and pass the
   field's existing schema and `uiSchema` options.
 

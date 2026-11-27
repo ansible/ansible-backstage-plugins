@@ -1,5 +1,6 @@
 import { createDevApp } from '@backstage/dev-utils';
-import { AapAuthApi, rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { AapAuthApi } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef } from '@ansible/portal-extension-api';
 import { AAPApis } from './apis';
 import { SelfServicePage, selfServicePlugin } from './plugin';
 

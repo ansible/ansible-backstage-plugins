@@ -84,7 +84,7 @@ import { ConflictError } from '@backstage/errors';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { CatalogClient } from '@backstage/catalog-client';
 import { ConfigReader } from '@backstage/config';
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';
 
 type TestRouterOptions = Omit<
   Parameters<typeof createRouterImplementation>[0],

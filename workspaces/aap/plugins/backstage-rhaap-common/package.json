@@ -73,6 +73,8 @@
     "@ansible/aap-common": "workspace:^",
     "@ansible/aap-node": "workspace:^",
     "@ansible/content-development-common": "workspace:^",
+    "@ansible/portal-extension-api": "workspace:^",
+    "@ansible/portal-extension-common": "workspace:^",
     "@ansible/portal-plugin-node": "workspace:^",
     "@backstage/backend-dynamic-feature-service": "0.8.6",
     "@backstage/backend-plugin-api": "1.10.0",

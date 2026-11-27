@@ -7,7 +7,6 @@ describe('public exports', () => {
     'useFieldValidation',
     'EEFileNamePickerExtension',
     'EETagsPickerExtension',
-    'ScmSelectorExtension',
     'AdditionalBuildStepsPickerExtension',
     'PackagesPickerExtension',
     'MCPServersPickerExtension',

@@ -11,7 +11,7 @@ import {
   Box,
 } from '@material-ui/core';
 
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef } from '@ansible/portal-extension-api';
 
 export const AAPTokenField = ({
   onChange,

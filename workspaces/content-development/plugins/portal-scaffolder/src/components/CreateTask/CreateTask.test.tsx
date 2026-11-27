@@ -11,7 +11,7 @@ import { mockScaffolderApi } from '../../tests/scaffolderApi_utils';
 import { CreateTask } from './CreateTask';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef } from '@ansible/portal-extension-api';
 import { rootRouteRef } from '../../routes';
 
 jest.mock('./StepForm', () => ({

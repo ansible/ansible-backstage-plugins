@@ -25,11 +25,17 @@ app:
   extensions:
     - nav-content:app/sidebar: false
     - nav-content:app/portal: true
+    - page:automation-content/collections: ${CONTENT_MANAGEMENT:-true}
+    - page:automation-content/repositories: ${CONTENT_MANAGEMENT:-true}
     # Enable EE discovery by default in the monorepo development app.
     # Remove the CONTENT_MANAGEMENT switch when EE discovery reaches general availability.
     - sub-page:automation-content/images: ${CONTENT_MANAGEMENT:-true}
     - scaffolder-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-true}
     - scaffolder-form-field:automation-content/ee-image-version: ${CONTENT_MANAGEMENT:-true}
+    - scaffolder-field:automation-content/collections-picker: ${CONTENT_MANAGEMENT:-true}
+    - scaffolder-form-field:automation-content/collections-picker: ${CONTENT_MANAGEMENT:-true}
+    - scaffolder-field:automation-content/scm-selector: ${CONTENT_MANAGEMENT:-true}
+    - scaffolder-form-field:automation-content/scm-selector: ${CONTENT_MANAGEMENT:-true}
     - entity-header-layout:automation-content/ee-repository: ${CONTENT_MANAGEMENT:-true}
     - entity-content-layout:automation-content/ee-repository: ${CONTENT_MANAGEMENT:-true}
     - entity-detail-tab:automation-content/image: ${CONTENT_MANAGEMENT:-true}

@@ -8,5 +8,4 @@ export {
   getVerbosityObject,
   getVerbosityLevels,
 } from '@ansible/aap-common';
-
-export const SCM_INTEGRATION_AUTH_FAILED_CODE = 'INTEGRATION_AUTH_FAILED';
+export { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';

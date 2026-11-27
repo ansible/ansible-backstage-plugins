@@ -8,19 +8,15 @@
 
 import {
   createApiFactory,
-  createApiRef,
   type AnyApiFactory,
 } from '@backstage/core-plugin-api';
+import {
+  gitRepositoriesCatalogApiRef,
+  type GitRepositoriesCatalogApi,
+} from '@ansible/portal-extension-api';
 
-export interface GitRepositoriesCatalogApi {
-  /** Drop in-memory catalog cache and refetch if subscribers are active. */
-  invalidateCatalogCache(): void;
-}
-
-export const gitRepositoriesCatalogApiRef =
-  createApiRef<GitRepositoriesCatalogApi>({
-    id: 'plugin.rhaap.git-repositories.catalog',
-  });
+export { gitRepositoriesCatalogApiRef };
+export type { GitRepositoriesCatalogApi };
 
 /** No-op when self-service host is not loaded. */
 export class DefaultGitRepositoriesCatalogApi

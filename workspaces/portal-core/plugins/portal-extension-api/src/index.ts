@@ -4,6 +4,12 @@
 // they will be wrapped by CapabilityContribution + CapabilityEntryPoint.
 import { contributionRegistry as _registry } from './registry';
 
+export { rhAapAuthApiRef } from './aapAuth';
+export type { AapAuthApi } from './aapAuth';
+export { gitRepositoriesCatalogApiRef } from './gitRepositoriesCatalog';
+export type { GitRepositoriesCatalogApi } from './gitRepositoriesCatalog';
+export { portalTemplatesRouteRef } from './portalRoutes';
+
 export {
   portalOperationsApiRef,
   portalOperationsApiFactory,

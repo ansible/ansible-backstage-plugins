@@ -44,3 +44,13 @@ export type {
 
 export { CONTENT_TYPES, EXTENSION_POINTS } from './extensionPoints';
 export type { ContentTypeId, ExtensionPointId } from './extensionPoints';
+
+export {
+  executionEnvironmentsViewPermission,
+  executionEnvironmentsBuildPermission,
+  collectionsViewPermission,
+  gitRepositoriesViewPermission,
+  templatesViewPermission,
+  historyViewPermission,
+  SCM_INTEGRATION_AUTH_FAILED_CODE,
+} from './ansiblePermissions';

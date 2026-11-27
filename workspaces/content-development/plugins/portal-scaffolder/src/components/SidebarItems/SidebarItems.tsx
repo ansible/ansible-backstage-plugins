@@ -4,14 +4,10 @@ import { configApiRef, useApi, useRouteRef } from '@backstage/core-plugin-api';
 import { SidebarItem } from '@backstage/core-components';
 import BuildIcon from '@material-ui/icons/Build';
 import HomeIcon from '@material-ui/icons/Home';
-import ExtensionIcon from '@material-ui/icons/Extension';
-import GitHubIcon from '@material-ui/icons/GitHub';
 import {
   executionEnvironmentsViewPermission,
-  collectionsViewPermission,
-  gitRepositoriesViewPermission,
   templatesViewPermission,
-} from '@ansible/aap-common/permissions';
+} from '@ansible/portal-extension-common';
 
 import { rootRouteRef } from '../../routes';
 
@@ -53,32 +49,6 @@ export const EEBuilderSidebarItem = () => {
       icon={BuildIcon}
       to={`${rootLink()}/ee`}
       text="Execution Environments"
-    />
-  );
-};
-
-export const CollectionsSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
-
-  return (
-    <PermissionGatedSidebarItem
-      permission={collectionsViewPermission}
-      icon={ExtensionIcon}
-      to={`${rootLink()}/collections`}
-      text="Collections"
-    />
-  );
-};
-
-export const GitRepositoriesSidebarItem = () => {
-  const rootLink = useRouteRef(rootRouteRef);
-
-  return (
-    <PermissionGatedSidebarItem
-      permission={gitRepositoriesViewPermission}
-      icon={GitHubIcon}
-      to={`${rootLink()}/repositories`}
-      text="Git Repositories"
     />
   );
 };

@@ -4,7 +4,7 @@ import { mockApis, renderTestApp } from '@backstage/frontend-test-utils';
 import { createFrontendPlugin } from '@backstage/frontend-plugin-api';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scaffolderApiRef } from '@backstage/plugin-scaffolder-react';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef } from '@ansible/portal-extension-api';
 import {
   createPortalContributionProvider,
   createPortalScaffolderPlugin,

@@ -26,41 +26,11 @@ jest.mock('../ExecutionEnvironments', () => ({
 jest.mock('../ExecutionEnvironments/catalog/EEDetailsPage', () => ({
   EEDetailsPage: () => <div data-testid="ee-details">EEDetails</div>,
 }));
-jest.mock('../CollectionsCatalog', () => ({
-  CollectionsCatalogPage: () => (
-    <div data-testid="collections-catalog">CollectionsCatalog</div>
-  ),
-}));
-jest.mock('../CollectionsCatalog/CollectionDetailsPage', () => ({
-  CollectionDetailsPage: () => (
-    <div data-testid="collection-details">CollectionDetails</div>
-  ),
-}));
-jest.mock('../GitRepositories', () => ({
-  GitRepositoriesPage: () => (
-    <div data-testid="git-repositories">GitRepositories</div>
-  ),
-}));
-jest.mock('../GitRepositories/RepositoryDetailsPage', () => ({
-  RepositoryDetailsPage: () => (
-    <div data-testid="repository-details">RepositoryDetails</div>
-  ),
-}));
-
-jest.mock('@ansible/aap-common/permissions', () => ({
+jest.mock('@ansible/portal-extension-common', () => ({
+  ...jest.requireActual('@ansible/portal-extension-common'),
   executionEnvironmentsViewPermission: {
     type: 'basic',
     name: 'ee.view',
-    attributes: {},
-  },
-  collectionsViewPermission: {
-    type: 'basic',
-    name: 'collections.view',
-    attributes: {},
-  },
-  gitRepositoriesViewPermission: {
-    type: 'basic',
-    name: 'repos.view',
     attributes: {},
   },
   templatesViewPermission: {
@@ -179,26 +149,6 @@ describe('RouteView', () => {
         childTestId: 'ee-details',
         permissionName: 'ee.view',
       },
-      {
-        path: '/collections',
-        childTestId: 'collections-catalog',
-        permissionName: 'collections.view',
-      },
-      {
-        path: '/collections/my-col',
-        childTestId: 'collection-details',
-        permissionName: 'collections.view',
-      },
-      {
-        path: '/repositories/catalog',
-        childTestId: 'git-repositories',
-        permissionName: 'repos.view',
-      },
-      {
-        path: '/repositories/my-repo',
-        childTestId: 'repository-details',
-        permissionName: 'repos.view',
-      },
     ])(
       'renders $childTestId at $path with $permissionName',
       ({ path, childTestId, permissionName }) => {
@@ -227,8 +177,6 @@ describe('RouteView', () => {
     it.each([
       { path: '/catalog', childTestId: 'home' },
       { path: '/ee/catalog', childTestId: 'ee-tabs' },
-      { path: '/collections', childTestId: 'collections-catalog' },
-      { path: '/repositories/catalog', childTestId: 'git-repositories' },
     ])('blocks $childTestId at $path', ({ path, childTestId }) => {
       render(
         <MemoryRouter initialEntries={[path]}>

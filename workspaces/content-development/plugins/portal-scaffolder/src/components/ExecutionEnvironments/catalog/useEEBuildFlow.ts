@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Entity, stringifyEntityRef } from '@backstage/catalog-model';
 import { useApi } from '@backstage/core-plugin-api';
 import { usePermission } from '@backstage/plugin-permission-react';
-import { executionEnvironmentsBuildPermission } from '@ansible/aap-common/permissions';
+import { executionEnvironmentsBuildPermission } from '@ansible/portal-extension-common';
 import { catalogApiRef } from '@backstage/plugin-catalog-react';
 import { scmAuthApiRef } from '@backstage/integration-react';
 import { useNotifications } from '../../notifications';

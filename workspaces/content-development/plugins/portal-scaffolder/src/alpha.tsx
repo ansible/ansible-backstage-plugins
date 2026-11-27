@@ -1,6 +1,5 @@
 import {
   ApiBlueprint,
-  PageBlueprint,
   SubPageBlueprint,
   createFrontendPlugin,
   type FrontendPlugin,
@@ -14,14 +13,8 @@ import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension
 import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
-import {
-  rootRouteRef,
-  collectionsRouteRef,
-  gitRepositoriesRouteRef,
-} from './routes';
+import { rootRouteRef } from './routes';
 import HomeIcon from '@material-ui/icons/Home';
-import ExtensionIcon from '@material-ui/icons/Extension';
-import GitHubIcon from '@material-ui/icons/GitHub';
 import {
   scaffolderFieldEntries,
   selfServiceManifest,
@@ -30,7 +23,6 @@ import { aapUserTokenFormDecorator } from './scaffolder/aapUserTokenDecorator';
 import {
   validateEEFileName,
   validateEETags,
-  validateScmSelector,
 } from './scaffolder/nativeFieldValidation';
 
 type ScaffolderFieldName = (typeof scaffolderFieldEntries)[number]['fieldName'];
@@ -54,15 +46,6 @@ export const scaffolderFieldLoaders: Record<
     return eraseScaffolderFieldTypes({
       name: 'AAPResourcePicker',
       component: AAPResourcePicker,
-    });
-  },
-  CollectionsPicker: async () => {
-    const { CollectionsPickerExtension } = await import(
-      './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
-    );
-    return eraseScaffolderFieldTypes({
-      name: 'CollectionsPicker',
-      component: CollectionsPickerExtension,
     });
   },
   BaseImagePicker: async () => {
@@ -99,24 +82,6 @@ export const scaffolderFieldLoaders: Record<
     return eraseScaffolderFieldTypes({
       name: 'MCPServersPicker',
       component: MCPServersPickerExtension,
-    });
-  },
-  ScmSelector: async () => {
-    const { ScmSelectorExtension } = await import(
-      '@ansible/portal-scaffolder-react'
-    );
-    return eraseScaffolderFieldTypes({
-      name: 'ScmSelector',
-      component: ScmSelectorExtension,
-      validation: (value, validation, context) => {
-        const options = context.uiSchema?.['ui:options'] as
-          | { requestUserCredentials?: unknown }
-          | undefined;
-        validateScmSelector(
-          value,
-          Boolean(options?.requestUserCredentials),
-        ).forEach(error => validation.addError(error));
-      },
     });
   },
   AdditionalBuildStepsPicker: async () => {
@@ -161,8 +126,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
   icon: <HomeIcon />,
   routes: {
     root: convertLegacyRouteRef(rootRouteRef),
-    collections: convertLegacyRouteRef(collectionsRouteRef),
-    repositories: convertLegacyRouteRef(gitRepositoriesRouteRef),
   },
   extensions: [
     aapUserTokenFormDecorator,
@@ -181,22 +144,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
         loader: scaffolderFieldLoaders[fieldName],
       }),
     ),
-    PageBlueprint.make({
-      name: 'collections',
-      params: {
-        path: portalScaffolderRoutePaths.collections,
-        title: 'Collections',
-        icon: <ExtensionIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(collectionsRouteRef),
-        loader: async () => {
-          const { CollectionsRoutesPage } = await import(
-            './components/CollectionsCatalog'
-          );
-          return compatWrapper(<CollectionsRoutesPage />);
-        },
-      },
-    }),
     SubPageBlueprint.make({
       name: 'ee-definitions',
       attachTo: { id: 'page:automation-content/ee', input: 'pages' },
@@ -208,22 +155,6 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
             './components/ExecutionEnvironments/EEDefinitionsTab'
           );
           return compatWrapper(<EEDefinitionsTab />);
-        },
-      },
-    }),
-    PageBlueprint.make({
-      name: 'repositories',
-      params: {
-        path: portalScaffolderRoutePaths.gitRepositories,
-        title: 'Git repositories',
-        icon: <GitHubIcon />,
-        noHeader: true,
-        routeRef: convertLegacyRouteRef(gitRepositoriesRouteRef),
-        loader: async () => {
-          const { GitRepositoriesRoutesPage } = await import(
-            './components/GitRepositories'
-          );
-          return compatWrapper(<GitRepositoriesRoutesPage />);
         },
       },
     }),

@@ -33,9 +33,7 @@
     "export-dynamic": "yarn run -T rhdh-cli plugin export"
   },
   "dependencies": {
-    "@ansible/aap-app-auth": "workspace:^",
-    "@ansible/aap-common": "workspace:^",
-    "@ansible/backstage-rhaap-common": "workspace:^",
+    "@ansible/portal-extension-common": "workspace:^",
     "@ansible/portal-plugin-sdk": "workspace:^",
     "@ansible/portal-scaffolder-common": "workspace:^",
     "@ansible/portal-scaffolder-react": "workspace:^",
@@ -81,6 +79,7 @@
     "react-router-dom": "^6.30.5"
   },
   "devDependencies": {
+    "@ansible/aap-app-auth": "workspace:^",
     "@backstage/cli": "0.36.5",
     "@backstage/dev-utils": "1.1.26",
     "@backstage/frontend-test-utils": "0.6.3",

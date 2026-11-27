@@ -5,7 +5,7 @@ import { RequirePermission } from '@backstage/plugin-permission-react';
 import {
   templatesViewPermission,
   executionEnvironmentsViewPermission,
-} from '@ansible/aap-common/permissions';
+} from '@ansible/portal-extension-common';
 import { catalogEntityCreatePermission } from '@backstage/plugin-catalog-common/alpha';
 import type { ScaffolderFieldDescriptor } from '@ansible/portal-extension-api/alpha';
 import { NativeScaffolderFields } from '@ansible/portal-extension-host/alpha';
