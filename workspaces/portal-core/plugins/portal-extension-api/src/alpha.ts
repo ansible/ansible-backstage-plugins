@@ -28,6 +28,11 @@ export {
   catalogHeaderActionDataRef,
   scaffolderWorkflowDataRef,
 } from './nfs/CatalogHeaderActionBlueprint';
+export {
+  ScaffolderHeaderActionBlueprint,
+  scaffolderHeaderActionDataRef,
+} from './nfs/ScaffolderHeaderActionBlueprint';
+export type { ScaffolderHeaderActionDescriptor } from './nfs/ScaffolderHeaderActionBlueprint';
 export type {
   CatalogHeaderActionDescriptor,
   ScaffolderWorkflowDescriptor,

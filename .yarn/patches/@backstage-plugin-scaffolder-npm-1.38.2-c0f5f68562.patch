@@ -1,0 +1,98 @@
+diff --git a/dist/alpha/components/TemplatesSubPage.esm.js b/dist/alpha/components/TemplatesSubPage.esm.js
+index c5a5181bbc7f3e894c69d9e6e0d99225f6e4018c..19d4aceb68299860ba6162eb44927ba64dd241b4 100644
+--- a/dist/alpha/components/TemplatesSubPage.esm.js
++++ b/dist/alpha/components/TemplatesSubPage.esm.js
+@@ -1,3 +1,4 @@
+ import { jsxs, jsx } from 'react/jsx-runtime';
++import { Component } from 'react';
+ import { useMemo, useCallback } from 'react';
+ import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+@@ -21,7 +22,21 @@ import { OpaqueFormField } from '../../packages/scaffolder-internal/src/wiring/I
+ import '../../packages/scaffolder-internal/src/wiring/InternalFormDecorator.esm.js';
+
++class HeaderActionErrorBoundary extends Component {
++  constructor(props) {
++    super(props);
++    this.state = { failed: false };
++  }
++  static getDerivedStateFromError() {
++    return { failed: true };
++  }
++  render() {
++    return this.state.failed ? null : this.props.children;
++  }
++}
++
+ function TemplateListContent({
+-  groups: configuredGroups
++  groups: configuredGroups,
++  headerActions = []
+ }) {
+   const registerComponentLink = useRouteRef(registerComponentRouteRef);
+   const viewTechDocsLink = useRouteRef(viewTechDocRouteRef);
+@@ -77,6 +90,11 @@ function TemplateListContent({
+           to: registerComponentLink && registerComponentLink()
+         }
+       ),
++      ...headerActions
++        .filter(action => action && typeof action.id === 'string' && action.id.length > 0 && action.component)
++        .slice()
++        .sort((a, b) => (Number.isFinite(a.order) ? a.order : 0) - (Number.isFinite(b.order) ? b.order : 0) || a.id.localeCompare(b.id))
++        .map(({ id, component: HeaderAction }) => /* @__PURE__ */ jsx(HeaderActionErrorBoundary, { children: /* @__PURE__ */ jsx(HeaderAction, {}) }, id)),
+       /* @__PURE__ */ jsx(SupportButton, { children: t("templateListPage.contentHeader.supportButtonTitle") })
+     ] }),
+     /* @__PURE__ */ jsxs(CatalogFilterLayout, { children: [
+@@ -129,7 +134,7 @@ function TemplatesSubPage(props) {
+     )
+   ];
+   return /* @__PURE__ */ jsxs(Routes, { children: [
+-    /* @__PURE__ */ jsx(Route, { index: true, element: /* @__PURE__ */ jsx(TemplateListContent, { groups: props.groups }) }),
++    /* @__PURE__ */ jsx(Route, { index: true, element: /* @__PURE__ */ jsx(TemplateListContent, { groups: props.groups, headerActions: props.headerActions }) }),
+     /* @__PURE__ */ jsx(
+       Route,
+       {
+diff --git a/dist/alpha/extensions.esm.js b/dist/alpha/extensions.esm.js
+index 6395b154f5f67b62b4d8faea5d895cc907854ed5..b786167a7ead12c9e52ddba686fd478ec899cb87 100644
+--- a/dist/alpha/extensions.esm.js
++++ b/dist/alpha/extensions.esm.js
+@@ -1,5 +1,5 @@
+ import { jsx } from 'react/jsx-runtime';
+-import { PageBlueprint, createExtensionInput, SubPageBlueprint, ApiBlueprint, identityApiRef, fetchApiRef, discoveryApiRef } from '@backstage/frontend-plugin-api';
++import { PageBlueprint, createExtensionInput, createExtensionDataRef, SubPageBlueprint, ApiBlueprint, identityApiRef, fetchApiRef, discoveryApiRef } from '@backstage/frontend-plugin-api';
+ import { z } from 'zod/v4';
+ import { filterPredicateToFilterFunction, createZodV4FilterPredicateSchema } from '@backstage/filter-predicates';
+ import { rootRouteRef } from '../routes.esm.js';
+@@ -24,8 +24,14 @@ const scaffolderPage = PageBlueprint.makeWithOverrides({
+     });
+   }
+ });
++const scaffolderHeaderActionDataRef = createExtensionDataRef().with({
++  id: "ansible.portal.scaffolder.header-action.v1"
++});
+ const scaffolderTemplatesSubPage = SubPageBlueprint.makeWithOverrides({
+   name: "templates",
++  inputs: {
++    headerActions: createExtensionInput([scaffolderHeaderActionDataRef], { optional: true })
++  },
+   configSchema: {
+     enableBackstageUi: z.boolean().optional().default(false),
+     groups: z.array(
+@@ -35,7 +41,7 @@ const scaffolderTemplatesSubPage = SubPageBlueprint.makeWithOverrides({
+       })
+     ).optional()
+   },
+-  factory(originalFactory, { apis, config }) {
++  factory(originalFactory, { apis, config, inputs }) {
+     const formFieldsApi = apis.get(formFieldsApiRef);
+     const groups = config.groups?.map(
+       (group) => ({
+@@ -53,6 +59,9 @@ const scaffolderTemplatesSubPage = SubPageBlueprint.makeWithOverrides({
+           {
+             formFields,
+             groups,
++            headerActions: inputs.headerActions.map(
++              (input) => input.get(scaffolderHeaderActionDataRef)
++            ),
+             formProps: {
+               EXPERIMENTAL_theme: config.enableBackstageUi ? "bui" : "mui"
+             }

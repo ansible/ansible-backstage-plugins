@@ -15,6 +15,8 @@ import {
 } from '@backstage/core-compat-api';
 import { AnsibleLogo } from './components/AnsibleLogo';
 import { rootRouteRef } from './routes';
+import { ScaffolderHeaderActionBlueprint } from '@ansible/portal-extension-api/alpha';
+import { ScaffolderSyncNow } from './components/ScaffolderSyncNow/ScaffolderSyncNow';
 
 const ansiblePlugin: FrontendPlugin = createFrontendPlugin({
   pluginId: 'ansible',
@@ -33,6 +35,13 @@ const ansiblePlugin: FrontendPlugin = createFrontendPlugin({
           const { AnsiblePage } = await import('./components/AnsiblePage');
           return compatWrapper(<AnsiblePage />);
         },
+      },
+    }),
+    ScaffolderHeaderActionBlueprint.make({
+      name: 'sync-now',
+      params: {
+        component: ScaffolderSyncNow,
+        order: 100,
       },
     }),
   ],

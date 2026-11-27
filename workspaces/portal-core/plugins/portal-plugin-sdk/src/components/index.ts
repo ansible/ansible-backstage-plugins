@@ -3,6 +3,8 @@ export * from './EmptyStateView';
 export * from './EntityLinkButton';
 export * from './PageHeader';
 export * from './PageHeaderSection';
+export * from './SyncNowButton';
+export * from './SyncNowDialog';
 export * from './ScmIntegrationAuthError';
 export * from './SkeletonLoader';
 export * from './SyncDialog';
