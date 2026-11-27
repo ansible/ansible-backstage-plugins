@@ -113,7 +113,7 @@ Exceptions expire at 00:00 UTC on the stated date and cannot last more than 30
 days. There is no automatic renewal. Changes to the consumer lockfile, advisory
 severity or affected versions require a new review. Remove unused exceptions
 when fixes make them unnecessary. The currently proposed preview decisions
-expire on 11 December 2026 and explicitly accept inherited risks, including two
+expire on 27 December 2026 and explicitly accept inherited risks, including two
 High-severity findings. They are not a production-readiness or security approval.
 
 The read-only build assesses the complete report and records a digest of the

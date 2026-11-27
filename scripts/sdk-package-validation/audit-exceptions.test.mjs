@@ -12,7 +12,7 @@ const entry = () => ({
   disposition: 'risk-accepted',
   owner: '@ansible/automation-portal-engineers',
   createdOn: '2026-11-27',
-  expiresOn: '2026-12-11',
+  expiresOn: '2026-12-27',
   rationale:
     'Temporary preview risk acceptance while the upstream dependency correction is reviewed.',
   evidence: ['https://github.com/wooorm/refractor/pull/82'],
@@ -105,7 +105,7 @@ test('expired, future, excessive, duplicate and incomplete exception decisions f
   assert.throws(
     () =>
       assess(policy(), record(), 1, {
-        now: Date.parse('2026-12-11T00:00:00Z'),
+        now: Date.parse('2026-12-27T00:00:00Z'),
       }),
     /expired/,
   );

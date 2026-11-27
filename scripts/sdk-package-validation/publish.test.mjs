@@ -375,7 +375,7 @@ test('publisher rechecks accepted findings and expiry after registry preflight',
         disposition: 'risk-accepted',
         owner: '@ansible/automation-portal-engineers',
         createdOn: '2026-11-27',
-        expiresOn: '2026-12-11',
+        expiresOn: '2026-12-27',
         rationale:
           'A reviewed test-only preview decision for this synthetic dependency graph.',
         evidence: ['https://github.com/wooorm/refractor/pull/82'],
@@ -418,7 +418,7 @@ test('publisher rechecks accepted findings and expiry after registry preflight',
   );
   const expired = run(['--publish'], {
     ...env,
-    TEST_CLOCK_AFTER_PREFLIGHT: '2026-12-11T00:00:00Z',
+    TEST_CLOCK_AFTER_PREFLIGHT: '2026-12-27T00:00:00Z',
   });
   assert.notEqual(expired.status, 0);
   assert.match(expired.stderr, /expired/);
