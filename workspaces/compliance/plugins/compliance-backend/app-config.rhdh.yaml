@@ -1,0 +1,8 @@
+---
+dynamicPlugins:
+  backend:
+    aap-compliance.plugin-compliance-backend:
+      pluginConfig:
+        ansible:
+          compliance:
+            enabled: true

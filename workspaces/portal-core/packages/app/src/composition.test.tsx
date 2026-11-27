@@ -79,8 +79,14 @@ describe('development contributor selection', () => {
   );
 
   it.each([
-    [undefined, ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
-    ['full', ['portal-scaffolder', 'apme', 'ansible'], 1, 1, 1],
+    [
+      undefined,
+      ['portal-scaffolder', 'apme', 'ansible', 'compliance'],
+      1,
+      1,
+      1,
+    ],
+    ['full', ['portal-scaffolder', 'apme', 'ansible', 'compliance'], 1, 1, 1],
     ['scaffolder', ['portal-scaffolder'], 1, 0, 0],
     ['core', [], 0, 0, 0],
   ] as const)(

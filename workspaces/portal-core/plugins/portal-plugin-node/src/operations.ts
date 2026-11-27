@@ -62,10 +62,8 @@ export class PortalOperations {
     ) {
       throw new InputError('Invalid operation organization scope');
     }
-    if (!descriptor.id.startsWith(`${pluginId}.`) || !descriptor.permission) {
-      throw new InputError(
-        'An operation must have an owner-prefixed ID and a permission',
-      );
+    if (!descriptor.id.startsWith(`${pluginId}.`)) {
+      throw new InputError('An operation must have an owner-prefixed ID');
     }
     if (this.registrations.has(descriptor.id)) {
       throw new InputError(`Duplicate operation: ${descriptor.id}`);
@@ -156,14 +154,18 @@ export class PortalOperations {
           'Operation organization context is missing, ambiguous or inconsistent',
         );
       }
-      const requirement = registration.descriptor.permission!;
-      const query =
-        'permission' in requirement ? requirement : { permission: requirement };
-      const [decision] = await permissions.authorize([query], {
-        credentials: context.credentials,
-      });
-      if (decision?.result !== AuthorizeResult.ALLOW) {
-        throw new NotAllowedError('Operation permission denied');
+      const requirement = registration.descriptor.permission;
+      if (requirement) {
+        const query =
+          'permission' in requirement
+            ? requirement
+            : { permission: requirement };
+        const [decision] = await permissions.authorize([query], {
+          credentials: context.credentials,
+        });
+        if (decision?.result !== AuthorizeResult.ALLOW) {
+          throw new NotAllowedError('Operation permission denied');
+        }
       }
       if (entry.input && !entry.input(request.input ?? {})) {
         throw new InputError('Operation input does not match its schema');
