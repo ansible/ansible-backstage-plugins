@@ -14,6 +14,7 @@ import { createPortalScaffolderFieldBlueprints } from '@ansible/portal-extension
 import type { FieldExtensionOptions } from '@backstage/plugin-scaffolder-react';
 import { portalScaffolderRoutePaths } from '@ansible/portal-scaffolder-common';
 import { AAPApis, EEBuildApis } from './apis';
+import { stockRepositoryExtensions } from './proof/stockRepositoryExtensions';
 import {
   rootRouteRef,
   collectionsRouteRef,
@@ -165,6 +166,7 @@ const portalScaffolderPlugin: FrontendPlugin = createFrontendPlugin({
     repositories: convertLegacyRouteRef(gitRepositoriesRouteRef),
   },
   extensions: [
+    ...stockRepositoryExtensions,
     aapUserTokenFormDecorator,
     ApiBlueprint.make({ name: 'aap', params: define => define(AAPApis) }),
     ApiBlueprint.make({
