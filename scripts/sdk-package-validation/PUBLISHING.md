@@ -76,10 +76,15 @@ appropriate for the repository setup. The publishing workflow does not create
 missing scans or fall back to results from `main`. No additional personal token
 is needed.
 
-The `sdk-security-diagnostics-<attempt>` artifact contains only a sanitized
-`scan-status.json` with the source ref/SHA and pass/fail states. Failed scan
-reports and raw SARIF are never uploaded as public workflow artifacts. Detailed
-CodeQL findings remain in the repository's restricted code-scanning interface.
+The `sdk-security-diagnostics-<attempt>` artifact contains a sanitized
+`scan-status.json` with the source ref/SHA and pass/fail states, the audited
+`consumer.yarn.lock`, the complete npm dependency audit output in
+`yarn-audit.ndjson`, and `dependency-audit.summary.json` when assessment succeeds.
+These dependency diagnostics are retained even when a gate fails so maintainers
+can compare the actual resolved graph with the reviewed exception policy.
+Raw SARIF, CodeQL finding details, package archives and passing release receipts
+are excluded from this diagnostic artifact. Detailed CodeQL findings remain in
+the repository's restricted code-scanning interface.
 The independent dependency audit still runs after a CodeQL lookup or download
 failure. If the job fails before it can write a status file, no diagnostic
 artifact may exist; inspect the failed step log instead.
