@@ -22,14 +22,19 @@ This decision applies to the team's private process material, not this public
 plugin repository. This checkout has no `skills/` directory at the
 repository root.
 
+Contributor-facing guards that have to ship with this public repository — the
+checks a contributor can run without access to the private process material —
+are the exception. They live in `.agents/skills/<name>/SKILL.md`, the
+vendor-neutral directory that every AGENTS.md-aware harness reads.
+
 Agent skills are maintained outside this repository, one directory per skill with
 a `SKILL.md` entry point plus optional examples and evaluation cases. Developers
 link them into each agent's expected directory on their own machine, so the same
 skill serves Claude Code, Cursor, and other agents without a per-vendor copy in
 git.
 
-Do not add a `skills/` directory here, and do not check in symlink recipes that
-only work from a private checkout.
+Do not add a root-level `skills/` directory here, and do not check in symlink
+recipes that only work from a private checkout.
 
 ## Alternatives Considered
 
