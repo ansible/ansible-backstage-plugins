@@ -1,4 +1,9 @@
-export { automationContentPlugin, AutomationContentPage } from './plugin';
+export {
+  automationContentPlugin,
+  AutomationContentPage,
+  AutomationContentCollectionsPage,
+  AutomationContentGitRepositoriesPage,
+} from './plugin';
 export { AutomationContentSidebarItem } from './components/SidebarItem';
 export { automationContentApiRef, AutomationContentClient } from './api';
 export type {
@@ -12,3 +17,5 @@ export type {
   Enumeration,
 } from './api';
 export { rootRouteRef } from './routes';
+export { CollectionsPickerFieldExtension } from './components/Scaffolder/CollectionsPicker/extensions';
+export { ScmSelectorFieldExtension } from './components/Scaffolder/ScmSelector/extensions';

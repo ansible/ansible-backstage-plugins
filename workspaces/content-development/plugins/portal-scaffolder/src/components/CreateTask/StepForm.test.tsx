@@ -34,15 +34,12 @@ jest.mock('@backstage/plugin-scaffolder-react', () => ({
   }),
 }));
 jest.mock('@ansible/portal-extension-api', () => ({
+  rhAapAuthApiRef: {},
   useScaffolderFields: () => mockDiscoveredFields,
   mergeScaffolderFields: (host: unknown[], discovered: unknown[]) => [
     ...discovered,
     ...host,
   ],
-}));
-
-jest.mock('@ansible/aap-app-auth', () => ({
-  rhAapAuthApiRef: {},
 }));
 
 jest.mock('./formExtraFields', () => ({

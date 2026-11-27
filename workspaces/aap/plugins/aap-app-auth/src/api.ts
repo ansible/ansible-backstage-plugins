@@ -1,6 +1,5 @@
 import {
   createApiFactory,
-  createApiRef,
   configApiRef,
   discoveryApiRef,
   oauthRequestApiRef,
@@ -8,24 +7,15 @@ import {
   type ConfigApi,
   type DiscoveryApi,
   type OAuthRequestApi,
-  type BackstageIdentityApi,
-  type OAuthApi,
-  type OpenIdConnectApi,
-  type ProfileInfoApi,
-  type SessionApi,
 } from '@backstage/core-plugin-api';
 import { OAuth2 } from '@backstage/core-app-api';
+import {
+  rhAapAuthApiRef,
+  type AapAuthApi as AapAuthApiType,
+} from '@ansible/portal-extension-api';
 
-export type AapAuthApiType = OAuthApi &
-  OpenIdConnectApi &
-  ProfileInfoApi &
-  BackstageIdentityApi &
-  SessionApi;
-
-/** Shared by the app shell and AAP consumers, independently of their pages. */
-export const rhAapAuthApiRef = createApiRef<AapAuthApiType>({
-  id: 'ansible.auth.rhaap',
-});
+export { rhAapAuthApiRef };
+export type { AapAuthApiType };
 
 export const AapAuthApi: ApiFactory<
   AapAuthApiType,

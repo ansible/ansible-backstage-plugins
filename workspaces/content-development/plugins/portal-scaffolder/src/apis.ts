@@ -7,7 +7,10 @@ import {
   createApiRef,
   fetchApiRef,
 } from '@backstage/core-plugin-api';
-import { rhAapAuthApiRef, type AapAuthApiType } from '@ansible/aap-app-auth';
+import {
+  rhAapAuthApiRef,
+  type AapAuthApi as AapAuthApiType,
+} from '@ansible/portal-extension-api';
 import type {
   EEBuildRequest,
   EEBuildResult,

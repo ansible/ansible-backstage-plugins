@@ -46,7 +46,7 @@ import {
   type ArtifactContents,
   type ExecutionEnvironment,
 } from '../../api';
-import { templatesRouteRef } from '../../routes';
+import { portalTemplatesRouteRef } from '@ansible/portal-extension-api';
 import { eeTranslationRef } from '../../strings/en';
 import { SigningEvidence } from './SigningEvidence';
 import { controllerTemplateHref } from './controllerTemplateHref';
@@ -92,7 +92,6 @@ function RepositoryDetails({
   );
   const selection = useEESelection(detail.value);
   const selected = selection.selected;
-  const templatesRoute = useRouteRef(templatesRouteRef);
   const [refresh, setRefresh] = useState(0);
   const artifactRef = selected?.artifactRef;
   const artifactDetail = useAsyncRetry(
@@ -104,7 +103,7 @@ function RepositoryDetails({
       ? artifactDetail.value
       : undefined;
   const image = selected?.taggedPullReference ?? currentArtifact?.pullReference;
-  const templatesHref = templatesRoute?.();
+  const templatesHref = useRouteRef(portalTemplatesRouteRef)?.();
   const retryRepository = detail.retry;
   const reload = useCallback(() => {
     retryRepository();

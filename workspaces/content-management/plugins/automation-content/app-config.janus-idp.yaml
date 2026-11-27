@@ -15,3 +15,7 @@ dynamicPlugins:
           menuItem:
             icon: CatalogIcon
             text: Automation Content
+        - path: /self-service/collections/*
+          importName: AutomationContentCollectionsPage
+        - path: /self-service/repositories/*
+          importName: AutomationContentGitRepositoriesPage

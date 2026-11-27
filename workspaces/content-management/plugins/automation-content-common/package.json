@@ -26,6 +26,7 @@
   ],
   "dependencies": {
     "@ansible/content-model": "workspace:^",
+    "@ansible/portal-extension-common": "workspace:^",
     "@backstage/plugin-permission-common": "0.9.10",
     "undici": "6.29.1"
   },

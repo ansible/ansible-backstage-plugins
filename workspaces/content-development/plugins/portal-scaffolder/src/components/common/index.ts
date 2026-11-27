@@ -16,9 +16,6 @@ export type {
 export { CatalogSyncHeader } from './CatalogSyncHeader';
 export type { CatalogSyncHeaderProps } from './CatalogSyncHeader';
 
-export { CollectionsEmptyState } from './CollectionsEmptyState';
-export type { CollectionsEmptyStateProps } from './CollectionsEmptyState';
-
 // Icons
 export { GitLabIcon, RedHatIcon } from '@ansible/portal-plugin-sdk';
 
@@ -60,6 +57,6 @@ export {
   fetchGitFileContentFromBackend,
 } from './fetchReadme';
 export type { FetchReadmeParams, FetchGitFileOutcome } from './fetchReadme';
-export { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+export { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/portal-extension-common';
 export { CONFIGURATION_DOCS_URL } from './constants';
 export type { SourcesTree } from './types';

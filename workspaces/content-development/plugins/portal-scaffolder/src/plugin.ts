@@ -7,8 +7,6 @@ import {
 import {
   rootRouteRef,
   eeRouteRef,
-  collectionsRouteRef,
-  gitRepositoriesRouteRef,
   templatesRouteRef,
   historyRouteRef,
 } from './routes';
@@ -20,8 +18,6 @@ export const selfServicePlugin = createPlugin({
   routes: {
     root: rootRouteRef,
     ee: eeRouteRef,
-    collections: collectionsRouteRef,
-    gitRepositories: gitRepositoriesRouteRef,
     templates: templatesRouteRef,
     history: historyRouteRef,
   },
@@ -74,23 +70,6 @@ export const EEPage = selfServicePlugin.provide(
 );
 
 /**
- * Collections landing page component for mounting at /self-service/collections
- * Contains routing for the Collections Catalog section.
- *
- * @public
- */
-export const CollectionsPage = selfServicePlugin.provide(
-  createRoutableExtension({
-    name: 'CollectionsPage',
-    component: () =>
-      import('./components/CollectionsCatalog').then(
-        m => m.CollectionsRoutesPage,
-      ),
-    mountPoint: collectionsRouteRef,
-  }),
-);
-
-/**
  * Templates page component for mounting at /self-service
  * Contains routing for all ansible.templates.view gated paths:
  * catalog, catalog/:namespace/:templateName, and create/templates/:namespace/:templateName.
@@ -134,57 +113,6 @@ export const EEBuilderSidebarItem = selfServicePlugin.provide(
     component: {
       lazy: () =>
         import('./components/SidebarItems').then(m => m.EEBuilderSidebarItem),
-    },
-  }),
-);
-
-/**
- * A sidebar item that checks Collections permissions before rendering.
- * Returns null if the user doesn't have permission, hiding the sidebar entry.
- *
- * @public
- */
-export const CollectionsSidebarItem = selfServicePlugin.provide(
-  createComponentExtension({
-    name: 'CollectionsSidebarItem',
-    component: {
-      lazy: () =>
-        import('./components/SidebarItems').then(m => m.CollectionsSidebarItem),
-    },
-  }),
-);
-
-/**
- * Git Repositories page component for mounting at /self-service/repositories
- * Contains routing for the Git Repositories section.
- *
- * @public
- */
-export const GitRepositoriesPage = selfServicePlugin.provide(
-  createRoutableExtension({
-    name: 'GitRepositoriesPage',
-    component: () =>
-      import('./components/GitRepositories').then(
-        m => m.GitRepositoriesRoutesPage,
-      ),
-    mountPoint: gitRepositoriesRouteRef,
-  }),
-);
-
-/**
- * A sidebar item that checks Git Repositories permissions before rendering.
- * Returns null if the user doesn't have permission, hiding the sidebar entry.
- *
- * @public
- */
-export const GitRepositoriesSidebarItem = selfServicePlugin.provide(
-  createComponentExtension({
-    name: 'GitRepositoriesSidebarItem',
-    component: {
-      lazy: () =>
-        import('./components/SidebarItems').then(
-          m => m.GitRepositoriesSidebarItem,
-        ),
     },
   }),
 );

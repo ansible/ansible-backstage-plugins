@@ -18,7 +18,7 @@ import {
   EntitySearchBar,
   UserListPicker,
 } from '@backstage/plugin-catalog-react';
-import { templatesViewPermission } from '@ansible/aap-common/permissions';
+import { templatesViewPermission } from '@ansible/portal-extension-common';
 
 import { useIsSuperuser } from '../../hooks';
 import {

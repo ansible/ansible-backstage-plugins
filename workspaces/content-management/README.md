@@ -6,6 +6,10 @@ collections and future content types, over any OCI-compliant registry.
 
 Mounted in the Automation Portal at **`/automation-content`**.
 
+The frontend plugin also owns the **Collections** and **Git repositories**
+experiences, mounted at `/self-service/collections` and
+`/self-service/repositories`, plus their Scaffolder fields.
+
 > **Status: proof of concept, under active development.** Interfaces, config
 > shape, API routes and entity shape all still move without notice. Nothing
 > here is supported or ready to depend on.
@@ -23,6 +27,13 @@ concept (branch `ANSTRAT-1758-poc`) and being adapted to the Portal SDK.
 | `plugins/catalog-backend-module-automation-content` | `@ansible/plugin-catalog-backend-module-automation-content` | Catalog backend module |
 | `plugins/content-model`                             | `@ansible/content-model`                                    | Common library         |
 | `plugins/content-type-execution-environment`        | `@ansible/content-type-execution-environment`               | Common library         |
+
+Collections, Git repositories, the Collections picker, and the SCM selector
+are provided by `@ansible/plugin-automation-content`. Their route paths remain
+stable. The root app mounts the legacy routes from this plugin, and the native
+plugin registers the same pages and fields for RHDH. Cross-workspace interfaces
+such as permissions, auth, and repository cache invalidation use the shared
+Portal extension SDK packages.
 
 Both backend packages are registered in the development backend at
 `workspaces/portal-core/packages/backend/src/index.ts`. Catalog provider
@@ -162,8 +173,8 @@ Controller.
 
 Administrators register the template from [ansible-rhdh-templates][templates-repo].
 For a disconnected deployment, mirror the repository and register the local
-SCM location. The feature resolves the Portal Templates route through the
-native `automation-content.templates` route binding.
+SCM location. The **Create** actions resolve the templates destination through
+the shared `portalTemplatesRouteRef` contract.
 
 [templates-repo]: https://github.com/ansible/ansible-rhdh-templates
 

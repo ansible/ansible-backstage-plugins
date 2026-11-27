@@ -5,9 +5,7 @@ describe('portal scaffolder route paths', () => {
   it('preserves the public page and sub-route path contract', () => {
     expect(portalScaffolderRoutePaths).toEqual({
       root: '/self-service',
-      collections: '/self-service/collections',
       executionEnvironments: '/self-service/ee',
-      gitRepositories: '/self-service/repositories',
       catalogImport: '/catalog-import',
       selectedTemplate: '/create/templates/:namespace/:templateName',
       createTask: '/create/tasks/:taskId',

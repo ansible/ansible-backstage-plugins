@@ -12,16 +12,8 @@ jest.mock('./notificationStore', () => ({
   },
 }));
 
-jest.mock('../CollectionsCatalog/collectionsInvalidation', () => ({
-  invalidateCollections: jest.fn(),
-}));
-
-import { invalidateCollections } from '../CollectionsCatalog/collectionsInvalidation';
-
 const mockShowNotification = notificationStore.showNotification as jest.Mock;
-const mockInvalidateFetchedData = invalidateCollections as jest.MockedFunction<
-  typeof invalidateCollections
->;
+const mockInvalidateFetchedData = jest.fn();
 
 describe('syncPollingService', () => {
   let mockDiscoveryApi: { getBaseUrl: jest.Mock };

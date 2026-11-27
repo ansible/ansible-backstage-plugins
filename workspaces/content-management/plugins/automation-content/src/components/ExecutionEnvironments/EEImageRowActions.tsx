@@ -16,8 +16,8 @@ import {
 } from '@backstage/ui';
 import { RiMore2Line } from '@remixicon/react';
 import type { EERepositorySummary } from '@ansible/automation-content-common/eeRepository';
+import { portalTemplatesRouteRef } from '@ansible/portal-extension-api';
 import { automationContentApiRef } from '../../api';
-import { templatesRouteRef } from '../../routes';
 import { controllerTemplateHref } from './controllerTemplateHref';
 import { eeTranslationRef } from '../../strings/en';
 import { SyncFeedback, useEESync } from './SyncAction';
@@ -36,7 +36,7 @@ export function EEImageRowActions({
   const api = useApi(automationContentApiRef);
   const navigate = useNavigate();
   const isMounted = useMountedState();
-  const templatesHref = useRouteRef(templatesRouteRef)?.();
+  const templatesHref = useRouteRef(portalTemplatesRouteRef)?.();
   const { registry, repository, representativeRef, representativeTag } = image;
   const [controller, openControllerTemplate] = useAsyncFn(async () => {
     if (!templatesHref) return;

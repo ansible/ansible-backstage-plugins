@@ -9,7 +9,7 @@ import {
   createScaffolderFormDecorator,
   type ScaffolderFormDecoratorContext,
 } from '@backstage/plugin-scaffolder-react/alpha';
-import { rhAapAuthApiRef } from '@ansible/aap-app-auth';
+import { rhAapAuthApiRef } from '@ansible/portal-extension-api';
 
 /** Acquire the current user's token for this submission without caching it. */
 export async function applyAapUserToken(

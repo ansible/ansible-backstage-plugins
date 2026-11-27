@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { executionEnvironmentsViewPermission as ownedPermission } from '@ansible/automation-content-common/permissions';
+import { executionEnvironmentsViewPermission as ownedPermission } from '@ansible/portal-extension-common';
 
 import {
   executionEnvironmentsViewPermission,

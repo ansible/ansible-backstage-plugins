@@ -1,8 +1,5 @@
 import { createRouteRef } from '@backstage/core-plugin-api';
-import {
-  createExternalRouteRef,
-  createRouteRef as createNativeRouteRef,
-} from '@backstage/frontend-plugin-api';
+import { createRouteRef as createNativeRouteRef } from '@backstage/frontend-plugin-api';
 
 /**
  * The plugin's root route.
@@ -17,6 +14,8 @@ export const rootRouteRef = createRouteRef({
 
 export const eeRouteRef = createNativeRouteRef();
 
-export const templatesRouteRef = createExternalRouteRef({
-  defaultTarget: 'portal-scaffolder.root',
-});
+export const collectionsRouteRef = createNativeRouteRef();
+export const gitRepositoriesRouteRef = createNativeRouteRef();
+
+export const COLLECTIONS_ROUTE_PATH = '/self-service/collections';
+export const GIT_REPOSITORIES_ROUTE_PATH = '/self-service/repositories';

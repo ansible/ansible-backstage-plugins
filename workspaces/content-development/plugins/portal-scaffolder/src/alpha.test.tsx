@@ -163,12 +163,6 @@ jest.mock('./components/Home', () => ({
     <div data-testid="templates-content">Portal templates</div>
   ),
 }));
-jest.mock('./components/CollectionsCatalog', () => ({
-  CollectionsRoutesPage: () => <div>Native collections section</div>,
-}));
-jest.mock('./components/GitRepositories', () => ({
-  GitRepositoriesRoutesPage: () => <div>Native repositories section</div>,
-}));
 const mockValidation = jest.fn();
 jest.mock('./components/CreateTask/StepForm', () => ({
   StepForm: ({ nativeFields, submitFunction }: any) => (
@@ -233,21 +227,18 @@ const declaration: ScaffolderFieldDescriptor = {
   }),
 };
 
-it('provides distinct native sidebar icons for the existing self-service sections', async () => {
+it('provides a native sidebar icon for the self-service templates section', async () => {
   await renderTestApp({
     features: [portalHost, plugin],
     initialRouteEntries: ['/self-service'],
     apis: [mockApis.permission()],
   });
   await screen.findByTestId('templates-content', {}, { timeout: 10000 });
-  const paths = ['Templates', 'Collections', 'Git repositories'].map(name =>
-    screen
-      .getByRole('link', { name })
-      .querySelector('svg path')
-      ?.getAttribute('d'),
-  );
-  expect(paths.every(Boolean)).toBe(true);
-  expect(new Set(paths).size).toBe(3);
+  const templateIcon = screen
+    .getByRole('link', { name: 'Templates' })
+    .querySelector('svg path')
+    ?.getAttribute('d');
+  expect(templateIcon).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'History' })).toBeNull();
   expect(
     screen.queryByRole('link', { name: 'Execution Environments' }),
@@ -285,12 +276,10 @@ it('loads contributed custom picker fields through Backstage formFieldsApiRef', 
   expect(contributedNames).toEqual(
     [
       'AAPResourcePicker',
-      'CollectionsPicker',
       'BaseImagePicker',
       'FileUploadPicker',
       'PackagesPicker',
       'MCPServersPicker',
-      'ScmSelector',
       'AdditionalBuildStepsPicker',
       'EEFileNamePicker',
       'EETagsPicker',
@@ -413,11 +402,6 @@ it('discovers native fields on the real Portal wizard route and keeps the existi
 });
 
 it.each([
-  ['/self-service/collections', 'Native collections section'],
-  ['/self-service/collections/example', 'Native collections section'],
-  ['/self-service/repositories/catalog', 'Native repositories section'],
-  ['/self-service/repositories/example', 'Native repositories section'],
-  ['/self-service/repositories/ci-activity', 'Native repositories section'],
   ['/self-service/catalog', 'Portal templates'],
   ['/self-service/catalog/default/example', 'Portal templates'],
   ['/self-service/catalog-import', 'Native catalog import'],

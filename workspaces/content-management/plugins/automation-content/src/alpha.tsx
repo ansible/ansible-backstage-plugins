@@ -21,15 +21,28 @@ import {
   createPortalScaffolderFieldBlueprints,
   EntityDetailTabBlueprint,
 } from '@ansible/portal-extension-api/alpha';
+import { portalTemplatesRouteRef } from '@ansible/portal-extension-api';
+import { gitRepositoriesCatalogApiFactory } from './components/GitRepositories/gitRepositoriesCatalogApi';
 import { automationContentApiFactory } from './api';
+import { validateScmSelector } from './components/Scaffolder/ScmSelector/validation';
+import type { ScmSelectorData } from './components/Scaffolder/ScmSelector/ScmSelectorExtension';
 import {
   automationContentManifest,
   eeCapabilityId,
   eeDetailsEntryId,
   eeVersionFieldEntryId,
+  movedFieldsCapabilityId,
+  collectionsPickerFieldEntryId,
+  scmSelectorFieldEntryId,
 } from './manifest';
 
-import { eeRouteRef, templatesRouteRef } from './routes';
+import {
+  eeRouteRef,
+  collectionsRouteRef,
+  gitRepositoriesRouteRef,
+  COLLECTIONS_ROUTE_PATH,
+  GIT_REPOSITORIES_ROUTE_PATH,
+} from './routes';
 
 function isEERepository(entity: Entity): boolean {
   return (
@@ -63,11 +76,19 @@ export const eeOverviewLayout: ExtensionDefinition =
 
 const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
   pluginId: 'automation-content',
-  routes: { ee: eeRouteRef },
-  externalRoutes: { templates: templatesRouteRef },
+  routes: {
+    ee: eeRouteRef,
+    collections: collectionsRouteRef,
+    gitRepositories: gitRepositoriesRouteRef,
+  },
+  externalRoutes: { templates: portalTemplatesRouteRef },
   extensions: [
     ApiBlueprint.make({
       params: define => define(automationContentApiFactory),
+    }),
+    ApiBlueprint.make({
+      name: 'git-repositories-catalog',
+      params: define => define(gitRepositoriesCatalogApiFactory),
     }),
     PageBlueprint.make({
       name: 'ee',
@@ -76,6 +97,52 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
         routeRef: eeRouteRef,
         title: 'Execution Environments',
         icon: <RiBox3Line />,
+      },
+    }),
+    PageBlueprint.make({
+      name: 'collections',
+      params: {
+        path: COLLECTIONS_ROUTE_PATH,
+        routeRef: collectionsRouteRef,
+        title: 'Collections',
+        icon: <RiBox3Line />,
+        noHeader: true,
+        loader: async () => {
+          const { ContentCatalogBoundary } = await import(
+            './components/ContentCatalogBoundary'
+          );
+          const { CollectionsRoutesPage } = await import(
+            './components/CollectionsCatalog'
+          );
+          return (
+            <ContentCatalogBoundary>
+              <CollectionsRoutesPage />
+            </ContentCatalogBoundary>
+          );
+        },
+      },
+    }),
+    PageBlueprint.make({
+      name: 'repositories',
+      params: {
+        path: GIT_REPOSITORIES_ROUTE_PATH,
+        routeRef: gitRepositoriesRouteRef,
+        title: 'Git repositories',
+        icon: <RiBox3Line />,
+        noHeader: true,
+        loader: async () => {
+          const { ContentCatalogBoundary } = await import(
+            './components/ContentCatalogBoundary'
+          );
+          const { GitRepositoriesRoutesPage } = await import(
+            './components/GitRepositories'
+          );
+          return (
+            <ContentCatalogBoundary>
+              <GitRepositoriesRoutesPage />
+            </ContentCatalogBoundary>
+          );
+        },
       },
     }),
     SubPageBlueprint.make({
@@ -116,6 +183,47 @@ const automationContentPlugin: FrontendPlugin = createFrontendPlugin({
         return {
           name: 'EEImageVersionPicker',
           component: EEImageVersionPicker,
+        };
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('collections-picker', {
+      manifest: automationContentManifest,
+      capabilityId: movedFieldsCapabilityId,
+      entryPointId: collectionsPickerFieldEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'CollectionsPicker',
+      loader: async () => {
+        const { CollectionsPickerExtension } = await import(
+          './components/Scaffolder/CollectionsPicker/CollectionsPickerExtension'
+        );
+        return {
+          name: 'CollectionsPicker',
+          component: CollectionsPickerExtension,
+        };
+      },
+    }),
+    ...createPortalScaffolderFieldBlueprints('scm-selector', {
+      manifest: automationContentManifest,
+      capabilityId: movedFieldsCapabilityId,
+      entryPointId: scmSelectorFieldEntryId,
+      attachment: 'scaffolder.fields',
+      fieldName: 'ScmSelector',
+      loader: async () => {
+        const { ScmSelectorExtension } = await import(
+          './components/Scaffolder/ScmSelector/ScmSelectorExtension'
+        );
+        return {
+          name: 'ScmSelector',
+          component: ScmSelectorExtension,
+          validation: (value, validation, context) => {
+            const options = context.uiSchema?.['ui:options'] as
+              | { requestUserCredentials?: unknown }
+              | undefined;
+            validateScmSelector(
+              value as ScmSelectorData | undefined,
+              Boolean(options?.requestUserCredentials),
+            ).forEach(error => validation.addError(error));
+          },
         };
       },
     }),
