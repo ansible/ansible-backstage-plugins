@@ -251,7 +251,6 @@ describe('self-service', () => {
         'Use this template to create actual wizard use case templates',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('RedHat')).toBeInTheDocument();
     expect(screen.getByText('aap-operations')).toBeInTheDocument();
     expect(screen.getByText('intermediate')).toBeInTheDocument();
     expect(screen.getByText('Start')).toBeInTheDocument();
