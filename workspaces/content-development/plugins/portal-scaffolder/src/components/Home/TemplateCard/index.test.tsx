@@ -113,15 +113,9 @@ describe('WizardCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders owner name', () => {
+  it('does not render owner footer even when spec.owner is present', () => {
     renderWithTheme(<WizardCard template={makeTemplate()} />);
-    expect(screen.getByText('team-a')).toBeInTheDocument();
-  });
-
-  it('renders correctly with dark theme', () => {
-    const darkTheme = createTheme({ palette: { type: 'dark' } });
-    renderWithTheme(<WizardCard template={makeTemplate()} />, darkTheme);
-    expect(screen.getByText('team-a')).toBeInTheDocument();
+    expect(screen.queryByText('team-a')).not.toBeInTheDocument();
   });
 
   it('navigates to template details when title is clicked', () => {
