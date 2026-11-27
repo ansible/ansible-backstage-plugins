@@ -9,20 +9,21 @@ self-service or importing another optional plugin's implementation. Declare
 frontend extensions statically through NFS and register backend operations
 through injected host services.
 
-This guide describes the current experimental SDK for teams developing plugins
-inside this repository's workspaces. The preview uses `workspace:^` SDK
-dependencies and the shared root lockfile; npm publication is not required.
+This guide describes the experimental SDK for teams developing plugins in their
+own repositories or inside this repository's workspaces. Published integration
+preview packages are available from npm. In-repository development can continue
+using `workspace:^` SDK dependencies and the shared root lockfile.
 Supported-release compatibility guarantees and backend authorization closure
-are not yet complete. Use this guide for coordinated internal development,
+are not yet complete. Use this guide for coordinated plugin development,
 not as a production-readiness certification.
 
-## Internal developer-preview contract
+## Developer-preview contract
 
-This section defines the proposed contract for coordinated internal plugin
-development. The implemented behavior below is available on the SDK branch;
+This section defines the proposed contract for coordinated plugin development.
+The implemented behavior below is available in the SDK;
 the compatibility and migration policy still requires agreement between SDK
-maintainers and consuming teams. This document does not announce a published
-preview release or certify every existing backend path.
+maintainers and consuming teams. Publication of an integration preview does not
+certify every existing backend path or establish production readiness.
 
 ### Preview API boundary
 
@@ -128,13 +129,13 @@ can change; record the tested image digest, SDK revision, package versions, and
 dynamic artifacts for a reproducible acceptance run. Validation beyond this
 baseline is not required for the current preview scope.
 
-The shared SDK packages remain private workspace packages. Preview teams develop
-their plugins in this monorepo using `workspace:^` dependencies, the shared root
-lockfile, and repository build/test tooling. Acceptance starts from a fresh
-clone and includes dynamic export and installation in RHDH. Public npm packages,
-an external repository starter, and out-of-tree onboarding are outside this
-preview scope, not release prerequisites. A third-party plugin is architecturally
-independent of the host even when its source lives in the same repository.
+The SDK and supporting host/auth packages have a public npm integration preview.
+Feature plugins are outside that publication scope. Teams can consume exact
+published SDK versions in their own repositories or use `workspace:^`
+dependencies and the shared root lockfile in this monorepo. An external repository
+starter is not provided by this guide. Acceptance starts from a fresh clone and
+includes dynamic export and installation in RHDH. A third-party plugin remains
+independent of the host in either repository layout.
 
 ## Contribution and experience model
 
@@ -671,9 +672,11 @@ Use the repository's `export-dynamic` scripts and actual `rhdh-cli` embedding
 options, rather than the historical Janus/Scalprum examples. Re-export consumers
 when shared contracts change. Packaging compatibility has only been exercised
 against `next-2.1` in this work; supported version policy remains to be agreed.
-Build SDK dependencies from the same repository revision and export the
-resulting dynamic plugin artifacts for RHDH. This does not require npm
-publication, a shared mutable registry singleton, or mount-point YAML.
+Use compatible published SDK versions in an external repository, or build the
+workspace SDK dependencies from the agreed repository revision. Export the
+resulting dynamic plugin artifacts for RHDH. Installing npm dependencies does not
+deploy those artifacts or configure the host. This does not require a shared
+mutable registry singleton or mount-point YAML.
 
 ## Author acceptance checklist
 
@@ -698,15 +701,17 @@ publication, a shared mutable registry singleton, or mount-point YAML.
 
 ### Preview onboarding acceptance
 
-Before declaring the in-repository preview ready for a consuming team, SDK
-maintainers and that team must complete the following from a fresh clone:
+Before declaring an integration ready for a consuming team, SDK maintainers and
+that team must complete the following from a fresh clone:
 
-1. Check out the agreed SDK revision, install dependencies from the repository
-   root with `./install-deps`, and confirm the team's plugin is included in root
-   workspace/CI configuration. Keep SDK dependencies as `workspace:^` and use the
-   shared root lockfile; no separately published SDK packages are required.
-2. Run the repository checks below, build the required SDK and plugin packages,
-   and export the plugin dynamically. Install it on the recorded RHDH baseline
+1. In an external repository, install exact published SDK versions with compatible
+   Backstage peer dependencies and commit the resulting lockfile. In this
+   monorepo, check out the agreed SDK revision, run `./install-deps` from the root,
+   and include the plugin in root workspace/CI configuration. Keep in-repository
+   SDK dependencies as `workspace:^` and use the shared root lockfile.
+2. Run the consuming repository's type, lint and test checks, build the required
+   plugin packages, and export the plugin dynamically. For in-repository work,
+   use the checks below. Install the artifact on the recorded RHDH baseline
    without importing its implementation into the host plugin.
 3. Verify a supported contribution and operation, including nonmatching content,
    disabled configuration, permission/entitlement denial, and contained failures.
@@ -714,9 +719,9 @@ maintainers and that team must complete the following from a fresh clone:
    behavior before the consuming team depends on it.
 
 APME provides an in-tree integration reference. Each consuming team's plugin
-still needs fresh-clone acceptance; success in an existing developer checkout
-does not prove reproducibility. The checklist does not require npm publication
-or an external-plugin repository and does not claim this acceptance is complete.
+still needs fresh-clone acceptance. Success in an existing developer checkout
+does not prove reproducibility, and package publication alone does not complete
+the consuming team's acceptance checks.
 
 ### Repository checks
 
