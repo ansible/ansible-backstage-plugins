@@ -186,12 +186,28 @@ A frontend-only contribution does not require a backend. A shared domain package
 is useful when frontend and backend consume the same contracts. A scaffolder
 action can live in a separate backend module, as APME demonstrates.
 
-Create preview plugins under the appropriate `workspaces/<contributor>/plugins/`
-ownership group and declare SDK dependencies with `workspace:^`. A new ownership
-group also requires root workspace/CI registration rather than only creating a
-directory. Repository co-location does not permit imports of host internals or
-another optional plugin's implementation. Out-of-tree development would require
-a separately agreed dependency delivery model and is not part of this preview.
+You can develop a plugin in your own repository using the published integration
+preview packages. Install only the SDK packages your plugin uses. For example,
+frontend contributions can use the published `0.1.0-alpha.0` libraries:
+
+```bash
+yarn add @ansible/portal-extension-common@0.1.0-alpha.0 \
+  @ansible/portal-extension-api@0.1.0-alpha.0 \
+  @ansible/portal-plugin-sdk@0.1.0-alpha.0
+```
+
+Use compatible Backstage peer dependencies and configure the target host's Portal
+integration separately. Installing an SDK library does not register host plugins
+or deploy your plugin into RHDH. RHDH deployment still requires the appropriate
+dynamic plugin export and host configuration. These packages are integration
+previews with the risk disclosures in their package READMEs.
+
+For development inside this monorepo, use the appropriate
+`workspaces/<contributor>/plugins/` ownership group and declare SDK dependencies
+with `workspace:^`. A new ownership group also requires root workspace/CI
+registration rather than only creating a directory. In either layout, depend on
+public SDK contracts instead of host internals or another feature workspace's
+implementation.
 
 ## API entry points
 
