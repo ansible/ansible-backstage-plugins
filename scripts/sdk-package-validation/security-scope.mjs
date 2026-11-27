@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import { verifyArchiveDigest } from './sbom.mjs';
 
-export const securityPolicy = 'block-all-release-findings';
+export const securityPolicy = 'block-unreviewed-release-findings-v1';
 const packageRoots = JSON.parse(
   readFileSync(new URL('packages.json', import.meta.url)),
 );
