@@ -12,6 +12,9 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { repository, validateReleaseRef } from './release.mjs';
 import { verifyArchiveDigest } from './sbom.mjs';
+import { loadAuditExceptions, verifyAudit } from './audit-exceptions.mjs';
+
+export { verifyAudit } from './audit-exceptions.mjs';
 import {
   archiveSecurityScope,
   createSecurityScope,
@@ -166,28 +169,13 @@ function verifyCodeqlSummary(analysis, summary, commit, ref, scope) {
   assert.equal(summary.excludedFindings, summary.reportedFindings);
 }
 
-export function verifyAudit(output, status) {
-  assert.equal(status, 0, 'Dependency audit failed or reported findings');
-  assert.equal(typeof output, 'string', 'Missing dependency audit output');
-  // Yarn 4.12.0 emits no JSON records for a clean audit. The exit status and
-  // retained output file still prove that the audit command ran successfully.
-  if (!output.trim()) return;
-  const records = output
-    .trim()
-    .split('\n')
-    .filter(Boolean)
-    .map(line => JSON.parse(line));
-  assert(
-    records.every(
-      record =>
-        record.type === 'info' && record.data === 'No audit suggestions',
-    ),
-    'Unexpected dependency audit result',
-  );
-}
-
 /** Revalidate the security handoff without giving the publisher scanning credentials. */
-export function verifySecurityEvidence(directory, report, ref) {
+export function verifySecurityEvidence(
+  directory,
+  report,
+  ref,
+  { auditExceptions = loadAuditExceptions() } = {},
+) {
   validateReleaseRef(ref);
   const folder = join(directory, 'security');
   const evidence = readJson(join(folder, 'report.json'));
@@ -205,12 +193,11 @@ export function verifySecurityEvidence(directory, report, ref) {
     report.packages,
     'Security artifact hashes mismatch',
   );
-  assert.equal(evidence.auditExitCode, 0);
   assert(Array.isArray(evidence.files), 'Missing security file inventory');
   const names = new Set();
   for (const file of evidence.files) {
     assert(
-      /^(?:codeql-\d+\.(?:metadata|summary)\.json|yarn-audit\.ndjson|consumer\.yarn\.lock)$/.test(
+      /^(?:codeql-\d+\.(?:metadata|summary)\.json|dependency-audit\.summary\.json|yarn-audit\.ndjson|consumer\.yarn\.lock)$/.test(
         file.name,
       ),
       'Unsafe security evidence path',
@@ -224,7 +211,9 @@ export function verifySecurityEvidence(directory, report, ref) {
     );
   }
   assert(
-    names.has('yarn-audit.ndjson') && names.has('consumer.yarn.lock'),
+    names.has('yarn-audit.ndjson') &&
+      names.has('consumer.yarn.lock') &&
+      names.has('dependency-audit.summary.json'),
     'Missing dependency evidence',
   );
   const analyses = [...names]
@@ -246,9 +235,18 @@ export function verifySecurityEvidence(directory, report, ref) {
       scope,
     );
   }
-  verifyAudit(
+  const audit = verifyAudit(
     readFileSync(join(folder, 'yarn-audit.ndjson'), 'utf8'),
     evidence.auditExitCode,
+    {
+      exceptions: auditExceptions,
+      lockSha256: digest(join(folder, 'consumer.yarn.lock')),
+    },
+  );
+  assert.deepEqual(
+    readJson(join(folder, 'dependency-audit.summary.json')),
+    audit,
+    'Dependency audit assessment mismatch',
   );
 }
 
@@ -257,7 +255,11 @@ export async function collectSecurityEvidence(
   commit,
   token,
   ref,
-  { attempts = 60, delayMs = 10_000 } = {},
+  {
+    attempts = 60,
+    delayMs = 10_000,
+    auditExceptions = loadAuditExceptions(),
+  } = {},
 ) {
   validateReleaseRef(ref);
   assert(
@@ -384,7 +386,17 @@ export async function collectSecurityEvidence(
     writeFileSync(join(folder, 'yarn-audit.stderr.log'), audit.stderr ?? '');
     files.push('yarn-audit.ndjson');
     assert(!audit.error, 'Dependency audit could not run');
-    verifyAudit(audit.stdout, audit.status);
+    assert(
+      !audit.stderr?.trim(),
+      'Dependency audit wrote diagnostics; scan completeness is not established',
+    );
+    record(
+      'dependency-audit.summary.json',
+      verifyAudit(audit.stdout, audit.status, {
+        exceptions: auditExceptions,
+        lockSha256: digest(join(folder, 'consumer.yarn.lock')),
+      }),
+    );
   } catch (error) {
     scaError = error;
   }
@@ -421,7 +433,7 @@ export async function collectSecurityEvidence(
       2,
     )}\n`,
   );
-  verifySecurityEvidence(directory, report, ref);
+  verifySecurityEvidence(directory, report, ref, { auditExceptions });
 }
 
 if (
@@ -435,6 +447,6 @@ if (
     process.env.GITHUB_REF,
   );
   console.log(
-    'SAST passed with zero release-scoped findings; SCA passed with zero reported findings',
+    'SAST passed with zero release-scoped findings; SCA passed with zero unaccepted findings (see dependency-audit.summary.json)',
   );
 }

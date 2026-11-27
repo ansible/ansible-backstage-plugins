@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "consumerLockSha256": "da5d99b7e2bfb06cff768fe44f8341bc6c2ede35f91bd6a45999fe4321a33be0",
+  "exceptions": [
+    {
+      "advisory": "GHSA-7mx3-vvmw-hjmv",
+      "package": "@graphql-tools/utils",
+      "versions": ["8.9.0", "8.13.1"],
+      "severity": "high",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Prototype pollution in deep object merging remains in the installed dependency graph. The observed path enters through unused search backend dependencies of the RHDH frontend header. Runtime non-applicability has not been conclusively established for every supported consumer. Accept this inherited risk only for the integration preview while the header packaging fix is reviewed.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-7mx3-vvmw-hjmv",
+        "https://github.com/redhat-developer/rhdh-plugins/pull/5642"
+      ]
+    },
+    {
+      "advisory": "GHSA-h5c3-5r3r-rr8q",
+      "package": "@octokit/plugin-paginate-rest",
+      "versions": ["6.1.2"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "The old GitHub pagination client can spend excessive CPU processing crafted input. Backstage Integration still installs this line. Accept the known inherited denial-of-service risk for the integration preview while the CommonJS-compatible upstream client update is reviewed; this is not a claim that all API responses are trusted or harmless.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-h5c3-5r3r-rr8q",
+        "https://github.com/backstage/backstage/pull/37021"
+      ]
+    },
+    {
+      "advisory": "GHSA-rmvr-2pp2-xj38",
+      "package": "@octokit/request",
+      "versions": ["6.2.8"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "The old GitHub request client has a regular-expression denial-of-service finding. It remains reachable through Backstage Integration and GitHub App authentication dependencies. Accept this inherited preview risk temporarily pending the upstream client update. Hosts must continue to restrict configured SCM endpoints to trusted integrations.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-rmvr-2pp2-xj38",
+        "https://github.com/backstage/backstage/pull/37021"
+      ]
+    },
+    {
+      "advisory": "GHSA-xx4v-prfh-6cgc",
+      "package": "@octokit/request-error",
+      "versions": ["3.0.3"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Crafted request error input can trigger excessive regular-expression processing in the inherited GitHub client. The affected version remains installed through Backstage Integration. Accept this denial-of-service risk for the preview while the tested upstream dependency update is reviewed; request-error handling is not considered fixed.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-xx4v-prfh-6cgc",
+        "https://github.com/backstage/backstage/pull/37021"
+      ]
+    },
+    {
+      "advisory": "GHSA-c475-qrg2-pj4r",
+      "package": "basic-ftp",
+      "versions": ["5.3.1"],
+      "severity": "high",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "FTP directory-listing parsing can consume excessive CPU. The observed branch is introduced by search backend and TechDocs dependencies declared by the RHDH frontend header. Accept the inherited preview risk while that packaging correction is pending. This exception neither permits untrusted FTP integrations nor certifies that arbitrary host applications cannot reach the affected parser.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-c475-qrg2-pj4r",
+        "https://github.com/redhat-developer/rhdh-plugins/pull/5642"
+      ]
+    },
+    {
+      "advisory": "GHSA-5pm8-86m8-9m6r",
+      "package": "basic-ftp",
+      "versions": ["5.3.1"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Malformed FTP directory facts can cause an uncaught exception. The installed branch originates in the RHDH header's search backend dependency graph. Accept this inherited preview risk temporarily pending the header packaging correction. No claim is made that the affected FTP implementation itself is patched.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-5pm8-86m8-9m6r",
+        "https://github.com/redhat-developer/rhdh-plugins/pull/5642"
+      ]
+    },
+    {
+      "advisory": "GHSA-r4jh-29pc-gfqr",
+      "package": "basic-ftp",
+      "versions": ["5.3.1"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Certain newline-containing FTP arguments can cause an uncaught exception. The observed dependency arrives through the RHDH header's unused backend declarations. Accept the inherited risk only for the integration preview while the packaging correction is reviewed. Avoid introducing FTP workflows that rely on this dependency.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-r4jh-29pc-gfqr",
+        "https://github.com/redhat-developer/rhdh-plugins/pull/5642"
+      ]
+    },
+    {
+      "advisory": "GHSA-5v7r-6r5c-r473",
+      "package": "file-type",
+      "versions": ["16.5.4"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Parsing a crafted ASF file can loop indefinitely in an inherited TechDocs storage-client dependency. It is installed through the RHDH header's backend dependency branch. Accept the preview risk temporarily while the packaging correction is reviewed; the file parser remains vulnerable and must not be treated as a safe untrusted-file validation service.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-5v7r-6r5c-r473",
+        "https://github.com/redhat-developer/rhdh-plugins/pull/5642"
+      ]
+    },
+    {
+      "advisory": "GHSA-6jcc-5g8w-32mx",
+      "package": "i18next",
+      "versions": ["22.5.1"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Deep merging of crafted translation resources can corrupt inherited built-in objects and cause denial of service. Backstage's translation API uses deep merging for some default and contributed resources. Accept the inherited integration-preview risk temporarily. Use reviewed translation contributions and do not load untrusted translation resources; this is a usage restriction, not a vulnerability fix.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-6jcc-5g8w-32mx",
+        "https://github.com/backstage/backstage/blob/v1.54.9/packages/core-app-api/src/apis/implementations/TranslationApi/I18nextTranslationApi.ts"
+      ]
+    },
+    {
+      "advisory": "GHSA-x7hr-w5r2-h6wg",
+      "package": "prismjs",
+      "versions": ["1.27.0"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "The legacy Refractor line loads Prism core containing the affected DOM helper. The maintainer's statement about the modern Refractor line is not sufficient proof of non-applicability for this version. Accept the inherited preview risk temporarily while the legacy Prism update is reviewed. Hosts must continue to sanitize untrusted rendered HTML.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-x7hr-w5r2-h6wg",
+        "https://github.com/wooorm/refractor/pull/82",
+        "https://github.com/wooorm/refractor/blob/3.6.0/core.js"
+      ]
+    },
+    {
+      "advisory": "GHSA-wrjc-x8rr-h8h6",
+      "package": "react-router",
+      "versions": ["6.30.4", "6.30.6"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "Crafted navigation destinations can cause an unexpected external redirect. The supported Backstage/RHDH baseline still uses Router 6 and no patched Router 6 release was available at assessment time. Accept this preview risk temporarily. Host applications remain responsible for validating untrusted navigation destinations; do not force a Router 7 override into the Router 6 host.",
+      "evidence": ["https://github.com/advisories/GHSA-wrjc-x8rr-h8h6"]
+    },
+    {
+      "advisory": "GHSA-337j-9hxr-rhxg",
+      "package": "react-router",
+      "versions": ["6.30.4", "6.30.6"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "The advisory concerns error deserialization during specific SSR/hydration flows and excludes declarative mode. The Portal host uses client rendering, but third-party SDK consumers can compose different hosts, so non-applicability is not asserted universally. Accept the preview risk temporarily and exclude affected manual SSR/hydration use from this preview's validated compatibility scope.",
+      "evidence": ["https://github.com/advisories/GHSA-337j-9hxr-rhxg"]
+    },
+    {
+      "advisory": "GHSA-w5hq-g745-h8pq",
+      "package": "uuid",
+      "versions": ["3.4.0", "8.3.2", "9.0.1", "10.0.0"],
+      "severity": "moderate",
+      "disposition": "risk-accepted",
+      "owner": "@ansible/automation-portal-engineers",
+      "createdOn": "2026-11-27",
+      "expiresOn": "2026-12-11",
+      "rationale": "The installed UUID versions lack buffer-bound checks in specific v3/v5/v6 operations with caller-provided buffers. Material Table's observed use is v4, but other installed parent libraries have not all been proven non-applicable. Accept this inherited preview risk temporarily. Do not use these transitive versions for security-sensitive or untrusted buffer operations.",
+      "evidence": [
+        "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+        "https://github.com/material-table-core/core/blob/v3.2.5/src/utils/data-manager.js"
+      ]
+    }
+  ]
+}

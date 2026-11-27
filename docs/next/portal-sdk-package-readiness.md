@@ -22,7 +22,7 @@ the field. Release checks accept both public forms and reject private packages.
 The original packaging results below describe the earlier `0.1.0` private
 candidates. Repeat validation for this preview revision. The release workflow
 requires completed CodeQL analyses for the exact merged commit and selected
-release branch, a clean dependency audit, archive validation and SBOMs before an
+release branch, a dependency assessment with no unaccepted findings, archive validation and SBOMs before an
 approved publication. Local checks cannot substitute another commit's evidence.
 
 First publication remains subject to an agreed bootstrap procedure with the
@@ -86,7 +86,10 @@ Retain `yarn-audit.ndjson`, `yarn-audit.stderr.log`, `yarn-audit.exit-code`, the
 consumer's `yarn.lock` and the validation `report.json` together. A clean audit
 can produce empty stdout; empty output alone does not establish success. The
 recorded exit status and stderr distinguish that result from a failed command.
-Findings or a failed scan keep the final check nonzero. Check the source SHA,
+Findings or a failed scan keep this raw-audit check nonzero, even if some findings
+have reviewed preview exceptions. The release gate separately assesses the full
+report against the committed exception policy and retains the original status.
+Check the source SHA,
 tracked-change flag and untracked-input inventory before associating results
 with a revision. Packed-candidate validation, dependency
 auditing and exact-commit CodeQL checks are distinct checks; successful PR
@@ -111,11 +114,16 @@ Remaining dependency paths require compatible upstream fixes or backports:
 - The React Router 6 line remains affected by two advisories whose published
   patched versions start at `7.18.0`. Do not force Router 7 into a Router 6 host.
 - UUID also has affected paths through the global-header backend dependencies.
+- Backstage translation dependencies can also carry i18next findings. Translation
+  resource trust and deep-merging behavior must be assessed for the actual host.
 
-These findings still block publication under the existing all-findings policy.
-No advisory exclusions, blanket cross-major resolutions or security-policy
-exceptions are introduced. Recheck the exact merged release revision after
-upstream remediation. See the
+The preview release policy supports explicit, expiring dependency risk decisions
+bound to an exact consumer lockfile. These decisions do not fix vulnerabilities
+or establish that arbitrary third-party hosts are unaffected. Unmatched findings,
+changed graphs, expired decisions and scanner failures remain blocking. Review
+the [exception procedure and usage restrictions](https://github.com/ansible/ansible-backstage-plugins/blob/main/scripts/sdk-package-validation/PUBLISHING.md#reviewing-dependency-exceptions)
+before approving a preview. No scanner advisory exclusions or blanket cross-major
+resolutions are introduced. Recheck the exact merged release revision. See the
 [Zod advisory](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) and
 [React Router advisory](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6).
 
