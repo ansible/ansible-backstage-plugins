@@ -981,6 +981,15 @@ describe('ScmSelectorExtension', () => {
         </TestApiProvider>,
       );
 
+    const waitForAuthenticationToSettle = async () => {
+      await screen.findByText('Authenticated with github.com');
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /Namespace/i }),
+        ).not.toHaveAttribute('aria-disabled', 'true');
+      });
+    };
+
     it('registers a field error when authentication is rejected so the next button is blocked', async () => {
       mockScmAuthApi.getCredentials.mockRejectedValue(
         new Error('Login failed, rejected by user'),
@@ -1019,13 +1028,13 @@ describe('ScmSelectorExtension', () => {
       expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
     });
 
-    it('clears the auth error after a successful authentication', async () => {
+    it('has no field errors after authentication when required repository details are complete', async () => {
       renderWithHasErrors({
         formData: {
           provider: 'github',
           providerLabel: 'Github',
-          org: '',
-          repoName: '',
+          org: 'testuser',
+          repoName: 'new-repo',
           repoExists: false,
         },
       });
@@ -1034,15 +1043,34 @@ describe('ScmSelectorExtension', () => {
         expect(mockScmAuthApi.getCredentials).toHaveBeenCalled();
       });
 
+      await waitForAuthenticationToSettle();
+
       await waitFor(() => {
-        expect(
-          screen.queryByText('Login failed, rejected by user'),
-        ).not.toBeInTheDocument();
-        expect(
-          screen.queryByText('No token received from authentication'),
-        ).not.toBeInTheDocument();
+        expect(screen.getByTestId('has-errors')).toHaveTextContent('false');
       });
     });
+
+    it.each([
+      { missingField: 'namespace', org: '', repoName: 'new-repo' },
+      { missingField: 'repository name', org: 'testuser', repoName: '' },
+    ])(
+      'keeps the missing $missingField error after successful authentication',
+      async ({ org, repoName }) => {
+        renderWithHasErrors({
+          formData: {
+            provider: 'github',
+            providerLabel: 'Github',
+            org,
+            repoName,
+            repoExists: false,
+          },
+        });
+
+        await waitForAuthenticationToSettle();
+
+        expect(screen.getByTestId('has-errors')).toHaveTextContent('true');
+      },
+    );
   });
 
   describe('getApiBaseUrl', () => {
