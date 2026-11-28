@@ -67,7 +67,7 @@ import {
 import { ConflictError } from '@backstage/errors';
 import type { SyncStatus as ProviderSyncStatus } from './providers/SyncStateTracker';
 import type { EERegistrationLock } from './EERegistrationLock';
-import type { CatalogModuleSlice } from './sliceGuard';
+import type { CatalogModuleSlice } from '@ansible/portal-plugin-node';
 
 /** Extends ProviderSyncStatus with 'idle' for providers that have not synced yet. */
 type SelfServiceSyncStatus = ProviderSyncStatus | 'idle';

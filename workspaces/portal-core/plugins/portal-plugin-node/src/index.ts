@@ -71,3 +71,5 @@ export * from './catalogEntityProviders';
 // Shared catalog authorization and read-only contributor status.
 export * from './catalog/authorization';
 export * from './catalogStatus';
+
+export * from './catalog/sliceGuard';

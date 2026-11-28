@@ -8,7 +8,7 @@ import { signalsServiceRef } from '@backstage/plugin-signals-node';
 
 import ansibleServiceFactory from '@ansible/aap-backend';
 import { createCatalogModule } from './registerModule';
-import { resetCatalogModuleSliceGuardForTests } from './sliceGuard';
+import { resetCatalogModuleSliceGuardForTests } from '@ansible/portal-plugin-node';
 import type { ContentCatalogRegistration } from './contentProviderContracts';
 
 const mockSignalsServiceFactory = createServiceFactory({
