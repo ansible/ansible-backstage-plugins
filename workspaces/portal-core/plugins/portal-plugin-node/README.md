@@ -427,3 +427,19 @@ composition. Provider implementations remain in their own dynamic bundles.
 
 - `express` ^4
 - `@backstage/backend-plugin-api`
+
+## Catalog contributor status and authorization
+
+`portalCatalogStatusSourcesServiceRef` is a root service for read-only status.
+Each owner registers a namespaced ID, an `isReady()` callback and `getStatus()`.
+Missing, duplicate and unready contributions fail clearly. Status has no entity
+mutation or lease API; EE writes use the existing catalog entity-provider service.
+
+Install `@ansible/portal-operations-backend/alpha` once in the host to provide the
+same root registry across separately embedded SDK copies. Embedding this library
+does not install that factory. Feature plugins consume the SDK reference without
+importing another feature workspace's implementation.
+
+`createPermissionCheckMiddleware`, `checkRequireSuperuser` and
+`createRequireSuperuserMiddleware` preserve the existing authorization behavior.
+The owner supplies `superuserAnnotation`; the SDK does not choose AAP policy.
