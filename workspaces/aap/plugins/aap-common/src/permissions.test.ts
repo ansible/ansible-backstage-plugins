@@ -91,3 +91,21 @@ describe('permissions', () => {
     });
   });
 });
+
+it('preserves shared permission identities and the registered permission set', () => {
+  const shared = jest.requireActual(
+    '@ansible/automation-content-common/permissions',
+  );
+  expect(gitRepositoriesViewPermission).toBe(
+    shared.gitRepositoriesViewPermission,
+  );
+  expect(collectionsViewPermission).toBe(shared.collectionsViewPermission);
+  expect(ansiblePermissions).toEqual([
+    executionEnvironmentsBuildPermission,
+    executionEnvironmentsViewPermission,
+    gitRepositoriesViewPermission,
+    collectionsViewPermission,
+    templatesViewPermission,
+    historyViewPermission,
+  ]);
+});

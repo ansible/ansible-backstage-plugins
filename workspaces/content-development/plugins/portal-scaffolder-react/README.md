@@ -104,3 +104,16 @@ yarn workspace @ansible/portal-scaffolder-react build
 
 Component and helper tests live beside their implementations. Registration
 adapter and Portal host integration tests remain in `portal-scaffolder`.
+
+## Shared Git Repository UI contracts
+
+The content-owned frontend library exposes `./gitRepositoriesExtensions` for
+repository tabs, actions and slots, and `./gitRepositoriesCatalog` for cache
+invalidation. APME and repository pages consume the same API references and
+default factories. These implementations retain their existing API IDs and
+behavior. Legacy-common frontend subpaths temporarily forward to these exports.
+Use the dedicated subpaths to avoid loading unrelated field widgets.
+
+These subpaths are new to this migration. Deploy this library together with the
+matching legacy-common and frontend artifacts from the same repository revision.
+An earlier artifact carrying the same `0.1.0` version does not supply them.

@@ -3,6 +3,8 @@ import type { BasicPermission } from '@backstage/plugin-permission-common';
 import {
   executionEnvironmentsViewPermission,
   executionEnvironmentsBuildPermission,
+  gitRepositoriesViewPermission,
+  collectionsViewPermission,
 } from '@ansible/automation-content-common/permissions';
 
 /** @deprecated Import from @ansible/automation-content-common/permissions. */
@@ -11,17 +13,8 @@ export {
   executionEnvironmentsBuildPermission,
 };
 
-export const gitRepositoriesViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.git-repositories.view',
-  attributes: {},
-};
-
-export const collectionsViewPermission: BasicPermission = {
-  type: 'basic',
-  name: 'ansible.collections.view',
-  attributes: {},
-};
+/** @deprecated Import content permissions from @ansible/automation-content-common/permissions. */
+export { gitRepositoriesViewPermission, collectionsViewPermission };
 
 export const templatesViewPermission: BasicPermission = {
   type: 'basic',
