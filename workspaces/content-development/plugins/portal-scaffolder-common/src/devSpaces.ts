@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { Config } from '@backstage/config';
-
 export type ScmRepoParts = {
   sourceControl: string;
   repoOwner: string;
@@ -114,22 +112,4 @@ export function buildDevSpacesRemediationUrl(
   }
 
   return null;
-}
-
-export function getDevspacesUrlFromAnsibleConfig(
-  config: Config,
-  sourceControl: string,
-  repoOwner: string,
-  repoName: string,
-): string {
-  try {
-    return generateDevSpacesUrl(
-      config.getString('ansible.devSpaces.baseUrl'),
-      sourceControl,
-      repoOwner,
-      repoName,
-    );
-  } catch {
-    return '';
-  }
 }

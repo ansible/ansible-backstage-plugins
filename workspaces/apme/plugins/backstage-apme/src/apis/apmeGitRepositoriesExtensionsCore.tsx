@@ -24,9 +24,9 @@ import {
   type GitRepositoryDetailHeaderMenuContext,
   type GitRepositoryCatalogColumnDefinition,
   type GitRepositoryCatalogRowMenuContext,
-} from '@ansible/backstage-rhaap-common/gitRepositoriesExtensions';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
-import { ansibleSettingsViewPermission } from '@ansible/backstage-rhaap-common/permissions';
+} from '@ansible/portal-scaffolder-react/gitRepositoriesExtensions';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-apme-common/catalogEntity';
+import { ansibleSettingsViewPermission } from '@ansible/backstage-apme-common/permissions';
 import { ApmeAddRepositoryHeaderAction } from '../components/ApmeAddRepositoryHeaderAction/ApmeAddRepositoryHeaderAction';
 import { ApmeQualitySettingsTab } from '../components/ApmeQualitySettingsTab';
 import { ApmeRulesTab } from '../components/ApmeRulesTab';

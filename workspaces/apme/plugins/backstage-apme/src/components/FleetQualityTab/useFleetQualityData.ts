@@ -14,7 +14,7 @@ import {
   normalizeSeverity,
   type SeverityLevel,
 } from '@ansible/backstage-apme-common/severity';
-import { projectLookupKey } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { projectLookupKey } from '@ansible/backstage-apme-common/catalogEntity';
 import { apmeApiRef } from '../../api';
 import { isApmeConnectionError } from '../../utils/apmeConnectionError';
 import { fetchAllProjectViolations } from '../../utils/fetchAllProjectViolations';

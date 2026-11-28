@@ -15,7 +15,7 @@ import type { ApmeApiAdapter } from '@apme/ui-workflow';
 import {
   defaultBranchFromEntity,
   normalizeRepoUrlFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+} from '@ansible/backstage-apme-common/catalogEntity';
 import { apmeApiRef } from '../api';
 import { createApmeUiWorkflowAdapter } from '../api/createApmeUiWorkflowAdapter';
 import { registerOrResolveApmeProject } from '../utils/registerOrResolveApmeProject';

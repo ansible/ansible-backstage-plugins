@@ -7,11 +7,14 @@ import type { EntityProviderConnection } from '@backstage/plugin-catalog-node';
 import { AuthorizeResult } from '@backstage/plugin-permission-common';
 import { createManualRepositoriesRouter } from './router';
 import { ManualGitRepositoryProvider } from '../providers/ManualGitRepositoryProvider';
-import { PortalOperations } from '@ansible/portal-plugin-node';
+import {
+  PortalOperations,
+  ScmClientFactory,
+} from '@ansible/portal-plugin-node';
 import { registerRepositoryOperation } from './registerOperation';
-import { ScmClientFactory } from '@ansible/backstage-rhaap-common';
 
-jest.mock('@ansible/backstage-rhaap-common', () => ({
+jest.mock('@ansible/portal-plugin-node', () => ({
+  ...jest.requireActual('@ansible/portal-plugin-node'),
   ScmClientFactory: jest.fn(),
 }));
 

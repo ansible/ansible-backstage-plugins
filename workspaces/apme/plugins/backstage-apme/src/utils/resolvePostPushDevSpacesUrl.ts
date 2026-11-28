@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { buildDevSpacesRemediationUrl } from '@ansible/backstage-rhaap-common/devSpaces';
+import { buildDevSpacesRemediationUrl } from '@ansible/portal-scaffolder-common';
 
 export type ResolvePostPushDevSpacesUrlOptions = {
   sessionVisible: boolean;

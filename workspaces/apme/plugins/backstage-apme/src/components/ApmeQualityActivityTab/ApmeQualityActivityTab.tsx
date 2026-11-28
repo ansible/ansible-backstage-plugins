@@ -21,7 +21,7 @@ import type {
 import {
   defaultBranchFromEntity,
   normalizeRepoUrlFromEntity,
-} from '@ansible/backstage-rhaap-common/catalogEntity';
+} from '@ansible/backstage-apme-common/catalogEntity';
 import { apmeApiRef } from '../../api';
 import { useResolveApmeProject } from '../../hooks/useResolveApmeProject';
 import { useSyncPatternFlyTheme } from '../../hooks/useSyncPatternFlyTheme';

@@ -1,4 +1,4 @@
-import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/backstage-rhaap-common/constants';
+import { SCM_INTEGRATION_AUTH_FAILED_CODE } from '@ansible/automation-content-common/scm';
 import {
   fetchReadmeFromBackend,
   fetchGitFileContentFromBackend,

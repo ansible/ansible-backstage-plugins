@@ -9,7 +9,7 @@ import type { Config } from '@backstage/config';
 import {
   ScmClientFactory,
   resolveGithubToken,
-} from '@ansible/backstage-rhaap-common';
+} from '@ansible/portal-plugin-node';
 import { parseGitRepoUrl } from './branchLookup';
 
 /**

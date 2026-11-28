@@ -133,14 +133,37 @@ catalog adapters retained in the legacy package. The deprecated factory adapter
 has no production dependency on backend. Retire it with the remaining legacy
 common-package exports during follow-on cleanup.
 
-Compatibility exports remain available for external consumers. Complete the
-catalog and SCM follow-on cleanup before removing the legacy package; no new
-cleanup issue is created by this stack.
+Unmigrated AAP and catalog compatibility exports remain available during the
+transition. The Phase 4 APME migration below retires its old entry points rather
+than introducing a legacy-common dependency on an APME implementation. Complete
+the catalog and SCM follow-on cleanup before removing the legacy package.
 
 The old guard `Symbol.for` key and client log name remain unchanged for
 compatibility. The node import-boundary regression check permits only the
 listed catalog exports and rejects legacy AAP client/contract imports and
 node-to-backend coupling.
+
+## Phase 4: APME import migration
+
+APME no longer imports, depends on or embeds this package. Use these existing
+owner/SDK packages instead:
+
+- Repository identity: `@ansible/backstage-apme-common/catalogEntity` and
+  `@ansible/backstage-apme-common/normalizeRepoUrl`.
+- Dev Spaces URL helpers: `@ansible/backstage-apme-common/devSpaces`.
+- Settings permissions: `@ansible/backstage-apme-common/permissions`; their
+  backend resource rules now live in APME's catalog module.
+- Git Repositories extension/cache APIs: the corresponding
+  `@ansible/portal-scaffolder-react` subpaths.
+- Shared repository-view permission: `@ansible/automation-content-common/permissions`.
+- SCM clients and token resolution: `@ansible/portal-plugin-node`.
+
+The old `catalogEntity`, `devSpaces` and `permissionRules` entry points and the
+APME settings exports are removed in the same update as their repository
+consumers. Update external imports of those paths before using this revision.
+The unused legacy config-reading Dev Spaces helper is not moved; the content
+scaffolder's separate helper remains unchanged. Permission IDs/resource types,
+repository keys, API IDs and URL/token behavior are preserved.
 
 ## Related modules
 
@@ -150,3 +173,18 @@ node-to-backend coupling.
 - [AAP scaffolder module](scaffolder.md): resource creation and job launch actions.
 
 For provider-specific connection configuration, use the related module's guide.
+
+## Dev Spaces helper migration
+
+Repository, branch, and pull-request link builders previously provided by the
+legacy `./devSpaces` subpath now come from the content-development shared library
+`@ansible/portal-scaffolder-common`. Import `buildDevSpacesUrlFromRepoUrl` or
+`buildDevSpacesRemediationUrl` from that package root. APME's frontend supplies
+its configured base URL and retains its own link-visibility and branch-selection
+decisions. It declares and embeds the shared library in its dynamic artifact.
+
+The URL builders and their tests move unchanged; this does not create a Dev
+Spaces workspace or change catalog providers. The unused legacy config-reading
+helper is not part of the new exports. The content scaffolder's separate
+configuration helper remains unchanged. Rebuild consumers with the matching
+shared-library revision; no package version change is included.

@@ -7,7 +7,7 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 import { TestApiProvider, renderInTestApp } from '@backstage/test-utils';
 import { Entity } from '@backstage/catalog-model';
-import { gitRepositoriesCatalogApiRef } from '@ansible/backstage-rhaap-common/gitRepositoriesCatalog';
+import { gitRepositoriesCatalogApiRef } from '@ansible/portal-scaffolder-react/gitRepositoriesCatalog';
 import { DeregisterRepositoryDialog } from './DeregisterRepositoryDialog';
 
 const mockEntity: Entity = {

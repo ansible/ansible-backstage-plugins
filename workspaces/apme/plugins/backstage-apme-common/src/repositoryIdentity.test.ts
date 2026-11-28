@@ -8,7 +8,7 @@ import {
   projectLookupKey,
   projectLookupKeyFromEntity,
   projectNameFromRepoUrl,
-} from './catalogEntity';
+} from './repositoryIdentity';
 
 describe('catalogEntity', () => {
   it.each([

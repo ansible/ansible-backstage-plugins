@@ -61,7 +61,7 @@ import {
   registerScaffolderField,
   CONTENT_TYPES,
 } from '@ansible/portal-extension-api';
-import { normalizeRepoUrlFromEntity } from '@ansible/backstage-rhaap-common/catalogEntity';
+import { normalizeRepoUrlFromEntity } from '@ansible/backstage-apme-common/catalogEntity';
 import { GitHubRepoUrlFieldExtension } from '../components/Scaffolder/GitHubRepoUrlField/GitHubRepoUrlFieldExtension';
 import { GitHubRepoUrlFieldFieldSchema } from '../components/Scaffolder/GitHubRepoUrlField/schema';
 import { githubRepoUrlValidation } from '../components/Scaffolder/GitHubRepoUrlField/validation';
